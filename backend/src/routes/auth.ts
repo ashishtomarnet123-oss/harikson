@@ -14,7 +14,12 @@ const signupSchema = z.object({
     password: z.string().min(6),
     name: z.string().min(2),
     company: z.string().optional(),
-    plan: z.enum(["LITE", "BASIC", "PRO", "HEAVY"]).default("BASIC"),
+    plan: z.enum(["STARTER", "PRO", "BUSINESS", "ENTERPRISE"]).default("STARTER"),
+    aiPlan: z.enum(["STARTER", "PRO", "BUSINESS", "ENTERPRISE"]).default("STARTER"),
+    agentType: z.enum(["CHAT", "CODING", "HYBRID"]).default("CHAT"),
+    model: z.string().default("harikson-chat-8b"),
+    n8nEnabled: z.boolean().default(true),
+    aiEnabled: z.boolean().default(false),
   }),
 });
 
@@ -28,7 +33,7 @@ const loginSchema = z.object({
 // POST /auth/signup
 router.post("/signup", validate(signupSchema), async (req, res, next) => {
   try {
-    const { email, password, name, company, plan } = req.body;
+    const { email, password, name, company, plan, aiPlan, agentType, model, n8nEnabled, aiEnabled } = req.body;
 
     const existingUser = await prisma.user.findUnique({ where: { email } });
     if (existingUser) {
@@ -49,8 +54,13 @@ router.post("/signup", validate(signupSchema), async (req, res, next) => {
         name,
         company,
         plan,
+        aiPlan,
         role,
         status,
+        agentType,
+        model,
+        n8nEnabled,
+        aiEnabled,
       },
     });
 
@@ -114,7 +124,10 @@ router.post("/login", validate(loginSchema), async (req, res, next) => {
         name: user.name,
         role: user.role,
         plan: user.plan,
+        aiPlan: user.aiPlan,
         status: user.status,
+        n8nEnabled: user.n8nEnabled,
+        aiEnabled: user.aiEnabled,
       },
     });
   } catch (error) {
@@ -134,8 +147,11 @@ router.get("/me", authMiddleware, async (req: AuthenticatedRequest, res: Respons
         company: true,
         role: true,
         plan: true,
+        aiPlan: true,
         status: true,
         createdAt: true,
+        n8nEnabled: true,
+        aiEnabled: true,
       },
     });
 

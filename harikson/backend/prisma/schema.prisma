@@ -1,0 +1,164 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../node_modules/.prisma/harikson-client"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("HARIKSON_DATABASE_URL")
+}
+
+model AdminUser {
+  id           String    @id @default(cuid())
+  email        String    @unique
+  name         String?
+  passwordHash String
+  role         String    @default("ops") // super, ops, billing, support
+  lastLoginAt  DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  @@map("admin_users")
+}
+
+model Tenant {
+  id                 String          @id @default(cuid())
+  name               String          // rahul, agency, etc.
+  domain             String          @unique // rahul.neuravolt.cloud
+  containerId        String?         // Docker container group identifier or master ID
+  status             String          @default("PENDING") // PENDING, CREATING, RUNNING, STOPPED, ERROR
+  plan               String          @default("STARTER") // STARTER, PRO, BUSINESS, ENTERPRISE
+  
+  // Billing mode (config-driven)
+  billingMode     String      @default("manual") // manual, auto_razorpay, auto_cashfree
+
+  // Manual approval flow
+  approvalStatus  String      @default("pending") // pending, approved, rejected
+  approvedBy      String?
+  approvedAt      DateTime?
+  requestedPlan   Plan        @default(STARTER)
+  requestedAt     DateTime    @default(now())
+
+  // Payment gateway (auto mode)
+  paymentGateway  String?
+  subscriptionId  String?
+  paymentStatus   String?     @default("pending") // pending, active, failed, cancelled
+  lastPaymentAt   DateTime?
+  nextBillingAt   DateTime?
+
+  email           String?
+  phone           String?
+
+  invoices        Invoice[]
+
+  // Resource allocations
+  cpuLimit           Float           @default(0.5)
+  memoryLimit        String          @default("512m")
+  storageLimit       String          @default("10GB")
+  
+  // AI Agent Configs
+  agentType          String          @default("CHAT") // CHAT, CODING, HYBRID
+  model              String          @default("qwen3-coder-8b")
+  whiteLabelSettings Json?           // Custom colors, welcome text, logos
+
+  // Relations
+  documents          Document[]
+  fineTuneJobs       FineTuneJob[]
+  capturedLeads      CapturedLead[]
+  validationLogs     ValidationLog[]
+
+  createdAt          DateTime        @default(now())
+  updatedAt          DateTime        @updatedAt
+
+  @@map("tenants")
+}
+
+model Invoice {
+  id              String      @id @default(cuid())
+  tenantId        String
+  tenant          Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  amount          Decimal     @db.Decimal(10,2)
+  currency        String      @default("INR")
+  status          String      @default("pending") // pending, paid, failed, refunded
+  gateway         String      // razorpay, cashfree
+  gatewayOrderId  String?
+  gatewayPaymentId String?
+  plan            Plan
+  period          String      // monthly, yearly
+  createdAt       DateTime    @default(now())
+  paidAt          DateTime?
+
+  @@map("invoices")
+}
+
+model SystemSetting {
+  key         String      @id
+  value       Json
+  description String?
+  updatedAt   DateTime    @updatedAt
+
+  @@map("system_settings")
+}
+
+enum Plan {
+  STARTER
+  PRO
+  BUSINESS
+  ENTERPRISE
+}
+
+model Document {
+  id         String    @id @default(cuid())
+  tenantId   String
+  tenant     Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  name       String
+  type       String    // PDF, DOCX, URL, CODEBASE
+  size       Int?
+  url        String?
+  status     String    @default("PROCESSING") // PROCESSING, INDEXED, ERROR
+  createdAt  DateTime  @default(now())
+
+  @@map("documents")
+}
+
+model FineTuneJob {
+  id          String    @id @default(cuid())
+  tenantId    String
+  tenant      Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  status      String    @default("QUEUED") // QUEUED, TRAINING, COMPLETED, FAILED
+  baseModel   String
+  adapterName String?
+  metrics     Json?     // Loss curve metrics
+  createdAt   DateTime  @default(now())
+  completedAt DateTime?
+
+  @@map("fine_tune_jobs")
+}
+
+model CapturedLead {
+  id         String    @id @default(cuid())
+  tenantId   String
+  tenant     Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  email      String?
+  phone      String?
+  name       String?
+  metadata   Json?     // Custom lead fields
+  createdAt  DateTime  @default(now())
+
+  @@map("captured_leads")
+}
+
+model ValidationLog {
+  id         String    @id @default(cuid())
+  tenantId   String
+  tenant     Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  type       String    // CHAT or CODE
+  input      String
+  output     String
+  score      Float
+  status     String    @default("REVIEW") // APPROVED, REVIEW, DISCARDED
+  reason     String?
+  createdAt  DateTime  @default(now())
+
+  @@map("validation_logs")
+}
