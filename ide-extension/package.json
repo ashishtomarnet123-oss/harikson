@@ -1,0 +1,76 @@
+{
+  "name": "harikson-vscode-extension",
+  "displayName": "Harikson AI Code Assistant",
+  "description": "Ghost text autocompletions, sidebar developer chat, and code review reviews for Harikson Multi-Tenant Platform.",
+  "version": "1.0.0",
+  "publisher": "harikson",
+  "engines": {
+    "vscode": "^1.80.0"
+  },
+  "categories": [
+    "Programming Languages",
+    "Machine Learning"
+  ],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "main": "./dist/extension.js",
+  "contributes": {
+    "configuration": {
+      "title": "Harikson AI",
+      "properties": {
+        "harikson.tenantUrl": {
+          "type": "string",
+          "default": "http://localhost:3000",
+          "description": "Tenant API endpoint (e.g., http://mycompany.harikson.ai or http://localhost:3000)."
+        },
+        "harikson.apiKey": {
+          "type": "string",
+          "default": "",
+          "description": "Your Harikson JWT access key."
+        },
+        "harikson.model": {
+          "type": "string",
+          "default": "harikson-plus",
+          "enum": [
+            "harikson-plus",
+            "harikson-max"
+          ],
+          "description": "The active Harikson AI assistant model to query."
+        }
+      }
+    },
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "harikson-sidebar",
+          "title": "Harikson AI",
+          "icon": "resources/icon.svg"
+        }
+      ]
+    },
+    "views": {
+      "harikson-sidebar": [
+        {
+          "type": "webview",
+          "id": "harikson-chat-view",
+          "name": "Harikson Developer Chat"
+        }
+      ]
+    },
+    "commands": [
+      {
+        "command": "harikson.reviewSelection",
+        "title": "Harikson: Review Selection"
+      },
+      {
+        "command": "harikson.switchModel",
+        "title": "Harikson: Switch Model"
+      }
+    ]
+  },
+  "devDependencies": {
+    "@types/vscode": "^1.80.0",
+    "typescript": "^5.4.5"
+  }
+}
