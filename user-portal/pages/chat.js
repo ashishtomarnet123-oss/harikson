@@ -1,0 +1,273 @@
+import { useState, useEffect, useRef } from 'react';
+
+export default function ChatPage() {
+  const [tenant, setTenant] = useState('alphatech');
+  const [model, setModel] = useState('Harikson-Plus');
+  const [messages, setMessages] = useState([]);
+  const [inputText, setInputText] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const [conversationId, setConversationId] = useState(null);
+  const chatEndRef = useRef(null);
+
+  // Extract tenant name from subdomain if available in browser URL
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const host = window.location.host;
+      if (host.includes('.')) {
+        const parts = host.split('.');
+        if (parts[0] !== 'localhost' && parts[0] !== 'www') {
+          setTenant(parts[0]);
+        }
+      }
+    }
+  }, []);
+
+  // Smooth scroll to bottom on new messages
+  useEffect(() => {
+    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages, loading]);
+
+  const sendMessage = async (e) => {
+    if (e) e.preventDefault();
+    if (!inputText.trim() || loading) return;
+
+    const userMessageText = inputText;
+    setInputText('');
+    setError(null);
+    setLoading(true);
+
+    // Add user message to UI state immediately
+    const userMessage = { sender: 'user', text: userMessageText };
+    setMessages((prev) => [...prev, userMessage]);
+
+    try {
+      const apiBase = 'http://localhost:3000';
+      const response = await fetch(`${apiBase}/api/chat`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer TEST_TOKEN',
+          'Host': `${tenant}.harikson.ai`,
+          'x-tenant-slug': tenant // Custom header fallback to bypass forbidden header checks in browsers
+        },
+        body: JSON.stringify({
+          message: userMessageText,
+          model: model === 'Harikson-Plus' ? 'harikson-chat-8b' : 'harikson-coder-14b',
+          conversationId: conversationId
+        })
+      });
+
+      if (!response.ok) {
+        const errData = await response.json().catch(() => ({}));
+        throw new Error(errData.error || `HTTP error status ${response.status}`);
+      }
+
+      const data = await response.json();
+      
+      // Update thread ID
+      if (data.conversationId) {
+        setConversationId(data.conversationId);
+      }
+
+      // Add AI response message bubble
+      const aiMessage = {
+        sender: 'bot',
+        text: data.response,
+        model: data.model || model
+      };
+      setMessages((prev) => [...prev, aiMessage]);
+    } catch (err) {
+      console.error('Fetch error:', err);
+      setError(err.message || 'Failed to connect to the backend server.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div style={{
+      maxWidth: '800px',
+      margin: '40px auto',
+      padding: '20px',
+      fontFamily: 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+      color: '#333'
+    }}>
+      {/* Header Panel */}
+      <div style={{
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        borderBottom: '1px solid #eaeaea',
+        paddingBottom: '15px',
+        marginBottom: '20px'
+      }}>
+        <div>
+          <h1 style={{ fontSize: '1.5rem', fontWeight: 'bold', margin: 0 }}>
+            Harikson Chat - <span style={{ color: '#0070f3', textTransform: 'capitalize' }}>{tenant}</span>
+          </h1>
+          <p style={{ margin: '5px 0 0 0', fontSize: '0.85rem', color: '#666' }}>
+            Testing Sandbox UI
+          </p>
+        </div>
+        
+        <div>
+          <select 
+            value={model} 
+            onChange={(e) => setModel(e.target.value)}
+            style={{
+              padding: '8px 12px',
+              borderRadius: '6px',
+              border: '1px solid #ccc',
+              fontSize: '0.9rem',
+              backgroundColor: '#fff',
+              cursor: 'pointer',
+              outline: 'none'
+            }}
+          >
+            <option value="Harikson-Plus">Harikson-Plus (Chat 8B)</option>
+            <option value="Harikson-Max">Harikson-Max (Coder 14B)</option>
+          </select>
+        </div>
+      </div>
+
+      {/* Error Alert Display */}
+      {error && (
+        <div style={{
+          padding: '12px 16px',
+          backgroundColor: '#ffebeb',
+          color: '#d32f2f',
+          borderRadius: '8px',
+          marginBottom: '20px',
+          fontSize: '0.9rem',
+          border: '1px solid #ffcdd2'
+        }}>
+          <strong>Error:</strong> {error}
+        </div>
+      )}
+
+      {/* Chat History Area */}
+      <div style={{
+        height: '500px',
+        overflowY: 'auto',
+        border: '1px solid #eaeaea',
+        borderRadius: '8px',
+        padding: '20px',
+        backgroundColor: '#fafafa',
+        marginBottom: '20px',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '15px'
+      }}>
+        {messages.length === 0 ? (
+          <div style={{
+            margin: 'auto',
+            textAlign: 'center',
+            color: '#888',
+            fontSize: '0.95rem'
+          }}>
+            No messages yet. Send a message to start the conversation!
+          </div>
+        ) : (
+          messages.map((msg, index) => (
+            <div 
+              key={index} 
+              style={{
+                alignSelf: msg.sender === 'user' ? 'flex-end' : 'flex-start',
+                maxWidth: '75%',
+                display: 'flex',
+                flexDirection: 'column'
+              }}
+            >
+              <div style={{
+                backgroundColor: msg.sender === 'user' ? '#0070f3' : '#eef0f2',
+                color: msg.sender === 'user' ? '#fff' : '#1a1a1a',
+                padding: '10px 16px',
+                borderRadius: msg.sender === 'user' ? '18px 18px 2px 18px' : '18px 18px 18px 2px',
+                fontSize: '0.95rem',
+                lineHeight: '1.4',
+                wordBreak: 'break-word',
+                boxShadow: '0 1px 2px rgba(0,0,0,0.05)'
+              }}>
+                {msg.text}
+              </div>
+              {msg.sender === 'bot' && (
+                <span style={{
+                  fontSize: '0.75rem',
+                  color: '#888',
+                  marginTop: '4px',
+                  marginLeft: '4px'
+                }}>
+                  Model: {msg.model}
+                </span>
+              )}
+            </div>
+          ))
+        )}
+        
+        {/* Thinking loading state bubble */}
+        {loading && (
+          <div style={{
+            alignSelf: 'flex-start',
+            maxWidth: '75%',
+            display: 'flex',
+            flexDirection: 'column'
+          }}>
+            <div style={{
+              backgroundColor: '#eef0f2',
+              color: '#666',
+              padding: '10px 16px',
+              borderRadius: '18px 18px 18px 2px',
+              fontSize: '0.95rem',
+              fontStyle: 'italic'
+            }}>
+              Thinking...
+            </div>
+          </div>
+        )}
+        
+        <div ref={chatEndRef} />
+      </div>
+
+      {/* Input Form Area */}
+      <form onSubmit={sendMessage} style={{ display: 'flex', gap: '10px' }}>
+        <input
+          type="text"
+          value={inputText}
+          onChange={(e) => setInputText(e.target.value)}
+          placeholder="Type your message here..."
+          disabled={loading}
+          style={{
+            flex: 1,
+            padding: '12px 16px',
+            borderRadius: '8px',
+            border: '1px solid #ccc',
+            fontSize: '1rem',
+            outline: 'none',
+            transition: 'border-color 0.2s',
+            boxShadow: 'inset 0 1px 2px rgba(0,0,0,0.05)'
+          }}
+          onFocus={(e) => e.target.style.borderColor = '#0070f3'}
+          onBlur={(e) => e.target.style.borderColor = '#ccc'}
+        />
+        <button
+          type="submit"
+          disabled={loading || !inputText.trim()}
+          style={{
+            padding: '12px 24px',
+            borderRadius: '8px',
+            border: 'none',
+            backgroundColor: (loading || !inputText.trim()) ? '#ccc' : '#0070f3',
+            color: '#fff',
+            fontSize: '1rem',
+            fontWeight: 'bold',
+            cursor: (loading || !inputText.trim()) ? 'not-allowed' : 'pointer',
+            transition: 'background-color 0.2s'
+          }}
+        >
+          Send
+        </button>
+      </form>
+    </div>
+  );
+}
