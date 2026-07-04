@@ -35,28 +35,27 @@ pool.on('error', (err) => {
   console.error('Unexpected error on inactive database client', err);
 });
 
-// Middleware to acquire database client from pool for transaction consistency
-app.use(async (req, res, next) => {
+// Helper: Secure RLS query executor to prevent connection resource exhaustion and session state pollution
+async function executeTenantQuery(tenantId, callback) {
+  const client = await pool.connect();
   try {
-    const dbClient = await pool.connect();
-    req.dbClient = dbClient;
-    
-    // Release client when response is finished
-    const releaseClient = () => {
-      if (req.dbClient) {
-        req.dbClient.release();
-        req.dbClient = null;
-      }
-    };
-    
-    res.on('finish', releaseClient);
-    res.on('close', releaseClient);
-    
-    next();
+    // Set RLS context on the connection
+    await client.query('SELECT set_tenant_context($1)', [tenantId]);
+    // Run the queries
+    const result = await callback(client);
+    // Clear context to prevent leakage to subsequent checkouts of this connection
+    await client.query('SELECT set_tenant_context(NULL)');
+    return result;
   } catch (err) {
-    next(err);
+    // Ensure we attempt to clear context even on query failure
+    try {
+      await client.query('SELECT set_tenant_context(NULL)');
+    } catch {}
+    throw err;
+  } finally {
+    client.release();
   }
-});
+}
 
 // Tenant Middleware
 const tenantMiddleware = async (req, res, next) => {
@@ -85,10 +84,6 @@ const tenantMiddleware = async (req, res, next) => {
     }
     
     req.tenant = tenant;
-    
-    // Set PostgreSQL RLS context
-    await req.dbClient.query('SELECT set_tenant_context($1)', [tenant.id]);
-    
     next();
   } catch (err) {
     console.error('Tenant middleware error:', err);
@@ -107,13 +102,17 @@ const authMiddleware = async (req, res, next) => {
     const token = authHeader.split(' ')[1];
     const decoded = jwt.verify(token, jwtSecret);
     
-    // Verify user exists in the current tenant (under RLS)
-    const result = await req.dbClient.query('SELECT * FROM users WHERE id = $1', [decoded.userId]);
-    if (result.rows.length === 0) {
+    // Verify user exists in the current tenant (RLS-enforced query)
+    const user = await executeTenantQuery(req.tenant.id, async (client) => {
+      const result = await client.query('SELECT * FROM users WHERE id = $1', [decoded.userId]);
+      return result.rows[0];
+    });
+    
+    if (!user) {
       return res.status(401).json({ error: 'Access Denied: Invalid user session for this tenant' });
     }
     
-    req.user = result.rows[0];
+    req.user = user;
     next();
   } catch (err) {
     console.error('Auth middleware error:', err);
@@ -121,7 +120,7 @@ const authMiddleware = async (req, res, next) => {
   }
 };
 
-// Apply tenant middleware to all non-health routes or all routes
+// Apply tenant middleware to all non-health routes
 app.use(tenantMiddleware);
 
 // Endpoints
@@ -250,23 +249,27 @@ app.post('/api/chat', authMiddleware, async (req, res) => {
     let currentConvId = conversationId;
     let history = [];
 
-    // Fetch or create conversation
+    // Fetch conversation history (auto-scoped under RLS) or create a new conversation
     if (currentConvId) {
-      const msgResult = await req.dbClient.query(
-        'SELECT role, content FROM messages WHERE conversation_id = $1 ORDER BY created_at ASC',
-        [currentConvId]
-      );
-      history = msgResult.rows;
+      history = await executeTenantQuery(req.tenant.id, async (client) => {
+        const msgResult = await client.query(
+          'SELECT role, content FROM messages WHERE conversation_id = $1 ORDER BY created_at ASC',
+          [currentConvId]
+        );
+        return msgResult.rows;
+      });
     } else {
-      const title = message.substring(0, 50);
-      const convResult = await req.dbClient.query(
-        'INSERT INTO conversations (tenant_id, user_id, title, model) VALUES ($1, $2, $3, $4) RETURNING id',
-        [req.tenant.id, req.user.id, title, selectedModel]
-      );
-      currentConvId = convResult.rows[0].id;
+      currentConvId = await executeTenantQuery(req.tenant.id, async (client) => {
+        const title = message.substring(0, 50);
+        const convResult = await client.query(
+          'INSERT INTO conversations (tenant_id, user_id, title, model) VALUES ($1, $2, $3, $4) RETURNING id',
+          [req.tenant.id, req.user.id, title, selectedModel]
+        );
+        return convResult.rows[0].id;
+      });
     }
 
-    // Call Ollama /api/generate
+    // Call Ollama /api/generate (executed without holding any active PG connection checkouts)
     const prompt = buildPrompt(history, message, selectedModel);
     let aiResponse = '';
     let promptTokens = 0;
@@ -291,22 +294,23 @@ app.post('/api/chat', authMiddleware, async (req, res) => {
 
     const tokensUsed = promptTokens + completionTokens;
 
-    // Save user message and AI response
-    await req.dbClient.query(
-      'INSERT INTO messages (tenant_id, conversation_id, role, content, tokens_used) VALUES ($1, $2, $3, $4, $5)',
-      [req.tenant.id, currentConvId, 'user', message, promptTokens]
-    );
+    // Save user message and AI response under RLS transaction context
+    await executeTenantQuery(req.tenant.id, async (client) => {
+      await client.query(
+        'INSERT INTO messages (tenant_id, conversation_id, role, content, tokens_used) VALUES ($1, $2, $3, $4, $5)',
+        [req.tenant.id, currentConvId, 'user', message, promptTokens]
+      );
 
-    await req.dbClient.query(
-      'INSERT INTO messages (tenant_id, conversation_id, role, content, tokens_used) VALUES ($1, $2, $3, $4, $5)',
-      [req.tenant.id, currentConvId, 'assistant', aiResponse, completionTokens]
-    );
+      await client.query(
+        'INSERT INTO messages (tenant_id, conversation_id, role, content, tokens_used) VALUES ($1, $2, $3, $4, $5)',
+        [req.tenant.id, currentConvId, 'assistant', aiResponse, completionTokens]
+      );
 
-    // Update conversation updated_at
-    await req.dbClient.query(
-      'UPDATE conversations SET updated_at = NOW() WHERE id = $1',
-      [currentConvId]
-    );
+      await client.query(
+        'UPDATE conversations SET updated_at = NOW() WHERE id = $1',
+        [currentConvId]
+      );
+    });
 
     res.status(200).json({
       response: aiResponse,
