@@ -83,18 +83,46 @@ else
     echo -e "${GREEN}✅ Docker engine is already active.${NC}"
 fi
 
-# Configure Docker data-root to use the mounted 80GB block storage partition if available
+# Redirect Docker & Containerd directories to the mounted 80GB block storage partition if available
 if [ -d "/mnt/docker-data" ]; then
-    echo -e "${YELLOW}🐳 Configuring Docker data-root to /mnt/docker-data/docker...${NC}"
-    sudo mkdir -p /mnt/docker-data/docker
-    sudo tee /etc/docker/daemon.json > /dev/null <<EOF
-{
-  "data-root": "/mnt/docker-data/docker"
-}
-EOF
-    echo -e "${YELLOW}⏳ Restarting Docker daemon...${NC}"
-    sudo systemctl restart docker || sudo service docker restart || true
-    echo -e "${GREEN}✅ Docker data-root configured successfully on block storage volume.${NC}"
+    echo -e "${YELLOW}🐳 Redirecting Docker & Containerd storage directories to /mnt/docker-data/docker-system...${NC}"
+    
+    # Remove custom daemon config to avoid conflicts with symlinks
+    sudo rm -f /etc/docker/daemon.json
+    
+    # Stop active Docker/containerd services
+    sudo systemctl stop docker docker.socket containerd || true
+    
+    # Create target directory on the block storage disk
+    sudo mkdir -p /mnt/docker-data/docker-system
+    
+    # Migrate /var/lib/docker
+    if [ -d "/var/lib/docker" ] && [ ! -L "/var/lib/docker" ]; then
+        echo "Migrating /var/lib/docker files..."
+        sudo mv /var/lib/docker /mnt/docker-data/docker-system/docker
+    fi
+    sudo mkdir -p /mnt/docker-data/docker-system/docker
+    if [ ! -L "/var/lib/docker" ]; then
+        sudo rm -rf /var/lib/docker
+        sudo ln -s /mnt/docker-data/docker-system/docker /var/lib/docker
+    fi
+
+    # Migrate /var/lib/containerd
+    if [ -d "/var/lib/containerd" ] && [ ! -L "/var/lib/containerd" ]; then
+        echo "Migrating /var/lib/containerd files..."
+        sudo mv /var/lib/containerd /mnt/docker-data/docker-system/containerd
+    fi
+    sudo mkdir -p /mnt/docker-data/docker-system/containerd
+    if [ ! -L "/var/lib/containerd" ]; then
+        sudo rm -rf /var/lib/containerd
+        sudo ln -s /mnt/docker-data/docker-system/containerd /var/lib/containerd
+    fi
+    
+    # Start containerd and docker back up
+    echo -e "${YELLOW}⏳ Starting Containerd and Docker services...${NC}"
+    sudo systemctl start containerd
+    sudo systemctl start docker
+    echo -e "${GREEN}✅ Docker & Containerd directories linked to block storage successfully.${NC}"
 fi
 
 
