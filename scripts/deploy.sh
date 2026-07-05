@@ -216,6 +216,12 @@ sudo systemctl disable postgresql || true
 sudo systemctl stop redis-server || true
 sudo systemctl disable redis-server || true
 
+# Clean up any existing broken database files to ensure clean initdb and set UID to 999 (postgres)
+echo "🧹 Ensuring clean database directory and setting ownership permissions..."
+sudo rm -rf $INSTALL_DIR/data/postgres/*
+sudo mkdir -p $INSTALL_DIR/data/postgres
+sudo chown -R 999:999 $INSTALL_DIR/data/postgres
+
 # Start Postgres container
 docker compose -f $INSTALL_DIR/docker-compose.yml up -d postgres
 
