@@ -205,6 +205,13 @@ echo -e "${GREEN}✅ LLM model layers pulled and branded successfully.${NC}"
 # ==========================================
 echo -e "\n${BLUE}[Step 6/8] Initializing database and default credentials...${NC}"
 
+# Stop native services on the VM that might conflict with ports 5432 or 6379
+echo "🔌 Disabling native host services that might block database/cache ports..."
+sudo systemctl stop postgresql || true
+sudo systemctl disable postgresql || true
+sudo systemctl stop redis-server || true
+sudo systemctl disable redis-server || true
+
 # Start Postgres container
 docker compose -f $INSTALL_DIR/docker-compose.yml up -d postgres
 
