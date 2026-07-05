@@ -53,7 +53,7 @@ ssh -i $VM_KEY $VM_USER@$VM_HOST << 'REMOTE_SCRIPT'
     echo "Connected to VM"
     
     # Go to project directory
-    mkdir -p /mnt/docker-data && cd /mnt/docker-data
+    sudo mkdir -p /mnt/docker-data && sudo chown -R ubuntu:ubuntu /mnt/docker-data && cd /mnt/docker-data
     
     # Backup current (if exists)
     if [ -d "harikson-backup" ]; then
