@@ -63,11 +63,14 @@ const tenantMiddleware = async (req, res, next) => {
     const host = req.headers.host || '';
     let slug = '';
     
-    if (host.includes('.')) {
+    // Check if host is an IP address (bypasses subdomain extraction)
+    const isIP = host.match(/^(?:[0-9]{1,3}\.){3}[0-9]{1,3}/);
+    
+    if (host.includes('.') && !isIP) {
       slug = host.split('.')[0];
     }
     
-    // Fallback to headers or query params for development / local testing
+    // Fallback to headers or query params for development / local testing or IP access
     if (!slug || slug === 'localhost' || slug === '127') {
       slug = req.headers['x-tenant-slug'] || req.query.tenant || 'alphatech';
     }
