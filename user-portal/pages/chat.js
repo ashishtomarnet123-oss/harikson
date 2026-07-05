@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
 
 export default function ChatPage() {
-  const [tenant, setTenant] = useState('alphatech');
+  const [tenant, setTenant] = useState('system');
+  const [apiBase, setApiBase] = useState('http://localhost:3000');
   const [model, setModel] = useState('Harikson-Plus');
   const [messages, setMessages] = useState([]);
   const [inputText, setInputText] = useState('');
@@ -10,14 +11,38 @@ export default function ChatPage() {
   const [conversationId, setConversationId] = useState(null);
   const chatEndRef = useRef(null);
 
-  // Extract tenant name from subdomain if available in browser URL
+  // Extract tenant name from subdomain if available in browser URL and determine dynamic apiBase
   useEffect(() => {
     if (typeof window !== 'undefined') {
+      const hostname = window.location.hostname;
       const host = window.location.host;
+      
+      // Calculate dynamic apiBase based on how client accessed portal
+      if (hostname !== 'localhost' && hostname !== '127.0.0.1') {
+        if (window.location.port) {
+          setApiBase(`http://${hostname}:3000`);
+        } else {
+          setApiBase(process.env.NEXT_PUBLIC_API_URL || `${window.location.protocol}//api.${hostname.split('.').slice(1).join('.')}`);
+        }
+      }
+
+      // Calculate tenant slug dynamically
       if (host.includes('.')) {
         const parts = host.split('.');
         if (parts[0] !== 'localhost' && parts[0] !== 'www') {
-          setTenant(parts[0]);
+          // If first part is a number, it's an IP address, so skip subdomain extraction
+          const isIP = !isNaN(parts[0]);
+          if (!isIP) {
+            setTenant(parts[0]);
+          } else {
+            const urlParams = new URLSearchParams(window.location.search);
+            const tenantParam = urlParams.get('tenant');
+            if (tenantParam) {
+              setTenant(tenantParam);
+            } else {
+              setTenant('system');
+            }
+          }
         }
       }
     }
@@ -42,7 +67,6 @@ export default function ChatPage() {
     setMessages((prev) => [...prev, userMessage]);
 
     try {
-      const apiBase = 'http://localhost:3000';
       const response = await fetch(`${apiBase}/api/chat`, {
         method: 'POST',
         headers: {
