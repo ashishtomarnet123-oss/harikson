@@ -88,6 +88,7 @@ echo -e "\n${BLUE}[Step 3/8] Setting up target workspaces directory...${NC}"
 INSTALL_DIR="/opt/harikson"
 echo "Target directory: $INSTALL_DIR"
 sudo mkdir -p $INSTALL_DIR/{backend,tenant-api,admin-panel,user-portal,model-builder,scripts,data}
+sudo mkdir -p $INSTALL_DIR/data/{postgres,redis,ollama,prometheus,grafana,traefik}
 sudo chown -R $USER:$USER $INSTALL_DIR
 
 echo -e "${GREEN}✅ Target installation directory structure generated.${NC}"

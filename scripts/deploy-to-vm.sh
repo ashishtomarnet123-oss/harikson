@@ -8,7 +8,7 @@ set -e
 VM_USER="ubuntu"
 VM_HOST="154.201.127.68"
 VM_KEY="~/Downloads/app.pem"
-VM_PATH="/var/www/gigawiz_dev_usr/data/www/gigawiz.dev"
+VM_PATH="/mnt/docker-data"
 GITHUB_REPO="https://github.com/ashishtomarnet123-oss/harikson.git"
 BRANCH="main"
 
@@ -53,7 +53,7 @@ ssh -i $VM_KEY $VM_USER@$VM_HOST << 'REMOTE_SCRIPT'
     echo "Connected to VM"
     
     # Go to project directory
-    cd /var/www/gigawiz_dev_usr/data/www/gigawiz.dev
+    mkdir -p /mnt/docker-data && cd /mnt/docker-data
     
     # Backup current (if exists)
     if [ -d "harikson-backup" ]; then

@@ -4,13 +4,7 @@ networks:
   harikson-network:
     driver: bridge
 
-volumes:
-  postgres-data:
-  redis-data:
-  ollama-data:
-  prometheus-data:
-  grafana-data:
-  traefik-certificates:
+# Using local host bind mounts inside ./data directory to route data to mounted block storage
 
 services:
   # 1. Traefik (Reverse Proxy)
@@ -36,7 +30,7 @@ services:
       - "8080:8080"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
-      - traefik-certificates:/letsencrypt
+      - ./data/traefik:/letsencrypt
       - ./traefik/dynamic.yml:/dynamic/dynamic.yml:ro
     networks:
       - harikson-network
@@ -53,7 +47,7 @@ services:
       - OLLAMA_MAX_LOADED_MODELS=1
       - OLLAMA_NUM_PARALLEL=1
     volumes:
-      - ollama-data:/root/.ollama
+      - ./data/ollama:/root/.ollama
     networks:
       - harikson-network
     deploy:
@@ -73,7 +67,7 @@ services:
       - POSTGRES_PASSWORD=neuravolt_dev_pwd
       - POSTGRES_DB=neuravolt
     volumes:
-      - postgres-data:/var/lib/postgresql/data
+      - ./data/postgres:/var/lib/postgresql/data
       - ./init.sql:/docker-entrypoint-initdb.d/init.sql:ro
     networks:
       - harikson-network
@@ -96,7 +90,7 @@ services:
     ports:
       - "6379:6379"
     volumes:
-      - redis-data:/data
+      - ./data/redis:/data
     networks:
       - harikson-network
     deploy:
@@ -210,7 +204,7 @@ services:
       - "9090:9090"
     volumes:
       - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
-      - prometheus-data:/prometheus
+      - ./data/prometheus:/prometheus
     networks:
       - harikson-network
 
@@ -225,7 +219,7 @@ services:
       - GF_SECURITY_ADMIN_PASSWORD=admin_password
       - GF_SERVER_HTTP_PORT=3003
     volumes:
-      - grafana-data:/var/lib/grafana
+      - ./data/grafana:/var/lib/grafana
     networks:
       - harikson-network
     labels:
