@@ -205,8 +205,12 @@ echo -e "${GREEN}✅ LLM model layers pulled and branded successfully.${NC}"
 # ==========================================
 echo -e "\n${BLUE}[Step 6/8] Initializing database and default credentials...${NC}"
 
-# Stop native services on the VM that might conflict with ports 5432 or 6379
-echo "🔌 Disabling native host services that might block database/cache ports..."
+# Stop native services on the VM that might conflict with ports 80, 443, 5432, or 6379
+echo "🔌 Disabling native host services that might block HTTP/database/cache ports..."
+sudo systemctl stop nginx || true
+sudo systemctl disable nginx || true
+sudo systemctl stop apache2 || true
+sudo systemctl disable apache2 || true
 sudo systemctl stop postgresql || true
 sudo systemctl disable postgresql || true
 sudo systemctl stop redis-server || true
