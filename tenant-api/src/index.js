@@ -120,19 +120,16 @@ const authMiddleware = async (req, res, next) => {
   }
 };
 
-// Apply tenant middleware to all non-health routes
-app.use(tenantMiddleware);
-
-// Endpoints
-
-// 1. GET /health
+// 1. GET /health (Bypasses tenant middleware for status probes)
 app.get('/health', (req, res) => {
   res.status(200).json({
     status: 'healthy',
-    tenant: req.tenant.slug,
     timestamp: new Date().toISOString()
   });
 });
+
+// Apply tenant middleware to all non-health routes
+app.use(tenantMiddleware);
 
 // 2. GET /api/models
 app.get('/api/models', async (req, res) => {
