@@ -53,6 +53,7 @@ services:
     deploy:
       resources:
         limits:
+          cpus: '7.0'
           memory: 12g
 
   # 3. PostgreSQL Database

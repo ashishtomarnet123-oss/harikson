@@ -303,7 +303,10 @@ app.post('/api/chat', authMiddleware, async (req, res) => {
         model: selectedModel,
         prompt: prompt,
         stream: true,
-        keep_alive: -1 // Keep model loaded in memory permanently to prevent cold-start reload overhead
+        keep_alive: -1, // Keep model loaded in memory permanently to prevent cold-start reload overhead
+        options: {
+          num_thread: 7 // Limit to 7 threads to keep CPU utilization under 90%
+        }
       }, { 
         responseType: 'stream',
         timeout: 120000 
