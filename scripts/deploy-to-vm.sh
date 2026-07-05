@@ -69,75 +69,11 @@ ssh -i $VM_KEY $VM_USER@$VM_HOST << 'REMOTE_SCRIPT'
     
     cd harikson
     
-    # Create .env from template
-    if [ ! -f ".env" ]; then
-      if [ -f "scripts/.env.template" ]; then
-        cp scripts/.env.template .env
-      elif [ -f ".env.example" ]; then
-        cp .env.example .env
-      else
-        touch .env
-      fi
-      
-      # Generate secrets
-      JWT_SECRET=$(openssl rand -hex 32)
-      ADMIN_SECRET=$(openssl rand -hex 32)
-      DB_PASSWORD=$(openssl rand -hex 16)
-      GRAFANA_PASSWORD=$(openssl rand -hex 12)
-      
-      sed -i.bak "s/GENERATED_JWT_SECRET/$JWT_SECRET/g" .env
-      sed -i.bak "s/GENERATED_ADMIN_SECRET/$admin_secret/g" .env
-      sed -i.bak "s/GENERATED_DB_PASSWORD/$DB_PASSWORD/g" .env
-      sed -i.bak "s/GENERATED_GRAFANA_PASSWORD/$GRAFANA_PASSWORD/g" .env
-      rm -f .env.bak
-      
-      echo "✓ .env created with generated secrets"
-    fi
-    
-    # Stop old containers (if any)
-    echo "Stopping old containers..."
-    docker compose down 2>/dev/null || true
-    
-    # Start infrastructure
-    echo "Starting infrastructure..."
-    docker compose up -d postgres redis ollama
-    
-    # Wait for PostgreSQL
-    echo "Waiting for PostgreSQL..."
-    sleep 15
-    
-    # Run database init (fallback check for container database names)
-    echo "Initializing database..."
-    docker exec harikson-postgres psql -U neuravolt -d neuravolt -f /docker-entrypoint-initdb.d/init.sql 2>/dev/null || \
-    docker exec harikson-db psql -U harikson -d harikson -f /docker-entrypoint-initdb.d/init.sql 2>/dev/null || true
-    
-    # Download models (if not exists)
-    echo "Checking models..."
-    chmod +x scripts/download-models.sh
-    ./scripts/download-models.sh || echo "Model download will be retried"
-    
-    # Build and start services
-    echo "Building and starting services..."
-    docker compose up -d --build tenant-api admin-panel user-portal traefik
-    
-    # Start monitoring
-    docker compose up -d prometheus grafana
-    
-    # Show status
-    echo ""
-    echo "=========================================="
-    echo "  DEPLOYMENT COMPLETE"
-    echo "=========================================="
-    echo "Services:"
-    docker compose ps
-    echo ""
-    echo "Access URLs:"
-    echo "  Admin Panel:  http://154.201.127.68:3001"
-    echo "  User Portal:  http://154.201.127.68:3002"
-    echo "  API:          http://154.201.127.68:3000"
-    echo "  Traefik:      http://154.201.127.68:8080"
-    echo "  Grafana:      http://154.201.127.68:3003"
-    echo "=========================================="
+    # Run the comprehensive deploy.sh script to handle Docker installation,
+    # directory setup, model download, database init, and services startup.
+    echo "Running deploy.sh..."
+    chmod +x scripts/*.sh
+    ./scripts/deploy.sh
 REMOTE_SCRIPT
 
 echo ""

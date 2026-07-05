@@ -43,8 +43,12 @@ else
 fi
 
 # Check disk space
-free_disk=$(df -BG / | awk 'NR==2 {print $4}' | sed 's/G//')
-echo "Free Disk: ${free_disk} GB"
+target_partition="/mnt/docker-data"
+if [ ! -d "$target_partition" ]; then
+    target_partition="/"
+fi
+free_disk=$(df -BG "$target_partition" | awk 'NR==2 {print $4}' | sed 's/G//')
+echo "Free Disk space on $target_partition: ${free_disk} GB"
 if [ "$free_disk" -lt 50 ]; then
     echo -e "${YELLOW}⚠️ Warning: Recommended free disk space is at least 50GB. Detected ${free_disk}GB.${NC}"
 else
@@ -85,7 +89,7 @@ fi
 # ==========================================
 echo -e "\n${BLUE}[Step 3/8] Setting up target workspaces directory...${NC}"
 
-INSTALL_DIR="/opt/harikson"
+INSTALL_DIR="/mnt/docker-data/harikson"
 echo "Target directory: $INSTALL_DIR"
 sudo mkdir -p $INSTALL_DIR/{backend,tenant-api,admin-panel,user-portal,model-builder,scripts,data}
 sudo mkdir -p $INSTALL_DIR/data/{postgres,redis,ollama,prometheus,grafana,traefik}
