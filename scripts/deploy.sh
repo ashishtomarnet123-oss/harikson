@@ -117,9 +117,13 @@ sed -i.bak "s/GENERATED_DB_PASSWORD/$db_password/g" $INSTALL_DIR/.env
 sed -i.bak "s/GENERATED_GRAFANA_PASSWORD/$grafana_password/g" $INSTALL_DIR/.env
 rm -f $INSTALL_DIR/.env.bak
 
-# Copy compose and database init files
-cp docker-compose.yml $INSTALL_DIR/docker-compose.yml
-cp init.sql $INSTALL_DIR/init.sql
+# Copy compose and database init files if they are not already in target directory
+if [ ! -f "$INSTALL_DIR/docker-compose.yml" ] || [ "$(realpath docker-compose.yml)" != "$(realpath $INSTALL_DIR/docker-compose.yml 2>/dev/null)" ]; then
+    cp docker-compose.yml $INSTALL_DIR/docker-compose.yml
+fi
+if [ ! -f "$INSTALL_DIR/init.sql" ] || [ "$(realpath init.sql)" != "$(realpath $INSTALL_DIR/init.sql 2>/dev/null)" ]; then
+    cp init.sql $INSTALL_DIR/init.sql
+fi
 
 echo -e "${GREEN}✅ Configuration parameters and .env file populated.${NC}"
 
