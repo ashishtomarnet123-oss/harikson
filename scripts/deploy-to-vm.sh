@@ -52,8 +52,7 @@ ssh -o ServerAliveInterval=30 -o ServerAliveCountMax=20 -i $VM_KEY $VM_USER@$VM_
     
     echo "Connected to VM"
     
-    # Go to project directory
-    sudo mkdir -p /mnt/docker-data && sudo chown -R ubuntu:ubuntu /mnt/docker-data && cd /mnt/docker-data
+    sudo mkdir -p /mnt/docker-data/harikson && sudo chown -R ubuntu:ubuntu /mnt/docker-data/harikson && cd /mnt/docker-data
     
     # Backup current (if exists)
     if [ -d "harikson-backup" ]; then
