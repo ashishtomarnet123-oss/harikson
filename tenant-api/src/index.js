@@ -230,7 +230,7 @@ app.post('/api/chat', authMiddleware, async (req, res) => {
     return res.status(400).json({ error: 'Message is required' });
   }
 
-  const selectedModel = model || 'harikson-chat-8b';
+  const selectedModel = model || 'harikson-plus';
 
   // Rate limiting via Redis (plan-based: solo=10, team=60, business=300, enterprise=0)
   const plan = (req.tenant.plan || 'STARTER').toLowerCase();

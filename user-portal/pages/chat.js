@@ -77,7 +77,7 @@ export default function ChatPage() {
         },
         body: JSON.stringify({
           message: userMessageText,
-          model: model === 'Harikson-Plus' ? 'harikson-chat-8b' : 'harikson-coder-14b',
+          model: model === 'Harikson-Plus' ? 'harikson-plus' : 'harikson-max',
           conversationId: conversationId
         })
       });
