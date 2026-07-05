@@ -47,7 +47,7 @@ fi
 echo ""
 echo -e "${YELLOW}Step 2: Deploying to VM...${NC}"
 
-ssh -i $VM_KEY $VM_USER@$VM_HOST << 'REMOTE_SCRIPT'
+ssh -o ServerAliveInterval=30 -o ServerAliveCountMax=20 -i $VM_KEY $VM_USER@$VM_HOST << 'REMOTE_SCRIPT'
     set -e
     
     echo "Connected to VM"
