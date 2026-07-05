@@ -228,10 +228,10 @@ if [ ! -f "/mnt/docker-data/data/postgres/PG_VERSION" ]; then
     echo "🧹 Database not initialized. Ensuring clean directory and setting ownership..."
     sudo rm -rf /mnt/docker-data/data/postgres/*
     sudo mkdir -p /mnt/docker-data/data/postgres
-    sudo chown -R 999:999 /mnt/docker-data/data/postgres
+    sudo chown -R 70:70 /mnt/docker-data/data/postgres
 else
     echo "💾 Existing database detected. Ensuring correct ownership permissions..."
-    sudo chown -R 999:999 /mnt/docker-data/data/postgres
+    sudo chown -R 70:70 /mnt/docker-data/data/postgres
 fi
 
 # Start Postgres container
