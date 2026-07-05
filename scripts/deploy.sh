@@ -133,9 +133,13 @@ echo -e "\n${BLUE}[Step 3/8] Setting up target workspaces directory...${NC}"
 
 INSTALL_DIR="/mnt/docker-data/harikson"
 echo "Target directory: $INSTALL_DIR"
-sudo mkdir -p $INSTALL_DIR/{backend,tenant-api,admin-panel,user-portal,model-builder,scripts,data}
-sudo mkdir -p $INSTALL_DIR/data/{postgres,redis,ollama,prometheus,grafana,traefik}
+sudo mkdir -p $INSTALL_DIR/{backend,tenant-api,admin-panel,user-portal,model-builder,scripts}
 sudo chown -R $USER:$USER $INSTALL_DIR
+
+# Set up persistent data directory outside the cloned folder
+echo "Setting up persistent data directories..."
+sudo mkdir -p /mnt/docker-data/data/{postgres,redis,ollama,prometheus,grafana,traefik}
+sudo chown -R $USER:$USER /mnt/docker-data/data
 
 echo -e "${GREEN}✅ Target installation directory structure generated.${NC}"
 
@@ -158,6 +162,9 @@ sed -i.bak "s/GENERATED_ADMIN_SECRET/$admin_secret/g" $INSTALL_DIR/.env
 sed -i.bak "s/GENERATED_DB_PASSWORD/$db_password/g" $INSTALL_DIR/.env
 sed -i.bak "s/GENERATED_GRAFANA_PASSWORD/$grafana_password/g" $INSTALL_DIR/.env
 rm -f $INSTALL_DIR/.env.bak
+
+# Append persistent data directory variable for docker-compose
+echo "DATA_DIR=/mnt/docker-data/data" >> $INSTALL_DIR/.env
 
 # Copy compose and database init files if they are not already in target directory
 if [ ! -f "$INSTALL_DIR/docker-compose.yml" ] || [ "$(realpath docker-compose.yml)" != "$(realpath $INSTALL_DIR/docker-compose.yml 2>/dev/null)" ]; then
@@ -216,11 +223,16 @@ sudo systemctl disable postgresql || true
 sudo systemctl stop redis-server || true
 sudo systemctl disable redis-server || true
 
-# Clean up any existing broken database files to ensure clean initdb and set UID to 999 (postgres)
-echo "🧹 Ensuring clean database directory and setting ownership permissions..."
-sudo rm -rf $INSTALL_DIR/data/postgres/*
-sudo mkdir -p $INSTALL_DIR/data/postgres
-sudo chown -R 999:999 $INSTALL_DIR/data/postgres
+# Clean up database files ONLY if the database is not initialized yet (to prevent wiping on updates)
+if [ ! -f "/mnt/docker-data/data/postgres/PG_VERSION" ]; then
+    echo "🧹 Database not initialized. Ensuring clean directory and setting ownership..."
+    sudo rm -rf /mnt/docker-data/data/postgres/*
+    sudo mkdir -p /mnt/docker-data/data/postgres
+    sudo chown -R 999:999 /mnt/docker-data/data/postgres
+else
+    echo "💾 Existing database detected. Ensuring correct ownership permissions..."
+    sudo chown -R 999:999 /mnt/docker-data/data/postgres
+fi
 
 # Start Postgres container
 docker compose -f $INSTALL_DIR/docker-compose.yml up -d postgres
