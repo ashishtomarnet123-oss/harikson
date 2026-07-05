@@ -265,7 +265,7 @@ echo -e "${GREEN}✅ Database tables and defaults generated.${NC}"
 # ==========================================
 echo -e "\n${BLUE}[Step 7/8] Starting Harikson Platform stack containers...${NC}"
 
-docker compose -f $INSTALL_DIR/docker-compose.yml up -d
+docker compose -f $INSTALL_DIR/docker-compose.yml up -d --build
 
 echo "⏳ Waiting for Tenant API health checks..."
 until [ "$(docker inspect --format='{{.State.Health.Status}}' harikson-tenant-api 2>/dev/null)" = "healthy" ]; do
