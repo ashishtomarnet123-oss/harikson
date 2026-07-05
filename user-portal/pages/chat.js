@@ -1,5 +1,88 @@
 import { useState, useEffect, useRef } from 'react';
 
+const renderMessageText = (text) => {
+  if (!text) return null;
+  
+  // Split text by code blocks (```)
+  const parts = text.split(/(```[\s\S]*?```)/g);
+  
+  return parts.map((part, index) => {
+    if (part.startsWith('```') && part.endsWith('```')) {
+      // Extract language and code content
+      const lines = part.slice(3, -3).trim().split('\n');
+      let language = 'code';
+      let codeContent = lines.join('\n');
+      
+      // If first line has no spaces and is short, treat as language identifier
+      if (lines[0] && !lines[0].includes(' ') && lines[0].length < 15) {
+        language = lines[0];
+        codeContent = lines.slice(1).join('\n');
+      }
+      
+      return (
+        <div key={index} style={{ margin: '12px 0', width: '100%', borderRadius: '6px', overflow: 'hidden', boxShadow: '0 2px 5px rgba(0,0,0,0.15)' }}>
+          <div style={{
+            backgroundColor: '#2d3139',
+            color: '#c5c9db',
+            padding: '6px 14px',
+            fontSize: '0.75rem',
+            textTransform: 'uppercase',
+            fontFamily: 'SFMono-Regular, Consolas, "Liberation Mono", Menlo, monospace',
+            fontWeight: 'bold',
+            display: 'flex',
+            justifyContent: 'space-between',
+            borderBottom: '1px solid #1e222b'
+          }}>
+            <span>{language}</span>
+          </div>
+          <pre style={{
+            backgroundColor: '#1e222b',
+            color: '#abb2bf',
+            padding: '14px',
+            margin: 0,
+            overflowX: 'auto',
+            fontFamily: 'SFMono-Regular, Consolas, "Liberation Mono", Menlo, monospace',
+            fontSize: '0.85rem',
+            lineHeight: '1.5',
+            whiteSpace: 'pre'
+          }}>
+            <code>{codeContent}</code>
+          </pre>
+        </div>
+      );
+    }
+    
+    // For non-code-block text, split by newlines to render lists and paragraphs correctly
+    return (
+      <div key={index} style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+        {part.split('\n').map((line, lineIndex) => {
+          const trimmed = line.trim();
+          if (trimmed.startsWith('* ') || trimmed.startsWith('- ')) {
+            return (
+              <li key={lineIndex} style={{ marginLeft: '20px', listStyleType: 'disc', margin: '2px 0' }}>
+                {trimmed.substring(2)}
+              </li>
+            );
+          }
+          if (/^\d+\.\s/.test(trimmed)) {
+            const listContent = trimmed.replace(/^\d+\.\s/, '');
+            return (
+              <li key={lineIndex} style={{ marginLeft: '20px', listStyleType: 'decimal', margin: '2px 0' }}>
+                {listContent}
+              </li>
+            );
+          }
+          // Preserve empty line structure
+          if (!trimmed) {
+            return <div key={lineIndex} style={{ height: '8px' }} />;
+          }
+          return <p key={lineIndex} style={{ margin: 0 }}>{line}</p>;
+        })}
+      </div>
+    );
+  });
+};
+
 export default function ChatPage() {
   const [tenant, setTenant] = useState('system');
   const [apiBase, setApiBase] = useState('http://localhost:3000');
@@ -213,7 +296,7 @@ export default function ChatPage() {
                 wordBreak: 'break-word',
                 boxShadow: '0 1px 2px rgba(0,0,0,0.05)'
               }}>
-                {msg.text}
+                {renderMessageText(msg.text)}
               </div>
               {msg.sender === 'bot' && (
                 <span style={{
