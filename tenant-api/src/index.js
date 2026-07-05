@@ -301,7 +301,7 @@ app.post('/api/chat', authMiddleware, async (req, res) => {
         model: selectedModel,
         prompt: prompt,
         stream: false
-      }, { timeout: 15000 });
+      }, { timeout: 120000 }); // 2 minutes timeout to allow model loading on CPU
 
       aiResponse = response.data.response;
       promptTokens = response.data.prompt_eval_count || Math.ceil(prompt.length / 4);
