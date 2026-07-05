@@ -106,7 +106,7 @@ services:
   # 5. Tenant API (Control Plane Backend & Shared Gateway)
   tenant-api:
     build:
-      context: ./backend
+      context: ./tenant-api
     container_name: harikson-tenant-api
     restart: unless-stopped
     ports:
@@ -144,7 +144,7 @@ services:
   # 6. Admin Panel (Next.js Dashboard)
   admin-panel:
     build:
-      context: ./admin
+      context: ./admin-panel
       args:
         - NEXT_PUBLIC_API_URL=https://api.neuravolt.cloud
     container_name: harikson-admin-panel
@@ -171,7 +171,7 @@ services:
   # 7. User Portal (Next.js App)
   user-portal:
     build:
-      context: ./app
+      context: ./user-portal
       args:
         - NEXT_PUBLIC_API_URL=https://api.neuravolt.cloud
     container_name: harikson-user-portal
