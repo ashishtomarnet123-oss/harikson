@@ -83,6 +83,20 @@ else
     echo -e "${GREEN}✅ Docker engine is already active.${NC}"
 fi
 
+# Configure Docker data-root to use the mounted 80GB block storage partition if available
+if [ -d "/mnt/docker-data" ]; then
+    echo -e "${YELLOW}🐳 Configuring Docker data-root to /mnt/docker-data/docker...${NC}"
+    sudo mkdir -p /mnt/docker-data/docker
+    sudo tee /etc/docker/daemon.json > /dev/null <<EOF
+{
+  "data-root": "/mnt/docker-data/docker"
+}
+EOF
+    echo -e "${YELLOW}⏳ Restarting Docker daemon...${NC}"
+    sudo systemctl restart docker || sudo service docker restart || true
+    echo -e "${GREEN}✅ Docker data-root configured successfully on block storage volume.${NC}"
+fi
+
 
 # ==========================================
 # 3. DIRECTORY SETUP
