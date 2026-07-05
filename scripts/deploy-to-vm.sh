@@ -54,9 +54,16 @@ ssh -o ServerAliveInterval=30 -o ServerAliveCountMax=20 -i $VM_KEY $VM_USER@$VM_
     
     sudo mkdir -p /mnt/docker-data/harikson && sudo chown -R ubuntu:ubuntu /mnt/docker-data/harikson && cd /mnt/docker-data
     
+    # Stop active containers first to release active mount locks
+    if [ -d "harikson" ]; then
+        echo "Stopping active containers to release mount locks..."
+        cd harikson && docker compose down 2>/dev/null || true
+        cd ..
+    fi
+    
     # Backup current (if exists)
     if [ -d "harikson-backup" ]; then
-        rm -rf harikson-backup
+        sudo rm -rf harikson-backup
     fi
     if [ -d "harikson" ]; then
         mv harikson harikson-backup
