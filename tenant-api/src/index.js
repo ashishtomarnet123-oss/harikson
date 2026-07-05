@@ -290,59 +290,104 @@ app.post('/api/chat', authMiddleware, async (req, res) => {
       });
     }
 
-    // Call Ollama /api/generate (executed without holding any active PG connection checkouts)
+    // Call Ollama /api/generate in streaming mode
     const prompt = buildPrompt(history, message, selectedModel);
-    let aiResponse = '';
-    let promptTokens = 0;
-    let completionTokens = 0;
+    
+    // Set headers for chunked text streaming
+    res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+    res.setHeader('Transfer-Encoding', 'chunked');
+    res.setHeader('X-Conversation-Id', currentConvId);
 
     try {
       const response = await axios.post(`${ollamaHost}/api/generate`, {
         model: selectedModel,
         prompt: prompt,
-        stream: false
-      }, { timeout: 120000 }); // 2 minutes timeout to allow model loading on CPU
+        stream: true,
+        keep_alive: -1 // Keep model loaded in memory permanently to prevent cold-start reload overhead
+      }, { 
+        responseType: 'stream',
+        timeout: 120000 
+      });
 
-      aiResponse = response.data.response;
-      promptTokens = response.data.prompt_eval_count || Math.ceil(prompt.length / 4);
-      completionTokens = response.data.eval_count || Math.ceil(aiResponse.length / 4);
+      let fullResponseText = '';
+      let promptTokens = Math.ceil(prompt.length / 4);
+      let completionTokens = 0;
+
+      response.data.on('data', (chunk) => {
+        const lines = chunk.toString().split('\n').filter(Boolean);
+        for (const line of lines) {
+          try {
+            const parsed = JSON.parse(line);
+            if (parsed.response) {
+              fullResponseText += parsed.response;
+              res.write(parsed.response);
+            }
+            if (parsed.done) {
+              promptTokens = parsed.prompt_eval_count || promptTokens;
+              completionTokens = parsed.eval_count || Math.ceil(fullResponseText.length / 4);
+            }
+          } catch (e) {}
+        }
+      });
+
+      response.data.on('end', async () => {
+        res.end();
+        // Save chat history asynchronously in the background
+        try {
+          await executeTenantQuery(req.tenant.id, async (client) => {
+            await client.query(
+              'INSERT INTO messages (tenant_id, conversation_id, role, content, tokens_used) VALUES ($1, $2, $3, $4, $5)',
+              [req.tenant.id, currentConvId, 'user', message, promptTokens]
+            );
+            await client.query(
+              'INSERT INTO messages (tenant_id, conversation_id, role, content, tokens_used) VALUES ($1, $2, $3, $4, $5)',
+              [req.tenant.id, currentConvId, 'assistant', fullResponseText, completionTokens]
+            );
+            await client.query(
+              'UPDATE conversations SET updated_at = NOW() WHERE id = $1',
+              [currentConvId]
+            );
+          });
+        } catch (dbErr) {
+          console.error('Failed to save streamed chat messages to PG:', dbErr);
+        }
+      });
+
     } catch (ollamaErr) {
-      console.warn('Ollama generation failed or timed out, executing simulated response fallback.');
-      aiResponse = getMockResponse(prompt, selectedModel);
-      promptTokens = Math.ceil(prompt.length / 4);
-      completionTokens = Math.ceil(aiResponse.length / 4);
+      console.warn('Ollama streaming failed or timed out, executing simulated response fallback.');
+      const fallbackResponse = getMockResponse(prompt, selectedModel);
+      const promptTokens = Math.ceil(prompt.length / 4);
+      const completionTokens = Math.ceil(fallbackResponse.length / 4);
+
+      // Write fallback response and end
+      res.write(fallbackResponse);
+      res.end();
+
+      // Save user message and AI response fallback in the background
+      try {
+        await executeTenantQuery(req.tenant.id, async (client) => {
+          await client.query(
+            'INSERT INTO messages (tenant_id, conversation_id, role, content, tokens_used) VALUES ($1, $2, $3, $4, $5)',
+            [req.tenant.id, currentConvId, 'user', message, promptTokens]
+          );
+          await client.query(
+            'INSERT INTO messages (tenant_id, conversation_id, role, content, tokens_used) VALUES ($1, $2, $3, $4, $5)',
+            [req.tenant.id, currentConvId, 'assistant', fallbackResponse, completionTokens]
+          );
+          await client.query(
+            'UPDATE conversations SET updated_at = NOW() WHERE id = $1',
+            [currentConvId]
+          );
+        });
+      } catch (dbErr) {
+        console.error('Failed to save simulated chat messages to PG:', dbErr);
+      }
     }
-
-    const tokensUsed = promptTokens + completionTokens;
-
-    // Save user message and AI response under RLS transaction context
-    await executeTenantQuery(req.tenant.id, async (client) => {
-      await client.query(
-        'INSERT INTO messages (tenant_id, conversation_id, role, content, tokens_used) VALUES ($1, $2, $3, $4, $5)',
-        [req.tenant.id, currentConvId, 'user', message, promptTokens]
-      );
-
-      await client.query(
-        'INSERT INTO messages (tenant_id, conversation_id, role, content, tokens_used) VALUES ($1, $2, $3, $4, $5)',
-        [req.tenant.id, currentConvId, 'assistant', aiResponse, completionTokens]
-      );
-
-      await client.query(
-        'UPDATE conversations SET updated_at = NOW() WHERE id = $1',
-        [currentConvId]
-      );
-    });
-
-    res.status(200).json({
-      response: aiResponse,
-      model: selectedModel,
-      tokens_used: tokensUsed,
-      conversationId: currentConvId
-    });
-
   } catch (err) {
     console.error('Chat endpoint error:', err);
-    res.status(500).json({ error: 'Failed to process chat conversation' });
+    if (!res.headersSent) {
+      res.status(500).json({ error: 'Failed to process chat conversation' });
+    }
   }
 });
 

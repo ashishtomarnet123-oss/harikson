@@ -170,20 +170,41 @@ export default function ChatPage() {
         throw new Error(errData.error || `HTTP error status ${response.status}`);
       }
 
-      const data = await response.json();
-      
-      // Update thread ID
-      if (data.conversationId) {
-        setConversationId(data.conversationId);
+      // Check for dynamic conversation ID header
+      const convIdHeader = response.headers.get('X-Conversation-Id') || response.headers.get('x-conversation-id');
+      if (convIdHeader) {
+        setConversationId(convIdHeader);
       }
 
-      // Add AI response message bubble
-      const aiMessage = {
-        sender: 'bot',
-        text: data.response,
-        model: data.model || model
-      };
-      setMessages((prev) => [...prev, aiMessage]);
+      // Initialize reader and decoder for streaming body
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder('utf-8');
+      
+      // Append an empty bot message bubble to start rendering
+      const activeModelName = model === 'Harikson-Plus' ? 'harikson-plus' : 'harikson-max';
+      setMessages((prev) => [...prev, { sender: 'bot', text: '', model: activeModelName }]);
+
+      let botResponseText = '';
+      
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
+
+        const textChunk = decoder.decode(value, { stream: true });
+        botResponseText += textChunk;
+
+        // Keep updating the active message bubble
+        setMessages((prev) => {
+          const updated = [...prev];
+          if (updated.length > 0 && updated[updated.length - 1].sender === 'bot') {
+            updated[updated.length - 1] = {
+              ...updated[updated.length - 1],
+              text: botResponseText
+            };
+          }
+          return updated;
+        });
+      }
     } catch (err) {
       console.error('Fetch error:', err);
       setError(err.message || 'Failed to connect to the backend server.');
