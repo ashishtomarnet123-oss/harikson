@@ -225,8 +225,8 @@ sudo chown -R 999:999 $INSTALL_DIR/data/postgres
 # Start Postgres container
 docker compose -f $INSTALL_DIR/docker-compose.yml up -d postgres
 
-echo "⏳ Waiting for PostgreSQL to be ready..."
-until docker exec harikson-postgres pg_isready -U neuravolt >/dev/null 2>&1; do
+echo "⏳ Waiting for PostgreSQL container to become healthy..."
+until [ "$(docker inspect --format='{{.State.Health.Status}}' harikson-postgres 2>/dev/null)" = "healthy" ]; do
     sleep 2
 done
 
