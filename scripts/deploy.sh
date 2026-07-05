@@ -133,7 +133,7 @@ echo -e "\n${BLUE}[Step 3/8] Setting up target workspaces directory...${NC}"
 
 INSTALL_DIR="/mnt/docker-data/harikson"
 echo "Target directory: $INSTALL_DIR"
-sudo mkdir -p $INSTALL_DIR/{backend,tenant-api,admin-panel,user-portal,model-builder,scripts}
+sudo mkdir -p $INSTALL_DIR/{backend,tenant-api,admin-api,admin-panel,user-portal,model-builder,scripts}
 sudo chown -R $USER:$USER $INSTALL_DIR
 
 # Set up persistent data directory outside the cloned folder

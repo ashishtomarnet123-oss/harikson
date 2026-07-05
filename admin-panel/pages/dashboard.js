@@ -6,6 +6,7 @@ import CreateTenantModal from '../components/CreateTenantModal';
 
 export default function Dashboard() {
   const [tenants, setTenants] = useState([]);
+  const [apiBase, setApiBase] = useState('http://localhost:4000');
   const [metrics, setMetrics] = useState({
     totalTenants: 0,
     activeTenants: 0,
@@ -43,8 +44,6 @@ export default function Dashboard() {
         headers['Authorization'] = 'Bearer TEST_ADMIN_TOKEN';
       }
 
-      const apiBase = 'http://localhost:4000';
-      
       // Fetch tenants
       const tenantsRes = await fetch(`${apiBase}/admin/tenants?page=1&limit=50`, { headers });
       let tenantsList = [];
@@ -104,6 +103,17 @@ export default function Dashboard() {
   };
 
   useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const hostname = window.location.hostname;
+      if (hostname !== 'localhost' && hostname !== '127.0.0.1') {
+        if (window.location.port) {
+          setApiBase(`http://${hostname}:4000`);
+        } else {
+          setApiBase(process.env.NEXT_PUBLIC_API_URL || `${window.location.protocol}//api.${hostname.split('.').slice(1).join('.')}`);
+        }
+      }
+    }
+
     fetchData();
 
     // 6. Real-time updates: Auto-refresh every 30 seconds
@@ -117,7 +127,6 @@ export default function Dashboard() {
   // Handle Tenant Creation
   const handleCreateTenant = async (formData) => {
     const token = typeof window !== 'undefined' ? localStorage.getItem('admin_token') : null;
-    const apiBase = 'http://localhost:4000';
 
     const response = await fetch(`${apiBase}/admin/tenants`, {
       method: 'POST',
@@ -143,7 +152,6 @@ export default function Dashboard() {
 
     try {
       const token = typeof window !== 'undefined' ? localStorage.getItem('admin_token') : null;
-      const apiBase = 'http://localhost:4000';
 
       const response = await fetch(`${apiBase}/admin/tenants/${tenant.slug}`, {
         method: 'DELETE',
@@ -172,7 +180,6 @@ export default function Dashboard() {
     if (!newName) return;
     
     const token = typeof window !== 'undefined' ? localStorage.getItem('admin_token') : null;
-    const apiBase = 'http://localhost:4000';
 
     fetch(`${apiBase}/admin/tenants/${tenant.slug}`, {
       method: 'PATCH',

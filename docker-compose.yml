@@ -141,6 +141,28 @@ services:
       timeout: 10s
       retries: 3
 
+  # 5.5. Admin API (Control Plane Management)
+  admin-api:
+    build:
+      context: ./admin-api
+    container_name: harikson-admin-api
+    restart: unless-stopped
+    ports:
+      - "4000:4000"
+    environment:
+      - DATABASE_URL=postgresql://neuravolt:neuravolt_dev_pwd@postgres:5432/neuravolt
+      - JWT_SECRET=super_secret_jwt_key
+      - PORT=4000
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - harikson-network
+    deploy:
+      resources:
+        limits:
+          memory: 512m
+
   # 6. Admin Panel (Next.js Dashboard)
   admin-panel:
     build:
