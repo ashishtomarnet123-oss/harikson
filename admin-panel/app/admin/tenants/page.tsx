@@ -208,6 +208,8 @@ export default function TenantManager() {
     } catch (e) {
       alert('Failed to suspend/activate tenant.');
     }
+  };
+
   // Generate API key
   const handleGenerateKey = async (e: React.FormEvent) => {
     e.preventDefault();
