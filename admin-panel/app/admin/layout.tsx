@@ -13,7 +13,8 @@ import {
   X,
   Cpu,
   Lock,
-  CreditCard
+  CreditCard,
+  Bot
 } from 'lucide-react';
 import { getCookie, deleteCookie } from 'cookies-next';
 
@@ -105,6 +106,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   const menuItems = [
     { name: 'Dashboard', path: '/admin/dashboard', icon: LayoutDashboard },
+    { name: 'Agents', path: '/admin/agents', icon: Bot },
     { name: 'Tenants', path: '/admin/tenants', icon: Users },
     { name: 'Billing', path: '/admin/billing/providers', icon: CreditCard },
     { name: 'Logs', path: '/admin/logs', icon: Terminal },

@@ -13,6 +13,7 @@ import crypto from 'crypto';
 import Stripe from 'stripe';
 import Razorpay from 'razorpay';
 import founderRouter from './routers/founder.js';
+import agentsRouter from './routers/agents.js';
 
 dotenv.config();
 
@@ -278,6 +279,80 @@ async function initDb() {
         ('HN', 'Another Qwen fine-tuner, not real AI', 'negative', 'Why not just use ChatGPT?')
       `);
     }
+    
+    // 7. AI Orchestration Phase 1 Tables
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS agents (
+          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE,
+          name TEXT NOT NULL,
+          description TEXT,
+          category TEXT,
+          version TEXT DEFAULT '1.0',
+          owner_id UUID REFERENCES users(id) ON DELETE SET NULL,
+          status TEXT DEFAULT 'active' CHECK (status IN ('active', 'archived', 'disabled')),
+          visibility TEXT DEFAULT 'private' CHECK (visibility IN ('private', 'tenant', 'public')),
+          
+          -- AI Config
+          model TEXT DEFAULT 'Qwen3-8B',
+          system_prompt TEXT,
+          temperature DECIMAL(3,2) DEFAULT 0.7,
+          top_p DECIMAL(3,2) DEFAULT 0.9,
+          max_tokens INT DEFAULT 2048,
+          context_length INT DEFAULT 8192,
+          reasoning_mode BOOLEAN DEFAULT false,
+          streaming_enabled BOOLEAN DEFAULT true,
+          function_calling BOOLEAN DEFAULT false,
+          vision_support BOOLEAN DEFAULT false,
+          
+          -- Memory
+          memory_enabled BOOLEAN DEFAULT true,
+          memory_limit INT DEFAULT 10,
+          session_timeout_minutes INT DEFAULT 30,
+          
+          -- Knowledge (will reference knowledge_bases)
+          knowledge_base_id UUID,
+          embedding_model TEXT DEFAULT 'sentence-transformers/all-MiniLM-L6-v2',
+          
+          -- Stats (auto-updated)
+          total_requests INT DEFAULT 0,
+          total_tokens BIGINT DEFAULT 0,
+          avg_response_time_ms INT,
+          success_rate DECIMAL(5,2),
+          error_rate DECIMAL(5,2),
+          last_used_at TIMESTAMPTZ,
+          
+          created_at TIMESTAMPTZ DEFAULT NOW(),
+          updated_at TIMESTAMPTZ DEFAULT NOW()
+      );
+
+      CREATE TABLE IF NOT EXISTS knowledge_bases (
+          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE,
+          name TEXT NOT NULL,
+          description TEXT,
+          status TEXT DEFAULT 'active',
+          total_documents INT DEFAULT 0,
+          storage_bytes BIGINT DEFAULT 0,
+          total_embeddings BIGINT DEFAULT 0,
+          last_sync_at TIMESTAMPTZ,
+          index_status TEXT DEFAULT 'pending' CHECK (index_status IN ('pending', 'indexing', 'completed', 'failed')),
+          created_at TIMESTAMPTZ DEFAULT NOW()
+      );
+
+      CREATE TABLE IF NOT EXISTS knowledge_documents (
+          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          knowledge_base_id UUID REFERENCES knowledge_bases(id) ON DELETE CASCADE,
+          filename TEXT,
+          file_type TEXT CHECK (file_type IN ('pdf', 'docx', 'txt', 'md', 'html', 'csv', 'xlsx', 'json', 'xml')),
+          file_size_bytes INT,
+          chunk_count INT,
+          embedding_count INT,
+          status TEXT DEFAULT 'pending' CHECK (status IN ('pending', 'processing', 'indexed', 'failed')),
+          error_message TEXT,
+          created_at TIMESTAMPTZ DEFAULT NOW()
+      );
+    `);
 
   } catch (err) {
     console.error('Failed to auto-migrate database tables:', err);
@@ -388,7 +463,44 @@ app.post('/admin/logout', (req, res) => {
 // PROTECTED ROUTES (Admin Authorization required)
 // ────────────────────────────────────────────────────────────
 app.use('/admin/founder', founderRouter); // Explicitly mount founder APIs
+app.use('/admin/agents', agentsRouter); // Mount agents APIs
 app.use('/admin', adminAuth);
+
+// 0. GET /admin/kpis
+app.get('/admin/kpis', async (req, res) => {
+  try {
+    const tenants = await pool.query("SELECT COUNT(*) FROM tenants WHERE status='active'");
+    const keys = await pool.query("SELECT COUNT(*) FROM tenant_api_keys WHERE status='active'");
+    const agents = await pool.query("SELECT COUNT(*) FROM agents WHERE status='active'");
+    const kbs = await pool.query("SELECT COUNT(*) FROM knowledge_bases");
+    
+    // For requests/tokens today, query messages table where created_at > CURRENT_DATE
+    const usage = await pool.query(`
+      SELECT COUNT(*) as requests, SUM(tokens_used) as tokens
+      FROM messages
+      WHERE created_at >= CURRENT_DATE
+    `);
+    
+    const revenue = await pool.query(`
+      SELECT SUM(amount) as revenue
+      FROM invoices
+      WHERE paid_at >= CURRENT_DATE AND status='paid'
+    `);
+
+    res.json({
+      activeTenants: parseInt(tenants.rows[0].count),
+      activeKeys: parseInt(keys.rows[0].count),
+      activeAgents: parseInt(agents.rows[0].count),
+      knowledgeBases: parseInt(kbs.rows[0].count),
+      requestsToday: parseInt(usage.rows[0].requests || 0),
+      tokensToday: parseInt(usage.rows[0].tokens || 0),
+      revenueToday: parseFloat(revenue.rows[0].revenue || 0)
+    });
+  } catch (err) {
+    console.error('Failed to get KPIs:', err);
+    res.status(500).json({ error: 'Failed to fetch KPIs' });
+  }
+});
 
 // 1. GET /admin/system-status
 app.get('/admin/system-status', async (req, res) => {

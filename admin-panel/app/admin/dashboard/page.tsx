@@ -15,6 +15,7 @@ import {
   X,
   Gauge
 } from 'lucide-react';
+import { Card, Metric, Text, Grid, Flex, BadgeDelta } from '@tremor/react';
 import { getCookie } from 'cookies-next';
 
 interface Metric {
@@ -36,6 +37,7 @@ interface StatusPayload {
 
 export default function SystemMonitor() {
   const [metrics, setMetrics] = useState<StatusPayload | null>(null);
+  const [kpis, setKpis] = useState<any>(null);
   const [cpuHistory, setCpuHistory] = useState<number[]>([12, 15, 10, 18, 14, 25, 20, 16, 22, 19, 15, 12]);
   const [apiBase, setApiBase] = useState('http://localhost:4008');
   const [loading, setLoading] = useState(true);
@@ -52,6 +54,22 @@ export default function SystemMonitor() {
     { id: '14b', name: 'Qwen3-14B', size: '14B', quant: 'AWQ', vram: '9GB', desc: 'Code-heavy tasks' },
     { id: '32b', name: 'Qwen3-32B', size: '32B', quant: 'AWQ', vram: '20GB', desc: 'Complex reasoning' },
   ];
+
+  // KPI polling
+  const fetchKpis = async () => {
+    const token = getCookie('admin_token') || localStorage.getItem('admin_token') || 'TEST_ADMIN_TOKEN';
+    try {
+      const res = await fetch(`${apiBase}/admin/kpis`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setKpis(data);
+      }
+    } catch (err) {
+      console.error('Failed to fetch KPIs', err);
+    }
+  };
 
   // System status polling (5 seconds interval)
   const fetchStatus = async (showLoad = false) => {
@@ -90,7 +108,11 @@ export default function SystemMonitor() {
 
   useEffect(() => {
     fetchStatus(true);
-    const interval = setInterval(() => fetchStatus(false), 5000);
+    fetchKpis();
+    const interval = setInterval(() => {
+      fetchStatus(false);
+      fetchKpis();
+    }, 5000);
     return () => clearInterval(interval);
   }, [apiBase]);
 
@@ -235,6 +257,64 @@ export default function SystemMonitor() {
           <X className="w-4 h-4" />
         </button>
       </div>
+
+      {/* Executive KPIs */}
+      {kpis && (
+        <div className="mb-8">
+          <h2 className="text-sm font-bold text-gray-500 uppercase tracking-widest mb-4">Executive KPIs</h2>
+          <Grid numItems={1} numItemsSm={2} numItemsLg={4} className="gap-6">
+            <Card className="bg-gray-900/40 border-gray-800/80" decoration="top" decorationColor="indigo">
+              <Text className="text-gray-400">Active Tenants</Text>
+              <Flex className="mt-2 items-baseline">
+                <Metric className="text-white">{kpis.activeTenants}</Metric>
+                <BadgeDelta deltaType="moderateIncrease">Stable</BadgeDelta>
+              </Flex>
+            </Card>
+            <Card className="bg-gray-900/40 border-gray-800/80" decoration="top" decorationColor="emerald">
+              <Text className="text-gray-400">Active API Keys</Text>
+              <Flex className="mt-2 items-baseline">
+                <Metric className="text-white">{kpis.activeKeys}</Metric>
+                <BadgeDelta deltaType="moderateIncrease">Stable</BadgeDelta>
+              </Flex>
+            </Card>
+            <Card className="bg-gray-900/40 border-gray-800/80" decoration="top" decorationColor="blue">
+              <Text className="text-gray-400">Active Agents</Text>
+              <Flex className="mt-2 items-baseline">
+                <Metric className="text-white">{kpis.activeAgents}</Metric>
+                <BadgeDelta deltaType="moderateIncrease">Stable</BadgeDelta>
+              </Flex>
+            </Card>
+            <Card className="bg-gray-900/40 border-gray-800/80" decoration="top" decorationColor="amber">
+              <Text className="text-gray-400">Knowledge Bases</Text>
+              <Flex className="mt-2 items-baseline">
+                <Metric className="text-white">{kpis.knowledgeBases}</Metric>
+                <BadgeDelta deltaType="unchanged">Stable</BadgeDelta>
+              </Flex>
+            </Card>
+            <Card className="bg-gray-900/40 border-gray-800/80" decoration="top" decorationColor="purple">
+              <Text className="text-gray-400">Requests Today</Text>
+              <Flex className="mt-2 items-baseline">
+                <Metric className="text-white">{kpis.requestsToday.toLocaleString()}</Metric>
+                <BadgeDelta deltaType="moderateIncrease">Active</BadgeDelta>
+              </Flex>
+            </Card>
+            <Card className="bg-gray-900/40 border-gray-800/80" decoration="top" decorationColor="fuchsia">
+              <Text className="text-gray-400">Tokens Today</Text>
+              <Flex className="mt-2 items-baseline">
+                <Metric className="text-white">{kpis.tokensToday > 1000000 ? (kpis.tokensToday / 1000000).toFixed(1) + 'M' : kpis.tokensToday.toLocaleString()}</Metric>
+                <BadgeDelta deltaType="moderateIncrease">Active</BadgeDelta>
+              </Flex>
+            </Card>
+            <Card className="bg-gray-900/40 border-gray-800/80" decoration="top" decorationColor="rose">
+              <Text className="text-gray-400">Revenue Today</Text>
+              <Flex className="mt-2 items-baseline">
+                <Metric className="text-white">₹{kpis.revenueToday.toLocaleString()}</Metric>
+                <BadgeDelta deltaType="moderateIncrease">Active</BadgeDelta>
+              </Flex>
+            </Card>
+          </Grid>
+        </div>
+      )}
 
       {/* Real-time Status Cards */}
       <section className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
