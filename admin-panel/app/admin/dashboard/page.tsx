@@ -48,9 +48,6 @@ export default function SystemMonitor() {
 
   // Available models (Qwen-only)
   const models = [
-    { id: '0.6b', name: 'Qwen3-0.6B', size: '0.6B', quant: 'Q4_0', vram: '500MB', desc: 'Router/classifier' },
-    { id: '1.7b', name: 'Qwen3-1.7B', size: '1.7B', quant: 'Q4_0', vram: '1.2GB', desc: 'Edge/light queries' },
-    { id: '4b', name: 'Qwen3-4B', size: '4B', quant: 'Q4_K_M', vram: '2.5GB', desc: 'Mobile/low-end' },
     { id: '8b', name: 'Qwen3-8B', size: '8B', quant: 'AWQ', vram: '6GB', desc: 'Primary workhorse' },
     { id: '14b', name: 'Qwen3-14B', size: '14B', quant: 'AWQ', vram: '9GB', desc: 'Code-heavy tasks' },
     { id: '32b', name: 'Qwen3-32B', size: '32B', quant: 'AWQ', vram: '20GB', desc: 'Complex reasoning' },
