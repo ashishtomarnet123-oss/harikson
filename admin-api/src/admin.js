@@ -280,6 +280,8 @@ async function initDb() {
     }
 
   } catch (err) {
+    console.error('Failed to auto-migrate database tables:', err);
+  }
 }
 initDb();
 
