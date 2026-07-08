@@ -98,7 +98,17 @@ export default function WorkflowsPage() {
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div className="space-y-3">
-          {workflows.map(wf => (
+          {workflows.length === 0 && (
+            <div className="flex flex-col items-center justify-center py-16 text-center border-2 border-dashed border-gray-800 rounded-2xl">
+              <GitBranch className="w-12 h-12 text-gray-700 mb-4" />
+              <h3 className="text-white font-bold text-lg mb-1">No Workflows Yet</h3>
+              <p className="text-gray-500 text-sm mb-6 max-w-xs">Create a workflow to orchestrate multi-step AI pipelines — triggered manually, on a schedule, or by events.</p>
+              <button onClick={() => setShowCreate(true)}
+                className="flex items-center gap-2 bg-orange-600 hover:bg-orange-700 text-white px-5 py-2.5 rounded-xl text-sm font-bold transition-colors">
+                <Plus className="w-4 h-4" /> Create Your First Workflow
+              </button>
+            </div>
+          )}
             <Card key={wf.id} onClick={() => setSelectedWf(wf)}
               className={`cursor-pointer border p-4 transition-all ${selectedWf?.id === wf.id ? 'bg-orange-900/20 border-orange-700' : 'bg-gray-900/40 border-gray-800 hover:border-gray-700'}`}>
               <Flex justifyContent="between" className="mb-2">

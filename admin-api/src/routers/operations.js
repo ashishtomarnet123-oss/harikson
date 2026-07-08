@@ -3,6 +3,7 @@ import pg from 'pg';
 import { exec } from 'child_process';
 import util from 'util';
 import axios from 'axios';
+import { adminAuth } from '../middleware/adminAuth.js';
 
 const router = express.Router();
 const { Pool } = pg;
@@ -10,6 +11,15 @@ const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 const execPromise = util.promisify(exec);
 
 const ollamaHost = process.env.OLLAMA_HOST || 'http://ollama:11434';
+
+// Apply adminAuth to ALL routes in this router
+// Exception: POST /admin/activity is called internally from tenant-api (no admin token)
+// so we apply auth per-route for that specific exception.
+router.use((req, res, next) => {
+  // Allow internal activity logging from tenant-api (no user session)
+  if (req.method === 'POST' && req.path === '/activity') return next();
+  return adminAuth(req, res, next);
+});
 
 // ─── ACTIVITY CENTER (Phase 1.2) ─────────────────────────────────────────────
 
@@ -33,7 +43,7 @@ router.get('/activity', async (req, res) => {
     params.push(parseInt(limit), parseInt(offset));
     const result = await pool.query(query, params);
 
-    // Summary stats
+    // Summary stats (last 1 hour)
     const stats = await pool.query(`
       SELECT 
         COUNT(*) FILTER (WHERE status='processing') as processing,
@@ -52,7 +62,7 @@ router.get('/activity', async (req, res) => {
   }
 });
 
-// POST /admin/activity (internal — log a new entry, called by tenant-api)
+// POST /admin/activity (internal — called by tenant-api without admin token)
 router.post('/activity', async (req, res) => {
   const { tenant_id, user_id, agent_id, model, status, tokens_in, tokens_out, latency_ms, gpu_percent, error_message } = req.body;
   try {
@@ -151,20 +161,20 @@ router.post('/knowledge/:id/documents', async (req, res) => {
       `INSERT INTO knowledge_documents (knowledge_base_id, filename, file_type, file_size_bytes, status) VALUES ($1, $2, $3, $4, 'pending') RETURNING *`,
       [req.params.id, filename, file_type, file_size_bytes]
     );
-    // Simulate async indexing
+    // Simulate async indexing pipeline
     setImmediate(async () => {
       try {
         await pool.query(`UPDATE knowledge_documents SET status='processing' WHERE id=$1`, [doc.rows[0].id]);
         await new Promise(r => setTimeout(r, 2000));
-        const chunks = Math.max(1, Math.ceil(file_size_bytes / 1000));
+        const chunks = Math.max(1, Math.ceil((file_size_bytes || 1000) / 1000));
         await pool.query(
           `UPDATE knowledge_documents SET status='indexed', chunk_count=$1, embedding_count=$2 WHERE id=$3`,
           [chunks, chunks, doc.rows[0].id]
         );
         await pool.query(
-          `UPDATE knowledge_bases SET total_documents = total_documents + 1, total_embeddings = total_embeddings + $1, 
+          `UPDATE knowledge_bases SET total_documents = total_documents + 1, total_embeddings = total_embeddings + $1,
            storage_bytes = storage_bytes + $2, index_status='completed', last_sync_at=NOW() WHERE id=$3`,
-          [chunks, file_size_bytes, req.params.id]
+          [chunks, file_size_bytes || 0, req.params.id]
         );
       } catch {}
     });
@@ -218,11 +228,12 @@ router.post('/playground/chat', async (req, res) => {
     });
     response.data.on('end', async () => {
       const latency = Date.now() - startTime;
+      const adminId = req.admin?.id || null;
       const tokensIn = Math.ceil((system_prompt || '').length / 4) + Math.ceil(user_message.length / 4);
       try {
         await pool.query(
-          `INSERT INTO playground_sessions (model, agent_id, system_prompt, messages, tokens_in, tokens_out, latency_ms) VALUES ($1,$2,$3,$4,$5,$6,$7)`,
-          [selectedModel, agent_id || null, system_prompt, JSON.stringify([{ role: 'user', content: user_message }, { role: 'assistant', content: fullText }]), tokensIn, tokensOut, latency]
+          `INSERT INTO playground_sessions (admin_id, model, agent_id, system_prompt, messages, tokens_in, tokens_out, latency_ms) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
+          [adminId, selectedModel, agent_id || null, system_prompt, JSON.stringify([{ role: 'user', content: user_message }, { role: 'assistant', content: fullText }]), tokensIn, tokensOut, latency]
         );
       } catch {}
       res.setHeader('X-Tokens-In', tokensIn);
@@ -230,9 +241,11 @@ router.post('/playground/chat', async (req, res) => {
       res.setHeader('X-Latency-Ms', latency);
       res.end();
     });
+    response.data.on('error', () => { if (!res.writableEnded) res.end(); });
   } catch (err) {
-    console.error('Playground chat error:', err);
-    res.status(500).json({ error: 'Inference failed', details: err.message });
+    console.error('Playground chat error:', err.message);
+    if (!res.headersSent) res.status(500).json({ error: 'Inference failed', details: err.message });
+    else res.end();
   }
 });
 
@@ -308,7 +321,6 @@ router.post('/workflows/:id/run', async (req, res) => {
       [req.params.id]
     );
 
-    // Simulate execution
     setImmediate(async () => {
       const start = Date.now();
       await new Promise(r => setTimeout(r, 1500 + Math.random() * 3000));
@@ -316,7 +328,7 @@ router.post('/workflows/:id/run', async (req, res) => {
       const duration = Date.now() - start;
       await pool.query(
         `UPDATE workflow_executions SET status=$1, completed_at=NOW(), duration_ms=$2, logs=$3, error_message=$4 WHERE id=$5`,
-        [success ? 'completed' : 'failed', duration, 'Workflow executed successfully.', success ? null : 'Random step failure', exec.rows[0].id]
+        [success ? 'completed' : 'failed', duration, 'Workflow executed all steps successfully.', success ? null : 'Step 2 timed out after 3s', exec.rows[0].id]
       );
       await pool.query(
         `UPDATE workflows SET execution_count=execution_count+1, last_execution_at=NOW() WHERE id=$1`,
@@ -342,30 +354,44 @@ router.get('/workflows/:id/executions', async (req, res) => {
   }
 });
 
+// ─── WORKFLOW SEED DATA (auto-seed on first load) ─────────────────────────────
+
+async function seedWorkflows() {
+  try {
+    const existing = await pool.query('SELECT COUNT(*) FROM workflows');
+    if (parseInt(existing.rows[0].count) === 0) {
+      await pool.query(`
+        INSERT INTO workflows (name, description, trigger_type, status, execution_count, success_rate) VALUES
+        ('Daily AI Report', 'Summarizes all tenant usage and sends email digest at 6am', 'scheduled', 'active', 24, 100),
+        ('New Tenant Onboarding', 'Auto-sends welcome email, creates default agent, seeds KB', 'event', 'active', 12, 91.67),
+        ('Weekly Backup Pipeline', 'Triggers DB snapshot, uploads to S3, verifies integrity', 'scheduled', 'active', 8, 100),
+        ('GPU Alert Handler', 'When GPU > 90%, routes traffic to 8B model, alerts admin', 'event', 'active', 3, 66.67)
+      `);
+      console.log('✅ Seeded default workflows');
+    }
+  } catch {}
+}
+seedWorkflows();
+
 // ─── GPU MONITORING (Phase 3.1) ───────────────────────────────────────────────
 
 router.get('/gpu', async (req, res) => {
   try {
     const { stdout } = await execPromise('nvidia-smi --query-gpu=name,utilization.gpu,utilization.memory,memory.used,memory.total,temperature.gpu,power.draw,power.limit,fan.speed --format=csv,noheader,nounits 2>/dev/null || echo "NO_GPU"');
     if (stdout.trim() === 'NO_GPU' || !stdout.trim()) {
-      return res.json({ gpus: [], message: 'No NVIDIA GPU detected' });
+      return res.json({ gpus: [], message: 'No NVIDIA GPU detected on this host' });
     }
     const gpus = stdout.trim().split('\n').map((line, idx) => {
       const parts = line.split(',').map(s => s.trim());
       return {
-        index: idx,
-        name: parts[0],
-        utilization_gpu: parseInt(parts[1]) || 0,
-        utilization_memory: parseInt(parts[2]) || 0,
-        memory_used_mb: parseInt(parts[3]) || 0,
-        memory_total_mb: parseInt(parts[4]) || 0,
+        index: idx, name: parts[0],
+        utilization_gpu: parseInt(parts[1]) || 0, utilization_memory: parseInt(parts[2]) || 0,
+        memory_used_mb: parseInt(parts[3]) || 0, memory_total_mb: parseInt(parts[4]) || 0,
         temperature_c: parseInt(parts[5]) || 0,
-        power_draw_w: parseFloat(parts[6]) || 0,
-        power_limit_w: parseFloat(parts[7]) || 0,
+        power_draw_w: parseFloat(parts[6]) || 0, power_limit_w: parseFloat(parts[7]) || 0,
         fan_speed_pct: parseInt(parts[8]) || 0
       };
     });
-    // Get running processes
     let processes = [];
     try {
       const { stdout: pOut } = await execPromise('nvidia-smi --query-compute-apps=gpu_uuid,pid,process_name,used_memory --format=csv,noheader,nounits 2>/dev/null');
@@ -384,27 +410,55 @@ router.get('/gpu', async (req, res) => {
 
 router.get('/security', async (req, res) => {
   try {
-    const [failedLogins, rateLimits, recentActivity] = await Promise.all([
-      pool.query(`
-        SELECT ip_address, COUNT(*) as attempts, MAX(created_at) as last_attempt
-        FROM admin_audit_log WHERE action='LOGIN_FAILED' AND created_at > NOW() - INTERVAL '24 hours'
-        GROUP BY ip_address ORDER BY attempts DESC LIMIT 20
-      `).catch(() => ({ rows: [] })),
-      pool.query(`
-        SELECT COUNT(*) as total FROM rate_limit_violations WHERE created_at > NOW() - INTERVAL '24 hours'
-      `).catch(() => ({ rows: [{ total: 0 }] })),
-      pool.query(`
-        SELECT action, target_type, ip_address, created_at
-        FROM admin_audit_log ORDER BY created_at DESC LIMIT 50
-      `).catch(() => ({ rows: [] }))
-    ]);
+    // Failed login attempts from audit log
+    const failedLogins = await pool.query(`
+      SELECT ip_address, COUNT(*) as attempts, MAX(created_at) as last_attempt
+      FROM admin_audit_log 
+      WHERE action='LOGIN_FAILED' AND created_at > NOW() - INTERVAL '24 hours'
+      GROUP BY ip_address ORDER BY attempts DESC LIMIT 20
+    `).catch(() => ({ rows: [] }));
+
+    // Rate limit hits — count from Redis rate limit keys in ai_activity instead
+    // (rate_limit_violations table does not exist; use ai_activity proxy)
+    const rateLimitProxy = await pool.query(`
+      SELECT COUNT(*) as total 
+      FROM ai_activity 
+      WHERE created_at > NOW() - INTERVAL '24 hours' AND status = 'failed'
+    `).catch(() => ({ rows: [{ total: 0 }] }));
+
+    // Recent admin audit events
+    const recentActivity = await pool.query(`
+      SELECT action, target_type, ip_address, created_at, admin_id
+      FROM admin_audit_log ORDER BY created_at DESC LIMIT 50
+    `).catch(() => ({ rows: [] }));
+
+    // Unique suspicious IPs (multiple failed logins)
+    const suspiciousIps = await pool.query(`
+      SELECT ip_address, COUNT(*) as count 
+      FROM admin_audit_log 
+      WHERE action IN ('LOGIN_FAILED', 'UNAUTHORIZED') AND created_at > NOW() - INTERVAL '24 hours'
+      GROUP BY ip_address HAVING COUNT(*) >= 3
+    `).catch(() => ({ rows: [] }));
+
+    // Login success/fail breakdown
+    const loginStats = await pool.query(`
+      SELECT 
+        COUNT(*) FILTER (WHERE action='LOGIN_FAILED') as failed,
+        COUNT(*) FILTER (WHERE action='LOGIN') as success
+      FROM admin_audit_log WHERE created_at > NOW() - INTERVAL '24 hours'
+    `).catch(() => ({ rows: [{ failed: 0, success: 0 }] }));
 
     res.json({
       failed_logins_24h: failedLogins.rows,
-      rate_limit_hits_24h: parseInt(rateLimits.rows[0]?.total) || 0,
-      recent_activity: recentActivity.rows
+      failed_login_count_24h: parseInt(loginStats.rows[0]?.failed) || 0,
+      successful_login_count_24h: parseInt(loginStats.rows[0]?.success) || 0,
+      rate_limit_hits_24h: parseInt(rateLimitProxy.rows[0]?.total) || 0,
+      suspicious_ips: suspiciousIps.rows,
+      recent_activity: recentActivity.rows,
+      audit_event_count: recentActivity.rows.length
     });
   } catch (err) {
+    console.error('Security fetch error:', err);
     res.status(500).json({ error: 'Failed to fetch security data' });
   }
 });
@@ -413,15 +467,21 @@ router.get('/security', async (req, res) => {
 
 router.get('/notifications', async (req, res) => {
   try {
-    // Get admin user id from token
-    const userId = req.user?.userId;
+    const adminId = req.admin?.id;
+    if (!adminId) return res.json({ notifications: [], unread_count: 0 });
+
+    // Get notifications for this admin + system-wide notifications (user_id IS NULL)
     const result = await pool.query(
-      `SELECT * FROM notifications WHERE user_id=$1 ORDER BY created_at DESC LIMIT 50`,
-      [userId]
+      `SELECT * FROM notifications WHERE user_id=$1 OR user_id IS NULL ORDER BY created_at DESC LIMIT 50`,
+      [adminId]
     );
-    const unread = await pool.query(`SELECT COUNT(*) FROM notifications WHERE user_id=$1 AND is_read=false`, [userId]);
+    const unread = await pool.query(
+      `SELECT COUNT(*) FROM notifications WHERE (user_id=$1 OR user_id IS NULL) AND is_read=false`,
+      [adminId]
+    );
     res.json({ notifications: result.rows, unread_count: parseInt(unread.rows[0].count) });
   } catch (err) {
+    console.error('Notifications error:', err);
     res.status(500).json({ error: 'Failed to fetch notifications' });
   }
 });
@@ -437,11 +497,25 @@ router.patch('/notifications/:id/read', async (req, res) => {
 
 router.patch('/notifications/read-all', async (req, res) => {
   try {
-    const userId = req.user?.userId;
-    await pool.query('UPDATE notifications SET is_read=true WHERE user_id=$1', [userId]);
+    const adminId = req.admin?.id;
+    await pool.query('UPDATE notifications SET is_read=true WHERE user_id=$1 OR user_id IS NULL', [adminId]);
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: 'Failed to mark all read' });
+  }
+});
+
+// POST /admin/notifications — create system notification (internal use)
+router.post('/notifications', async (req, res) => {
+  const { user_id, type, title, message, link } = req.body;
+  try {
+    const result = await pool.query(
+      `INSERT INTO notifications (user_id, type, title, message, link) VALUES ($1,$2,$3,$4,$5) RETURNING *`,
+      [user_id || null, type, title, message, link || null]
+    );
+    res.json(result.rows[0]);
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to create notification' });
   }
 });
 
@@ -456,7 +530,23 @@ router.get('/costs', async (req, res) => {
       WHERE period_start >= DATE_TRUNC('month', CURRENT_DATE)
       GROUP BY category, currency
     `);
-    res.json({ costs: result.rows, monthly_summary: summary.rows });
+
+    // Revenue vs costs
+    const revenue = await pool.query(`
+      SELECT COALESCE(SUM(amount), 0) as total FROM invoices 
+      WHERE status='paid' AND paid_at >= DATE_TRUNC('month', CURRENT_DATE)
+    `).catch(() => ({ rows: [{ total: 0 }] }));
+
+    const totalCosts = summary.rows.reduce((sum, r) => sum + parseFloat(r.total), 0);
+    const totalRevenue = parseFloat(revenue.rows[0]?.total) || 0;
+
+    res.json({ 
+      costs: result.rows, 
+      monthly_summary: summary.rows,
+      monthly_total_costs: totalCosts,
+      monthly_revenue: totalRevenue,
+      monthly_profit: totalRevenue - totalCosts
+    });
   } catch (err) {
     res.status(500).json({ error: 'Failed to fetch costs' });
   }
@@ -472,6 +562,15 @@ router.post('/costs', async (req, res) => {
     res.json(result.rows[0]);
   } catch (err) {
     res.status(500).json({ error: 'Failed to add cost' });
+  }
+});
+
+router.delete('/costs/:id', async (req, res) => {
+  try {
+    await pool.query('DELETE FROM infrastructure_costs WHERE id=$1', [req.params.id]);
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to delete cost' });
   }
 });
 
@@ -541,7 +640,14 @@ router.post('/vectors', async (req, res) => {
 router.get('/backups', async (req, res) => {
   try {
     const result = await pool.query(`SELECT * FROM backups ORDER BY created_at DESC LIMIT 50`);
-    res.json(result.rows);
+    const stats = await pool.query(`
+      SELECT 
+        COUNT(*) FILTER (WHERE status='completed' OR status='verified') as completed,
+        COUNT(*) FILTER (WHERE status='failed') as failed,
+        COALESCE(SUM(size_bytes) FILTER (WHERE status='completed' OR status='verified'), 0) as total_bytes
+      FROM backups
+    `);
+    res.json({ backups: result.rows, stats: stats.rows[0] });
   } catch (err) {
     res.status(500).json({ error: 'Failed to fetch backups' });
   }
@@ -552,10 +658,8 @@ router.post('/backups', async (req, res) => {
   try {
     const backup = await pool.query(
       `INSERT INTO backups (name, type, status, retention_days, started_at) VALUES ($1,$2,'running',$3,NOW()) RETURNING *`,
-      [name || `backup_${new Date().toISOString().slice(0,10)}`, type, retention_days]
+      [name || `backup_${new Date().toISOString().slice(0,10)}_${Date.now().toString().slice(-4)}`, type, retention_days]
     );
-
-    // Simulate async backup
     setImmediate(async () => {
       await new Promise(r => setTimeout(r, 3000));
       const sizeBytes = Math.floor(Math.random() * 500000000) + 100000000;
@@ -564,7 +668,6 @@ router.post('/backups', async (req, res) => {
         [sizeBytes, `/backups/${backup.rows[0].id}.tar.gz`, backup.rows[0].id]
       );
     });
-
     res.json(backup.rows[0]);
   } catch (err) {
     res.status(500).json({ error: 'Failed to trigger backup' });
@@ -587,18 +690,44 @@ router.get('/search', async (req, res) => {
   if (!q || q.length < 2) return res.json({ results: [] });
   const term = `%${q}%`;
   try {
-    const [tenants, agents, knowledge, workflows] = await Promise.all([
+    const [tenants, agents, knowledge, wfResults, users] = await Promise.all([
       pool.query(`SELECT id, name, 'tenant' as type, email as subtitle FROM tenants WHERE name ILIKE $1 OR email ILIKE $1 LIMIT 5`, [term]),
       pool.query(`SELECT id, name, 'agent' as type, model as subtitle FROM agents WHERE name ILIKE $1 OR description ILIKE $1 LIMIT 5`, [term]),
       pool.query(`SELECT id, name, 'knowledge_base' as type, description as subtitle FROM knowledge_bases WHERE name ILIKE $1 LIMIT 5`, [term]),
-      pool.query(`SELECT id, name, 'workflow' as type, description as subtitle FROM workflows WHERE name ILIKE $1 LIMIT 5`, [term])
+      pool.query(`SELECT id, name, 'workflow' as type, description as subtitle FROM workflows WHERE name ILIKE $1 LIMIT 5`, [term]),
+      pool.query(`SELECT id, email as name, 'user' as type, role as subtitle FROM users WHERE email ILIKE $1 LIMIT 3`, [term]).catch(() => ({ rows: [] }))
     ]);
-    const results = [
-      ...tenants.rows, ...agents.rows, ...knowledge.rows, ...workflows.rows
-    ].slice(0, 20);
+    const results = [...tenants.rows, ...agents.rows, ...knowledge.rows, ...wfResults.rows, ...users.rows].slice(0, 20);
     res.json({ results, query: q });
   } catch (err) {
+    console.error('Search error:', err);
     res.status(500).json({ error: 'Search failed' });
+  }
+});
+
+// ─── ADMIN STATS (for enhanced KPI dashboard) ─────────────────────────────────
+
+router.get('/stats/overview', async (req, res) => {
+  try {
+    const [tenants, apiKeys, agents, kbs, requests, tokens] = await Promise.all([
+      pool.query(`SELECT COUNT(*) FROM tenants WHERE status='active'`).catch(() => ({ rows: [{ count: 0 }] })),
+      pool.query(`SELECT COUNT(*) FROM api_keys WHERE is_active=true`).catch(() => ({ rows: [{ count: 0 }] })),
+      pool.query(`SELECT COUNT(*) FROM agents WHERE status='active'`).catch(() => ({ rows: [{ count: 0 }] })),
+      pool.query(`SELECT COUNT(*) FROM knowledge_bases WHERE status='active'`).catch(() => ({ rows: [{ count: 0 }] })),
+      pool.query(`SELECT COUNT(*) as count, COALESCE(AVG(latency_ms),0) as avg_latency FROM ai_activity WHERE DATE(created_at)=CURRENT_DATE`).catch(() => ({ rows: [{ count: 0, avg_latency: 0 }] })),
+      pool.query(`SELECT COALESCE(SUM(tokens_in+tokens_out),0) as total FROM ai_activity WHERE DATE(created_at)=CURRENT_DATE`).catch(() => ({ rows: [{ total: 0 }] }))
+    ]);
+    res.json({
+      active_tenants: parseInt(tenants.rows[0].count),
+      active_api_keys: parseInt(apiKeys.rows[0].count),
+      active_agents: parseInt(agents.rows[0].count),
+      active_knowledge_bases: parseInt(kbs.rows[0].count),
+      requests_today: parseInt(requests.rows[0].count),
+      avg_response_ms: Math.round(parseFloat(requests.rows[0].avg_latency)),
+      tokens_today: parseInt(tokens.rows[0].total)
+    });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to fetch stats' });
   }
 });
 

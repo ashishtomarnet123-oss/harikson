@@ -5,6 +5,12 @@ import { Terminal, Send, RotateCcw, ChevronDown, Zap, Clock, Hash } from 'lucide
 import { getCookie } from 'cookies-next';
 
 const MODELS = ['harikson-plus', 'Qwen3-8B', 'Qwen3-14B', 'Qwen3-32B'];
+const MODEL_LABELS: Record<string, string> = {
+  'harikson-plus': 'Harikson Plus (Default)',
+  'Qwen3-8B': 'Qwen3-8B · Fast',
+  'Qwen3-14B': 'Qwen3-14B · Balanced',
+  'Qwen3-32B': 'Qwen3-32B · Powerful',
+};
 
 export default function Playground() {
   const [model, setModel] = useState('harikson-plus');
@@ -84,9 +90,10 @@ export default function Playground() {
             <h3 className="text-xs font-bold text-gray-500 uppercase tracking-widest border-b border-gray-800 pb-2">Model Settings</h3>
             <div>
               <label className="text-xs text-gray-400 mb-1.5 block font-semibold">LLM Engine</label>
-              <Select value={model} onValueChange={setModel}>
-                {MODELS.map(m => <SelectItem key={m} value={m}>{m}</SelectItem>)}
-              </Select>
+              <select value={model} onChange={e => setModel(e.target.value)}
+                className="w-full bg-gray-950 border border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-200 focus:outline-none focus:border-emerald-500">
+                {MODELS.map(m => <option key={m} value={m}>{MODEL_LABELS[m] || m}</option>)}
+              </select>
             </div>
             <div>
               <label className="text-xs text-gray-400 mb-1 block font-semibold">Temperature: {temperature}</label>
