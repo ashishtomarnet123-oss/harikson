@@ -19,7 +19,8 @@ const ollamaHost = process.env.OLLAMA_HOST || 'http://localhost:11434';
 // Express Setup
 app.use(cors({
   origin: true,
-  credentials: true
+  credentials: true,
+  exposedHeaders: ['x-conversation-id', 'X-Conversation-Id']
 }));
 app.use(express.json());
 
