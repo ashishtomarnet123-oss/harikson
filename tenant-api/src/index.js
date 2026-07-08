@@ -426,6 +426,46 @@ app.post('/api/auth/login', async (req, res) => {
   }
 });
 
+// 6b. POST /api/auth/register
+app.post('/api/auth/register', async (req, res) => {
+  const { name, email, password } = req.body;
+  if (!email || !password) {
+    return res.status(400).json({ error: 'Email and password are required' });
+  }
+  if (password.length < 8) {
+    return res.status(400).json({ error: 'Password must be at least 8 characters' });
+  }
+  try {
+    // Check if email already exists in this tenant
+    const existing = await pool.query(
+      'SELECT id FROM users WHERE email = $1 AND tenant_id = $2',
+      [email, req.tenant.id]
+    );
+    if (existing.rows.length > 0) {
+      return res.status(409).json({ error: 'An account with this email already exists' });
+    }
+
+    const passwordHash = await bcrypt.hash(password, 10);
+    const newUser = await executeTenantQuery(req.tenant.id, async (client) => {
+      const result = await client.query(
+        `INSERT INTO users (tenant_id, email, password_hash, role)
+         VALUES ($1, $2, $3, 'user') RETURNING id, email, role`,
+        [req.tenant.id, email, passwordHash]
+      );
+      return result.rows[0];
+    });
+
+    const token = jwt.sign({ userId: newUser.id, role: newUser.role }, jwtSecret, { expiresIn: '7d' });
+    res.status(201).json({
+      token,
+      user: { id: newUser.id, email: newUser.email, role: newUser.role, name: name || email.split('@')[0], tenantSlug: req.tenant.slug }
+    });
+  } catch (err) {
+    console.error('Register error:', err);
+    res.status(500).json({ error: 'Registration failed' });
+  }
+});
+
 // 7. GET /api/auth/me
 app.get('/api/auth/me', authMiddleware, (req, res) => {
   res.json({
