@@ -6,17 +6,34 @@ const pool = new Pool({
   connectionString: process.env.DATABASE_URL
 });
 
+const parseCookie = (cookieHeader, key) => {
+  if (!cookieHeader) return null;
+  const match = cookieHeader.match(new RegExp('(^| )' + key + '=([^;]+)'));
+  return match ? match[2] : null;
+};
+
 export const adminAuth = async (req, res, next) => {
   try {
+    let token = null;
+
+    // 1. Try to get token from Authorization header
     const authHeader = req.headers.authorization;
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      token = authHeader.split(' ')[1];
+    }
+
+    // 2. Try to get token from Cookies
+    if (!token && req.headers.cookie) {
+      token = parseCookie(req.headers.cookie, 'admin_token');
+    }
+
+    if (!token) {
       return res.status(401).json({ error: 'Access Denied: No token provided' });
     }
 
-    const token = authHeader.split(' ')[1];
     const jwtSecret = process.env.JWT_SECRET || 'super_secret_jwt_key';
-    
     let decoded;
+
     if (token === 'TEST_ADMIN_TOKEN' || token === 'TEST_TOKEN') {
       decoded = { userId: '00000000-0000-0000-0000-000000000001', role: 'superadmin' };
     } else {
@@ -28,17 +45,17 @@ export const adminAuth = async (req, res, next) => {
     }
 
     // Verify user exists and check role in users table
-    const result = await pool.query('SELECT id, role FROM users WHERE id = $1', [decoded.userId]);
+    const result = await pool.query('SELECT id, role, email FROM users WHERE id = $1', [decoded.userId]);
     if (result.rows.length === 0) {
       return res.status(401).json({ error: 'Access Denied: User not found' });
     }
 
     const user = result.rows[0];
-    if (user.role !== 'superadmin') {
-      return res.status(403).json({ error: 'Access Denied: Superadmin privilege required' });
+    if (user.role !== 'admin' && user.role !== 'superadmin') {
+      return res.status(403).json({ error: 'Access Denied: Admin privilege required' });
     }
 
-    req.admin = { id: user.id, role: user.role };
+    req.admin = { id: user.id, role: user.role, email: user.email };
     next();
   } catch (err) {
     console.error('Admin Auth Middleware error:', err);
