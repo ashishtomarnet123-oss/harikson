@@ -12,7 +12,8 @@ import {
   Menu, 
   X,
   Cpu,
-  Lock
+  Lock,
+  CreditCard
 } from 'lucide-react';
 import { getCookie, deleteCookie } from 'cookies-next';
 
