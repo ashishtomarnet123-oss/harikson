@@ -200,7 +200,7 @@ export default function SystemMonitor() {
     return { level: 'green', message: 'All VM control nodes and vLLM runtimes are operating normally.' };
   };
 
-  const alert = getSystemAlerts();
+  const systemAlert = getSystemAlerts();
 
   if (loading && !metrics) {
     return (
@@ -224,15 +224,15 @@ export default function SystemMonitor() {
     <div className="space-y-8">
       {/* Alert Banner */}
       <div className={`p-4 rounded-xl border flex items-center justify-between transition-all ${
-        alert.level === 'red' 
+        systemAlert.level === 'red' 
           ? 'bg-red-950/20 border-red-900/30 text-red-400' 
-          : alert.level === 'yellow' 
+          : systemAlert.level === 'yellow' 
             ? 'bg-yellow-950/20 border-yellow-900/30 text-yellow-400' 
             : 'bg-green-950/20 border-green-900/30 text-green-400'
       }`}>
         <div className="flex items-center gap-3 text-sm font-semibold">
-          {alert.level === 'green' ? <CheckCircle className="w-5 h-5" /> : <AlertTriangle className="w-5 h-5" />}
-          <span>{alert.message}</span>
+          {systemAlert.level === 'green' ? <CheckCircle className="w-5 h-5" /> : <AlertTriangle className="w-5 h-5" />}
+          <span>{systemAlert.message}</span>
         </div>
         <button className="p-1 hover:bg-gray-800/40 rounded">
           <X className="w-4 h-4" />
