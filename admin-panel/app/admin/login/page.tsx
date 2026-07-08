@@ -59,31 +59,31 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-950 flex items-center justify-center relative overflow-hidden font-sans">
-      {/* Decorative Orbs */}
-      <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] bg-indigo-900/10 rounded-full blur-[120px]" />
-      <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] bg-purple-900/10 rounded-full blur-[120px]" />
-
-      <div className="w-full max-w-md p-8 bg-gray-900/40 border border-gray-800/80 backdrop-blur-xl rounded-2xl shadow-2xl relative z-10">
-        <div className="flex flex-col items-center mb-8">
-          <div className="w-12 h-12 bg-indigo-600/10 border border-indigo-500/20 rounded-xl flex items-center justify-center mb-3">
-            <Cpu className="w-6 h-6 text-indigo-500" />
+    <div className="min-h-screen bg-slate-50 flex items-center justify-center font-sans p-4">
+      <div className="w-full max-w-md p-10 bg-white border border-slate-200 rounded-3xl shadow-2xl relative z-10">
+        
+        {/* Logo and Header */}
+        <div className="flex flex-col items-center mb-10">
+          <div className="w-14 h-14 bg-white border-2 border-blue-100 rounded-2xl flex items-center justify-center mb-6 shadow-sm">
+            <Cpu className="w-7 h-7 text-blue-600" />
           </div>
-          <h1 className="text-xl font-extrabold text-white tracking-wider">HARIKSON CONTROL PLANE</h1>
-          <p className="text-xs text-gray-500 mt-1 uppercase font-bold tracking-wider">Administrator Authentication</p>
+          <h1 className="text-xl font-black text-slate-900 tracking-wide">HARIKSON CONTROL PLANE</h1>
+          <p className="text-[11px] text-slate-500 mt-2 uppercase font-bold tracking-widest">Administrator Authentication</p>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-5">
+        <form onSubmit={handleSubmit} className="space-y-6">
+          
+          {/* Email Input */}
           <div>
-            <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">
+            <label className="block text-[11px] font-bold text-slate-600 uppercase tracking-widest mb-2">
               Email Address
             </label>
-            <div className="relative">
-              <Mail className="absolute left-3.5 top-3 w-4.5 h-4.5 text-gray-500" />
+            <div className="relative flex items-center">
+              <Mail className="absolute left-4 w-5 h-5 text-slate-400 pointer-events-none" />
               <input
                 type="email"
                 required
-                className="w-full pl-11 pr-4 py-2.5 bg-gray-950/60 border border-gray-800 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 text-sm rounded-xl text-white outline-none transition-all"
+                className="w-full pl-12 pr-4 py-3 bg-slate-50 border border-slate-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 text-sm rounded-xl text-slate-900 outline-none transition-all placeholder:text-slate-400"
                 placeholder="admin@harikson.ai"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
@@ -91,16 +91,17 @@ export default function LoginPage() {
             </div>
           </div>
 
+          {/* Password Input */}
           <div>
-            <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">
+            <label className="block text-[11px] font-bold text-slate-600 uppercase tracking-widest mb-2">
               Password
             </label>
-            <div className="relative">
-              <Lock className="absolute left-3.5 top-3 w-4.5 h-4.5 text-gray-500" />
+            <div className="relative flex items-center">
+              <Lock className="absolute left-4 w-5 h-5 text-slate-400 pointer-events-none" />
               <input
                 type="password"
                 required
-                className="w-full pl-11 pr-4 py-2.5 bg-gray-950/60 border border-gray-800 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 text-sm rounded-xl text-white outline-none transition-all"
+                className="w-full pl-12 pr-4 py-3 bg-slate-50 border border-slate-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 text-sm rounded-xl text-slate-900 outline-none transition-all placeholder:text-slate-400"
                 placeholder="••••••••"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
@@ -108,23 +109,26 @@ export default function LoginPage() {
             </div>
           </div>
 
+          {/* Error Message */}
           {error && (
-            <div className="flex items-center gap-2 p-3 bg-red-950/20 border border-red-900/30 rounded-xl text-xs text-red-400">
-              <AlertCircle className="w-4 h-4 flex-shrink-0" />
-              <span>{error}</span>
+            <div className="flex items-center gap-3 p-4 bg-red-50 border border-red-100 rounded-xl text-sm text-red-600">
+              <AlertCircle className="w-5 h-5 flex-shrink-0" />
+              <span className="font-medium">{error}</span>
             </div>
           )}
 
+          {/* Submit Button */}
           <button
             type="submit"
             disabled={loading}
-            className="w-full py-3 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white text-sm font-bold rounded-xl shadow-lg shadow-indigo-600/10 transition-all flex items-center justify-center gap-2"
+            className="w-full py-3.5 bg-blue-500 hover:bg-blue-600 disabled:opacity-50 text-white text-sm font-bold rounded-xl shadow-lg shadow-blue-500/30 transition-all flex items-center justify-center gap-2 mt-2"
           >
             {loading ? 'Authenticating...' : 'Sign In to Dashboard'}
           </button>
         </form>
 
-        <p className="text-[10px] text-gray-600 text-center mt-6 uppercase tracking-wider font-bold">
+        {/* Footer */}
+        <p className="text-[11px] text-slate-600 text-center mt-10 uppercase tracking-widest font-bold">
           Harikson AI · Secure Control Panel
         </p>
       </div>
