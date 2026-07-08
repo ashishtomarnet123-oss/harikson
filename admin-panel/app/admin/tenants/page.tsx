@@ -66,6 +66,7 @@ interface WebhookLog {
   tenant_name: string;
   payload: any;
   created_at: string;
+  signature_verified: boolean;
 }
 
 export default function TenantManager() {
