@@ -118,7 +118,7 @@ export default function BackupsPage() {
                       <button onClick={() => verifyBackup(b.id)} className="text-xs text-blue-400 hover:text-blue-300 transition-colors">Verify</button>
                     )}
                     {b.status === 'verified' && <Check className="w-4 h-4 text-emerald-400" />}
-                    {b.error_message && <AlertTriangle className="w-4 h-4 text-red-400" title={b.error_message} />}
+                    {b.error_message && <span title={b.error_message}><AlertTriangle className="w-4 h-4 text-red-400" /></span>}
                   </div>
                 </td>
               </tr>
