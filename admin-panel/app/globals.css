@@ -153,7 +153,7 @@ input, select, textarea {
   border: 1px solid var(--border-color) !important;
   color: var(--text-primary) !important;
   border-radius: 12px !important;
-  padding: 10px 14px !important;
+  padding: 10px 14px;
   outline: none !important;
   transition: border-color 150ms ease-in-out !important;
 }
