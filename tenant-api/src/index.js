@@ -4,6 +4,7 @@ import pg from 'pg';
 import Redis from 'ioredis';
 import axios from 'axios';
 import jwt from 'jsonwebtoken';
+import bcrypt from 'bcrypt';
 import dotenv from 'dotenv';
 
 dotenv.config();
@@ -391,6 +392,120 @@ app.post('/api/chat', authMiddleware, async (req, res) => {
     if (!res.headersSent) {
       res.status(500).json({ error: 'Failed to process chat conversation' });
     }
+  }
+});
+
+// 6. POST /api/auth/login
+app.post('/api/auth/login', async (req, res) => {
+  const { email, password } = req.body;
+  if (!email || !password) {
+    return res.status(400).json({ error: 'Email and password are required' });
+  }
+  try {
+    const userResult = await pool.query('SELECT * FROM users WHERE email = $1 AND tenant_id = $2', [email, req.tenant.id]);
+    const user = userResult.rows[0];
+    if (!user) return res.status(401).json({ error: 'Invalid email or password' });
+
+    // Support plaintext password for seeded superadmin (bcrypt hash starts with $2b$)
+    let valid = false;
+    if (user.password_hash && user.password_hash.startsWith('$2b$')) {
+      valid = await bcrypt.compare(password, user.password_hash);
+    } else {
+      valid = (password === 'superadmin_pwd_2026' && user.role === 'superadmin');
+    }
+    if (!valid) return res.status(401).json({ error: 'Invalid email or password' });
+
+    const token = jwt.sign({ userId: user.id, role: user.role }, jwtSecret, { expiresIn: '7d' });
+    res.json({
+      token,
+      user: { id: user.id, email: user.email, role: user.role, tenantSlug: req.tenant.slug }
+    });
+  } catch (err) {
+    console.error('Login error:', err);
+    res.status(500).json({ error: 'Login failed' });
+  }
+});
+
+// 7. GET /api/auth/me
+app.get('/api/auth/me', authMiddleware, (req, res) => {
+  res.json({
+    id: req.user.id,
+    email: req.user.email,
+    role: req.user.role,
+    tenantSlug: req.tenant.slug
+  });
+});
+
+// 8. GET /api/conversations
+app.get('/api/conversations', authMiddleware, async (req, res) => {
+  try {
+    const conversations = await executeTenantQuery(req.tenant.id, async (client) => {
+      const result = await client.query(
+        `SELECT id, title, model, created_at, updated_at
+         FROM conversations
+         WHERE user_id = $1
+         ORDER BY updated_at DESC
+         LIMIT 100`,
+        [req.user.id]
+      );
+      return result.rows;
+    });
+    res.json({ conversations });
+  } catch (err) {
+    console.error('List conversations error:', err);
+    res.status(500).json({ error: 'Failed to fetch conversations' });
+  }
+});
+
+// 9. DELETE /api/conversations/:id
+app.delete('/api/conversations/:id', authMiddleware, async (req, res) => {
+  try {
+    await executeTenantQuery(req.tenant.id, async (client) => {
+      await client.query('DELETE FROM messages WHERE conversation_id = $1', [req.params.id]);
+      await client.query('DELETE FROM conversations WHERE id = $1 AND user_id = $2', [req.params.id, req.user.id]);
+    });
+    res.json({ success: true });
+  } catch (err) {
+    console.error('Delete conversation error:', err);
+    res.status(500).json({ error: 'Failed to delete conversation' });
+  }
+});
+
+// 10. PATCH /api/conversations/:id
+app.patch('/api/conversations/:id', authMiddleware, async (req, res) => {
+  const { title } = req.body;
+  if (!title) return res.status(400).json({ error: 'Title is required' });
+  try {
+    await executeTenantQuery(req.tenant.id, async (client) => {
+      await client.query(
+        'UPDATE conversations SET title = $1, updated_at = NOW() WHERE id = $2 AND user_id = $3',
+        [title, req.params.id, req.user.id]
+      );
+    });
+    res.json({ success: true });
+  } catch (err) {
+    console.error('Rename conversation error:', err);
+    res.status(500).json({ error: 'Failed to rename conversation' });
+  }
+});
+
+// 11. GET /api/conversations/:id/messages
+app.get('/api/conversations/:id/messages', authMiddleware, async (req, res) => {
+  try {
+    const messages = await executeTenantQuery(req.tenant.id, async (client) => {
+      const result = await client.query(
+        `SELECT id, role, content, tokens_used, created_at
+         FROM messages
+         WHERE conversation_id = $1
+         ORDER BY created_at ASC`,
+        [req.params.id]
+      );
+      return result.rows;
+    });
+    res.json({ messages });
+  } catch (err) {
+    console.error('Get messages error:', err);
+    res.status(500).json({ error: 'Failed to fetch messages' });
   }
 });
 

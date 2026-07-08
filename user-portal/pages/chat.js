@@ -1,401 +1,525 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
+import { useRouter } from 'next/router';
+import Head from 'next/head';
 
-const renderMessageText = (text) => {
-  if (!text) return null;
-  
-  // Split text by code blocks (```)
-  const parts = text.split(/(```[\s\S]*?```)/g);
-  
-  return parts.map((part, index) => {
-    if (part.startsWith('```') && part.endsWith('```')) {
-      // Extract language and code content
-      const lines = part.slice(3, -3).trim().split('\n');
-      let language = 'code';
-      let codeContent = lines.join('\n');
-      
-      // If first line has no spaces and is short, treat as language identifier
-      if (lines[0] && !lines[0].includes(' ') && lines[0].length < 15) {
-        language = lines[0];
-        codeContent = lines.slice(1).join('\n');
-      }
-      
-      return (
-        <div key={index} style={{ margin: '12px 0', width: '100%', borderRadius: '6px', overflow: 'hidden', boxShadow: '0 2px 5px rgba(0,0,0,0.15)' }}>
-          <div style={{
-            backgroundColor: '#2d3139',
-            color: '#c5c9db',
-            padding: '6px 14px',
-            fontSize: '0.75rem',
-            textTransform: 'uppercase',
-            fontFamily: 'SFMono-Regular, Consolas, "Liberation Mono", Menlo, monospace',
-            fontWeight: 'bold',
-            display: 'flex',
-            justifyContent: 'space-between',
-            borderBottom: '1px solid #1e222b'
-          }}>
-            <span>{language}</span>
-          </div>
-          <pre style={{
-            backgroundColor: '#1e222b',
-            color: '#abb2bf',
-            padding: '14px',
-            margin: 0,
-            overflowX: 'auto',
-            fontFamily: 'SFMono-Regular, Consolas, "Liberation Mono", Menlo, monospace',
-            fontSize: '0.85rem',
-            lineHeight: '1.5',
-            whiteSpace: 'pre'
-          }}>
-            <code>{codeContent}</code>
-          </pre>
-        </div>
-      );
-    }
-    
-    // For non-code-block text, split by newlines to render lists and paragraphs correctly
-    return (
-      <div key={index} style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-        {part.split('\n').map((line, lineIndex) => {
-          const trimmed = line.trim();
-          if (trimmed.startsWith('* ') || trimmed.startsWith('- ')) {
-            return (
-              <li key={lineIndex} style={{ marginLeft: '20px', listStyleType: 'disc', margin: '2px 0' }}>
-                {trimmed.substring(2)}
-              </li>
-            );
-          }
-          if (/^\d+\.\s/.test(trimmed)) {
-            const listContent = trimmed.replace(/^\d+\.\s/, '');
-            return (
-              <li key={lineIndex} style={{ marginLeft: '20px', listStyleType: 'decimal', margin: '2px 0' }}>
-                {listContent}
-              </li>
-            );
-          }
-          // Preserve empty line structure
-          if (!trimmed) {
-            return <div key={lineIndex} style={{ height: '8px' }} />;
-          }
-          return <p key={lineIndex} style={{ margin: 0 }}>{line}</p>;
-        })}
+/* ────────────────────────────────────────────────────────────
+   Markdown renderer — converts plain text/markdown to JSX
+   without external deps (Next.js 14 Pages Router, no Tailwind)
+──────────────────────────────────────────────────────────── */
+function CodeBlock({ language, code }) {
+  const [copied, setCopied] = useState(false);
+  const copy = () => {
+    navigator.clipboard.writeText(code).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
+  };
+  return (
+    <div className="code-block">
+      <div className="code-block-header">
+        <span className="code-lang">{language || 'code'}</span>
+        <button className={`copy-btn${copied ? ' copied' : ''}`} onClick={copy}>
+          {copied ? '✓ Copied' : '⧉ Copy'}
+        </button>
       </div>
-    );
-  });
-};
+      <pre><code className="block-code">{code}</code></pre>
+    </div>
+  );
+}
 
+function renderMarkdown(text) {
+  if (!text) return null;
+  const lines = text.split('\n');
+  const elements = [];
+  let i = 0;
+  while (i < lines.length) {
+    const line = lines[i];
+
+    // Code block
+    if (line.startsWith('```')) {
+      const lang = line.slice(3).trim();
+      const codeLines = [];
+      i++;
+      while (i < lines.length && !lines[i].startsWith('```')) {
+        codeLines.push(lines[i]);
+        i++;
+      }
+      elements.push(<CodeBlock key={i} language={lang} code={codeLines.join('\n')} />);
+      i++;
+      continue;
+    }
+
+    // Headings
+    if (line.startsWith('### ')) { elements.push(<h3 key={i}>{renderInline(line.slice(4))}</h3>); i++; continue; }
+    if (line.startsWith('## '))  { elements.push(<h2 key={i}>{renderInline(line.slice(3))}</h2>); i++; continue; }
+    if (line.startsWith('# '))   { elements.push(<h1 key={i}>{renderInline(line.slice(2))}</h1>); i++; continue; }
+
+    // Unordered list
+    if (line.match(/^[\*\-] /)) {
+      const items = [];
+      while (i < lines.length && lines[i].match(/^[\*\-] /)) {
+        items.push(<li key={i}>{renderInline(lines[i].slice(2))}</li>);
+        i++;
+      }
+      elements.push(<ul key={`ul-${i}`}>{items}</ul>);
+      continue;
+    }
+
+    // Ordered list
+    if (line.match(/^\d+\. /)) {
+      const items = [];
+      while (i < lines.length && lines[i].match(/^\d+\. /)) {
+        items.push(<li key={i}>{renderInline(lines[i].replace(/^\d+\. /, ''))}</li>);
+        i++;
+      }
+      elements.push(<ol key={`ol-${i}`}>{items}</ol>);
+      continue;
+    }
+
+    // Horizontal rule
+    if (line.match(/^---+$/)) { elements.push(<hr key={i} style={{ border: 'none', borderTop: '1px solid var(--border)', margin: '12px 0' }} />); i++; continue; }
+
+    // Empty line
+    if (!line.trim()) { i++; continue; }
+
+    // Paragraph
+    elements.push(<p key={i}>{renderInline(line)}</p>);
+    i++;
+  }
+  return elements;
+}
+
+function renderInline(text) {
+  // Process inline code, bold, italic
+  const parts = text.split(/(`[^`]+`|\*\*[^*]+\*\*|\*[^*]+\*)/g);
+  return parts.map((part, idx) => {
+    if (part.startsWith('`') && part.endsWith('`')) {
+      return <code key={idx}>{part.slice(1, -1)}</code>;
+    }
+    if (part.startsWith('**') && part.endsWith('**')) {
+      return <strong key={idx}>{part.slice(2, -2)}</strong>;
+    }
+    if (part.startsWith('*') && part.endsWith('*')) {
+      return <em key={idx}>{part.slice(1, -1)}</em>;
+    }
+    return part;
+  });
+}
+
+/* ────────────────────────────────────────────────────────────
+   Main Chat Page
+──────────────────────────────────────────────────────────── */
 export default function ChatPage() {
-  const [tenant, setTenant] = useState('system');
+  const router = useRouter();
+
+  // Auth & config
+  const [token, setToken] = useState(null);
+  const [user, setUser] = useState(null);
   const [apiBase, setApiBase] = useState('http://localhost:3008');
-  const [model, setModel] = useState('Harikson-Plus');
+  const [tenantSlug, setTenantSlug] = useState('system');
+
+  // Conversations
+  const [conversations, setConversations] = useState([]);
+  const [activeConvId, setActiveConvId] = useState(null);
+  const [renamingId, setRenamingId] = useState(null);
+  const [renameValue, setRenameValue] = useState('');
+
+  // Messages
   const [messages, setMessages] = useState([]);
   const [inputText, setInputText] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-  const [conversationId, setConversationId] = useState(null);
+  const [model, setModel] = useState('harikson-plus');
+
   const chatEndRef = useRef(null);
+  const textareaRef = useRef(null);
 
-  // Extract tenant name from subdomain if available in browser URL and determine dynamic apiBase
+  /* ── Resolve config from localStorage on mount ── */
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const hostname = window.location.hostname;
-      const host = window.location.host;
-      
-      // Calculate dynamic apiBase based on how client accessed portal
-      if (hostname !== 'localhost' && hostname !== '127.0.0.1') {
-        if (window.location.port) {
-          setApiBase(`http://${hostname}:3008`);
-        } else {
-          setApiBase(process.env.NEXT_PUBLIC_API_URL || `${window.location.protocol}//api.${hostname.split('.').slice(1).join('.')}`);
-        }
-      }
+    const savedToken = localStorage.getItem('hk_token');
+    if (!savedToken) { router.replace('/login'); return; }
+    const savedUser = JSON.parse(localStorage.getItem('hk_user') || 'null');
+    const savedBase = localStorage.getItem('hk_api_base') || 'http://localhost:3008';
+    const savedTenant = localStorage.getItem('hk_tenant') || 'system';
+    setToken(savedToken);
+    setUser(savedUser);
+    setApiBase(savedBase);
+    setTenantSlug(savedTenant);
+  }, [router]);
 
-      // Calculate tenant slug dynamically
-      if (host.includes('.')) {
-        const parts = host.split('.');
-        if (parts[0] !== 'localhost' && parts[0] !== 'www') {
-          // If first part is a number, it's an IP address, so skip subdomain extraction
-          const isIP = !isNaN(parts[0]);
-          if (!isIP) {
-            setTenant(parts[0]);
-          } else {
-            const urlParams = new URLSearchParams(window.location.search);
-            const tenantParam = urlParams.get('tenant');
-            if (tenantParam) {
-              setTenant(tenantParam);
-            } else {
-              setTenant('system');
-            }
-          }
-        }
-      }
-    }
-  }, []);
+  /* ── Load conversations once token is ready ── */
+  useEffect(() => {
+    if (token) fetchConversations();
+  }, [token]);
 
-  // Smooth scroll to bottom on new messages
+  /* ── Auto scroll on new messages ── */
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, loading]);
 
+  /* ── Auto resize textarea ── */
+  useEffect(() => {
+    if (textareaRef.current) {
+      textareaRef.current.style.height = 'auto';
+      textareaRef.current.style.height = Math.min(textareaRef.current.scrollHeight, 180) + 'px';
+    }
+  }, [inputText]);
+
+  const authHeaders = useCallback(() => ({
+    'Content-Type': 'application/json',
+    'Authorization': `Bearer ${token}`,
+    'x-tenant-slug': tenantSlug,
+  }), [token, tenantSlug]);
+
+  /* ── Fetch conversation list ── */
+  const fetchConversations = async () => {
+    try {
+      const res = await fetch(`${apiBase}/api/conversations`, { headers: authHeaders() });
+      if (res.status === 401) { handleLogout(); return; }
+      const data = await res.json();
+      setConversations(data.conversations || []);
+    } catch (err) {
+      console.error('Failed to fetch conversations', err);
+    }
+  };
+
+  /* ── Load messages for a conversation ── */
+  const loadConversation = async (convId) => {
+    setActiveConvId(convId);
+    setError(null);
+    setMessages([]);
+    try {
+      const res = await fetch(`${apiBase}/api/conversations/${convId}/messages`, { headers: authHeaders() });
+      const data = await res.json();
+      const loaded = (data.messages || []).map((m) => ({
+        id: m.id,
+        sender: m.role === 'user' ? 'user' : 'bot',
+        text: m.content,
+        role: m.role,
+      }));
+      setMessages(loaded);
+    } catch (err) {
+      setError('Failed to load conversation messages.');
+    }
+  };
+
+  /* ── New chat ── */
+  const startNewChat = () => {
+    setActiveConvId(null);
+    setMessages([]);
+    setError(null);
+    setInputText('');
+  };
+
+  /* ── Send message ── */
   const sendMessage = async (e) => {
     if (e) e.preventDefault();
     if (!inputText.trim() || loading) return;
 
-    const userMessageText = inputText;
+    const userText = inputText.trim();
     setInputText('');
     setError(null);
     setLoading(true);
 
-    // Add user message to UI state immediately
-    const userMessage = { sender: 'user', text: userMessageText };
-    setMessages((prev) => [...prev, userMessage]);
+    // Optimistically add user message
+    setMessages((prev) => [...prev, { sender: 'user', text: userText }]);
 
     try {
-      const response = await fetch(`${apiBase}/api/chat`, {
+      const res = await fetch(`${apiBase}/api/chat`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer TEST_TOKEN',
-          'Host': `${tenant}.harikson.ai`,
-          'x-tenant-slug': tenant // Custom header fallback to bypass forbidden header checks in browsers
-        },
+        headers: authHeaders(),
         body: JSON.stringify({
-          message: userMessageText,
-          model: model === 'Harikson-Plus' ? 'harikson-plus' : 'harikson-max',
-          conversationId: conversationId
-        })
+          message: userText,
+          model,
+          conversationId: activeConvId,
+        }),
       });
 
-      if (!response.ok) {
-        const errData = await response.json().catch(() => ({}));
-        throw new Error(errData.error || `HTTP error status ${response.status}`);
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || `Server error ${res.status}`);
       }
 
-      // Check for dynamic conversation ID header
-      const convIdHeader = response.headers.get('X-Conversation-Id') || response.headers.get('x-conversation-id');
-      if (convIdHeader) {
-        setConversationId(convIdHeader);
+      // Set conversation ID from response header
+      const convId = res.headers.get('x-conversation-id') || res.headers.get('X-Conversation-Id');
+      if (convId && !activeConvId) {
+        setActiveConvId(convId);
+        // Add to sidebar immediately
+        setConversations((prev) => [
+          { id: convId, title: userText.substring(0, 50), model, updated_at: new Date().toISOString() },
+          ...prev.filter((c) => c.id !== convId),
+        ]);
       }
 
-      // Initialize reader and decoder for streaming body
-      const reader = response.body.getReader();
+      // Stream response
+      const reader = res.body.getReader();
       const decoder = new TextDecoder('utf-8');
-      
-      // Append an empty bot message bubble to start rendering
-      const activeModelName = model === 'Harikson-Plus' ? 'harikson-plus' : 'harikson-max';
-      setMessages((prev) => [...prev, { sender: 'bot', text: '', model: activeModelName }]);
+      setMessages((prev) => [...prev, { sender: 'bot', text: '' }]);
 
-      let botResponseText = '';
-      
+      let fullText = '';
       while (true) {
         const { value, done } = await reader.read();
         if (done) break;
-
-        const textChunk = decoder.decode(value, { stream: true });
-        botResponseText += textChunk;
-
-        // Keep updating the active message bubble
+        fullText += decoder.decode(value, { stream: true });
         setMessages((prev) => {
           const updated = [...prev];
-          if (updated.length > 0 && updated[updated.length - 1].sender === 'bot') {
-            updated[updated.length - 1] = {
-              ...updated[updated.length - 1],
-              text: botResponseText
-            };
+          const last = updated[updated.length - 1];
+          if (last?.sender === 'bot') {
+            updated[updated.length - 1] = { ...last, text: fullText };
           }
           return updated;
         });
       }
+
+      // Refresh conversation list
+      fetchConversations();
     } catch (err) {
-      console.error('Fetch error:', err);
-      setError(err.message || 'Failed to connect to the backend server.');
+      console.error('Chat error:', err);
+      setError(err.message || 'Failed to send message. Please try again.');
+      setMessages((prev) => prev.filter((m) => !(m.sender === 'bot' && m.text === '')));
     } finally {
       setLoading(false);
     }
   };
 
+  /* ── Delete conversation ── */
+  const deleteConversation = async (convId, e) => {
+    e.stopPropagation();
+    if (!confirm('Delete this conversation?')) return;
+    try {
+      await fetch(`${apiBase}/api/conversations/${convId}`, {
+        method: 'DELETE',
+        headers: authHeaders(),
+      });
+      setConversations((prev) => prev.filter((c) => c.id !== convId));
+      if (activeConvId === convId) startNewChat();
+    } catch (err) {
+      console.error('Delete failed', err);
+    }
+  };
+
+  /* ── Rename conversation ── */
+  const startRename = (conv, e) => {
+    e.stopPropagation();
+    setRenamingId(conv.id);
+    setRenameValue(conv.title);
+  };
+  const commitRename = async (convId) => {
+    if (!renameValue.trim()) { setRenamingId(null); return; }
+    try {
+      await fetch(`${apiBase}/api/conversations/${convId}`, {
+        method: 'PATCH',
+        headers: authHeaders(),
+        body: JSON.stringify({ title: renameValue.trim() }),
+      });
+      setConversations((prev) =>
+        prev.map((c) => c.id === convId ? { ...c, title: renameValue.trim() } : c)
+      );
+    } catch (err) {
+      console.error('Rename failed', err);
+    }
+    setRenamingId(null);
+  };
+
+  /* ── Logout ── */
+  const handleLogout = () => {
+    localStorage.removeItem('hk_token');
+    localStorage.removeItem('hk_user');
+    localStorage.removeItem('hk_tenant');
+    localStorage.removeItem('hk_api_base');
+    router.replace('/login');
+  };
+
+  /* ── Keyboard shortcuts ── */
+  const handleKeyDown = (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      sendMessage();
+    }
+  };
+
+  const userInitial = user?.email?.[0]?.toUpperCase() || 'U';
+
+  if (!token) return null; // Wait for mount
+
   return (
-    <div style={{
-      maxWidth: '800px',
-      margin: '40px auto',
-      padding: '20px',
-      fontFamily: 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
-      color: '#333'
-    }}>
-      {/* Header Panel */}
-      <div style={{
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        borderBottom: '1px solid #eaeaea',
-        paddingBottom: '15px',
-        marginBottom: '20px'
-      }}>
-        <div>
-          <h1 style={{ fontSize: '1.5rem', fontWeight: 'bold', margin: 0 }}>
-            Harikson Chat - <span style={{ color: '#0070f3', textTransform: 'capitalize' }}>{tenant}</span>
-          </h1>
-          <p style={{ margin: '5px 0 0 0', fontSize: '0.85rem', color: '#666' }}>
-            Testing Sandbox UI
-          </p>
-        </div>
-        
-        <div>
-          <select 
-            value={model} 
-            onChange={(e) => setModel(e.target.value)}
-            style={{
-              padding: '8px 12px',
-              borderRadius: '6px',
-              border: '1px solid #ccc',
-              fontSize: '0.9rem',
-              backgroundColor: '#fff',
-              cursor: 'pointer',
-              outline: 'none'
-            }}
-          >
-            <option value="Harikson-Plus">Harikson-Plus (Chat 8B)</option>
-            <option value="Harikson-Max">Harikson-Max (Coder 14B)</option>
-          </select>
-        </div>
-      </div>
+    <>
+      <Head>
+        <title>Harikson AI — Chat</title>
+        <meta name="description" content="Harikson AI Chat Interface" />
+      </Head>
 
-      {/* Error Alert Display */}
-      {error && (
-        <div style={{
-          padding: '12px 16px',
-          backgroundColor: '#ffebeb',
-          color: '#d32f2f',
-          borderRadius: '8px',
-          marginBottom: '20px',
-          fontSize: '0.9rem',
-          border: '1px solid #ffcdd2'
-        }}>
-          <strong>Error:</strong> {error}
-        </div>
-      )}
-
-      {/* Chat History Area */}
-      <div style={{
-        height: '500px',
-        overflowY: 'auto',
-        border: '1px solid #eaeaea',
-        borderRadius: '8px',
-        padding: '20px',
-        backgroundColor: '#fafafa',
-        marginBottom: '20px',
-        display: 'flex',
-        flexDirection: 'column',
-        gap: '15px'
-      }}>
-        {messages.length === 0 ? (
-          <div style={{
-            margin: 'auto',
-            textAlign: 'center',
-            color: '#888',
-            fontSize: '0.95rem'
-          }}>
-            No messages yet. Send a message to start the conversation!
+      <div className="chat-root">
+        {/* ─── Sidebar ─────────────────────────────────────── */}
+        <aside className="sidebar">
+          {/* Logo */}
+          <div className="sidebar-header">
+            <div className="sidebar-logo-icon">⚡</div>
+            <div className="sidebar-logo-text">Harikson AI</div>
           </div>
-        ) : (
-          messages.map((msg, index) => (
-            <div 
-              key={index} 
-              style={{
-                alignSelf: msg.sender === 'user' ? 'flex-end' : 'flex-start',
-                maxWidth: '75%',
-                display: 'flex',
-                flexDirection: 'column'
-              }}
-            >
-              <div style={{
-                backgroundColor: msg.sender === 'user' ? '#0070f3' : '#eef0f2',
-                color: msg.sender === 'user' ? '#fff' : '#1a1a1a',
-                padding: '10px 16px',
-                borderRadius: msg.sender === 'user' ? '18px 18px 2px 18px' : '18px 18px 18px 2px',
-                fontSize: '0.95rem',
-                lineHeight: '1.4',
-                wordBreak: 'break-word',
-                boxShadow: '0 1px 2px rgba(0,0,0,0.05)'
-              }}>
-                {renderMessageText(msg.text)}
+
+          {/* New Chat */}
+          <button className="new-chat-btn" onClick={startNewChat}>
+            <span>＋</span>
+            <span>New conversation</span>
+          </button>
+
+          {/* Conversation List */}
+          <div className="conv-list">
+            {conversations.length === 0 && (
+              <div style={{ padding: '12px 16px', color: 'var(--text-muted)', fontSize: '12.5px' }}>
+                No conversations yet. Start chatting!
               </div>
-              {msg.sender === 'bot' && (
-                <span style={{
-                  fontSize: '0.75rem',
-                  color: '#888',
-                  marginTop: '4px',
-                  marginLeft: '4px'
-                }}>
-                  Model: {msg.model}
-                </span>
-              )}
-            </div>
-          ))
-        )}
-        
-        {/* Thinking loading state bubble */}
-        {loading && (
-          <div style={{
-            alignSelf: 'flex-start',
-            maxWidth: '75%',
-            display: 'flex',
-            flexDirection: 'column'
-          }}>
-            <div style={{
-              backgroundColor: '#eef0f2',
-              color: '#666',
-              padding: '10px 16px',
-              borderRadius: '18px 18px 18px 2px',
-              fontSize: '0.95rem',
-              fontStyle: 'italic'
-            }}>
-              Thinking...
+            )}
+            {conversations.length > 0 && (
+              <div className="conv-section-label">Recent</div>
+            )}
+            {conversations.map((conv) => (
+              <div
+                key={conv.id}
+                className={`conv-item${activeConvId === conv.id ? ' active' : ''}`}
+                onClick={() => loadConversation(conv.id)}
+              >
+                {renamingId === conv.id ? (
+                  <input
+                    className="conv-rename-input"
+                    value={renameValue}
+                    autoFocus
+                    onChange={(e) => setRenameValue(e.target.value)}
+                    onBlur={() => commitRename(conv.id)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') commitRename(conv.id);
+                      if (e.key === 'Escape') setRenamingId(null);
+                      e.stopPropagation();
+                    }}
+                    onClick={(e) => e.stopPropagation()}
+                  />
+                ) : (
+                  <span className="conv-title">{conv.title || 'Untitled'}</span>
+                )}
+                <div className="conv-actions">
+                  <button
+                    className="conv-action-btn"
+                    title="Rename"
+                    onClick={(e) => startRename(conv, e)}
+                  >✎</button>
+                  <button
+                    className="conv-action-btn danger"
+                    title="Delete"
+                    onClick={(e) => deleteConversation(conv.id, e)}
+                  >✕</button>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* User Info / Logout */}
+          <div className="sidebar-footer">
+            <div className="user-info">
+              <div className="user-avatar">{userInitial}</div>
+              <span className="user-email">{user?.email || 'User'}</span>
+              <button className="logout-btn" onClick={handleLogout} title="Sign out">⎋</button>
             </div>
           </div>
-        )}
-        
-        <div ref={chatEndRef} />
-      </div>
+        </aside>
 
-      {/* Input Form Area */}
-      <form onSubmit={sendMessage} style={{ display: 'flex', gap: '10px' }}>
-        <input
-          type="text"
-          value={inputText}
-          onChange={(e) => setInputText(e.target.value)}
-          placeholder="Type your message here..."
-          disabled={loading}
-          style={{
-            flex: 1,
-            padding: '12px 16px',
-            borderRadius: '8px',
-            border: '1px solid #ccc',
-            fontSize: '1rem',
-            outline: 'none',
-            transition: 'border-color 0.2s',
-            boxShadow: 'inset 0 1px 2px rgba(0,0,0,0.05)'
-          }}
-          onFocus={(e) => e.target.style.borderColor = '#0070f3'}
-          onBlur={(e) => e.target.style.borderColor = '#ccc'}
-        />
-        <button
-          type="submit"
-          disabled={loading || !inputText.trim()}
-          style={{
-            padding: '12px 24px',
-            borderRadius: '8px',
-            border: 'none',
-            backgroundColor: (loading || !inputText.trim()) ? '#ccc' : '#0070f3',
-            color: '#fff',
-            fontSize: '1rem',
-            fontWeight: 'bold',
-            cursor: (loading || !inputText.trim()) ? 'not-allowed' : 'pointer',
-            transition: 'background-color 0.2s'
-          }}
-        >
-          Send
-        </button>
-      </form>
-    </div>
+        {/* ─── Main area ───────────────────────────────────── */}
+        <main className="main-area">
+          {/* Top bar */}
+          <div className="topbar">
+            <span className="topbar-title">
+              {activeConvId
+                ? conversations.find((c) => c.id === activeConvId)?.title || 'Conversation'
+                : 'New Conversation'}
+            </span>
+            <select
+              className="model-select"
+              value={model}
+              onChange={(e) => setModel(e.target.value)}
+            >
+              <option value="harikson-plus">Harikson Plus · 8B</option>
+              <option value="harikson-max">Harikson Max · 14B</option>
+            </select>
+          </div>
+
+          {/* Messages */}
+          <div className="messages-area">
+            {messages.length === 0 && !loading && (
+              <div className="messages-empty">
+                <div className="messages-empty-icon">⚡</div>
+                <h2>Harikson AI</h2>
+                <p>Your enterprise AI coding assistant. Ask anything about your codebase, architecture, or software.</p>
+              </div>
+            )}
+
+            {messages.map((msg, idx) =>
+              msg.sender === 'user' ? (
+                <div key={idx} className="message-row user">
+                  <div className="message-bubble-user">{msg.text}</div>
+                </div>
+              ) : (
+                <div key={idx} className="message-row assistant">
+                  <div className="message-bubble-assistant">
+                    <div className="assistant-avatar">⚡</div>
+                    <div className="assistant-content">
+                      {renderMarkdown(msg.text)}
+                    </div>
+                  </div>
+                </div>
+              )
+            )}
+
+            {/* Thinking indicator */}
+            {loading && (
+              <div className="thinking-row">
+                <div className="thinking-avatar">⚡</div>
+                <div className="thinking-dots">
+                  <div className="thinking-dot" />
+                  <div className="thinking-dot" />
+                  <div className="thinking-dot" />
+                </div>
+              </div>
+            )}
+
+            {/* Error */}
+            {error && (
+              <div className="error-banner">
+                <span>⚠</span>
+                <span>{error}</span>
+              </div>
+            )}
+
+            <div ref={chatEndRef} />
+          </div>
+
+          {/* Input bar */}
+          <div className="input-bar">
+            <form onSubmit={sendMessage}>
+              <div className="input-wrapper">
+                <textarea
+                  ref={textareaRef}
+                  className="chat-textarea"
+                  rows={1}
+                  value={inputText}
+                  onChange={(e) => setInputText(e.target.value)}
+                  onKeyDown={handleKeyDown}
+                  placeholder="Message Harikson…"
+                  disabled={loading}
+                />
+                <button
+                  type="submit"
+                  className="send-btn"
+                  disabled={loading || !inputText.trim()}
+                  title="Send (Enter)"
+                >
+                  {loading ? '⏸' : '↑'}
+                </button>
+              </div>
+            </form>
+            <p className="input-hint">Press Enter to send · Shift+Enter for new line</p>
+          </div>
+        </main>
+      </div>
+    </>
   );
 }
