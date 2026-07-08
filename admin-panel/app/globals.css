@@ -98,6 +98,11 @@ aside .bg-indigo-600 svg {
   color: var(--accent-cyan) !important;
 }
 
+/* Override white text to support light theme readability */
+.text-white {
+  color: var(--text-heading) !important;
+}
+
 /* Text Colors */
 .text-gray-100, .text-slate-100, .text-gray-300, .text-slate-300 {
   color: var(--text-primary) !important;
@@ -106,6 +111,16 @@ aside .bg-indigo-600 svg {
 /* Muted / Secondary Texts */
 .text-gray-400, .text-slate-400, .text-gray-500, .text-slate-500 {
   color: var(--text-muted) !important;
+}
+
+/* Ensure buttons text remains white for contrast */
+button, .btn, .btn-primary, [role="button"], .bg-indigo-600 *, .bg-indigo-500 * {
+  color: #FFFFFF !important;
+}
+
+/* Ensure custom button overrides can still have custom text color */
+.bg-gray-850, .border-gray-800 {
+  color: var(--accent-cyan) !important;
 }
 
 /* Success, Warning, Error colors */
