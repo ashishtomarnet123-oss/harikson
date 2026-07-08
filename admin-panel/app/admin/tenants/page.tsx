@@ -545,7 +545,7 @@ export default function TenantManager() {
           </div>
 
           <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse text-xs">
+            <table className="w-full text-left border-collapse text-xs min-w-[550px]">
               <thead>
                 <tr className="bg-gray-950/50 border-b border-gray-800 text-[10px] font-bold text-gray-500 uppercase tracking-wider">
                   <th className="py-3 px-4">Tenant</th>
@@ -580,7 +580,7 @@ export default function TenantManager() {
           </div>
 
           <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse text-xs">
+            <table className="w-full text-left border-collapse text-xs min-w-[550px]">
               <thead>
                 <tr className="bg-gray-950/50 border-b border-gray-800 text-[10px] font-bold text-gray-500 uppercase tracking-wider">
                   <th className="py-3 px-4">Tenant</th>
@@ -618,36 +618,36 @@ export default function TenantManager() {
         {/* Payment Webhook Audit Logs */}
         <div className="bg-gray-900/40 border border-gray-800/80 rounded-2xl overflow-hidden flex flex-col justify-between">
           <div>
-            <div className="p-5 border-b border-gray-800 flex justify-between items-center">
+            <div className="p-5 border-b border-gray-800 flex justify-between items-center gap-4">
               <div>
                 <h3 className="text-sm font-bold text-white uppercase tracking-wider">Live Payment Webhooks</h3>
                 <p className="text-[10px] text-gray-500 mt-0.5">Real-time Stripe & Razorpay webhooks audit stream</p>
               </div>
               <a 
                 href="/admin/billing/providers"
-                className="px-2.5 py-1 bg-indigo-600 hover:bg-indigo-700 text-white text-[10px] font-bold rounded-xl shadow-sm transition-all"
+                className="px-2.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-[10px] font-bold rounded-xl shadow-sm transition-all whitespace-nowrap flex-shrink-0"
               >
                 Configure Providers
               </a>
             </div>
 
             {/* Provider Connection Status Board */}
-            <div className="p-4 border-b border-gray-800 bg-gray-950/30 flex justify-between gap-4 text-[10px] font-semibold">
-              <div className="flex items-center gap-1.5">
+            <div className="p-4 border-b border-gray-800 bg-gray-950/30 flex flex-col gap-2 text-[10px] font-semibold">
+              <div className="flex items-center justify-between">
                 <span className="text-gray-500 font-bold uppercase">Razorpay:</span>
                 {providersActive.razorpay ? (
-                  <span className="text-green-400 flex items-center gap-1">
-                    ● Connected ({providersModes.razorpay === 'test' ? 'Test Mode' : 'Live Mode'})
+                  <span className="text-green-400 flex items-center gap-1 font-bold">
+                    ● Connected ({providersModes.razorpay === 'test' ? 'Test' : 'Live'})
                   </span>
                 ) : (
                   <span className="text-gray-500">○ Disconnected</span>
                 )}
               </div>
-              <div className="flex items-center gap-1.5">
+              <div className="flex items-center justify-between">
                 <span className="text-gray-500 font-bold uppercase">Stripe:</span>
                 {providersActive.stripe ? (
-                  <span className="text-purple-400 flex items-center gap-1">
-                    ● Connected ({providersModes.stripe === 'test' ? 'Test Mode' : 'Live Mode'})
+                  <span className="text-purple-400 flex items-center gap-1 font-bold">
+                    ● Connected ({providersModes.stripe === 'test' ? 'Test' : 'Live'})
                   </span>
                 ) : (
                   <span className="text-gray-500">○ Disconnected</span>
@@ -656,7 +656,7 @@ export default function TenantManager() {
             </div>
 
             <div className="overflow-y-auto max-h-[300px]">
-              <table className="w-full text-left border-collapse text-xs">
+              <table className="w-full text-left border-collapse text-xs min-w-[550px]">
                 <thead>
                   <tr className="bg-gray-950/50 border-b border-gray-800 text-[10px] font-bold text-gray-500 uppercase tracking-wider">
                     <th className="py-3 px-4">Event</th>
