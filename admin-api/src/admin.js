@@ -14,6 +14,7 @@ import Stripe from 'stripe';
 import Razorpay from 'razorpay';
 import founderRouter from './routers/founder.js';
 import agentsRouter from './routers/agents.js';
+import operationsRouter from './routers/operations.js';
 
 dotenv.config();
 
@@ -354,6 +355,157 @@ async function initDb() {
       );
     `);
 
+    // Phase 1.2 — AI Activity Center
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS ai_activity (
+          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE,
+          user_id UUID,
+          agent_id UUID,
+          model TEXT,
+          endpoint TEXT DEFAULT '/api/chat',
+          status TEXT DEFAULT 'waiting' CHECK (status IN ('waiting', 'processing', 'streaming', 'completed', 'failed', 'cancelled')),
+          tokens_in INT DEFAULT 0,
+          tokens_out INT DEFAULT 0,
+          latency_ms INT,
+          gpu_percent INT,
+          error_message TEXT,
+          created_at TIMESTAMPTZ DEFAULT NOW(),
+          completed_at TIMESTAMPTZ
+      )
+    `);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_ai_activity_created_at ON ai_activity(created_at DESC)`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_ai_activity_tenant ON ai_activity(tenant_id)`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_ai_activity_status ON ai_activity(status)`);
+
+    // Phase 2.2 — Workflow Center
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS workflows (
+          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE,
+          name TEXT NOT NULL,
+          description TEXT,
+          trigger_type TEXT DEFAULT 'manual' CHECK (trigger_type IN ('manual', 'scheduled', 'webhook', 'event')),
+          status TEXT DEFAULT 'active' CHECK (status IN ('active', 'disabled', 'archived')),
+          steps JSONB DEFAULT '[]',
+          execution_count INT DEFAULT 0,
+          last_execution_at TIMESTAMPTZ,
+          avg_duration_ms INT,
+          success_rate DECIMAL(5,2) DEFAULT 100,
+          created_at TIMESTAMPTZ DEFAULT NOW()
+      )
+    `);
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS workflow_executions (
+          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          workflow_id UUID REFERENCES workflows(id) ON DELETE CASCADE,
+          status TEXT DEFAULT 'running' CHECK (status IN ('running', 'completed', 'failed', 'cancelled')),
+          started_at TIMESTAMPTZ DEFAULT NOW(),
+          completed_at TIMESTAMPTZ,
+          duration_ms INT,
+          logs TEXT,
+          error_message TEXT
+      )
+    `);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_workflow_executions_workflow ON workflow_executions(workflow_id)`);
+
+    // Phase 4.3 — Notification Center
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS notifications (
+          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+          type TEXT CHECK (type IN ('model_loaded', 'model_failed', 'gpu_high', 'gpu_overheat', 'disk_full', 'workflow_failed', 'security_alert', 'tenant_suspended', 'payment_received', 'agent_error')),
+          title TEXT NOT NULL,
+          message TEXT,
+          link TEXT,
+          is_read BOOLEAN DEFAULT false,
+          created_at TIMESTAMPTZ DEFAULT NOW()
+      )
+    `);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_notifications_user ON notifications(user_id, is_read, created_at DESC)`);
+
+    // Phase 4.1 — Infrastructure Costs
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS infrastructure_costs (
+          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          category TEXT CHECK (category IN ('gpu', 'cpu', 'storage', 'embedding', 'inference', 'bandwidth', 'other')),
+          description TEXT,
+          amount DECIMAL(10,2) NOT NULL,
+          currency TEXT DEFAULT 'INR',
+          period_start DATE,
+          period_end DATE,
+          created_at TIMESTAMPTZ DEFAULT NOW()
+      )
+    `);
+
+    // Phase 4.2 — Integration Center
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS integrations (
+          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE,
+          provider TEXT NOT NULL,
+          display_name TEXT,
+          connection_status TEXT DEFAULT 'disconnected' CHECK (connection_status IN ('connected', 'disconnected', 'error')),
+          last_sync_at TIMESTAMPTZ,
+          error_count INT DEFAULT 0,
+          auth_config JSONB,
+          created_at TIMESTAMPTZ DEFAULT NOW()
+      )
+    `);
+
+    // Phase 3.2 — Vector Collections
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS vector_collections (
+          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          name TEXT NOT NULL,
+          description TEXT,
+          vector_count BIGINT DEFAULT 0,
+          storage_bytes BIGINT DEFAULT 0,
+          index_status TEXT DEFAULT 'pending' CHECK (index_status IN ('pending', 'indexing', 'completed', 'failed')),
+          query_rate FLOAT DEFAULT 0,
+          search_latency_ms INT DEFAULT 0,
+          created_at TIMESTAMPTZ DEFAULT NOW()
+      )
+    `);
+
+    // Phase 5.2 — Backups
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS backups (
+          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          name TEXT NOT NULL,
+          type TEXT DEFAULT 'full' CHECK (type IN ('full', 'incremental', 'schema')),
+          size_bytes BIGINT,
+          status TEXT DEFAULT 'pending' CHECK (status IN ('pending', 'running', 'completed', 'failed', 'verified')),
+          storage_path TEXT,
+          started_at TIMESTAMPTZ,
+          completed_at TIMESTAMPTZ,
+          verified_at TIMESTAMPTZ,
+          retention_days INT DEFAULT 30,
+          error_message TEXT,
+          created_at TIMESTAMPTZ DEFAULT NOW()
+      )
+    `);
+
+    // Phase 2.1 — Playground Sessions
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS playground_sessions (
+          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          admin_id UUID REFERENCES users(id) ON DELETE CASCADE,
+          model TEXT,
+          agent_id UUID,
+          system_prompt TEXT,
+          temperature DECIMAL(3,2) DEFAULT 0.7,
+          max_tokens INT DEFAULT 2048,
+          messages JSONB DEFAULT '[]',
+          tokens_in INT DEFAULT 0,
+          tokens_out INT DEFAULT 0,
+          latency_ms INT,
+          created_at TIMESTAMPTZ DEFAULT NOW()
+      )
+    `);
+
+    console.log('✅ All Phase 1-5 database tables migrated successfully.');
+
   } catch (err) {
     console.error('Failed to auto-migrate database tables:', err);
   }
@@ -462,8 +614,9 @@ app.post('/admin/logout', (req, res) => {
 // ────────────────────────────────────────────────────────────
 // PROTECTED ROUTES (Admin Authorization required)
 // ────────────────────────────────────────────────────────────
-app.use('/admin/founder', founderRouter); // Explicitly mount founder APIs
-app.use('/admin/agents', agentsRouter); // Mount agents APIs
+app.use('/admin/founder', founderRouter);
+app.use('/admin/agents', agentsRouter);
+app.use('/admin', operationsRouter); // Phase 1-5 operations (unprotected mount, router handles auth via adminAuth middleware below)
 app.use('/admin', adminAuth);
 
 // 0. GET /admin/kpis

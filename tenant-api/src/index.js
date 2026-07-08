@@ -344,6 +344,18 @@ app.post('/api/chat', authMiddleware, async (req, res) => {
     // Build messages array with full conversation history for proper context
     const messages = buildMessages(finalHistory, message, selectedModel, agentConfig);
     const promptTokenEstimate = messages.reduce((acc, m) => acc + Math.ceil(m.content.length / 4), 0);
+    const chatStartTime = Date.now();
+
+    // Log activity start to admin panel
+    let activityId = null;
+    try {
+      const adminApiBase = process.env.ADMIN_API_URL || 'http://admin-api:4000';
+      const actResp = await axios.post(`${adminApiBase}/admin/activity`, {
+        tenant_id: req.tenant.id, user_id: req.user.id, agent_id: agentConfig?.id || null,
+        model: selectedModel, status: 'processing', tokens_in: 0, tokens_out: 0
+      }, { timeout: 2000 }).catch(() => null);
+      if (actResp?.data?.id) activityId = actResp.data.id;
+    } catch {}
 
     // Set streaming headers
     res.setHeader('Content-Type', 'text/plain; charset=utf-8');
@@ -415,6 +427,15 @@ app.post('/api/chat', authMiddleware, async (req, res) => {
           });
         } catch (dbErr) {
           console.error('Failed to save chat messages to DB:', dbErr);
+        }
+        // Update ai_activity log with completion stats
+        const latency = Date.now() - chatStartTime;
+        if (activityId) {
+          axios.post(`${process.env.ADMIN_API_URL || 'http://admin-api:4000'}/admin/activity`, {
+            tenant_id: req.tenant.id, user_id: req.user.id, agent_id: agentConfig?.id || null,
+            model: selectedModel, status: 'completed',
+            tokens_in: promptTokens, tokens_out: completionTokens, latency_ms: latency
+          }).catch(() => {});
         }
         res.end(); // End AFTER DB save
       });
