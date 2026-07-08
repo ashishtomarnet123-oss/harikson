@@ -85,7 +85,7 @@ const renderMessageText = (text) => {
 
 export default function ChatPage() {
   const [tenant, setTenant] = useState('system');
-  const [apiBase, setApiBase] = useState('http://localhost:3000');
+  const [apiBase, setApiBase] = useState('http://localhost:3008');
   const [model, setModel] = useState('Harikson-Plus');
   const [messages, setMessages] = useState([]);
   const [inputText, setInputText] = useState('');
@@ -103,7 +103,7 @@ export default function ChatPage() {
       // Calculate dynamic apiBase based on how client accessed portal
       if (hostname !== 'localhost' && hostname !== '127.0.0.1') {
         if (window.location.port) {
-          setApiBase(`http://${hostname}:3000`);
+          setApiBase(`http://${hostname}:3008`);
         } else {
           setApiBase(process.env.NEXT_PUBLIC_API_URL || `${window.location.protocol}//api.${hostname.split('.').slice(1).join('.')}`);
         }

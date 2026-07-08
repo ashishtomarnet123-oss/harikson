@@ -6,7 +6,7 @@ import CreateTenantModal from '../components/CreateTenantModal';
 
 export default function Dashboard() {
   const [tenants, setTenants] = useState([]);
-  const [apiBase, setApiBase] = useState('http://localhost:4000');
+  const [apiBase, setApiBase] = useState('http://localhost:4008');
   const [metrics, setMetrics] = useState({
     totalTenants: 0,
     activeTenants: 0,
@@ -107,7 +107,7 @@ export default function Dashboard() {
       const hostname = window.location.hostname;
       if (hostname !== 'localhost' && hostname !== '127.0.0.1') {
         if (window.location.port) {
-          setApiBase(`http://${hostname}:4000`);
+          setApiBase(`http://${hostname}:4008`);
         } else {
           setApiBase(process.env.NEXT_PUBLIC_API_URL || `${window.location.protocol}//api.${hostname.split('.').slice(1).join('.')}`);
         }
