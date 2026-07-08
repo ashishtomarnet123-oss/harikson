@@ -12,6 +12,7 @@ import { adminAuth } from './middleware/adminAuth.js';
 import crypto from 'crypto';
 import Stripe from 'stripe';
 import Razorpay from 'razorpay';
+import founderRouter from './routers/founder.js';
 
 dotenv.config();
 
@@ -181,9 +182,104 @@ async function initDb() {
     }
 
     console.log('✅ Billing databases and indexes successfully operational.');
+    // 6. Founder Dashboard Tables
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS founder_dashboard_state (
+          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          founder_id UUID REFERENCES users(id),
+          last_viewed_at TIMESTAMPTZ,
+          oh_shit_count INT DEFAULT 0,
+          threats_resolved INT DEFAULT 0,
+          opportunities_captured INT DEFAULT 0,
+          created_at TIMESTAMPTZ DEFAULT NOW()
+      );
+      
+      CREATE TABLE IF NOT EXISTS founder_threats (
+          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          title TEXT NOT NULL,
+          description TEXT,
+          severity TEXT CHECK (severity IN ('critical', 'high', 'medium', 'low')),
+          source TEXT CHECK (source IN ('auto', 'manual')),
+          status TEXT DEFAULT 'open' CHECK (status IN ('open', 'resolved', 'snoozed')),
+          snoozed_until TIMESTAMPTZ,
+          resolved_at TIMESTAMPTZ,
+          created_at TIMESTAMPTZ DEFAULT NOW()
+      );
+      
+      CREATE TABLE IF NOT EXISTS founder_opportunities (
+          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          title TEXT NOT NULL,
+          description TEXT,
+          estimated_value DECIMAL(10,2),
+          probability INT CHECK (probability BETWEEN 0 AND 100),
+          deadline TIMESTAMPTZ,
+          status TEXT DEFAULT 'open' CHECK (status IN ('open', 'won', 'lost', 'snoozed')),
+          created_at TIMESTAMPTZ DEFAULT NOW()
+      );
+      
+      CREATE TABLE IF NOT EXISTS founder_hypotheses (
+          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          hypothesis TEXT NOT NULL,
+          test_method TEXT,
+          result TEXT,
+          decision TEXT,
+          owner TEXT,
+          status TEXT CHECK (status IN ('untested', 'testing', 'validated', 'invalidated', 'revised')),
+          created_at TIMESTAMPTZ DEFAULT NOW(),
+          completed_at TIMESTAMPTZ
+      );
+      
+      CREATE TABLE IF NOT EXISTS founder_narrative_mentions (
+          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          source TEXT,
+          url TEXT,
+          title TEXT,
+          sentiment TEXT CHECK (sentiment IN ('positive', 'neutral', 'negative')),
+          excerpt TEXT,
+          responded BOOLEAN DEFAULT false,
+          created_at TIMESTAMPTZ DEFAULT NOW()
+      );
+      
+      CREATE TABLE IF NOT EXISTS founder_dashboard_access_log (
+          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          founder_id UUID REFERENCES users(id),
+          ip_address INET,
+          user_agent TEXT,
+          actions_taken JSONB,
+          created_at TIMESTAMPTZ DEFAULT NOW()
+      );
+    `);
+
+    // Seed dummy threats if empty
+    const tCount = await pool.query('SELECT COUNT(*) FROM founder_threats');
+    if (parseInt(tCount.rows[0].count) === 0) {
+      await pool.query(`
+        INSERT INTO founder_threats (title, description, severity, source) VALUES 
+        ('@amit quit', 'tokenizer docs? bus factor: 🔴', 'critical', 'manual'),
+        ('GPU at 89% for 2h', 'Mumbai region auto-restart failed', 'high', 'auto'),
+        ('1 tenant payment failed 3x', 'razorpay_xxx risk: churn', 'medium', 'auto')
+      `);
+      
+      await pool.query(`
+        INSERT INTO founder_opportunities (title, description, estimated_value, probability, status) VALUES 
+        ('Karnataka govt tender', 'closes in 14 days', 5000000, 40, 'open'),
+        ('Y Combinator W27 deadline', '9 days left, need demo video', 0, 80, 'open')
+      `);
+
+      await pool.query(`
+        INSERT INTO founder_hypotheses (hypothesis, test_method, result, decision, owner, status) VALUES 
+        ('Lawyers will pay ₹499/month for legal AI', 'Landing page + 10 interviews', '3/10 yes, but want ₹199', 'Pivot to ₹199', '@founder', 'revised'),
+        ('32B model worth 4x cost of 8B', 'A/B test, 20% traffic to 32B', '8% better satisfaction, 3.5x cost', 'Route enterprise only to 32B', '@rahul', 'testing')
+      `);
+
+      await pool.query(`
+        INSERT INTO founder_narrative_mentions (source, title, sentiment, excerpt) VALUES 
+        ('TechCrunch', 'New Indian AI startup challenges Sarvam', 'positive', 'Bharat AI is...'),
+        ('HN', 'Another Qwen fine-tuner, not real AI', 'negative', 'Why not just use ChatGPT?')
+      `);
+    }
+
   } catch (err) {
-    console.error('Failed to auto-migrate database tables:', err);
-  }
 }
 initDb();
 
@@ -289,6 +385,7 @@ app.post('/admin/logout', (req, res) => {
 // ────────────────────────────────────────────────────────────
 // PROTECTED ROUTES (Admin Authorization required)
 // ────────────────────────────────────────────────────────────
+app.use('/admin/founder', founderRouter); // Explicitly mount founder APIs
 app.use('/admin', adminAuth);
 
 // 1. GET /admin/system-status

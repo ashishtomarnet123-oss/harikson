@@ -56,6 +56,36 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     router.push('/admin/login');
   };
 
+  useEffect(() => {
+    let fCount = 0;
+    let timer: NodeJS.Timeout;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Must be Shift + F
+      if (e.shiftKey && e.key.toLowerCase() === 'f') {
+        fCount++;
+        clearTimeout(timer);
+        
+        if (fCount >= 2) {
+          fCount = 0;
+          router.push('/admin/founder');
+        } else {
+          timer = setTimeout(() => {
+            fCount = 0;
+          }, 500);
+        }
+      } else if (e.key !== 'Shift') {
+        fCount = 0;
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      clearTimeout(timer);
+    };
+  }, [router]);
+
   if (pathname === '/admin/login') {
     return <>{children}</>;
   }
