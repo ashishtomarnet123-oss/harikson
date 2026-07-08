@@ -206,9 +206,9 @@ Never break character. You are Harikson — a premium enterprise AI assistant.`;
 }
 
 // Helper: build messages array for Ollama /api/chat (proper multi-turn memory)
-function buildMessages(history, userMessage, model) {
+function buildMessages(history, userMessage, model, agentConfig = null) {
   const messages = [
-    { role: 'system', content: getSystemPrompt(model) }
+    { role: 'system', content: agentConfig && agentConfig.system_prompt ? agentConfig.system_prompt : getSystemPrompt(model) }
   ];
   for (const msg of history) {
     messages.push({
@@ -235,14 +235,49 @@ function getMockResponse(history, userMessage, model) {
 }
 
 
+// 4.5 GET /api/agents
+app.get('/api/agents', authMiddleware, async (req, res) => {
+  try {
+    const agents = await executeTenantQuery(req.tenant.id, async (client) => {
+      const result = await client.query(
+        "SELECT id, name, description, category, model FROM agents WHERE status = 'active' AND (visibility = 'public' OR tenant_id = $1 OR tenant_id IS NULL) ORDER BY created_at DESC",
+        [req.tenant.id]
+      );
+      return result.rows;
+    });
+    res.json(agents);
+  } catch (err) {
+    console.error('Failed to fetch agents:', err);
+    res.status(500).json({ error: 'Failed to fetch agents' });
+  }
+});
+
 // 5. POST /api/chat
 app.post('/api/chat', authMiddleware, async (req, res) => {
-  const { message, model, conversationId, clientHistory } = req.body;
+  const { message, model, conversationId, clientHistory, agent_id } = req.body;
   if (!message) {
     return res.status(400).json({ error: 'Message is required' });
   }
 
-  const selectedModel = model || 'harikson-plus';
+  let selectedModel = model || 'harikson-plus';
+  let agentConfig = null;
+
+  if (agent_id) {
+    try {
+      agentConfig = await executeTenantQuery(req.tenant.id, async (client) => {
+        const agentResult = await client.query(
+          "SELECT * FROM agents WHERE id = $1 AND status = 'active' AND (visibility = 'public' OR tenant_id = $2 OR tenant_id IS NULL)", 
+          [agent_id, req.tenant.id]
+        );
+        return agentResult.rows[0];
+      });
+      if (agentConfig) {
+        selectedModel = agentConfig.model || selectedModel;
+      }
+    } catch (err) {
+      console.warn("Failed to fetch agent config:", err);
+    }
+  }
 
   // Rate limiting via Redis (plan-based: solo=10, team=60, business=300, enterprise=0)
   const plan = (req.tenant.plan || 'STARTER').toLowerCase();
@@ -307,7 +342,7 @@ app.post('/api/chat', authMiddleware, async (req, res) => {
     const finalHistory = (clientHistory && clientHistory.length > 0) ? clientHistory : history;
 
     // Build messages array with full conversation history for proper context
-    const messages = buildMessages(finalHistory, message, selectedModel);
+    const messages = buildMessages(finalHistory, message, selectedModel, agentConfig);
     const promptTokenEstimate = messages.reduce((acc, m) => acc + Math.ceil(m.content.length / 4), 0);
 
     // Set streaming headers
@@ -324,8 +359,9 @@ app.post('/api/chat', authMiddleware, async (req, res) => {
         keep_alive: -1,
         options: {
           num_thread: 7,
-          temperature: 0.7,
-          num_predict: 2048
+          temperature: agentConfig ? parseFloat(agentConfig.temperature) : 0.7,
+          num_predict: agentConfig ? parseInt(agentConfig.max_tokens) : 2048,
+          top_p: agentConfig ? parseFloat(agentConfig.top_p) : 0.9
         }
       }, { 
         responseType: 'stream',
@@ -370,6 +406,12 @@ app.post('/api/chat', authMiddleware, async (req, res) => {
               'UPDATE conversations SET updated_at = NOW() WHERE id = $1',
               [currentConvId]
             );
+            if (agentConfig) {
+              await client.query(
+                'UPDATE agents SET total_requests = total_requests + 1, total_tokens = total_tokens + $1, last_used_at = NOW() WHERE id = $2',
+                [promptTokens + completionTokens, agentConfig.id]
+              );
+            }
           });
         } catch (dbErr) {
           console.error('Failed to save chat messages to DB:', dbErr);
