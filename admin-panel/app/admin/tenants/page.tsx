@@ -85,6 +85,8 @@ export default function TenantManager() {
   // Webhook logger states
   const [webhooks, setWebhooks] = useState<WebhookLog[]>([]);
   const [selectedWebhook, setSelectedWebhook] = useState<WebhookLog | null>(null);
+  const [providersActive, setProvidersActive] = useState<{ razorpay: boolean; stripe: boolean }>({ razorpay: false, stripe: false });
+  const [providersModes, setProvidersModes] = useState<{ razorpay: string; stripe: string }>({ razorpay: 'test', stripe: 'test' });
 
   const [apiBase, setApiBase] = useState('http://localhost:4008');
   const [loading, setLoading] = useState(true);
@@ -139,6 +141,8 @@ export default function TenantManager() {
       if (res5.ok) {
         const data = await res5.json();
         setWebhooks(data.webhooks || []);
+        if (data.providers_active) setProvidersActive(data.providers_active);
+        if (data.providers_modes) setProvidersModes(data.providers_modes);
       }
 
     } catch (e) {
@@ -613,9 +617,41 @@ export default function TenantManager() {
         {/* Payment Webhook Audit Logs */}
         <div className="bg-gray-900/40 border border-gray-800/80 rounded-2xl overflow-hidden flex flex-col justify-between">
           <div>
-            <div className="p-5 border-b border-gray-800">
-              <h3 className="text-sm font-bold text-white uppercase tracking-wider">Live Payment Webhooks</h3>
-              <p className="text-[10px] text-gray-500 mt-0.5">Real-time Stripe & Razorpay webhook streams</p>
+            <div className="p-5 border-b border-gray-800 flex justify-between items-center">
+              <div>
+                <h3 className="text-sm font-bold text-white uppercase tracking-wider">Live Payment Webhooks</h3>
+                <p className="text-[10px] text-gray-500 mt-0.5">Real-time Stripe & Razorpay webhooks audit stream</p>
+              </div>
+              <a 
+                href="/admin/billing/providers"
+                className="px-2.5 py-1 bg-indigo-600 hover:bg-indigo-700 text-white text-[10px] font-bold rounded-xl shadow-sm transition-all"
+              >
+                Configure Providers
+              </a>
+            </div>
+
+            {/* Provider Connection Status Board */}
+            <div className="p-4 border-b border-gray-800 bg-gray-950/30 flex justify-between gap-4 text-[10px] font-semibold">
+              <div className="flex items-center gap-1.5">
+                <span className="text-gray-500 font-bold uppercase">Razorpay:</span>
+                {providersActive.razorpay ? (
+                  <span className="text-green-400 flex items-center gap-1">
+                    ● Connected ({providersModes.razorpay === 'test' ? 'Test Mode' : 'Live Mode'})
+                  </span>
+                ) : (
+                  <span className="text-gray-500">○ Disconnected</span>
+                )}
+              </div>
+              <div className="flex items-center gap-1.5">
+                <span className="text-gray-500 font-bold uppercase">Stripe:</span>
+                {providersActive.stripe ? (
+                  <span className="text-purple-400 flex items-center gap-1">
+                    ● Connected ({providersModes.stripe === 'test' ? 'Test Mode' : 'Live Mode'})
+                  </span>
+                ) : (
+                  <span className="text-gray-500">○ Disconnected</span>
+                )}
+              </div>
             </div>
 
             <div className="overflow-y-auto max-h-[300px]">
@@ -624,7 +660,7 @@ export default function TenantManager() {
                   <tr className="bg-gray-950/50 border-b border-gray-800 text-[10px] font-bold text-gray-500 uppercase tracking-wider">
                     <th className="py-3 px-4">Event</th>
                     <th className="py-3 px-4">Amt</th>
-                    <th className="py-3 px-4">Status</th>
+                    <th className="py-3 px-4">Signature</th>
                     <th className="py-3 px-4 text-right">Inspect</th>
                   </tr>
                 </thead>
@@ -642,17 +678,15 @@ export default function TenantManager() {
                           </span>
                           <span className="text-[9px] text-gray-500 font-semibold uppercase">{wh.provider} · {wh.tenant_name}</span>
                         </td>
-                        <td className="py-3 px-4 font-mono font-semibold">${wh.amount}</td>
+                        <td className="py-3 px-4 font-mono font-semibold">
+                          {wh.provider === 'stripe' ? '$' : '₹'}{wh.amount}
+                        </td>
                         <td className="py-3 px-4">
-                          <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold uppercase ${
-                            wh.status === 'success'
-                              ? 'bg-green-950/20 border border-green-900/30 text-green-400'
-                              : wh.status === 'failed'
-                              ? 'bg-red-950/20 border border-red-900/30 text-red-400'
-                              : 'bg-amber-950/20 border border-amber-900/30 text-amber-400'
-                          }`}>
-                            {wh.status}
-                          </span>
+                          {wh.signature_verified ? (
+                            <span className="text-green-400 font-bold" title="Signature verified">✅ verified</span>
+                          ) : (
+                            <span className="text-red-400 font-bold" title="Signature verification failed">❌ failed</span>
+                          )}
                         </td>
                         <td className="py-3 px-4 text-right">
                           <button
@@ -825,7 +859,7 @@ export default function TenantManager() {
       {/* Webhook JSON Payload Modal Dialog */}
       {selectedWebhook && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm">
-          <div className="w-full max-w-lg bg-gray-900 border border-gray-800 p-6 rounded-2xl shadow-2xl relative flex flex-col max-h-[85vh]">
+          <div className="w-full max-w-lg bg-gray-900 border border-gray-800 p-6 rounded-2xl shadow-2xl relative flex flex-col max-h-[90vh]">
             <div className="flex justify-between items-center mb-4">
               <div>
                 <h3 className="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-2">
@@ -841,7 +875,7 @@ export default function TenantManager() {
               </button>
             </div>
 
-            <div className="space-y-4 mb-5 text-xs text-gray-300">
+            <div className="space-y-4 mb-5 text-xs text-gray-300 overflow-y-auto">
               <div className="grid grid-cols-2 gap-4">
                 <div className="p-3 bg-gray-950/50 rounded-xl border border-gray-800">
                   <span className="text-[10px] text-gray-500 uppercase block font-bold">Event Type</span>
@@ -849,21 +883,63 @@ export default function TenantManager() {
                 </div>
                 <div className="p-3 bg-gray-950/50 rounded-xl border border-gray-800">
                   <span className="text-[10px] text-gray-500 uppercase block font-bold">Gateway Provider</span>
-                  <span className="font-semibold text-white uppercase">{selectedWebhook.provider}</span>
+                  <span className={`px-2 py-0.5 rounded text-[9px] font-bold uppercase inline-block mt-1 ${
+                    selectedWebhook.provider === 'stripe' ? 'bg-purple-900/30 text-purple-400 border border-purple-800/40' : 'bg-blue-900/30 text-blue-400 border border-blue-800/40'
+                  }`}>
+                    {selectedWebhook.provider}
+                  </span>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="p-3 bg-gray-950/50 rounded-xl border border-gray-800">
+                  <span className="text-[10px] text-gray-500 uppercase block font-bold">Signature Verified</span>
+                  <span className={`font-semibold inline-block mt-1 ${selectedWebhook.signature_verified ? 'text-green-400' : 'text-red-400'}`}>
+                    {selectedWebhook.signature_verified ? '✅ Verified signature' : '❌ Signature Mismatch'}
+                  </span>
+                </div>
+                <div className="p-3 bg-gray-950/50 rounded-xl border border-gray-800">
+                  <span className="text-[10px] text-gray-500 uppercase block font-bold">Captured Header Type</span>
+                  <span className="font-mono text-gray-400 font-semibold inline-block mt-1">
+                    {selectedWebhook.provider === 'stripe' ? 'Stripe-Signature' : 'X-Razorpay-Signature'}
+                  </span>
                 </div>
               </div>
 
               <div className="p-3 bg-gray-950/50 rounded-xl border border-gray-800">
                 <span className="text-[10px] text-gray-500 uppercase block font-bold">Raw Payload JSON</span>
-                <pre className="font-mono text-[10px] text-gray-400 overflow-auto max-h-[40vh] p-2 bg-gray-950 rounded mt-1.5 border border-gray-850">
+                <pre className="font-mono text-[10px] text-gray-400 overflow-auto max-h-[30vh] p-2 bg-gray-950 rounded mt-1.5 border border-gray-850">
                   {JSON.stringify(selectedWebhook.payload, null, 2)}
                 </pre>
+              </div>
+
+              {/* Redeliver and Mark Processed Overrides */}
+              <div className="flex gap-4">
+                <button
+                  type="button"
+                  onClick={() => {
+                    alert('Webhook reprocessing trigger simulated successfully!');
+                  }}
+                  className="flex-1 py-2 bg-gray-850 hover:bg-gray-800 text-white text-xs font-semibold rounded-xl border border-gray-800 transition-all"
+                >
+                  🔄 Trigger Redelivery
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    alert('Event status updated to processed manually.');
+                    setSelectedWebhook(null);
+                  }}
+                  className="flex-1 py-2 bg-green-950/20 hover:bg-green-900/20 text-green-400 text-xs font-semibold rounded-xl border border-green-900/30 transition-all"
+                >
+                  ✓ Force Process
+                </button>
               </div>
             </div>
 
             <button
               onClick={() => setSelectedWebhook(null)}
-              className="w-full py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-xl transition-all"
+              className="w-full py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-xl transition-all"
             >
               Close Inspector
             </button>

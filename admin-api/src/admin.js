@@ -9,6 +9,9 @@ import { exec, spawn } from 'child_process';
 import util from 'util';
 import Redis from 'ioredis';
 import { adminAuth } from './middleware/adminAuth.js';
+import crypto from 'crypto';
+import Stripe from 'stripe';
+import Razorpay from 'razorpay';
 
 dotenv.config();
 
@@ -17,9 +20,66 @@ const pool = new Pool({
   connectionString: process.env.DATABASE_URL
 });
 
+// Encryption Helpers for credentials at rest
+const ENCRYPTION_KEY = process.env.PAYMENT_ENCRYPTION_KEY || 'default_32_bytes_long_secret_key_!';
+function encryptText(text) {
+  if (!text) return null;
+  const hashedKey = crypto.createHash('sha256').update(ENCRYPTION_KEY).digest();
+  const iv = crypto.randomBytes(12);
+  const cipher = crypto.createCipheriv('aes-256-gcm', hashedKey, iv);
+  let encrypted = cipher.update(text, 'utf8', 'hex');
+  encrypted += cipher.final('hex');
+  const authTag = cipher.getAuthTag().toString('hex');
+  return `${iv.toString('hex')}:${authTag}:${encrypted}`;
+}
+
+function decryptText(encryptedText) {
+  if (!encryptedText) return null;
+  try {
+    const hashedKey = crypto.createHash('sha256').update(ENCRYPTION_KEY).digest();
+    const parts = encryptedText.split(':');
+    if (parts.length < 3) return encryptedText; // Fallback
+    const iv = Buffer.from(parts[0], 'hex');
+    const authTag = Buffer.from(parts[1], 'hex');
+    const encrypted = parts[2];
+    const decipher = crypto.createDecipheriv('aes-256-gcm', hashedKey, iv);
+    decipher.setAuthTag(authTag);
+    let decrypted = decipher.update(encrypted, 'hex', 'utf8');
+    decrypted += decipher.final('utf8');
+    return decrypted;
+  } catch (err) {
+    console.error('Failed to decrypt credentials:', err);
+    return null;
+  }
+}
+
 // Self-healing database migrations on startup
 async function initDb() {
   try {
+    // 1. Create payment_providers table
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS payment_providers (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        provider TEXT NOT NULL CHECK (provider IN ('razorpay', 'stripe')),
+        name TEXT,
+        api_key_encrypted TEXT NOT NULL,
+        api_secret_encrypted TEXT NOT NULL,
+        webhook_secret_encrypted TEXT,
+        merchant_id TEXT,
+        is_active BOOLEAN DEFAULT true,
+        is_test_mode BOOLEAN DEFAULT true,
+        created_at TIMESTAMPTZ DEFAULT NOW(),
+        updated_at TIMESTAMPTZ DEFAULT NOW(),
+        created_by UUID
+      )
+    `);
+
+    await pool.query(`
+      CREATE UNIQUE INDEX IF NOT EXISTS idx_payment_providers_active 
+      ON payment_providers(provider, is_active) WHERE is_active = true
+    `);
+
+    // 2. Create tenant_api_keys table
     await pool.query(`
       CREATE TABLE IF NOT EXISTS tenant_api_keys (
         id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -35,6 +95,7 @@ async function initDb() {
       )
     `);
     
+    // 3. Create payment_webhooks table
     await pool.query(`
       CREATE TABLE IF NOT EXISTS payment_webhooks (
         id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -49,18 +110,77 @@ async function initDb() {
       )
     `);
 
-    const countCheck = await pool.query('SELECT COUNT(*) FROM payment_webhooks');
-    if (parseInt(countCheck.rows[0].count) === 0) {
-      await pool.query(`
-        INSERT INTO payment_webhooks (event_id, provider, event_type, status, amount, tenant_name, payload) VALUES
-        ('evt_1O2x5cK', 'stripe', 'invoice.paid', 'success', 299.00, 'Alpha Tech', '{"id": "evt_1O2x5cK", "object": "event", "type": "invoice.paid", "data": {"object": {"amount_paid": 29900, "customer_email": "billing@alphatech.com"}}}'),
-        ('evt_1O2x9aX', 'stripe', 'invoice.payment_failed', 'failed', 299.00, 'Gamma Digital', '{"id": "evt_1O2x9aX", "object": "event", "type": "invoice.payment_failed", "data": {"object": {"amount_due": 29900, "attempt_count": 3, "customer_email": "admin@gammadigital.io"}}}'),
-        ('pay_NjmK82d8F', 'razorpay', 'subscription.activated', 'success', 99.00, 'Beta Systems', '{"event": "subscription.activated", "payload": {"subscription": {"id": "sub_NjmK82d8F", "plan_id": "plan_PRO"}}}'),
-        ('pay_OkL91f81S', 'razorpay', 'payment.authorized', 'pending', 49.00, 'Delta Agency', '{"event": "payment.authorized", "payload": {"payment": {"id": "pay_OkL91f81S", "amount": 4900, "status": "authorized"}}}')
-      `);
-      console.log('🌱 Seeded mock payment webhooks.');
+    // Alter table to add dynamic properties if not present
+    const cols = await pool.query(`
+      SELECT column_name FROM information_schema.columns 
+      WHERE table_name = 'payment_webhooks'
+    `);
+    const colNames = cols.rows.map(c => c.column_name);
+    
+    if (!colNames.includes('provider_id')) {
+      await pool.query('ALTER TABLE payment_webhooks ADD COLUMN provider_id UUID REFERENCES payment_providers(id)');
     }
-    console.log('✅ tenant_api_keys and payment_webhooks tables initialized successfully.');
+    if (!colNames.includes('signature_verified')) {
+      await pool.query('ALTER TABLE payment_webhooks ADD COLUMN signature_verified BOOLEAN DEFAULT false');
+    }
+    if (!colNames.includes('processed_at')) {
+      await pool.query('ALTER TABLE payment_webhooks ADD COLUMN processed_at TIMESTAMPTZ');
+    }
+    if (!colNames.includes('processing_error')) {
+      await pool.query('ALTER TABLE payment_webhooks ADD COLUMN processing_error TEXT');
+    }
+
+    // 4. Create subscriptions table
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS subscriptions (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE,
+        provider_id UUID REFERENCES payment_providers(id),
+        provider TEXT CHECK (provider IN ('razorpay', 'stripe')),
+        provider_subscription_id TEXT NOT NULL,
+        plan TEXT NOT NULL CHECK (plan IN ('free', 'developer', 'startup', 'enterprise')),
+        status TEXT NOT NULL CHECK (status IN ('active', 'cancelled', 'past_due', 'unpaid', 'paused')),
+        current_period_start TIMESTAMPTZ,
+        current_period_end TIMESTAMPTZ,
+        cancel_at_period_end BOOLEAN DEFAULT false,
+        amount DECIMAL(10,2),
+        currency TEXT DEFAULT 'INR',
+        metadata JSONB,
+        created_at TIMESTAMPTZ DEFAULT NOW(),
+        updated_at TIMESTAMPTZ DEFAULT NOW()
+      )
+    `);
+
+    await pool.query('CREATE INDEX IF NOT EXISTS idx_subscriptions_tenant ON subscriptions(tenant_id)');
+    await pool.query('CREATE INDEX IF NOT EXISTS idx_subscriptions_provider ON subscriptions(provider_subscription_id)');
+
+    // 5. Create invoices table
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS invoices (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE,
+        subscription_id UUID REFERENCES subscriptions(id),
+        provider_id UUID REFERENCES payment_providers(id),
+        provider TEXT CHECK (provider IN ('razorpay', 'stripe')),
+        provider_invoice_id TEXT NOT NULL,
+        amount DECIMAL(10,2),
+        currency TEXT,
+        status TEXT CHECK (status IN ('draft', 'open', 'paid', 'uncollectible', 'void')),
+        paid_at TIMESTAMPTZ,
+        invoice_url TEXT,
+        pdf_url TEXT,
+        metadata JSONB,
+        created_at TIMESTAMPTZ DEFAULT NOW()
+      )
+    `);
+
+    // Mock provider check & warning logic (Step 6 Migration)
+    const providers = await pool.query("SELECT COUNT(*) FROM payment_providers WHERE is_active = true");
+    if (parseInt(providers.rows[0].count) === 0) {
+      console.warn("⚠️ No active payment providers configured. Add Razorpay or Stripe merchant settings in Harikson Admin Panel.");
+    }
+
+    console.log('✅ Billing databases and indexes successfully operational.');
   } catch (err) {
     console.error('Failed to auto-migrate database tables:', err);
   }
@@ -78,7 +198,11 @@ app.use(cors({
   origin: true,
   credentials: true
 }));
-app.use(express.json());
+app.use(express.json({
+  verify: (req, res, buf) => {
+    req.rawBody = buf;
+  }
+}));
 
 // Helper for audit logging
 async function logAdminAction(adminId, action, targetType, targetId, oldValue, newValue, req) {
@@ -687,14 +811,385 @@ app.post('/admin/vllm/params', async (req, res) => {
   }
 });
 
-// 23. GET /admin/billing/webhooks
-app.get('/admin/billing/webhooks', async (req, res) => {
+// 23. POST /admin/billing/providers (create/configure payment provider)
+app.post('/admin/billing/providers', adminAuth, async (req, res) => {
+  const { provider, name, api_key, api_secret, webhook_secret, merchant_id, is_test_mode } = req.body;
+  if (!provider || !api_key || !api_secret) {
+    return res.status(400).json({ error: 'provider, api_key, and api_secret are required' });
+  }
+  if (provider !== 'stripe' && provider !== 'razorpay') {
+    return res.status(400).json({ error: 'Invalid provider. Must be razorpay or stripe.' });
+  }
+
   try {
-    const result = await pool.query('SELECT * FROM payment_webhooks ORDER BY created_at DESC LIMIT 100');
-    res.status(200).json({ webhooks: result.rows });
+    // 1. Perform validation test calls to verify credentials before saving
+    if (provider === 'razorpay') {
+      try {
+        const client = new Razorpay({ key_id: api_key, key_secret: api_secret });
+        await client.orders.all({ count: 1 });
+      } catch (err) {
+        if (err.statusCode && err.statusCode === 401) {
+          return res.status(400).json({ error: 'Invalid Razorpay Credentials' });
+        }
+      }
+    } else if (provider === 'stripe') {
+      try {
+        const stripeClient = new Stripe(api_secret);
+        await stripeClient.accounts.retrieve();
+      } catch (err) {
+        return res.status(400).json({ error: `Invalid Stripe Credentials: ${err.message}` });
+      }
+    }
+
+    // 2. Encrypt credentials at rest
+    const encryptedKey = encryptText(api_key);
+    const encryptedSecret = encryptText(api_secret);
+    const encryptedWebhookSecret = webhook_secret ? encryptText(webhook_secret) : null;
+
+    // Set other provider configurations to inactive
+    await pool.query('UPDATE payment_providers SET is_active = false WHERE provider = $1', [provider]);
+
+    const result = await pool.query(
+      `INSERT INTO payment_providers (provider, name, api_key_encrypted, api_secret_encrypted, webhook_secret_encrypted, merchant_id, is_active, is_test_mode, created_by)
+       VALUES ($1, $2, $3, $4, $5, $6, true, $7, $8)
+       RETURNING id, provider, name, is_active, is_test_mode, created_at`,
+      [provider, name || `${provider.toUpperCase()} Merchant`, encryptedKey, encryptedSecret, encryptedWebhookSecret, merchant_id, is_test_mode !== false, req.admin.id]
+    );
+
+    const inserted = result.rows[0];
+    await logAdminAction(req.admin.id, 'create_payment_provider', 'payment_provider', inserted.id, null, { provider, name }, req);
+
+    res.status(201).json({ success: true, provider: inserted });
   } catch (err) {
-    console.error('Failed to get payment webhooks:', err);
-    res.status(500).json({ error: 'Failed to retrieve webhook logs' });
+    console.error('Failed to create payment provider:', err);
+    res.status(500).json({ error: 'Failed to configure payment merchant' });
+  }
+});
+
+// 24. GET /admin/billing/providers (list payment providers)
+app.get('/admin/billing/providers', adminAuth, async (req, res) => {
+  try {
+    const result = await pool.query('SELECT * FROM payment_providers WHERE is_active = true ORDER BY created_at DESC');
+    const providers = result.rows.map(p => {
+      const keyDecrypted = decryptText(p.api_key_encrypted) || '';
+      const secretDecrypted = decryptText(p.api_secret_encrypted) || '';
+      return {
+        id: p.id,
+        provider: p.provider,
+        name: p.name,
+        merchant_id: p.merchant_id,
+        is_active: p.is_active,
+        is_test_mode: p.is_test_mode,
+        created_at: p.created_at,
+        api_key_masked: keyDecrypted.substring(0, 8) + '****',
+        api_secret_masked: secretDecrypted.substring(0, 8) + '****'
+      };
+    });
+    res.status(200).json({ providers });
+  } catch (err) {
+    console.error('Failed to list payment providers:', err);
+    res.status(500).json({ error: 'Failed to list payment configurations' });
+  }
+});
+
+// 25. DELETE /admin/billing/providers/:id (deactivate provider)
+app.delete('/admin/billing/providers/:id', adminAuth, async (req, res) => {
+  const { id } = req.params;
+  try {
+    const result = await pool.query(
+      'UPDATE payment_providers SET is_active = false WHERE id = $1 RETURNING id, provider, name',
+      [id]
+    );
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Provider configuration not found' });
+    }
+    await logAdminAction(req.admin.id, 'deactivate_payment_provider', 'payment_provider', id, result.rows[0], null, req);
+    res.status(200).json({ success: true, message: 'Provider de-activated successfully' });
+  } catch (err) {
+    console.error('Failed to deactivate provider:', err);
+    res.status(500).json({ error: 'Failed to disable payment provider' });
+  }
+});
+
+// 26. POST /webhooks/stripe (Stripe webhooks receiver)
+app.post('/webhooks/stripe', async (req, res) => {
+  const sig = req.headers['stripe-signature'];
+  const payload = req.rawBody;
+
+  try {
+    const providerRes = await pool.query(
+      "SELECT * FROM payment_providers WHERE provider = 'stripe' AND is_active = true LIMIT 1"
+    );
+    if (providerRes.rows.length === 0) {
+      return res.status(200).json({ status: 'no_active_provider' });
+    }
+    const provider = providerRes.rows[0];
+    const webhookSecret = decryptText(provider.webhook_secret_encrypted);
+
+    let event;
+    try {
+      const stripeInstance = new Stripe(decryptText(provider.api_secret_encrypted));
+      event = stripeInstance.webhooks.constructEvent(payload, sig, webhookSecret);
+    } catch (err) {
+      console.error('Stripe signature failed:', err.message);
+      await pool.query(
+        `INSERT INTO payment_webhooks (event_id, provider_id, provider, event_type, status, amount, signature_verified, processing_error, payload)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+        [
+          'sig_fail_' + Date.now(),
+          provider.id,
+          'stripe',
+          'signature_failed',
+          'failed',
+          0,
+          false,
+          'Stripe signature error: ' + err.message,
+          JSON.stringify({ error: err.message })
+        ]
+      );
+      return res.status(200).json({ status: 'signature_invalid' });
+    }
+
+    const eventObj = event.data.object;
+    const amount = eventObj.amount_due ? eventObj.amount_due / 100 : (eventObj.amount ? eventObj.amount / 100 : 0);
+    const currency = eventObj.currency || 'USD';
+    const status = eventObj.status || 'success';
+    const eventId = event.id;
+
+    // Extract tenant_id from metadata
+    const tenantId = eventObj.metadata?.tenant_id || null;
+    let tenantName = 'System';
+    if (tenantId) {
+      const tRes = await pool.query('SELECT name FROM tenants WHERE id = $1', [tenantId]);
+      if (tRes.rows.length > 0) tenantName = tRes.rows[0].name;
+    }
+
+    await pool.query(
+      `INSERT INTO payment_webhooks (event_id, provider_id, provider, event_type, status, amount, tenant_name, payload, signature_verified, processed_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW())`,
+      [eventId, provider.id, 'stripe', event.type, status, amount, tenantName, JSON.stringify(event), true]
+    );
+
+    // Business Logic processing
+    if (event.type === 'customer.subscription.created' || event.type === 'customer.subscription.updated') {
+      const subId = eventObj.id;
+      const plan = eventObj.metadata?.plan || 'developer';
+      const subStatus = eventObj.status === 'active' ? 'active' : (eventObj.status === 'canceled' ? 'cancelled' : 'paused');
+      const start = new Date(eventObj.current_period_start * 1000);
+      const end = new Date(eventObj.current_period_end * 1000);
+
+      if (tenantId) {
+        await pool.query(
+          `INSERT INTO subscriptions (tenant_id, provider_id, provider, provider_subscription_id, plan, status, current_period_start, current_period_end, amount, currency)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+           ON CONFLICT (provider_subscription_id) DO UPDATE SET 
+             status = EXCLUDED.status, 
+             current_period_start = EXCLUDED.current_period_start, 
+             current_period_end = EXCLUDED.current_period_end, 
+             amount = EXCLUDED.amount,
+             updated_at = NOW()`,
+          [tenantId, provider.id, 'stripe', subId, plan, subStatus, start, end, amount, currency]
+        );
+        await pool.query('UPDATE tenants SET plan = $1 WHERE id = $2', [plan.toUpperCase(), tenantId]);
+      }
+    } else if (event.type === 'invoice.paid') {
+      const invId = eventObj.id;
+      const invoiceUrl = eventObj.hosted_invoice_url;
+      const pdfUrl = eventObj.invoice_pdf;
+      const subId = eventObj.subscription;
+
+      if (tenantId) {
+        const subRes = await pool.query('SELECT id FROM subscriptions WHERE provider_subscription_id = $1', [subId]);
+        const subscriptionUuid = subRes.rows.length > 0 ? subRes.rows[0].id : null;
+
+        await pool.query(
+          `INSERT INTO invoices (tenant_id, subscription_id, provider_id, provider, provider_invoice_id, amount, currency, status, paid_at, invoice_url, pdf_url)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW(), $9, $10)`,
+          [tenantId, subscriptionUuid, provider.id, 'stripe', invId, amount, currency, 'paid', invoiceUrl, pdfUrl]
+        );
+      }
+    }
+
+    res.status(200).json({ status: 'processed' });
+  } catch (err) {
+    console.error('Stripe webhook handling failed:', err);
+    res.status(500).json({ error: 'Internal webhook failure' });
+  }
+});
+
+// 27. POST /webhooks/razorpay (Razorpay webhooks receiver)
+app.post('/webhooks/razorpay', async (req, res) => {
+  const signature = req.headers['x-razorpay-signature'] || '';
+  const payload = req.rawBody;
+
+  try {
+    const providerRes = await pool.query(
+      "SELECT * FROM payment_providers WHERE provider = 'razorpay' AND is_active = true LIMIT 1"
+    );
+    if (providerRes.rows.length === 0) {
+      return res.status(200).json({ status: 'no_active_provider' });
+    }
+    const provider = providerRes.rows[0];
+    const webhookSecret = decryptText(provider.webhook_secret_encrypted);
+
+    const expectedSignature = crypto
+      .createHmac('sha256', webhookSecret)
+      .update(payload)
+      .digest('hex');
+
+    const isVerified = crypto.timingSafeEqual(Buffer.from(expectedSignature), Buffer.from(signature));
+
+    if (!isVerified) {
+      console.error('Razorpay signature mismatch');
+      await pool.query(
+        `INSERT INTO payment_webhooks (event_id, provider_id, provider, event_type, status, amount, signature_verified, processing_error, payload)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+        [
+          'sig_fail_' + Date.now(),
+          provider.id,
+          'razorpay',
+          'signature_failed',
+          'failed',
+          0,
+          false,
+          'Razorpay webhook signature verification failed',
+          payload.toString()
+        ]
+      );
+      return res.status(200).json({ status: 'signature_invalid' });
+    }
+
+    const eventData = JSON.parse(payload.toString());
+    const eventType = eventData.event;
+    const entity = eventData.payload?.payment?.entity || eventData.payload?.subscription?.entity || eventData.payload?.invoice?.entity;
+    const eventId = eventData.id;
+
+    // Extract tenant_id from notes
+    const tenantId = entity?.notes?.tenant_id || null;
+    let tenantName = 'System';
+    if (tenantId) {
+      const tRes = await pool.query('SELECT name FROM tenants WHERE id = $1', [tenantId]);
+      if (tRes.rows.length > 0) tenantName = tRes.rows[0].name;
+    }
+
+    const amount = entity?.amount ? entity.amount / 100 : 0;
+    const status = entity?.status || 'processed';
+
+    await pool.query(
+      `INSERT INTO payment_webhooks (event_id, provider_id, provider, event_type, status, amount, tenant_name, payload, signature_verified, processed_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW())`,
+      [eventId, provider.id, 'razorpay', eventType, status, amount, tenantName, JSON.stringify(eventData), true]
+    );
+
+    // Business logic processing
+    if (tenantId) {
+      if (eventType === 'subscription.activated' || eventType === 'subscription.charged') {
+        const subId = entity.id;
+        const plan = entity.notes?.plan || 'developer';
+        const subStatus = entity.status === 'active' || entity.status === 'authenticated' ? 'active' : 'paused';
+        const start = entity.current_start ? new Date(entity.current_start * 1000) : new Date();
+        const end = entity.current_end ? new Date(entity.current_end * 1000) : new Date();
+
+        await pool.query(
+          `INSERT INTO subscriptions (tenant_id, provider_id, provider, provider_subscription_id, plan, status, current_period_start, current_period_end, amount, currency)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+           ON CONFLICT (provider_subscription_id) DO UPDATE SET 
+             status = EXCLUDED.status, 
+             current_period_start = EXCLUDED.current_period_start, 
+             current_period_end = EXCLUDED.current_period_end, 
+             amount = EXCLUDED.amount,
+             updated_at = NOW()`,
+          [tenantId, provider.id, 'razorpay', subId, plan, subStatus, start, end, amount, 'INR']
+        );
+        await pool.query('UPDATE tenants SET plan = $1 WHERE id = $2', [plan.toUpperCase(), tenantId]);
+      } else if (eventType === 'subscription.cancelled') {
+        const subId = entity.id;
+        await pool.query(
+          "UPDATE subscriptions SET status = 'cancelled', updated_at = NOW() WHERE provider_subscription_id = $1",
+          [subId]
+        );
+      }
+    }
+
+    res.status(200).json({ status: 'processed' });
+  } catch (err) {
+    console.error('Razorpay webhook processing error:', err);
+    res.status(500).json({ error: 'Internal webhook error' });
+  }
+});
+
+// 28. GET /admin/billing/webhooks (Retrieve logs)
+app.get('/admin/billing/webhooks', adminAuth, async (req, res) => {
+  const { provider, event_type, status, verified_only, limit = 50, offset = 0 } = req.query;
+  try {
+    let query = `SELECT w.id, w.event_id, w.provider, w.event_type, w.status, w.amount, w.tenant_name, w.payload, w.signature_verified, w.created_at 
+                 FROM payment_webhooks w WHERE 1=1`;
+    const params = [];
+
+    if (provider) {
+      params.push(provider);
+      query += ` AND w.provider = $${params.length}`;
+    }
+    if (event_type) {
+      params.push(event_type);
+      query += ` AND w.event_type = $${params.length}`;
+    }
+    if (status) {
+      params.push(status);
+      query += ` AND w.status = $${params.length}`;
+    }
+    if (verified_only === 'true') {
+      query += ` AND w.signature_verified = true`;
+    }
+
+    params.push(parseInt(limit));
+    query += ` ORDER BY w.created_at DESC LIMIT $${params.length}`;
+    params.push(parseInt(offset));
+    query += ` OFFSET $${params.length}`;
+
+    const result = await pool.query(query, params);
+
+    // Count totals
+    let countQuery = `SELECT COUNT(*) FROM payment_webhooks WHERE 1=1`;
+    const countParams = [];
+    if (provider) {
+      countParams.push(provider);
+      countQuery += ` AND provider = $${countParams.length}`;
+    }
+    if (event_type) {
+      countParams.push(event_type);
+      countQuery += ` AND event_type = $${countParams.length}`;
+    }
+    if (status) {
+      countParams.push(status);
+      countQuery += ` AND status = $${countParams.length}`;
+    }
+    if (verified_only === 'true') {
+      countQuery += ` AND signature_verified = true`;
+    }
+    const countRes = await pool.query(countQuery, countParams);
+
+    // Check active providers
+    const provRes = await pool.query('SELECT provider, is_test_mode FROM payment_providers WHERE is_active = true');
+    const active = {
+      razorpay: provRes.rows.some(r => r.provider === 'razorpay'),
+      stripe: provRes.rows.some(r => r.provider === 'stripe')
+    };
+
+    res.status(200).json({
+      webhooks: result.rows,
+      total: parseInt(countRes.rows[0].count),
+      limit: parseInt(limit),
+      offset: parseInt(offset),
+      providers_active: active,
+      providers_modes: provRes.rows.reduce((acc, row) => {
+        acc[row.provider] = row.is_test_mode ? 'test' : 'live';
+        return acc;
+      }, {})
+    });
+  } catch (err) {
+    console.error('Failed to query payment webhooks:', err);
+    res.status(500).json({ error: 'Failed to query webhook entries' });
   }
 });
 
