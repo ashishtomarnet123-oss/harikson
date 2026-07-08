@@ -25,9 +25,9 @@ services:
       - "--providers.file.directory=/dynamic"
       - "--providers.file.watch=true"
     ports:
-      - "80:80"
-      - "443:443"
-      - "8080:8080"
+      - "8085:80"
+      - "8443:443"
+      - "8088:8080"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - ${DATA_DIR:-./data}/traefik:/letsencrypt
@@ -41,7 +41,7 @@ services:
     container_name: harikson-ollama
     restart: unless-stopped
     ports:
-      - "11434:11434"
+      - "11435:11434"
     environment:
       - OLLAMA_HOST=0.0.0.0
       - OLLAMA_MAX_LOADED_MODELS=1
@@ -62,7 +62,7 @@ services:
     container_name: harikson-postgres
     restart: unless-stopped
     ports:
-      - "5432:5432"
+      - "5435:5432"
     environment:
       - POSTGRES_USER=neuravolt
       - POSTGRES_PASSWORD=neuravolt_dev_pwd
@@ -89,7 +89,7 @@ services:
     restart: unless-stopped
     command: redis-server --appendonly yes
     ports:
-      - "6379:6379"
+      - "6375:6379"
     volumes:
       - ${DATA_DIR:-./data}/redis:/data
     networks:
@@ -111,7 +111,7 @@ services:
     container_name: harikson-tenant-api
     restart: unless-stopped
     ports:
-      - "3000:3000"
+      - "3008:3000"
     environment:
       - DATABASE_URL=postgresql://neuravolt:neuravolt_dev_pwd@postgres:5432/neuravolt
       - REDIS_URL=redis://redis:6379
@@ -149,7 +149,7 @@ services:
     container_name: harikson-admin-api
     restart: unless-stopped
     ports:
-      - "4000:4000"
+      - "4008:4000"
     environment:
       - DATABASE_URL=postgresql://neuravolt:neuravolt_dev_pwd@postgres:5432/neuravolt
       - JWT_SECRET=super_secret_jwt_key
@@ -174,7 +174,7 @@ services:
     restart: unless-stopped
     command: npx next start -p 3001
     ports:
-      - "3001:3001"
+      - "3018:3001"
     environment:
       - PORT=3001
       - NEXT_PUBLIC_API_URL=https://api.neuravolt.cloud
@@ -201,7 +201,7 @@ services:
     restart: unless-stopped
     command: npx next start -p 3002
     ports:
-      - "3002:3002"
+      - "3028:3002"
     environment:
       - PORT=3002
       - NEXT_PUBLIC_API_URL=https://api.neuravolt.cloud
@@ -224,7 +224,7 @@ services:
     container_name: harikson-prometheus
     restart: unless-stopped
     ports:
-      - "9090:9090"
+      - "9098:9090"
     volumes:
       - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - ${DATA_DIR:-./data}/prometheus:/prometheus
@@ -237,7 +237,7 @@ services:
     container_name: harikson-grafana
     restart: unless-stopped
     ports:
-      - "3003:3003"
+      - "3038:3003"
     environment:
       - GF_SECURITY_ADMIN_PASSWORD=admin_password
       - GF_SERVER_HTTP_PORT=3003

@@ -7,7 +7,8 @@
   "scripts": {
     "build": "tsc",
     "start": "node dist/index.js",
-    "dev": "tsx watch src/index.ts"
+    "dev": "tsx watch src/index.ts",
+    "harikson:index": "npx tsx src/services/indexer/cli.ts"
   },
   "dependencies": {
     "cors": "^2.8.5",
@@ -15,6 +16,7 @@
     "express": "^4.19.2",
     "multer": "^1.4.5-lts.1",
     "pdf-parse": "^1.1.1",
+    "pg": "^8.22.0",
     "zod": "^3.23.8"
   },
   "devDependencies": {
@@ -22,6 +24,7 @@
     "@types/express": "^4.17.21",
     "@types/multer": "^1.4.11",
     "@types/pdf-parse": "^1.1.4",
+    "@types/pg": "^8.20.0",
     "tsx": "^4.11.0",
     "typescript": "^5.4.5"
   }

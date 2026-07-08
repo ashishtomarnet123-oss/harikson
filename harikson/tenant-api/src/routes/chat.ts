@@ -3,6 +3,8 @@ import { z } from "zod";
 import { RagService } from "../services/rag.service.js";
 import { OllamaService } from "../services/ollama.service.js";
 import { ValidationService } from "../services/validation.service.js";
+import { MemoryRetriever } from "../services/memory/retriever.js";
+import { MemoryExtractor } from "../services/memory/extractor.js";
 
 const router = Router();
 
@@ -19,18 +21,35 @@ router.post("/", async (req: Request, res: Response) => {
     }
 
     const { message, useRag } = check.data;
+    const tenantId = (req.headers["x-tenant-id"] as string) || "00000000-0000-0000-0000-000000000000";
+    const userId = (req.headers["x-user-id"] as string) || "00000000-0000-0000-0000-000000000001";
+
     let context = "";
 
     if (useRag) {
       context = RagService.queryContext(message);
     }
 
-    const enrichedPrompt = context 
-      ? `Use the following context to answer the user request:\n\n[CONTEXT]\n${context}\n\n[USER REQUEST]\n${message}`
-      : message;
+    // Retrieve memories
+    const memories = await MemoryRetriever.retrieve(tenantId, userId, message);
+    let memoryContext = "";
+    if (memories.length > 0) {
+      memoryContext = "\nRelevant Memories about User:\n" + memories.map(m => `- ${m.memory}`).join("\n");
+    }
+
+    // Enrich prompt with both document chunks and memory items
+    let enrichedPrompt = message;
+    if (context || memoryContext) {
+      enrichedPrompt = `Use the following context to answer the user request:\n\n[CONTEXT]${context ? `\nDocuments:\n${context}` : ""}${memoryContext}\n\n[USER REQUEST]\n${message}`;
+    }
 
     const systemPrompt = "You are a professional, white-labeled AI support agent deployed via Neuravolt Cloud. Help customers with their requests.";
     const response = await OllamaService.generate(enrichedPrompt, systemPrompt);
+
+    // Call memory extraction in a background fire-and-forget task
+    const conversationContextText = `User: ${message}\nAssistant: ${response}`;
+    MemoryExtractor.extractAndSave(tenantId, userId, message, conversationContextText)
+      .catch((err) => console.error("⚠️ [Harikson Memory] Background extraction failed:", err));
 
     // Run response through toxicity and PII validation gates
     const validation = ValidationService.validateChat(response);

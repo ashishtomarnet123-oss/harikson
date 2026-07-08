@@ -212,16 +212,15 @@ echo -e "${GREEN}✅ LLM model layers pulled and branded successfully.${NC}"
 # ==========================================
 echo -e "\n${BLUE}[Step 6/8] Initializing database and default credentials...${NC}"
 
-# Stop native services on the VM that might conflict with ports 80, 443, 5432, or 6379
-echo "🔌 Disabling native host services that might block HTTP/database/cache ports..."
-sudo systemctl stop nginx || true
-sudo systemctl disable nginx || true
-sudo systemctl stop apache2 || true
-sudo systemctl disable apache2 || true
-sudo systemctl stop postgresql || true
-sudo systemctl disable postgresql || true
-sudo systemctl stop redis-server || true
-sudo systemctl disable redis-server || true
+# Preserving native services on the VM hosting database/web systems
+# sudo systemctl stop nginx || true
+# sudo systemctl disable nginx || true
+# sudo systemctl stop apache2 || true
+# sudo systemctl disable apache2 || true
+# sudo systemctl stop postgresql || true
+# sudo systemctl disable postgresql || true
+# sudo systemctl stop redis-server || true
+# sudo systemctl disable redis-server || true
 
 # Clean up database files ONLY if the database is not initialized yet (to prevent wiping on updates)
 if [ ! -f "/mnt/docker-data/data/postgres/PG_VERSION" ]; then
@@ -281,7 +280,7 @@ echo -e "${GREEN}✅ All containers are up, running, and healthy.${NC}"
 echo -e "\n${BLUE}[Step 8/8] Performing diagnostic endpoint verifications...${NC}"
 
 # Test health checks
-health_response=$(curl -s -H "x-tenant-slug: system" http://localhost:3000/health || echo "FAIL")
+health_response=$(curl -s -H "x-tenant-slug: system" http://localhost:3008/health || echo "FAIL")
 if echo "$health_response" | grep -q "healthy"; then
     echo -e "${GREEN}✅ Health check validation PASSED.${NC}"
 else
@@ -290,7 +289,7 @@ else
 fi
 
 # Test model catalog tags
-model_response=$(curl -s -H "x-tenant-slug: system" http://localhost:3000/api/models || echo "FAIL")
+model_response=$(curl -s -H "x-tenant-slug: system" http://localhost:3008/api/models || echo "FAIL")
 if echo "$model_response" | grep -q "harikson-plus"; then
     echo -e "${GREEN}✅ /api/models list validation PASSED.${NC}"
 else
@@ -301,9 +300,9 @@ fi
 echo -e "${BLUE}======================================================================${NC}"
 echo -e "${GREEN}🎉 HARIKSON AI PLATFORM DEPLOYED SUCCESSFULLY!${NC}"
 echo -e "Access Details:"
-echo -e "  - Tenant API: http://localhost:3000/health"
-echo -e "  - Admin Panel: http://localhost:3001"
-echo -e "  - User Portal: http://localhost:3002"
+echo -e "  - Tenant API: http://localhost:3008/health"
+echo -e "  - Admin Panel: http://localhost:3018"
+echo -e "  - User Portal: http://localhost:3028"
 echo -e "  - Default Admin Username: admin@harikson.ai"
 echo -e "  - Default Admin Password: superadmin_pwd_2026"
 echo -e "${BLUE}======================================================================${NC}"
