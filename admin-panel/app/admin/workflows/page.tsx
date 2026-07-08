@@ -109,6 +109,7 @@ export default function WorkflowsPage() {
               </button>
             </div>
           )}
+          {workflows.map(wf => (
             <Card key={wf.id} onClick={() => setSelectedWf(wf)}
               className={`cursor-pointer border p-4 transition-all ${selectedWf?.id === wf.id ? 'bg-orange-900/20 border-orange-700' : 'bg-gray-900/40 border-gray-800 hover:border-gray-700'}`}>
               <Flex justifyContent="between" className="mb-2">
@@ -131,7 +132,6 @@ export default function WorkflowsPage() {
               </div>
             </Card>
           ))}
-          {workflows.length === 0 && <div className="text-center text-gray-500 py-12">No workflows yet. Create one above.</div>}
         </div>
 
         {selectedWf ? (
