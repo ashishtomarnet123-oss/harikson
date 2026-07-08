@@ -56,6 +56,18 @@ interface ApiKey {
   tenant_name: string;
 }
 
+interface WebhookLog {
+  id: string;
+  event_id: string;
+  provider: string;
+  event_type: string;
+  status: string;
+  amount: number;
+  tenant_name: string;
+  payload: any;
+  created_at: string;
+}
+
 export default function TenantManager() {
   const [tenants, setTenants] = useState<Tenant[]>([]);
   const [violations, setViolations] = useState<Violation[]>([]);
@@ -69,6 +81,10 @@ export default function TenantManager() {
   const [newKeyTpm, setNewKeyTpm] = useState(100000);
   const [newKeyRpm, setNewKeyRpm] = useState(100);
   const [generatedPlainKey, setGeneratedPlainKey] = useState<string | null>(null);
+
+  // Webhook logger states
+  const [webhooks, setWebhooks] = useState<WebhookLog[]>([]);
+  const [selectedWebhook, setSelectedWebhook] = useState<WebhookLog | null>(null);
 
   const [apiBase, setApiBase] = useState('http://localhost:4008');
   const [loading, setLoading] = useState(true);
@@ -116,6 +132,15 @@ export default function TenantManager() {
         setApiKeys(data.keys || []);
       }
 
+      // 5. Fetch Webhooks
+      const res5 = await fetch(`${apiBase}/admin/billing/webhooks`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (res5.ok) {
+        const data = await res5.json();
+        setWebhooks(data.webhooks || []);
+      }
+
     } catch (e) {
       console.warn('Failed to connect to API, using mock state fallbacks', e);
       loadMockData();
@@ -141,6 +166,10 @@ export default function TenantManager() {
     ]);
     setApiKeys([
       { id: 'k-1', name: 'Production Chat Key', key_prefix: 'hk_live_a1b2', tpm_limit: 100000, rpm_limit: 100, status: 'active', created_at: new Date().toISOString(), tenant_name: 'Alpha Tech' }
+    ]);
+    setWebhooks([
+      { id: 'wh-1', event_id: 'evt_1O2x5cK', provider: 'stripe', event_type: 'invoice.paid', status: 'success', amount: 299.00, tenant_name: 'Alpha Tech', payload: { type: 'invoice.paid' }, created_at: new Date().toISOString() },
+      { id: 'wh-2', event_id: 'evt_1O2x9aX', provider: 'stripe', event_type: 'invoice.payment_failed', status: 'failed', amount: 299.00, tenant_name: 'Gamma Digital', payload: { type: 'invoice.payment_failed' }, created_at: new Date().toISOString() }
     ]);
   };
 
@@ -491,8 +520,8 @@ export default function TenantManager() {
         </div>
       )}
 
-      {/* Rate Limit Violations and Billing Reconciliation */}
-      <section className="grid grid-cols-1 xl:grid-cols-2 gap-8">
+      {/* Rate Limit Violations, Billing Reconciliation and Payment Webhooks */}
+      <section className="grid grid-cols-1 xl:grid-cols-3 gap-8">
         
         {/* Violations Table */}
         <div className="bg-gray-900/40 border border-gray-800/80 rounded-2xl overflow-hidden">
@@ -578,6 +607,67 @@ export default function TenantManager() {
                 ))}
               </tbody>
             </table>
+          </div>
+        </div>
+
+        {/* Payment Webhook Audit Logs */}
+        <div className="bg-gray-900/40 border border-gray-800/80 rounded-2xl overflow-hidden flex flex-col justify-between">
+          <div>
+            <div className="p-5 border-b border-gray-800">
+              <h3 className="text-sm font-bold text-white uppercase tracking-wider">Live Payment Webhooks</h3>
+              <p className="text-[10px] text-gray-500 mt-0.5">Real-time Stripe & Razorpay webhook streams</p>
+            </div>
+
+            <div className="overflow-y-auto max-h-[300px]">
+              <table className="w-full text-left border-collapse text-xs">
+                <thead>
+                  <tr className="bg-gray-950/50 border-b border-gray-800 text-[10px] font-bold text-gray-500 uppercase tracking-wider">
+                    <th className="py-3 px-4">Event</th>
+                    <th className="py-3 px-4">Amt</th>
+                    <th className="py-3 px-4">Status</th>
+                    <th className="py-3 px-4 text-right">Inspect</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-800 text-gray-300">
+                  {webhooks.length === 0 ? (
+                    <tr>
+                      <td colSpan={4} className="py-8 text-center text-gray-500 italic">No webhooks captured.</td>
+                    </tr>
+                  ) : (
+                    webhooks.map((wh) => (
+                      <tr key={wh.id} className="hover:bg-gray-800/10">
+                        <td className="py-3 px-4">
+                          <span className="font-bold block text-white text-[11px] truncate max-w-[120px]" title={wh.event_type}>
+                            {wh.event_type}
+                          </span>
+                          <span className="text-[9px] text-gray-500 font-semibold uppercase">{wh.provider} · {wh.tenant_name}</span>
+                        </td>
+                        <td className="py-3 px-4 font-mono font-semibold">${wh.amount}</td>
+                        <td className="py-3 px-4">
+                          <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold uppercase ${
+                            wh.status === 'success'
+                              ? 'bg-green-950/20 border border-green-900/30 text-green-400'
+                              : wh.status === 'failed'
+                              ? 'bg-red-950/20 border border-red-900/30 text-red-400'
+                              : 'bg-amber-950/20 border border-amber-900/30 text-amber-400'
+                          }`}>
+                            {wh.status}
+                          </span>
+                        </td>
+                        <td className="py-3 px-4 text-right">
+                          <button
+                            onClick={() => setSelectedWebhook(wh)}
+                            className="px-2 py-0.5 bg-gray-850 hover:bg-gray-800 border border-gray-800 rounded text-[10px] font-bold text-indigo-400"
+                          >
+                            Payload
+                          </button>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
 
@@ -727,6 +817,55 @@ export default function TenantManager() {
               className="w-full py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-xl transition-all"
             >
               I Have Saved the Key
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Webhook JSON Payload Modal Dialog */}
+      {selectedWebhook && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm">
+          <div className="w-full max-w-lg bg-gray-900 border border-gray-800 p-6 rounded-2xl shadow-2xl relative flex flex-col max-h-[85vh]">
+            <div className="flex justify-between items-center mb-4">
+              <div>
+                <h3 className="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-2">
+                  🔍 Webhook Event Details
+                </h3>
+                <span className="text-[10px] text-gray-500 font-semibold">{selectedWebhook.event_id}</span>
+              </div>
+              <button
+                onClick={() => setSelectedWebhook(null)}
+                className="p-1 hover:bg-gray-800 text-gray-400 hover:text-white rounded"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="space-y-4 mb-5 text-xs text-gray-300">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="p-3 bg-gray-950/50 rounded-xl border border-gray-800">
+                  <span className="text-[10px] text-gray-500 uppercase block font-bold">Event Type</span>
+                  <span className="font-mono text-indigo-400 font-semibold">{selectedWebhook.event_type}</span>
+                </div>
+                <div className="p-3 bg-gray-950/50 rounded-xl border border-gray-800">
+                  <span className="text-[10px] text-gray-500 uppercase block font-bold">Gateway Provider</span>
+                  <span className="font-semibold text-white uppercase">{selectedWebhook.provider}</span>
+                </div>
+              </div>
+
+              <div className="p-3 bg-gray-950/50 rounded-xl border border-gray-800">
+                <span className="text-[10px] text-gray-500 uppercase block font-bold">Raw Payload JSON</span>
+                <pre className="font-mono text-[10px] text-gray-400 overflow-auto max-h-[40vh] p-2 bg-gray-950 rounded mt-1.5 border border-gray-850">
+                  {JSON.stringify(selectedWebhook.payload, null, 2)}
+                </pre>
+              </div>
+            </div>
+
+            <button
+              onClick={() => setSelectedWebhook(null)}
+              className="w-full py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-xl transition-all"
+            >
+              Close Inspector
             </button>
           </div>
         </div>

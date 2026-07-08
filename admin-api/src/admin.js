@@ -34,9 +34,35 @@ async function initDb() {
         expires_at TIMESTAMP
       )
     `);
-    console.log('✅ tenant_api_keys table initialized successfully.');
+    
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS payment_webhooks (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        event_id VARCHAR(255) NOT NULL,
+        provider VARCHAR(64) DEFAULT 'razorpay',
+        event_type VARCHAR(255) NOT NULL,
+        status VARCHAR(64) NOT NULL,
+        amount DECIMAL(10,2),
+        tenant_name VARCHAR(255),
+        payload JSONB,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    const countCheck = await pool.query('SELECT COUNT(*) FROM payment_webhooks');
+    if (parseInt(countCheck.rows[0].count) === 0) {
+      await pool.query(`
+        INSERT INTO payment_webhooks (event_id, provider, event_type, status, amount, tenant_name, payload) VALUES
+        ('evt_1O2x5cK', 'stripe', 'invoice.paid', 'success', 299.00, 'Alpha Tech', '{"id": "evt_1O2x5cK", "object": "event", "type": "invoice.paid", "data": {"object": {"amount_paid": 29900, "customer_email": "billing@alphatech.com"}}}'),
+        ('evt_1O2x9aX', 'stripe', 'invoice.payment_failed', 'failed', 299.00, 'Gamma Digital', '{"id": "evt_1O2x9aX", "object": "event", "type": "invoice.payment_failed", "data": {"object": {"amount_due": 29900, "attempt_count": 3, "customer_email": "admin@gammadigital.io"}}}'),
+        ('pay_NjmK82d8F', 'razorpay', 'subscription.activated', 'success', 99.00, 'Beta Systems', '{"event": "subscription.activated", "payload": {"subscription": {"id": "sub_NjmK82d8F", "plan_id": "plan_PRO"}}}'),
+        ('pay_OkL91f81S', 'razorpay', 'payment.authorized', 'pending', 49.00, 'Delta Agency', '{"event": "payment.authorized", "payload": {"payment": {"id": "pay_OkL91f81S", "amount": 4900, "status": "authorized"}}}')
+      `);
+      console.log('🌱 Seeded mock payment webhooks.');
+    }
+    console.log('✅ tenant_api_keys and payment_webhooks tables initialized successfully.');
   } catch (err) {
-    console.error('Failed to auto-migrate tenant_api_keys table:', err);
+    console.error('Failed to auto-migrate database tables:', err);
   }
 }
 initDb();
@@ -658,6 +684,17 @@ app.post('/admin/vllm/params', async (req, res) => {
     res.status(200).json({ success: true, params: payload });
   } catch (err) {
     res.status(500).json({ error: 'Failed to write parameters' });
+  }
+});
+
+// 23. GET /admin/billing/webhooks
+app.get('/admin/billing/webhooks', async (req, res) => {
+  try {
+    const result = await pool.query('SELECT * FROM payment_webhooks ORDER BY created_at DESC LIMIT 100');
+    res.status(200).json({ webhooks: result.rows });
+  } catch (err) {
+    console.error('Failed to get payment webhooks:', err);
+    res.status(500).json({ error: 'Failed to retrieve webhook logs' });
   }
 });
 
