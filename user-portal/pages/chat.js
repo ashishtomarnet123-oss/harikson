@@ -224,6 +224,14 @@ export default function ChatPage() {
     // Optimistically add user message
     setMessages((prev) => [...prev, { sender: 'user', text: userText }]);
 
+    // Build client-side history to send to backend (ChatGPT approach — no DB race condition)
+    const clientHistory = messages
+      .filter(m => m.text && m.text.trim())
+      .map(m => ({
+        role: m.sender === 'user' ? 'user' : 'assistant',
+        content: m.text
+      }));
+
     try {
       const res = await fetch(`${apiBase}/api/chat`, {
         method: 'POST',
@@ -232,6 +240,7 @@ export default function ChatPage() {
           message: userText,
           model,
           conversationId: activeConvId,
+          clientHistory, // ← send full conversation history from client
         }),
       });
 

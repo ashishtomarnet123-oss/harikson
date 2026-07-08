@@ -236,7 +236,7 @@ function getMockResponse(history, userMessage, model) {
 
 // 5. POST /api/chat
 app.post('/api/chat', authMiddleware, async (req, res) => {
-  const { message, model, conversationId } = req.body;
+  const { message, model, conversationId, clientHistory } = req.body;
   if (!message) {
     return res.status(400).json({ error: 'Message is required' });
   }
@@ -301,8 +301,12 @@ app.post('/api/chat', authMiddleware, async (req, res) => {
       });
     }
 
+    // Accept client-side history directly — this eliminates DB race condition entirely
+    // If frontend sends clientHistory, use it. Otherwise fall back to DB history.
+    const finalHistory = (clientHistory && clientHistory.length > 0) ? clientHistory : history;
+
     // Build messages array with full conversation history for proper context
-    const messages = buildMessages(history, message, selectedModel);
+    const messages = buildMessages(finalHistory, message, selectedModel);
     const promptTokenEstimate = messages.reduce((acc, m) => acc + Math.ceil(m.content.length / 4), 0);
 
     // Set streaming headers
@@ -336,7 +340,6 @@ app.post('/api/chat', authMiddleware, async (req, res) => {
         for (const line of lines) {
           try {
             const parsed = JSON.parse(line);
-            // /api/chat streams { message: { role, content }, done }
             if (parsed.message && parsed.message.content) {
               fullResponseText += parsed.message.content;
               res.write(parsed.message.content);
@@ -350,7 +353,8 @@ app.post('/api/chat', authMiddleware, async (req, res) => {
       });
 
       response.data.on('end', async () => {
-        res.end();
+        // ✅ CRITICAL FIX: Save to DB FIRST, then end response
+        // This prevents race condition where next message arrives before history is saved
         try {
           await executeTenantQuery(req.tenant.id, async (client) => {
             await client.query(
@@ -369,6 +373,7 @@ app.post('/api/chat', authMiddleware, async (req, res) => {
         } catch (dbErr) {
           console.error('Failed to save chat messages to DB:', dbErr);
         }
+        res.end(); // End AFTER DB save
       });
 
       response.data.on('error', (streamErr) => {
@@ -378,12 +383,10 @@ app.post('/api/chat', authMiddleware, async (req, res) => {
 
     } catch (ollamaErr) {
       console.warn('Ollama /api/chat failed, using context-aware fallback:', ollamaErr.message);
-      const fallbackResponse = getMockResponse(history, message, selectedModel);
+      const fallbackResponse = getMockResponse(finalHistory, message, selectedModel);
       const completionTokens = Math.ceil(fallbackResponse.length / 4);
 
-      res.write(fallbackResponse);
-      res.end();
-
+      // Save fallback to DB first, then respond
       try {
         await executeTenantQuery(req.tenant.id, async (client) => {
           await client.query(
@@ -402,6 +405,8 @@ app.post('/api/chat', authMiddleware, async (req, res) => {
       } catch (dbErr) {
         console.error('Failed to save fallback messages to DB:', dbErr);
       }
+      res.write(fallbackResponse);
+      res.end();
     }
   } catch (err) {
     console.error('Chat endpoint error:', err);
@@ -410,6 +415,7 @@ app.post('/api/chat', authMiddleware, async (req, res) => {
     }
   }
 });
+
 
 // 6. POST /api/auth/login
 app.post('/api/auth/login', async (req, res) => {
