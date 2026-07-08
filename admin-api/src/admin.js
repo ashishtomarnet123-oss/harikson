@@ -17,6 +17,30 @@ const pool = new Pool({
   connectionString: process.env.DATABASE_URL
 });
 
+// Self-healing database migrations on startup
+async function initDb() {
+  try {
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS tenant_api_keys (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE,
+        name VARCHAR(255) NOT NULL,
+        key_prefix VARCHAR(16) NOT NULL,
+        key_hash VARCHAR(255) NOT NULL,
+        tpm_limit INT DEFAULT 100000,
+        rpm_limit INT DEFAULT 100,
+        status VARCHAR(32) DEFAULT 'active',
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        expires_at TIMESTAMP
+      )
+    `);
+    console.log('✅ tenant_api_keys table initialized successfully.');
+  } catch (err) {
+    console.error('Failed to auto-migrate tenant_api_keys table:', err);
+  }
+}
+initDb();
+
 const redis = new Redis(process.env.REDIS_URL || 'redis://redis:6379');
 const execPromise = util.promisify(exec);
 
@@ -542,6 +566,98 @@ app.get('/admin/audit-log', async (req, res) => {
   } catch (err) {
     console.error('Failed to get audit log:', err);
     res.status(500).json({ error: 'Failed to retrieve audits' });
+  }
+});
+
+// 18. GET /admin/api-keys
+app.get('/admin/api-keys', async (req, res) => {
+  try {
+    const result = await pool.query(
+      `SELECT k.id, k.name, k.key_prefix, k.tpm_limit, k.rpm_limit, k.status, k.created_at, t.name as tenant_name
+       FROM tenant_api_keys k
+       JOIN tenants t ON k.tenant_id = t.id
+       ORDER BY k.created_at DESC`
+    );
+    res.status(200).json({ keys: result.rows });
+  } catch (err) {
+    console.error('Failed to get API keys:', err);
+    res.status(500).json({ error: 'Failed to list API keys' });
+  }
+});
+
+// 19. POST /admin/api-keys
+app.post('/admin/api-keys', async (req, res) => {
+  const { tenant_id, name, tpm_limit, rpm_limit } = req.body;
+  if (!tenant_id || !name) {
+    return res.status(400).json({ error: 'tenant_id and name are required' });
+  }
+
+  try {
+    const crypto = await import('crypto');
+    const rawKey = 'hk_live_' + crypto.randomBytes(24).toString('hex');
+    const keyPrefix = rawKey.substring(0, 12); // "hk_live_xxxx"
+    const hashed = await bcrypt.hash(rawKey, 10);
+
+    const result = await pool.query(
+      `INSERT INTO tenant_api_keys (tenant_id, name, key_prefix, key_hash, tpm_limit, rpm_limit)
+       VALUES ($1, $2, $3, $4, $5, $6)
+       RETURNING id, name, key_prefix, created_at`,
+      [tenant_id, name, keyPrefix, hashed, tpm_limit || 100000, rpm_limit || 100]
+    );
+
+    const createdKey = result.rows[0];
+    await logAdminAction(req.admin.id, 'create_api_key', 'api_key', createdKey.id, null, { name, keyPrefix }, req);
+
+    res.status(201).json({
+      success: true,
+      key: {
+        ...createdKey,
+        plaintext: rawKey // only returned once
+      }
+    });
+  } catch (err) {
+    console.error('Failed to create API key:', err);
+    res.status(500).json({ error: 'Failed to generate new client key' });
+  }
+});
+
+// 20. DELETE /admin/api-keys/:id
+app.delete('/admin/api-keys/:id', async (req, res) => {
+  const { id } = req.params;
+  try {
+    const result = await pool.query('DELETE FROM tenant_api_keys WHERE id = $1 RETURNING id, name', [id]);
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Key not found' });
+    }
+    await logAdminAction(req.admin.id, 'revoke_api_key', 'api_key', id, result.rows[0], null, req);
+    res.status(200).json({ success: true, message: 'API key revoked successfully' });
+  } catch (err) {
+    console.error('Failed to delete API key:', err);
+    res.status(500).json({ error: 'Failed to revoke API key' });
+  }
+});
+
+// 21. GET /admin/vllm/params
+app.get('/admin/vllm/params', async (req, res) => {
+  try {
+    const data = await redis.get('vllm:hyperparams');
+    const params = data ? JSON.parse(data) : { temperature: 0.7, top_p: 0.9, max_tokens: 4096, system_restrict: true };
+    res.status(200).json(params);
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to read parameters' });
+  }
+});
+
+// 22. POST /admin/vllm/params
+app.post('/admin/vllm/params', async (req, res) => {
+  const { temperature, top_p, max_tokens, system_restrict } = req.body;
+  try {
+    const payload = { temperature, top_p, max_tokens, system_restrict };
+    await redis.set('vllm:hyperparams', JSON.stringify(payload));
+    await logAdminAction(req.admin.id, 'update_vllm_params', 'vllm', 'params', null, payload, req);
+    res.status(200).json({ success: true, params: payload });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to write parameters' });
   }
 });
 

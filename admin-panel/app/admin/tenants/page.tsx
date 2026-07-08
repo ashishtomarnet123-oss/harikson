@@ -45,12 +45,31 @@ interface Reconciliation {
   mismatch: boolean;
 }
 
+interface ApiKey {
+  id: string;
+  name: string;
+  key_prefix: string;
+  tpm_limit: number;
+  rpm_limit: number;
+  status: string;
+  created_at: string;
+  tenant_name: string;
+}
+
 export default function TenantManager() {
   const [tenants, setTenants] = useState<Tenant[]>([]);
   const [violations, setViolations] = useState<Violation[]>([]);
   const [reconcile, setReconcile] = useState<Reconciliation[]>([]);
   const [selectedTenant, setSelectedTenant] = useState<Tenant | null>(null);
   
+  // API Key management states
+  const [apiKeys, setApiKeys] = useState<ApiKey[]>([]);
+  const [newKeyName, setNewKeyName] = useState('');
+  const [newKeyTenant, setNewKeyTenant] = useState('');
+  const [newKeyTpm, setNewKeyTpm] = useState(100000);
+  const [newKeyRpm, setNewKeyRpm] = useState(100);
+  const [generatedPlainKey, setGeneratedPlainKey] = useState<string | null>(null);
+
   const [apiBase, setApiBase] = useState('http://localhost:4008');
   const [loading, setLoading] = useState(true);
 
@@ -88,6 +107,15 @@ export default function TenantManager() {
         setReconcile(data.billing || []);
       }
 
+      // 4. Fetch API Keys
+      const res4 = await fetch(`${apiBase}/admin/api-keys`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (res4.ok) {
+        const data = await res4.json();
+        setApiKeys(data.keys || []);
+      }
+
     } catch (e) {
       console.warn('Failed to connect to API, using mock state fallbacks', e);
       loadMockData();
@@ -110,6 +138,9 @@ export default function TenantManager() {
     setReconcile([
       { tenant: 'Alpha Tech', razorpay_id: 'pay_PQR12345678', amount: 99.00, status: 'captured', tokens_credited: 500000, mismatch: false },
       { tenant: 'Delta Agency', razorpay_id: 'pay_XYZ87654321', amount: 299.00, status: 'captured', tokens_credited: 2000000, mismatch: true }
+    ]);
+    setApiKeys([
+      { id: 'k-1', name: 'Production Chat Key', key_prefix: 'hk_live_a1b2', tpm_limit: 100000, rpm_limit: 100, status: 'active', created_at: new Date().toISOString(), tenant_name: 'Alpha Tech' }
     ]);
   };
 
@@ -177,7 +208,61 @@ export default function TenantManager() {
     } catch (e) {
       alert('Failed to suspend/activate tenant.');
     }
+  // Generate API key
+  const handleGenerateKey = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newKeyTenant || !newKeyName) {
+      alert('Tenant and Key Name are required');
+      return;
+    }
+
+    const token = getCookie('admin_token') || localStorage.getItem('admin_token') || 'TEST_ADMIN_TOKEN';
+    try {
+      const res = await fetch(`${apiBase}/admin/api-keys`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          tenant_id: newKeyTenant,
+          name: newKeyName,
+          tpm_limit: newKeyTpm,
+          rpm_limit: newKeyRpm
+        })
+      });
+      if (!res.ok) throw new Error('Key generation failed');
+      const data = await res.json();
+      setGeneratedPlainKey(data.key.plaintext);
+      
+      // Reset inputs
+      setNewKeyName('');
+      setNewKeyTpm(100000);
+      setNewKeyRpm(100);
+      
+      fetchData();
+    } catch (err) {
+      alert('Failed to generate key.');
+    }
   };
+
+  // Revoke API key
+  const handleRevokeKey = async (id: string) => {
+    if (!window.confirm('Are you sure you want to permanently revoke this API key? Apps calling via this key will fail.')) return;
+
+    const token = getCookie('admin_token') || localStorage.getItem('admin_token') || 'TEST_ADMIN_TOKEN';
+    try {
+      const res = await fetch(`${apiBase}/admin/api-keys/${id}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (!res.ok) throw new Error('Key revocation failed');
+      fetchData();
+    } catch (err) {
+      alert('Failed to revoke API key.');
+    }
+  };
+
 
   // Filtered violations
   const filteredViolations = violations.filter(v => {
@@ -495,6 +580,156 @@ export default function TenantManager() {
         </div>
 
       </section>
+
+      {/* API Key management panel section */}
+      <section className="grid grid-cols-1 xl:grid-cols-3 gap-8 mt-10">
+        
+        {/* Generate Key Form Card */}
+        <div className="bg-gray-900/40 border border-gray-800/80 rounded-2xl p-6 flex flex-col justify-between">
+          <div>
+            <h3 className="text-sm font-bold text-white uppercase tracking-wider mb-2">Generate Programmatic Key</h3>
+            <p className="text-[10px] text-gray-500 mb-6">Create isolated client credentials linked to specific tenant usage caps.</p>
+            
+            <form onSubmit={handleGenerateKey} className="space-y-4">
+              <div>
+                <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-1.5">Tenant Owner</label>
+                <select
+                  required
+                  className="w-full bg-gray-950 border border-gray-800 text-xs rounded-xl p-2.5 text-white"
+                  value={newKeyTenant}
+                  onChange={(e) => setNewKeyTenant(e.target.value)}
+                >
+                  <option value="">Select Tenant...</option>
+                  {tenants.map(t => (
+                    <option key={t.id} value={t.id}>{t.name}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-1.5">Key Name / Label</label>
+                <input
+                  type="text"
+                  required
+                  className="w-full bg-gray-950 border border-gray-800 text-xs rounded-xl p-2.5 text-white"
+                  placeholder="e.g. Production Frontend API"
+                  value={newKeyName}
+                  onChange={(e) => setNewKeyName(e.target.value)}
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-1.5">TPM Limit</label>
+                  <input
+                    type="number"
+                    className="w-full bg-gray-950 border border-gray-800 text-xs rounded-xl p-2.5 text-white"
+                    value={newKeyTpm}
+                    onChange={(e) => setNewKeyTpm(parseInt(e.target.value))}
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-1.5">RPM Limit</label>
+                  <input
+                    type="number"
+                    className="w-full bg-gray-950 border border-gray-800 text-xs rounded-xl p-2.5 text-white"
+                    value={newKeyRpm}
+                    onChange={(e) => setNewKeyRpm(parseInt(e.target.value))}
+                  />
+                </div>
+              </div>
+
+              <button
+                type="submit"
+                className="w-full py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-xl shadow transition-all mt-4"
+              >
+                Provision API Key
+              </button>
+            </form>
+          </div>
+        </div>
+
+        {/* List Keys Card */}
+        <div className="bg-gray-900/40 border border-gray-800/80 rounded-2xl overflow-hidden xl:col-span-2">
+          <div className="p-5 border-b border-gray-800">
+            <h3 className="text-sm font-bold text-white uppercase tracking-wider">Active Client API Keys</h3>
+            <p className="text-[10px] text-gray-500 mt-0.5">Programmatic API integration keys with strict token budgets.</p>
+          </div>
+
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse text-xs">
+              <thead>
+                <tr className="bg-gray-950/50 border-b border-gray-800 text-[10px] font-bold text-gray-500 uppercase tracking-wider">
+                  <th className="py-3 px-4">Key Label</th>
+                  <th className="py-3 px-4">Tenant</th>
+                  <th className="py-3 px-4">Prefix</th>
+                  <th className="py-3 px-4">TPM / RPM</th>
+                  <th className="py-3 px-4 text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-800 text-gray-300">
+                {apiKeys.length === 0 ? (
+                  <tr>
+                    <td colSpan={5} className="py-8 text-center text-gray-500 italic">No keys provisioned yet.</td>
+                  </tr>
+                ) : (
+                  apiKeys.map((key) => (
+                    <tr key={key.id} className="hover:bg-gray-800/10">
+                      <td className="py-3 px-4 font-bold text-white">{key.name}</td>
+                      <td className="py-3 px-4 text-gray-400">{key.tenant_name}</td>
+                      <td className="py-3 px-4 font-mono text-indigo-400 font-semibold">{key.key_prefix}...</td>
+                      <td className="py-3 px-4 font-mono text-gray-500">{key.tpm_limit.toLocaleString()} / {key.rpm_limit}</td>
+                      <td className="py-3 px-4 text-right">
+                        <button
+                          onClick={() => handleRevokeKey(key.id)}
+                          className="px-2 py-0.5 bg-red-950/20 border border-red-900/30 hover:bg-red-900/20 text-red-400 rounded text-[10px] font-bold transition-all"
+                        >
+                          Revoke
+                        </button>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      {/* Generated Plain Key Modal Alert */}
+      {generatedPlainKey && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm">
+          <div className="w-full max-w-md bg-gray-900 border border-gray-800 p-6 rounded-2xl shadow-2xl relative">
+            <h3 className="text-sm font-bold text-white uppercase tracking-wider mb-2 text-green-400 flex items-center gap-1.5">
+              ✓ API Key Provisioned Successfully
+            </h3>
+            <p className="text-xs text-gray-400 leading-relaxed mb-4">
+              Here is your plaintext API integration token. Store this securely. **It will not be shown again.**
+            </p>
+
+            <div className="p-3 bg-gray-950 rounded-xl border border-gray-850 flex items-center justify-between gap-3 mb-5">
+              <span className="font-mono text-xs text-indigo-400 break-all select-all font-semibold">{generatedPlainKey}</span>
+              <button
+                onClick={() => {
+                  navigator.clipboard.writeText(generatedPlainKey);
+                  alert('API Key copied!');
+                }}
+                className="p-1.5 bg-gray-850 hover:bg-gray-800 rounded border border-gray-800 text-gray-400 hover:text-white"
+              >
+                <Copy className="w-4 h-4" />
+              </button>
+            </div>
+
+            <button
+              onClick={() => setGeneratedPlainKey(null)}
+              className="w-full py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-xl transition-all"
+            >
+              I Have Saved the Key
+            </button>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }

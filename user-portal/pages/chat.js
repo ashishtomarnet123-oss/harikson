@@ -130,6 +130,8 @@ export default function ChatPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [model, setModel] = useState('harikson-plus');
+  const [systemPreset, setSystemPreset] = useState('general');
+  const [attachedFiles, setAttachedFiles] = useState([]);
 
   const chatEndRef = useRef(null);
   const textareaRef = useRef(null);
@@ -211,6 +213,24 @@ export default function ChatPage() {
     setInputText('');
   };
 
+  const handleFileUpload = (e) => {
+    const files = Array.from(e.target.files || []);
+    files.forEach(file => {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        setAttachedFiles(prev => [
+          ...prev, 
+          { name: file.name, content: event.target.result || '' }
+        ]);
+      };
+      reader.readAsText(file);
+    });
+  };
+
+  const removeAttachedFile = (idx) => {
+    setAttachedFiles(prev => prev.filter((_, i) => i !== idx));
+  };
+
   /* ── Send message ── */
   const sendMessage = async (e) => {
     if (e) e.preventDefault();
@@ -224,20 +244,39 @@ export default function ChatPage() {
     // Optimistically add user message
     setMessages((prev) => [...prev, { sender: 'user', text: userText }]);
 
+    // Map system prompts presets
+    const presets = {
+      coder: "You are a senior developer. Write code in clean, modular blocks with TypeScript typings and proper error catches. Brand everything as 'Harikson'. Do not expose any open-source model names.",
+      reviewer: "You are a code auditor. Find logic flows, edge cases, and performance leaks in the code. Brand everything as 'Harikson'.",
+      dba: "You are a senior Postgres DBA. Focus on database schemas, transaction locks, and query index performance. Brand everything as 'Harikson'.",
+      general: "You are a helpful, privacy-first enterprise AI assistant branded as 'Harikson'."
+    };
+
     // Build client-side history to send to backend (ChatGPT approach — no DB race condition)
-    const clientHistory = messages
-      .filter(m => m.text && m.text.trim())
-      .map(m => ({
-        role: m.sender === 'user' ? 'user' : 'assistant',
-        content: m.text
-      }));
+    const clientHistory = [
+      { role: 'system', content: presets[systemPreset] || presets.general },
+      ...messages
+        .filter(m => m.text && m.text.trim())
+        .map(m => ({
+          role: m.sender === 'user' ? 'user' : 'assistant',
+          content: m.text
+        }))
+    ];
+
+    // Handle document/file attachment injection
+    let finalMessage = userText;
+    if (attachedFiles.length > 0) {
+      const attachments = attachedFiles.map(f => `<uploaded_file name="${f.name}">\n${f.content}\n</uploaded_file>`).join('\n\n');
+      finalMessage = `${attachments}\n\n${userText}`;
+    }
+    setAttachedFiles([]);
 
     try {
       const res = await fetch(`${apiBase}/api/chat`, {
         method: 'POST',
         headers: authHeaders(),
         body: JSON.stringify({
-          message: userText,
+          message: finalMessage,
           model,
           conversationId: activeConvId,
           clientHistory, // ← send full conversation history from client
@@ -441,14 +480,26 @@ export default function ChatPage() {
                 ? conversations.find((c) => c.id === activeConvId)?.title || 'Conversation'
                 : 'New Conversation'}
             </span>
-            <select
-              className="model-select"
-              value={model}
-              onChange={(e) => setModel(e.target.value)}
-            >
-              <option value="harikson-plus">Harikson Plus · 8B</option>
-              <option value="harikson-max">Harikson Max · 14B</option>
-            </select>
+            <div style={{ display: 'flex', gap: '6px' }}>
+              <select
+                className="model-select"
+                value={systemPreset}
+                onChange={(e) => setSystemPreset(e.target.value)}
+              >
+                <option value="general">General Agent</option>
+                <option value="coder">Senior Coder</option>
+                <option value="reviewer">Code Reviewer</option>
+                <option value="dba">Database DBA</option>
+              </select>
+              <select
+                className="model-select"
+                value={model}
+                onChange={(e) => setModel(e.target.value)}
+              >
+                <option value="harikson-plus">Harikson Plus · 8B</option>
+                <option value="harikson-max">Harikson Max · 14B</option>
+              </select>
+            </div>
           </div>
 
           {/* Messages */}
@@ -503,8 +554,57 @@ export default function ChatPage() {
 
           {/* Input bar */}
           <div className="input-bar">
+            {attachedFiles.length > 0 && (
+              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '8px', padding: '0 20px' }}>
+                {attachedFiles.map((file, i) => (
+                  <div key={i} style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    background: 'rgba(79, 140, 255, 0.08)',
+                    border: '1px solid rgba(79, 140, 255, 0.2)',
+                    color: 'var(--accent)',
+                    padding: '4px 8px',
+                    borderRadius: '8px',
+                    fontSize: '11px',
+                    fontWeight: '600'
+                  }}>
+                    <span>📄 {file.name}</span>
+                    <button type="button" onClick={() => removeAttachedFile(i)} style={{
+                      border: 'none',
+                      background: 'none',
+                      color: 'var(--error)',
+                      cursor: 'pointer',
+                      fontSize: '11px',
+                      padding: '0 2px'
+                    }}>✕</button>
+                  </div>
+                ))}
+              </div>
+            )}
             <form onSubmit={sendMessage}>
-              <div className="input-wrapper">
+              <div className="input-wrapper" style={{ display: 'flex', alignItems: 'center' }}>
+                <input
+                  type="file"
+                  id="file-upload"
+                  multiple
+                  style={{ display: 'none' }}
+                  onChange={handleFileUpload}
+                />
+                <label htmlFor="file-upload" style={{
+                  cursor: 'pointer',
+                  padding: '6px 8px',
+                  borderRadius: '8px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  background: 'var(--bg-hover)',
+                  border: '1px solid var(--border)',
+                  color: 'var(--text-secondary)',
+                  marginRight: '6px'
+                }} title="Attach Files">
+                  📎
+                </label>
                 <textarea
                   ref={textareaRef}
                   className="chat-textarea"
@@ -518,14 +618,14 @@ export default function ChatPage() {
                 <button
                   type="submit"
                   className="send-btn"
-                  disabled={loading || !inputText.trim()}
+                  disabled={loading || (!inputText.trim() && attachedFiles.length === 0)}
                   title="Send (Enter)"
                 >
-                  {loading ? '⏸' : '↑'}
+                  {loading ? '...' : '↑'}
                 </button>
               </div>
             </form>
-            <p className="input-hint">Press Enter to send · Shift+Enter for new line</p>
+            <p className="input-hint">Press Enter to send · Shift+Enter for new line · Attach code files</p>
           </div>
         </main>
       </div>
