@@ -119,7 +119,7 @@ button, .btn, .btn-primary, [role="button"], .bg-indigo-600 *, .bg-indigo-500 * 
 }
 
 /* Ensure custom button overrides can still have custom text color */
-.bg-gray-850, .border-gray-800 {
+.bg-gray-850 {
   color: var(--accent-cyan) !important;
 }
 
@@ -178,7 +178,7 @@ td {
 }
 
 /* Buttons secondary state styles */
-.bg-gray-850, .border-gray-800 {
+.bg-gray-850 {
   background-color: transparent !important;
   border: 1px solid var(--accent-cyan) !important;
   color: var(--accent-cyan) !important;
