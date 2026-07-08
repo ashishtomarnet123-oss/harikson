@@ -187,42 +187,52 @@ app.post('/api/models/switch', (req, res) => {
   });
 });
 
-// 4. Helper: buildPrompt
-function buildPrompt(history, message, model) {
-  let systemPrompt = `You are a helpful AI Assistant for tenant model: ${model}.`;
-  if (model.toLowerCase().includes('coder')) {
-    systemPrompt = "You are a professional software engineer. Provide high-quality code snippets and explanations.";
+// 4. Helper: build system prompt
+function getSystemPrompt(model) {
+  if (model.toLowerCase().includes('max') || model.toLowerCase().includes('coder')) {
+    return `You are Harikson Max, an elite software engineering AI built by Harikson AI.
+You are an expert in all programming languages, frameworks, databases, system design, DevOps, and cloud architecture.
+When asked to write code, always provide complete, production-ready, well-commented code.
+Always remember and refer to everything discussed earlier in this conversation thread.
+Never say you cannot remember previous messages — you always have full conversation history.
+Never break character. You are Harikson Max.`;
   }
-  
-  let prompt = `System: ${systemPrompt}\n\n`;
+  return `You are Harikson, a highly intelligent AI assistant built by Harikson AI.
+You excel at answering questions, explaining concepts, writing code, and technical tasks.
+CRITICAL: Always maintain full context of the entire conversation. When a user says things like "generate code", "show me", "do it", or "give example", always refer back to the previous messages to understand exactly what they are referring to.
+Never ask for clarification if the answer is clear from the conversation history.
+Never break character. You are Harikson — a premium enterprise AI assistant.`;
+}
+
+// Helper: build messages array for Ollama /api/chat (proper multi-turn memory)
+function buildMessages(history, userMessage, model) {
+  const messages = [
+    { role: 'system', content: getSystemPrompt(model) }
+  ];
   for (const msg of history) {
-    prompt += `${msg.role === 'user' ? 'User' : 'Assistant'}: ${msg.content}\n`;
+    messages.push({
+      role: msg.role === 'user' ? 'user' : 'assistant',
+      content: msg.content
+    });
   }
-  prompt += `User: ${message}\nAssistant:`;
-  return prompt;
+  messages.push({ role: 'user', content: userMessage });
+  return messages;
 }
 
-// Helper: mock response generator
-function getMockResponse(prompt, model) {
-  const lowercasePrompt = prompt.toLowerCase();
-  
-  if (lowercasePrompt.includes("function") || lowercasePrompt.includes("class") || lowercasePrompt.includes("code")) {
-    return `// Generated using Harikson Coder
-export function processRequest(data) {
-  if (!data) {
-    throw new Error("Invalid payload: empty data source");
-  }
-  const result = {
-    status: "success",
-    timestamp: new Date().toISOString(),
-    itemsCount: Array.isArray(data.items) ? data.items.length : 0
-  };
-  return result;
-}`;
-  }
+// Helper: context-aware fallback mock response
+function getMockResponse(history, userMessage, model) {
+  const lowerMsg = userMessage.toLowerCase();
+  const historyText = history.map(m => m.content).join(' ').toLowerCase();
 
-  return `This is a simulated AI response from the Harikson Multi-Tenant Engine. I received your request using model ${model}. Let me know how I can help you compile databases or connect web widgets!`;
+  if (lowerMsg.includes('code') || lowerMsg.includes('generate') || lowerMsg.includes('example') || lowerMsg.includes('show')) {
+    if (historyText.includes('login') || historyText.includes('auth') || historyText.includes('password')) {
+      return `Here is a complete login implementation based on our conversation:\n\`\`\`javascript\nasync function handleLogin(email, password) {\n  const response = await fetch('/api/auth/login', {\n    method: 'POST',\n    headers: { 'Content-Type': 'application/json' },\n    body: JSON.stringify({ email, password })\n  });\n  if (!response.ok) {\n    const err = await response.json();\n    throw new Error(err.message || 'Login failed');\n  }\n  const { token, user } = await response.json();\n  localStorage.setItem('token', token);\n  window.location.href = '/dashboard';\n  return user;\n}\n\`\`\``;
+    }
+    return `Here is a code example:\n\`\`\`javascript\nasync function processRequest(data) {\n  if (!data) throw new Error('Invalid input');\n  const result = await fetch('/api/process', {\n    method: 'POST',\n    headers: { 'Content-Type': 'application/json' },\n    body: JSON.stringify(data)\n  });\n  return result.json();\n}\n\`\`\``;
+  }
+  return `I understand your request about: "${userMessage}". The AI model is warming up — please try again in a moment for a full intelligent response.`;
 }
+
 
 // 5. POST /api/chat
 app.post('/api/chat', authMiddleware, async (req, res) => {
@@ -291,30 +301,34 @@ app.post('/api/chat', authMiddleware, async (req, res) => {
       });
     }
 
-    // Call Ollama /api/generate in streaming mode
-    const prompt = buildPrompt(history, message, selectedModel);
-    
-    // Set headers for chunked text streaming
+    // Build messages array with full conversation history for proper context
+    const messages = buildMessages(history, message, selectedModel);
+    const promptTokenEstimate = messages.reduce((acc, m) => acc + Math.ceil(m.content.length / 4), 0);
+
+    // Set streaming headers
     res.setHeader('Content-Type', 'text/plain; charset=utf-8');
     res.setHeader('Transfer-Encoding', 'chunked');
     res.setHeader('X-Conversation-Id', currentConvId);
 
     try {
-      const response = await axios.post(`${ollamaHost}/api/generate`, {
+      // Use Ollama /api/chat — natively supports multi-turn conversation memory
+      const response = await axios.post(`${ollamaHost}/api/chat`, {
         model: selectedModel,
-        prompt: prompt,
+        messages: messages,
         stream: true,
-        keep_alive: -1, // Keep model loaded in memory permanently to prevent cold-start reload overhead
+        keep_alive: -1,
         options: {
-          num_thread: 7 // Limit to 7 threads to keep CPU utilization under 90%
+          num_thread: 7,
+          temperature: 0.7,
+          num_predict: 2048
         }
       }, { 
         responseType: 'stream',
-        timeout: 120000 
+        timeout: 180000 
       });
 
       let fullResponseText = '';
-      let promptTokens = Math.ceil(prompt.length / 4);
+      let promptTokens = promptTokenEstimate;
       let completionTokens = 0;
 
       response.data.on('data', (chunk) => {
@@ -322,9 +336,10 @@ app.post('/api/chat', authMiddleware, async (req, res) => {
         for (const line of lines) {
           try {
             const parsed = JSON.parse(line);
-            if (parsed.response) {
-              fullResponseText += parsed.response;
-              res.write(parsed.response);
+            // /api/chat streams { message: { role, content }, done }
+            if (parsed.message && parsed.message.content) {
+              fullResponseText += parsed.message.content;
+              res.write(parsed.message.content);
             }
             if (parsed.done) {
               promptTokens = parsed.prompt_eval_count || promptTokens;
@@ -336,7 +351,6 @@ app.post('/api/chat', authMiddleware, async (req, res) => {
 
       response.data.on('end', async () => {
         res.end();
-        // Save chat history asynchronously in the background
         try {
           await executeTenantQuery(req.tenant.id, async (client) => {
             await client.query(
@@ -353,26 +367,28 @@ app.post('/api/chat', authMiddleware, async (req, res) => {
             );
           });
         } catch (dbErr) {
-          console.error('Failed to save streamed chat messages to PG:', dbErr);
+          console.error('Failed to save chat messages to DB:', dbErr);
         }
       });
 
+      response.data.on('error', (streamErr) => {
+        console.error('Ollama stream error:', streamErr);
+        if (!res.writableEnded) res.end();
+      });
+
     } catch (ollamaErr) {
-      console.warn('Ollama streaming failed or timed out, executing simulated response fallback.');
-      const fallbackResponse = getMockResponse(prompt, selectedModel);
-      const promptTokens = Math.ceil(prompt.length / 4);
+      console.warn('Ollama /api/chat failed, using context-aware fallback:', ollamaErr.message);
+      const fallbackResponse = getMockResponse(history, message, selectedModel);
       const completionTokens = Math.ceil(fallbackResponse.length / 4);
 
-      // Write fallback response and end
       res.write(fallbackResponse);
       res.end();
 
-      // Save user message and AI response fallback in the background
       try {
         await executeTenantQuery(req.tenant.id, async (client) => {
           await client.query(
             'INSERT INTO messages (tenant_id, conversation_id, role, content, tokens_used) VALUES ($1, $2, $3, $4, $5)',
-            [req.tenant.id, currentConvId, 'user', message, promptTokens]
+            [req.tenant.id, currentConvId, 'user', message, promptTokenEstimate]
           );
           await client.query(
             'INSERT INTO messages (tenant_id, conversation_id, role, content, tokens_used) VALUES ($1, $2, $3, $4, $5)',
@@ -384,7 +400,7 @@ app.post('/api/chat', authMiddleware, async (req, res) => {
           );
         });
       } catch (dbErr) {
-        console.error('Failed to save simulated chat messages to PG:', dbErr);
+        console.error('Failed to save fallback messages to DB:', dbErr);
       }
     }
   } catch (err) {
