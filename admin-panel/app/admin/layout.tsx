@@ -25,6 +25,11 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const [adminEmail, setAdminEmail] = useState('');
 
   useEffect(() => {
+    if (pathname === '/admin/login') {
+      setLoading(false);
+      return;
+    }
+
     const token = getCookie('admin_token') || localStorage.getItem('admin_token');
     if (!token) {
       router.push('/admin/login');
@@ -49,6 +54,10 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     localStorage.removeItem('admin_user');
     router.push('/admin/login');
   };
+
+  if (pathname === '/admin/login') {
+    return <>{children}</>;
+  }
 
   if (loading) {
     return (
