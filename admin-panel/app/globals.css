@@ -1,21 +1,21 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
 
 :root {
-  --bg-primary: #09090B;
-  --bg-surface: #111217;
-  --bg-elevated: #18181D;
-  --card-hover: #202028;
-  --border-color: #26272D;
+  --bg-primary: #FFFFFF;
+  --bg-surface: #F8FAFC;
+  --bg-elevated: #FFFFFF;
+  --card-hover: #F1F5F9;
+  --border-color: #E2E8F0;
   --accent-cyan: #4F8CFF;
-  --accent-hover: #6AA3FF;
+  --accent-hover: #3B82F6;
   --secondary: #8B7FFF;
   --success-emerald: #22C55E;
   --warning-amber: #F4B740;
   --error-coral: #FF5D73;
-  --text-heading: #FFFFFF;
-  --text-primary: #E5E7EB;
-  --text-muted: #A1A1AA;
-  --disabled: #71717A;
+  --text-heading: #0F172A;
+  --text-primary: #334155;
+  --text-muted: #64748B;
+  --disabled: #94A3B8;
   --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
 }
 
@@ -42,10 +42,10 @@ h1, h2, h3, h4, h5, h6 {
   height: 6px;
 }
 ::-webkit-scrollbar-track {
-  background: var(--bg-primary);
+  background: var(--bg-surface);
 }
 ::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.1);
+  background: rgba(0, 0, 0, 0.1);
   border-radius: 10px;
 }
 ::-webkit-scrollbar-thumb:hover {
@@ -53,7 +53,7 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 /* ────────────────────────────────────────────────────────────
-   Tailwind Override Declarations to Enforce Strict Brand Guidelines
+   Tailwind Override Declarations to Enforce Light Theme Guidelines
    ──────────────────────────────────────────────────────────── */
 
 /* Background */
@@ -69,7 +69,7 @@ h1, h2, h3, h4, h5, h6 {
 /* Sidebar Nav active selection */
 .bg-indigo-600, .bg-indigo-500 {
   background-color: var(--accent-cyan) !important;
-  color: var(--bg-primary) !important;
+  color: #FFFFFF !important;
   font-weight: 700 !important;
   border-radius: 12px !important;
   box-shadow: none !important;
@@ -79,13 +79,13 @@ h1, h2, h3, h4, h5, h6 {
 .bg-indigo-600:hover, .bg-indigo-500:hover {
   background-color: var(--accent-hover) !important;
   opacity: 0.95;
-  box-shadow: 0 0 12px rgba(79, 140, 255, 0.3) !important;
+  box-shadow: 0 4px 12px rgba(79, 140, 255, 0.2) !important;
 }
 
 /* Sidebar link active state overrides */
 aside .bg-indigo-600 {
-  background-color: rgba(79, 140, 255, 0.12) !important;
-  color: var(--text-heading) !important;
+  background-color: rgba(79, 140, 255, 0.08) !important;
+  color: var(--accent-cyan) !important;
   border: 1px solid rgba(79, 140, 255, 0.15) !important;
 }
 
@@ -99,12 +99,12 @@ aside .bg-indigo-600 svg {
 }
 
 /* Text Colors */
-.text-gray-100, .text-slate-100 {
+.text-gray-100, .text-slate-100, .text-gray-300, .text-slate-300 {
   color: var(--text-primary) !important;
 }
 
 /* Muted / Secondary Texts */
-.text-gray-400, .text-slate-400 {
+.text-gray-400, .text-slate-400, .text-gray-500, .text-slate-500 {
   color: var(--text-muted) !important;
 }
 
@@ -119,7 +119,7 @@ aside .bg-indigo-600 svg {
 .text-red-400, .text-red-500 { color: var(--error-coral) !important; }
 
 /* Borders overrides */
-.border-gray-800, .border-gray-700, .border-slate-800, .border-slate-700, .border-gray-900 {
+.border-gray-800, .border-gray-700, .border-slate-800, .border-slate-700, .border-gray-900, .border-gray-850 {
   border-color: var(--border-color) !important;
 }
 
@@ -134,7 +134,7 @@ aside .bg-indigo-600 svg {
 
 /* Input Fields styling overrides */
 input, select, textarea {
-  background-color: var(--bg-elevated) !important;
+  background-color: var(--bg-primary) !important;
   border: 1px solid var(--border-color) !important;
   color: var(--text-primary) !important;
   border-radius: 12px !important;
@@ -172,4 +172,21 @@ td {
 
 .bg-gray-850:hover {
   background-color: rgba(79, 140, 255, 0.05) !important;
+}
+
+/* Specific elements to fit clean light mode */
+.bg-gray-900\/40 {
+  background-color: var(--bg-surface) !important;
+}
+
+.bg-gray-950\/40 {
+  background-color: var(--bg-surface) !important;
+}
+
+.bg-gray-950\/50 {
+  background-color: var(--bg-surface) !important;
+}
+
+.bg-gray-950\/60 {
+  background-color: var(--bg-surface) !important;
 }
