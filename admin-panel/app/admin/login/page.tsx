@@ -83,7 +83,8 @@ export default function LoginPage() {
               <input
                 type="email"
                 required
-                className="w-full pl-12 pr-4 py-3 bg-slate-50 border border-slate-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 text-sm rounded-xl text-slate-900 outline-none transition-all placeholder:text-slate-400"
+                className="w-full pr-4 py-3 bg-slate-50 border border-slate-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 text-sm rounded-xl text-slate-900 outline-none transition-all placeholder:text-slate-400"
+                style={{ paddingLeft: '48px' }}
                 placeholder="admin@harikson.ai"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
@@ -101,7 +102,8 @@ export default function LoginPage() {
               <input
                 type="password"
                 required
-                className="w-full pl-12 pr-4 py-3 bg-slate-50 border border-slate-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 text-sm rounded-xl text-slate-900 outline-none transition-all placeholder:text-slate-400"
+                className="w-full pr-4 py-3 bg-slate-50 border border-slate-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 text-sm rounded-xl text-slate-900 outline-none transition-all placeholder:text-slate-400"
+                style={{ paddingLeft: '48px' }}
                 placeholder="••••••••"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
