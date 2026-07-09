@@ -225,27 +225,27 @@ export default function LandingPage() {
         <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet" />
         {/* Plausible Analytics (Privacy-First) */}
         <script defer data-domain="harikson.ai" src="https://plausible.io/js/script.js"></script>
-      </Head>
 
-      {/* Structured Schema.org Markup */}
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{
-          __html: JSON.stringify({
-            "@context": "https://schema.org",
-            "@type": "SoftwareApplication",
-            "name": "Harikson AI",
-            "applicationCategory": "BusinessApplication",
-            "operatingSystem": "Linux, Cloud, Self-Hosted",
-            "description": "Sovereign enterprise AI infrastructure for private LLM deployment, multi-tenant workspace routing, and RAG architecture.",
-            "offers": {
-              "@type": "Offer",
-              "price": "0.00",
-              "priceCurrency": "INR"
-            }
-          })
-        }}
-      />
+        {/* Structured Schema.org Markup */}
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify({
+              "@context": "https://schema.org",
+              "@type": "SoftwareApplication",
+              "name": "Harikson AI",
+              "applicationCategory": "BusinessApplication",
+              "operatingSystem": "Linux, Cloud, Self-Hosted",
+              "description": "Sovereign enterprise AI infrastructure for private LLM deployment, multi-tenant workspace routing, and RAG architecture.",
+              "offers": {
+                "@type": "Offer",
+                "price": "0.00",
+                "priceCurrency": "INR"
+              }
+            })
+          }}
+        />
+      </Head>
 
       <div className="landing-container">
         
