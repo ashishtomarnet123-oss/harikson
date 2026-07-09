@@ -52,34 +52,27 @@ ssh -o ServerAliveInterval=30 -o ServerAliveCountMax=20 -i $VM_KEY $VM_USER@$VM_
     
     echo "Connected to VM"
     
-    sudo mkdir -p /mnt/docker-data/harikson && sudo chown -R ubuntu:ubuntu /mnt/docker-data/harikson && cd /mnt/docker-data
+    sudo mkdir -p /mnt/docker-data && sudo chown -R ubuntu:ubuntu /mnt/docker-data
+    cd /mnt/docker-data
     
-    # Stop active containers first to release active mount locks
-    if [ -d "harikson" ]; then
-        echo "Stopping active containers to release mount locks..."
-        cd harikson && docker compose down 2>/dev/null || true
-        cd ..
+    if [ ! -d "harikson" ]; then
+        echo "Cloning fresh repository..."
+        git clone https://github.com/ashishtomarnet123-oss/harikson.git
+        cd harikson
+        chmod +x scripts/*.sh
+        ./scripts/deploy.sh
+    else
+        echo "Repository exists. Updating and rebuilding services..."
+        cd harikson
+        git fetch origin
+        git reset --hard origin/main
+        
+        # Build the frontend and API containers that we modified
+        docker compose build --no-cache user-portal admin-panel admin-api
+        
+        # Re-launch services
+        docker compose up -d
     fi
-    
-    # Backup current (if exists)
-    if [ -d "harikson-backup" ]; then
-        sudo rm -rf harikson-backup
-    fi
-    if [ -d "harikson" ]; then
-        mv harikson harikson-backup
-    fi
-    
-    # Clone fresh from GitHub
-    echo "Cloning from GitHub..."
-    git clone https://github.com/ashishtomarnet123-oss/harikson.git
-    
-    cd harikson
-    
-    # Run the comprehensive deploy.sh script to handle Docker installation,
-    # directory setup, model download, database init, and services startup.
-    echo "Running deploy.sh..."
-    chmod +x scripts/*.sh
-    ./scripts/deploy.sh
 REMOTE_SCRIPT
 
 echo ""
