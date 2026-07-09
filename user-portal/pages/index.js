@@ -265,8 +265,8 @@ export default function LandingPage() {
                 <a href="#capabilities" className="nav-link">Features</a>
                 <a href="#developers" className="nav-link">Docs</a>
                 <a href="#pricing" className="nav-link">Pricing</a>
-                <Link href="/login" className="nav-link">Sign In</Link>
-                <Link href="/signup" className="nav-link-btn">Start Free</Link>
+                <Link href="/login" passHref legacyBehavior><a className="nav-link">Sign In</a></Link>
+                <Link href="/signup" passHref legacyBehavior><a className="nav-link-btn">Start Free</a></Link>
               </div>
               <button className="hamburger-btn" onClick={() => setMobileMenuOpen(!mobileMenuOpen)}>
                 <span className="bar"></span>
@@ -281,8 +281,8 @@ export default function LandingPage() {
                 <a href="#capabilities" className="mobile-nav-link" onClick={() => setMobileMenuOpen(false)}>Features</a>
                 <a href="#developers" className="mobile-nav-link" onClick={() => setMobileMenuOpen(false)}>Docs</a>
                 <a href="#pricing" className="mobile-nav-link" onClick={() => setMobileMenuOpen(false)}>Pricing</a>
-                <Link href="/login" className="mobile-nav-link" onClick={() => setMobileMenuOpen(false)}>Sign In</Link>
-                <Link href="/signup" className="mobile-nav-link highlighted" onClick={() => setMobileMenuOpen(false)}>Start Free</Link>
+                <Link href="/login" passHref legacyBehavior><a className="mobile-nav-link" onClick={() => setMobileMenuOpen(false)}>Sign In</a></Link>
+                <Link href="/signup" passHref legacyBehavior><a className="mobile-nav-link highlighted" onClick={() => setMobileMenuOpen(false)}>Start Free</a></Link>
               </div>
             )}
 
@@ -707,29 +707,33 @@ export default function LandingPage() {
         }
         .nav-link {
           color: #475569;
-          font-size: 13px;
-          font-weight: 500;
+          font-size: 14px;
+          font-weight: 600;
           text-decoration: none;
-          transition: color 0.2s;
+          padding: 8px 16px;
+          border-radius: 8px;
+          transition: all 0.2s ease-in-out;
         }
         .nav-link:hover {
           color: #0F172A;
+          background: #F1F5F9;
         }
         .nav-link-btn {
-          background: #4F8CFF;
+          background: linear-gradient(135deg, #4F8CFF 0%, #3B82F6 100%);
           color: #FFF;
-          font-size: 12px;
+          font-size: 13px;
           font-weight: 700;
-          padding: 8px 18px;
+          padding: 10px 22px;
           border-radius: 10px;
           text-decoration: none;
           transition: all 0.2s ease-in-out;
-          box-shadow: 0 4px 14px rgba(79, 140, 255, 0.2);
+          box-shadow: 0 4px 12px rgba(79, 140, 255, 0.25);
+          border: 1px solid rgba(255, 255, 255, 0.1);
         }
         .nav-link-btn:hover {
-          background: #3B82F6;
-          transform: translateY(-1px);
-          box-shadow: 0 6px 18px rgba(79, 140, 255, 0.3);
+          background: linear-gradient(135deg, #3B82F6 0%, #2563EB 100%);
+          transform: translateY(-1.5px);
+          box-shadow: 0 6px 20px rgba(79, 140, 255, 0.35);
         }
         .hamburger-btn {
           display: none;
