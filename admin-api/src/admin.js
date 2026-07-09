@@ -507,6 +507,24 @@ async function initDb() {
       )
     `);
 
+    // System Metrics History
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS system_metrics (
+          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          gpu_vram_used_mb INT,
+          gpu_vram_total_mb INT,
+          ram_used_mb INT,
+          ram_total_mb INT,
+          cpu_percent INT,
+          disk_used_gb INT,
+          disk_total_gb INT,
+          active_model TEXT,
+          vllm_status TEXT,
+          tensor_parallel_size INT,
+          created_at TIMESTAMPTZ DEFAULT NOW()
+      )
+    `);
+
     console.log('✅ All Phase 1-5 database tables migrated successfully.');
 
   } catch (err) {
@@ -688,23 +706,22 @@ app.get('/admin/system-status', async (req, res) => {
 
     // 1.2 Memory Utilization
     try {
-      const { stdout } = await execPromise('free -m');
-      const lines = stdout.split('\n');
-      const memLine = lines[1].split(/\s+/);
-      ram_total = parseInt(memLine[1]);
-      ram_used = parseInt(memLine[2]);
-    } catch (e) {
       ram_total = Math.round(os.totalmem() / (1024 * 1024));
       ram_used = Math.round((os.totalmem() - os.freemem()) / (1024 * 1024));
+    } catch (e) {
+      ram_total = 16384;
+      ram_used = 4096;
     }
 
     // 1.3 Disk Usage
     try {
-      const { stdout } = await execPromise('df -BG /');
+      const { stdout } = await execPromise('df -h /');
       const lines = stdout.split('\n');
       const diskLine = lines[1].split(/\s+/);
-      disk_total = parseInt(diskLine[1].replace('G', ''));
-      disk_used = parseInt(diskLine[2].replace('G', ''));
+      const totalStr = diskLine[1];
+      const usedStr = diskLine[2];
+      disk_total = parseInt(totalStr.replace(/[^0-9]/g, '')) || 120;
+      disk_used = parseInt(usedStr.replace(/[^0-9]/g, '')) || 45;
     } catch (e) {
       disk_total = 120;
       disk_used = 45;
@@ -721,23 +738,25 @@ app.get('/admin/system-status', async (req, res) => {
       uptime = '0d:0h:15m';
     }
 
-    // 1.5 check vLLM Status
+    // 1.5 check Ollama Status
     try {
-      const { stdout } = await execPromise("ps aux | grep -v grep | grep 'vllm.entrypoints'");
-      if (stdout.trim()) {
-        vllm_status = 'active';
-        const match = stdout.match(/--model\s+([^\s]+)/);
-        if (match) {
-          active_model = match[1].split('/').pop();
+      const ollamaHost = process.env.OLLAMA_HOST || 'http://ollama:11434';
+      const resp = await fetch(`${ollamaHost}/api/ps`);
+      if (resp.ok) {
+        const data = await resp.json();
+        if (data.models && data.models.length > 0) {
+          vllm_status = 'active'; // kept as vllm_status for frontend compatibility
+          active_model = data.models[0].name;
+          gpu_used = Math.round((data.models[0].size_vram || 0) / (1024 * 1024));
+          if (gpu_used === 0) {
+            // fallback if size_vram is missing
+            gpu_used = active_model.includes('32b') ? 20480 : active_model.includes('14b') ? 9216 : active_model.includes('8b') ? 6144 : 2048;
+          }
         }
-        const tpMatch = stdout.match(/--tensor-parallel-size\s+(\d+)/);
-        if (tpMatch) {
-          tensor_parallel = parseInt(tpMatch[1]);
-        }
-        // VRAM calculation simulation if vLLM active
-        gpu_used = active_model.includes('32b') ? 20480 : active_model.includes('14b') ? 9216 : active_model.includes('8b') ? 6144 : 2048;
       }
-    } catch (e) {}
+    } catch (e) {
+      console.error('Failed to ping Ollama:', e.message);
+    }
 
     const payload = {
       gpu: { used: gpu_used, total: gpu_total },
@@ -765,6 +784,22 @@ app.get('/admin/system-status', async (req, res) => {
   } catch (err) {
     console.error('Failed to query system status:', err);
     res.status(500).json({ error: 'Failed to retrieve system status metrics' });
+  }
+});
+// 1.6 GET /admin/users
+app.get('/admin/users', async (req, res) => {
+  try {
+    const query = `
+      SELECT u.id, u.email, u.role, u.created_at, t.name as tenant_name
+      FROM users u
+      LEFT JOIN tenants t ON u.tenant_id = t.id
+      ORDER BY u.created_at DESC
+    `;
+    const result = await pool.query(query);
+    res.status(200).json({ users: result.rows });
+  } catch (err) {
+    console.error('Failed to get users:', err);
+    res.status(500).json({ error: 'Failed to retrieve users' });
   }
 });
 

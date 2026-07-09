@@ -25,6 +25,7 @@ const menuSections = [
     label: 'Operations',
     items: [
       { name: 'Tenants', path: '/admin/tenants', icon: Users },
+      { name: 'Users', path: '/admin/users', icon: Users },
       { name: 'Workflows', path: '/admin/workflows', icon: GitBranch },
       { name: 'Billing', path: '/admin/billing/providers', icon: CreditCard },
     ]
