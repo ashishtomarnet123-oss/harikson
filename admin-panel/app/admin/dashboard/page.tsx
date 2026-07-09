@@ -39,7 +39,7 @@ export default function SystemMonitor() {
   const [metrics, setMetrics] = useState<StatusPayload | null>(null);
   const [kpis, setKpis] = useState<any>(null);
   const [cpuHistory, setCpuHistory] = useState<number[]>([12, 15, 10, 18, 14, 25, 20, 16, 22, 19, 15, 12]);
-  const [apiBase, setApiBase] = useState('http://localhost:4008');
+  const apiBase = '/api-proxy';
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   
@@ -97,14 +97,7 @@ export default function SystemMonitor() {
     }
   };
 
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const hostname = window.location.hostname;
-      if (hostname !== 'localhost' && hostname !== '127.0.0.1') {
-        setApiBase(`http://${hostname}:4008`);
-      }
-    }
-  }, []);
+  
 
   useEffect(() => {
     fetchStatus(true);

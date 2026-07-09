@@ -19,15 +19,10 @@ export default function GpuPage() {
   const [gpus, setGpus] = useState<GPU[]>([]);
   const [message, setMessage] = useState('');
   const [loading, setLoading] = useState(true);
-  const [apiBase, setApiBase] = useState('http://localhost:4008');
+  const apiBase = '/api-proxy';
   const [lastUpdated, setLastUpdated] = useState('');
 
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const h = window.location.hostname;
-      if (h !== 'localhost' && h !== '127.0.0.1') setApiBase(`http://${h}:4008`);
-    }
-  }, []);
+  
 
   const fetchGpu = async () => {
     const token = getCookie('admin_token') || localStorage.getItem('admin_token');

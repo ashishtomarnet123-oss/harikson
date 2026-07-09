@@ -89,7 +89,7 @@ export default function TenantManager() {
   const [providersActive, setProvidersActive] = useState<{ razorpay: boolean; stripe: boolean }>({ razorpay: false, stripe: false });
   const [providersModes, setProvidersModes] = useState<{ razorpay: string; stripe: string }>({ razorpay: 'test', stripe: 'test' });
 
-  const [apiBase, setApiBase] = useState('http://localhost:4008');
+  const apiBase = '/api-proxy';
   const [loading, setLoading] = useState(true);
 
   // Filters for violations
@@ -178,14 +178,7 @@ export default function TenantManager() {
     ]);
   };
 
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const hostname = window.location.hostname;
-      if (hostname !== 'localhost' && hostname !== '127.0.0.1') {
-        setApiBase(`http://${hostname}:4008`);
-      }
-    }
-  }, []);
+  
 
   useEffect(() => {
     fetchData();

@@ -25,17 +25,12 @@ const STATUS_CONFIG = {
 export default function IntegrationsPage() {
   const [integrations, setIntegrations] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [apiBase, setApiBase] = useState('http://localhost:4008');
+  const apiBase = '/api-proxy';
   const [connecting, setConnecting] = useState(null);
   const [disconnecting, setDisconnecting] = useState(null);
   const [testing, setTesting] = useState(null);
 
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const h = window.location.hostname;
-      if (h !== 'localhost' && h !== '127.0.0.1') setApiBase(`http://${h}:4008`);
-    }
-  }, []);
+  
 
   const token = () => getCookie('admin_token') || localStorage.getItem('admin_token');
 

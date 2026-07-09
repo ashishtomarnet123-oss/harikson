@@ -11,7 +11,7 @@ export default function LoginPage() {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [apiBase, setApiBase] = useState('http://localhost:4008');
+  const apiBase = '/api-proxy';
 
   useEffect(() => {
     // If already logged in, redirect to dashboard

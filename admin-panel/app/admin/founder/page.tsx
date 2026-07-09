@@ -33,8 +33,7 @@ export default function FounderDashboard() {
     // We intentionally mask as 404 to hide the route from non-founders
     try {
       const apiBase = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' 
-        ? 'http://localhost:4008' 
-        : `http://${window.location.hostname}:4008`;
+        ? '/api-proxy' : '/api-proxy';
         
       const res = await fetch(`${apiBase}/admin/founder/sync`, {
         headers: { Authorization: `Bearer ${token}` }
@@ -83,7 +82,7 @@ export default function FounderDashboard() {
   const executeOhShit = async () => {
     setCountdownActive(false);
     const token = getCookie('admin_token') || localStorage.getItem('admin_token');
-    const apiBase = window.location.hostname === 'localhost' ? 'http://localhost:4008' : `http://${window.location.hostname}:4008`;
+    const apiBase = '/api-proxy';
     
     try {
       await fetch(`${apiBase}/admin/founder/oh-shit`, {

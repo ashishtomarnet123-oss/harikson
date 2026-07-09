@@ -46,7 +46,7 @@ export default function LogsDiagnostics() {
 
   const [activeErrorTab, setActiveErrorTab] = useState('rate_limit'); // 'timeout' | 'oom' | 'rate_limit' | 'error_500' | 'model_not_found'
   const [searchQuery, setSearchQuery] = useState('');
-  const [apiBase, setApiBase] = useState('http://localhost:4008');
+  const apiBase = '/api-proxy';
   const [loading, setLoading] = useState(true);
 
   const fetchLogs = async (showLoad = false) => {
@@ -99,14 +99,7 @@ export default function LogsDiagnostics() {
     ]);
   };
 
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const hostname = window.location.hostname;
-      if (hostname !== 'localhost' && hostname !== '127.0.0.1') {
-        setApiBase(`http://${hostname}:4008`);
-      }
-    }
-  }, []);
+  
 
   useEffect(() => {
     fetchLogs(true);

@@ -26,7 +26,7 @@ export default function AgentsManagement() {
   const [agents, setAgents] = useState<Agent[]>([]);
   const [loading, setLoading] = useState(true);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
-  const [apiBase, setApiBase] = useState('http://localhost:4008');
+  const apiBase = '/api-proxy';
   const [searchTerm, setSearchTerm] = useState('');
 
   // Form state
@@ -38,14 +38,7 @@ export default function AgentsManagement() {
   });
   const [editingId, setEditingId] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const hostname = window.location.hostname;
-      if (hostname !== 'localhost' && hostname !== '127.0.0.1') {
-        setApiBase(`http://${hostname}:4008`);
-      }
-    }
-  }, []);
+  
 
   const fetchAgents = async () => {
     setLoading(true);

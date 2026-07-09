@@ -25,15 +25,10 @@ export default function ActivityCenter() {
   const [paused, setPaused] = useState(false);
   const [live, setLive] = useState(false);
   const [filterStatus, setFilterStatus] = useState('');
-  const [apiBase, setApiBase] = useState('http://localhost:4008');
+  const apiBase = '/api-proxy';
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
 
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const h = window.location.hostname;
-      if (h !== 'localhost' && h !== '127.0.0.1') setApiBase(`http://${h}:4008`);
-    }
-  }, []);
+  
 
   const fetchActivity = async () => {
     const token = getCookie('admin_token') || localStorage.getItem('admin_token');

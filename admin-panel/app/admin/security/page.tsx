@@ -19,14 +19,9 @@ interface SecurityData {
 export default function SecurityPage() {
   const [data, setData] = useState<SecurityData | null>(null);
   const [loading, setLoading] = useState(true);
-  const [apiBase, setApiBase] = useState('http://localhost:4008');
+  const apiBase = '/api-proxy';
 
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const h = window.location.hostname;
-      if (h !== 'localhost' && h !== '127.0.0.1') setApiBase(`http://${h}:4008`);
-    }
-  }, []);
+  
 
   useEffect(() => {
     if (!apiBase) return;

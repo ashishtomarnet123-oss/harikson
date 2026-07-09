@@ -16,14 +16,9 @@ export default function WorkflowsPage() {
   const [showCreate, setShowCreate] = useState(false);
   const [running, setRunning] = useState<string | null>(null);
   const [form, setForm] = useState({ name: '', description: '', trigger_type: 'manual' });
-  const [apiBase, setApiBase] = useState('http://localhost:4008');
+  const apiBase = '/api-proxy';
 
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const h = window.location.hostname;
-      if (h !== 'localhost' && h !== '127.0.0.1') setApiBase(`http://${h}:4008`);
-    }
-  }, []);
+  
 
   const token = () => getCookie('admin_token') || localStorage.getItem('admin_token');
   const headers = () => ({ Authorization: `Bearer ${token()}`, 'Content-Type': 'application/json' });

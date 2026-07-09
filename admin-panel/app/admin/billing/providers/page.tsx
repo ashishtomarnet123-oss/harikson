@@ -35,7 +35,7 @@ export default function BillingProvidersPage() {
   const [showApiSecret, setShowApiSecret] = useState(false);
   const [showWebhookSecret, setShowWebhookSecret] = useState(false);
 
-  const [apiBase, setApiBase] = useState('http://localhost:4008');
+  const apiBase = '/api-proxy';
   const [copiedUrl, setCopiedUrl] = useState<'razorpay' | 'stripe' | null>(null);
 
   const getWebhookUrl = (type: 'razorpay' | 'stripe') => {
@@ -67,14 +67,7 @@ export default function BillingProvidersPage() {
     }
   };
 
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const hostname = window.location.hostname;
-      if (hostname !== 'localhost' && hostname !== '127.0.0.1') {
-        setApiBase(`http://${hostname}:4008`);
-      }
-    }
-  }, []);
+  
 
   useEffect(() => {
     fetchData();

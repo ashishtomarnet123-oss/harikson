@@ -31,7 +31,7 @@ export default function AuditLogs() {
   const [loading, setLoading] = useState(true);
   const [searchEmail, setSearchEmail] = useState('');
   const [searchAction, setSearchAction] = useState('');
-  const [apiBase, setApiBase] = useState('http://localhost:4008');
+  const apiBase = '/api-proxy';
 
   const fetchAudits = async () => {
     setLoading(true);
@@ -79,14 +79,7 @@ export default function AuditLogs() {
     ]);
   };
 
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const hostname = window.location.hostname;
-      if (hostname !== 'localhost' && hostname !== '127.0.0.1') {
-        setApiBase(`http://${hostname}:4008`);
-      }
-    }
-  }, []);
+  
 
   useEffect(() => {
     fetchAudits();
