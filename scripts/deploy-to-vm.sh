@@ -68,7 +68,7 @@ ssh -o ServerAliveInterval=30 -o ServerAliveCountMax=20 -i $VM_KEY $VM_USER@$VM_
         git reset --hard origin/main
         
         # Build the frontend and API containers that we modified
-        docker compose build --no-cache user-portal admin-panel admin-api
+        docker compose build --no-cache user-portal admin-panel admin-api tenant-api
         
         # Re-launch services
         docker compose up -d

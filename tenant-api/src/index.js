@@ -6,6 +6,7 @@ import axios from 'axios';
 import jwt from 'jsonwebtoken';
 import bcrypt from 'bcrypt';
 import dotenv from 'dotenv';
+import * as cheerio from 'cheerio';
 
 dotenv.config();
 
@@ -205,6 +206,52 @@ Never ask for clarification if the answer is clear from the conversation history
 Never break character. You are Harikson — a premium enterprise AI assistant.`;
 }
 
+// Helper: Crawl website for agent context
+async function crawlWebsite(url, maxDepth = 1, currentDepth = 0, visited = new Set()) {
+  if (visited.has(url) || currentDepth > maxDepth || visited.size >= 4) return '';
+  visited.add(url);
+  
+  try {
+    const response = await axios.get(url, { timeout: 8000 });
+    const html = response.data;
+    const $ = cheerio.load(html);
+    
+    // Remove noise
+    $('script, style, svg, img, nav, footer, iframe, noscript').remove();
+    
+    const title = $('title').text().trim();
+    const metaDesc = $('meta[name="description"]').attr('content') || '';
+    const h1 = $('h1').map((i, el) => $(el).text().trim()).get().join(' | ');
+    const h2 = $('h2').map((i, el) => $(el).text().trim()).get().join(' | ');
+    
+    let textContent = $('body').text().replace(/\s+/g, ' ').trim();
+    if (textContent.length > 3000) {
+      textContent = textContent.substring(0, 3000) + '...';
+    }
+    
+    let result = `\n--- PAGE: ${url} ---\nTitle: ${title}\nMeta Description: ${metaDesc}\nH1: ${h1}\nH2: ${h2}\nContent:\n${textContent}\n`;
+    
+    if (currentDepth < maxDepth) {
+      const baseUrl = new URL(url).origin;
+      const links = $('a').map((i, el) => $(el).attr('href')).get()
+        .filter(href => href && (href.startsWith('/') || href.startsWith(baseUrl)))
+        .map(href => href.startsWith('/') ? baseUrl + href : href)
+        .filter(href => !href.includes('#') && !visited.has(href));
+        
+      const uniqueLinks = [...new Set(links)].slice(0, 2);
+      for (const link of uniqueLinks) {
+        const subResult = await crawlWebsite(link, maxDepth, currentDepth + 1, visited);
+        result += subResult;
+      }
+    }
+    
+    return result;
+  } catch (err) {
+    console.warn(`Failed to crawl ${url}:`, err.message);
+    return `\n--- PAGE: ${url} ---\nFailed to fetch content: ${err.message}\n`;
+  }
+}
+
 // Helper: build messages array for Ollama /api/chat (proper multi-turn memory)
 function buildMessages(history, userMessage, model, agentConfig = null) {
   const messages = [
@@ -341,8 +388,27 @@ app.post('/api/chat', authMiddleware, async (req, res) => {
     // If frontend sends clientHistory, use it. Otherwise fall back to DB history.
     const finalHistory = (clientHistory && clientHistory.length > 0) ? clientHistory : history;
 
+    // Check for URLs to crawl
+    const urlRegex = /(https?:\/\/[^\s]+)/g;
+    const urls = message.match(urlRegex) || [];
+    let crawledContext = '';
+    
+    if (urls.length > 0) {
+      const shouldDeepCrawl = message.toLowerCase().includes('crawl') || message.toLowerCase().includes('analyze') || message.toLowerCase().includes('research');
+      const maxDepth = shouldDeepCrawl ? 1 : 0;
+      crawledContext = await crawlWebsite(urls[0], maxDepth);
+    }
+
     // Build messages array with full conversation history for proper context
     const messages = buildMessages(finalHistory, message, selectedModel, agentConfig);
+    
+    if (crawledContext) {
+      messages.splice(messages.length - 1, 0, { 
+        role: 'system', 
+        content: `LIVE WEBSITE CONTEXT (Extracted from URL provided by user):\n${crawledContext}\nUse this context to fulfill the user's request accurately.`
+      });
+    }
+
     const promptTokenEstimate = messages.reduce((acc, m) => acc + Math.ceil(m.content.length / 4), 0);
     const chatStartTime = Date.now();
 
