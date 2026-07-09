@@ -30,7 +30,7 @@ const TerminalAnimation = () => {
   const [cursorVisible, setCursorVisible] = useState(true);
   const [step, setStep] = useState(0); // 0: typing, 1: loading model, 2: RAG index, 3: tenant isolation, 4: DPDP compliance, 5: completed (pause)
 
-  const command = 'harikson deploy --model Qwen3-32B --region india-mum';
+  const command = 'harikson deploy --model Llama3-8B --region india-mum';
 
   // Cursor blinking
   useEffect(() => {
@@ -495,7 +495,7 @@ export default function LandingPage() {
                 <div className="step-num">2</div>
                 <h3 className="step-title">Select Your AI Stack</h3>
                 <p className="step-desc">
-                  Pick model: Qwen3-8B / 32B / 72B / 235B. Upload documents for RAG indexing. Configure granular tenant isolation rules.
+                  Pick model: Llama3-8B / 70B, Qwen3-8B / 72B. Upload documents for RAG indexing. Configure granular tenant isolation rules.
                 </p>
               </div>
               <div className="timeline-step">
