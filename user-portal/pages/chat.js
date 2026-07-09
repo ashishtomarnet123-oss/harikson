@@ -106,6 +106,14 @@ function renderInline(text) {
   });
 }
 
+
+const SLASH_COMMANDS = [
+  { id: 'code', icon: '</>', title: 'Write Code', desc: 'Generate a code snippet or component', prompt: 'Write the code for a ' },
+  { id: 'summarize', icon: '📝', title: 'Summarize', desc: 'Summarize text or meeting notes', prompt: 'Summarize the following: \n' },
+  { id: 'debug', icon: '🐛', title: 'Debug', desc: 'Find bugs in my code', prompt: 'Debug this code and explain the fixes: \n' },
+  { id: 'explain', icon: '🧠', title: 'Explain', desc: 'Explain a complex concept simply', prompt: 'Explain this concept to me as if I were a beginner: ' },
+];
+
 /* ────────────────────────────────────────────────────────────
    Main Chat Page
 ──────────────────────────────────────────────────────────── */
@@ -132,6 +140,27 @@ export default function ChatPage() {
   const [model, setModel] = useState('harikson-plus');
   const [systemPreset, setSystemPreset] = useState('general');
   const [attachedFiles, setAttachedFiles] = useState([]);
+  const [pinnedChats, setPinnedChats] = useState([]);
+  const [showSlashMenu, setShowSlashMenu] = useState(false);
+  const [slashIndex, setSlashIndex] = useState(0);
+
+  useEffect(() => {
+    const savedPins = JSON.parse(localStorage.getItem('hk_pinned_chats') || '[]');
+    setPinnedChats(savedPins);
+  }, []);
+
+  const togglePin = (e, id) => {
+    e.stopPropagation();
+    let newPins;
+    if (pinnedChats.includes(id)) {
+      newPins = pinnedChats.filter(p => p !== id);
+    } else {
+      newPins = [...pinnedChats, id];
+    }
+    setPinnedChats(newPins);
+    localStorage.setItem('hk_pinned_chats', JSON.stringify(newPins));
+  };
+
   const [isDragging, setIsDragging] = useState(false);
   const [toast, setToast] = useState(null);
 
@@ -746,7 +775,26 @@ export default function ChatPage() {
               </div>
             )}
             <form onSubmit={sendMessage}>
-              <div className="input-wrapper" style={{ display: 'flex', alignItems: 'center' }}>
+              <div className="input-wrapper" style={{ display: 'flex', alignItems: 'center', position: 'relative' }}>
+                {showSlashMenu && (
+                  <div className="slash-command-popup">
+                    {SLASH_COMMANDS.map((cmd, idx) => (
+                      <div 
+                        key={cmd.id} 
+                        className={`slash-command-item ${idx === slashIndex ? 'selected' : ''}`}
+                        onClick={() => applySlashCommand(cmd)}
+                        onMouseEnter={() => setSlashIndex(idx)}
+                      >
+                        <div className="slash-command-icon">{cmd.icon}</div>
+                        <div className="slash-command-details">
+                          <span className="slash-command-title">{cmd.title}</span>
+                          <span className="slash-command-desc">{cmd.desc}</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
                 <input
                   type="file"
                   id="file-upload"
@@ -773,7 +821,7 @@ export default function ChatPage() {
                   className="chat-textarea"
                   rows={1}
                   value={inputText}
-                  onChange={(e) => setInputText(e.target.value)}
+                  onChange={handleInputChange}
                   onKeyDown={handleKeyDown}
                   placeholder="Message Harikson…"
                   disabled={loading}
