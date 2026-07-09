@@ -19,13 +19,6 @@ export default function LoginPage() {
     if (token) {
       router.replace('/admin/dashboard');
     }
-
-    if (typeof window !== 'undefined') {
-      const hostname = window.location.hostname;
-      if (hostname !== 'localhost' && hostname !== '127.0.0.1') {
-        setApiBase(`http://${hostname}:4008`);
-      }
-    }
   }, [router]);
 
   const handleSubmit = async (e: React.FormEvent) => {
