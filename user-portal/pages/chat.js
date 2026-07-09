@@ -140,7 +140,16 @@ export default function ChatPage() {
   useEffect(() => {
     const savedToken = localStorage.getItem('hk_token');
     if (!savedToken) { router.replace('/login'); return; }
-    const savedUser = JSON.parse(localStorage.getItem('hk_user') || 'null');
+    let savedUser = null;
+    try {
+      savedUser = JSON.parse(localStorage.getItem('hk_user') || 'null');
+    } catch (e) {
+      console.error("Failed to parse user from localStorage", e);
+      localStorage.removeItem('hk_token');
+      localStorage.removeItem('hk_user');
+      router.replace('/login');
+      return;
+    }
     const savedBase = localStorage.getItem('hk_api_base') || 'http://localhost:3008';
     const savedTenant = localStorage.getItem('hk_tenant') || 'system';
     setToken(savedToken);
