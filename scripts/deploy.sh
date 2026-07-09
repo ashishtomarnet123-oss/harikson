@@ -252,8 +252,8 @@ ON CONFLICT (slug) DO NOTHING;
 
 -- Create default superadmin account
 INSERT INTO users (id, tenant_id, email, password_hash, role)
-VALUES ('00000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-000000000000', 'admin@harikson.ai', '\$2b\$10\$jV.xQbPyV2gDD4/Z8WkH7O9kyW5qT3Cy0IN9AJNxZxunkGO8DCHOm', 'superadmin')
-ON CONFLICT (tenant_id, email) DO UPDATE SET password_hash = '\$2b\$10\$jV.xQbPyV2gDD4/Z8WkH7O9kyW5qT3Cy0IN9AJNxZxunkGO8DCHOm';
+VALUES ('00000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-000000000000', 'admin@harikson.ai', '\$2a\$10\$Pr0NGqzB.1NjLDY0U6kpleOT059r26ii2cQ2WRN1f64QKvl3VJ5mm', 'superadmin')
+ON CONFLICT (tenant_id, email) DO UPDATE SET password_hash = '\$2a\$10\$Pr0NGqzB.1NjLDY0U6kpleOT059r26ii2cQ2WRN1f64QKvl3VJ5mm';
 EOF
 
 echo -e "${GREEN}✅ Database tables and defaults generated.${NC}"
