@@ -174,6 +174,7 @@ const TerminalAnimation = () => {
 export default function LandingPage() {
   const [activeCapability, setActiveCapability] = useState(null);
   const [showReport, setShowReport] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const capabilities = [
     {
@@ -246,7 +247,7 @@ export default function LandingPage() {
           }}
         />
       </Head>
-
+ 
       <div className="landing-container">
         
         {/* ─── HERO SECTION ─── */}
@@ -260,13 +261,30 @@ export default function LandingPage() {
                 <span className="logo-icon">⚡</span>
                 <span className="logo-text">Harikson AI</span>
               </div>
-              <div className="nav-links">
+              <div className="nav-links-desktop">
                 <a href="#capabilities" className="nav-link">Features</a>
                 <a href="#developers" className="nav-link">Docs</a>
                 <a href="#pricing" className="nav-link">Pricing</a>
                 <Link href="/login" className="nav-link">Sign In</Link>
+                <Link href="/signup" className="nav-link-btn">Start Free</Link>
               </div>
+              <button className="hamburger-btn" onClick={() => setMobileMenuOpen(!mobileMenuOpen)}>
+                <span className="bar"></span>
+                <span className="bar"></span>
+                <span className="bar"></span>
+              </button>
             </header>
+
+            {/* Mobile Navigation Drawer */}
+            {mobileMenuOpen && (
+              <div className="mobile-nav-drawer">
+                <a href="#capabilities" className="mobile-nav-link" onClick={() => setMobileMenuOpen(false)}>Features</a>
+                <a href="#developers" className="mobile-nav-link" onClick={() => setMobileMenuOpen(false)}>Docs</a>
+                <a href="#pricing" className="mobile-nav-link" onClick={() => setMobileMenuOpen(false)}>Pricing</a>
+                <Link href="/login" className="mobile-nav-link" onClick={() => setMobileMenuOpen(false)}>Sign In</Link>
+                <Link href="/signup" className="mobile-nav-link highlighted" onClick={() => setMobileMenuOpen(false)}>Start Free</Link>
+              </div>
+            )}
 
             {/* Core Hero Content */}
             <div className="hero-body">
@@ -682,8 +700,9 @@ export default function LandingPage() {
           color: #FFF;
           letter-spacing: -0.3px;
         }
-        .nav-links {
+        .nav-links-desktop {
           display: flex;
+          align-items: center;
           gap: 24px;
         }
         .nav-link {
@@ -695,6 +714,64 @@ export default function LandingPage() {
         }
         .nav-link:hover {
           color: #FFF;
+        }
+        .nav-link-btn {
+          background: #4F8CFF;
+          color: #FFF;
+          font-size: 12px;
+          font-weight: 700;
+          padding: 8px 16px;
+          border-radius: 8px;
+          text-decoration: none;
+          transition: background 0.2s;
+        }
+        .nav-link-btn:hover {
+          background: #3B82F6;
+        }
+        .hamburger-btn {
+          display: none;
+          flex-direction: column;
+          gap: 4px;
+          background: none;
+          border: none;
+          cursor: pointer;
+          padding: 4px;
+          z-index: 20;
+        }
+        .hamburger-btn .bar {
+          width: 20px;
+          height: 2px;
+          background: #FFF;
+          border-radius: 99px;
+          transition: all 0.2s;
+        }
+        .mobile-nav-drawer {
+          position: absolute;
+          top: 80px;
+          left: 0;
+          right: 0;
+          background: #111217;
+          border-bottom: 1px solid #26272D;
+          display: flex;
+          flex-direction: column;
+          padding: 20px 24px;
+          gap: 16px;
+          z-index: 90;
+          box-shadow: 0 10px 20px rgba(0,0,0,0.3);
+        }
+        .mobile-nav-link {
+          color: #A1A1AA;
+          font-size: 14px;
+          font-weight: 500;
+          text-decoration: none;
+        }
+        .mobile-nav-link.highlighted {
+          background: #4F8CFF;
+          color: #FFF;
+          padding: 10px;
+          border-radius: 8px;
+          text-align: center;
+          font-weight: 700;
         }
         
         .hero-body {
@@ -1354,29 +1431,72 @@ export default function LandingPage() {
         }
 
         /* Responsive Layout fixes */
-        @media (max-width: 900px) {
+        @media (max-width: 1024px) {
+          .hero-title {
+            font-size: 42px;
+          }
+          .capabilities-grid {
+            grid-template-columns: repeat(2, 1fr);
+          }
+          .pricing-grid {
+            grid-template-columns: repeat(2, 1fr);
+          }
+          .pricing-grid > div:last-child {
+            grid-column: span 2;
+          }
+          .proof-grid {
+            grid-template-columns: repeat(2, 1fr);
+          }
+          .proof-grid > div:last-child {
+            grid-column: span 2;
+          }
+        }
+
+        @media (max-width: 768px) {
+          .nav-links-desktop {
+            display: none;
+          }
+          .hamburger-btn {
+            display: flex;
+          }
           .hero-body {
             grid-template-columns: 1fr;
             text-align: center;
             padding-bottom: 40px;
+            gap: 32px;
           }
           .hero-left {
             display: flex;
             flex-direction: column;
             align-items: center;
           }
+          .hero-title {
+            font-size: 34px;
+          }
           .hero-ctas {
             justify-content: center;
+            width: 100%;
+            flex-direction: column;
+            gap: 12px;
+          }
+          .btn-primary, .btn-secondary {
+            width: 100%;
+            text-align: center;
           }
           .trust-logos-row {
             justify-content: center;
+            gap: 12px;
           }
           .problem-comparison-grid,
           .capabilities-grid,
           .proof-grid,
           .horizontal-timeline,
           .pricing-grid {
-            grid-template-columns: 1fr;
+            grid-template-columns: 1fr !important;
+          }
+          .pricing-grid > div:last-child,
+          .proof-grid > div:last-child {
+            grid-column: span 1 !important;
           }
           .timeline-step {
             margin-top: 16px;
@@ -1384,6 +1504,22 @@ export default function LandingPage() {
           .step-num {
             left: 50%;
             transform: translateX(-50%);
+          }
+          .cta-buttons {
+            flex-direction: column;
+            width: 100%;
+            max-width: 320px;
+            margin: 0 auto 24px;
+            gap: 12px;
+          }
+          .cta-buttons .btn-primary,
+          .cta-buttons .btn-secondary {
+            width: 100%;
+            box-sizing: border-box;
+          }
+          .section-heading {
+            font-size: 26px;
+            margin-bottom: 32px;
           }
         }
       `}</style>
