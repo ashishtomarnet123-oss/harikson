@@ -29,7 +29,8 @@ body {
 }
 
 h1, h2, h3, h4, h5, h6 {
-  color: var(--text-heading) !important;
+  /* Removed !important — let each page control heading color for dark mode support */
+  color: var(--text-heading);
 }
 
 * {
