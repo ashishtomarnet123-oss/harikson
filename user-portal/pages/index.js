@@ -380,17 +380,17 @@ const UseCaseCard = ({ icon, title, desc, tags }) => {
 
 // ─── DATA ────────────────────────────────────────────────────────────────────
 const WHY_CARDS = [
+  { icon: '🇮🇳', title: 'DPDP Act 2023 Compliant', desc: 'Built for India\'s Digital Personal Data Protection Act. Zero cross-border data transfer. Strictly sovereign.', accent: DS.primary },
+  { icon: '💬', title: 'WhatsApp Business API', desc: 'Deploy your custom AI agents directly on WhatsApp with one click. Ideal for Indian customer acquisition & support.', accent: DS.secondary },
+  { icon: '🔌', title: 'India Stack Native', desc: 'Integrate out-of-the-box with UPI payment checks, DigiLocker, Aadhaar verification, and GST portal tools.', accent: DS.success },
+  { icon: '🗣️', title: 'Indic Multilingual Engine', desc: 'Prompt and process natively in Hindi, Tamil, Telugu, Marathi, Kannada, Bengali, and 16 other regional Indian languages.', accent: DS.warning },
   { icon: '🔒', title: 'Private AI Infrastructure', desc: 'Deploy AI inside your own cloud or on-premise. Your data never leaves your infrastructure perimeter — ever.', accent: DS.primary },
   { icon: '🤖', title: 'Enterprise AI Agents', desc: 'Build specialized AI employees with custom personas, tools, knowledge, and escalation policies.', accent: DS.secondary },
   { icon: '📚', title: 'Knowledge Engine', desc: 'Transform company knowledge into intelligent AI. Upload docs, index wikis, query databases — all grounded in your data.', accent: DS.success },
   { icon: '⚡', title: 'Workflow Automation', desc: 'Automate complex business operations with multi-step AI pipelines. Event-driven, scheduled, or API-triggered.', accent: DS.warning },
-  { icon: '🔀', title: 'Model Orchestration', desc: 'Route requests intelligently across Qwen3, GLM-4, Llama, Mistral from one unified control plane.', accent: DS.primary },
-  { icon: '🔌', title: 'Enterprise APIs', desc: 'Developer-first REST and streaming APIs. SDKs for Python, JavaScript, CLI. OpenAI-compatible endpoints.', accent: DS.secondary },
+  { icon: '🔀', title: 'Model Orchestration', desc: 'Route requests intelligently across GLM-4, Llama, Mistral, Harikson Plus from one unified control plane.', accent: DS.primary },
   { icon: '💻', title: 'GPU Infrastructure', desc: 'Monitor every GPU in real time. Utilization, VRAM, temperature, power draw — all from one dashboard.', accent: '#06B6D4' },
   { icon: '🛡️', title: 'Security Center', desc: 'Complete audit logging, IP allowlists, failed login detection, and role-based access control across all tenants.', accent: DS.error },
-  { icon: '🏢', title: 'Multi-Tenant', desc: 'Isolated workspaces with row-level security. No data cross-contamination between organizations.', accent: DS.success },
-  { icon: '📊', title: 'Analytics', desc: 'Monitor every request, token, latency, cost, and model performance in real time with beautiful dashboards.', accent: DS.warning },
-  { icon: '🔐', title: 'Enterprise Security', desc: 'RBAC, JWT, SSO, AES-256 encryption, SOC 2 ready, GDPR compliant, and data sovereignty guaranteed.', accent: DS.error },
   { icon: '🌐', title: 'Open Standards', desc: 'Built on open infrastructure. PostgreSQL, Redis, Docker, Kubernetes. No vendor lock-in by design.', accent: '#06B6D4' },
 ];
 
@@ -629,7 +629,7 @@ export default function Home() {
                 padding: '6px 14px', fontSize: 12, fontWeight: 600, color: DS.muted, marginBottom: 28,
               }}>
                 <Blink color={DS.success} />
-                Now available: Harikson Plus · 128K Context
+                🇮🇳 Sovereign Indian Enterprise AI Platform
               </div>
 
               <h1 style={{ fontSize: 'clamp(40px, 5.5vw, 68px)', fontWeight: 900, color: DS.heading, letterSpacing: '-2.5px', lineHeight: 1.06, margin: '0 0 24px' }}>
@@ -665,7 +665,7 @@ export default function Home() {
               </div>
 
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 20, fontSize: 12, color: DS.muted }}>
-                {['✓ No credit card required', '✓ Self-hosted', '✓ Enterprise ready', '✓ SOC 2 ready'].map(t => (
+                {['✓ Made in India · Built for World', '✓ DPDP Act 2023 Compliant', '✓ Sovereign Data Residency', '✓ Self-Hosted / On-Premise'].map(t => (
                   <span key={t} style={{ fontWeight: 500 }}>{t}</span>
                 ))}
               </div>
@@ -689,7 +689,7 @@ export default function Home() {
                 <div key={c} style={{ fontSize: 14, fontWeight: 700, color: DS.border, letterSpacing: '0.05em', filter: 'grayscale(1)', opacity: 0.5 }}>{c}</div>
               ))}
               <div style={{ width: 1, height: 20, background: DS.border }} />
-              {['🔒 SOC 2', '🛡️ ISO 27001', '🔐 GDPR', '⚡ 99.99% SLA', '🏠 Private Deploy'].map(b => (
+              {['🔒 SOC 2 ready', '🛡️ DPDP Act Compliant', '🇮🇳 100% Indian Data Residency', '⚡ 99.99% Uptime', '🏠 On-Premise / Air-Gapped'].map(b => (
                 <div key={b} style={{ fontSize: 11, fontWeight: 600, color: DS.muted, background: DS.elevated, border: `1px solid ${DS.border}`, borderRadius: 99, padding: '4px 12px' }}>{b}</div>
               ))}
             </div>
