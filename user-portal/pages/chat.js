@@ -517,7 +517,38 @@ export default function ChatPage() {
               <div className="messages-empty">
                 <div className="messages-empty-icon">⚡</div>
                 <h2>Harikson AI</h2>
-                <p>Your enterprise AI coding assistant. Ask anything about your codebase, architecture, or software.</p>
+                <p style={{ marginBottom: '8px' }}>Your enterprise AI coding assistant. Ask anything about your codebase, architecture, or software.</p>
+                
+                <div className="suggestions-grid">
+                  <div className="suggestion-card" onClick={() => setInputText("Analyze my git repository structure and suggest optimizations.")}>
+                    <div className="suggestion-icon">🔍</div>
+                    <div className="suggestion-text">
+                      <h4>Analyze Repository</h4>
+                      <p>Scan structures and find layout improvements</p>
+                    </div>
+                  </div>
+                  <div className="suggestion-card" onClick={() => setInputText("Draft a DPDP-compliant data isolation policy for a new tenant.")}>
+                    <div className="suggestion-icon">🛡️</div>
+                    <div className="suggestion-text">
+                      <h4>DPDP Compliance</h4>
+                      <p>Draft sovereignty policies for local soils</p>
+                    </div>
+                  </div>
+                  <div className="suggestion-card" onClick={() => setInputText("Optimize this database query for index lookup efficiency.")}>
+                    <div className="suggestion-icon">⚡</div>
+                    <div className="suggestion-text">
+                      <h4>Query Optimization</h4>
+                      <p>Enhance Postgres performance and indexing</p>
+                    </div>
+                  </div>
+                  <div className="suggestion-card" onClick={() => setInputText("Write a Docker Compose file to orchestrate a Redis and Ollama stack.")}>
+                    <div className="suggestion-icon">📦</div>
+                    <div className="suggestion-text">
+                      <h4>Orchestration Setup</h4>
+                      <p>Configure compose templates for Ollama stacks</p>
+                    </div>
+                  </div>
+                </div>
               </div>
             )}
 
