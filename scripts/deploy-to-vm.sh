@@ -52,7 +52,7 @@ ssh -o ServerAliveInterval=30 -o ServerAliveCountMax=20 -i $VM_KEY $VM_USER@$VM_
     
     echo "Connected to VM"
     
-    sudo mkdir -p /mnt/docker-data && sudo chown -R ubuntu:ubuntu /mnt/docker-data
+    sudo mkdir -p /mnt/docker-data/harikson && sudo chown ubuntu:ubuntu /mnt/docker-data/harikson
     cd /mnt/docker-data
     
     if [ ! -d "harikson" ]; then
