@@ -625,8 +625,8 @@ export default function LandingPage() {
         /* Reset and main wrapper */
         .landing-container {
           font-family: 'Inter', -apple-system, sans-serif;
-          color: ${DS.textBodyLight};
-          background: ${DS.bgLight};
+          color: #334155;
+          background: #FFFFFF;
           margin: 0;
           padding: 0;
           overflow-x: hidden;
@@ -639,7 +639,7 @@ export default function LandingPage() {
           background: linear-gradient(135deg, #090A0F 0%, #161725 100%);
           display: flex;
           flex-direction: column;
-          color: ${DS.textBodyDark};
+          color: #E5E7EB;
           overflow: hidden;
         }
         .radial-glow-hero {
@@ -687,7 +687,7 @@ export default function LandingPage() {
           gap: 24px;
         }
         .nav-link {
-          color: ${DS.textMutedDark};
+          color: #A1A1AA;
           font-size: 13px;
           font-weight: 500;
           text-decoration: none;
@@ -730,7 +730,7 @@ export default function LandingPage() {
         }
         .hero-sub {
           font-size: 17px;
-          color: ${DS.textMutedDark};
+          color: #A1A1AA;
           line-height: 1.6;
           margin-bottom: 32px;
           max-width: 480px;
@@ -741,7 +741,7 @@ export default function LandingPage() {
           margin-bottom: 10px;
         }
         .btn-primary {
-          background: ${DS.primary};
+          background: #4F8CFF;
           color: #FFF;
           font-size: 14px;
           font-weight: 700;
@@ -771,7 +771,7 @@ export default function LandingPage() {
         }
         .hero-cta-caption {
           font-size: 12px;
-          color: ${DS.textMutedDark};
+          color: #A1A1AA;
           margin-bottom: 40px;
         }
 
@@ -785,7 +785,7 @@ export default function LandingPage() {
           font-weight: 700;
           text-transform: uppercase;
           letter-spacing: 1px;
-          color: ${DS.textMutedDark};
+          color: #A1A1AA;
           display: block;
           margin-bottom: 12px;
         }
@@ -805,7 +805,7 @@ export default function LandingPage() {
         }
         .scroll-indicator {
           font-size: 12px;
-          color: ${DS.textMutedDark};
+          color: #A1A1AA;
           margin-top: 40px;
         }
 
@@ -841,14 +841,14 @@ export default function LandingPage() {
         }
         .badge-desc {
           font-size: 10px;
-          color: ${DS.textMutedDark};
+          color: #A1A1AA;
         }
 
         /* ─── PROBLEM SECTION ─── */
         .section-problem {
-          background: ${DS.bgLight};
+          background: #FFFFFF;
           padding: 100px 0;
-          border-bottom: 1px solid ${DS.borderLight};
+          border-bottom: 1px solid #E2E8F0;
         }
         .content-inner {
           max-width: 1180px;
@@ -859,12 +859,12 @@ export default function LandingPage() {
           font-size: 11px;
           font-weight: 800;
           letter-spacing: 1.5px;
-          color: ${DS.textMutedLight};
+          color: #64748B;
           text-transform: uppercase;
           margin-bottom: 12px;
         }
-        .tag-blue { color: ${DS.primary}; }
-        .tag-purple { color: ${DS.secondary}; }
+        .tag-blue { color: #4F8CFF; }
+        .tag-purple { color: #8B7FFF; }
         .section-heading {
           font-size: 32px;
           font-weight: 800;
@@ -872,8 +872,8 @@ export default function LandingPage() {
           margin-bottom: 48px;
           line-height: 1.2;
         }
-        .dark-text { color: ${DS.textHeadingLight}; }
-        .white-text { color: ${DS.textHeadingDark}; }
+        .dark-text { color: #0F172A; }
+        .white-text { color: #FFFFFF; }
         .problem-comparison-grid {
           display: grid;
           grid-template-columns: 1fr 1fr;
@@ -881,16 +881,16 @@ export default function LandingPage() {
           margin-bottom: 32px;
         }
         .comparison-card {
-          background: ${DS.surfaceLight};
-          border: 1px solid ${DS.borderLight};
+          background: #F8FAFC;
+          border: 1px solid #E2E8F0;
           border-radius: 16px;
           padding: 32px;
         }
         .card-problem {
-          border-left: 4px solid ${DS.error};
+          border-left: 4px solid #FF5D73;
         }
         .card-fix {
-          border-left: 4px solid ${DS.success};
+          border-left: 4px solid #22C55E;
           background: rgba(34, 197, 94, 0.02);
         }
         .comp-title {
@@ -898,8 +898,8 @@ export default function LandingPage() {
           font-weight: 800;
           margin-bottom: 20px;
         }
-        .text-red { color: ${DS.error}; }
-        .text-emerald { color: ${DS.success}; }
+        .text-red { color: #FF5D73; }
+        .text-emerald { color: #22C55E; }
         .comp-list {
           list-style: none;
           padding: 0;
@@ -907,7 +907,7 @@ export default function LandingPage() {
         }
         .comp-list li {
           font-size: 14px;
-          color: ${DS.textBodyLight};
+          color: #334155;
           margin-bottom: 14px;
           line-height: 1.6;
           padding-left: 14px;
@@ -917,7 +917,7 @@ export default function LandingPage() {
           content: "•";
           position: absolute;
           left: 0;
-          color: ${DS.textMutedLight};
+          color: #64748B;
         }
         .center-action {
           display: flex;
@@ -926,8 +926,8 @@ export default function LandingPage() {
         }
         .btn-problem-report {
           background: transparent;
-          border: 1px solid ${DS.borderLight};
-          color: ${DS.textBodyLight};
+          border: 1px solid #E2E8F0;
+          color: #334155;
           font-size: 13px;
           font-weight: 600;
           padding: 10px 20px;
@@ -936,14 +936,14 @@ export default function LandingPage() {
           transition: background 0.2s;
         }
         .btn-problem-report:hover {
-          background: ${DS.surfaceLight};
+          background: #F8FAFC;
         }
 
         /* ─── CAPABILITIES SECTION ─── */
         .section-capabilities {
-          background: ${DS.bgDark};
+          background: #09090B;
           padding: 100px 0;
-          border-bottom: 1px solid ${DS.borderDark};
+          border-bottom: 1px solid #26272D;
         }
         .capabilities-grid {
           display: grid;
@@ -951,8 +951,8 @@ export default function LandingPage() {
           gap: 20px;
         }
         .cap-card {
-          background: ${DS.surfaceDark};
-          border: 1px solid ${DS.borderDark};
+          background: #111217;
+          border: 1px solid #26272D;
           border-radius: 16px;
           padding: 28px;
           display: flex;
@@ -972,13 +972,13 @@ export default function LandingPage() {
         }
         .cap-desc {
           font-size: 13px;
-          color: ${DS.textMutedDark};
+          color: #A1A1AA;
           line-height: 1.6;
           margin-bottom: 24px;
           flex: 1;
         }
         .cap-link {
-          color: ${DS.primary};
+          color: #4F8CFF;
           font-size: 13px;
           font-weight: 600;
           background: none;
@@ -993,9 +993,9 @@ export default function LandingPage() {
 
         /* ─── PROOF SECTION ─── */
         .section-proof {
-          background: ${DS.bgLight};
+          background: #FFFFFF;
           padding: 100px 0;
-          border-bottom: 1px solid ${DS.borderLight};
+          border-bottom: 1px solid #E2E8F0;
         }
         .proof-grid {
           display: grid;
@@ -1004,8 +1004,8 @@ export default function LandingPage() {
           margin-bottom: 32px;
         }
         .proof-card {
-          background: ${DS.surfaceLight};
-          border: 1px solid ${DS.borderLight};
+          background: #F8FAFC;
+          border: 1px solid #E2E8F0;
           border-radius: 16px;
           padding: 28px;
         }
@@ -1021,7 +1021,7 @@ export default function LandingPage() {
         .proof-card-header h3 {
           font-size: 16px;
           font-weight: 700;
-          color: ${DS.textHeadingLight};
+          color: #0F172A;
         }
         .proof-list {
           list-style: none;
@@ -1030,32 +1030,32 @@ export default function LandingPage() {
         }
         .proof-list li {
           font-size: 13px;
-          color: ${DS.textBodyLight};
+          color: #334155;
           margin-bottom: 10px;
           line-height: 1.5;
         }
         .testimonial {
           background: #FFFFFF;
-          border: 1px solid ${DS.borderLight};
+          border: 1px solid #E2E8F0;
           border-radius: 8px;
           padding: 12px;
         }
         .testimonial-quote {
           font-size: 12px;
           font-style: italic;
-          color: ${DS.textBodyLight};
+          color: #334155;
           line-height: 1.5;
           margin-bottom: 6px;
         }
         .testimonial-author {
           font-size: 11px;
           font-weight: 700;
-          color: ${DS.textMutedLight};
+          color: #64748B;
         }
         .btn-secondary-light {
           background: transparent;
-          border: 1px solid ${DS.borderLight};
-          color: ${DS.textBodyLight};
+          border: 1px solid #E2E8F0;
+          color: #334155;
           font-size: 13px;
           font-weight: 600;
           padding: 12px 24px;
@@ -1064,14 +1064,14 @@ export default function LandingPage() {
           transition: background 0.2s;
         }
         .btn-secondary-light:hover {
-          background: ${DS.surfaceLight};
+          background: #F8FAFC;
         }
 
         /* ─── HOW IT WORKS SECTION ─── */
         .section-howitworks {
-          background: ${DS.bgDark};
+          background: #09090B;
           padding: 100px 0;
-          border-bottom: 1px solid ${DS.borderDark};
+          border-bottom: 1px solid #26272D;
         }
         .horizontal-timeline {
           display: grid;
@@ -1080,8 +1080,8 @@ export default function LandingPage() {
           margin-bottom: 48px;
         }
         .timeline-step {
-          background: ${DS.surfaceDark};
-          border: 1px solid ${DS.borderDark};
+          background: #111217;
+          border: 1px solid #26272D;
           border-radius: 16px;
           padding: 32px;
           position: relative;
@@ -1092,7 +1092,7 @@ export default function LandingPage() {
           left: 32px;
           width: 32px;
           height: 32px;
-          background: ${DS.secondary};
+          background: #8B7FFF;
           color: #FFF;
           font-weight: 800;
           border-radius: 50%;
@@ -1110,15 +1110,15 @@ export default function LandingPage() {
         }
         .step-desc {
           font-size: 13px;
-          color: ${DS.textMutedDark};
+          color: #A1A1AA;
           line-height: 1.6;
         }
 
         /* ─── PRICING SECTION ─── */
         .section-pricing {
-          background: ${DS.bgDark};
+          background: #09090B;
           padding: 100px 0;
-          border-bottom: 1px solid ${DS.borderDark};
+          border-bottom: 1px solid #26272D;
         }
         .pricing-grid {
           display: grid;
@@ -1128,8 +1128,8 @@ export default function LandingPage() {
           align-items: stretch;
         }
         .price-card {
-          background: ${DS.surfaceDark};
-          border: 1px solid ${DS.borderDark};
+          background: #111217;
+          border: 1px solid #26272D;
           border-radius: 16px;
           padding: 32px;
           display: flex;
@@ -1137,7 +1137,7 @@ export default function LandingPage() {
           position: relative;
         }
         .price-card.highlighted {
-          border-color: ${DS.primary};
+          border-color: #4F8CFF;
           box-shadow: 0 0 40px rgba(79, 140, 255, 0.15);
         }
         .best-tag {
@@ -1145,7 +1145,7 @@ export default function LandingPage() {
           top: -12px;
           left: 50%;
           transform: translateX(-50%);
-          background: ${DS.primary};
+          background: #4F8CFF;
           color: #FFF;
           font-size: 10px;
           font-weight: 800;
@@ -1156,7 +1156,7 @@ export default function LandingPage() {
         .price-plan {
           font-size: 11px;
           font-weight: 700;
-          color: ${DS.textMutedDark};
+          color: #A1A1AA;
           letter-spacing: 1px;
           text-transform: uppercase;
           margin-bottom: 8px;
@@ -1175,12 +1175,12 @@ export default function LandingPage() {
         }
         .price-period {
           font-size: 13px;
-          color: ${DS.textMutedDark};
+          color: #A1A1AA;
           font-weight: 500;
         }
         .price-divider {
           border: none;
-          border-top: 1px solid ${DS.borderDark};
+          border-top: 1px solid #26272D;
           margin: 0 0 20px;
         }
         .price-features {
@@ -1191,7 +1191,7 @@ export default function LandingPage() {
         }
         .price-features li {
           font-size: 13px;
-          color: ${DS.textBodyDark};
+          color: #E5E7EB;
           margin-bottom: 12px;
           padding-left: 18px;
           position: relative;
@@ -1200,14 +1200,14 @@ export default function LandingPage() {
           content: "✓";
           position: absolute;
           left: 0;
-          color: ${DS.success};
+          color: #22C55E;
           font-weight: bold;
         }
         .price-btn {
           display: block;
           text-align: center;
           background: transparent;
-          border: 1px solid ${DS.borderDark};
+          border: 1px solid #26272D;
           color: #FFF;
           font-weight: 600;
           font-size: 14px;
@@ -1220,7 +1220,7 @@ export default function LandingPage() {
           background: rgba(255, 255, 255, 0.05);
         }
         .price-btn.btn-highlighted {
-          background: ${DS.primary};
+          background: #4F8CFF;
           border-color: transparent;
         }
         .price-btn.btn-highlighted:hover {
@@ -1228,7 +1228,7 @@ export default function LandingPage() {
         }
         .pricing-footer-note {
           font-size: 13px;
-          color: ${DS.textMutedDark};
+          color: #A1A1AA;
           text-align: center;
           margin-top: 24px;
         }
@@ -1238,7 +1238,7 @@ export default function LandingPage() {
           position: relative;
           background: linear-gradient(135deg, #090A0F 0%, #161725 100%);
           padding: 100px 0;
-          color: ${DS.textBodyDark};
+          color: #E5E7EB;
           text-align: center;
           overflow: hidden;
         }
@@ -1260,7 +1260,7 @@ export default function LandingPage() {
         }
         .cta-sub {
           font-size: 16px;
-          color: ${DS.textMutedDark};
+          color: #A1A1AA;
           margin-bottom: 32px;
         }
         .cta-buttons {
@@ -1271,7 +1271,7 @@ export default function LandingPage() {
         }
         .founder-info {
           font-size: 13px;
-          color: ${DS.textMutedDark};
+          color: #A1A1AA;
           margin-bottom: 48px;
         }
         .tel-text {
@@ -1287,7 +1287,7 @@ export default function LandingPage() {
           margin-bottom: 24px;
         }
         .footer-link {
-          color: ${DS.textMutedDark};
+          color: #A1A1AA;
           font-size: 13px;
           text-decoration: none;
           transition: color 0.2s;
@@ -1297,11 +1297,11 @@ export default function LandingPage() {
         }
         .footer-copy {
           font-size: 12px;
-          color: ${DS.textMutedDark};
+          color: #A1A1AA;
           line-height: 1.8;
         }
         .sovereign-made {
-          color: ${DS.primary};
+          color: #4F8CFF;
           font-weight: 700;
         }
 
@@ -1326,22 +1326,22 @@ export default function LandingPage() {
           width: 90%;
           max-width: 480px;
           box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
-          color: ${DS.textBodyLight};
+          color: #334155;
         }
         .modal-title {
           font-size: 18px;
           font-weight: 800;
-          color: ${DS.textHeadingLight};
+          color: #0F172A;
           margin-bottom: 16px;
         }
         .modal-desc {
           font-size: 14px;
           line-height: 1.6;
-          color: ${DS.textBodyLight};
+          color: #334155;
           margin-bottom: 24px;
         }
         .btn-modal-close {
-          background: ${DS.bgDark};
+          background: #09090B;
           color: #FFF;
           font-size: 13px;
           font-weight: 600;
