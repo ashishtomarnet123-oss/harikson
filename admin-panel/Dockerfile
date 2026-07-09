@@ -22,6 +22,7 @@ COPY --from=builder /usr/src/app/package*.json ./
 RUN rm -f package-lock.json && npm install --omit=dev --no-audit --no-fund
 
 COPY --from=builder /usr/src/app/.next ./.next
+COPY --from=builder /usr/src/app/next.config.js ./
 
 EXPOSE 3001
 
