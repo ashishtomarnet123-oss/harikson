@@ -166,6 +166,16 @@ export default function ChatPage() {
     if (token) fetchConversations();
   }, [token]);
 
+  /* ── Load shared conversation link if present on mount ── */
+  useEffect(() => {
+    if (token && router.isReady) {
+      const urlConvId = router.query.conversation;
+      if (urlConvId && urlConvId !== activeConvId) {
+        loadConversation(urlConvId);
+      }
+    }
+  }, [token, router.isReady, router.query.conversation, activeConvId]);
+
   /* ── Auto scroll on new messages ── */
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -202,6 +212,7 @@ export default function ChatPage() {
     setActiveConvId(convId);
     setError(null);
     setMessages([]);
+    router.replace(`/chat?conversation=${convId}`, undefined, { shallow: true });
     try {
       const res = await fetch(`${apiBase}/api/conversations/${convId}/messages`, { headers: authHeaders() });
       const data = await res.json();
@@ -223,6 +234,7 @@ export default function ChatPage() {
     setMessages([]);
     setError(null);
     setInputText('');
+    router.replace(`/chat`, undefined, { shallow: true });
   };
 
   const handleFileUpload = (e) => {
@@ -257,10 +269,43 @@ export default function ChatPage() {
       return;
     }
     const shareUrl = `${window.location.origin}/chat?conversation=${activeConvId}`;
-    navigator.clipboard.writeText(shareUrl).then(() => {
-      setToast('Share link copied to clipboard!');
+    
+    const fallbackCopy = (text) => {
+      const textArea = document.createElement('textarea');
+      textArea.value = text;
+      textArea.style.position = 'fixed';
+      textArea.style.top = '0';
+      textArea.style.left = '0';
+      textArea.style.opacity = '0';
+      document.body.appendChild(textArea);
+      textArea.focus();
+      textArea.select();
+      try {
+        const successful = document.execCommand('copy');
+        if (successful) {
+          setToast('Share link copied to clipboard!');
+        } else {
+          setToast('Failed to copy share link.');
+        }
+      } catch (err) {
+        console.error('Fallback copy failed', err);
+        setToast('Failed to copy share link.');
+      }
+      document.body.removeChild(textArea);
       setTimeout(() => setToast(null), 2500);
-    });
+    };
+
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(shareUrl).then(() => {
+        setToast('Share link copied to clipboard!');
+        setTimeout(() => setToast(null), 2500);
+      }).catch(err => {
+        console.error('Clipboard write failed, using fallback:', err);
+        fallbackCopy(shareUrl);
+      });
+    } else {
+      fallbackCopy(shareUrl);
+    }
   };
 
   const handleDragOver = (e) => {
