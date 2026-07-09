@@ -300,7 +300,7 @@ export default function LandingPage() {
                 </p>
 
                 <div className="hero-ctas">
-                  <Link href="/signup" className="btn-primary">🚀 Start Free — ₹0</Link>
+                  <Link href="/signup" passHref legacyBehavior><a className="btn-primary">🚀 Start Free — ₹0</a></Link>
                   <a href="#founders-contact" className="btn-secondary">📅 Book Demo</a>
                 </div>
                 <p className="hero-cta-caption">
@@ -508,7 +508,7 @@ export default function LandingPage() {
             </div>
 
             <div className="center-action">
-              <Link href="/signup" className="btn-primary">Start Step 1 Now →</Link>
+              <Link href="/signup" passHref legacyBehavior><a className="btn-primary">Start Step 1 Now →</a></Link>
             </div>
           </div>
         </section>
@@ -533,7 +533,7 @@ export default function LandingPage() {
                   <li>Developer dashboard & API access</li>
                   <li>Community Slack support</li>
                 </ul>
-                <Link href="/signup" className="price-btn">Start Free</Link>
+                <Link href="/signup" passHref legacyBehavior><a className="price-btn">Start Free</a></Link>
               </div>
 
               {/* Professional */}
@@ -550,7 +550,7 @@ export default function LandingPage() {
                   <li>API access + webhook logging</li>
                   <li>Priority email & Slack support</li>
                 </ul>
-                <Link href="/signup" className="price-btn btn-highlighted">Start Pro</Link>
+                <Link href="/signup" passHref legacyBehavior><a className="price-btn btn-highlighted">Start Pro</a></Link>
               </div>
 
               {/* Enterprise */}
@@ -586,7 +586,7 @@ export default function LandingPage() {
             </p>
 
             <div className="cta-buttons">
-              <Link href="/signup" className="btn-primary">🚀 Start Free — No Credit Card</Link>
+              <Link href="/signup" passHref legacyBehavior><a className="btn-primary">🚀 Start Free — No Credit Card</a></Link>
               <a href="mailto:founders@harikson.ai" className="btn-secondary">📅 Talk to Founder</a>
             </div>
 
