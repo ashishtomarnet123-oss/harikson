@@ -4,10 +4,10 @@ import Link from 'next/link';
 
 // ─── DESIGN SYSTEM ───────────────────────────────────────────────────────────
 const DS = {
-  bg: '#09090B', surface: '#111217', elevated: '#18181D',
+  bg: '#F8FAFC', surface: '#FFFFFF', elevated: '#F1F5F9',
   primary: '#4F8CFF', secondary: '#8B7FFF', success: '#22C55E',
   warning: '#F4B740', error: '#FF5D73',
-  heading: '#FFFFFF', body: '#E5E7EB', muted: '#A1A1AA', border: '#26272D',
+  heading: '#0F172A', body: '#334155', muted: '#64748B', border: '#E2E8F0',
 };
 
 // ─── HOOKS ───────────────────────────────────────────────────────────────────
@@ -109,7 +109,7 @@ const HeroDashboard = () => {
   }, []);
 
   const agents = [
-    { name: 'Sales Bot', status: 'active', model: 'Qwen3-32B' },
+    { name: 'Sales Bot', status: 'active', model: 'Harikson Plus' },
     { name: 'Legal Analyst', status: 'active', model: 'Harikson+' },
     { name: 'HR Assistant', status: 'idle', model: 'Qwen3-14B' },
     { name: 'Finance AI', status: 'active', model: 'GLM-4' },
@@ -563,7 +563,7 @@ export default function Home() {
         <nav style={{
           position: 'fixed', top: 0, left: 0, right: 0, zIndex: 100,
           padding: scrolled ? '12px 0' : '20px 0',
-          background: scrolled ? 'rgba(9,9,11,0.85)' : 'transparent',
+          background: scrolled ? 'rgba(255,255,255,0.90)' : 'transparent',
           backdropFilter: scrolled ? 'blur(20px)' : 'none',
           borderBottom: scrolled ? `1px solid ${DS.border}` : '1px solid transparent',
           transition: 'all 0.3s ease',
@@ -614,7 +614,7 @@ export default function Home() {
           {/* Background grid */}
           <div style={{
             position: 'absolute', inset: 0, backgroundImage: `linear-gradient(${DS.border} 1px, transparent 1px), linear-gradient(90deg, ${DS.border} 1px, transparent 1px)`,
-            backgroundSize: '40px 40px', opacity: 0.3, maskImage: 'radial-gradient(ellipse 80% 60% at 50% 0%, black 40%, transparent 100%)',
+            backgroundSize: '48px 48px', opacity: 0.5, maskImage: 'radial-gradient(ellipse 80% 60% at 50% 0%, black 40%, transparent 100%)',
           }} />
           {/* Glow */}
           <div style={{ position: 'absolute', width: 700, height: 700, background: `radial-gradient(ellipse, ${DS.primary}14 0%, transparent 70%)`, top: -100, left: -100, pointerEvents: 'none' }} />
@@ -629,7 +629,7 @@ export default function Home() {
                 padding: '6px 14px', fontSize: 12, fontWeight: 600, color: DS.muted, marginBottom: 28,
               }}>
                 <Blink color={DS.success} />
-                Now available: Qwen3-32B · 128K Context
+                Now available: Harikson Plus · 128K Context
               </div>
 
               <h1 style={{ fontSize: 'clamp(40px, 5.5vw, 68px)', fontWeight: 900, color: DS.heading, letterSpacing: '-2.5px', lineHeight: 1.06, margin: '0 0 24px' }}>
@@ -755,7 +755,7 @@ export default function Home() {
                 ))}
                 {/* Models row */}
                 <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
-                  {['Qwen3-32B', 'GLM-4-9B', 'Llama 3', 'Mistral', 'Custom'].map((m, i) => (
+                  {['Harikson Plus', 'GLM-4-9B', 'Llama 3', 'Mistral', 'Custom'].map((m, i) => (
                     <div key={m} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0 }}>
                       <div style={{ width: 2, height: 20, background: DS.border }} />
                       <div style={{ padding: '8px 14px', background: DS.bg, border: `1px solid ${DS.primary}30`, borderRadius: 10, color: DS.body, fontWeight: 600, fontSize: 12, animation: `modelpulse ${1.5 + i * 0.3}s ease-in-out infinite alternate` }}>{m}</div>
@@ -947,7 +947,7 @@ export default function Home() {
       <style jsx global>{`
         * { box-sizing: border-box; margin: 0; padding: 0; }
         html { scroll-behavior: smooth; }
-        body { background: #09090B; }
+        body { background: #F8FAFC; }
         @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.25; } }
         @keyframes modelpulse { from { border-color: rgba(79,140,255,0.15); } to { border-color: rgba(79,140,255,0.5); } }
         @keyframes fadeUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
@@ -959,10 +959,10 @@ export default function Home() {
         @media (max-width: 768px) {
           .nav-actions-desktop a:first-child { display: none; }
         }
-        ::selection { background: #4F8CFF30; color: #fff; }
+        ::selection { background: #4F8CFF30; color: #0F172A; }
         ::-webkit-scrollbar { width: 6px; height: 6px; }
-        ::-webkit-scrollbar-track { background: #09090B; }
-        ::-webkit-scrollbar-thumb { background: #26272D; border-radius: 99px; }
+        ::-webkit-scrollbar-track { background: #F8FAFC; }
+        ::-webkit-scrollbar-thumb { background: #E2E8F0; border-radius: 99px; }
       `}</style>
     </>
   );
