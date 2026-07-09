@@ -715,6 +715,14 @@ h1, h2, h3, h4, h5, h6 {
 }
 .send-btn:hover:not(:disabled) { background-color: var(--accent-hover); transform: scale(1.03); }
 .send-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+.send-btn.stop-btn {
+  background: #EF4444;
+  font-size: 10px;
+}
+.send-btn.stop-btn:hover {
+  background: #DC2626;
+  transform: scale(1.03);
+}
 
 .input-hint {
   text-align: center;

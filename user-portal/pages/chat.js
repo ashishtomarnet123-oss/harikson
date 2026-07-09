@@ -137,6 +137,7 @@ export default function ChatPage() {
 
   const chatEndRef = useRef(null);
   const textareaRef = useRef(null);
+  const abortControllerRef = useRef(null);
 
   /* ── Resolve config from localStorage on mount ── */
   useEffect(() => {
@@ -288,6 +289,18 @@ export default function ChatPage() {
     });
   };
 
+  const stopGeneration = (e) => {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+      abortControllerRef.current = null;
+    }
+    setLoading(false);
+  };
+
   /* ── Send message ── */
   const sendMessage = async (e) => {
     if (e) e.preventDefault();
@@ -328,10 +341,14 @@ export default function ChatPage() {
     }
     setAttachedFiles([]);
 
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
+
     try {
       const res = await fetch(`${apiBase}/api/chat`, {
         method: 'POST',
         headers: authHeaders(),
+        signal: controller.signal,
         body: JSON.stringify({
           message: finalMessage,
           model,
@@ -379,11 +396,16 @@ export default function ChatPage() {
       // Refresh conversation list
       fetchConversations();
     } catch (err) {
+      if (err.name === 'AbortError') {
+        console.log('Stream generation aborted by user.');
+        return;
+      }
       console.error('Chat error:', err);
       setError(err.message || 'Failed to send message. Please try again.');
       setMessages((prev) => prev.filter((m) => !(m.sender === 'bot' && m.text === '')));
     } finally {
       setLoading(false);
+      abortControllerRef.current = null;
     }
   };
 
@@ -711,14 +733,25 @@ export default function ChatPage() {
                   placeholder="Message Harikson…"
                   disabled={loading}
                 />
-                <button
-                  type="submit"
-                  className="send-btn"
-                  disabled={loading || (!inputText.trim() && attachedFiles.length === 0)}
-                  title="Send (Enter)"
-                >
-                  {loading ? '...' : '↑'}
-                </button>
+                 {loading ? (
+                  <button
+                    type="button"
+                    className="send-btn stop-btn"
+                    onClick={stopGeneration}
+                    title="Stop generation"
+                  >
+                    ■
+                  </button>
+                ) : (
+                  <button
+                    type="submit"
+                    className="send-btn"
+                    disabled={!inputText.trim() && attachedFiles.length === 0}
+                    title="Send (Enter)"
+                  >
+                    ↑
+                  </button>
+                )}
               </div>
             </form>
             <p className="input-hint">Press Enter to send · Shift+Enter for new line · Attach code files</p>
