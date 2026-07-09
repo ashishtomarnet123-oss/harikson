@@ -445,13 +445,16 @@ async function initDb() {
           tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE,
           provider TEXT NOT NULL,
           display_name TEXT,
-          connection_status TEXT DEFAULT 'disconnected' CHECK (connection_status IN ('connected', 'disconnected', 'error')),
+          connection_status TEXT DEFAULT 'disconnected' CHECK (connection_status IN ('connected', 'disconnected', 'error', 'syncing')),
           last_sync_at TIMESTAMPTZ,
+          connected_at TIMESTAMPTZ,
           error_count INT DEFAULT 0,
           auth_config JSONB,
           created_at TIMESTAMPTZ DEFAULT NOW()
       )
     `);
+    // Migration: add connected_at if missing on existing deployments
+    await pool.query(`ALTER TABLE integrations ADD COLUMN IF NOT EXISTS connected_at TIMESTAMPTZ`).catch(() => {});
 
     // Phase 3.2 — Vector Collections
     await pool.query(`

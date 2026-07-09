@@ -590,15 +590,38 @@ router.get('/integrations', async (req, res) => {
 });
 
 router.post('/integrations', async (req, res) => {
-  const { provider, display_name, tenant_id } = req.body;
+  const { provider, display_name, tenant_id, status } = req.body;
   try {
+    // Check if already exists, update status if so
+    const existing = await pool.query('SELECT id FROM integrations WHERE provider=$1 AND (tenant_id=$2 OR tenant_id IS NULL) LIMIT 1', [provider, tenant_id || null]);
+    if (existing.rows.length > 0) {
+      const updated = await pool.query(
+        `UPDATE integrations SET connection_status=$1, connected_at=NOW(), last_sync_at=NOW() WHERE id=$2 RETURNING *`,
+        [status || 'connected', existing.rows[0].id]
+      );
+      return res.json(updated.rows[0]);
+    }
     const result = await pool.query(
-      `INSERT INTO integrations (provider, display_name, tenant_id, connection_status) VALUES ($1,$2,$3,'disconnected') RETURNING *`,
-      [provider, display_name, tenant_id || null]
+      `INSERT INTO integrations (provider, display_name, tenant_id, connection_status, connected_at, last_sync_at) VALUES ($1,$2,$3,$4,NOW(),NOW()) RETURNING *`,
+      [provider, display_name, tenant_id || null, status || 'connected']
     );
     res.json(result.rows[0]);
   } catch (err) {
     res.status(500).json({ error: 'Failed to create integration' });
+  }
+});
+
+// PATCH /admin/integrations/:id/connect — toggle to connected
+router.patch('/integrations/:id/connect', async (req, res) => {
+  try {
+    const result = await pool.query(
+      `UPDATE integrations SET connection_status='connected', connected_at=NOW(), last_sync_at=NOW() WHERE id=$1 RETURNING *`,
+      [req.params.id]
+    );
+    if (!result.rows.length) return res.status(404).json({ error: 'Integration not found' });
+    res.json(result.rows[0]);
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to connect integration' });
   }
 });
 
