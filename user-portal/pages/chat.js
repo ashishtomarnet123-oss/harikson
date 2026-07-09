@@ -132,6 +132,8 @@ export default function ChatPage() {
   const [model, setModel] = useState('harikson-plus');
   const [systemPreset, setSystemPreset] = useState('general');
   const [attachedFiles, setAttachedFiles] = useState([]);
+  const [isDragging, setIsDragging] = useState(false);
+  const [toast, setToast] = useState(null);
 
   const chatEndRef = useRef(null);
   const textareaRef = useRef(null);
@@ -238,6 +240,52 @@ export default function ChatPage() {
 
   const removeAttachedFile = (idx) => {
     setAttachedFiles(prev => prev.filter((_, i) => i !== idx));
+  };
+
+  const handleSuggestionClick = (suggestionText) => {
+    setInputText(suggestionText);
+    if (textareaRef.current) {
+      textareaRef.current.focus();
+    }
+  };
+
+  const handleShareChat = () => {
+    if (!activeConvId) {
+      setToast('Please start a conversation first to share.');
+      setTimeout(() => setToast(null), 2500);
+      return;
+    }
+    const shareUrl = `${window.location.origin}/chat?conversation=${activeConvId}`;
+    navigator.clipboard.writeText(shareUrl).then(() => {
+      setToast('Share link copied to clipboard!');
+      setTimeout(() => setToast(null), 2500);
+    });
+  };
+
+  const handleDragOver = (e) => {
+    e.preventDefault();
+    setIsDragging(true);
+  };
+
+  const handleDragLeave = (e) => {
+    e.preventDefault();
+    setIsDragging(false);
+  };
+
+  const handleDrop = (e) => {
+    e.preventDefault();
+    setIsDragging(false);
+    const files = Array.from(e.dataTransfer.files || []);
+    files.forEach(file => {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        setAttachedFiles(prev => [
+          ...prev, 
+          { name: file.name, content: event.target.result || '' }
+        ]);
+      };
+      reader.readAsText(file);
+    });
   };
 
   /* ── Send message ── */
@@ -406,7 +454,12 @@ export default function ChatPage() {
         <meta name="description" content="Harikson AI Chat Interface" />
       </Head>
 
-      <div className="chat-root">
+      <div 
+        className="chat-root"
+        onDragOver={handleDragOver}
+        onDragLeave={handleDragLeave}
+        onDrop={handleDrop}
+      >
         {/* ─── Sidebar ─────────────────────────────────────── */}
         <aside className="sidebar">
           {/* Logo */}
@@ -489,7 +542,10 @@ export default function ChatPage() {
                 ? conversations.find((c) => c.id === activeConvId)?.title || 'Conversation'
                 : 'New Conversation'}
             </span>
-            <div style={{ display: 'flex', gap: '6px' }}>
+            <div className="topbar-actions">
+              <button className="share-btn" onClick={handleShareChat} title="Share conversation link">
+                <span>🔗</span> Share
+              </button>
               <select
                 className="model-select"
                 value={systemPreset}
@@ -517,35 +573,35 @@ export default function ChatPage() {
               <div className="messages-empty">
                 <div className="messages-empty-icon">⚡</div>
                 <h2>Harikson AI</h2>
-                <p style={{ marginBottom: '8px' }}>Your enterprise AI coding assistant. Ask anything about your codebase, architecture, or software.</p>
+                <p>Your enterprise AI coding assistant. Ask anything about your codebase, architecture, or software.</p>
                 
-                <div className="suggestions-grid">
-                  <div className="suggestion-card" onClick={() => setInputText("Analyze my git repository structure and suggest optimizations.")}>
-                    <div className="suggestion-icon">🔍</div>
+                <div className="prompt-suggestions-grid">
+                  <div className="suggestion-card" onClick={() => handleSuggestionClick("Create a private LLM deployment template with Harikson.")}>
+                    <div className="suggestion-icon">🚀</div>
                     <div className="suggestion-text">
-                      <h4>Analyze Repository</h4>
-                      <p>Scan structures and find layout improvements</p>
+                      <strong>Deploy Private LLM</strong>
+                      <span>Create a sovereign deployment template</span>
                     </div>
                   </div>
-                  <div className="suggestion-card" onClick={() => setInputText("Draft a DPDP-compliant data isolation policy for a new tenant.")}>
+                  <div className="suggestion-card" onClick={() => handleSuggestionClick("Auditing my code for DPDP compliance rules.")}>
                     <div className="suggestion-icon">🛡️</div>
                     <div className="suggestion-text">
-                      <h4>DPDP Compliance</h4>
-                      <p>Draft sovereignty policies for local soils</p>
+                      <strong>DPDP Audit</strong>
+                      <span>Check code compliance on Indian soil</span>
                     </div>
                   </div>
-                  <div className="suggestion-card" onClick={() => setInputText("Optimize this database query for index lookup efficiency.")}>
+                  <div className="suggestion-card" onClick={() => handleSuggestionClick("Optimize this query for active tenant indexes.")}>
                     <div className="suggestion-icon">⚡</div>
                     <div className="suggestion-text">
-                      <h4>Query Optimization</h4>
-                      <p>Enhance Postgres performance and indexing</p>
+                      <strong>Optimize SQL Index</strong>
+                      <span>DBA schema indexing assistant</span>
                     </div>
                   </div>
-                  <div className="suggestion-card" onClick={() => setInputText("Write a Docker Compose file to orchestrate a Redis and Ollama stack.")}>
-                    <div className="suggestion-icon">📦</div>
+                  <div className="suggestion-card" onClick={() => handleSuggestionClick("Write a robust RAG data pipeline configuration.")}>
+                    <div className="suggestion-icon">📂</div>
                     <div className="suggestion-text">
-                      <h4>Orchestration Setup</h4>
-                      <p>Configure compose templates for Ollama stacks</p>
+                      <strong>RAG Data Pipeline</strong>
+                      <span>Inject documents for vector search</span>
                     </div>
                   </div>
                 </div>
@@ -668,6 +724,17 @@ export default function ChatPage() {
             <p className="input-hint">Press Enter to send · Shift+Enter for new line · Attach code files</p>
           </div>
         </main>
+
+        {isDragging && (
+          <div className="drag-drop-overlay">
+            <div className="drag-drop-icon">📂</div>
+            <span>Drop your files to attach to Harikson</span>
+          </div>
+        )}
+
+        {toast && (
+          <div className="toast-msg">{toast}</div>
+        )}
       </div>
     </>
   );
