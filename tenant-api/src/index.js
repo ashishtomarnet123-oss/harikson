@@ -492,9 +492,9 @@ app.post('/api/auth/login', async (req, res) => {
     const user = userResult.rows[0];
     if (!user) return res.status(401).json({ error: 'Invalid email or password' });
 
-    // Support plaintext password for seeded superadmin (bcrypt hash starts with $2b$)
+    // Support plaintext password for seeded superadmin if no hash exists, else use standard bcrypt comparison
     let valid = false;
-    if (user.password_hash && user.password_hash.startsWith('$2b$')) {
+    if (user.password_hash && user.password_hash.startsWith('$')) {
       valid = await bcrypt.compare(password, user.password_hash);
     } else {
       valid = (password === 'superadmin_pwd_2026' && user.role === 'superadmin');
