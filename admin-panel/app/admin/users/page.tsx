@@ -126,30 +126,30 @@ export default function UsersPage() {
       `}} />
 
       {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <div className="flex items-center gap-2.5 mb-1.5">
+      <div className="space-y-1.5">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div className="flex items-center gap-2.5">
             <div className="p-2 bg-indigo-500/10 border border-indigo-500/20 rounded-xl">
               <Users className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
             </div>
             <h1 className="text-2xl font-black tracking-tight text-gray-900 dark:text-white">Registered Users</h1>
           </div>
-          <p className="text-xs text-gray-500 dark:text-gray-400">
-            Monitor activity metrics, configure system roles, and manage tenant scope details across the sovereign stack.
-          </p>
-        </div>
 
-        {/* Search Bar */}
-        <div className="relative max-w-xs w-full">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-          <input
-            type="text"
-            placeholder="Search users..."
-            className="w-full pl-9 pr-4 py-2 bg-white dark:bg-gray-900/40 border border-gray-200 dark:border-gray-800/80 rounded-xl text-xs text-gray-800 dark:text-gray-200 placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:border-indigo-500 transition-colors shadow-sm"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-          />
+          {/* Search Bar */}
+          <div className="relative max-w-xs w-full">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+            <input
+              type="text"
+              placeholder="Search users..."
+              className="w-full pl-9 pr-4 py-2 bg-white dark:bg-gray-900/40 border border-gray-200 dark:border-gray-800/80 rounded-xl text-xs text-gray-800 dark:text-gray-200 placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:border-indigo-500 transition-colors shadow-sm"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+          </div>
         </div>
+        <p className="text-xs text-gray-500 dark:text-gray-400">
+          Monitor activity metrics, configure system roles, and manage tenant scope details across the sovereign stack.
+        </p>
       </div>
 
       {error && (
