@@ -641,6 +641,85 @@ export default function ChatPage() {
   const voiceRecognitionRef = useRef(null);
   const isSpeakingRef = useRef(false);
 
+  // Custom presets, comparison mode, and export dropdown states
+  const [customPresets, setCustomPresets] = useState([]);
+  const [isCompareMode, setIsCompareMode] = useState(false);
+  const [compareModel, setCompareModel] = useState('llama3');
+  const [showExportMenu, setShowExportMenu] = useState(false);
+
+  const syncCustomPresets = useCallback(() => {
+    if (typeof window !== 'undefined') {
+      const stored = localStorage.getItem('hk_custom_presets');
+      if (stored) {
+        try {
+          setCustomPresets(JSON.parse(stored));
+        } catch (e) {
+          console.error(e);
+        }
+      }
+    }
+  }, []);
+
+  useEffect(() => {
+    syncCustomPresets();
+    window.addEventListener('storage', syncCustomPresets);
+    return () => window.removeEventListener('storage', syncCustomPresets);
+  }, [syncCustomPresets]);
+
+  const triggerDownload = (content, filename, contentType) => {
+    const blob = new Blob([content], { type: contentType });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const exportAsMarkdown = () => {
+    if (messages.length === 0) return;
+    const mdContent = messages.map(m => {
+      const sender = m.sender === 'user' ? '### User' : `### Assistant (${m.model || 'AI'})`;
+      return `${sender}\n\n${m.text}\n\n---\n`;
+    }).join('\n');
+    triggerDownload(mdContent, `chat_${activeConvId || 'new'}.md`, 'text/markdown');
+    setShowExportMenu(false);
+  };
+
+  const exportAsJSON = () => {
+    if (messages.length === 0) return;
+    const jsonContent = JSON.stringify(messages, null, 2);
+    triggerDownload(jsonContent, `chat_${activeConvId || 'new'}.json`, 'application/json');
+    setShowExportMenu(false);
+  };
+
+  const exportAsPDF = () => {
+    if (messages.length === 0) return;
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) return;
+    
+    const contentHtml = messages.map(m => `
+      <div style="margin-bottom: 24px; padding-bottom: 16px; border-bottom: 1px solid #eee; font-family: sans-serif;">
+        <div style="font-weight: bold; font-size: 11px; text-transform: uppercase; color: #4F8CFF; margin-bottom: 6px;">
+          ${m.sender === 'user' ? 'User' : `Assistant (${m.model || 'AI'})`}
+        </div>
+        <div style="font-size: 14px; line-height: 1.5; color: #333; white-space: pre-wrap;">${m.text}</div>
+      </div>
+    `).join('');
+    
+    printWindow.document.write(
+      '<html><head><title>Chat Transcript</title></head>' +
+      '<body style="max-width: 800px; margin: 40px auto; padding: 0 20px; font-family: sans-serif;">' +
+      '<h1 style="font-size: 24px; margin-bottom: 30px; text-align: center;">Harikson AI Chat Transcript</h1>' +
+      contentHtml +
+      '<script>window.onload = function() { window.print(); window.close(); }</script>' +
+      '</body></html>'
+    );
+    printWindow.document.close();
+    setShowExportMenu(false);
+  };
+
+
 
   useEffect(() => {
     const savedPins = JSON.parse(localStorage.getItem('hk_pinned_chats') || '[]');
@@ -1205,9 +1284,18 @@ Before finalizing, verify:
 
 If any check fails, revise the relevant section before output.`;
 
+    let selectedPresetContent = presets[systemPreset] || presets.general;
+    if (systemPreset.startsWith('custom_')) {
+      const customId = systemPreset.substring(7);
+      const customPreset = customPresets.find(p => p.id === customId);
+      if (customPreset) {
+        selectedPresetContent = customPreset.systemPrompt;
+      }
+    }
+
     // Build client-side history to send to backend (ChatGPT approach — no DB race condition)
     const clientHistory = [
-      { role: 'system', content: isVoiceMode ? voiceInstructions : ((presets[systemPreset] || presets.general) + fileInstructions + (customInstructions ? '\n\nCustom Instructions:\n' + customInstructions : '')) },
+      { role: 'system', content: isVoiceMode ? voiceInstructions : (selectedPresetContent + fileInstructions + (customInstructions ? '\n\nCustom Instructions:\n' + customInstructions : '')) },
       ...messages
         .filter(m => m.text && m.text.trim())
         .map(m => ({
@@ -1216,86 +1304,197 @@ If any check fails, revise the relevant section before output.`;
         }))
     ];
 
+    // Handle persistent RAG Drive files
+    let driveContext = '';
+    if (typeof window !== 'undefined') {
+      const driveStored = localStorage.getItem('hk_rag_drive');
+      if (driveStored) {
+        try {
+          const driveFiles = JSON.parse(driveStored);
+          const activeFiles = driveFiles.filter(f => f.isActive);
+          if (activeFiles.length > 0) {
+            driveContext = activeFiles.map(f => `<uploaded_file name="${f.name}">\n${f.text}\n</uploaded_file>`).join('\n\n') + '\n\n';
+          }
+        } catch (e) {
+          console.error(e);
+        }
+      }
+    }
+
     // Handle document/file attachment injection
     let finalMessage = userText;
     if (readyAttachments.length > 0) {
       const attachments = readyAttachments.map(f => `<uploaded_file name="${f.name}">\n${f.content}\n</uploaded_file>`).join('\n\n');
       finalMessage = `${attachments}\n\n${userText}`;
     }
+
+    if (driveContext) {
+      finalMessage = `${driveContext}${finalMessage}`;
+    }
+
     setAttachedFiles([]);
 
     const controller = new AbortController();
     abortControllerRef.current = controller;
 
     try {
-      const res = await fetch(`${apiBase}/api/chat`, {
-        method: 'POST',
-        headers: authHeaders(),
-        signal: controller.signal,
-        body: JSON.stringify({
-          message: finalMessage,
-          model,
-          conversationId: activeConvId,
-          clientHistory, // ← send full conversation history from client
-        }),
-      });
-
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err.error || `Server error ${res.status}`);
-      }
-
-      // Set conversation ID from response header
-      const convId = res.headers.get('x-conversation-id') || res.headers.get('X-Conversation-Id');
-      if (convId && !activeConvId) {
-        setActiveConvId(convId);
-        // Add to sidebar immediately
-        setConversations((prev) => [
-          { id: convId, title: userText.substring(0, 50), model, updated_at: new Date().toISOString() },
-          ...prev.filter((c) => c.id !== convId),
+      if (isCompareMode) {
+        // Appending two empty bot response objects
+        setMessages((prev) => [
+          ...prev,
+          { sender: 'bot', text: '', model: model },
+          { sender: 'bot', text: '', model: compareModel, isCompare: true }
         ]);
-      }
 
-      // Stream response
-      const reader = res.body.getReader();
-      const decoder = new TextDecoder('utf-8');
-      setMessages((prev) => [...prev, { sender: 'bot', text: '' }]);
-
-      let fullText = '';
-      let spokenOffset = 0;
-      while (true) {
-        const { value, done } = await reader.read();
-        if (done) break;
-        fullText += decoder.decode(value, { stream: true });
-        setMessages((prev) => {
-          const updated = [...prev];
-          const last = updated[updated.length - 1];
-          if (last?.sender === 'bot') {
-            updated[updated.length - 1] = { ...last, text: fullText };
+        const fetchPrimary = async () => {
+          const res = await fetch(`${apiBase}/api/chat`, {
+            method: 'POST',
+            headers: authHeaders(),
+            signal: controller.signal,
+            body: JSON.stringify({
+              message: finalMessage,
+              model,
+              conversationId: activeConvId,
+              clientHistory,
+            }),
+          });
+          if (!res.ok) {
+            const err = await res.json().catch(() => ({}));
+            throw new Error(err.error || `Model ${model} failed`);
           }
-          return updated;
+
+          const convId = res.headers.get('x-conversation-id') || res.headers.get('X-Conversation-Id');
+          if (convId && !activeConvId) {
+            setActiveConvId(convId);
+            setConversations((prev) => [
+              { id: convId, title: userText.substring(0, 50), model, updated_at: new Date().toISOString() },
+              ...prev.filter((c) => c.id !== convId),
+            ]);
+          }
+
+          const reader = res.body.getReader();
+          const decoder = new TextDecoder('utf-8');
+          let fullText = '';
+          while (true) {
+            const { value, done } = await reader.read();
+            if (done) break;
+            fullText += decoder.decode(value, { stream: true });
+            
+            setMessages((prev) => {
+              const updated = [...prev];
+              const idx = updated.findLastIndex(m => m.sender === 'bot' && m.model === model && !m.isCompare);
+              if (idx !== -1) {
+                updated[idx] = { ...updated[idx], text: fullText };
+              }
+              return updated;
+            });
+          }
+        };
+
+        const fetchCompare = async () => {
+          const res = await fetch(`${apiBase}/api/chat`, {
+            method: 'POST',
+            headers: authHeaders(),
+            signal: controller.signal,
+            body: JSON.stringify({
+              message: finalMessage,
+              model: compareModel,
+              conversationId: activeConvId,
+              clientHistory,
+            }),
+          });
+          if (!res.ok) {
+            const err = await res.json().catch(() => ({}));
+            throw new Error(err.error || `Model ${compareModel} failed`);
+          }
+
+          const reader = res.body.getReader();
+          const decoder = new TextDecoder('utf-8');
+          let fullText = '';
+          while (true) {
+            const { value, done } = await reader.read();
+            if (done) break;
+            fullText += decoder.decode(value, { stream: true });
+            
+            setMessages((prev) => {
+              const updated = [...prev];
+              const idx = updated.findLastIndex(m => m.sender === 'bot' && m.model === compareModel && m.isCompare);
+              if (idx !== -1) {
+                updated[idx] = { ...updated[idx], text: fullText };
+              }
+              return updated;
+            });
+          }
+        };
+
+        await Promise.all([fetchPrimary(), fetchCompare()]);
+      } else {
+        const res = await fetch(`${apiBase}/api/chat`, {
+          method: 'POST',
+          headers: authHeaders(),
+          signal: controller.signal,
+          body: JSON.stringify({
+            message: finalMessage,
+            model,
+            conversationId: activeConvId,
+            clientHistory,
+          }),
         });
 
-        if (isVoiceMode) {
-          const remainingText = fullText.substring(spokenOffset);
-          const sentenceBoundary = /[^.!?\n]+[.!?\n]+/g;
-          let match;
-          let lastIndex = 0;
-          while ((match = sentenceBoundary.exec(remainingText)) !== null) {
-            const sentence = match[0].trim();
-            if (sentence) {
-              speakText(sentence);
-            }
-            lastIndex = sentenceBoundary.lastIndex;
-          }
-          spokenOffset += lastIndex;
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          throw new Error(err.error || `Server error ${res.status}`);
         }
-      }
 
-      if (isVoiceMode && spokenOffset < fullText.length) {
-        const remaining = fullText.substring(spokenOffset).trim();
-        if (remaining) {
-          speakText(remaining);
+        const convId = res.headers.get('x-conversation-id') || res.headers.get('X-Conversation-Id');
+        if (convId && !activeConvId) {
+          setActiveConvId(convId);
+          setConversations((prev) => [
+            { id: convId, title: userText.substring(0, 50), model, updated_at: new Date().toISOString() },
+            ...prev.filter((c) => c.id !== convId),
+          ]);
+        }
+
+        const reader = res.body.getReader();
+        const decoder = new TextDecoder('utf-8');
+        setMessages((prev) => [...prev, { sender: 'bot', text: '', model }]);
+
+        let fullText = '';
+        let spokenOffset = 0;
+        while (true) {
+          const { value, done } = await reader.read();
+          if (done) break;
+          fullText += decoder.decode(value, { stream: true });
+          setMessages((prev) => {
+            const updated = [...prev];
+            const last = updated[updated.length - 1];
+            if (last?.sender === 'bot') {
+              updated[updated.length - 1] = { ...last, text: fullText };
+            }
+            return updated;
+          });
+
+          if (isVoiceMode) {
+            const remainingText = fullText.substring(spokenOffset);
+            const sentenceBoundary = /[^.!?\n]+[.!?\n]+/g;
+            let match;
+            let lastIndex = 0;
+            while ((match = sentenceBoundary.exec(remainingText)) !== null) {
+              const sentence = match[0].trim();
+              if (sentence) {
+                speakText(sentence);
+              }
+              lastIndex = sentenceBoundary.lastIndex;
+            }
+            spokenOffset += lastIndex;
+          }
+        }
+
+        if (isVoiceMode && spokenOffset < fullText.length) {
+          const remaining = fullText.substring(spokenOffset).trim();
+          if (remaining) {
+            speakText(remaining);
+          }
         }
       }
 
@@ -1526,10 +1725,96 @@ If any check fails, revise the relevant section before output.`;
                 ? conversations.find((c) => c.id === activeConvId)?.title || 'Conversation'
                 : 'New Conversation'}
             </span>
-            <div className="topbar-actions">
+            <div className="topbar-actions" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              {/* Compare Models Toggle */}
+              <button 
+                className="share-btn" 
+                onClick={() => setIsCompareMode(!isCompareMode)}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  background: isCompareMode ? 'var(--accent)' : 'transparent',
+                  color: isCompareMode ? '#fff' : 'var(--text-secondary)',
+                  border: isCompareMode ? 'none' : '1px solid var(--border)'
+                }}
+                title="Toggle Model Comparison Grid"
+              >
+                <Plus size={13} /> {isCompareMode ? 'Comparing' : 'Compare'}
+              </button>
+
+              {/* Compare Model Selector */}
+              {isCompareMode && (
+                <select
+                  className="model-select"
+                  value={compareModel}
+                  onChange={(e) => setCompareModel(e.target.value)}
+                  style={{ minWidth: '120px' }}
+                >
+                  <option value="harikson-plus">Harikson Plus · 8B</option>
+                  <option value="harikson-max">Harikson Max · 14B</option>
+                  <option value="llama3">Llama 3 · 8B</option>
+                  <option value="qwen2.5">Qwen 2.5 · 7B</option>
+                </select>
+              )}
+
+              {/* Export Menu Dropdown */}
+              <div style={{ position: 'relative' }}>
+                <button 
+                  className="share-btn" 
+                  onClick={() => setShowExportMenu(!showExportMenu)} 
+                  title="Export conversation"
+                >
+                  <span style={{marginRight: "6px"}}><FolderUp size={14} /></span> Export
+                </button>
+                {showExportMenu && (
+                  <div style={{
+                    position: 'absolute',
+                    right: 0,
+                    top: '100%',
+                    marginTop: '6px',
+                    background: 'var(--surface)',
+                    border: '1px solid var(--border)',
+                    borderRadius: '8px',
+                    boxShadow: '0 4px 16px rgba(0,0,0,0.15)',
+                    zIndex: 999,
+                    display: 'flex',
+                    flexDirection: 'column',
+                    minWidth: '130px',
+                    overflow: 'hidden'
+                  }}>
+                    <button 
+                      onClick={exportAsMarkdown} 
+                      style={{ padding: '8px 12px', fontSize: '11.5px', textAlign: 'left', background: 'transparent', border: 'none', color: 'var(--text)', cursor: 'pointer', transition: 'background 0.2s' }}
+                      onMouseOver={(e) => e.currentTarget.style.background = 'var(--bg-hover)'}
+                      onMouseOut={(e) => e.currentTarget.style.background = 'transparent'}
+                    >
+                      Markdown (.md)
+                    </button>
+                    <button 
+                      onClick={exportAsJSON} 
+                      style={{ padding: '8px 12px', fontSize: '11.5px', textAlign: 'left', background: 'transparent', border: 'none', color: 'var(--text)', cursor: 'pointer', transition: 'background 0.2s' }}
+                      onMouseOver={(e) => e.currentTarget.style.background = 'var(--bg-hover)'}
+                      onMouseOut={(e) => e.currentTarget.style.background = 'transparent'}
+                    >
+                      JSON (.json)
+                    </button>
+                    <button 
+                      onClick={exportAsPDF} 
+                      style={{ padding: '8px 12px', fontSize: '11.5px', textAlign: 'left', background: 'transparent', border: 'none', color: 'var(--text)', cursor: 'pointer', transition: 'background 0.2s' }}
+                      onMouseOver={(e) => e.currentTarget.style.background = 'var(--bg-hover)'}
+                      onMouseOut={(e) => e.currentTarget.style.background = 'transparent'}
+                    >
+                      Print PDF
+                    </button>
+                  </div>
+                )}
+              </div>
+
               <button className="share-btn" onClick={handleShareChat} title="Share conversation link">
                 <span style={{marginRight: "6px"}}><Link size={14} /></span> Share
               </button>
+              
               <select
                 className="model-select"
                 value={systemPreset}
@@ -1539,6 +1824,9 @@ If any check fails, revise the relevant section before output.`;
                 <option value="coder">Senior Coder</option>
                 <option value="reviewer">Code Reviewer</option>
                 <option value="dba">Database DBA</option>
+                {customPresets.map(preset => (
+                  <option key={preset.id} value={`custom_${preset.id}`}>{preset.name}</option>
+                ))}
               </select>
               <select
                 className="model-select"
@@ -1592,26 +1880,39 @@ If any check fails, revise the relevant section before output.`;
               </div>
             )}
 
-            {messages.map((msg, idx) =>
-              msg.sender === 'user' ? (
-                <div key={idx} className="message-row user">
-                  <div className="message-bubble-user">{msg.text}</div>
-                </div>
-              ) : (
-                <div key={idx} className="message-row assistant">
-                  <div className="message-bubble-assistant">
-                    <div className="assistant-avatar"><Zap size={16} color="white" /></div>
-                    <div className="assistant-content">
-                      {renderMarkdown(msg.text, setActiveArtifact)}
+            <div style={isCompareMode ? {
+              display: 'grid',
+              gridTemplateColumns: '1fr 1fr',
+              gap: '16px',
+              width: '100%',
+              alignItems: 'start'
+            } : { width: '100%' }}>
+              {messages.map((msg, idx) =>
+                msg.sender === 'user' ? (
+                  <div key={idx} className="message-row user" style={isCompareMode ? { gridColumn: 'span 2', width: '100%' } : undefined}>
+                    <div className="message-bubble-user">{msg.text}</div>
+                  </div>
+                ) : (
+                  <div key={idx} className="message-row assistant" style={isCompareMode ? { gridColumn: 'span 1', width: '100%' } : undefined}>
+                    <div className="message-bubble-assistant" style={{ width: '100%', maxWidth: '100%' }}>
+                      <div className="assistant-avatar"><Zap size={16} color="white" /></div>
+                      <div className="assistant-content" style={{ width: '100%' }}>
+                        {isCompareMode && (
+                          <div style={{ fontSize: '10px', fontWeight: 'bold', color: 'var(--accent)', textTransform: 'uppercase', marginBottom: '6px', borderBottom: '1px solid var(--border)', paddingBottom: '4px' }}>
+                            Model: {msg.model || 'AI'}
+                          </div>
+                        )}
+                        {renderMarkdown(msg.text, setActiveArtifact)}
+                      </div>
                     </div>
                   </div>
-                </div>
-              )
-            )}
+                )
+              )}
+            </div>
 
             {/* Thinking indicator */}
             {loading && (
-              <div className="thinking-row" style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <div className="thinking-row" style={{ display: 'flex', alignItems: 'center', gap: '12px', gridColumn: 'span 2' }}>
                 <div className="thinking-avatar"><Zap size={16} color="white" /></div>
                 <div className="thinking-dots">
                   <div className="thinking-dot" />
