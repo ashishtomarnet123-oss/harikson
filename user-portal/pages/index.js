@@ -30,7 +30,7 @@ const TerminalAnimation = () => {
   const [cursorVisible, setCursorVisible] = useState(true);
   const [step, setStep] = useState(0); // 0: typing, 1: loading model, 2: RAG index, 3: tenant isolation, 4: DPDP compliance, 5: completed (pause)
 
-  const command = 'harikson deploy --model Llama3-8B --region india-mum';
+  const command = 'harikson deploy --model Harikson-3B --region india-mum';
 
   // Cursor blinking
   useEffect(() => {
