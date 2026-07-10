@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/router';
 import Head from 'next/head';
+import { Mic, Paperclip, ArrowUp, Square, Globe, BrainCircuit, Maximize2, TriangleAlert, Bot, Search, Image as ImageIcon, Copy, Check, Zap, Plus, Edit3, X, LogOut, Link, Rocket, ShieldCheck, FolderUp, Folder, Bug, FileText } from 'lucide-react';
 
 /* ────────────────────────────────────────────────────────────
    Markdown renderer — converts plain text/markdown to JSX
