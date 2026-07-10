@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import SettingsLayout from '../../components/SettingsLayout';
 import { Save } from 'lucide-react';
 import { useRouter } from 'next/router';
 
@@ -93,7 +92,7 @@ export default function ProfileSettings() {
   if (loading) return <div className="settings-loading">Loading profile...</div>;
 
   return (
-    <SettingsLayout>
+    <>
       <div className="settings-page-header">
         <h1>My Profile</h1>
         <p>Manage your personal information and account details.</p>
@@ -180,6 +179,6 @@ export default function ProfileSettings() {
           </button>
         </div>
       </form>
-    </SettingsLayout>
+    </>
   );
 }

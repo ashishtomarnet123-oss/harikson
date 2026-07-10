@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/router';
 import Head from 'next/head';
 import { Mic, Paperclip, ArrowUp, Square, Globe, BrainCircuit, Maximize2, TriangleAlert, Bot, Search, Image as ImageIcon, Copy, Check, Zap, Plus, Edit3, X, LogOut, Link, Rocket, ShieldCheck, FolderUp, Folder, Bug, FileText } from 'lucide-react';
+import SettingsModal from '../components/SettingsModal';
 
 /* ────────────────────────────────────────────────────────────
    Markdown renderer — converts plain text/markdown to JSX
@@ -741,7 +742,7 @@ export default function ChatPage() {
           <div className="sidebar-footer">
             <div 
               className="user-info" 
-              onClick={() => router.push('/settings/profile')}
+              onClick={() => setShowSettingsModal(true)}
               style={{ cursor: 'pointer', transition: 'background 0.2s', padding: '8px', borderRadius: 'var(--radius-md)' }}
               onMouseOver={(e) => e.currentTarget.style.background = 'var(--bg-hover)'}
               onMouseOut={(e) => e.currentTarget.style.background = 'transparent'}

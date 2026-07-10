@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import SettingsLayout from '../../components/SettingsLayout';
 import { Save } from 'lucide-react';
 
 export default function LanguageSettings() {
@@ -68,7 +67,7 @@ export default function LanguageSettings() {
   if (loading) return <div className="settings-loading">Loading...</div>;
 
   return (
-    <SettingsLayout>
+    <>
       <div className="settings-page-header">
         <h1>Language & Region</h1>
         <p>Customize your language, date formats, and regional settings.</p>
@@ -112,6 +111,6 @@ export default function LanguageSettings() {
           </button>
         </div>
       </form>
-    </SettingsLayout>
+    </>
   );
 }

@@ -1,5 +1,4 @@
 import React from 'react';
-import SettingsLayout from '../../components/SettingsLayout';
 import { HardDrive, FileText, Image as ImageIcon, Database } from 'lucide-react';
 
 export default function StorageSettings() {
@@ -13,7 +12,7 @@ export default function StorageSettings() {
   ];
 
   return (
-    <SettingsLayout>
+    <>
       <div className="settings-page-header">
         <h1>Storage Manager</h1>
         <p>Review and manage the data stored within your Harikson workspace.</p>
@@ -70,6 +69,6 @@ export default function StorageSettings() {
         </div>
         <button className="btn-primary">Update Policy</button>
       </div>
-    </SettingsLayout>
+    </>
   );
 }

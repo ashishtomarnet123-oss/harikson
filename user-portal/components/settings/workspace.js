@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import SettingsLayout from '../../components/SettingsLayout';
 import { Users, Server, ShieldCheck, Settings } from 'lucide-react';
 
 export default function WorkspaceSettings() {
@@ -10,7 +9,7 @@ export default function WorkspaceSettings() {
   ]);
 
   return (
-    <SettingsLayout>
+    <>
       <div className="settings-page-header">
         <h1>Workspace Settings</h1>
         <p>Manage your Harikson instance, invite team members, and configure roles.</p>
@@ -69,6 +68,6 @@ export default function WorkspaceSettings() {
           ))}
         </div>
       </div>
-    </SettingsLayout>
+    </>
   );
 }

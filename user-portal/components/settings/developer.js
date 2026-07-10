@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import SettingsLayout from '../../components/SettingsLayout';
 import { Plus, Key, Copy, Trash2 } from 'lucide-react';
 
 export default function DeveloperSettings() {
@@ -9,7 +8,7 @@ export default function DeveloperSettings() {
   ]);
 
   return (
-    <SettingsLayout>
+    <>
       <div className="settings-page-header">
         <h1>Developer Settings</h1>
         <p>Manage your API keys and developer resources.</p>
@@ -52,6 +51,6 @@ export default function DeveloperSettings() {
           ))}
         </div>
       </div>
-    </SettingsLayout>
+    </>
   );
 }

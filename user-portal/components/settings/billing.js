@@ -1,5 +1,4 @@
 import React from 'react';
-import SettingsLayout from '../../components/SettingsLayout';
 import { CreditCard, CheckCircle2, Download } from 'lucide-react';
 
 export default function BillingSettings() {
@@ -10,7 +9,7 @@ export default function BillingSettings() {
   ];
 
   return (
-    <SettingsLayout>
+    <>
       <div className="settings-page-header">
         <h1>Billing & Subscription</h1>
         <p>Manage your Harikson Enterprise plan and payment methods.</p>
@@ -80,6 +79,6 @@ export default function BillingSettings() {
           </tbody>
         </table>
       </div>
-    </SettingsLayout>
+    </>
   );
 }

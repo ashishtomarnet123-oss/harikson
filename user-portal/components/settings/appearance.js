@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import SettingsLayout from '../../components/SettingsLayout';
 import { Save, Check } from 'lucide-react';
 
 export default function AppearanceSettings() {
@@ -75,7 +74,7 @@ export default function AppearanceSettings() {
   if (loading) return <div className="settings-loading">Loading...</div>;
 
   return (
-    <SettingsLayout>
+    <>
       <div className="settings-page-header">
         <h1>Appearance</h1>
         <p>Customize the look and feel of Harikson AI.</p>
@@ -154,6 +153,6 @@ export default function AppearanceSettings() {
           </button>
         </div>
       </form>
-    </SettingsLayout>
+    </>
   );
 }

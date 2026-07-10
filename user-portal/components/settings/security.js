@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import SettingsLayout from '../../components/SettingsLayout';
 import { Save, Shield, Smartphone, Key } from 'lucide-react';
 
 export default function SecuritySettings() {
@@ -16,7 +15,7 @@ export default function SecuritySettings() {
   };
 
   return (
-    <SettingsLayout>
+    <>
       <div className="settings-page-header">
         <h1>Security</h1>
         <p>Manage your password and 2-step verification.</p>
@@ -68,6 +67,6 @@ export default function SecuritySettings() {
           </div>
         </div>
       </form>
-    </SettingsLayout>
+    </>
   );
 }

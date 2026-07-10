@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import SettingsLayout from '../../components/SettingsLayout';
 import { Activity, LogIn, Key, Shield } from 'lucide-react';
 
 export default function ActivitySettings() {
@@ -10,7 +9,7 @@ export default function ActivitySettings() {
   ]);
 
   return (
-    <SettingsLayout>
+    <>
       <div className="settings-page-header">
         <h1>Activity Timeline</h1>
         <p>A complete history of security and administrative actions taken on your account.</p>
@@ -48,6 +47,6 @@ export default function ActivitySettings() {
           })}
         </div>
       </div>
-    </SettingsLayout>
+    </>
   );
 }

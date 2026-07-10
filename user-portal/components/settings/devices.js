@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import SettingsLayout from '../../components/SettingsLayout';
 import { Smartphone, Monitor, LogOut } from 'lucide-react';
 
 export default function DevicesSettings() {
@@ -9,7 +8,7 @@ export default function DevicesSettings() {
   ]);
 
   return (
-    <SettingsLayout>
+    <>
       <div className="settings-page-header">
         <h1>Connected Devices</h1>
         <p>Review devices that are currently logged into your account.</p>
@@ -50,6 +49,6 @@ export default function DevicesSettings() {
           ))}
         </div>
       </div>
-    </SettingsLayout>
+    </>
   );
 }

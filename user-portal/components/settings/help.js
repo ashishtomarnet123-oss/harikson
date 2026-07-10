@@ -1,10 +1,9 @@
 import React from 'react';
-import SettingsLayout from '../../components/SettingsLayout';
 import { ExternalLink, BookOpen, MessageCircle, Bug } from 'lucide-react';
 
 export default function HelpCenter() {
   return (
-    <SettingsLayout>
+    <>
       <div className="settings-page-header">
         <h1>Help Center</h1>
         <p>Find documentation, tutorials, and support resources.</p>
@@ -43,6 +42,6 @@ export default function HelpCenter() {
 
         </div>
       </div>
-    </SettingsLayout>
+    </>
   );
 }

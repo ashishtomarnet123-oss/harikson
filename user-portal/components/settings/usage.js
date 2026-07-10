@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import SettingsLayout from '../../components/SettingsLayout';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
 export default function UsageSettings() {
@@ -20,7 +19,7 @@ export default function UsageSettings() {
   ];
 
   return (
-    <SettingsLayout>
+    <>
       <div className="settings-page-header">
         <h1>Usage & Analytics</h1>
         <p>Monitor your token consumption and active query volume over time.</p>
@@ -64,6 +63,6 @@ export default function UsageSettings() {
           )}
         </div>
       </div>
-    </SettingsLayout>
+    </>
   );
 }
