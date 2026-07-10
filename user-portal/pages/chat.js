@@ -141,6 +141,7 @@ export default function ChatPage() {
   const [messages, setMessages] = useState([]);
   const [inputText, setInputText] = useState('');
   const [loading, setLoading] = useState(false);
+  const [loadingStatus, setLoadingStatus] = useState('');
   const [error, setError] = useState(null);
   const [model, setModel] = useState('harikson-plus');
   const [systemPreset, setSystemPreset] = useState('general');
@@ -394,6 +395,15 @@ export default function ChatPage() {
     setInputText('');
     setError(null);
     setLoading(true);
+    
+    // Determine loading status based on toggles and URLs
+    if (useDeepSearch) {
+      setLoadingStatus('🌐 Searching the web...');
+    } else if (userText.match(/(https?:\/\/[^\s]+)/g)) {
+      setLoadingStatus('🕷️ Crawling websites...');
+    } else {
+      setLoadingStatus('');
+    }
 
     // Optimistically add user message
     setMessages((prev) => [...prev, { sender: 'user', text: userText }]);
@@ -775,13 +785,18 @@ export default function ChatPage() {
 
             {/* Thinking indicator */}
             {loading && (
-              <div className="thinking-row">
+              <div className="thinking-row" style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                 <div className="thinking-avatar">⚡</div>
                 <div className="thinking-dots">
                   <div className="thinking-dot" />
                   <div className="thinking-dot" />
                   <div className="thinking-dot" />
                 </div>
+                {loadingStatus && (
+                  <span style={{ fontSize: '13px', color: 'var(--text-secondary)', fontStyle: 'italic' }}>
+                    {loadingStatus}
+                  </span>
+                )}
               </div>
             )}
 

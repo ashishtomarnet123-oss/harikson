@@ -206,6 +206,31 @@ Never ask for clarification if the answer is clear from the conversation history
 Never break character. You are Harikson — a premium enterprise AI assistant.`;
 }
 
+// Helper: Search web via DuckDuckGo
+async function searchWeb(query) {
+  if (!query) return '';
+  try {
+    const searchUrl = `https://html.duckduckgo.com/html/?q=${encodeURIComponent(query)}`;
+    const response = await axios.get(searchUrl, {
+      headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)' },
+      timeout: 10000
+    });
+    const $ = cheerio.load(response.data);
+    const results = [];
+    $('.result').each((i, el) => {
+      if (i >= 5) return false;
+      const title = $(el).find('.result__title').text().trim();
+      const snippet = $(el).find('.result__snippet').text().trim();
+      const link = $(el).find('.result__url').attr('href');
+      if (title && snippet) results.push(`Title: ${title}\nSnippet: ${snippet}\nURL: ${link}`);
+    });
+    return results.join('\n\n');
+  } catch (err) {
+    console.error('Failed to search web:', err.message);
+    return 'Web search failed.';
+  }
+}
+
 // Helper: Crawl website for agent context
 async function crawlWebsite(url, maxDepth = 1, currentDepth = 0, visited = new Set()) {
   if (visited.has(url) || currentDepth > maxDepth || visited.size >= 4) return '';
@@ -301,7 +326,7 @@ app.get('/api/agents', authMiddleware, async (req, res) => {
 
 // 5. POST /api/chat
 app.post('/api/chat', authMiddleware, async (req, res) => {
-  const { message, model, conversationId, clientHistory, agent_id } = req.body;
+  const { message, model, conversationId, clientHistory, agent_id, deepSearch, reasoning } = req.body;
   if (!message) {
     return res.status(400).json({ error: 'Message is required' });
   }
@@ -388,15 +413,21 @@ app.post('/api/chat', authMiddleware, async (req, res) => {
     // If frontend sends clientHistory, use it. Otherwise fall back to DB history.
     const finalHistory = (clientHistory && clientHistory.length > 0) ? clientHistory : history;
 
-    // Check for URLs to crawl
+    // Check for URLs to crawl or Deep Search
     const urlRegex = /(https?:\/\/[^\s]+)/g;
     const urls = message.match(urlRegex) || [];
     let crawledContext = '';
     
     if (urls.length > 0) {
-      const shouldDeepCrawl = message.toLowerCase().includes('crawl') || message.toLowerCase().includes('analyze') || message.toLowerCase().includes('research');
-      const maxDepth = shouldDeepCrawl ? 1 : 0;
-      crawledContext = await crawlWebsite(urls[0], maxDepth);
+      // Crawl all found URLs
+      for (const url of urls) {
+        crawledContext += await crawlWebsite(url, 1) + '\n\n';
+      }
+    }
+    
+    if (deepSearch) {
+      const searchResults = await searchWeb(message);
+      crawledContext += `\n--- LIVE WEB SEARCH RESULTS ---\n${searchResults}\n`;
     }
 
     // Build messages array with full conversation history for proper context
