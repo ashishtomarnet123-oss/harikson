@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import Head from 'next/head';
 import Link from 'next/link';
+import { Cpu, Layers, Database, BrainCircuit, ShieldCheck, Code2 } from 'lucide-react';
 
 // ─── DESIGN SYSTEM ───────────────────────────────────────────────────────────
 const DS = {
@@ -181,7 +182,7 @@ export default function LandingPage() {
   const capabilities = [
     {
       id: 'llm',
-      icon: '🤖',
+      icon: Cpu,
       title: 'Private LLM Deployment',
       desc: 'Deploy Qwen3, Llama, Mistral on your infrastructure. No data leaves your VPC.',
       details: 'With Harikson AI, we support deployment inside AWS, GCP, Azure India regions, or your own on-premise air-gapped bare metal servers. You get complete control of model weights, inference speed, and local privacy boundaries.',
@@ -189,7 +190,7 @@ export default function LandingPage() {
     },
     {
       id: 'tenant',
-      icon: '🏢',
+      icon: Layers,
       title: 'Multi-Tenant AI Platform',
       desc: 'One deployment. Hundreds of teams. Complete isolation. Row-level security, per-tenant billing, custom models.',
       details: 'Isolate distinct corporate clients or internal business units perfectly. Each tenant gets distinct configuration tables, storage folders, custom models, and isolated RAG knowledge layers.',
@@ -197,7 +198,7 @@ export default function LandingPage() {
     },
     {
       id: 'rag',
-      icon: '📚',
+      icon: Database,
       title: 'Enterprise RAG System',
       desc: 'Upload 50,000 documents. Auto-chunk. Embed. Query. Source attribution in every response.',
       details: 'High-speed ingestion pipeline specifically optimized for enterprise document repositories, PDFs, wikis, and legal catalogs. Native integrations guarantee strict access control and real-time indexing.',
@@ -205,7 +206,7 @@ export default function LandingPage() {
     },
     {
       id: 'agent',
-      icon: '🧠',
+      icon: BrainCircuit,
       title: 'AI Agent Orchestration',
       desc: 'Build agents with memory, tools, multi-step reasoning. Deploy to WhatsApp, Slack, web, mobile.',
       details: 'Deploy intelligent autonomous agents that call external system APIs, access user profiles, process natural language in Indic regional dialects, and escalate to humans seamlessly.',
@@ -213,7 +214,7 @@ export default function LandingPage() {
     },
     {
       id: 'gov',
-      icon: '📊',
+      icon: ShieldCheck,
       title: 'Governance & Compliance',
       desc: 'DPDP-ready. Audit trails. Data principal rights. BIS/MeitY empanelment support.',
       details: 'Built-in security audits map all data transformations and model queries. Includes tools to handle right-to-erasure and right-to-access under India\'s DPDP Act 2023.',
@@ -221,7 +222,7 @@ export default function LandingPage() {
     },
     {
       id: 'api',
-      icon: '🔌',
+      icon: Code2,
       title: 'Developer-First API',
       desc: 'OpenAI-compatible. One-line migration. SDKs for Python, Node.js, Go, Java.',
       details: 'Just swap your existing base URL to target Harikson and your codebase works immediately. Supports streaming tokens, system prompts, structured JSON output formats, and batch offline evaluations.',
@@ -415,18 +416,21 @@ export default function LandingPage() {
             <h2 className="section-heading white-text">ONE PLATFORM. COMPLETE AI CONTROL.</h2>
             
             <div className="capabilities-grid">
-              {capabilities.map((c) => (
-                <div key={c.id} className="cap-card" style={{ '--cap-theme-color': c.color }}>
-                  <div className="cap-icon-box">
-                    <span className="cap-icon">{c.icon}</span>
+              {capabilities.map((c) => {
+                const Icon = c.icon;
+                return (
+                  <div key={c.id} className="cap-card" style={{ '--cap-theme-color': c.color }}>
+                    <div className="cap-icon-box">
+                      <Icon size={20} />
+                    </div>
+                    <h3 className="cap-title">{c.title}</h3>
+                    <p className="cap-desc">{c.desc}</p>
+                    <button className="cap-link" onClick={() => setActiveCapability(c)}>
+                      Learn more <span className="arrow">→</span>
+                    </button>
                   </div>
-                  <h3 className="cap-title">{c.title}</h3>
-                  <p className="cap-desc">{c.desc}</p>
-                  <button className="cap-link" onClick={() => setActiveCapability(c)}>
-                    Learn more <span className="arrow">→</span>
-                  </button>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         </section>
@@ -1164,13 +1168,14 @@ export default function LandingPage() {
           height: 44px;
           border-radius: 12px;
           background: #F1F5F9;
-          font-size: 20px;
+          color: var(--cap-theme-color);
           margin-bottom: 20px;
           transition: all 0.25s ease;
         }
         .cap-card:hover .cap-icon-box {
           transform: scale(1.05);
-          background: #0F172A;
+          background: var(--cap-theme-color);
+          color: #FFFFFF;
         }
         .cap-title {
           font-size: 16px;
