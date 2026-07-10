@@ -37,6 +37,13 @@ model User {
   socialLinks   Json?
   
   settings      UserSettings?
+  twoFactorEnabled Boolean   @default(false)
+  twoFactorSecret  String?
+  
+  apiKeys       ApiKey[]
+  activityLogs  ActivityLog[]
+  devices       DeviceSession[]
+
 
   // Relations
   instances     Instance[]
@@ -244,4 +251,45 @@ model UserSettings {
   updatedAt      DateTime @updatedAt
 
   @@map("user_settings")
+}
+
+model ApiKey {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name        String
+  key         String   @unique
+  lastUsed    DateTime?
+  createdAt   DateTime @default(now())
+
+  @@map("api_keys")
+}
+
+model ActivityLog {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  action      String
+  device      String?
+  ipAddress   String?
+  status      String   @default("SUCCESS")
+  createdAt   DateTime @default(now())
+
+  @@map("activity_logs")
+}
+
+model DeviceSession {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  deviceName  String
+  os          String?
+  browser     String?
+  ipAddress   String?
+  isCurrent   Boolean  @default(false)
+  isTrusted   Boolean  @default(false)
+  lastActive  DateTime @default(now())
+  createdAt   DateTime @default(now())
+
+  @@map("device_sessions")
 }
