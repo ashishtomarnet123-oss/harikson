@@ -739,10 +739,18 @@ export default function ChatPage() {
 
           {/* User Info / Logout */}
           <div className="sidebar-footer">
-            <div className="user-info">
+            <div 
+              className="user-info" 
+              onClick={() => router.push('/settings/profile')}
+              style={{ cursor: 'pointer', transition: 'background 0.2s', padding: '8px', borderRadius: 'var(--radius-md)' }}
+              onMouseOver={(e) => e.currentTarget.style.background = 'var(--bg-hover)'}
+              onMouseOut={(e) => e.currentTarget.style.background = 'transparent'}
+            >
               <div className="user-avatar">{userInitial}</div>
-              <span className="user-email">{user?.email || 'User'}</span>
-              <button className="logout-btn" onClick={handleLogout} title="Sign out"><LogOut size={16} /></button>
+              <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+                <span className="user-email" style={{ fontSize: '13px', fontWeight: '500' }}>{user?.name || user?.email?.split('@')[0] || 'User'}</span>
+                <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Manage Account</span>
+              </div>
             </div>
           </div>
         </aside>

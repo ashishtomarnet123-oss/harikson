@@ -25,6 +25,19 @@ model User {
   n8nEnabled    Boolean    @default(true)
   aiEnabled     Boolean    @default(false)
   
+  username      String?   @unique
+  phone         String?
+  jobTitle      String?
+  department    String?
+  country       String?
+  timeZone      String?
+  language      String?   @default("en")
+  bio           String?
+  avatarUrl     String?
+  socialLinks   Json?
+  
+  settings      UserSettings?
+
   // Relations
   instances     Instance[]
   invoices      Invoice[]
@@ -216,3 +229,19 @@ enum InvoiceStatus_legacy {
   CANCELLED
 }
 
+
+model UserSettings {
+  id             String   @id @default(cuid())
+  userId         String   @unique
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  theme          String   @default("system")
+  density        String   @default("comfortable")
+  sidebarState   String   @default("expanded")
+  fontSize       String   @default("medium")
+  accentColor    String   @default("default")
+  animation      Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@map("user_settings")
+}
