@@ -578,36 +578,93 @@ export default function LandingPage() {
           </div>
         </section>
 
-        {/* ─── FINAL CTA SECTION ─── */}
+        {/* ─── FINAL CTA & ENHANCED ENTERPRISE FOOTER SECTION ─── */}
         <section className="section-final-cta" id="founders-contact">
           <div className="radial-glow-cta" />
           <div className="content-inner">
-            <h2 className="cta-heading">READY TO OWN YOUR AI?</h2>
-            <p className="cta-sub">
-              Join 200+ Indian enterprises building on sovereign AI.
-            </p>
-
-            <div className="cta-buttons">
-              <Link href="/signup" passHref legacyBehavior><a className="btn-primary">🚀 Start Free — No Credit Card</a></Link>
-              <a href="mailto:founders@harikson.ai" className="btn-secondary">📅 Talk to Founder</a>
+            
+            {/* CTA Card */}
+            <div className="cta-card">
+              <div className="cta-card-badge">ENTERPRISE TRIAL</div>
+              <h2 className="cta-heading">READY TO OWN YOUR AI?</h2>
+              <p className="cta-sub">
+                Join 200+ Indian enterprises hosting private models and agents inside sovereign clouds.
+              </p>
+              <div className="cta-buttons">
+                <Link href="/signup" passHref legacyBehavior>
+                  <a className="btn-cta-primary">
+                    <span>🚀</span> Start Free — No Credit Card
+                  </a>
+                </Link>
+                <a href="mailto:founders@harikson.ai" className="btn-cta-secondary">
+                  <span>📅</span> Talk to Founder
+                </a>
+              </div>
+              <div className="founder-info">
+                Questions? <a href="mailto:founders@harikson.ai" className="footer-link-highlight">founders@harikson.ai</a> · <span className="tel-text">+91-9876543210</span>
+              </div>
             </div>
 
-            <div className="founder-info">
-              Questions? <a href="mailto:founders@harikson.ai" className="footer-link">founders@harikson.ai</a> | <span className="tel-text">+91-9876543210</span>
+            {/* Structured 4-Column Directory Grid */}
+            <div className="footer-directory-grid">
+              <div className="footer-col brand-col">
+                <div className="footer-brand-logo">
+                  <span className="logo-spark">⚡</span> Harikson AI
+                </div>
+                <p className="footer-brand-desc">
+                  India's premium enterprise-grade sovereign AI platform. Built on local VPCs with strict DPDP compliance and zero-egress data isolation.
+                </p>
+                <div className="compliance-badges">
+                  <span className="badge-pill">DPDP COMPLIANT</span>
+                  <span className="badge-pill">ISO 27001</span>
+                </div>
+              </div>
+
+              <div className="footer-col">
+                <h4>Platform</h4>
+                <a href="#capabilities">Chat Interface</a>
+                <a href="#architecture">Agent Playground</a>
+                <a href="#developers">API Sandbox</a>
+                <a href="#pricing">Custom Presets</a>
+                <a href="#problem">Vector Databases</a>
+              </div>
+
+              <div className="footer-col">
+                <h4>Security & Sovereignty</h4>
+                <a href="#compliance" onClick={(e) => { e.preventDefault(); setShowReport(true); }}>DPDP Audit Report</a>
+                <a href="#architecture">VPC Data Isolation</a>
+                <a href="#compliance">RLS Embeddings</a>
+                <a href="#problem">Zero-Egress Pipelines</a>
+                <a href="#developers">Repository Indexer</a>
+              </div>
+
+              <div className="footer-col">
+                <h4>Connect</h4>
+                <a href="mailto:founders@harikson.ai">Founder Direct</a>
+                <a href="https://linkedin.com" target="_blank" rel="noopener noreferrer">LinkedIn Workspace</a>
+                <a href="https://x.com" target="_blank" rel="noopener noreferrer">Twitter/X Channel</a>
+                <a href="https://github.com" target="_blank" rel="noopener noreferrer">GitHub Source</a>
+                <a href="tel:+919876543210">Mumbai HQ Desk</a>
+              </div>
             </div>
 
-            <div className="footer-links-row">
-              <a href="https://github.com" target="_blank" rel="noopener noreferrer" className="footer-link">GitHub</a>
-              <a href="#developers" className="footer-link">Docs</a>
-              <a href="#problem" className="footer-link">Blog</a>
-              <a href="https://linkedin.com" target="_blank" rel="noopener noreferrer" className="footer-link">LinkedIn</a>
-              <a href="https://x.com" target="_blank" rel="noopener noreferrer" className="footer-link">Twitter/X</a>
+            {/* Horizontal Flag-themed Divider Line */}
+            <div className="flag-divider">
+              <div className="flag-saffron" />
+              <div className="flag-white" />
+              <div className="flag-green" />
             </div>
 
-            <div className="footer-copy">
-              © 2026 Harikson AI Technologies Pvt. Ltd. <br />
-              <span className="sovereign-made">Made in India. For India.</span>
+            {/* Footer Bottom Copyright */}
+            <div className="footer-bottom-row">
+              <div className="footer-copy">
+                © 2026 Harikson AI Technologies Pvt. Ltd. All rights reserved.
+              </div>
+              <div className="sovereign-made">
+                Made in India. For India. 🇮🇳
+              </div>
             </div>
+
           </div>
         </section>
 
@@ -1327,78 +1384,239 @@ export default function LandingPage() {
           margin-top: 24px;
         }
 
-        /* ─── FINAL CTA SECTION ─── */
+        /* ─── FINAL CTA & ENHANCED ENTERPRISE FOOTER SECTION ─── */
         .section-final-cta {
           position: relative;
-          background: linear-gradient(135deg, #F8FAFC 0%, #FFFFFF 100%);
-          padding: 100px 0;
-          color: #334155;
-          text-align: center;
+          background: #09090B;
+          padding: 100px 0 60px 0;
+          color: #A1A1AA;
+          text-align: left;
           overflow: hidden;
-          border-top: 1px solid #E2E8F0;
+          border-top: 1px solid #1F1F23;
         }
         .radial-glow-cta {
           position: absolute;
-          width: 600px;
-          height: 600px;
-          background: radial-gradient(circle, rgba(139, 127, 255, 0.04) 0%, transparent 70%);
-          bottom: -100px;
-          right: -100px;
+          width: 800px;
+          height: 800px;
+          background: radial-gradient(circle, rgba(79, 140, 255, 0.05) 0%, transparent 70%);
+          bottom: -200px;
+          left: 50%;
+          transform: translateX(-50%);
           pointer-events: none;
         }
+        
+        .cta-card {
+          background: rgba(255, 255, 255, 0.02);
+          border: 1px solid rgba(255, 255, 255, 0.05);
+          border-radius: 24px;
+          padding: 50px 40px;
+          max-width: 900px;
+          margin: 0 auto 80px auto;
+          text-align: center;
+          position: relative;
+          z-index: 2;
+          box-shadow: 0 20px 50px rgba(0, 0, 0, 0.3);
+          backdrop-filter: blur(12px);
+        }
+        .cta-card-badge {
+          display: inline-block;
+          font-size: 11px;
+          font-weight: 800;
+          color: #4F8CFF;
+          background: rgba(79, 140, 255, 0.1);
+          padding: 4px 12px;
+          border-radius: 20px;
+          margin-bottom: 16px;
+          letter-spacing: 1px;
+        }
         .cta-heading {
-          font-size: 40px;
+          font-size: 38px;
           font-weight: 900;
-          color: #0F172A;
-          letter-spacing: -1.5px;
+          color: #FFFFFF;
+          letter-spacing: -1px;
           margin-bottom: 12px;
         }
         .cta-sub {
-          font-size: 16px;
-          color: #475569;
-          margin-bottom: 32px;
+          font-size: 15px;
+          color: #A1A1AA;
+          max-width: 600px;
+          margin: 0 auto 32px auto;
+          line-height: 1.6;
         }
         .cta-buttons {
           display: flex;
           justify-content: center;
-          gap: 12px;
+          align-items: center;
+          gap: 16px;
           margin-bottom: 24px;
+        }
+        .btn-cta-primary {
+          background: #4F8CFF;
+          color: #FFFFFF;
+          font-size: 14px;
+          font-weight: 700;
+          padding: 14px 28px;
+          border-radius: 12px;
+          text-decoration: none;
+          display: inline-flex;
+          align-items: center;
+          gap: 8px;
+          transition: all 0.2s ease-in-out;
+          box-shadow: 0 4px 14px rgba(79, 140, 255, 0.25);
+        }
+        .btn-cta-primary:hover {
+          background: #3B82F6;
+          transform: translateY(-1.5px);
+          box-shadow: 0 8px 20px rgba(79, 140, 255, 0.35);
+        }
+        .btn-cta-secondary {
+          background: rgba(255, 255, 255, 0.04);
+          border: 1px solid rgba(255, 255, 255, 0.1);
+          color: #FFFFFF;
+          font-size: 14px;
+          font-weight: 600;
+          padding: 14px 28px;
+          border-radius: 12px;
+          text-decoration: none;
+          display: inline-flex;
+          align-items: center;
+          gap: 8px;
+          transition: all 0.2s ease-in-out;
+        }
+        .btn-cta-secondary:hover {
+          background: rgba(255, 255, 255, 0.08);
+          border-color: rgba(255, 255, 255, 0.2);
+          transform: translateY(-1.5px);
         }
         .founder-info {
           font-size: 13px;
-          color: #64748B;
-          margin-bottom: 48px;
+          color: #71717A;
         }
-        .tel-text {
-          color: #0F172A;
-          font-weight: 600;
-        }
-        .footer-links-row {
-          display: flex;
-          justify-content: center;
-          gap: 28px;
-          border-top: 1px solid #E2E8F0;
-          padding-top: 32px;
-          margin-bottom: 24px;
-        }
-        .footer-link {
-          color: #64748B;
-          font-size: 13px;
+        .footer-link-highlight {
+          color: #E4E4E7;
           text-decoration: none;
+          font-weight: 500;
           transition: color 0.2s;
         }
-        .footer-link:hover {
-          color: #0F172A;
+        .footer-link-highlight:hover {
+          color: #4F8CFF;
+        }
+        .tel-text {
+          color: #FFFFFF;
+          font-weight: 600;
+        }
+
+        /* Footer Grid columns */
+        .footer-directory-grid {
+          display: grid;
+          grid-template-columns: 2fr 1fr 1fr 1fr;
+          gap: 40px;
+          padding-bottom: 40px;
+          border-bottom: 1px solid #1F1F23;
+          position: relative;
+          z-index: 2;
+        }
+        .footer-col {
+          display: flex;
+          flex-direction: column;
+          gap: 12px;
+        }
+        .footer-col h4 {
+          font-size: 13px;
+          font-weight: 700;
+          color: #FFFFFF;
+          text-transform: uppercase;
+          letter-spacing: 0.5px;
+          margin-bottom: 4px;
+        }
+        .footer-col a {
+          font-size: 13px;
+          color: #A1A1AA;
+          text-decoration: none;
+          transition: color 0.2s;
+          display: inline-block;
+          width: fit-content;
+        }
+        .footer-col a:hover {
+          color: #FFFFFF;
+          padding-left: 2px;
+          transition: all 0.2s;
+        }
+        
+        .brand-col {
+          padding-right: 40px;
+        }
+        .footer-brand-logo {
+          font-size: 18px;
+          font-weight: 800;
+          color: #FFFFFF;
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          margin-bottom: 4px;
+        }
+        .logo-spark {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          width: 28px;
+          height: 28px;
+          background: #4F8CFF;
+          border-radius: 6px;
+          color: #FFFFFF;
+        }
+        .footer-brand-desc {
+          font-size: 13px;
+          line-height: 1.6;
+          color: #71717A;
+          margin-bottom: 8px;
+        }
+        .compliance-badges {
+          display: flex;
+          gap: 8px;
+        }
+        .badge-pill {
+          font-size: 10px;
+          font-weight: 800;
+          color: #A1A1AA;
+          background: rgba(255,255,255,0.05);
+          padding: 4px 8px;
+          border-radius: 4px;
+          letter-spacing: 0.5px;
+          border: 1px solid rgba(255,255,255,0.08);
+        }
+
+        /* Indian Flag Divider */
+        .flag-divider {
+          display: flex;
+          height: 3px;
+          width: 100%;
+          margin: 32px 0;
+          border-radius: 2px;
+          overflow: hidden;
+        }
+        .flag-saffron { flex: 1; background: #FF9933; }
+        .flag-white { flex: 1; background: #FFFFFF; }
+        .flag-green { flex: 1; background: #138808; }
+
+        /* Footer Bottom Row */
+        .footer-bottom-row {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          font-size: 13px;
+          color: #71717A;
+          position: relative;
+          z-index: 2;
         }
         .footer-copy {
-          font-size: 12px;
-          color: #64748B;
-          line-height: 1.8;
+          color: #71717A;
         }
         .sovereign-made {
-          color: #4F8CFF;
-          font-weight: 700;
+          color: #FFFFFF;
+          font-weight: 600;
         }
+
 
         /* ─── MODAL OVERLAY ─── */
         .modal-overlay {
@@ -1530,10 +1748,23 @@ export default function LandingPage() {
             margin: 0 auto 24px;
             gap: 12px;
           }
-          .cta-buttons .btn-primary,
-          .cta-buttons .btn-secondary {
+          .cta-buttons .btn-cta-primary,
+          .cta-buttons .btn-cta-secondary {
             width: 100%;
             box-sizing: border-box;
+            justify-content: center;
+          }
+          .footer-directory-grid {
+            grid-template-columns: 1fr;
+            gap: 32px;
+          }
+          .brand-col {
+            padding-right: 0;
+          }
+          .footer-bottom-row {
+            flex-direction: column;
+            gap: 12px;
+            text-align: center;
           }
           .section-heading {
             font-size: 26px;
