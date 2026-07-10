@@ -811,6 +811,30 @@ app.get('/admin/users', async (req, res) => {
   }
 });
 
+app.get('/admin/users/:userId/conversations', async (req, res) => {
+  const { userId } = req.params;
+  try {
+    const query = `
+      SELECT 
+        c.id, 
+        c.title, 
+        c.model, 
+        c.created_at,
+        (SELECT COUNT(*) FROM messages m WHERE m.conversation_id = c.id) as messages_count
+      FROM conversations c
+      WHERE c.user_id = $1
+      ORDER BY c.created_at DESC
+      LIMIT 10
+    `;
+    const result = await pool.query(query, [userId]);
+    res.status(200).json({ conversations: result.rows });
+  } catch (err) {
+    console.error('Failed to get user conversations:', err);
+    res.status(500).json({ error: 'Failed to retrieve user conversations' });
+  }
+});
+
+
 // 2. POST /admin/models/:name/load
 app.post('/admin/models/:name/load', async (req, res) => {
   const { name } = req.params;

@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { getCookie } from 'cookies-next';
-import { Users, Loader2, BadgeCheck, Clock, Building, Search, MessageSquare, Zap } from 'lucide-react';
+import { Users, Loader2, BadgeCheck, Clock, Building, Search, MessageSquare, Zap, X } from 'lucide-react';
 
 interface User {
   id: string;
@@ -22,6 +22,11 @@ export default function UsersPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const apiBase = '/api-proxy';
   const [error, setError] = useState('');
+
+  // Details drawer state
+  const [selectedUser, setSelectedUser] = useState<User | null>(null);
+  const [userConversations, setUserConversations] = useState<any[]>([]);
+  const [loadingConvs, setLoadingConvs] = useState(false);
 
   const fetchUsers = async () => {
     setLoading(true);
@@ -43,6 +48,32 @@ export default function UsersPage() {
   useEffect(() => {
     fetchUsers();
   }, [apiBase]);
+
+  // Fetch recent conversations for selected user
+  useEffect(() => {
+    if (!selectedUser) {
+      setUserConversations([]);
+      return;
+    }
+    const fetchConversations = async () => {
+      setLoadingConvs(true);
+      const token = getCookie('admin_token') || localStorage.getItem('admin_token') || 'TEST_ADMIN_TOKEN';
+      try {
+        const res = await fetch(`${apiBase}/admin/users/${selectedUser.id}/conversations`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (res.ok) {
+          const data = await res.json();
+          setUserConversations(data.conversations || []);
+        }
+      } catch (err) {
+        console.error(err);
+      } finally {
+        setLoadingConvs(false);
+      }
+    };
+    fetchConversations();
+  }, [selectedUser]);
 
   const toggleSuspendUser = (userId: string) => {
     setUsers(prev => prev.map(u => {
@@ -84,6 +115,16 @@ export default function UsersPage() {
 
   return (
     <div className="space-y-6 max-w-6xl">
+      <style dangerouslySetInnerHTML={{__html: `
+        @keyframes slideIn {
+          from { transform: translateX(100%); }
+          to { transform: translateX(0); }
+        }
+        .animate-slide-in {
+          animation: slideIn 0.22s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+      `}} />
+
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
@@ -168,9 +209,13 @@ export default function UsersPage() {
                 </tr>
               ) : (
                 filteredUsers.map((user) => (
-                  <tr key={user.id} className="hover:bg-gray-50 dark:hover:bg-gray-800/10 transition-all text-gray-700 dark:text-gray-300">
+                  <tr 
+                    key={user.id} 
+                    onClick={() => setSelectedUser(user)}
+                    className="hover:bg-gray-50 dark:hover:bg-gray-800/10 border-b border-gray-100 dark:border-gray-800/40 transition-all text-gray-700 dark:text-gray-300 cursor-pointer"
+                  >
                     {/* User Profile */}
-                    <td className="py-3 px-6">
+                    <td className="py-3 px-6 text-gray-900 dark:text-gray-200">
                       <div className="flex items-center gap-3">
                         <div className={`w-8 h-8 rounded-lg bg-gradient-to-br ${getAvatarColor(user.email)} flex items-center justify-center shrink-0 shadow-sm text-[11px] font-black text-white`}>
                           {getInitials(user.email)}
@@ -242,7 +287,7 @@ export default function UsersPage() {
                     </td>
 
                     {/* Row Actions */}
-                    <td className="py-3 px-6 text-right whitespace-nowrap">
+                    <td className="py-3 px-6 text-right whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
                       <button 
                         onClick={() => toggleSuspendUser(user.id)}
                         className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all duration-200 shadow-sm ${
@@ -261,6 +306,157 @@ export default function UsersPage() {
           </table>
         </div>
       </div>
+
+      {/* User Detail Side Drawer */}
+      {selectedUser && (
+        <div className="fixed inset-0 z-50 flex justify-end bg-black/40 backdrop-blur-sm" onClick={() => setSelectedUser(null)}>
+          <div 
+            className="w-full max-w-md bg-white dark:bg-gray-900 h-full shadow-2xl flex flex-col p-6 overflow-y-auto border-l border-gray-200 dark:border-gray-800 animate-slide-in text-gray-900 dark:text-gray-100"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Drawer Header */}
+            <div className="flex items-center justify-between border-b border-gray-200 dark:border-gray-850 pb-4 mb-6">
+              <div className="flex items-center gap-3">
+                <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${getAvatarColor(selectedUser.email)} flex items-center justify-center text-white font-black text-sm`}>
+                  {getInitials(selectedUser.email)}
+                </div>
+                <div className="min-w-0">
+                  <h2 className="text-base font-bold text-gray-900 dark:text-white truncate max-w-[280px]">User Details</h2>
+                  <span className="text-[10px] text-gray-500 font-mono select-all block mt-0.5">{selectedUser.id}</span>
+                </div>
+              </div>
+              <button 
+                onClick={() => setSelectedUser(null)} 
+                className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg text-gray-400 hover:text-gray-600 transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Info Grid */}
+            <div className="space-y-6">
+              <div>
+                <span className="text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider block mb-2">Account Status</span>
+                <div className="flex items-center gap-2">
+                  <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wide border ${
+                    selectedUser.is_suspended
+                      ? 'bg-rose-50 border-rose-200 text-rose-700 dark:bg-rose-500/10 dark:border-rose-500/20 dark:text-rose-400'
+                      : 'bg-emerald-50 border-emerald-200 text-emerald-700 dark:bg-emerald-500/10 dark:border-emerald-500/20 dark:text-emerald-400'
+                  }`}>
+                    <span className={`w-2 h-2 rounded-full ${selectedUser.is_suspended ? 'bg-rose-500' : 'bg-emerald-500'}`} />
+                    {selectedUser.is_suspended ? 'Suspended' : 'Active'}
+                  </span>
+                  <span className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wide border ${
+                    selectedUser.role === 'admin' || selectedUser.role === 'superadmin' 
+                      ? 'bg-purple-50 border-purple-200 text-purple-700 dark:bg-purple-500/10 dark:border-purple-500/20 dark:text-purple-400'
+                      : 'bg-indigo-50 border-indigo-200 text-indigo-700 dark:bg-indigo-500/10 dark:border-indigo-500/20 dark:text-indigo-400'
+                  }`}>
+                    {selectedUser.role}
+                  </span>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="bg-gray-50 dark:bg-gray-950/40 p-4 rounded-xl border border-gray-200 dark:border-gray-800/60">
+                  <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block">Joined Stack</span>
+                  <span className="text-xs text-gray-800 dark:text-gray-300 font-semibold block mt-1.5">
+                    {new Date(selectedUser.created_at).toLocaleDateString(undefined, { 
+                      year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit'
+                    })}
+                  </span>
+                </div>
+                <div className="bg-gray-50 dark:bg-gray-950/40 p-4 rounded-xl border border-gray-200 dark:border-gray-800/60">
+                  <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block">Scope Tenant</span>
+                  <span className="text-xs text-gray-800 dark:text-gray-300 font-semibold block mt-1.5 truncate">
+                    {selectedUser.tenant_name || 'System Default'}
+                  </span>
+                </div>
+              </div>
+
+              <div>
+                <span className="text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider block mb-2">Identity Details</span>
+                <div className="space-y-2.5 bg-gray-50 dark:bg-gray-950/40 p-4 rounded-xl border border-gray-200 dark:border-gray-800/60 text-xs">
+                  <div className="flex justify-between items-center py-1 gap-2">
+                    <span className="text-gray-500 font-medium shrink-0">Email Address</span>
+                    <span className="text-gray-900 dark:text-gray-200 font-bold select-all break-all text-right">{selectedUser.email}</span>
+                  </div>
+                  <div className="flex justify-between items-center py-1 border-t border-gray-200 dark:border-gray-800/50 gap-2">
+                    <span className="text-gray-500 font-medium shrink-0">User Unique ID</span>
+                    <span className="text-gray-900 dark:text-gray-200 font-mono select-all text-[11px] break-all text-right">{selectedUser.id}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Telemetry Stats */}
+              <div>
+                <span className="text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider block mb-2">Usage Telemetry</span>
+                <div className="grid grid-cols-3 gap-3">
+                  <div className="bg-gray-50 dark:bg-gray-950/40 p-3 rounded-xl border border-gray-200 dark:border-gray-800/60 text-center">
+                    <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Chats</span>
+                    <div className="text-lg font-black text-indigo-600 dark:text-indigo-400 mt-1">{selectedUser.conversations_count || 0}</div>
+                  </div>
+                  <div className="bg-gray-50 dark:bg-gray-950/40 p-3 rounded-xl border border-gray-200 dark:border-gray-800/60 text-center">
+                    <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Messages</span>
+                    <div className="text-lg font-black text-emerald-600 dark:text-emerald-400 mt-1">{selectedUser.messages_count || 0}</div>
+                  </div>
+                  <div className="bg-gray-50 dark:bg-gray-950/40 p-3 rounded-xl border border-gray-200 dark:border-gray-800/60 text-center">
+                    <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Tokens</span>
+                    <div className="text-lg font-black text-purple-600 dark:text-purple-400 mt-1">
+                      {Number(selectedUser.total_tokens || 0).toLocaleString()}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* User Conversations List */}
+              <div>
+                <span className="text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider block mb-2">Recent User Chats</span>
+                <div className="space-y-2 max-h-60 overflow-y-auto">
+                  {loadingConvs ? (
+                    <div className="text-center py-6 text-gray-500 text-xs">
+                      <Loader2 className="w-4 h-4 animate-spin mx-auto text-indigo-500 mb-1" />
+                      Loading conversations...
+                    </div>
+                  ) : userConversations.length === 0 ? (
+                    <div className="text-center py-6 text-gray-500 text-xs font-medium bg-gray-50 dark:bg-gray-950/20 rounded-xl border border-gray-200 dark:border-gray-800/40">
+                      No active chats found for this user.
+                    </div>
+                  ) : (
+                    userConversations.map((conv) => (
+                      <div key={conv.id} className="bg-gray-50 dark:bg-gray-950/40 p-3 rounded-xl border border-gray-200 dark:border-gray-800/60 flex items-center justify-between gap-3 text-xs">
+                        <div className="min-w-0">
+                          <div className="font-semibold text-gray-900 dark:text-gray-200 truncate">{conv.title || 'Untitled Chat'}</div>
+                          <div className="text-[9px] text-gray-500 font-mono mt-0.5">{conv.model} · {conv.messages_count} messages</div>
+                        </div>
+                        <span className="text-[9px] text-gray-400 shrink-0">
+                          {new Date(conv.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+                        </span>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+
+              {/* Quick Actions */}
+              <div className="pt-4 border-t border-gray-200 dark:border-gray-800 flex gap-3">
+                <button 
+                  onClick={() => {
+                    toggleSuspendUser(selectedUser.id);
+                    setSelectedUser(prev => prev ? { ...prev, is_suspended: !prev.is_suspended } : null);
+                  }}
+                  className={`flex-1 py-2 rounded-xl text-xs font-bold uppercase tracking-wider transition-all duration-200 shadow-sm ${
+                    selectedUser.is_suspended
+                      ? 'bg-emerald-600 hover:bg-emerald-700 text-white'
+                      : 'bg-rose-600 hover:bg-rose-700 text-white'
+                  }`}
+                >
+                  {selectedUser.is_suspended ? 'Activate User' : 'Suspend User'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
