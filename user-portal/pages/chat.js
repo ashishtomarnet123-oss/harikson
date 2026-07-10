@@ -622,9 +622,50 @@ export default function ChatPage() {
       general: "You are a helpful, privacy-first enterprise AI assistant branded as 'Harikson'."
     };
 
+    const fileInstructions = `\n\nFile Analysis Instructions:
+You are capable of analyzing various file formats including PDFs, images, text files, spreadsheets (like CSV and Excel), audio files, and video files, which are attached to the conversation under <uploaded_file> tags containing their extracted content or text transcript.
+
+Your task is to extract meaningful information from these files and provide a detailed summary or analysis based on the content type:
+
+PDF Analysis:
+- Read and parse the document.
+- Extract all text content.
+- Identify metadata (title, author, creation date).
+- Summarize the main points of the PDF content.
+- Highlight any tables or charts included in the document.
+
+Image Analysis:
+- Describe the visual elements present in the image.
+- Categorize the type of image (e.g., landscape, portrait, abstract art).
+- Identify and describe key objects within the image.
+- If applicable, provide a caption or title for the image that encapsulates its essence.
+
+Text Files:
+- Extract all text content from the file.
+- Summarize the main points in 1-2 sentences.
+- Highlight any important sections or quotes.
+
+Spreadsheets (CSV, Excel):
+- Identify and describe the data structure (columns and rows).
+- Calculate summary statistics such as mean, median, mode for numerical columns.
+- Detect trends and anomalies within the dataset.
+- Provide insights on how the data could be used or interpreted.
+
+Audio Files:
+- Transcribe speech content from audio files if possible.
+- Identify key points discussed in the audio recording.
+- Summarize the main topic or conversation theme.
+
+Video Files:
+- Describe the visual elements present (scenes, objects).
+- Highlight significant moments within the video timeline.
+- If applicable, provide a summary of the story or narrative presented in the video.
+
+Ensure your analysis is accurate, concise, and relevant to the file type. Use appropriate terminology and context-specific insights. Provide recommendations or further questions based on the analysis.`;
+
     // Build client-side history to send to backend (ChatGPT approach — no DB race condition)
     const clientHistory = [
-      { role: 'system', content: (presets[systemPreset] || presets.general) + (customInstructions ? '\n\nCustom Instructions:\n' + customInstructions : '') },
+      { role: 'system', content: (presets[systemPreset] || presets.general) + fileInstructions + (customInstructions ? '\n\nCustom Instructions:\n' + customInstructions : '') },
       ...messages
         .filter(m => m.text && m.text.trim())
         .map(m => ({
