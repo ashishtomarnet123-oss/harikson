@@ -55,18 +55,20 @@ const TerminalAnimation = () => {
           setLines((l) => [...l, { text: '✓ Model loaded in 4.2s', status: 'success' }]);
         }, 600);
       }
-    } else if (step >= 1 && step <= 4) {
+    } else if (step >= 1 && step <= 3) {
       // Staggered output lines
       const messages = [
+        { text: '✓ Model loaded in 4.2s', status: 'success' },
         { text: '✓ RAG index: 50,000 documents', status: 'success' },
         { text: '✓ Tenant isolation: ACTIVE', status: 'success' },
         { text: '✓ DPDP compliance: VERIFIED', status: 'success' }
       ];
       timer = setTimeout(() => {
-        setLines((l) => [...l, messages[step - 1]]);
+        const msg = messages[step];
+        if (msg) setLines((l) => [...l, msg]);
         setStep((s) => s + 1);
       }, 700);
-    } else if (step === 5) {
+    } else if (step === 4) {
       // Pause and restart loop
       timer = setTimeout(() => {
         setLines([]);
