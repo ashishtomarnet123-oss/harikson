@@ -189,6 +189,9 @@ export default function ChatPage() {
   const [error, setError] = useState(null);
   const [model, setModel] = useState('harikson-plus');
   const [systemPreset, setSystemPreset] = useState('general');
+  const [showProfileMenu, setShowProfileMenu] = useState(false);
+  const [showSettingsModal, setShowSettingsModal] = useState(false);
+  const [customInstructions, setCustomInstructions] = useState('');
   const [attachedFiles, setAttachedFiles] = useState([]);
   const [pinnedChats, setPinnedChats] = useState([]);
   const [showSlashMenu, setShowSlashMenu] = useState(false);
@@ -224,6 +227,9 @@ export default function ChatPage() {
   const abortControllerRef = useRef(null);
 
   /* ── Resolve config from localStorage on mount ── */
+    const savedInstructions = localStorage.getItem('harikson_custom_instructions');
+    if (savedInstructions) setCustomInstructions(savedInstructions);
+
   useEffect(() => {
     const savedToken = localStorage.getItem('hk_token');
     if (!savedToken) { router.replace('/login'); return; }
@@ -462,7 +468,7 @@ export default function ChatPage() {
 
     // Build client-side history to send to backend (ChatGPT approach — no DB race condition)
     const clientHistory = [
-      { role: 'system', content: presets[systemPreset] || presets.general },
+      { role: 'system', content: (presets[systemPreset] || presets.general) + (customInstructions ? '\n\nCustom Instructions:\n' + customInstructions : '') },
       ...messages
         .filter(m => m.text && m.text.trim())
         .map(m => ({
