@@ -181,39 +181,51 @@ export default function LandingPage() {
   const capabilities = [
     {
       id: 'llm',
-      title: '🤖 Private LLM Deployment',
+      icon: '🤖',
+      title: 'Private LLM Deployment',
       desc: 'Deploy Qwen3, Llama, Mistral on your infrastructure. No data leaves your VPC.',
-      details: 'With Harikson AI, we support deployment inside AWS, GCP, Azure India regions, or your own on-premise air-gapped bare metal servers. You get complete control of model weights, inference speed, and local privacy boundaries.'
+      details: 'With Harikson AI, we support deployment inside AWS, GCP, Azure India regions, or your own on-premise air-gapped bare metal servers. You get complete control of model weights, inference speed, and local privacy boundaries.',
+      color: '#4F8CFF'
     },
     {
       id: 'tenant',
-      title: '🏢 Multi-Tenant AI Platform',
+      icon: '🏢',
+      title: 'Multi-Tenant AI Platform',
       desc: 'One deployment. Hundreds of teams. Complete isolation. Row-level security, per-tenant billing, custom models.',
-      details: 'Isolate distinct corporate clients or internal business units perfectly. Each tenant gets distinct configuration tables, storage folders, custom models, and isolated RAG knowledge layers.'
+      details: 'Isolate distinct corporate clients or internal business units perfectly. Each tenant gets distinct configuration tables, storage folders, custom models, and isolated RAG knowledge layers.',
+      color: '#8B7FFF'
     },
     {
       id: 'rag',
-      title: '📚 Enterprise RAG System',
+      icon: '📚',
+      title: 'Enterprise RAG System',
       desc: 'Upload 50,000 documents. Auto-chunk. Embed. Query. Source attribution in every response.',
-      details: 'High-speed ingestion pipeline specifically optimized for enterprise document repositories, PDFs, wikis, and legal catalogs. Native integrations guarantee strict access control and real-time indexing.'
+      details: 'High-speed ingestion pipeline specifically optimized for enterprise document repositories, PDFs, wikis, and legal catalogs. Native integrations guarantee strict access control and real-time indexing.',
+      color: '#10B981'
     },
     {
       id: 'agent',
-      title: '🧠 AI Agent Orchestration',
+      icon: '🧠',
+      title: 'AI Agent Orchestration',
       desc: 'Build agents with memory, tools, multi-step reasoning. Deploy to WhatsApp, Slack, web, mobile.',
-      details: 'Deploy intelligent autonomous agents that call external system APIs, access user profiles, process natural language in Indic regional dialects, and escalate to humans seamlessly.'
+      details: 'Deploy intelligent autonomous agents that call external system APIs, access user profiles, process natural language in Indic regional dialects, and escalate to humans seamlessly.',
+      color: '#EC4899'
     },
     {
       id: 'gov',
-      title: '📊 Governance & Compliance',
+      icon: '📊',
+      title: 'Governance & Compliance',
       desc: 'DPDP-ready. Audit trails. Data principal rights. BIS/MeitY empanelment support.',
-      details: 'Built-in security audits map all data transformations and model queries. Includes tools to handle right-to-erasure and right-to-access under India\'s DPDP Act 2023.'
+      details: 'Built-in security audits map all data transformations and model queries. Includes tools to handle right-to-erasure and right-to-access under India\'s DPDP Act 2023.',
+      color: '#F59E0B'
     },
     {
       id: 'api',
-      title: '🔌 Developer-First API',
+      icon: '🔌',
+      title: 'Developer-First API',
       desc: 'OpenAI-compatible. One-line migration. SDKs for Python, Node.js, Go, Java.',
-      details: 'Just swap your existing base URL to target Harikson and your codebase works immediately. Supports streaming tokens, system prompts, structured JSON output formats, and batch offline evaluations.'
+      details: 'Just swap your existing base URL to target Harikson and your codebase works immediately. Supports streaming tokens, system prompts, structured JSON output formats, and batch offline evaluations.',
+      color: '#6366F1'
     }
   ];
 
@@ -404,13 +416,14 @@ export default function LandingPage() {
             
             <div className="capabilities-grid">
               {capabilities.map((c) => (
-                <div key={c.id} className="cap-card">
-                  <div className="cap-header">
-                    <h3 className="cap-title">{c.title}</h3>
+                <div key={c.id} className="cap-card" style={{ '--cap-theme-color': c.color }}>
+                  <div className="cap-icon-box">
+                    <span className="cap-icon">{c.icon}</span>
                   </div>
+                  <h3 className="cap-title">{c.title}</h3>
                   <p className="cap-desc">{c.desc}</p>
                   <button className="cap-link" onClick={() => setActiveCapability(c)}>
-                    Learn more →
+                    Learn more <span className="arrow">→</span>
                   </button>
                 </div>
               ))}
@@ -1124,27 +1137,47 @@ export default function LandingPage() {
         .capabilities-grid {
           display: grid;
           grid-template-columns: repeat(3, 1fr);
-          gap: 20px;
+          gap: 24px;
         }
         .cap-card {
-          background: #F8FAFC;
+          background: #FFFFFF;
           border: 1px solid #E2E8F0;
           border-radius: 16px;
-          padding: 28px;
+          padding: 32px;
           display: flex;
           flex-direction: column;
-          min-height: 200px;
-          transition: transform 0.2s, border-color 0.2s;
+          min-height: 250px;
+          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.01);
+          position: relative;
+          transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
         }
         .cap-card:hover {
-          transform: translateY(-2px);
-          border-color: rgba(79, 140, 255, 0.4);
+          transform: translateY(-4px);
+          border-color: var(--cap-theme-color);
+          box-shadow: 0 12px 30px rgba(0, 0, 0, 0.04), 0 0 16px rgba(0, 0, 0, 0.01);
+        }
+        .cap-icon-box {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          width: 44px;
+          height: 44px;
+          border-radius: 12px;
+          background: #F1F5F9;
+          font-size: 20px;
+          margin-bottom: 20px;
+          transition: all 0.25s ease;
+        }
+        .cap-card:hover .cap-icon-box {
+          transform: scale(1.05);
+          background: #0F172A;
         }
         .cap-title {
-          font-size: 15px;
+          font-size: 16px;
           font-weight: 700;
           color: #0F172A;
           margin-bottom: 12px;
+          letter-spacing: -0.3px;
         }
         .cap-desc {
           font-size: 13px;
@@ -1162,9 +1195,19 @@ export default function LandingPage() {
           cursor: pointer;
           padding: 0;
           text-align: left;
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          transition: color 0.2s;
         }
-        .cap-link:hover {
-          text-decoration: underline;
+        .cap-link .arrow {
+          transition: transform 0.2s ease;
+        }
+        .cap-card:hover .cap-link {
+          color: var(--cap-theme-color);
+        }
+        .cap-card:hover .cap-link .arrow {
+          transform: translateX(4px);
         }
 
         /* ─── PROOF SECTION ─── */
