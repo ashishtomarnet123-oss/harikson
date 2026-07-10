@@ -635,7 +635,6 @@ export default function ChatPage() {
 
     // Handle document/file attachment injection
     let finalMessage = userText;
-    const readyAttachments = attachedFiles.filter(f => f.status !== 'error' && f.status !== 'processing');
     if (readyAttachments.length > 0) {
       const attachments = readyAttachments.map(f => `<uploaded_file name="${f.name}">\n${f.content}\n</uploaded_file>`).join('\n\n');
       finalMessage = `${attachments}\n\n${userText}`;
