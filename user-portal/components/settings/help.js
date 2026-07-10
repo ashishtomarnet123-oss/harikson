@@ -11,7 +11,7 @@ export default function HelpCenter() {
 
       <div className="settings-section">
         <h2>Resources</h2>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
+        <div className="settings-grid-cards">
           
           <div style={{ padding: '20px', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)', background: 'var(--bg-primary)' }}>
             <BookOpen size={24} style={{ color: 'var(--accent)', marginBottom: '16px' }} />

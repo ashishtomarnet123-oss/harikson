@@ -21,7 +21,7 @@ export default function StorageSettings() {
       <div className="settings-section">
         <h2>Storage Overview</h2>
         
-        <div style={{display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', marginBottom: '16px'}}>
+        <div className="settings-flex-row" style={{ alignItems: 'flex-end', marginBottom: '16px'}}>
           <div>
             <span style={{fontSize: '36px', fontWeight: 'bold'}}>{usedStorage} GB</span>
             <span style={{fontSize: '16px', color: 'var(--text-muted)', marginLeft: '8px'}}>used of {totalStorage} GB</span>
@@ -38,11 +38,11 @@ export default function StorageSettings() {
           ))}
         </div>
 
-        <div style={{marginTop: '32px', display: 'flex', flexDirection: 'column', gap: '16px'}}>
+        <div className="settings-flex-col" style={{ marginTop: '32px' }}>
           {categories.map((cat, i) => {
             const Icon = cat.icon;
             return (
-              <div key={i} style={{display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)', background: 'var(--bg-primary)'}}>
+              <div key={i} className="settings-card settings-flex-row">
                 <div style={{display: 'flex', alignItems: 'center', gap: '12px'}}>
                   <div style={{width: '40px', height: '40px', borderRadius: '8px', background: `${cat.color}20`, color: cat.color, display: 'flex', alignItems: 'center', justifyContent: 'center'}}>
                     <Icon size={20} />

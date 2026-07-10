@@ -20,9 +20,9 @@ export default function DevicesSettings() {
           If you see a device you don't recognize, log it out and change your password immediately.
         </p>
 
-        <div style={{display: 'flex', flexDirection: 'column', gap: '12px'}}>
+        <div className="settings-flex-col">
           {devices.map(d => (
-            <div key={d.id} style={{display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)', background: 'var(--bg-primary)'}}>
+            <div key={d.id} className="settings-card settings-flex-row">
               <div style={{display: 'flex', alignItems: 'center', gap: '16px'}}>
                 <div style={{color: 'var(--text-muted)'}}>
                   {d.os.includes('iOS') || d.os.includes('Android') ? <Smartphone size={24} /> : <Monitor size={24} />}

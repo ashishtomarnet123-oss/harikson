@@ -301,3 +301,56 @@
     padding: 24px;
   }
 }
+
+/* ── UTILITY CLASSES FOR RESPONSIVE LAYOUTS ── */
+.settings-flex-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.settings-flex-col {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.settings-table-wrapper {
+  width: 100%;
+  overflow-x: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--bg-primary);
+}
+
+.settings-table-wrapper table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 600px; /* Ensures table doesn't squash too much before scrolling */
+}
+
+.settings-card {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 16px;
+  background: var(--bg-primary);
+}
+
+.settings-text-break {
+  word-break: break-all;
+  white-space: normal;
+}
+
+.settings-text-truncate {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.settings-grid-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  gap: 16px;
+}

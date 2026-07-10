@@ -51,7 +51,7 @@ export default function SecuritySettings() {
             Add an extra layer of security to your account by requiring a verification code in addition to your password.
           </p>
           
-          <div style={{display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)', background: 'var(--bg-primary)'}}>
+          <div className="settings-card settings-flex-row">
             <div style={{display: 'flex', alignItems: 'center', gap: '16px'}}>
               <div style={{width: '40px', height: '40px', background: 'var(--bg-hover)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--accent)'}}>
                 <Smartphone size={20} />

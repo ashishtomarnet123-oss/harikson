@@ -21,7 +21,7 @@ export default function BillingSettings() {
           <div style={{position: 'absolute', top: 0, right: 0, background: 'var(--accent)', color: '#fff', padding: '4px 12px', fontSize: '12px', fontWeight: 'bold', borderBottomLeftRadius: 'var(--radius-md)'}}>
             ACTIVE
           </div>
-          <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start'}}>
+          <div className="settings-flex-row" style={{ alignItems: 'flex-start' }}>
             <div>
               <h3 style={{fontSize: '24px', margin: '0 0 8px 0'}}>Pro Plan</h3>
               <div style={{fontSize: '32px', fontWeight: 'bold', marginBottom: '16px'}}>$49 <span style={{fontSize: '16px', color: 'var(--text-muted)', fontWeight: 'normal'}}>/ user / month</span></div>
@@ -37,11 +37,11 @@ export default function BillingSettings() {
       </div>
 
       <div className="settings-section">
-        <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px'}}>
+        <div className="settings-flex-row" style={{ marginBottom: '20px' }}>
           <h2 style={{margin: 0, border: 'none', padding: 0}}>Payment Method</h2>
           <button className="btn-primary">Update</button>
         </div>
-        <div style={{display: 'flex', alignItems: 'center', gap: '16px', padding: '16px', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)', background: 'var(--bg-primary)'}}>
+        <div className="settings-card" style={{display: 'flex', alignItems: 'center', gap: '16px' }}>
           <div style={{background: 'var(--bg-hover)', padding: '8px', borderRadius: '4px'}}>
             <CreditCard size={24} color="var(--text-secondary)" />
           </div>
@@ -54,8 +54,9 @@ export default function BillingSettings() {
 
       <div className="settings-section">
         <h2>Billing History</h2>
-        <table style={{width: '100%', borderCollapse: 'collapse', fontSize: '14px'}}>
-          <thead>
+        <div className="settings-table-wrapper">
+          <table style={{width: '100%', borderCollapse: 'collapse', fontSize: '14px'}}>
+            <thead>
             <tr style={{borderBottom: '1px solid var(--border)', textAlign: 'left'}}>
               <th style={{padding: '12px 8px', color: 'var(--text-muted)', fontWeight: '500'}}>Invoice</th>
               <th style={{padding: '12px 8px', color: 'var(--text-muted)', fontWeight: '500'}}>Date</th>
@@ -78,6 +79,7 @@ export default function BillingSettings() {
             ))}
           </tbody>
         </table>
+        </div>
       </div>
     </>
   );

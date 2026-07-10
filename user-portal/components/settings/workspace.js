@@ -41,14 +41,14 @@ export default function WorkspaceSettings() {
       </div>
 
       <div className="settings-section">
-        <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', paddingBottom: '16px', borderBottom: '1px solid var(--border)'}}>
+        <div className="settings-flex-row" style={{ marginBottom: '20px', paddingBottom: '16px', borderBottom: '1px solid var(--border)'}}>
           <h2 style={{margin: 0, border: 'none', padding: 0}}>Members & Roles</h2>
           <button className="btn-primary">Invite Member</button>
         </div>
 
-        <div style={{display: 'flex', flexDirection: 'column', gap: '12px'}}>
+        <div className="settings-flex-col">
           {members.map(m => (
-            <div key={m.id} style={{display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)', background: 'var(--bg-primary)'}}>
+            <div key={m.id} className="settings-flex-row settings-card" style={{ padding: '12px 16px' }}>
               <div style={{display: 'flex', alignItems: 'center', gap: '12px'}}>
                 <div style={{width: '36px', height: '36px', borderRadius: '50%', background: 'var(--bg-hover)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-primary)', fontSize: '13px', fontWeight: '600'}}>
                   {m.avatar}

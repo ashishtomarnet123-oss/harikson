@@ -15,7 +15,7 @@ export default function DeveloperSettings() {
       </div>
 
       <div className="settings-section">
-        <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', paddingBottom: '16px', borderBottom: '1px solid var(--border)'}}>
+        <div className="settings-flex-row" style={{ marginBottom: '24px', paddingBottom: '16px', borderBottom: '1px solid var(--border)'}}>
           <h2 style={{margin: 0, padding: 0, border: 'none'}}>Personal API Keys</h2>
           <button className="btn-primary"><Plus size={16} /> Generate New Key</button>
         </div>
@@ -24,15 +24,15 @@ export default function DeveloperSettings() {
           Use these keys to authenticate API requests from your applications. Do not share them publicly.
         </p>
 
-        <div style={{display: 'flex', flexDirection: 'column', gap: '12px'}}>
+        <div className="settings-flex-col">
           {keys.map(k => (
-            <div key={k.id} style={{display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)', background: 'var(--bg-primary)'}}>
+            <div key={k.id} className="settings-card settings-flex-row">
               <div>
                 <div style={{display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px'}}>
                   <Key size={14} color="var(--text-muted)" />
                   <span style={{fontWeight: '500', fontSize: '14px'}}>{k.name}</span>
                 </div>
-                <div style={{fontFamily: 'monospace', fontSize: '13px', color: 'var(--text-secondary)', background: 'var(--bg-hover)', padding: '4px 8px', borderRadius: '4px', display: 'inline-block'}}>
+                <div className="settings-text-break" style={{fontFamily: 'monospace', fontSize: '13px', color: 'var(--text-secondary)', background: 'var(--bg-hover)', padding: '4px 8px', borderRadius: '4px', display: 'inline-block'}}>
                   {k.key}
                 </div>
                 <div style={{fontSize: '12px', color: 'var(--text-muted)', marginTop: '8px'}}>

@@ -26,8 +26,8 @@ export default function ActivitySettings() {
                   <div style={{width: '6px', height: '6px', background: '#fff', borderRadius: '50%'}}></div>
                 </div>
 
-                <div style={{background: 'var(--bg-primary)', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)', padding: '16px'}}>
-                  <div style={{display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between'}}>
+                <div className="settings-card">
+                  <div className="settings-flex-row" style={{ alignItems: 'flex-start' }}>
                     <div style={{display: 'flex', alignItems: 'center', gap: '12px'}}>
                       <div style={{width: '32px', height: '32px', borderRadius: '50%', background: 'var(--bg-hover)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: log.color}}>
                         <Icon size={16} />

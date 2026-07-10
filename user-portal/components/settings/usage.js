@@ -25,7 +25,7 @@ export default function UsageSettings() {
         <p>Monitor your token consumption and active query volume over time.</p>
       </div>
 
-      <div style={{display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: '32px'}}>
+      <div className="settings-grid-cards" style={{ marginBottom: '32px' }}>
         <div style={{padding: '24px', background: 'var(--bg-primary)', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)'}}>
           <div style={{fontSize: '14px', color: 'var(--text-secondary)', marginBottom: '8px'}}>Total Tokens Used (7 Days)</div>
           <div style={{fontSize: '32px', fontWeight: 'bold'}}>1,880,000</div>
