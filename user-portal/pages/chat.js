@@ -533,10 +533,51 @@ export default function ChatPage() {
 
   /* ── Keyboard shortcuts ── */
   const handleKeyDown = (e) => {
+    if (showSlashMenu) {
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        setSlashIndex(prev => (prev + 1) % SLASH_COMMANDS.length);
+        return;
+      }
+      if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        setSlashIndex(prev => (prev - 1 + SLASH_COMMANDS.length) % SLASH_COMMANDS.length);
+        return;
+      }
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        applySlashCommand(SLASH_COMMANDS[slashIndex]);
+        return;
+      }
+      if (e.key === 'Escape') {
+        setShowSlashMenu(false);
+        return;
+      }
+    }
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       sendMessage();
     }
+  };
+
+  const handleInputChange = (e) => {
+    const val = e.target.value;
+    setInputText(val);
+    
+    if (val === '/' || val.endsWith(' /')) {
+      setShowSlashMenu(true);
+      setSlashIndex(0);
+    } else if (showSlashMenu && !val.includes('/')) {
+      setShowSlashMenu(false);
+    }
+  };
+
+  const applySlashCommand = (cmd) => {
+    const parts = inputText.split('/');
+    parts.pop(); 
+    setInputText(parts.join('/') + cmd.prompt);
+    setShowSlashMenu(false);
+    textareaRef.current?.focus();
   };
 
   const userInitial = user?.email?.[0]?.toUpperCase() || 'U';
