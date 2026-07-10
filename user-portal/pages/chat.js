@@ -6,7 +6,7 @@ import Head from 'next/head';
    Markdown renderer — converts plain text/markdown to JSX
    without external deps (Next.js 14 Pages Router, no Tailwind)
 ──────────────────────────────────────────────────────────── */
-function CodeBlock({ language, code }) {
+function CodeBlock({ language, code, onOpenArtifact }) {
   const [copied, setCopied] = useState(false);
   const copy = () => {
     navigator.clipboard.writeText(code).then(() => {
@@ -18,16 +18,21 @@ function CodeBlock({ language, code }) {
     <div className="code-block">
       <div className="code-block-header">
         <span className="code-lang">{language || 'code'}</span>
-        <button className={`copy-btn${copied ? ' copied' : ''}`} onClick={copy}>
-          {copied ? '✓ Copied' : '⧉ Copy'}
-        </button>
+        <div className="artifact-actions">
+          {onOpenArtifact && (
+            <button onClick={() => onOpenArtifact({ language, code })} title="Open in Canvas">⛶ Canvas</button>
+          )}
+          <button className={`copy-btn${copied ? ' copied' : ''}`} onClick={copy}>
+            {copied ? '✓ Copied' : '⧉ Copy'}
+          </button>
+        </div>
       </div>
       <pre><code className="block-code">{code}</code></pre>
     </div>
   );
 }
 
-function renderMarkdown(text) {
+function renderMarkdown(text, onOpenArtifact) {
   if (!text) return null;
   const lines = text.split('\n');
   const elements = [];
@@ -44,7 +49,7 @@ function renderMarkdown(text) {
         codeLines.push(lines[i]);
         i++;
       }
-      elements.push(<CodeBlock key={i} language={lang} code={codeLines.join('\n')} />);
+      elements.push(<CodeBlock key={i} language={lang} code={codeLines.join('\n')} onOpenArtifact={onOpenArtifact} />);
       i++;
       continue;
     }
@@ -143,6 +148,11 @@ export default function ChatPage() {
   const [pinnedChats, setPinnedChats] = useState([]);
   const [showSlashMenu, setShowSlashMenu] = useState(false);
   const [slashIndex, setSlashIndex] = useState(0);
+  const [activeArtifact, setActiveArtifact] = useState(null);
+  const [isRecording, setIsRecording] = useState(false);
+  const [useDeepSearch, setUseDeepSearch] = useState(false);
+  const [useReasoning, setUseReasoning] = useState(false);
+  const recognitionRef = useRef(null);
 
   useEffect(() => {
     const savedPins = JSON.parse(localStorage.getItem('hk_pinned_chats') || '[]');
@@ -671,7 +681,8 @@ export default function ChatPage() {
         </aside>
 
         {/* ─── Main area ───────────────────────────────────── */}
-        <main className="main-area">
+        <div className="workspace">
+        <main className={`main-area ${activeArtifact ? 'with-artifact' : ''}`}>
           {/* Top bar */}
           <div className="topbar">
             <span className="topbar-title">
@@ -755,7 +766,7 @@ export default function ChatPage() {
                   <div className="message-bubble-assistant">
                     <div className="assistant-avatar">⚡</div>
                     <div className="assistant-content">
-                      {renderMarkdown(msg.text)}
+                      {renderMarkdown(msg.text, setActiveArtifact)}
                     </div>
                   </div>
                 </div>
@@ -817,6 +828,14 @@ export default function ChatPage() {
             )}
             <form onSubmit={sendMessage}>
               <div className="input-wrapper" style={{ display: 'flex', alignItems: 'center', position: 'relative' }}>
+                <button 
+                  type="button" 
+                  className={`mic-btn ${isRecording ? 'mic-pulsing' : ''}`} 
+                  onClick={toggleRecording}
+                  title={isRecording ? 'Stop recording' : 'Dictate with voice'}
+                >
+                  🎤
+                </button>
                 {showSlashMenu && (
                   <div className="slash-command-popup">
                     {SLASH_COMMANDS.map((cmd, idx) => (
@@ -887,10 +906,49 @@ export default function ChatPage() {
                   </button>
                 )}
               </div>
+              <div className="compute-toggles-row">
+                <button type="button" className={`compute-toggle ${useDeepSearch ? 'active' : ''}`} onClick={() => setUseDeepSearch(!useDeepSearch)}>
+                  🌐 Deep Search
+                </button>
+                <button type="button" className={`compute-toggle ${useReasoning ? 'active' : ''}`} onClick={() => setUseReasoning(!useReasoning)}>
+                  🧠 Reasoning
+                </button>
+              </div>
             </form>
             <p className="input-hint">Press Enter to send · Shift+Enter for new line · Attach code files</p>
           </div>
         </main>
+        
+        {/* ─── Artifact Pane ───────────────────────────────────── */}
+        {activeArtifact && (
+          <aside className="artifact-pane">
+            <div className="artifact-header">
+              <div className="artifact-title">
+                <span style={{color: '#ff7e67'}}>⛶</span> {activeArtifact.language === 'html' ? 'index.html' : 'snippet.' + (activeArtifact.language || 'txt')}
+              </div>
+              <div className="artifact-actions">
+                <button onClick={() => { navigator.clipboard.writeText(activeArtifact.code); }}>⧉</button>
+                <button onClick={() => setActiveArtifact(null)}>✕</button>
+              </div>
+            </div>
+            
+            {(activeArtifact.language === 'html' || activeArtifact.language === 'svg') ? (
+              <div className="artifact-content">
+                <iframe 
+                  className="artifact-iframe" 
+                  srcDoc={activeArtifact.code}
+                  title="Preview"
+                  sandbox="allow-scripts"
+                />
+              </div>
+            ) : (
+              <div className="artifact-content">
+                <div className="artifact-code">{activeArtifact.code}</div>
+              </div>
+            )}
+          </aside>
+        )}
+      </div>
 
         {isDragging && (
           <div className="drag-drop-overlay">
