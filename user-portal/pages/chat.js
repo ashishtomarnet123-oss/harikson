@@ -1527,14 +1527,6 @@ If any check fails, revise the relevant section before output.`;
                 : 'New Conversation'}
             </span>
             <div className="topbar-actions">
-              <button 
-                className="share-btn" 
-                onClick={toggleVoiceMode} 
-                style={{ display: 'flex', alignItems: 'center', gap: '6px', background: 'var(--accent)', color: '#fff', border: 'none' }}
-                title="Start Voice AI Assistant"
-              >
-                <Mic size={14} /> Voice Mode
-              </button>
               <button className="share-btn" onClick={handleShareChat} title="Share conversation link">
                 <span style={{marginRight: "6px"}}><Link size={14} /></span> Share
               </button>
@@ -1712,9 +1704,21 @@ If any check fails, revise the relevant section before output.`;
                   <div className="input-toolbar-left">
                     <button 
                       type="button" 
-                      className={`toolbar-btn ${isRecording ? 'mic-pulsing' : ''}`} 
-                      onClick={toggleRecording}
-                      title={isRecording ? 'Stop recording' : 'Dictate with voice'}
+                      onClick={toggleVoiceMode}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        width: '32px',
+                        height: '32px',
+                        borderRadius: '8px',
+                        background: 'transparent',
+                        border: '2px solid var(--accent, #0070f3)',
+                        color: 'var(--text-secondary, #4b5563)',
+                        cursor: 'pointer',
+                        transition: 'background 0.2s, border-color 0.2s',
+                      }}
+                      title="Voice Mode Assistant"
                     >
                       <Mic size={18} />
                     </button>
