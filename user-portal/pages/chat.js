@@ -226,6 +226,9 @@ export default function ChatPage() {
   const chatEndRef = useRef(null);
   const textareaRef = useRef(null);
   const abortControllerRef = useRef(null);
+  // Flag to prevent the URL effect from re-loading the old conversation
+  // when we intentionally start a new chat (state updates before URL changes)
+  const isNewChatMode = useRef(false);
 
   /* ── Resolve config from localStorage on mount ── */
 
@@ -258,14 +261,27 @@ export default function ChatPage() {
     if (token) fetchConversations();
   }, [token]);
 
-  /* ── Load shared conversation link if present on mount ── */
+  /* ── Load shared conversation link if present on mount or URL change ── */
   useEffect(() => {
     if (token && router.isReady) {
       const urlConvId = router.query.conversation;
+
+      // If we just triggered a new chat, skip this effect run.
+      // Once the URL clears the conversation param, reset the flag.
+      if (isNewChatMode.current) {
+        if (!urlConvId) {
+          // URL has caught up — new chat mode is fully active, reset flag
+          isNewChatMode.current = false;
+        }
+        // Either way, don't load anything while in new-chat mode
+        return;
+      }
+
       if (urlConvId && urlConvId !== activeConvId) {
         loadConversation(urlConvId);
       }
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token, router.isReady, router.query.conversation, activeConvId]);
 
   /* ── Auto scroll on new messages ── */
@@ -322,6 +338,10 @@ export default function ChatPage() {
 
   /* ── New chat ── */
   const startNewChat = () => {
+    // Set flag BEFORE any state changes so the URL effect ignores
+    // the interim state where activeConvId=null but URL still has old convId
+    isNewChatMode.current = true;
+
     // Abort any ongoing generation first
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
