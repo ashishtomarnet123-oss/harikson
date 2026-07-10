@@ -123,6 +123,15 @@ const SLASH_COMMANDS = [
    Main Chat Page
 ──────────────────────────────────────────────────────────── */
 export default function ChatPage() {
+  const [globalError, setGlobalError] = useState('');
+  useEffect(() => {
+    window.onerror = (msg, src, line, col, err) => {
+      setGlobalError(msg + " at " + line + ":" + col + "\n" + (err ? err.stack : ''));
+    };
+    window.addEventListener('unhandledrejection', (event) => {
+      setGlobalError("Unhandled Promise Rejection: " + event.reason);
+    });
+  }, []);
   const router = useRouter();
 
   // Auth & config
@@ -606,6 +615,12 @@ export default function ChatPage() {
 
   return (
     <>
+            {globalError && (
+        <div style={{ position: 'fixed', top: 0, left: 0, width: '100%', background: 'red', color: 'white', zIndex: 9999, padding: '20px', whiteSpace: 'pre-wrap' }}>
+          <h1>CLIENT SIDE CRASH!</h1>
+          {globalError}
+        </div>
+      )}
       <Head>
         <title>Harikson AI — Chat</title>
         <meta name="description" content="Harikson AI Chat Interface" />
