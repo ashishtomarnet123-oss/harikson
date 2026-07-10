@@ -121,9 +121,91 @@ const SLASH_COMMANDS = [
   { id: 'explain', icon: <BrainCircuit size={18} />, title: 'Explain', desc: 'Explain a complex concept simply', prompt: 'Explain this concept to me as if I were a beginner: ' },
 ];
 
+let pdfjsPromise = null;
+const loadPdfJs = () => {
+  if (pdfjsPromise) return pdfjsPromise;
+  pdfjsPromise = new Promise((resolve, reject) => {
+    if (typeof window === 'undefined') {
+      reject(new Error('Window is not defined'));
+      return;
+    }
+    if (window.pdfjsLib) {
+      resolve(window.pdfjsLib);
+      return;
+    }
+    const script = document.createElement('script');
+    script.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
+    script.onload = () => {
+      window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+      resolve(window.pdfjsLib);
+    };
+    script.onerror = (err) => {
+      pdfjsPromise = null;
+      reject(err);
+    };
+    document.head.appendChild(script);
+  });
+  return pdfjsPromise;
+};
+
+const extractTextFromPdf = async (arrayBuffer) => {
+  const pdfjs = await loadPdfJs();
+  const loadingTask = pdfjs.getDocument({ data: new Uint8Array(arrayBuffer) });
+  const pdf = await loadingTask.promise;
+  let fullText = '';
+  for (let i = 1; i <= pdf.numPages; i++) {
+    const page = await pdf.getPage(i);
+    const textContent = await page.getTextContent();
+    const pageText = textContent.items.map(item => item.str).join(' ');
+    fullText += `--- Page ${i} ---\n${pageText}\n\n`;
+  }
+  if (!fullText.trim()) {
+    return '[Empty PDF document or scanned PDF with no extractable text]';
+  }
+  return fullText;
+};
+
+let tesseractPromise = null;
+const loadTesseract = () => {
+  if (tesseractPromise) return tesseractPromise;
+  tesseractPromise = new Promise((resolve, reject) => {
+    if (typeof window === 'undefined') {
+      reject(new Error('Window is not defined'));
+      return;
+    }
+    if (window.Tesseract) {
+      resolve(window.Tesseract);
+      return;
+    }
+    const script = document.createElement('script');
+    script.src = 'https://cdn.jsdelivr.net/npm/tesseract.js@5.0.5/dist/tesseract.min.js';
+    script.onload = () => {
+      resolve(window.Tesseract);
+    };
+    script.onerror = (err) => {
+      tesseractPromise = null;
+      reject(err);
+    };
+    document.head.appendChild(script);
+  });
+  return tesseractPromise;
+};
+
+const extractTextFromImage = async (dataUrl) => {
+  const tesseract = await loadTesseract();
+  const worker = await tesseract.createWorker('eng');
+  const ret = await worker.recognize(dataUrl);
+  await worker.terminate();
+  if (!ret.data.text.trim()) {
+    return '[No extractable text found in image]';
+  }
+  return ret.data.text;
+};
+
 /* ────────────────────────────────────────────────────────────
    Main Chat Page
-──────────────────────────────────────────────────────────── */
+   ──────────────────────────────────────────────────────────── */
+
 export default function ChatPage() {
   const [globalError, setGlobalError] = useState('');
   useEffect(() => {
@@ -195,6 +277,7 @@ export default function ChatPage() {
   const [customInstructions, setCustomInstructions] = useState('');
   const [attachedFiles, setAttachedFiles] = useState([]);
   const [pinnedChats, setPinnedChats] = useState([]);
+  const hasProcessingFiles = attachedFiles.some(f => f.status === 'processing');
   const [showSlashMenu, setShowSlashMenu] = useState(false);
   const [slashIndex, setSlashIndex] = useState(0);
   const [activeArtifact, setActiveArtifact] = useState(null);
@@ -363,19 +446,64 @@ export default function ChatPage() {
   };
 
 
-  const handleFileUpload = (e) => {
-    const files = Array.from(e.target.files || []);
-    files.forEach(file => {
+  const processFile = (file) => {
+    const fileId = Math.random().toString(36).substring(7);
+    
+    // Add placeholder with status 'processing'
+    setAttachedFiles(prev => [
+      ...prev,
+      { id: fileId, name: file.name, status: 'processing', content: '' }
+    ]);
+
+    const updateFileContent = (content, status = 'ready', error = null) => {
+      setAttachedFiles(prev => prev.map(f => {
+        if (f.id === fileId) {
+          return { ...f, content, status, error };
+        }
+        return f;
+      }));
+    };
+
+    if (file.type === 'application/pdf' || file.name.endsWith('.pdf')) {
+      const reader = new FileReader();
+      reader.onload = async (event) => {
+        try {
+          const arrayBuffer = event.target.result;
+          const text = await extractTextFromPdf(arrayBuffer);
+          updateFileContent(text);
+        } catch (err) {
+          console.error('Failed to parse PDF:', err);
+          updateFileContent('', 'error', 'Failed to extract PDF text');
+        }
+      };
+      reader.readAsArrayBuffer(file);
+    } else if (file.type.startsWith('image/')) {
+      const reader = new FileReader();
+      reader.onload = async (event) => {
+        try {
+          const dataUrl = event.target.result;
+          const text = await extractTextFromImage(dataUrl);
+          updateFileContent(text);
+        } catch (err) {
+          console.error('Failed to OCR image:', err);
+          updateFileContent('', 'error', 'Failed to extract text from image');
+        }
+      };
+      reader.readAsDataURL(file);
+    } else {
       const reader = new FileReader();
       reader.onload = (event) => {
-        setAttachedFiles(prev => [
-          ...prev, 
-          { name: file.name, content: event.target.result || '' }
-        ]);
+        updateFileContent(event.target.result || '');
       };
       reader.readAsText(file);
-    });
+    }
   };
+
+  const handleFileUpload = (e) => {
+    const files = Array.from(e.target.files || []);
+    files.forEach(file => processFile(file));
+  };
+
 
   const removeAttachedFile = (idx) => {
     setAttachedFiles(prev => prev.filter((_, i) => i !== idx));
@@ -448,16 +576,7 @@ export default function ChatPage() {
     e.preventDefault();
     setIsDragging(false);
     const files = Array.from(e.dataTransfer.files || []);
-    files.forEach(file => {
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        setAttachedFiles(prev => [
-          ...prev, 
-          { name: file.name, content: event.target.result || '' }
-        ]);
-      };
-      reader.readAsText(file);
-    });
+    files.forEach(file => processFile(file));
   };
 
   const stopGeneration = (e) => {
@@ -475,7 +594,8 @@ export default function ChatPage() {
   /* ── Send message ── */
   const sendMessage = async (e) => {
     if (e) e.preventDefault();
-    if (!inputText.trim() || loading) return;
+    const readyAttachments = attachedFiles.filter(f => f.status !== 'error' && f.status !== 'processing');
+    if ((!inputText.trim() && readyAttachments.length === 0) || loading || hasProcessingFiles) return;
 
     const userText = inputText.trim();
     setInputText('');
@@ -515,8 +635,9 @@ export default function ChatPage() {
 
     // Handle document/file attachment injection
     let finalMessage = userText;
-    if (attachedFiles.length > 0) {
-      const attachments = attachedFiles.map(f => `<uploaded_file name="${f.name}">\n${f.content}\n</uploaded_file>`).join('\n\n');
+    const readyAttachments = attachedFiles.filter(f => f.status !== 'error' && f.status !== 'processing');
+    if (readyAttachments.length > 0) {
+      const attachments = readyAttachments.map(f => `<uploaded_file name="${f.name}">\n${f.content}\n</uploaded_file>`).join('\n\n');
       finalMessage = `${attachments}\n\n${userText}`;
     }
     setAttachedFiles([]);
@@ -916,10 +1037,30 @@ export default function ChatPage() {
             {attachedFiles.length > 0 && (
               <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '8px', padding: '0 12px' }}>
                 {attachedFiles.map((file, i) => (
-                  <div key={i} className="attached-file-pill">
-                    <Paperclip size={12} />
-                    <span>{file.name}</span>
-                    <button type="button" onClick={() => removeAttachedFile(i)}><X size={14} /></button>
+                  <div key={i} className={`attached-file-pill ${file.status || 'ready'}`} style={
+                    file.status === 'error' ? { borderColor: 'rgba(239, 68, 68, 0.4)', background: 'rgba(239, 68, 68, 0.05)', color: '#dc2626' } :
+                    file.status === 'processing' ? { borderColor: 'rgba(79, 140, 255, 0.4)', background: 'rgba(79, 140, 255, 0.05)' } : {}
+                  }>
+                    {file.status === 'processing' ? (
+                      <div className="settings-spinner" style={{
+                        width: '12px',
+                        height: '12px',
+                        border: '2px solid rgba(79, 140, 255, 0.2)',
+                        borderTop: '2px solid var(--accent)',
+                        borderRadius: '50%',
+                        animation: 'spin 1s linear infinite'
+                      }} />
+                    ) : (
+                      <Paperclip size={12} />
+                    )}
+                    <span style={{ fontSize: '11.5px' }}>
+                      {file.name} 
+                      {file.status === 'processing' && ' (extracting...)'}
+                      {file.status === 'error' && ' (failed)'}
+                    </span>
+                    <button type="button" onClick={() => removeAttachedFile(i)} style={
+                      file.status === 'error' ? { color: '#dc2626' } : {}
+                    }><X size={14} /></button>
                   </div>
                 ))}
               </div>
@@ -996,7 +1137,7 @@ export default function ChatPage() {
                       <button
                         type="submit"
                         className="send-btn"
-                        disabled={!inputText.trim() && attachedFiles.length === 0}
+                        disabled={(!inputText.trim() && attachedFiles.length === 0) || hasProcessingFiles}
                         title="Send (Enter)"
                       >
                         <ArrowUp size={18} />
