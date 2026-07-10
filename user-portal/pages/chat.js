@@ -20,10 +20,10 @@ function CodeBlock({ language, code, onOpenArtifact }) {
         <span className="code-lang">{language || 'code'}</span>
         <div className="artifact-actions">
           {onOpenArtifact && (
-            <button onClick={() => onOpenArtifact({ language, code })} title="Open in Canvas">⛶ Canvas</button>
+            <button onClick={() => onOpenArtifact({ language, code })} title="Open in Canvas" style={{display: 'flex', alignItems: 'center', gap: '4px'}}><Maximize2 size={12} /> Canvas</button>
           )}
           <button className={`copy-btn${copied ? ' copied' : ''}`} onClick={copy}>
-            {copied ? '✓ Copied' : '⧉ Copy'}
+            {copied ? <><Check size={14} /> Copied</> : <><Copy size={14} /> Copy</>}
           </button>
         </div>
       </div>
@@ -114,9 +114,9 @@ function renderInline(text) {
 
 const SLASH_COMMANDS = [
   { id: 'code', icon: '</>', title: 'Write Code', desc: 'Generate a code snippet or component', prompt: 'Write the code for a ' },
-  { id: 'summarize', icon: '📝', title: 'Summarize', desc: 'Summarize text or meeting notes', prompt: 'Summarize the following: \n' },
-  { id: 'debug', icon: '🐛', title: 'Debug', desc: 'Find bugs in my code', prompt: 'Debug this code and explain the fixes: \n' },
-  { id: 'explain', icon: '🧠', title: 'Explain', desc: 'Explain a complex concept simply', prompt: 'Explain this concept to me as if I were a beginner: ' },
+  { id: 'summarize', icon: <FileText size={18} />, title: 'Summarize', desc: 'Summarize text or meeting notes', prompt: 'Summarize the following: \n' },
+  { id: 'debug', icon: <Bug size={18} />, title: 'Debug', desc: 'Find bugs in my code', prompt: 'Debug this code and explain the fixes: \n' },
+  { id: 'explain', icon: <BrainCircuit size={18} />, title: 'Explain', desc: 'Explain a complex concept simply', prompt: 'Explain this concept to me as if I were a beginner: ' },
 ];
 
 /* ────────────────────────────────────────────────────────────
@@ -441,9 +441,9 @@ export default function ChatPage() {
     
     // Determine loading status based on toggles and URLs
     if (useDeepSearch) {
-      setLoadingStatus('🌐 Searching the web...');
+      setLoadingStatus('Searching the web...');
     } else if (userText.match(/(https?:\/\/[^\s]+)/g)) {
-      setLoadingStatus('🕷️ Crawling websites...');
+      setLoadingStatus('Crawling websites...');
     } else {
       setLoadingStatus('');
     }
@@ -670,13 +670,13 @@ export default function ChatPage() {
         <aside className="sidebar">
           {/* Logo */}
           <div className="sidebar-header">
-            <div className="sidebar-logo-icon">⚡</div>
+            <div className="sidebar-logo-icon"><Zap size={20} color="var(--accent)" /></div>
             <div className="sidebar-logo-text">Harikson AI</div>
           </div>
 
           {/* New Chat */}
           <button className="new-chat-btn" onClick={startNewChat}>
-            <span>＋</span>
+            <Plus size={16} />
             <span>New conversation</span>
           </button>
 
@@ -718,12 +718,12 @@ export default function ChatPage() {
                     className="conv-action-btn"
                     title="Rename"
                     onClick={(e) => startRename(conv, e)}
-                  >✎</button>
+                  ><Edit3 size={14} /></button>
                   <button
                     className="conv-action-btn danger"
                     title="Delete"
                     onClick={(e) => deleteConversation(conv.id, e)}
-                  >✕</button>
+                  ><X size={14} /></button>
                 </div>
               </div>
             ))}
@@ -734,7 +734,7 @@ export default function ChatPage() {
             <div className="user-info">
               <div className="user-avatar">{userInitial}</div>
               <span className="user-email">{user?.email || 'User'}</span>
-              <button className="logout-btn" onClick={handleLogout} title="Sign out">⎋</button>
+              <button className="logout-btn" onClick={handleLogout} title="Sign out"><LogOut size={16} /></button>
             </div>
           </div>
         </aside>
@@ -751,7 +751,7 @@ export default function ChatPage() {
             </span>
             <div className="topbar-actions">
               <button className="share-btn" onClick={handleShareChat} title="Share conversation link">
-                <span>🔗</span> Share
+                <span style={{marginRight: "6px"}}><Link size={14} /></span> Share
               </button>
               <select
                 className="model-select"
@@ -778,34 +778,34 @@ export default function ChatPage() {
           <div className="messages-area">
             {messages.length === 0 && !loading && (
               <div className="messages-empty">
-                <div className="messages-empty-icon">⚡</div>
+                <div className="messages-empty-icon"><Zap size={40} color="var(--accent)" /></div>
                 <h2>Harikson AI</h2>
                 <p>Your enterprise AI coding assistant. Ask anything about your codebase, architecture, or software.</p>
                 
                 <div className="prompt-suggestions-grid">
                   <div className="suggestion-card" onClick={() => handleSuggestionClick("Create a private LLM deployment template with Harikson.")}>
-                    <div className="suggestion-icon">🚀</div>
+                    <div className="suggestion-icon"><Rocket size={24} color="var(--accent)" /></div>
                     <div className="suggestion-text">
                       <strong>Deploy Private LLM</strong>
                       <span>Create a sovereign deployment template</span>
                     </div>
                   </div>
                   <div className="suggestion-card" onClick={() => handleSuggestionClick("Auditing my code for DPDP compliance rules.")}>
-                    <div className="suggestion-icon">🛡️</div>
+                    <div className="suggestion-icon"><ShieldCheck size={24} color="var(--accent)" /></div>
                     <div className="suggestion-text">
                       <strong>DPDP Audit</strong>
                       <span>Check code compliance on Indian soil</span>
                     </div>
                   </div>
                   <div className="suggestion-card" onClick={() => handleSuggestionClick("Optimize this query for active tenant indexes.")}>
-                    <div className="suggestion-icon">⚡</div>
+                    <div className="suggestion-icon"><Zap size={24} color="var(--accent)" /></div>
                     <div className="suggestion-text">
                       <strong>Optimize SQL Index</strong>
                       <span>DBA schema indexing assistant</span>
                     </div>
                   </div>
                   <div className="suggestion-card" onClick={() => handleSuggestionClick("Write a robust RAG data pipeline configuration.")}>
-                    <div className="suggestion-icon">📂</div>
+                    <div className="suggestion-icon"><Folder size={24} color="var(--accent)" /></div>
                     <div className="suggestion-text">
                       <strong>RAG Data Pipeline</strong>
                       <span>Inject documents for vector search</span>
@@ -823,7 +823,7 @@ export default function ChatPage() {
               ) : (
                 <div key={idx} className="message-row assistant">
                   <div className="message-bubble-assistant">
-                    <div className="assistant-avatar">⚡</div>
+                    <div className="assistant-avatar"><Zap size={16} color="white" /></div>
                     <div className="assistant-content">
                       {renderMarkdown(msg.text, setActiveArtifact)}
                     </div>
@@ -835,7 +835,7 @@ export default function ChatPage() {
             {/* Thinking indicator */}
             {loading && (
               <div className="thinking-row" style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                <div className="thinking-avatar">⚡</div>
+                <div className="thinking-avatar"><Zap size={16} color="white" /></div>
                 <div className="thinking-dots">
                   <div className="thinking-dot" />
                   <div className="thinking-dot" />
@@ -852,7 +852,7 @@ export default function ChatPage() {
             {/* Error */}
             {error && (
               <div className="error-banner">
-                <span>⚠</span>
+                <TriangleAlert size={18} />
                 <span>{error}</span>
               </div>
             )}
@@ -863,43 +863,18 @@ export default function ChatPage() {
           {/* Input bar */}
           <div className="input-bar">
             {attachedFiles.length > 0 && (
-              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '8px', padding: '0 20px' }}>
+              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '8px', padding: '0 12px' }}>
                 {attachedFiles.map((file, i) => (
-                  <div key={i} style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '6px',
-                    background: 'rgba(79, 140, 255, 0.08)',
-                    border: '1px solid rgba(79, 140, 255, 0.2)',
-                    color: 'var(--accent)',
-                    padding: '4px 8px',
-                    borderRadius: '8px',
-                    fontSize: '11px',
-                    fontWeight: '600'
-                  }}>
-                    <span>📄 {file.name}</span>
-                    <button type="button" onClick={() => removeAttachedFile(i)} style={{
-                      border: 'none',
-                      background: 'none',
-                      color: 'var(--error)',
-                      cursor: 'pointer',
-                      fontSize: '11px',
-                      padding: '0 2px'
-                    }}>✕</button>
+                  <div key={i} className="attached-file-pill">
+                    <Paperclip size={12} />
+                    <span>{file.name}</span>
+                    <button type="button" onClick={() => removeAttachedFile(i)}><X size={14} /></button>
                   </div>
                 ))}
               </div>
             )}
             <form onSubmit={sendMessage}>
-              <div className="input-wrapper" style={{ display: 'flex', alignItems: 'center', position: 'relative' }}>
-                <button 
-                  type="button" 
-                  className={`mic-btn ${isRecording ? 'mic-pulsing' : ''}`} 
-                  onClick={toggleRecording}
-                  title={isRecording ? 'Stop recording' : 'Dictate with voice'}
-                >
-                  🎤
-                </button>
+              <div className="input-wrapper">
                 {showSlashMenu && (
                   <div className="slash-command-popup">
                     {SLASH_COMMANDS.map((cmd, idx) => (
@@ -918,28 +893,6 @@ export default function ChatPage() {
                     ))}
                   </div>
                 )}
-
-                <input
-                  type="file"
-                  id="file-upload"
-                  multiple
-                  style={{ display: 'none' }}
-                  onChange={handleFileUpload}
-                />
-                <label htmlFor="file-upload" style={{
-                  cursor: 'pointer',
-                  padding: '6px 8px',
-                  borderRadius: '8px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  background: 'var(--bg-hover)',
-                  border: '1px solid var(--border)',
-                  color: 'var(--text-secondary)',
-                  marginRight: '6px'
-                }} title="Attach Files">
-                  📎
-                </label>
                 <textarea
                   ref={textareaRef}
                   className="chat-textarea"
@@ -950,33 +903,56 @@ export default function ChatPage() {
                   placeholder="Message Harikson…"
                   disabled={loading}
                 />
-                 {loading ? (
-                  <button
-                    type="button"
-                    className="send-btn stop-btn"
-                    onClick={stopGeneration}
-                    title="Stop generation"
-                  >
-                    ■
-                  </button>
-                ) : (
-                  <button
-                    type="submit"
-                    className="send-btn"
-                    disabled={!inputText.trim() && attachedFiles.length === 0}
-                    title="Send (Enter)"
-                  >
-                    ↑
-                  </button>
-                )}
-              </div>
-              <div className="compute-toggles-row">
-                <button type="button" className={`compute-toggle ${useDeepSearch ? 'active' : ''}`} onClick={() => setUseDeepSearch(!useDeepSearch)}>
-                  🌐 Deep Search
-                </button>
-                <button type="button" className={`compute-toggle ${useReasoning ? 'active' : ''}`} onClick={() => setUseReasoning(!useReasoning)}>
-                  🧠 Reasoning
-                </button>
+                <div className="input-toolbar">
+                  <div className="input-toolbar-left">
+                    <button 
+                      type="button" 
+                      className={`toolbar-btn ${isRecording ? 'mic-pulsing' : ''}`} 
+                      onClick={toggleRecording}
+                      title={isRecording ? 'Stop recording' : 'Dictate with voice'}
+                    >
+                      <Mic size={18} />
+                    </button>
+                    <input
+                      type="file"
+                      id="file-upload"
+                      multiple
+                      style={{ display: 'none' }}
+                      onChange={handleFileUpload}
+                    />
+                    <label htmlFor="file-upload" className="toolbar-btn" title="Attach Files">
+                      <Paperclip size={18} />
+                    </label>
+                    <div className="toolbar-divider" />
+                    <button type="button" className={`compute-toggle ${useDeepSearch ? 'active' : ''}`} onClick={() => setUseDeepSearch(!useDeepSearch)}>
+                      <Globe size={14} /> Search
+                    </button>
+                    <button type="button" className={`compute-toggle ${useReasoning ? 'active' : ''}`} onClick={() => setUseReasoning(!useReasoning)}>
+                      <BrainCircuit size={14} /> Reason
+                    </button>
+                  </div>
+                  <div className="input-toolbar-right">
+                    {loading ? (
+                      <button
+                        type="button"
+                        className="send-btn stop-btn"
+                        onClick={stopGeneration}
+                        title="Stop generation"
+                      >
+                        <Square fill="currentColor" size={14} />
+                      </button>
+                    ) : (
+                      <button
+                        type="submit"
+                        className="send-btn"
+                        disabled={!inputText.trim() && attachedFiles.length === 0}
+                        title="Send (Enter)"
+                      >
+                        <ArrowUp size={18} />
+                      </button>
+                    )}
+                  </div>
+                </div>
               </div>
             </form>
             <p className="input-hint">Press Enter to send · Shift+Enter for new line · Attach code files</p>
@@ -988,11 +964,11 @@ export default function ChatPage() {
           <aside className="artifact-pane">
             <div className="artifact-header">
               <div className="artifact-title">
-                <span style={{color: '#ff7e67'}}>⛶</span> {activeArtifact.language === 'html' ? 'index.html' : 'snippet.' + (activeArtifact.language || 'txt')}
+                <Maximize2 size={16} color="#ff7e67" style={{marginRight: '8px'}} /> {activeArtifact.language === 'html' ? 'index.html' : 'snippet.' + (activeArtifact.language || 'txt')}
               </div>
               <div className="artifact-actions">
-                <button onClick={() => { navigator.clipboard.writeText(activeArtifact.code); }}>⧉</button>
-                <button onClick={() => setActiveArtifact(null)}>✕</button>
+                <button onClick={() => { navigator.clipboard.writeText(activeArtifact.code); }}><Copy size={14} /></button>
+                <button onClick={() => setActiveArtifact(null)}><X size={14} /></button>
               </div>
             </div>
             
@@ -1016,7 +992,7 @@ export default function ChatPage() {
 
         {isDragging && (
           <div className="drag-drop-overlay">
-            <div className="drag-drop-icon">📂</div>
+            <div className="drag-drop-icon"><FolderUp size={48} color="var(--accent)" /></div>
             <span>Drop your files to attach to Harikson</span>
           </div>
         )}
