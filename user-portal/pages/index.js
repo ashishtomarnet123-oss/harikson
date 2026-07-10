@@ -302,8 +302,8 @@ export default function LandingPage() {
                 </p>
 
                 <div className="hero-ctas">
-                  <Link href="/signup" passHref legacyBehavior><a className="btn-primary">🚀 Start Free — ₹0</a></Link>
-                  <a href="#founders-contact" className="btn-secondary">📅 Book Demo</a>
+                  <Link href="/signup" passHref legacyBehavior><a className="btn-hero-primary">🚀 Start Free — ₹0</a></Link>
+                  <a href="#founders-contact" className="btn-hero-secondary">📅 Book Demo</a>
                 </div>
                 <p className="hero-cta-caption">
                   No credit card. 100K tokens free.
@@ -883,7 +883,7 @@ export default function LandingPage() {
           gap: 12px;
           margin-bottom: 10px;
         }
-        .btn-primary {
+        .btn-hero-primary {
           background: #4F8CFF;
           color: #FFF;
           font-size: 14px;
@@ -891,16 +891,20 @@ export default function LandingPage() {
           padding: 13px 28px;
           border-radius: 12px;
           text-decoration: none;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
           transition: all 0.2s ease-in-out;
           box-shadow: 0 4px 14px rgba(79, 140, 255, 0.25);
           border: none;
+          cursor: pointer;
         }
-        .btn-primary:hover {
+        .btn-hero-primary:hover {
           transform: translateY(-1.5px);
           background: #3B82F6;
           box-shadow: 0 8px 20px rgba(79, 140, 255, 0.35);
         }
-        .btn-secondary {
+        .btn-hero-secondary {
           background: #FFFFFF;
           border: 1px solid #E2E8F0;
           color: #0F172A;
@@ -909,52 +913,66 @@ export default function LandingPage() {
           padding: 13px 28px;
           border-radius: 12px;
           text-decoration: none;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
           transition: all 0.2s ease-in-out;
           box-shadow: 0 2px 6px rgba(0,0,0,0.03);
+          cursor: pointer;
         }
-        .btn-secondary:hover {
+        .btn-hero-secondary:hover {
           background: #F8FAFC;
           border-color: #CBD5E1;
-          transform: translateY(-1px);
+          transform: translateY(-1.5px);
         }
         .hero-cta-caption {
           font-size: 12px;
           color: #64748B;
-          margin-bottom: 40px;
+          margin-bottom: 32px;
         }
 
         /* Trust Partners */
         .trust-partners {
-          border-top: 1px solid #E2E8F0;
-          padding-top: 24px;
+          display: flex;
+          flex-direction: column;
+          gap: 12px;
+          margin-bottom: 24px;
         }
         .trust-label {
           font-size: 11px;
           font-weight: 700;
+          color: #64748B;
           text-transform: uppercase;
           letter-spacing: 1px;
-          color: #64748B;
-          display: block;
-          margin-bottom: 12px;
         }
         .trust-logos-row {
           display: flex;
           flex-wrap: wrap;
-          gap: 20px;
+          gap: 12px;
         }
         .trust-logo {
           font-size: 12px;
-          font-weight: 700;
-          color: #4F8CFF;
-          background: rgba(79, 140, 255, 0.08);
-          border: 1px solid rgba(79, 140, 255, 0.15);
-          padding: 4px 10px;
-          border-radius: 6px;
+          font-weight: 600;
+          color: #475569;
+          background: #F1F5F9;
+          padding: 6px 14px;
+          border-radius: 8px;
+          border: 1px solid #E2E8F0;
         }
         .scroll-indicator {
           font-size: 12px;
           color: #64748B;
-          margin-top: 40px;
+          display: flex;
+          align-items: center;
+          gap: 6px;
+        }
+        .arrow-down {
+          animation: bounce 2s infinite;
+        }
+        @keyframes bounce {
+          0%, 20%, 50%, 80%, 100% { transform: translateY(0); }
+          40% { transform: translateY(-4px); }
+          60% { transform: translateY(-2px); }
         }
 
         .hero-right {
@@ -962,23 +980,32 @@ export default function LandingPage() {
           flex-direction: column;
           align-items: center;
           gap: 24px;
+          width: 100%;
         }
         .hero-badges-row {
-          display: flex;
-          flex-direction: column;
-          gap: 10px;
+          display: grid;
+          grid-template-columns: repeat(3, 1fr);
+          gap: 12px;
           width: 100%;
-          max-width: 480px;
+          max-width: 540px;
         }
         .badge-card {
           background: #FFFFFF;
           border: 1px solid #E2E8F0;
-          border-radius: 10px;
-          padding: 10px 14px;
+          border-radius: 12px;
+          padding: 12px;
           display: flex;
+          flex-direction: column;
           align-items: center;
-          gap: 12px;
+          text-align: center;
+          gap: 8px;
           box-shadow: 0 4px 12px rgba(0,0,0,0.02);
+          transition: all 0.2s ease;
+        }
+        .badge-card:hover {
+          transform: translateY(-2px);
+          box-shadow: 0 8px 24px rgba(0,0,0,0.04);
+          border-color: rgba(79, 140, 255, 0.2);
         }
         .badge-icon {
           font-size: 20px;
