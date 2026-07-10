@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Save, Check } from 'lucide-react';
+import { Save } from 'lucide-react';
 
 export default function AppearanceSettings() {
   const [settings, setSettings] = useState({
@@ -18,7 +18,7 @@ export default function AppearanceSettings() {
     const fetchSettings = async () => {
       try {
         const token = localStorage.getItem('hk_token');
-        if(!token) return;
+        if (!token) return;
         const apiBase = process.env.NEXT_PUBLIC_API_URL || '';
         const res = await fetch(`${apiBase}/api/user/settings`, {
           headers: { 'Authorization': `Bearer ${token}` }
@@ -28,7 +28,7 @@ export default function AppearanceSettings() {
           setSettings(prev => ({ ...prev, ...data }));
         }
       } catch (err) {
-        console.error("Failed to fetch settings", err);
+        console.error('Failed to fetch settings', err);
       } finally {
         setLoading(false);
       }
@@ -38,10 +38,7 @@ export default function AppearanceSettings() {
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
-    setSettings(prev => ({ 
-      ...prev, 
-      [name]: type === 'checkbox' ? checked : value 
-    }));
+    setSettings(prev => ({ ...prev, [name]: type === 'checkbox' ? checked : value }));
   };
 
   const handleSave = async (e) => {
@@ -53,10 +50,7 @@ export default function AppearanceSettings() {
       const apiBase = process.env.NEXT_PUBLIC_API_URL || '';
       const res = await fetch(`${apiBase}/api/user/settings`, {
         method: 'PUT',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         body: JSON.stringify(settings)
       });
       if (res.ok) {
@@ -86,6 +80,7 @@ export default function AppearanceSettings() {
         <div className="settings-section">
           <h2>Interface Theme</h2>
           <div className="form-group">
+            <label>Color Theme</label>
             <select name="theme" value={settings.theme} onChange={handleChange}>
               <option value="system">System (Matches your OS)</option>
               <option value="dark">Dark</option>
@@ -96,6 +91,7 @@ export default function AppearanceSettings() {
 
         <div className="settings-section">
           <h2>Layout Preferences</h2>
+
           <div className="form-row">
             <div className="form-group">
               <label>Interface Density</label>
@@ -112,6 +108,7 @@ export default function AppearanceSettings() {
               </select>
             </div>
           </div>
+
           <div className="form-row">
             <div className="form-group">
               <label>Font Size</label>
@@ -133,23 +130,25 @@ export default function AppearanceSettings() {
         </div>
 
         <div className="settings-section">
-          <h2>Accessibility & Motion</h2>
-          <div className="form-group" style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <input 
-              type="checkbox" 
-              name="animation" 
-              checked={settings.animation} 
-              onChange={handleChange} 
+          <h2>Accessibility &amp; Motion</h2>
+          <div className="settings-checkbox-row">
+            <input
+              type="checkbox"
+              name="animation"
               id="animation-toggle"
+              checked={settings.animation}
+              onChange={handleChange}
             />
-            <label htmlFor="animation-toggle" style={{ margin: 0 }}>Enable Interface Animations</label>
+            <label htmlFor="animation-toggle">Enable Interface Animations</label>
           </div>
-          <span className="help-text" style={{ marginLeft: '24px' }}>Turn off to disable slide and fade transitions.</span>
+          <span className="help-text" style={{ paddingLeft: '26px' }}>
+            Turn off to disable slide and fade transitions.
+          </span>
         </div>
 
         <div className="settings-actions">
           <button type="submit" className="btn-primary" disabled={saving}>
-            {saving ? 'Saving...' : <><Save size={16} /> Save Changes</>}
+            {saving ? 'Saving...' : <><Save size={15} /> Save Changes</>}
           </button>
         </div>
       </form>

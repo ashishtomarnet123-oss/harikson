@@ -4,16 +4,8 @@ import { useRouter } from 'next/router';
 
 export default function ProfileSettings() {
   const [profile, setProfile] = useState({
-    name: '',
-    username: '',
-    email: '',
-    phone: '',
-    company: '',
-    jobTitle: '',
-    department: '',
-    country: '',
-    timeZone: '',
-    bio: ''
+    name: '', username: '', email: '', phone: '',
+    company: '', jobTitle: '', department: '', country: '', bio: ''
   });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -24,33 +16,21 @@ export default function ProfileSettings() {
     const fetchProfile = async () => {
       try {
         const token = localStorage.getItem('hk_token');
-        if (!token) {
-          router.push('/login');
-          return;
-        }
-        
-        // Use a relative or absolute URL based on your API setup.
-        // For now, assuming the API is hosted on the same domain or we have an apiBase.
-        // If apiBase is needed, we should extract it from env or standard config.
+        if (!token) { router.push('/login'); return; }
         const apiBase = process.env.NEXT_PUBLIC_API_URL || '';
-        
         const res = await fetch(`${apiBase}/api/user/profile`, {
-          headers: {
-            'Authorization': `Bearer ${token}`
-          }
+          headers: { 'Authorization': `Bearer ${token}` }
         });
-        
         if (res.ok) {
           const data = await res.json();
           setProfile(prev => ({ ...prev, ...data }));
         }
       } catch (err) {
-        console.error("Failed to fetch profile", err);
+        console.error('Failed to fetch profile', err);
       } finally {
         setLoading(false);
       }
     };
-    
     fetchProfile();
   }, [router]);
 
@@ -63,20 +43,14 @@ export default function ProfileSettings() {
     e.preventDefault();
     setSaving(true);
     setMessage(null);
-    
     try {
       const token = localStorage.getItem('hk_token');
       const apiBase = process.env.NEXT_PUBLIC_API_URL || '';
-      
       const res = await fetch(`${apiBase}/api/user/profile`, {
         method: 'PUT',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         body: JSON.stringify(profile)
       });
-      
       if (res.ok) {
         setMessage({ type: 'success', text: 'Profile updated successfully.' });
       } else {
@@ -98,16 +72,12 @@ export default function ProfileSettings() {
         <p>Manage your personal information and account details.</p>
       </div>
 
-      {message && (
-        <div className={`settings-alert ${message.type}`}>
-          {message.text}
-        </div>
-      )}
+      {message && <div className={`settings-alert ${message.type}`}>{message.text}</div>}
 
       <form className="settings-form" onSubmit={handleSave}>
         <div className="settings-section">
           <h2>Personal Information</h2>
-          
+
           <div className="form-row">
             <div className="form-group">
               <label>Full Name</label>
@@ -134,7 +104,7 @@ export default function ProfileSettings() {
 
         <div className="settings-section">
           <h2>Professional Details</h2>
-          
+
           <div className="form-row">
             <div className="form-group">
               <label>Company Name</label>
@@ -145,7 +115,7 @@ export default function ProfileSettings() {
               <input type="text" name="jobTitle" value={profile.jobTitle || ''} onChange={handleChange} placeholder="Software Engineer" />
             </div>
           </div>
-          
+
           <div className="form-row">
             <div className="form-group">
               <label>Department</label>
@@ -160,14 +130,13 @@ export default function ProfileSettings() {
 
         <div className="settings-section">
           <h2>About</h2>
-          
           <div className="form-group">
             <label>Short Bio</label>
-            <textarea 
-              name="bio" 
-              value={profile.bio || ''} 
-              onChange={handleChange} 
-              rows={4} 
+            <textarea
+              name="bio"
+              value={profile.bio || ''}
+              onChange={handleChange}
+              rows={4}
               placeholder="Tell us a little bit about yourself..."
             />
           </div>
@@ -175,7 +144,7 @@ export default function ProfileSettings() {
 
         <div className="settings-actions">
           <button type="submit" className="btn-primary" disabled={saving}>
-            {saving ? 'Saving...' : <><Save size={16} /> Save Changes</>}
+            {saving ? 'Saving...' : <><Save size={15} /> Save Changes</>}
           </button>
         </div>
       </form>

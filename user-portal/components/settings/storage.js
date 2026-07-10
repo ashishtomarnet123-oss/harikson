@@ -1,9 +1,9 @@
 import React from 'react';
-import { HardDrive, FileText, Image as ImageIcon, Database } from 'lucide-react';
+import { FileText, Image as ImageIcon, Database } from 'lucide-react';
 
 export default function StorageSettings() {
-  const totalStorage = 100; // GB
-  const usedStorage = 24.5; // GB
+  const totalStorage = 100;
+  const usedStorage = 24.5;
 
   const categories = [
     { name: 'Documents (PDF, DOCX)', size: 12.3, color: '#3b82f6', icon: FileText },
@@ -20,54 +20,66 @@ export default function StorageSettings() {
 
       <div className="settings-section">
         <h2>Storage Overview</h2>
-        
-        <div className="settings-flex-row" style={{ alignItems: 'flex-end', marginBottom: '16px'}}>
-          <div>
-            <span style={{fontSize: '36px', fontWeight: 'bold'}}>{usedStorage} GB</span>
-            <span style={{fontSize: '16px', color: 'var(--text-muted)', marginLeft: '8px'}}>used of {totalStorage} GB</span>
+
+        <div className="settings-storage-header">
+          <div className="settings-storage-used">
+            {usedStorage} GB <span>used of {totalStorage} GB</span>
           </div>
-          <div style={{fontSize: '14px', color: 'var(--text-secondary)'}}>
-            {Math.round((usedStorage/totalStorage)*100)}% Used
+          <div style={{ fontSize: '13.5px', color: 'var(--text-secondary)', flexShrink: 0 }}>
+            {Math.round((usedStorage / totalStorage) * 100)}% Used
           </div>
         </div>
 
-        {/* Progress Bar */}
-        <div style={{width: '100%', height: '12px', background: 'var(--bg-hover)', borderRadius: '6px', overflow: 'hidden', display: 'flex'}}>
+        <div className="settings-storage-bar">
           {categories.map((cat, i) => (
-            <div key={i} style={{height: '100%', width: `${(cat.size / totalStorage) * 100}%`, background: cat.color}}></div>
+            <div
+              key={i}
+              className="settings-storage-bar-segment"
+              style={{ width: `${(cat.size / totalStorage) * 100}%`, background: cat.color }}
+            />
           ))}
         </div>
 
-        <div className="settings-flex-col" style={{ marginTop: '32px' }}>
+        <div className="settings-flex-col" style={{ marginTop: '20px' }}>
           {categories.map((cat, i) => {
             const Icon = cat.icon;
             return (
               <div key={i} className="settings-card settings-flex-row">
-                <div style={{display: 'flex', alignItems: 'center', gap: '12px'}}>
-                  <div style={{width: '40px', height: '40px', borderRadius: '8px', background: `${cat.color}20`, color: cat.color, display: 'flex', alignItems: 'center', justifyContent: 'center'}}>
-                    <Icon size={20} />
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', minWidth: 0 }}>
+                  <div style={{
+                    width: '36px', height: '36px', flexShrink: 0,
+                    borderRadius: '8px', background: `${cat.color}20`,
+                    color: cat.color, display: 'flex', alignItems: 'center', justifyContent: 'center'
+                  }}>
+                    <Icon size={18} />
                   </div>
-                  <div style={{fontWeight: '500', fontSize: '15px'}}>{cat.name}</div>
+                  <div style={{ fontWeight: '500', fontSize: '13.5px', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {cat.name}
+                  </div>
                 </div>
-                <div style={{fontWeight: '600', fontSize: '15px'}}>{cat.size} GB</div>
+                <div style={{ fontWeight: '600', fontSize: '14px', flexShrink: 0 }}>{cat.size} GB</div>
               </div>
             );
           })}
         </div>
       </div>
-      
+
       <div className="settings-section">
         <h2>Data Retention</h2>
-        <div className="form-group">
-          <label>Automatically delete chat history older than</label>
-          <select defaultValue="never">
-            <option value="never">Never (Keep forever)</option>
-            <option value="30">30 days</option>
-            <option value="90">90 days</option>
-            <option value="365">1 year</option>
-          </select>
+        <div className="settings-form">
+          <div className="form-group">
+            <label>Automatically delete chat history older than</label>
+            <select defaultValue="never">
+              <option value="never">Never (Keep forever)</option>
+              <option value="30">30 days</option>
+              <option value="90">90 days</option>
+              <option value="365">1 year</option>
+            </select>
+          </div>
+          <div className="settings-actions" style={{ marginTop: '8px' }}>
+            <button type="button" className="btn-primary">Update Policy</button>
+          </div>
         </div>
-        <button className="btn-primary">Update Policy</button>
       </div>
     </>
   );

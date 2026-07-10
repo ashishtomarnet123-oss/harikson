@@ -14,17 +14,21 @@ export default function LanguageSettings() {
     const fetchProfile = async () => {
       try {
         const token = localStorage.getItem('hk_token');
-        if(!token) return;
+        if (!token) return;
         const apiBase = process.env.NEXT_PUBLIC_API_URL || '';
         const res = await fetch(`${apiBase}/api/user/profile`, {
           headers: { 'Authorization': `Bearer ${token}` }
         });
         if (res.ok) {
           const data = await res.json();
-          setProfile(prev => ({ ...prev, language: data.language || 'en', timeZone: data.timeZone || prev.timeZone }));
+          setProfile(prev => ({
+            ...prev,
+            language: data.language || 'en',
+            timeZone: data.timeZone || prev.timeZone
+          }));
         }
       } catch (err) {
-        console.error("Failed to fetch language settings", err);
+        console.error('Failed to fetch language settings', err);
       } finally {
         setLoading(false);
       }
@@ -46,10 +50,7 @@ export default function LanguageSettings() {
       const apiBase = process.env.NEXT_PUBLIC_API_URL || '';
       const res = await fetch(`${apiBase}/api/user/profile`, {
         method: 'PUT',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         body: JSON.stringify(profile)
       });
       if (res.ok) {
@@ -69,7 +70,7 @@ export default function LanguageSettings() {
   return (
     <>
       <div className="settings-page-header">
-        <h1>Language & Region</h1>
+        <h1>Language &amp; Region</h1>
         <p>Customize your language, date formats, and regional settings.</p>
       </div>
 
@@ -78,7 +79,7 @@ export default function LanguageSettings() {
       <form className="settings-form" onSubmit={handleSave}>
         <div className="settings-section">
           <h2>Regional Preferences</h2>
-          
+
           <div className="form-group">
             <label>Interface Language</label>
             <select name="language" value={profile.language} onChange={handleChange}>
@@ -94,20 +95,22 @@ export default function LanguageSettings() {
 
           <div className="form-group">
             <label>Time Zone</label>
-            <input 
-              type="text" 
-              name="timeZone" 
-              value={profile.timeZone || ''} 
-              onChange={handleChange} 
+            <input
+              type="text"
+              name="timeZone"
+              value={profile.timeZone || ''}
+              onChange={handleChange}
               placeholder="e.g. America/New_York"
             />
-            <span className="help-text">Determines how dates and times are displayed in the Activity Timeline and billing history.</span>
+            <span className="help-text">
+              Determines how dates and times are displayed in the Activity Timeline and billing history.
+            </span>
           </div>
         </div>
 
         <div className="settings-actions">
           <button type="submit" className="btn-primary" disabled={saving}>
-            {saving ? 'Saving...' : <><Save size={16} /> Save Changes</>}
+            {saving ? 'Saving...' : <><Save size={15} /> Save Changes</>}
           </button>
         </div>
       </form>

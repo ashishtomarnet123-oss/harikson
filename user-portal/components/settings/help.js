@@ -1,6 +1,30 @@
 import React from 'react';
 import { ExternalLink, BookOpen, MessageCircle, Bug } from 'lucide-react';
 
+const resources = [
+  {
+    icon: BookOpen,
+    title: 'Documentation',
+    description: 'Read our comprehensive guides on how to use Harikson AI for your business.',
+    label: 'View Docs',
+    href: '#'
+  },
+  {
+    icon: MessageCircle,
+    title: 'Contact Support',
+    description: 'Need help? Reach out to our enterprise support team 24/7.',
+    label: 'Email Support',
+    href: 'mailto:support@harikson.com'
+  },
+  {
+    icon: Bug,
+    title: 'Report an Issue',
+    description: 'Found a bug? Let our engineering team know so we can fix it quickly.',
+    label: 'Report Bug',
+    href: '#'
+  }
+];
+
 export default function HelpCenter() {
   return (
     <>
@@ -11,35 +35,22 @@ export default function HelpCenter() {
 
       <div className="settings-section">
         <h2>Resources</h2>
-        <div className="settings-grid-cards">
-          
-          <div style={{ padding: '20px', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)', background: 'var(--bg-primary)' }}>
-            <BookOpen size={24} style={{ color: 'var(--accent)', marginBottom: '16px' }} />
-            <h3 style={{ margin: '0 0 8px 0', fontSize: '16px' }}>Documentation</h3>
-            <p style={{ margin: '0 0 16px 0', fontSize: '14px', color: 'var(--text-secondary)' }}>
-              Read our comprehensive guides on how to use Harikson AI for your business.
-            </p>
-            <a href="#" className="back-link" style={{ color: 'var(--accent)' }}>View Docs <ExternalLink size={14} /></a>
-          </div>
-
-          <div style={{ padding: '20px', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)', background: 'var(--bg-primary)' }}>
-            <MessageCircle size={24} style={{ color: 'var(--accent)', marginBottom: '16px' }} />
-            <h3 style={{ margin: '0 0 8px 0', fontSize: '16px' }}>Contact Support</h3>
-            <p style={{ margin: '0 0 16px 0', fontSize: '14px', color: 'var(--text-secondary)' }}>
-              Need help? Reach out to our enterprise support team 24/7.
-            </p>
-            <a href="mailto:support@harikson.com" className="back-link" style={{ color: 'var(--accent)' }}>Email Support <ExternalLink size={14} /></a>
-          </div>
-          
-          <div style={{ padding: '20px', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)', background: 'var(--bg-primary)' }}>
-            <Bug size={24} style={{ color: 'var(--accent)', marginBottom: '16px' }} />
-            <h3 style={{ margin: '0 0 8px 0', fontSize: '16px' }}>Report an Issue</h3>
-            <p style={{ margin: '0 0 16px 0', fontSize: '14px', color: 'var(--text-secondary)' }}>
-              Found a bug? Let our engineering team know so we can fix it.
-            </p>
-            <a href="#" className="back-link" style={{ color: 'var(--accent)' }}>Report Bug <ExternalLink size={14} /></a>
-          </div>
-
+        <div className="settings-help-grid">
+          {resources.map((r, i) => {
+            const Icon = r.icon;
+            return (
+              <div key={i} className="settings-help-card">
+                <div style={{ color: 'var(--accent)' }}>
+                  <Icon size={22} />
+                </div>
+                <h3>{r.title}</h3>
+                <p>{r.description}</p>
+                <a href={r.href} className="back-link" style={{ color: 'var(--accent)', marginTop: 'auto' }}>
+                  {r.label} <ExternalLink size={12} />
+                </a>
+              </div>
+            );
+          })}
         </div>
       </div>
     </>
