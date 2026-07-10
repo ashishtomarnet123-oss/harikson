@@ -227,11 +227,12 @@ export default function ChatPage() {
   const abortControllerRef = useRef(null);
 
   /* ── Resolve config from localStorage on mount ── */
-    const savedInstructions = localStorage.getItem('harikson_custom_instructions');
-    if (savedInstructions) setCustomInstructions(savedInstructions);
+
 
   useEffect(() => {
     const savedToken = localStorage.getItem('hk_token');
+    const savedInstructions = localStorage.getItem('harikson_custom_instructions');
+    if (savedInstructions) setCustomInstructions(savedInstructions);
     if (!savedToken) { router.replace('/login'); return; }
     let savedUser = null;
     try {
