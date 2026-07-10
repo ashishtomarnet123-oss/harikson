@@ -2,8 +2,8 @@
 /* ── SETTINGS LAYOUT ── */
 .settings-layout {
   display: flex;
-  height: 100vh;
-  width: 100vw;
+  height: 100%;
+  width: 100%;
   background-color: var(--bg-primary);
   color: var(--text-primary);
   font-family: var(--font-sans);
@@ -113,16 +113,17 @@
 .settings-content-wrapper {
   flex: 1;
   overflow-y: auto;
-  padding: 40px;
+  padding: 32px 40px;
 }
 
 .settings-content {
   max-width: 800px;
   margin: 0 auto;
+  padding-bottom: 40px;
 }
 
 .settings-page-header {
-  margin-bottom: 40px;
+  margin-bottom: 32px;
 }
 
 .settings-page-header h1 {
@@ -141,26 +142,28 @@
   background: var(--bg-secondary);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
-  padding: 32px;
-  margin-bottom: 32px;
+  padding: 24px;
+  margin-bottom: 24px;
 }
 
 .settings-section h2 {
   font-size: 18px;
   font-weight: 600;
-  margin: 0 0 24px 0;
-  padding-bottom: 16px;
+  margin: 0 0 20px 0;
+  padding-bottom: 12px;
   border-bottom: 1px solid var(--border);
 }
 
 .settings-form .form-row {
   display: flex;
+  flex-wrap: wrap;
   gap: 24px;
   margin-bottom: 20px;
 }
 
 .settings-form .form-row .form-group {
   flex: 1;
+  min-width: 250px;
 }
 
 .settings-form .form-group {
@@ -259,4 +262,41 @@
   background: rgba(239, 68, 68, 0.1);
   border: 1px solid rgba(239, 68, 68, 0.2);
   color: #ef4444;
+}
+
+@media (max-width: 800px) {
+  .settings-layout {
+    flex-direction: column;
+  }
+  
+  .settings-sidebar {
+    width: 100%;
+    border-right: none;
+    border-bottom: 1px solid var(--border);
+    padding: 16px 0;
+  }
+  
+  .settings-nav {
+    display: flex;
+    overflow-x: auto;
+    padding-bottom: 8px;
+  }
+  
+  .settings-nav-section {
+    display: flex;
+    margin-bottom: 0;
+  }
+  
+  .settings-nav-title {
+    display: none; /* Hide section titles on mobile to save space */
+  }
+  
+  .settings-nav-item {
+    white-space: nowrap;
+    margin: 0 4px 0 0;
+  }
+  
+  .settings-content-wrapper {
+    padding: 24px 20px;
+  }
 }
