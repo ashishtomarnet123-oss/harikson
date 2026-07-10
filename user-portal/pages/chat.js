@@ -1017,6 +1017,12 @@ export default function ChatPage() {
         {toast && (
           <div className="toast-msg">{toast}</div>
         )}
+        
+        <SettingsModal 
+          isOpen={showSettingsModal} 
+          onClose={() => setShowSettingsModal(false)} 
+          initialTab="profile"
+        />
       </div>
     </>
   );
