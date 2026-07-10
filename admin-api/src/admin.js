@@ -525,6 +525,39 @@ async function initDb() {
       )
     `);
 
+    // Create plans table
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS plans (
+        id VARCHAR(50) PRIMARY KEY,
+        name VARCHAR(255) NOT NULL,
+        tier VARCHAR(50) NOT NULL,
+        price NUMERIC(10,2) NOT NULL DEFAULT 0.00,
+        billing VARCHAR(50) NOT NULL DEFAULT 'monthly',
+        currency VARCHAR(10) NOT NULL DEFAULT 'INR',
+        is_active BOOLEAN NOT NULL DEFAULT true,
+        is_recommended BOOLEAN NOT NULL DEFAULT false,
+        token_limit INTEGER NOT NULL DEFAULT -1,
+        tenant_limit INTEGER NOT NULL DEFAULT -1,
+        agent_limit INTEGER NOT NULL DEFAULT -1,
+        model_access TEXT[] NOT NULL DEFAULT '{}',
+        features JSONB NOT NULL DEFAULT '{}',
+        description TEXT,
+        created_at TIMESTAMPTZ DEFAULT NOW()
+      )
+    `);
+
+    // Populate plans table if empty
+    const checkPlans = await pool.query('SELECT COUNT(*)::int FROM plans');
+    if (checkPlans.rows[0].count === 0) {
+      await pool.query(`
+        INSERT INTO plans (id, name, tier, price, billing, currency, is_active, is_recommended, token_limit, tenant_limit, agent_limit, model_access, features, description)
+        VALUES
+          ('starter', 'Starter', 'starter', 0.00, 'monthly', 'INR', true, false, 100000, 1, 2, '{"Harikson-3B"}', '{"api_access": true, "webhook_logging": false, "rag_documents": 500, "audit_trail": false, "priority_support": false, "custom_models": false, "dpdp_compliance": true, "sla_hours": 72}', 'Perfect for developers exploring Harikson AI.'),
+          ('professional', 'Professional', 'professional', 4999.00, 'monthly', 'INR', true, true, 5000000, 10, 20, '{"Harikson-3B", "Qwen3-8B", "Qwen3-32B", "Qwen3-72B"}', '{"api_access": true, "webhook_logging": true, "rag_documents": 50000, "audit_trail": true, "priority_support": true, "custom_models": false, "dpdp_compliance": true, "sla_hours": 12}', 'For growing teams needing full AI capabilities.'),
+          ('enterprise', 'Enterprise', 'enterprise', 0.00, 'custom', 'INR', true, false, -1, -1, -1, '{"Harikson-3B", "Qwen3-8B", "Qwen3-32B", "Qwen3-72B", "Custom Fine-Tuned"}', '{"api_access": true, "webhook_logging": true, "rag_documents": -1, "audit_trail": true, "priority_support": true, "custom_models": true, "dpdp_compliance": true, "sla_hours": 2}', 'Full sovereignty, on-premise deployment for enterprises.')
+      `);
+    }
+
     console.log('✅ All Phase 1-5 database tables migrated successfully.');
 
   } catch (err) {
@@ -932,11 +965,13 @@ app.get('/admin/tenants', async (req, res) => {
     const listQuery = `
       SELECT t.id, t.name, t.slug, t.plan, t.status, t.created_at,
              COUNT(DISTINCT u.id)::int as user_count,
-             COALESCE(SUM(m.tokens_used), 0)::int as tokens_used
+             COALESCE(SUM(m.tokens_used), 0)::int as tokens_used,
+             p.price, p.billing, p.currency, p.token_limit, p.tenant_limit, p.agent_limit, p.features, p.model_access
       FROM tenants t
       LEFT JOIN users u ON t.id = u.tenant_id
       LEFT JOIN messages m ON t.id = m.tenant_id
-      GROUP BY t.id
+      LEFT JOIN plans p ON LOWER(t.plan) = LOWER(p.id)
+      GROUP BY t.id, p.id
       ORDER BY t.created_at DESC
       LIMIT $1 OFFSET $2
     `;
@@ -956,13 +991,15 @@ app.get('/admin/tenants/:id', async (req, res) => {
       SELECT t.id, t.name, t.slug, t.plan, t.status, t.created_at,
              COUNT(DISTINCT u.id)::int as user_count,
              COALESCE(SUM(m.tokens_used), 0)::int as tokens_used,
-             COUNT(DISTINCT c.id)::int as conversations_count
+             COUNT(DISTINCT c.id)::int as conversations_count,
+             p.price, p.billing, p.currency, p.token_limit, p.tenant_limit, p.agent_limit, p.features, p.model_access
       FROM tenants t
       LEFT JOIN users u ON t.id = u.tenant_id
       LEFT JOIN conversations c ON t.id = c.tenant_id
       LEFT JOIN messages m ON t.id = m.tenant_id
+      LEFT JOIN plans p ON LOWER(t.plan) = LOWER(p.id)
       WHERE t.id = $1
-      GROUP BY t.id
+      GROUP BY t.id, p.id
     `;
     const result = await pool.query(query, [id]);
     if (result.rows.length === 0) return res.status(404).json({ error: 'Tenant not found' });
@@ -984,10 +1021,24 @@ app.put('/admin/tenants/:id/plan', async (req, res) => {
     if (oldQuery.rows.length === 0) return res.status(404).json({ error: 'Tenant not found' });
     const oldPlan = oldQuery.rows[0].plan;
 
-    const result = await pool.query(
-      'UPDATE tenants SET plan = $1 WHERE id = $2 RETURNING id, name, plan',
-      [plan, id]
+    await pool.query(
+      'UPDATE tenants SET plan = $1 WHERE id = $2',
+      [plan.toLowerCase(), id]
     );
+
+    const selectQuery = `
+      SELECT t.id, t.name, t.slug, t.plan, t.status, t.created_at,
+             COUNT(DISTINCT u.id)::int as user_count,
+             COALESCE(SUM(m.tokens_used), 0)::int as tokens_used,
+             p.price, p.billing, p.currency, p.token_limit, p.tenant_limit, p.agent_limit, p.features, p.model_access
+      FROM tenants t
+      LEFT JOIN users u ON t.id = u.tenant_id
+      LEFT JOIN messages m ON t.id = m.tenant_id
+      LEFT JOIN plans p ON LOWER(t.plan) = LOWER(p.id)
+      WHERE t.id = $1
+      GROUP BY t.id, p.id
+    `;
+    const result = await pool.query(selectQuery, [id]);
 
     await logAdminAction(req.admin.id, 'plan_change', 'tenant', id, { plan: oldPlan }, { plan }, req);
 
@@ -1624,6 +1675,128 @@ app.get('/admin/billing/webhooks', adminAuth, async (req, res) => {
   } catch (err) {
     console.error('Failed to query payment webhooks:', err);
     res.status(500).json({ error: 'Failed to query webhook entries' });
+  }
+});
+
+// ─── BILLING PLANS ENDPOINTS ────────────────────────────────────────────────
+// GET /admin/plans
+app.get('/admin/plans', async (req, res) => {
+  try {
+    const result = await pool.query('SELECT * FROM plans ORDER BY price ASC, created_at DESC');
+    res.status(200).json({ plans: result.rows });
+  } catch (err) {
+    console.error('List plans failed:', err);
+    res.status(500).json({ error: 'Failed to list subscription plans' });
+  }
+});
+
+// GET /admin/plans/:id
+app.get('/admin/plans/:id', async (req, res) => {
+  const { id } = req.params;
+  try {
+    const result = await pool.query('SELECT * FROM plans WHERE id = $1', [id]);
+    if (result.rows.length === 0) return res.status(404).json({ error: 'Plan not found' });
+    res.status(200).json(result.rows[0]);
+  } catch (err) {
+    console.error('Get plan failed:', err);
+    res.status(500).json({ error: 'Failed to retrieve subscription plan' });
+  }
+});
+
+// POST /admin/plans
+app.post('/admin/plans', async (req, res) => {
+  const {
+    id, name, tier, price, billing, currency, is_active, is_recommended,
+    token_limit, tenant_limit, agent_limit, model_access, features, description
+  } = req.body;
+
+  if (!id || !name || !tier) {
+    return res.status(400).json({ error: 'Plan id, name, and tier are required' });
+  }
+
+  try {
+    const result = await pool.query(`
+      INSERT INTO plans (
+        id, name, tier, price, billing, currency, is_active, is_recommended,
+        token_limit, tenant_limit, agent_limit, model_access, features, description
+      )
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+      RETURNING *
+    `, [
+      id.toLowerCase(), name, tier, price || 0, billing || 'monthly', currency || 'INR',
+      is_active !== false, is_recommended === true, token_limit || -1, tenant_limit || -1,
+      agent_limit || -1, model_access || [], JSON.stringify(features || {}), description || ''
+    ]);
+
+    await logAdminAction(req.admin.id, 'plan_create', 'plan', result.rows[0].id, null, result.rows[0], req);
+
+    res.status(201).json({ success: true, plan: result.rows[0] });
+  } catch (err) {
+    console.error('Create plan failed:', err);
+    res.status(500).json({ error: 'Failed to create subscription plan' });
+  }
+});
+
+// PUT /admin/plans/:id
+app.put('/admin/plans/:id', async (req, res) => {
+  const { id } = req.params;
+  const {
+    name, tier, price, billing, currency, is_active, is_recommended,
+    token_limit, tenant_limit, agent_limit, model_access, features, description
+  } = req.body;
+
+  try {
+    const oldQuery = await pool.query('SELECT * FROM plans WHERE id = $1', [id]);
+    if (oldQuery.rows.length === 0) return res.status(404).json({ error: 'Plan not found' });
+    const oldPlan = oldQuery.rows[0];
+
+    const result = await pool.query(`
+      UPDATE plans
+      SET name = COALESCE($1, name),
+          tier = COALESCE($2, tier),
+          price = COALESCE($3, price),
+          billing = COALESCE($4, billing),
+          currency = COALESCE($5, currency),
+          is_active = COALESCE($6, is_active),
+          is_recommended = COALESCE($7, is_recommended),
+          token_limit = COALESCE($8, token_limit),
+          tenant_limit = COALESCE($9, tenant_limit),
+          agent_limit = COALESCE($10, agent_limit),
+          model_access = COALESCE($11, model_access),
+          features = COALESCE($12, features),
+          description = COALESCE($13, description)
+      WHERE id = $14
+      RETURNING *
+    `, [
+      name, tier, price, billing, currency, is_active, is_recommended,
+      token_limit, tenant_limit, agent_limit, model_access,
+      features ? JSON.stringify(features) : null, description, id
+    ]);
+
+    await logAdminAction(req.admin.id, 'plan_update', 'plan', id, oldPlan, result.rows[0], req);
+
+    res.status(200).json({ success: true, plan: result.rows[0] });
+  } catch (err) {
+    console.error('Update plan failed:', err);
+    res.status(500).json({ error: 'Failed to update subscription plan' });
+  }
+});
+
+// DELETE /admin/plans/:id
+app.delete('/admin/plans/:id', async (req, res) => {
+  const { id } = req.params;
+  try {
+    const oldQuery = await pool.query('SELECT * FROM plans WHERE id = $1', [id]);
+    if (oldQuery.rows.length === 0) return res.status(404).json({ error: 'Plan not found' });
+
+    await pool.query('DELETE FROM plans WHERE id = $1', [id]);
+
+    await logAdminAction(req.admin.id, 'plan_delete', 'plan', id, oldQuery.rows[0], null, req);
+
+    res.status(200).json({ success: true, message: 'Plan deleted successfully' });
+  } catch (err) {
+    console.error('Delete plan failed:', err);
+    res.status(500).json({ error: 'Failed to delete subscription plan' });
   }
 });
 

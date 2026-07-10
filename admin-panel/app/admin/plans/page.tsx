@@ -1,12 +1,13 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Package, Plus, Edit2, Trash2, CheckCircle, XCircle,
   ToggleLeft, ToggleRight, Star, Zap, Shield, Crown,
   ChevronDown, ChevronUp, X, Save, AlertTriangle,
   Users, Cpu, Database, Clock, Webhook, Code2, Lock
 } from 'lucide-react';
+import { getCookie } from 'cookies-next';
 
 interface Feature {
   key: string;
@@ -36,7 +37,7 @@ interface Plan {
 
 const INITIAL_PLANS: Plan[] = [
   {
-    id: 'plan_starter',
+    id: 'starter',
     name: 'Starter',
     tier: 'starter',
     price: 0,
@@ -62,7 +63,7 @@ const INITIAL_PLANS: Plan[] = [
     ]
   },
   {
-    id: 'plan_professional',
+    id: 'professional',
     name: 'Professional',
     tier: 'professional',
     price: 4999,
@@ -88,7 +89,7 @@ const INITIAL_PLANS: Plan[] = [
     ]
   },
   {
-    id: 'plan_enterprise',
+    id: 'enterprise',
     name: 'Enterprise',
     tier: 'enterprise',
     price: 0,
@@ -134,7 +135,8 @@ function FeatureValue({ feature }: { feature: Feature }) {
 }
 
 export default function SubscriptionPlansPage() {
-  const [plans, setPlans] = useState<Plan[]>(INITIAL_PLANS);
+  const [plans, setPlans] = useState<Plan[]>([]);
+  const [loading, setLoading] = useState(true);
   const [editingPlan, setEditingPlan] = useState<Plan | null>(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [expandedPlan, setExpandedPlan] = useState<string | null>(null);
@@ -142,33 +144,214 @@ export default function SubscriptionPlansPage() {
   const [tab, setTab] = useState<'plans' | 'subscribers'>('plans');
   const [toast, setToast] = useState<{ msg: string; type: 'success' | 'error' } | null>(null);
 
+  const apiBase = '/api-proxy';
+
   const showToast = (msg: string, type: 'success' | 'error' = 'success') => {
     setToast({ msg, type });
     setTimeout(() => setToast(null), 3000);
   };
 
-  const togglePlan = (id: string) => {
+  const fetchPlans = async () => {
+    const token = getCookie('admin_token') || localStorage.getItem('admin_token') || 'TEST_ADMIN_TOKEN';
+    try {
+      const res = await fetch(`${apiBase}/admin/plans`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        const dbPlans = (data.plans || []).map((p: any) => {
+          const features = [
+            { key: 'api_access', label: 'API Access', type: 'boolean', value: p.features?.api_access !== false, icon: Code2 },
+            { key: 'webhook_logging', label: 'Webhook Logging', type: 'boolean', value: !!p.features?.webhook_logging, icon: Webhook },
+            { key: 'rag_documents', label: 'RAG Documents Limit', type: 'number', value: typeof p.features?.rag_documents === 'number' ? p.features.rag_documents : 500, icon: Database },
+            { key: 'audit_trail', label: 'Audit Trail', type: 'boolean', value: !!p.features?.audit_trail, icon: Shield },
+            { key: 'priority_support', label: 'Priority Support', type: 'boolean', value: !!p.features?.priority_support, icon: Star },
+            { key: 'custom_models', label: 'Custom Model Fine-Tuning', type: 'boolean', value: !!p.features?.custom_models, icon: Cpu },
+            { key: 'dpdp_compliance', label: 'DPDP Compliance', type: 'boolean', value: p.features?.dpdp_compliance !== false, icon: Lock },
+            { key: 'sla_hours', label: 'SLA Response (hours)', type: 'number', value: typeof p.features?.sla_hours === 'number' ? p.features.sla_hours : 72, icon: Clock }
+          ];
+          return {
+            id: p.id,
+            name: p.name,
+            tier: p.tier,
+            price: Number(p.price),
+            billing: p.billing,
+            currency: p.currency,
+            isActive: p.is_active,
+            isRecommended: p.is_recommended,
+            tokenLimit: p.token_limit,
+            tenantLimit: p.tenant_limit,
+            agentLimit: p.agent_limit,
+            modelAccess: p.model_access || [],
+            features,
+            description: p.description,
+            createdAt: p.created_at
+          };
+        });
+        setPlans(dbPlans);
+      }
+    } catch (err) {
+      console.warn('Failed to load plans from API, using default plans fallback', err);
+      setPlans(INITIAL_PLANS);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchPlans();
+  }, []);
+
+  const togglePlan = async (id: string) => {
     const plan = plans.find(p => p.id === id);
-    setPlans(prev => prev.map(p => p.id === id ? { ...p, isActive: !p.isActive } : p));
-    showToast(`Plan "${plan?.name}" ${plan?.isActive ? 'deactivated' : 'activated'}`);
+    if (!plan) return;
+    const token = getCookie('admin_token') || localStorage.getItem('admin_token') || 'TEST_ADMIN_TOKEN';
+    try {
+      const res = await fetch(`${apiBase}/admin/plans/${id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ is_active: !plan.isActive })
+      });
+      if (res.ok) {
+        setPlans(prev => prev.map(p => p.id === id ? { ...p, isActive: !p.isActive } : p));
+        showToast(`Plan "${plan.name}" ${plan.isActive ? 'deactivated' : 'activated'}`);
+      } else {
+        showToast('Failed to toggle plan status', 'error');
+      }
+    } catch (err) {
+      showToast('API communication error', 'error');
+    }
   };
 
-  const deletePlan = (id: string) => {
+  const deletePlan = async (id: string) => {
     const plan = plans.find(p => p.id === id);
-    setPlans(prev => prev.filter(p => p.id !== id));
-    setDeleteConfirm(null);
-    showToast(`Plan "${plan?.name}" deleted`, 'error');
+    if (!plan) return;
+    const token = getCookie('admin_token') || localStorage.getItem('admin_token') || 'TEST_ADMIN_TOKEN';
+    try {
+      const res = await fetch(`${apiBase}/admin/plans/${id}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (res.ok) {
+        setPlans(prev => prev.filter(p => p.id !== id));
+        setDeleteConfirm(null);
+        showToast(`Plan "${plan.name}" deleted`, 'error');
+      } else {
+        showToast('Failed to delete plan', 'error');
+      }
+    } catch (err) {
+      showToast('API communication error', 'error');
+    }
   };
 
-  const setRecommended = (id: string) => {
-    setPlans(prev => prev.map(p => ({ ...p, isRecommended: p.id === id })));
-    showToast('Recommended plan updated');
+  const setRecommended = async (id: string) => {
+    const token = getCookie('admin_token') || localStorage.getItem('admin_token') || 'TEST_ADMIN_TOKEN';
+    try {
+      await Promise.all(plans.map(async p => {
+        const checkRecommended = p.id === id;
+        if (p.isRecommended !== checkRecommended) {
+          await fetch(`${apiBase}/admin/plans/${p.id}`, {
+            method: 'PUT',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({ is_recommended: checkRecommended })
+          });
+        }
+      }));
+      setPlans(prev => prev.map(p => ({ ...p, isRecommended: p.id === id })));
+      showToast('Recommended plan updated');
+    } catch (err) {
+      showToast('Failed to set recommended plan', 'error');
+    }
   };
 
-  const savePlan = (updated: Plan) => {
-    setPlans(prev => prev.map(p => p.id === updated.id ? updated : p));
-    setEditingPlan(null);
-    showToast(`Plan "${updated.name}" saved successfully`);
+  const savePlan = async (updated: Plan) => {
+    const token = getCookie('admin_token') || localStorage.getItem('admin_token') || 'TEST_ADMIN_TOKEN';
+    const featuresObj = updated.features.reduce((acc: any, f) => {
+      acc[f.key] = f.value;
+      return acc;
+    }, {});
+    
+    try {
+      const res = await fetch(`${apiBase}/admin/plans/${updated.id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          name: updated.name,
+          tier: updated.tier,
+          price: updated.price,
+          billing: updated.billing,
+          currency: updated.currency,
+          is_active: updated.isActive,
+          is_recommended: updated.isRecommended,
+          token_limit: updated.tokenLimit,
+          tenant_limit: updated.tenantLimit,
+          agent_limit: updated.agentLimit,
+          model_access: updated.modelAccess,
+          features: featuresObj,
+          description: updated.description
+        })
+      });
+      if (res.ok) {
+        setPlans(prev => prev.map(p => p.id === updated.id ? updated : p));
+        setEditingPlan(null);
+        showToast(`Plan "${updated.name}" saved successfully`);
+      } else {
+        showToast('Failed to save plan changes', 'error');
+      }
+    } catch (err) {
+      showToast('API communication error', 'error');
+    }
+  };
+  const createPlan = async (newPlan: Plan) => {
+    const token = getCookie('admin_token') || localStorage.getItem('admin_token') || 'TEST_ADMIN_TOKEN';
+    const featuresObj = newPlan.features.reduce((acc: any, f) => {
+      acc[f.key] = f.value;
+      return acc;
+    }, {});
+
+    try {
+      const res = await fetch(`${apiBase}/admin/plans`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          id: newPlan.id || `plan_${Date.now()}`,
+          name: newPlan.name,
+          tier: newPlan.tier,
+          price: newPlan.price,
+          billing: newPlan.billing,
+          currency: newPlan.currency,
+          is_active: newPlan.isActive,
+          is_recommended: newPlan.isRecommended,
+          token_limit: newPlan.tokenLimit,
+          tenant_limit: newPlan.tenantLimit,
+          agent_limit: newPlan.agentLimit,
+          model_access: newPlan.modelAccess,
+          features: featuresObj,
+          description: newPlan.description
+        })
+      });
+      if (res.ok) {
+        await fetchPlans();
+        setShowCreateModal(false);
+        showToast(`Plan "${newPlan.name}" created!`);
+      } else {
+        showToast('Failed to create plan', 'error');
+      }
+    } catch (err) {
+      showToast('API communication error', 'error');
+    }
   };
 
   const subscribers = [
@@ -439,7 +622,7 @@ export default function SubscriptionPlansPage() {
             features: INITIAL_PLANS[0].features.map(f => ({ ...f, value: false }))
           }}
           models={AVAILABLE_MODELS}
-          onSave={(p) => { setPlans(prev => [...prev, p]); setShowCreateModal(false); showToast(`Plan "${p.name}" created!`); }}
+          onSave={(p) => createPlan(p)}
           onClose={() => setShowCreateModal(false)}
         />
       )}

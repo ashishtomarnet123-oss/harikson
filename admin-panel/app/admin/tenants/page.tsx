@@ -25,6 +25,14 @@ interface Tenant {
   user_count: number;
   tokens_used: number;
   created_at: string;
+  price?: number;
+  billing?: string;
+  currency?: string;
+  token_limit?: number;
+  tenant_limit?: number;
+  agent_limit?: number;
+  features?: any;
+  model_access?: string[];
 }
 
 interface Violation {
@@ -74,6 +82,8 @@ export default function TenantManager() {
   const [violations, setViolations] = useState<Violation[]>([]);
   const [reconcile, setReconcile] = useState<Reconciliation[]>([]);
   const [selectedTenant, setSelectedTenant] = useState<Tenant | null>(null);
+  const [plans, setPlans] = useState<any[]>([]);
+  const [editingTenantPlan, setEditingTenantPlan] = useState<Tenant | null>(null);
   
   // API Key management states
   const [apiKeys, setApiKeys] = useState<ApiKey[]>([]);
@@ -99,6 +109,15 @@ export default function TenantManager() {
   const fetchData = async () => {
     const token = getCookie('admin_token') || localStorage.getItem('admin_token') || 'TEST_ADMIN_TOKEN';
     try {
+      // 0. Fetch Plans
+      const resPlans = await fetch(`${apiBase}/admin/plans`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (resPlans.ok) {
+        const plansData = await resPlans.json();
+        setPlans(plansData.plans || []);
+      }
+
       // 1. Fetch Tenants
       const res1 = await fetch(`${apiBase}/admin/tenants?page=1&limit=50`, {
         headers: { 'Authorization': `Bearer ${token}` }
@@ -203,9 +222,14 @@ export default function TenantManager() {
         body: JSON.stringify({ plan })
       });
       if (!res.ok) throw new Error('Update failed');
-      fetchData();
-      if (selectedTenant && selectedTenant.id === id) {
-        setSelectedTenant(prev => prev ? { ...prev, plan } : null);
+      const data = await res.json();
+      if (data.success && data.tenant) {
+        setTenants(prev => prev.map(t => t.id === id ? data.tenant : t));
+        if (selectedTenant && selectedTenant.id === id) {
+          setSelectedTenant(data.tenant);
+        }
+      } else {
+        fetchData();
       }
     } catch (e) {
       alert('Failed to update tenant plan.');
@@ -442,10 +466,7 @@ export default function TenantManager() {
                       View
                     </button>
                     <button 
-                      onClick={() => {
-                        const nextPlan = prompt('Enter plan (SOLO, TEAM, BUSINESS, ENTERPRISE):', t.plan);
-                        if (nextPlan) handleUpdatePlan(t.id, nextPlan.toUpperCase());
-                      }}
+                      onClick={() => setEditingTenantPlan(t)}
                       className="px-2.5 py-1 bg-gray-850 hover:bg-gray-800 border border-gray-800 rounded text-xs font-semibold text-amber-400"
                     >
                       Edit Plan
@@ -501,9 +522,51 @@ export default function TenantManager() {
                   <span className="text-white font-mono">{selectedTenant.tokens_used.toLocaleString()}</span>
                 </div>
 
-                <div className="p-3 bg-gray-950/50 rounded-xl border border-gray-800">
-                  <span className="text-xs text-gray-500 block">Plan & Pricing Class</span>
-                  <span className="text-white font-semibold">{selectedTenant.plan}</span>
+                <div className="p-4 bg-gray-950/50 rounded-xl border border-gray-800 space-y-3">
+                  <div>
+                    <span className="text-xs text-gray-500 block mb-0.5">Plan & Pricing Class</span>
+                    <span className="text-white font-black text-sm uppercase tracking-wide">{selectedTenant.plan}</span>
+                  </div>
+                  {selectedTenant.price !== undefined && (
+                    <div className="border-t border-gray-850 pt-2.5 grid grid-cols-2 gap-2 text-xs">
+                      <div>
+                        <span className="text-gray-500 block">Price</span>
+                        <span className="text-gray-300 font-medium">
+                          {selectedTenant.billing === 'custom' ? 'Custom' : `₹${selectedTenant.price?.toLocaleString()}/mo`}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-gray-500 block">Token Limit</span>
+                        <span className="text-gray-300 font-mono">
+                          {selectedTenant.token_limit === -1 ? 'Unlimited' : selectedTenant.token_limit?.toLocaleString()}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-gray-500 block">Max Agents</span>
+                        <span className="text-gray-300">
+                          {selectedTenant.agent_limit === -1 ? 'Unlimited' : selectedTenant.agent_limit}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-gray-500 block">SLA Target</span>
+                        <span className="text-gray-300">
+                          {selectedTenant.features?.sla_hours ? `${selectedTenant.features.sla_hours} hrs` : 'N/A'}
+                        </span>
+                      </div>
+                    </div>
+                  )}
+                  {selectedTenant.model_access && selectedTenant.model_access.length > 0 && (
+                    <div className="border-t border-gray-850 pt-2.5">
+                      <span className="text-xs text-gray-500 block mb-1.5">Model Permissions</span>
+                      <div className="flex flex-wrap gap-1">
+                        {selectedTenant.model_access.map(m => (
+                          <span key={m} className="text-[10px] bg-slate-900 border border-slate-800 text-slate-400 px-2 py-0.5 rounded font-mono">
+                            {m}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
@@ -937,6 +1000,61 @@ export default function TenantManager() {
             >
               Close Inspector
             </button>
+          </div>
+        </div>
+      )}
+      {/* Edit Tenant Plan Modal */}
+      {editingTenantPlan && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+          <div className="w-full max-w-md bg-gray-900 border border-gray-800 p-6 rounded-2xl flex flex-col gap-4 text-sm text-gray-300">
+            <div className="flex justify-between items-center mb-2">
+              <h3 className="text-base font-black text-white">Change Tenant Plan</h3>
+              <button onClick={() => setEditingTenantPlan(null)} className="p-1 hover:bg-gray-850 rounded">
+                <X className="w-5 h-5 text-gray-500" />
+              </button>
+            </div>
+            
+            <p>Select a new subscription plan for <strong>{editingTenantPlan.name}</strong>:</p>
+
+            <div className="flex flex-col gap-2.5">
+              {plans.map(p => (
+                <button
+                  key={p.id}
+                  onClick={() => {
+                    handleUpdatePlan(editingTenantPlan.id, p.id);
+                    setEditingTenantPlan(null);
+                  }}
+                  className={`w-full text-left p-3.5 rounded-xl border flex justify-between items-center transition ${
+                    editingTenantPlan.plan.toLowerCase() === p.id.toLowerCase()
+                      ? 'bg-indigo-950/30 border-indigo-500/80 text-white font-bold'
+                      : 'bg-gray-950/40 border-gray-800 hover:border-gray-700 text-gray-300'
+                  }`}
+                >
+                  <div>
+                    <div className="font-semibold text-sm">{p.name}</div>
+                    <div className="text-[11px] text-gray-500 mt-0.5">
+                      {p.billing === 'custom' ? 'Custom price' : `₹${p.price.toLocaleString()}/mo`}
+                    </div>
+                  </div>
+                  <span className={`text-[10px] px-2 py-0.5 rounded font-bold uppercase ${
+                    p.tier === 'starter' ? 'bg-slate-800 text-slate-400' :
+                    p.tier === 'professional' ? 'bg-indigo-900/40 text-indigo-400 border border-indigo-800/30' :
+                    'bg-purple-900/40 text-purple-400 border border-purple-800/30'
+                  }`}>
+                    {p.tier}
+                  </span>
+                </button>
+              ))}
+            </div>
+
+            <div className="flex justify-end gap-3 mt-4">
+              <button
+                onClick={() => setEditingTenantPlan(null)}
+                className="px-4 py-2 bg-gray-850 hover:bg-gray-800 text-xs font-semibold rounded-lg text-gray-400"
+              >
+                Cancel
+              </button>
+            </div>
           </div>
         </div>
       )}

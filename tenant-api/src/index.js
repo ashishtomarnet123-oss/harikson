@@ -78,8 +78,15 @@ const tenantMiddleware = async (req, res, next) => {
       slug = req.headers['x-tenant-slug'] || req.query.tenant || 'alphatech';
     }
     
-    // Look up tenant by slug (RLS is bypassed for table owner/superuser)
-    const result = await pool.query('SELECT * FROM tenants WHERE slug = $1', [slug]);
+    // Look up tenant by slug and fetch its active plan settings
+    const result = await pool.query(`
+      SELECT t.id, t.name, t.slug, t.plan, t.status, t.created_at,
+             p.price, p.billing, p.currency, p.is_active as plan_is_active,
+             p.token_limit, p.tenant_limit, p.agent_limit, p.model_access, p.features, p.description as plan_description
+      FROM tenants t
+      LEFT JOIN plans p ON LOWER(t.plan) = LOWER(p.id)
+      WHERE t.slug = $1
+    `, [slug]);
     if (result.rows.length === 0) {
       return res.status(404).json({ error: 'Tenant not found' });
     }
@@ -87,6 +94,28 @@ const tenantMiddleware = async (req, res, next) => {
     const tenant = result.rows[0];
     if (tenant.status === 'suspended') {
       return res.status(403).json({ error: 'Tenant suspended' });
+    }
+    
+    // Parse dynamic limits or fall back to default specs
+    if (tenant.token_limit === undefined || tenant.token_limit === null) {
+      const planName = (tenant.plan || 'starter').toLowerCase();
+      if (planName === 'starter') {
+        tenant.token_limit = 100000;
+        tenant.agent_limit = 2;
+        tenant.features = { api_access: true, webhook_logging: false, rag_documents: 500, audit_trail: false, priority_support: false, custom_models: false, dpdp_compliance: true, sla_hours: 72 };
+        tenant.model_access = ['Harikson-3B'];
+      } else if (planName === 'professional' || planName === 'pro' || planName === 'team') {
+        tenant.token_limit = 5000000;
+        tenant.agent_limit = 20;
+        tenant.features = { api_access: true, webhook_logging: true, rag_documents: 50000, audit_trail: true, priority_support: true, custom_models: false, dpdp_compliance: true, sla_hours: 12 };
+        tenant.model_access = ['Harikson-3B', 'Qwen3-8B', 'Qwen3-32B', 'Qwen3-72B'];
+      } else {
+        // Enterprise or default
+        tenant.token_limit = -1;
+        tenant.agent_limit = -1;
+        tenant.features = { api_access: true, webhook_logging: true, rag_documents: -1, audit_trail: true, priority_support: true, custom_models: true, dpdp_compliance: true, sla_hours: 2 };
+        tenant.model_access = ['Harikson-3B', 'Qwen3-8B', 'Qwen3-32B', 'Qwen3-72B', 'Custom Fine-Tuned'];
+      }
     }
     
     req.tenant = tenant;
@@ -581,17 +610,48 @@ app.post('/api/chat', authMiddleware, async (req, res) => {
     }
   }
 
-  // Rate limiting via Redis (plan-based: solo=10, team=60, business=300, enterprise=0)
-  const plan = (req.tenant.plan || 'STARTER').toLowerCase();
+  // Model Access check
+  if (req.tenant.model_access && req.tenant.model_access.length > 0) {
+    const allowed = req.tenant.model_access.map(m => m.toLowerCase());
+    const targetModel = selectedModel.toLowerCase();
+    const isAllowed = allowed.some(m => targetModel.includes(m) || m.includes(targetModel));
+    if (!isAllowed) {
+      return res.status(403).json({ error: `Your subscription plan (${req.tenant.plan}) does not have access to model: ${selectedModel}` });
+    }
+  }
+
+  // Token Limit check
+  if (req.tenant.token_limit && req.tenant.token_limit > 0) {
+    try {
+      const tokenRes = await pool.query(
+        'SELECT COALESCE(SUM(tokens_used), 0)::int as tokens_used FROM messages WHERE tenant_id = $1',
+        [req.tenant.id]
+      );
+      const tokensUsed = tokenRes.rows[0].tokens_used;
+      if (tokensUsed >= req.tenant.token_limit) {
+        return res.status(403).json({ error: `Monthly token limit exceeded (${(req.tenant.token_limit).toLocaleString()} tokens). Please upgrade your subscription plan.` });
+      }
+    } catch (err) {
+      console.warn('Failed to verify token limit:', err);
+    }
+  }
+
+  // Rate limiting via Redis (loaded dynamically from database plan configuration)
   let limit = 10;
-  if (plan === 'solo' || plan === 'starter') {
-    limit = 10;
-  } else if (plan === 'team' || plan === 'pro') {
-    limit = 60;
-  } else if (plan === 'business') {
-    limit = 300;
-  } else if (plan === 'enterprise') {
-    limit = 0;
+  if (req.tenant.features && typeof req.tenant.features.rpm_limit === 'number') {
+    limit = req.tenant.features.rpm_limit;
+  } else {
+    // Fallback based on plan name
+    const planName = (req.tenant.plan || 'starter').toLowerCase();
+    if (planName === 'starter' || planName === 'solo') {
+      limit = 10;
+    } else if (planName === 'professional' || planName === 'pro' || planName === 'team') {
+      limit = 60;
+    } else if (planName === 'business') {
+      limit = 300;
+    } else if (planName === 'enterprise') {
+      limit = 0; // unlimited
+    }
   }
 
   if (limit > 0) {
