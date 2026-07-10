@@ -1387,18 +1387,18 @@ export default function LandingPage() {
         /* ─── FINAL CTA & ENHANCED ENTERPRISE FOOTER SECTION ─── */
         .section-final-cta {
           position: relative;
-          background: #09090B;
+          background: linear-gradient(135deg, #F8FAFC 0%, #FFFFFF 100%);
           padding: 100px 0 60px 0;
-          color: #A1A1AA;
+          color: #475569;
           text-align: left;
           overflow: hidden;
-          border-top: 1px solid #1F1F23;
+          border-top: 1px solid #E2E8F0;
         }
         .radial-glow-cta {
           position: absolute;
           width: 800px;
           height: 800px;
-          background: radial-gradient(circle, rgba(79, 140, 255, 0.05) 0%, transparent 70%);
+          background: radial-gradient(circle, rgba(79, 140, 255, 0.03) 0%, transparent 70%);
           bottom: -200px;
           left: 50%;
           transform: translateX(-50%);
@@ -1406,8 +1406,8 @@ export default function LandingPage() {
         }
         
         .cta-card {
-          background: rgba(255, 255, 255, 0.02);
-          border: 1px solid rgba(255, 255, 255, 0.05);
+          background: #FFFFFF;
+          border: 1px solid #E2E8F0;
           border-radius: 24px;
           padding: 50px 40px;
           max-width: 900px;
@@ -1415,15 +1415,14 @@ export default function LandingPage() {
           text-align: center;
           position: relative;
           z-index: 2;
-          box-shadow: 0 20px 50px rgba(0, 0, 0, 0.3);
-          backdrop-filter: blur(12px);
+          box-shadow: 0 20px 50px rgba(0, 0, 0, 0.04);
         }
         .cta-card-badge {
           display: inline-block;
           font-size: 11px;
           font-weight: 800;
           color: #4F8CFF;
-          background: rgba(79, 140, 255, 0.1);
+          background: rgba(79, 140, 255, 0.08);
           padding: 4px 12px;
           border-radius: 20px;
           margin-bottom: 16px;
@@ -1432,13 +1431,13 @@ export default function LandingPage() {
         .cta-heading {
           font-size: 38px;
           font-weight: 900;
-          color: #FFFFFF;
+          color: #0F172A;
           letter-spacing: -1px;
           margin-bottom: 12px;
         }
         .cta-sub {
           font-size: 15px;
-          color: #A1A1AA;
+          color: #475569;
           max-width: 600px;
           margin: 0 auto 32px auto;
           line-height: 1.6;
@@ -1470,9 +1469,9 @@ export default function LandingPage() {
           box-shadow: 0 8px 20px rgba(79, 140, 255, 0.35);
         }
         .btn-cta-secondary {
-          background: rgba(255, 255, 255, 0.04);
-          border: 1px solid rgba(255, 255, 255, 0.1);
-          color: #FFFFFF;
+          background: #FFFFFF;
+          border: 1px solid #E2E8F0;
+          color: #0F172A;
           font-size: 14px;
           font-weight: 600;
           padding: 14px 28px;
@@ -1482,18 +1481,19 @@ export default function LandingPage() {
           align-items: center;
           gap: 8px;
           transition: all 0.2s ease-in-out;
+          box-shadow: 0 2px 6px rgba(0,0,0,0.03);
         }
         .btn-cta-secondary:hover {
-          background: rgba(255, 255, 255, 0.08);
-          border-color: rgba(255, 255, 255, 0.2);
+          background: #F8FAFC;
+          border-color: #CBD5E1;
           transform: translateY(-1.5px);
         }
         .founder-info {
           font-size: 13px;
-          color: #71717A;
+          color: #64748B;
         }
         .footer-link-highlight {
-          color: #E4E4E7;
+          color: #475569;
           text-decoration: none;
           font-weight: 500;
           transition: color 0.2s;
@@ -1502,7 +1502,7 @@ export default function LandingPage() {
           color: #4F8CFF;
         }
         .tel-text {
-          color: #FFFFFF;
+          color: #0F172A;
           font-weight: 600;
         }
 
@@ -1512,7 +1512,7 @@ export default function LandingPage() {
           grid-template-columns: 2fr 1fr 1fr 1fr;
           gap: 40px;
           padding-bottom: 40px;
-          border-bottom: 1px solid #1F1F23;
+          border-bottom: 1px solid #E2E8F0;
           position: relative;
           z-index: 2;
         }
@@ -1524,21 +1524,21 @@ export default function LandingPage() {
         .footer-col h4 {
           font-size: 13px;
           font-weight: 700;
-          color: #FFFFFF;
+          color: #0F172A;
           text-transform: uppercase;
           letter-spacing: 0.5px;
           margin-bottom: 4px;
         }
         .footer-col a {
           font-size: 13px;
-          color: #A1A1AA;
+          color: #64748B;
           text-decoration: none;
           transition: color 0.2s;
           display: inline-block;
           width: fit-content;
         }
         .footer-col a:hover {
-          color: #FFFFFF;
+          color: #0F172A;
           padding-left: 2px;
           transition: all 0.2s;
         }
@@ -1549,7 +1549,7 @@ export default function LandingPage() {
         .footer-brand-logo {
           font-size: 18px;
           font-weight: 800;
-          color: #FFFFFF;
+          color: #0F172A;
           display: flex;
           align-items: center;
           gap: 8px;
@@ -1568,7 +1568,7 @@ export default function LandingPage() {
         .footer-brand-desc {
           font-size: 13px;
           line-height: 1.6;
-          color: #71717A;
+          color: #64748B;
           margin-bottom: 8px;
         }
         .compliance-badges {
@@ -1578,12 +1578,12 @@ export default function LandingPage() {
         .badge-pill {
           font-size: 10px;
           font-weight: 800;
-          color: #A1A1AA;
-          background: rgba(255,255,255,0.05);
+          color: #64748B;
+          background: #F1F5F9;
           padding: 4px 8px;
           border-radius: 4px;
           letter-spacing: 0.5px;
-          border: 1px solid rgba(255,255,255,0.08);
+          border: 1px solid #E2E8F0;
         }
 
         /* Indian Flag Divider */
@@ -1605,15 +1605,15 @@ export default function LandingPage() {
           justify-content: space-between;
           align-items: center;
           font-size: 13px;
-          color: #71717A;
+          color: #64748B;
           position: relative;
           z-index: 2;
         }
         .footer-copy {
-          color: #71717A;
+          color: #64748B;
         }
         .sovereign-made {
-          color: #FFFFFF;
+          color: #0F172A;
           font-weight: 600;
         }
 
