@@ -790,7 +790,15 @@ app.get('/admin/system-status', async (req, res) => {
 app.get('/admin/users', async (req, res) => {
   try {
     const query = `
-      SELECT u.id, u.email, u.role, u.created_at, t.name as tenant_name
+      SELECT 
+        u.id, 
+        u.email, 
+        u.role, 
+        u.created_at, 
+        t.name as tenant_name,
+        (SELECT COUNT(*) FROM conversations c WHERE c.user_id = u.id) as conversations_count,
+        (SELECT COUNT(*) FROM messages m JOIN conversations c ON m.conversation_id = c.id WHERE c.user_id = u.id) as messages_count,
+        (SELECT COALESCE(SUM(m.tokens_used), 0) FROM messages m JOIN conversations c ON m.conversation_id = c.id WHERE c.user_id = u.id) as total_tokens
       FROM users u
       LEFT JOIN tenants t ON u.tenant_id = t.id
       ORDER BY u.created_at DESC
