@@ -322,12 +322,26 @@ export default function ChatPage() {
 
   /* ── New chat ── */
   const startNewChat = () => {
+    // Abort any ongoing generation first
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+      abortControllerRef.current = null;
+    }
     setActiveConvId(null);
     setMessages([]);
     setError(null);
     setInputText('');
+    setAttachedFiles([]);
+    setLoading(false);
+    setLoadingStatus('');
+    setActiveArtifact(null);
     router.replace(`/chat`, undefined, { shallow: true });
+    // Focus the input so the user can start typing immediately
+    setTimeout(() => {
+      textareaRef.current?.focus();
+    }, 50);
   };
+
 
   const handleFileUpload = (e) => {
     const files = Array.from(e.target.files || []);

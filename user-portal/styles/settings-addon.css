@@ -139,6 +139,14 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  /* Reset browser button defaults */
+  border: none;
+  background: none;
+  cursor: pointer;
+  width: 100%;
+  text-align: left;
+  font-family: var(--font-sans, 'Inter', sans-serif);
+  outline: none;
 }
 
 .settings-nav-item:hover {
@@ -146,9 +154,13 @@
   color: var(--text-primary);
 }
 
+.settings-nav-item:focus-visible {
+  box-shadow: 0 0 0 2px var(--accent);
+}
+
 .settings-nav-item.active {
-  background: var(--accent, #4f8cff);
-  color: #fff;
+  background: var(--accent-dim, rgba(79, 140, 255, 0.1));
+  color: var(--accent, #4f8cff);
   font-weight: 500;
 }
 
