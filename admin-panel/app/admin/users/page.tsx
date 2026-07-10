@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { getCookie } from 'cookies-next';
-import { Users, Loader2, BadgeCheck, Clock, Building, Search, MessageSquare, Zap, Ban, CheckCircle, MoreHorizontal } from 'lucide-react';
+import { Users, Loader2, BadgeCheck, Clock, Building, Search, MessageSquare, Zap } from 'lucide-react';
 
 interface User {
   id: string;
@@ -89,22 +89,22 @@ export default function UsersPage() {
         <div>
           <div className="flex items-center gap-2.5 mb-1.5">
             <div className="p-2 bg-indigo-500/10 border border-indigo-500/20 rounded-xl">
-              <Users className="w-5 h-5 text-indigo-400" />
+              <Users className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
             </div>
-            <h1 className="text-2xl font-black tracking-tight text-white">Registered Users</h1>
+            <h1 className="text-2xl font-black tracking-tight text-gray-900 dark:text-white">Registered Users</h1>
           </div>
-          <p className="text-xs text-gray-400">
+          <p className="text-xs text-gray-500 dark:text-gray-400">
             Monitor activity metrics, configure system roles, and manage tenant scope details across the sovereign stack.
           </p>
         </div>
 
         {/* Search Bar */}
         <div className="relative max-w-xs w-full">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
           <input
             type="text"
             placeholder="Search users..."
-            className="w-full pl-9 pr-4 py-2 bg-gray-900/40 border border-gray-800/80 rounded-xl text-xs text-gray-200 placeholder-gray-500 focus:outline-none focus:border-indigo-500 transition-colors"
+            className="w-full pl-9 pr-4 py-2 bg-white dark:bg-gray-900/40 border border-gray-200 dark:border-gray-800/80 rounded-xl text-xs text-gray-800 dark:text-gray-200 placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:border-indigo-500 transition-colors shadow-sm"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
           />
@@ -119,40 +119,40 @@ export default function UsersPage() {
 
       {/* Metrics Grid */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="bg-gray-900/30 border border-gray-800/60 p-4 rounded-xl flex flex-col justify-between">
+        <div className="bg-white dark:bg-gray-900/30 border border-gray-200 dark:border-gray-800/60 p-4 rounded-xl flex flex-col justify-between shadow-sm">
           <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Total Users</span>
-          <div className="text-xl font-black text-white mt-1">{totalUsers}</div>
+          <div className="text-xl font-black text-gray-900 dark:text-white mt-1">{totalUsers}</div>
         </div>
-        <div className="bg-gray-900/30 border border-gray-800/60 p-4 rounded-xl flex flex-col justify-between">
+        <div className="bg-white dark:bg-gray-900/30 border border-gray-200 dark:border-gray-800/60 p-4 rounded-xl flex flex-col justify-between shadow-sm">
           <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Total Chats</span>
-          <div className="text-xl font-black text-indigo-400 mt-1">{totalConversations}</div>
+          <div className="text-xl font-black text-indigo-600 dark:text-indigo-400 mt-1">{totalConversations}</div>
         </div>
-        <div className="bg-gray-900/30 border border-gray-800/60 p-4 rounded-xl flex flex-col justify-between">
+        <div className="bg-white dark:bg-gray-900/30 border border-gray-200 dark:border-gray-800/60 p-4 rounded-xl flex flex-col justify-between shadow-sm">
           <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Total Messages</span>
-          <div className="text-xl font-black text-emerald-400 mt-1">{totalMessages}</div>
+          <div className="text-xl font-black text-emerald-600 dark:text-emerald-400 mt-1">{totalMessages}</div>
         </div>
-        <div className="bg-gray-900/30 border border-gray-800/60 p-4 rounded-xl flex flex-col justify-between">
+        <div className="bg-white dark:bg-gray-900/30 border border-gray-200 dark:border-gray-800/60 p-4 rounded-xl flex flex-col justify-between shadow-sm">
           <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Tokens Consumed</span>
-          <div className="text-xl font-black text-purple-400 mt-1">{(totalTokens / 1000).toFixed(1)}k</div>
+          <div className="text-xl font-black text-purple-600 dark:text-purple-400 mt-1">{(totalTokens / 1000).toFixed(1)}k</div>
         </div>
       </div>
 
       {/* Users Table */}
-      <div className="bg-gray-900/40 border border-gray-800/80 rounded-xl overflow-hidden shadow-xl">
+      <div className="bg-white dark:bg-gray-900/40 border border-gray-200 dark:border-gray-800/80 rounded-xl overflow-hidden shadow-sm dark:shadow-xl">
         <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse">
+          <table className="w-full text-left border-collapse table-fixed">
             <thead>
-              <tr className="bg-gray-950/40 border-b border-gray-800 text-[10px] font-bold text-gray-500 uppercase tracking-wider">
-                <th className="py-3.5 px-6">User Email</th>
-                <th className="py-3.5 px-6">Tenant Name</th>
-                <th className="py-3.5 px-6">Usage Stats</th>
-                <th className="py-3.5 px-6">Role</th>
-                <th className="py-3.5 px-6">Status</th>
-                <th className="py-3.5 px-6">Joined Date</th>
-                <th className="py-3.5 px-6 text-right">Actions</th>
+              <tr className="bg-gray-50 dark:bg-gray-950/40 border-b border-gray-200 dark:border-gray-800 text-[10px] font-bold text-gray-500 uppercase tracking-wider">
+                <th className="py-3.5 px-6 w-[28%] min-w-[220px]">User Email</th>
+                <th className="py-3.5 px-6 w-[20%] min-w-[160px]">Tenant Name</th>
+                <th className="py-3.5 px-6 w-[18%] min-w-[150px]">Usage Stats</th>
+                <th className="py-3.5 px-6 w-[10%] min-w-[100px]">Role</th>
+                <th className="py-3.5 px-6 w-[10%] min-w-[100px]">Status</th>
+                <th className="py-3.5 px-6 w-[14%] min-w-[120px]">Joined Date</th>
+                <th className="py-3.5 px-6 w-[10%] min-w-[100px] text-right">Actions</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-800/50 text-xs">
+            <tbody className="divide-y divide-gray-200 dark:divide-gray-800/50 text-xs">
               {loading ? (
                 <tr>
                   <td colSpan={7} className="py-12 text-center text-gray-500">
@@ -168,73 +168,73 @@ export default function UsersPage() {
                 </tr>
               ) : (
                 filteredUsers.map((user) => (
-                  <tr key={user.id} className="hover:bg-gray-800/10 transition-all text-gray-300">
+                  <tr key={user.id} className="hover:bg-gray-50 dark:hover:bg-gray-800/10 transition-all text-gray-700 dark:text-gray-300">
                     {/* User Profile */}
                     <td className="py-3 px-6">
                       <div className="flex items-center gap-3">
                         <div className={`w-8 h-8 rounded-lg bg-gradient-to-br ${getAvatarColor(user.email)} flex items-center justify-center shrink-0 shadow-sm text-[11px] font-black text-white`}>
                           {getInitials(user.email)}
                         </div>
-                        <div>
-                          <div className="font-semibold text-gray-200">{user.email}</div>
-                          <div className="text-[9px] font-mono text-gray-600 truncate max-w-[140px] mt-0.5">{user.id}</div>
+                        <div className="min-w-0">
+                          <div className="font-semibold text-gray-900 dark:text-gray-200 truncate">{user.email}</div>
+                          <div className="text-[9px] font-mono text-gray-400 dark:text-gray-600 truncate mt-0.5">{user.id}</div>
                         </div>
                       </div>
                     </td>
 
                     {/* Tenant Info */}
-                    <td className="py-3 px-6">
+                    <td className="py-3 px-6 whitespace-nowrap">
                       <div className="flex items-center gap-2">
                         <Building className="w-3.5 h-3.5 text-indigo-500/40 shrink-0" />
-                        <span className="font-medium text-gray-300">{user.tenant_name || 'No Tenant'}</span>
+                        <span className="font-medium text-gray-800 dark:text-gray-300">{user.tenant_name || 'No Tenant'}</span>
                       </div>
                     </td>
 
                     {/* Usage telemetry stats */}
-                    <td className="py-3 px-6">
-                      <div className="flex flex-col gap-1">
-                        <div className="flex items-center gap-1.5 text-gray-400">
-                          <MessageSquare className="w-3 h-3 text-indigo-400" />
+                    <td className="py-3 px-6 whitespace-nowrap">
+                      <div className="flex flex-col gap-1 text-[11px] text-gray-600 dark:text-gray-400">
+                        <div className="flex items-center gap-1.5">
+                          <MessageSquare className="w-3 h-3 text-indigo-500 shrink-0" />
                           <span>{user.conversations_count || 0} chats ({user.messages_count || 0} msgs)</span>
                         </div>
-                        <div className="flex items-center gap-1.5 text-gray-400">
-                          <Zap className="w-3 h-3 text-purple-400" />
+                        <div className="flex items-center gap-1.5">
+                          <Zap className="w-3 h-3 text-purple-500 shrink-0" />
                           <span>{Number(user.total_tokens || 0).toLocaleString()} tokens</span>
                         </div>
                       </div>
                     </td>
 
                     {/* Role Badge */}
-                    <td className="py-3 px-6">
-                      <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[9px] font-bold uppercase tracking-wide border ${
+                    <td className="py-3 px-6 whitespace-nowrap">
+                      <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[9px] font-bold uppercase tracking-wide border ${
                         user.role === 'admin' || user.role === 'superadmin' 
-                          ? 'bg-purple-500/10 border-purple-500/20 text-purple-400'
-                          : 'bg-indigo-500/10 border-indigo-500/20 text-indigo-400'
+                          ? 'bg-purple-50 border-purple-200 text-purple-700 dark:bg-purple-500/10 dark:border-purple-500/20 dark:text-purple-400'
+                          : 'bg-indigo-50 border-indigo-200 text-indigo-700 dark:bg-indigo-500/10 dark:border-indigo-500/20 dark:text-indigo-400'
                       }`}>
-                        {user.role === 'admin' || user.role === 'superadmin' ? <BadgeCheck className="w-3 h-3" /> : null}
+                        {user.role === 'admin' || user.role === 'superadmin' ? <BadgeCheck className="w-3 h-3 shrink-0" /> : null}
                         {user.role}
                       </span>
                     </td>
 
                     {/* Status Pill */}
-                    <td className="py-3 px-6">
+                    <td className="py-3 px-6 whitespace-nowrap">
                       {user.is_suspended ? (
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[9px] font-bold uppercase tracking-wide bg-rose-500/10 border border-rose-500/20 text-rose-400">
-                          <span className="w-1 h-1 rounded-full bg-rose-500" />
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[9px] font-bold uppercase tracking-wide bg-rose-50 border border-rose-200 text-rose-700 dark:bg-rose-500/10 dark:border-rose-500/20 dark:text-rose-400">
+                          <span className="w-1.5 h-1.5 rounded-full bg-rose-500" />
                           Suspended
                         </span>
                       ) : (
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[9px] font-bold uppercase tracking-wide bg-emerald-500/10 border border-emerald-500/20 text-emerald-400">
-                          <span className="w-1 h-1 rounded-full bg-emerald-500" />
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[9px] font-bold uppercase tracking-wide bg-emerald-50 border border-emerald-200 text-emerald-700 dark:bg-emerald-500/10 dark:border-emerald-500/20 dark:text-emerald-400">
+                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
                           Active
                         </span>
                       )}
                     </td>
 
                     {/* Joined Date */}
-                    <td className="py-3 px-6">
-                      <div className="flex items-center gap-1.5 text-gray-400 text-[10px] font-medium">
-                        <Clock className="w-3 h-3" />
+                    <td className="py-3 px-6 whitespace-nowrap">
+                      <div className="flex items-center gap-1.5 text-gray-500 dark:text-gray-400 text-[10px] font-medium">
+                        <Clock className="w-3.5 h-3.5 shrink-0" />
                         {new Date(user.created_at).toLocaleDateString(undefined, { 
                           year: 'numeric', month: 'short', day: 'numeric'
                         })}
@@ -242,23 +242,17 @@ export default function UsersPage() {
                     </td>
 
                     {/* Row Actions */}
-                    <td className="py-3 px-6 text-right">
-                      <div className="flex items-center justify-end gap-2">
-                        <button 
-                          onClick={() => toggleSuspendUser(user.id)}
-                          className={`px-2 py-1 rounded-md text-[10px] font-bold uppercase border transition-colors flex items-center gap-1 ${
-                            user.is_suspended
-                              ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400 hover:bg-emerald-500/20'
-                              : 'bg-rose-500/10 border-rose-500/20 text-rose-400 hover:bg-rose-500/20'
-                          }`}
-                        >
-                          {user.is_suspended ? <CheckCircle className="w-3 h-3" /> : <Ban className="w-3 h-3" />}
-                          {user.is_suspended ? 'Unsuspend' : 'Suspend'}
-                        </button>
-                        <button className="p-1 hover:bg-gray-800/80 rounded-md text-gray-500 hover:text-gray-300">
-                          <MoreHorizontal className="w-4 h-4" />
-                        </button>
-                      </div>
+                    <td className="py-3 px-6 text-right whitespace-nowrap">
+                      <button 
+                        onClick={() => toggleSuspendUser(user.id)}
+                        className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all duration-200 shadow-sm ${
+                          user.is_suspended
+                            ? 'bg-emerald-600 hover:bg-emerald-700 text-white active:scale-95'
+                            : 'bg-rose-600 hover:bg-rose-700 text-white active:scale-95'
+                        }`}
+                      >
+                        {user.is_suspended ? 'Unsuspend' : 'Suspend'}
+                      </button>
                     </td>
                   </tr>
                 ))
