@@ -242,7 +242,7 @@ async function initIntegrationTables(pool) {
 // ─────────────────────────────────────────────────────────────────────
 function getTenantId(req) {
   // In this stack the admin token is global; use a sentinel tenant_id for admin context
-  return req.tenantId || '00000000-0000-0000-0000-000000000001';
+  return req.tenantId || '00000000-0000-0000-0000-000000000000';
 }
 
 async function logActivity(pool, tenantId, providerId, level, message, metadata = {}) {

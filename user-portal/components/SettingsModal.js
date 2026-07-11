@@ -32,9 +32,11 @@ function PromptLibrarySettings() {
 
   useEffect(() => {
     const fetchPresets = async () => {
+      const token = getToken();
+      if (!token) return;
       try {
         const res = await fetch(`${getApiBase()}/api/user/presets`, {
-          headers: { 'Authorization': `Bearer ${getToken()}`, 'x-tenant-slug': getTenant() }
+          headers: { 'Authorization': `Bearer ${token}`, 'x-tenant-slug': getTenant() }
         });
         if (res.ok) setPresets(await res.json());
       } catch (e) { console.error('Failed to load presets', e); }
@@ -170,9 +172,11 @@ function RagDriveSettings() {
 
   useEffect(() => {
     const fetchFiles = async () => {
+      const token = getToken();
+      if (!token) return;
       try {
         const res = await fetch(`${getApiBase()}/api/user/rag-files`, {
-          headers: { 'Authorization': `Bearer ${getToken()}`, 'x-tenant-slug': getTenant() }
+          headers: { 'Authorization': `Bearer ${token}`, 'x-tenant-slug': getTenant() }
         });
         if (res.ok) setFiles(await res.json());
       } catch (e) { console.error('Failed to load RAG files', e); }

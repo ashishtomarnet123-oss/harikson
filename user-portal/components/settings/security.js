@@ -27,6 +27,7 @@ export default function SecuritySettings() {
     setSaving(true);
     try {
       const token = localStorage.getItem('hk_token');
+      if (!token) return;
       const apiBase = localStorage.getItem('hk_api_base') || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3008';
       const tenantSlug = localStorage.getItem('hk_tenant') || 'neuravolt';
       const res = await fetch(`${apiBase}/api/user/security/change-password`, {

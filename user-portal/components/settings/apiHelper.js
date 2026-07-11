@@ -5,6 +5,7 @@
 
 export function getApiConfig() {
   const token = localStorage.getItem('hk_token');
+      if (!token) return;
   const apiBase = localStorage.getItem('hk_api_base') || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3008';
   const tenantSlug = localStorage.getItem('hk_tenant') || 'neuravolt';
   return { token, apiBase, tenantSlug };

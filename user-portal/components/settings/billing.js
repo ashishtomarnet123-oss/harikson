@@ -13,6 +13,7 @@ export default function BillingSettings() {
   const fetchBilling = async () => {
     try {
       const token = localStorage.getItem('hk_token');
+      if (!token) return;
       const apiBase = localStorage.getItem('hk_api_base') || 'http://localhost:3008';
       const tenantSlug = localStorage.getItem('hk_tenant') || 'neuravolt';
       const res = await fetch(`${apiBase}/api/user/billing`, {
