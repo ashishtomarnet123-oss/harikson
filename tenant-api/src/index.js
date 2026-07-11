@@ -1294,7 +1294,7 @@ app.get('/api/user/workspace', authMiddleware, async (req, res) => {
           id: m.id,
           name: m.email.split('@')[0],
           email: m.email,
-          role: m.role === 'admin' ? 'Admin' : m.role === 'owner' ? 'Owner' : 'Member',
+          role: (m.role === 'admin' || m.role === 'superadmin') ? 'Admin' : m.role === 'owner' ? 'Owner' : 'Member',
           avatar: m.email.slice(0, 2).toUpperCase()
         }))
       };
