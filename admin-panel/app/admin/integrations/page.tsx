@@ -59,11 +59,11 @@ interface PgCredentials { host: string; port: string; database: string; username
 
 // ─── Status config ───────────────────────────────────────────────────
 const STATUS_CONFIG: Record<Status, { label: string; dot: string; border: string; bg: string; text: string }> = {
-  disconnected: { label: 'Disconnected', dot: '#6b7280', border: 'border-gray-800',      bg: 'bg-gray-900/40',    text: 'text-gray-400' },
-  connecting:   { label: 'Connecting…',  dot: '#f59e0b', border: 'border-amber-700/50',  bg: 'bg-amber-950/10',   text: 'text-amber-400' },
-  connected:    { label: 'Connected',    dot: '#10b981', border: 'border-emerald-700/40', bg: 'bg-emerald-950/10', text: 'text-emerald-400' },
-  syncing:      { label: 'Syncing…',     dot: '#6366f1', border: 'border-indigo-700/40',  bg: 'bg-indigo-950/10',  text: 'text-indigo-400' },
-  error:        { label: 'Error',        dot: '#ef4444', border: 'border-red-700/40',     bg: 'bg-red-950/10',     text: 'text-red-400' },
+  disconnected: { label: 'Disconnected', dot: '#6b7280', border: 'border-slate-200/80', bg: 'bg-white', text: 'text-slate-500' },
+  connecting:   { label: 'Connecting…',  dot: '#f59e0b', border: 'border-amber-200',     bg: 'bg-amber-50/20',  text: 'text-amber-600' },
+  connected:    { label: 'Connected',    dot: '#10b981', border: 'border-emerald-200',   bg: 'bg-emerald-50/20', text: 'text-emerald-600' },
+  syncing:      { label: 'Syncing…',     dot: '#4f8cff', border: 'border-indigo-200',    bg: 'bg-indigo-50/20',  text: 'text-indigo-600' },
+  error:        { label: 'Error',        dot: '#ff5d73', border: 'border-red-200',       bg: 'bg-red-50/10',    text: 'text-red-600' },
 };
 
 const LOG_COLORS: Record<string, string> = {
@@ -256,15 +256,26 @@ function IntegrationCard({
   const fmtTime = (d: string | null) => d ? new Date(d).toLocaleString('en-IN', { dateStyle: 'short', timeStyle: 'short' }) : 'Never';
 
   return (
-    <div className={`relative border rounded-2xl p-5 transition-all duration-300 ${cfg.bg} ${cfg.border} flex flex-col gap-3 group`}>
+    <div className={`relative border rounded-2xl p-5 transition-all duration-300 ${cfg.bg} ${cfg.border} hover:shadow-lg hover:shadow-indigo-500/5 hover:-translate-y-0.5 flex flex-col gap-4 group`}>
       {/* Header */}
       <div className="flex items-start justify-between">
         <div className="flex items-center gap-3">
-          <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-xl flex-shrink-0 ${isConnected || isSyncing ? 'bg-gray-800/60' : 'bg-gray-800/40'}`}>
+          <div className="w-10 h-10 rounded-xl bg-slate-50 border border-slate-100 flex items-center justify-center text-xl flex-shrink-0">
             {provider.icon}
           </div>
           <div>
-            <div className="font-bold text-white text-sm">{provider.name}</div>
+            <div className="flex items-center gap-2">
+              <span className="font-bold text-slate-800 text-sm">{provider.name}</span>
+              {provider.plan_required !== 'free' && !isConnected && (
+                <span className={`text-[9px] px-1.5 py-0.5 rounded-md font-bold uppercase tracking-wider ${
+                  provider.plan_required === 'pro'
+                    ? 'bg-indigo-50 border border-indigo-200/60 text-indigo-600'
+                    : 'bg-purple-50 border border-purple-200/60 text-purple-600'
+                }`}>
+                  {provider.plan_required}
+                </span>
+              )}
+            </div>
             <div className="flex items-center gap-1.5 mt-0.5">
               <div
                 className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${(isConnecting || isSyncing) ? 'animate-pulse' : ''}`}
@@ -281,7 +292,7 @@ function IntegrationCard({
           {isConnected && (
             <button
               onClick={() => onSettings(provider)}
-              className="p-1.5 text-gray-600 hover:text-gray-300 hover:bg-gray-800 rounded-lg transition-colors"
+              className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-colors"
               title="Settings"
             >
               <Settings className="w-3.5 h-3.5" />
@@ -292,7 +303,7 @@ function IntegrationCard({
               href={isConnected ? provider.external_url : provider.docs_url}
               target="_blank"
               rel="noopener noreferrer"
-              className="p-1.5 text-gray-600 hover:text-gray-300 hover:bg-gray-800 rounded-lg transition-colors"
+              className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-colors"
               title={isConnected ? 'Open provider dashboard' : 'View documentation'}
             >
               <ExternalLink className="w-3.5 h-3.5" />
@@ -302,22 +313,22 @@ function IntegrationCard({
       </div>
 
       {/* Description */}
-      <p className="text-xs text-gray-500 leading-relaxed">{provider.description}</p>
+      <p className="text-xs text-slate-500 leading-relaxed font-normal min-h-[40px] flex-grow">{provider.description}</p>
 
       {/* Sync Progress Bar */}
       {isSyncing && activeSyncJob && (
         <div className="space-y-1.5">
           <div className="flex justify-between text-[10px] font-semibold">
-            <span className="text-gray-400">{activeSyncJob.progress.current_detail || `Syncing items…`}</span>
-            <span className="text-indigo-400 font-mono">{activeSyncJob.progress.percentage}%</span>
+            <span className="text-slate-500">{activeSyncJob.progress.current_detail || `Syncing items…`}</span>
+            <span className="text-indigo-600 font-mono">{activeSyncJob.progress.percentage}%</span>
           </div>
-          <div className="w-full h-1.5 bg-gray-950 rounded-full overflow-hidden border border-gray-800">
+          <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden border border-slate-200">
             <div
-              className="h-full bg-gradient-to-r from-indigo-500 to-purple-500 rounded-full transition-all duration-700"
+              className="h-full bg-gradient-to-r from-indigo-500 to-indigo-600 rounded-full transition-all duration-700"
               style={{ width: `${activeSyncJob.progress.percentage}%` }}
             />
           </div>
-          <div className="text-[10px] text-gray-600">
+          <div className="text-[10px] text-slate-400">
             {activeSyncJob.progress.processed_items} / {activeSyncJob.progress.total_items} items
           </div>
         </div>
@@ -325,16 +336,16 @@ function IntegrationCard({
 
       {/* Error Detail Drawer */}
       {isError && conn.last_error && (
-        <div className="border border-red-900/30 rounded-xl bg-red-950/20 overflow-hidden">
+        <div className="border border-red-200 rounded-xl bg-red-50/10 overflow-hidden">
           <button
             onClick={() => setErrorExpanded(p => !p)}
-            className="w-full flex items-center justify-between p-2.5 text-[10px] text-red-400 font-semibold"
+            className="w-full flex items-center justify-between p-2.5 text-[10px] text-red-500 font-semibold"
           >
             <span className="flex items-center gap-1.5"><AlertTriangle className="w-3 h-3" /> {conn.error_type || 'Sync error'}</span>
             {errorExpanded ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
           </button>
           {errorExpanded && (
-            <div className="px-3 pb-3 text-[10px] text-red-300/70 font-mono leading-relaxed border-t border-red-900/20">
+            <div className="px-3 pb-3 text-[10px] text-red-600 font-mono leading-relaxed border-t border-red-100">
               {conn.last_error}
             </div>
           )}
@@ -343,7 +354,7 @@ function IntegrationCard({
 
       {/* Last Sync */}
       {isConnected && conn.last_sync_at && (
-        <div className="text-[10px] text-gray-600 flex items-center gap-1">
+        <div className="text-[10px] text-slate-400 flex items-center gap-1">
           <Clock className="w-3 h-3" /> Last synced: {fmtTime(conn.last_sync_at)}
         </div>
       )}
@@ -352,17 +363,8 @@ function IntegrationCard({
       {isConnected && (
         <div className="flex flex-wrap gap-1">
           {provider.capabilities.slice(0, 3).map(cap => (
-            <span key={cap} className="px-1.5 py-0.5 bg-indigo-950/30 border border-indigo-900/30 text-indigo-500 text-[9px] font-bold rounded uppercase">{cap.replace('_', ' ')}</span>
+            <span key={cap} className="px-1.5 py-0.5 bg-slate-50 border border-slate-100 text-slate-600 text-[9px] font-bold rounded uppercase">{cap.replace('_', ' ')}</span>
           ))}
-        </div>
-      )}
-
-      {/* Plan Badge */}
-      {provider.plan_required !== 'free' && !isConnected && (
-        <div className="absolute top-3 right-3">
-          <span className={`text-[9px] px-1.5 py-0.5 rounded font-bold uppercase ${provider.plan_required === 'pro' ? 'bg-indigo-900/40 text-indigo-400 border border-indigo-800/30' : 'bg-purple-900/40 text-purple-400 border border-purple-800/30'}`}>
-            {provider.plan_required}
-          </span>
         </div>
       )}
 
@@ -371,14 +373,14 @@ function IntegrationCard({
         {status === 'disconnected' && (
           <button
             onClick={() => onConnect(provider)}
-            className="w-full flex items-center justify-center gap-2 bg-gray-900 hover:bg-gray-800 border border-gray-700 hover:border-indigo-600/50 text-gray-300 hover:text-white text-xs font-semibold px-3 py-2 rounded-xl transition-all"
+            className="w-full flex items-center justify-center gap-2 bg-white hover:bg-indigo-600 border border-slate-200 hover:border-indigo-600 text-slate-700 hover:text-white transition-all duration-300 font-semibold px-3 py-2 rounded-xl shadow-sm text-xs"
           >
-            <Wifi className="w-3.5 h-3.5 text-indigo-400" /> Connect
+            <Plug className="w-3.5 h-3.5 text-indigo-500 group-hover:text-white" /> Connect
           </button>
         )}
 
         {status === 'connecting' && (
-          <button disabled className="w-full flex items-center justify-center gap-2 bg-amber-950/20 border border-amber-800/30 text-amber-400 text-xs font-semibold px-3 py-2 rounded-xl opacity-80 cursor-not-allowed">
+          <button disabled className="w-full flex items-center justify-center gap-2 bg-amber-50/10 border border-amber-200 text-amber-500 text-xs font-semibold px-3 py-2 rounded-xl opacity-80 cursor-not-allowed">
             <Loader2 className="w-3.5 h-3.5 animate-spin" /> Connecting…
           </button>
         )}
@@ -387,29 +389,29 @@ function IntegrationCard({
           <div className="flex gap-2">
             <button
               onClick={() => onSync(provider)}
-              className="flex-1 flex items-center justify-center gap-1.5 bg-indigo-900/30 hover:bg-indigo-900/50 border border-indigo-800/40 text-indigo-300 text-xs font-semibold px-3 py-2 rounded-xl transition-all"
+              className="flex-1 flex items-center justify-center gap-1.5 bg-indigo-50 hover:bg-indigo-600 border border-indigo-200 hover:border-indigo-600 text-indigo-600 hover:text-white text-xs font-semibold px-3 py-2 rounded-xl transition-all duration-300"
             >
-              <Zap className="w-3 h-3" /> Sync Now
+              <Zap className="w-3.5 h-3.5" /> Sync Now
             </button>
             <button
               onClick={() => onViewLogs(provider)}
-              className="px-2.5 py-2 bg-gray-850 hover:bg-gray-800 border border-gray-800 text-gray-400 text-xs font-semibold rounded-xl transition-all"
+              className="px-2.5 py-2 bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-600 rounded-xl transition-all"
               title="View activity log"
             >
-              <Activity className="w-3 h-3" />
+              <Activity className="w-3.5 h-3.5" />
             </button>
             <button
               onClick={() => onDisconnect(provider)}
-              className="px-2.5 py-2 bg-red-950/20 hover:bg-red-900/30 border border-red-900/30 text-red-400 text-xs font-semibold rounded-xl transition-all"
+              className="px-2.5 py-2 bg-red-50 hover:bg-red-600 border border-red-250 text-red-500 hover:text-white rounded-xl transition-all duration-300"
               title="Disconnect"
             >
-              <WifiOff className="w-3 h-3" />
+              <WifiOff className="w-3.5 h-3.5" />
             </button>
           </div>
         )}
 
         {status === 'syncing' && (
-          <button disabled className="w-full flex items-center justify-center gap-2 bg-indigo-950/20 border border-indigo-800/30 text-indigo-400 text-xs font-semibold px-3 py-2 rounded-xl opacity-80 cursor-not-allowed">
+          <button disabled className="w-full flex items-center justify-center gap-2 bg-indigo-50/10 border border-indigo-200 text-indigo-500 text-xs font-semibold px-3 py-2 rounded-xl opacity-80 cursor-not-allowed">
             <Loader2 className="w-3.5 h-3.5 animate-spin" /> Syncing…
           </button>
         )}
@@ -418,16 +420,16 @@ function IntegrationCard({
           <div className="flex gap-2">
             <button
               onClick={() => onConnect(provider)}
-              className="flex-1 flex items-center justify-center gap-1.5 bg-red-950/20 hover:bg-red-900/30 border border-red-900/30 text-red-300 text-xs font-semibold px-3 py-2 rounded-xl transition-all"
+              className="flex-1 flex items-center justify-center gap-1.5 bg-red-50 hover:bg-red-600 border border-red-200 text-red-500 hover:text-white text-xs font-semibold px-3 py-2 rounded-xl transition-all duration-300"
             >
-              <RefreshCw className="w-3 h-3" /> {conn.error_type === 'auth_expired' || conn.error_type === 'auth_failed' ? 'Reconnect' : 'Retry'}
+              <RefreshCw className="w-3.5 h-3.5" /> {conn.error_type === 'auth_expired' || conn.error_type === 'auth_failed' ? 'Reconnect' : 'Retry'}
             </button>
             <button
               onClick={() => onDisconnect(provider)}
-              className="px-2.5 py-2 bg-gray-850 hover:bg-gray-800 border border-gray-800 text-gray-500 text-xs font-semibold rounded-xl transition-all"
+              className="px-2.5 py-2 bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-500 rounded-xl transition-all"
               title="Disconnect"
             >
-              <Link2Off className="w-3 h-3" />
+              <Link2Off className="w-3.5 h-3.5" />
             </button>
           </div>
         )}
@@ -694,16 +696,16 @@ export default function IntegrationCenterPage() {
       )}
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {[
-          { label: 'Total', value: summary.total, color: 'text-gray-200', bg: 'bg-gray-900/50 border-gray-800' },
-          { label: 'Connected', value: summary.connected, color: 'text-emerald-400', bg: 'bg-emerald-950/20 border-emerald-900/30' },
-          { label: 'Available', value: summary.available, color: 'text-indigo-400', bg: 'bg-indigo-950/20 border-indigo-900/30' },
-          { label: 'Errors', value: summary.errors, color: summary.errors > 0 ? 'text-red-400' : 'text-gray-600', bg: summary.errors > 0 ? 'bg-red-950/20 border-red-900/30' : 'bg-gray-900/50 border-gray-800' },
+          { label: 'Total Providers', value: summary.total, color: 'text-slate-800', border: 'border-l-4 border-l-slate-400 border-slate-200/80 bg-white' },
+          { label: 'Connected', value: summary.connected, color: 'text-emerald-600', border: 'border-l-4 border-l-emerald-500 border-slate-200/80 bg-white' },
+          { label: 'Available Now', value: summary.available, color: 'text-indigo-600', border: 'border-l-4 border-l-indigo-500 border-slate-200/80 bg-white' },
+          { label: 'Errors / Alerts', value: summary.errors, color: summary.errors > 0 ? 'text-red-500' : 'text-slate-400', border: summary.errors > 0 ? 'border-l-4 border-l-red-500 border-slate-200/80 bg-white' : 'border-l-4 border-l-slate-300 border-slate-200/80 bg-white' },
         ].map(s => (
-          <div key={s.label} className={`border rounded-2xl p-4 text-center ${s.bg}`}>
-            <div className={`text-3xl font-black ${s.color}`}>{loading ? '—' : s.value}</div>
-            <div className="text-xs text-gray-500 mt-0.5 font-semibold uppercase tracking-wider">{s.label}</div>
+          <div key={s.label} className={`border rounded-2xl p-5 shadow-sm shadow-slate-100/50 ${s.border}`}>
+            <div className="text-xs text-slate-400 font-bold uppercase tracking-wider">{s.label}</div>
+            <div className={`text-3xl font-black mt-1 ${s.color}`}>{loading ? '—' : s.value}</div>
           </div>
         ))}
       </div>
