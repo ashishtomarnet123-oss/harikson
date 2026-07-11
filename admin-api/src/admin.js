@@ -15,6 +15,7 @@ import Razorpay from 'razorpay';
 import founderRouter from './routers/founder.js';
 import agentsRouter from './routers/agents.js';
 import operationsRouter from './routers/operations.js';
+import { router as integrationsRouter, initIntegrationTables, startIntegrationWorkers } from './routers/integrations.js';
 
 dotenv.config();
 
@@ -560,6 +561,9 @@ async function initDb() {
 
     console.log('✅ All Phase 1-5 database tables migrated successfully.');
 
+    // Integration Center tables
+    await initIntegrationTables(pool);
+
   } catch (err) {
     console.error('Failed to auto-migrate database tables:', err);
   }
@@ -670,7 +674,10 @@ app.post('/admin/logout', (req, res) => {
 // ────────────────────────────────────────────────────────────
 app.use('/admin/founder', founderRouter);
 app.use('/admin/agents', agentsRouter);
-app.use('/admin', operationsRouter); // Phase 1-5 operations (unprotected mount, router handles auth via adminAuth middleware below)
+app.use('/admin', operationsRouter); // Phase 1-5 operations
+// Integration Center — inject pool into req then mount
+app.use('/admin/integrations', (req, _res, next) => { req.pool = pool; next(); }, integrationsRouter);
+app.use('/admin/webhooks', (req, _res, next) => { req.pool = pool; next(); }, integrationsRouter);
 app.use('/admin', adminAuth);
 
 // 0. GET /admin/kpis
@@ -1883,4 +1890,5 @@ app.use((err, req, res, next) => {
 
 app.listen(port, () => {
   console.log(`⚡ [Admin Management API] Operational and listening on port ${port}`);
+  startIntegrationWorkers(pool);
 });
