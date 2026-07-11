@@ -113,7 +113,7 @@ export default function ActivitySettings() {
                         background: 'var(--bg-hover)',
                         display: 'flex',
                         alignItems: 'center',
-                        justify-content: 'center',
+                        justifyContent: 'center',
                         color: log.color || 'var(--accent)'
                       }}>
                         <Icon size={15} />
