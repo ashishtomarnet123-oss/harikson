@@ -947,8 +947,8 @@ export default function TenantPlanManager() {
                     return (
                       <tr key={t.id} className="hover:bg-gray-800/10 text-gray-300 transition-all">
                         <td className="py-4 px-6 font-mono text-xs text-indigo-400 font-semibold">
-                          <button onClick={() => copyToClipboard(t.id)} className="flex items-center gap-1.5 hover:text-indigo-300">
-                            {t.id.substring(0, 8)}... {copiedId === t.id ? <Check className="w-3.5 h-3.5 text-green-400" /> : <Copy className="w-3.5 h-3.5 text-gray-500" />}
+                          <button onClick={() => copyToClipboard(t.id)} className="flex items-center gap-1.5 text-indigo-400 hover:text-indigo-300 transition-colors font-semibold font-mono">
+                            {t.id.substring(0, 8)}... {copiedId === t.id ? <Check className="w-3.5 h-3.5 text-green-400" /> : <Copy className="w-3.5 h-3.5 text-indigo-500/70" />}
                           </button>
                         </td>
                         <td className="py-4 px-6 font-bold text-white">{t.name}</td>
