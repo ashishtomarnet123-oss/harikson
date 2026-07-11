@@ -1453,6 +1453,67 @@ app.post('/api/user/workspace/members', authMiddleware, async (req, res) => {
   }
 });
 
+// DELETE /api/user/workspace/members/:memberId - Remove a member from the workspace
+app.delete('/api/user/workspace/members/:memberId', authMiddleware, async (req, res) => {
+  try {
+    const { memberId } = req.params;
+
+    // Verify current user is an admin or owner of the workspace to perform deletions
+    if (req.user.role !== 'admin' && req.user.role !== 'owner' && req.user.role !== 'superadmin') {
+      return res.status(403).json({ error: 'Forbidden: Insufficient permissions to remove members' });
+    }
+
+    // A user cannot delete themselves
+    if (req.user.id === memberId) {
+      return res.status(400).json({ error: 'Bad Request: You cannot remove yourself from the workspace' });
+    }
+
+    const deleted = await executeTenantQuery(req.tenant.id, async (client) => {
+      // Fetch details first for logging
+      const mRes = await client.query('SELECT email FROM users WHERE id = $1 AND tenant_id = $2', [memberId, req.tenant.id]);
+      if (mRes.rows.length === 0) return null;
+      const targetEmail = mRes.rows[0].email;
+
+      // Delete user
+      await client.query(
+        'DELETE FROM users WHERE id = $1 AND tenant_id = $2',
+        [memberId, req.tenant.id]
+      );
+
+      // Record to activity timeline in settings of the editor
+      const eventId = crypto.randomUUID();
+      await client.query(
+        `UPDATE users
+         SET settings = jsonb_set(
+           COALESCE(settings, '{}'::jsonb),
+           '{activity_log}',
+           COALESCE(settings->'activity_log', '[]'::jsonb) || $1::jsonb
+         )
+         WHERE id = $2`,
+        [
+          JSON.stringify({
+            id: eventId,
+            event: 'Security',
+            details: `Removed member ${targetEmail} from workspace`,
+            timestamp: new Date().toISOString()
+          }),
+          req.user.id
+        ]
+      );
+      return targetEmail;
+    });
+
+    if (!deleted) {
+      return res.status(404).json({ error: 'Workspace member not found' });
+    }
+
+    res.json({ message: 'Workspace member removed successfully', email: deleted });
+  } catch (err) {
+    console.error('Delete workspace member error:', err);
+    res.status(500).json({ error: 'Failed to remove workspace member' });
+  }
+});
+
 // GET /api/user/developer/keys - Get API Keys (real keys only)
 app.get('/api/user/developer/keys', authMiddleware, async (req, res) => {
   try {

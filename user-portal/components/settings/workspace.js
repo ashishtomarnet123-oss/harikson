@@ -1,13 +1,26 @@
 import React, { useState, useEffect } from 'react';
-import { Settings } from 'lucide-react';
+import { Settings, Trash2 } from 'lucide-react';
 
 export default function WorkspaceSettings() {
   const [workspace, setWorkspace] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
+  const [currentUserId, setCurrentUserId] = useState(null);
+
   useEffect(() => {
     fetchWorkspace();
+    const token = localStorage.getItem('hk_token');
+    if (token) {
+      try {
+        const payload = JSON.parse(atob(token.split('.')[1]));
+        if (payload && payload.userId) {
+          setCurrentUserId(payload.userId);
+        }
+      } catch (e) {
+        console.error('Failed to parse token payload:', e);
+      }
+    }
   }, []);
 
   const [editingMemberId, setEditingMemberId] = useState(null);
@@ -117,6 +130,40 @@ export default function WorkspaceSettings() {
         setEditingMemberId(null);
       } else {
         throw new Error(data.error || 'Failed to update member role');
+      }
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setUpdatingRole(false);
+    }
+  };
+
+  const handleDeleteMember = async (memberId, email) => {
+    if (!window.confirm(`Are you sure you want to remove ${email} from the workspace?`)) {
+      return;
+    }
+    setUpdatingRole(true);
+    setError(null);
+    try {
+      const token = localStorage.getItem('hk_token');
+      if (!token) return;
+      const apiBase = localStorage.getItem('hk_api_base') || 'http://localhost:3008';
+      const tenantSlug = localStorage.getItem('hk_tenant') || 'neuravolt';
+      const res = await fetch(`${apiBase}/api/user/workspace/members/${memberId}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'x-tenant-slug': tenantSlug
+        }
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setWorkspace(prev => ({
+          ...prev,
+          members: prev.members.filter(m => m.id !== memberId)
+        }));
+      } else {
+        throw new Error(data.error || 'Failed to remove member');
       }
     } catch (err) {
       setError(err.message);
@@ -363,9 +410,19 @@ export default function WorkspaceSettings() {
                         <button 
                           onClick={() => setEditingMemberId(m.id)}
                           style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: '4px', display: 'flex' }}
+                          title="Change Role"
                         >
                           <Settings size={15} />
                         </button>
+                        {currentUserId !== m.id && (
+                          <button 
+                            onClick={() => handleDeleteMember(m.id, m.email)}
+                            style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--accent-red, #ef4444)', padding: '4px', display: 'flex' }}
+                            title="Remove Member"
+                          >
+                            <Trash2 size={15} />
+                          </button>
+                        )}
                       </>
                     )}
                   </div>
