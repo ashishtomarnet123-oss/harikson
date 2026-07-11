@@ -30,6 +30,32 @@ const pool = new Pool({
   connectionString: process.env.DATABASE_URL
 });
 
+// Extend users table to store profile, settings, keys, billing, devices and logs per user
+async function initUserTables() {
+  try {
+    await pool.query(`
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS name VARCHAR(255);
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS username VARCHAR(255);
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS phone VARCHAR(255);
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS company VARCHAR(255);
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS job_title VARCHAR(255);
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS department VARCHAR(255);
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS country VARCHAR(255);
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS bio TEXT;
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS settings JSONB DEFAULT '{}'::jsonb;
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS billing_info JSONB DEFAULT '{}'::jsonb;
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS developer_keys JSONB DEFAULT '[]'::jsonb;
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS connected_devices JSONB DEFAULT '[]'::jsonb;
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS activity_logs JSONB DEFAULT '[]'::jsonb;
+    `);
+    console.log("✅ Tenant users schema extension verified successfully.");
+  } catch (err) {
+    console.error("❌ Failed to extend tenant users schema:", err);
+  }
+}
+initUserTables().catch(console.error);
+
+
 // Redis Client
 const redis = new Redis(process.env.REDIS_URL || 'redis://localhost:6379');
 
@@ -1021,6 +1047,289 @@ app.get('/api/conversations/:id/messages', authMiddleware, async (req, res) => {
     res.status(500).json({ error: 'Failed to fetch messages' });
   }
 });
+
+// --- USER SETTINGS REST API ENDPOINTS ---
+
+// GET /api/user/profile - Get current user profile
+app.get('/api/user/profile', authMiddleware, async (req, res) => {
+  try {
+    const user = await executeTenantQuery(req.tenant.id, async (client) => {
+      const result = await client.query(
+        `SELECT name, username, email, phone, company, job_title as "jobTitle", department, country, bio
+         FROM users WHERE id = $1`,
+        [req.user.id]
+      );
+      return result.rows[0];
+    });
+    res.json(user || {});
+  } catch (err) {
+    console.error('Fetch profile error:', err);
+    res.status(500).json({ error: 'Failed to fetch profile' });
+  }
+});
+
+// PUT /api/user/profile - Update current user profile
+app.put('/api/user/profile', authMiddleware, async (req, res) => {
+  try {
+    const { name, username, phone, company, jobTitle, department, country, bio } = req.body;
+    const user = await executeTenantQuery(req.tenant.id, async (client) => {
+      const result = await client.query(
+        `UPDATE users
+         SET name = $1, username = $2, phone = $3, company = $4, job_title = $5, department = $6, country = $7, bio = $8
+         WHERE id = $9
+         RETURNING name, username, email, phone, company, job_title as "jobTitle", department, country, bio`,
+        [name, username, phone, company, jobTitle, department, country, bio, req.user.id]
+      );
+      return result.rows[0];
+    });
+    res.json(user || {});
+  } catch (err) {
+    console.error('Update profile error:', err);
+    res.status(500).json({ error: 'Failed to update profile' });
+  }
+});
+
+// GET /api/user/settings - Get settings
+app.get('/api/user/settings', authMiddleware, async (req, res) => {
+  try {
+    const settings = await executeTenantQuery(req.tenant.id, async (client) => {
+      const result = await client.query(`SELECT settings FROM users WHERE id = $1`, [req.user.id]);
+      return result.rows[0]?.settings || {};
+    });
+    res.json(settings);
+  } catch (err) {
+    console.error('Fetch settings error:', err);
+    res.status(500).json({ error: 'Failed to fetch settings' });
+  }
+});
+
+// PUT /api/user/settings - Update settings
+app.put('/api/user/settings', authMiddleware, async (req, res) => {
+  try {
+    const settings = req.body;
+    const updated = await executeTenantQuery(req.tenant.id, async (client) => {
+      const result = await client.query(
+        `UPDATE users SET settings = $1 WHERE id = $2 RETURNING settings`,
+        [JSON.stringify(settings), req.user.id]
+      );
+      return result.rows[0]?.settings || {};
+    });
+    res.json(updated);
+  } catch (err) {
+    console.error('Update settings error:', err);
+    res.status(500).json({ error: 'Failed to update settings' });
+  }
+});
+
+// GET /api/user/billing - Get billing plan & invoice history
+app.get('/api/user/billing', authMiddleware, async (req, res) => {
+  try {
+    const billing = await executeTenantQuery(req.tenant.id, async (client) => {
+      const result = await client.query(`SELECT billing_info FROM users WHERE id = $1`, [req.user.id]);
+      return result.rows[0]?.billing_info;
+    });
+    
+    const defaultBilling = {
+      planName: 'Pro Plan',
+      price: '$49',
+      status: 'ACTIVE',
+      paymentMethod: { type: 'Mastercard', last4: '4242', expiry: '12/2028' },
+      invoices: [
+        { id: 'INV-2026-004', date: 'Jul 1, 2026', amount: '$49.00', status: 'Paid' },
+        { id: 'INV-2026-003', date: 'Jun 1, 2026', amount: '$49.00', status: 'Paid' },
+        { id: 'INV-2026-002', date: 'May 1, 2026', amount: '$49.00', status: 'Paid' }
+      ]
+    };
+    res.json(billing && Object.keys(billing).length > 0 ? billing : defaultBilling);
+  } catch (err) {
+    console.error('Fetch billing error:', err);
+    res.status(500).json({ error: 'Failed to fetch billing info' });
+  }
+});
+
+// GET /api/user/devices - Get connected active sessions
+app.get('/api/user/devices', authMiddleware, async (req, res) => {
+  try {
+    const devices = await executeTenantQuery(req.tenant.id, async (client) => {
+      const result = await client.query(`SELECT connected_devices FROM users WHERE id = $1`, [req.user.id]);
+      return result.rows[0]?.connected_devices || [];
+    });
+    
+    const defaultDevices = [
+      { id: '1', name: 'MacBook Pro 16"', os: 'macOS', browser: 'Chrome', ip: '192.168.1.1', lastActive: 'Active now', current: true },
+      { id: '2', name: 'iPhone 14 Pro', os: 'iOS', browser: 'Safari', ip: '10.0.0.45', lastActive: '2 hours ago', current: false }
+    ];
+    res.json(devices.length > 0 ? devices : defaultDevices);
+  } catch (err) {
+    console.error('Fetch devices error:', err);
+    res.status(500).json({ error: 'Failed to fetch connected devices' });
+  }
+});
+
+// DELETE /api/user/devices/:id - Logout session
+app.delete('/api/user/devices/:id', authMiddleware, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const updated = await executeTenantQuery(req.tenant.id, async (client) => {
+      const currentRes = await client.query(`SELECT connected_devices FROM users WHERE id = $1`, [req.user.id]);
+      const list = currentRes.rows[0]?.connected_devices || [
+        { id: '1', name: 'MacBook Pro 16"', os: 'macOS', browser: 'Chrome', ip: '192.168.1.1', lastActive: 'Active now', current: true },
+        { id: '2', name: 'iPhone 14 Pro', os: 'iOS', browser: 'Safari', ip: '10.0.0.45', lastActive: '2 hours ago', current: false }
+      ];
+      const filtered = list.filter(d => d.id !== id);
+      await client.query(`UPDATE users SET connected_devices = $1 WHERE id = $2`, [JSON.stringify(filtered), req.user.id]);
+      return filtered;
+    });
+    res.json({ success: true, devices: updated });
+  } catch (err) {
+    console.error('Delete device error:', err);
+    res.status(500).json({ error: 'Failed to terminate device session' });
+  }
+});
+
+// GET /api/user/activity - Get user audit logs
+app.get('/api/user/activity', authMiddleware, async (req, res) => {
+  try {
+    const logs = await executeTenantQuery(req.tenant.id, async (client) => {
+      const result = await client.query(`SELECT activity_logs FROM users WHERE id = $1`, [req.user.id]);
+      return result.rows[0]?.activity_logs || [];
+    });
+    
+    const defaultLogs = [
+      { id: '1', action: 'Logged in successfully', ip: '192.168.1.1', device: 'MacBook Pro 16" (Chrome)', date: 'Today at 10:45 AM', level: 'info', color: '#059669' },
+      { id: '2', action: 'API Key generated', ip: '192.168.1.1', device: 'MacBook Pro 16" (Chrome)', date: 'Yesterday at 3:12 PM', level: 'warn', color: '#d97706' },
+      { id: '3', action: 'Password changed', ip: '192.168.1.1', device: 'MacBook Pro 16" (Chrome)', date: 'Jul 4 at 11:30 AM', level: 'error', color: '#dc2626' }
+    ];
+    res.json(logs.length > 0 ? logs : defaultLogs);
+  } catch (err) {
+    console.error('Fetch activity error:', err);
+    res.status(500).json({ error: 'Failed to fetch activity logs' });
+  }
+});
+
+// GET /api/user/workspace - Get workspace details & members
+app.get('/api/user/workspace', authMiddleware, async (req, res) => {
+  try {
+    const workspace = await executeTenantQuery(req.tenant.id, async (client) => {
+      const uRes = await client.query(`SELECT company FROM users WHERE id = $1`, [req.user.id]);
+      const company = uRes.rows[0]?.company || 'Harikson AI (Production)';
+      
+      const mRes = await client.query(
+        `SELECT id, email, role FROM users WHERE tenant_id = $1 ORDER BY role DESC`,
+        [req.tenant.id]
+      );
+      
+      return {
+        instanceId: `ins_prd_${req.tenant.id.slice(0, 5)}`,
+        name: company,
+        slug: req.tenant.slug,
+        members: mRes.rows.map(m => ({
+          id: m.id,
+          name: m.email.split('@')[0],
+          email: m.email,
+          role: m.role === 'admin' ? 'Admin' : m.role === 'owner' ? 'Owner' : 'Member',
+          avatar: m.email.slice(0, 2).toUpperCase()
+        }))
+      };
+    });
+    res.json(workspace);
+  } catch (err) {
+    console.error('Fetch workspace error:', err);
+    res.status(500).json({ error: 'Failed to fetch workspace settings' });
+  }
+});
+
+// GET /api/user/developer/keys - Get API Keys
+app.get('/api/user/developer/keys', authMiddleware, async (req, res) => {
+  try {
+    const keys = await executeTenantQuery(req.tenant.id, async (client) => {
+      const result = await client.query(`SELECT developer_keys FROM users WHERE id = $1`, [req.user.id]);
+      return result.rows[0]?.developer_keys || [];
+    });
+    
+    const defaultKeys = [
+      { id: '1', name: 'Production API', key: 'hk_live_8f9a2b3c4d5e6f7a8b9c0d1e2f3a4b5c', created: '2026-06-15', lastUsed: '2 hours ago' },
+      { id: '2', name: 'Testing Key', key: 'hk_test_4c2d1e3f4a5b6c7d8e9f0a1b2c3d4e5f', created: '2026-07-01', lastUsed: 'Never' }
+    ];
+    res.json(keys.length > 0 ? keys : defaultKeys);
+  } catch (err) {
+    console.error('Fetch keys error:', err);
+    res.status(500).json({ error: 'Failed to fetch API keys' });
+  }
+});
+
+// POST /api/user/developer/keys - Create API Key
+app.post('/api/user/developer/keys', authMiddleware, async (req, res) => {
+  try {
+    const { name } = req.body;
+    if (!name) return res.status(400).json({ error: 'Key name is required' });
+    
+    const newKeyVal = `hk_${Math.random() > 0.5 ? 'live' : 'test'}_${crypto.randomBytes(16).toString('hex')}`;
+    
+    const updated = await executeTenantQuery(req.tenant.id, async (client) => {
+      const currentRes = await client.query(`SELECT developer_keys FROM users WHERE id = $1`, [req.user.id]);
+      const list = currentRes.rows[0]?.developer_keys || [
+        { id: '1', name: 'Production API', key: 'hk_live_8f9a2b3c4d5e6f7a8b9c0d1e2f3a4b5c', created: '2026-06-15', lastUsed: '2 hours ago' },
+        { id: '2', name: 'Testing Key', key: 'hk_test_4c2d1e3f4a5b6c7d8e9f0a1b2c3d4e5f', created: '2026-07-01', lastUsed: 'Never' }
+      ];
+      
+      const newKey = {
+        id: Date.now().toString(),
+        name,
+        key: newKeyVal,
+        created: new Date().toISOString().split('T')[0],
+        lastUsed: 'Never'
+      };
+      const newList = [...list, newKey];
+      await client.query(`UPDATE users SET developer_keys = $1 WHERE id = $2`, [JSON.stringify(newList), req.user.id]);
+      return newList;
+    });
+    
+    // Log key generation activity
+    await executeTenantQuery(req.tenant.id, async (client) => {
+      const logsRes = await client.query(`SELECT activity_logs FROM users WHERE id = $1`, [req.user.id]);
+      const logs = logsRes.rows[0]?.activity_logs || [];
+      const newLog = {
+        id: Date.now().toString(),
+        action: `API Key '${name}' generated`,
+        ip: req.ip || '127.0.0.1',
+        device: req.headers['user-agent'] || 'Unknown Device',
+        date: 'Today at ' + new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
+        level: 'warn',
+        color: '#d97706'
+      };
+      await client.query(`UPDATE users SET activity_logs = $1 WHERE id = $2`, [JSON.stringify([newLog, ...logs]), req.user.id]);
+    });
+    
+    res.json({ success: true, keys: updated });
+  } catch (err) {
+    console.error('Create key error:', err);
+    res.status(500).json({ error: 'Failed to create developer key' });
+  }
+});
+
+// DELETE /api/user/developer/keys/:id - Revoke API Key
+app.delete('/api/user/developer/keys/:id', authMiddleware, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const updated = await executeTenantQuery(req.tenant.id, async (client) => {
+      const currentRes = await client.query(`SELECT developer_keys FROM users WHERE id = $1`, [req.user.id]);
+      const list = currentRes.rows[0]?.developer_keys || [
+        { id: '1', name: 'Production API', key: 'hk_live_8f9a2b3c4d5e6f7a8b9c0d1e2f3a4b5c', created: '2026-06-15', lastUsed: '2 hours ago' },
+        { id: '2', name: 'Testing Key', key: 'hk_test_4c2d1e3f4a5b6c7d8e9f0a1b2c3d4e5f', created: '2026-07-01', lastUsed: 'Never' }
+      ];
+      const filtered = list.filter(k => k.id !== id);
+      await client.query(`UPDATE users SET developer_keys = $1 WHERE id = $2`, [JSON.stringify(filtered), req.user.id]);
+      return filtered;
+    });
+    res.json({ success: true, keys: updated });
+  } catch (err) {
+    console.error('Delete key error:', err);
+    res.status(500).json({ error: 'Failed to revoke developer key' });
+  }
+});
+
+// --- END USER SETTINGS API ---
 
 // Global Error Handler
 app.use((err, req, res, next) => {

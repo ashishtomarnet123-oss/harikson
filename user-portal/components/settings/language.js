@@ -15,7 +15,7 @@ export default function LanguageSettings() {
       try {
         const token = localStorage.getItem('hk_token');
         if (!token) return;
-        const apiBase = process.env.NEXT_PUBLIC_API_URL || '';
+        const apiBase = localStorage.getItem('hk_api_base') || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3008';
         const res = await fetch(`${apiBase}/api/user/profile`, {
           headers: { 'Authorization': `Bearer ${token}` }
         });
@@ -47,7 +47,7 @@ export default function LanguageSettings() {
     setMessage(null);
     try {
       const token = localStorage.getItem('hk_token');
-      const apiBase = process.env.NEXT_PUBLIC_API_URL || '';
+      const apiBase = localStorage.getItem('hk_api_base') || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3008';
       const res = await fetch(`${apiBase}/api/user/profile`, {
         method: 'PUT',
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
