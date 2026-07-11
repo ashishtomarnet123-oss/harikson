@@ -1412,6 +1412,85 @@ app.delete('/api/user/developer/keys/:id', authMiddleware, async (req, res) => {
   } catch (err) {
     console.error('Delete key error:', err);
     res.status(500).json({ error: 'Failed to revoke developer key' });
+// GET /api/user/usage - Get real-time token and query usage for the logged-in user
+app.get('/api/user/usage', authMiddleware, async (req, res) => {
+  try {
+    const usage = await executeTenantQuery(req.tenant.id, async (client) => {
+      // 1. Get total tokens and queries in last 7 days
+      const summaryRes = await client.query(
+        `SELECT 
+           COALESCE(SUM(m.tokens_used), 0)::integer as "totalTokens",
+           COUNT(CASE WHEN m.role = 'user' THEN 1 END)::integer as "totalQueries"
+         FROM messages m
+         JOIN conversations c ON m.conversation_id = c.id
+         WHERE c.user_id = $1 AND m.created_at >= NOW() - INTERVAL '7 days'`,
+        [req.user.id]
+      );
+      const summary = summaryRes.rows[0] || { totalTokens: 0, totalQueries: 0 };
+
+      // 2. Get previous 7 days to calculate week-over-week change comparison
+      const prevRes = await client.query(
+        `SELECT 
+           COALESCE(SUM(m.tokens_used), 0)::integer as "prevTokens",
+           COUNT(CASE WHEN m.role = 'user' THEN 1 END)::integer as "prevQueries"
+         FROM messages m
+         JOIN conversations c ON m.conversation_id = c.id
+         WHERE c.user_id = $1 AND m.created_at >= NOW() - INTERVAL '14 days' AND m.created_at < NOW() - INTERVAL '7 days'`,
+        [req.user.id]
+      );
+      const prev = prevRes.rows[0] || { prevTokens: 0, prevQueries: 0 };
+
+      // Calculate percentage changes
+      const tokensChange = prev.prevTokens > 0 
+        ? Math.round(((summary.totalTokens - prev.prevTokens) / prev.prevTokens) * 100) 
+        : 0;
+      const queriesChange = prev.prevQueries > 0 
+        ? Math.round(((summary.totalQueries - prev.prevQueries) / prev.prevQueries) * 100) 
+        : 0;
+
+      // 3. Get daily chart data grouped by ISO day of week
+      const dailyRes = await client.query(
+        `SELECT 
+           TO_CHAR(m.created_at, 'Dy') as name,
+           EXTRACT(ISODOW FROM m.created_at) as day_num,
+           COALESCE(SUM(m.tokens_used), 0)::integer as tokens,
+           COUNT(CASE WHEN m.role = 'user' THEN 1 END)::integer as queries
+         FROM messages m
+         JOIN conversations c ON m.conversation_id = c.id
+         WHERE c.user_id = $1 AND m.created_at >= NOW() - INTERVAL '7 days'
+         GROUP BY name, day_num
+         ORDER BY day_num ASC`,
+        [req.user.id]
+      );
+
+      // Create a full 7-day week with fallback values for days without activity
+      const daysOfWeek = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+      const dailyMap = {};
+      dailyRes.rows.forEach(r => {
+        dailyMap[r.name] = { tokens: r.tokens, queries: r.queries };
+      });
+
+      const chartData = daysOfWeek.map(day => {
+        return {
+          name: day,
+          tokens: dailyMap[day]?.tokens || 0,
+          queries: dailyMap[day]?.queries || 0
+        };
+      });
+
+      return {
+        totalTokens: summary.totalTokens,
+        totalQueries: summary.totalQueries,
+        tokensChange,
+        queriesChange,
+        chartData
+      };
+    });
+
+    res.json(usage);
+  } catch (err) {
+    console.error('Fetch usage statistics error:', err);
+    res.status(500).json({ error: 'Failed to fetch usage statistics' });
   }
 });
 
