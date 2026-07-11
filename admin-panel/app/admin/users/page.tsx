@@ -22,6 +22,7 @@ interface User {
   department?: string;
   country?: string;
   bio?: string;
+  billing_info?: any;
 }
 
 export default function UsersPage() {
@@ -35,6 +36,10 @@ export default function UsersPage() {
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [userConversations, setUserConversations] = useState<any[]>([]);
   const [loadingConvs, setLoadingConvs] = useState(false);
+
+  // Subscription plan modification state
+  const [plans, setPlans] = useState<any[]>([]);
+  const [updatingPlan, setUpdatingPlan] = useState(false);
 
   const fetchUsers = async () => {
     setLoading(true);
@@ -53,8 +58,57 @@ export default function UsersPage() {
     }
   };
 
+  const fetchPlans = async () => {
+    const token = getCookie('admin_token') || localStorage.getItem('admin_token') || 'TEST_ADMIN_TOKEN';
+    try {
+      const res = await fetch(`${apiBase}/admin/plans`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setPlans(data.plans || []);
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const handleUserPlanChange = async (planId: string) => {
+    if (!selectedUser) return;
+    setUpdatingPlan(true);
+    const token = getCookie('admin_token') || localStorage.getItem('admin_token') || 'TEST_ADMIN_TOKEN';
+    try {
+      const res = await fetch(`${apiBase}/admin/users/${selectedUser.id}/plan`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ planId: planId || null })
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setUsers(prev => prev.map(u => {
+          if (u.id === selectedUser.id) {
+            return { ...u, billing_info: data.billing_info };
+          }
+          return u;
+        }));
+        setSelectedUser(prev => prev ? { ...prev, billing_info: data.billing_info } : null);
+      } else {
+        alert('Failed to update user plan');
+      }
+    } catch (err) {
+      console.error(err);
+      alert('Error updating user plan');
+    } finally {
+      setUpdatingPlan(false);
+    }
+  };
+
   useEffect(() => {
     fetchUsers();
+    fetchPlans();
   }, [apiBase]);
 
   // Fetch recent conversations for selected user
@@ -432,6 +486,56 @@ export default function UsersPage() {
                       {selectedUser.bio || 'No biography written.'}
                     </span>
                   </div>
+                </div>
+              </div>
+
+              {/* Plan Assignment Override */}
+              <div>
+                <span className="text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider block mb-2">Assigned Subscription Plan</span>
+                <div className="bg-gray-50 dark:bg-gray-950/40 p-4 rounded-xl border border-gray-200 dark:border-gray-800/60 flex flex-col gap-3">
+                  <div className="flex items-center justify-between gap-4">
+                    <span className="text-xs text-gray-500 font-medium">Active Override:</span>
+                    <span className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded-md border ${
+                      selectedUser.billing_info && Object.keys(selectedUser.billing_info).length > 0
+                        ? 'bg-amber-50 border-amber-200 text-amber-700 dark:bg-amber-500/10 dark:border-amber-500/20 dark:text-amber-400'
+                        : 'bg-gray-50 border-gray-200 text-gray-500 dark:bg-gray-800/40 dark:border-gray-850 dark:text-gray-400'
+                    }`}>
+                      {selectedUser.billing_info && Object.keys(selectedUser.billing_info).length > 0
+                        ? selectedUser.billing_info.planName || 'Custom Plan'
+                        : 'Workspace Default'}
+                    </span>
+                  </div>
+                  <div className="relative">
+                    <select
+                      className="w-full px-3 py-2 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl text-xs text-gray-800 dark:text-gray-200 focus:outline-none focus:border-indigo-500 shadow-sm disabled:opacity-50"
+                      value={(() => {
+                        if (!selectedUser?.billing_info || Object.keys(selectedUser.billing_info).length === 0) return '';
+                        const name = (selectedUser.billing_info.planName || '').toLowerCase();
+                        if (name.includes('starter')) return 'starter';
+                        if (name.includes('professional')) return 'professional';
+                        if (name.includes('enterprise')) return 'enterprise';
+                        const matchedPlan = plans.find(p => name.includes(p.name.toLowerCase()));
+                        return matchedPlan ? matchedPlan.id : '';
+                      })()}
+                      disabled={updatingPlan}
+                      onChange={(e) => handleUserPlanChange(e.target.value)}
+                    >
+                      <option value="">Default (Use Workspace Plan)</option>
+                      {plans.map(p => (
+                        <option key={p.id} value={p.id}>
+                          {p.name} ({p.currency === 'INR' ? '₹' : '$'}{Number(p.price).toFixed(0)}/{p.billing})
+                        </option>
+                      ))}
+                    </select>
+                    {updatingPlan && (
+                      <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                        <Loader2 className="w-3.5 h-3.5 animate-spin text-indigo-500" />
+                      </div>
+                    )}
+                  </div>
+                  <p className="text-[10px] text-gray-400 leading-normal">
+                    Setting an override assigns a custom subscription billing tier directly to this specific user. Clear the override to revert back to tenant defaults.
+                  </p>
                 </div>
               </div>
 

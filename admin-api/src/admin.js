@@ -843,6 +843,7 @@ app.get('/admin/users', async (req, res) => {
         u.department,
         u.country,
         u.bio,
+        u.billing_info,
         t.name as tenant_name,
         (SELECT COUNT(*) FROM conversations c WHERE c.user_id = u.id) as conversations_count,
         (SELECT COUNT(*) FROM messages m JOIN conversations c ON m.conversation_id = c.id WHERE c.user_id = u.id) as messages_count,
@@ -856,6 +857,55 @@ app.get('/admin/users', async (req, res) => {
   } catch (err) {
     console.error('Failed to get users:', err);
     res.status(500).json({ error: 'Failed to retrieve users' });
+  }
+});
+
+// PUT /admin/users/:userId/plan - Assign a specific subscription plan to a user
+app.put('/admin/users/:userId/plan', async (req, res) => {
+  const { userId } = req.params;
+  const { planId } = req.body; // e.g. 'starter', 'professional', 'enterprise', or null/empty to clear override
+
+  try {
+    // Check if user exists
+    const userCheck = await pool.query('SELECT * FROM users WHERE id = $1', [userId]);
+    if (userCheck.rows.length === 0) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    let billingInfo = null;
+
+    if (planId) {
+      // Fetch plan details from public.plans
+      const planResult = await pool.query('SELECT * FROM plans WHERE id = $1', [planId.toLowerCase()]);
+      if (planResult.rows.length === 0) {
+        return res.status(404).json({ error: 'Subscription plan not found' });
+      }
+      const plan = planResult.rows[0];
+      
+      const currencySymbol = plan.currency === 'INR' ? '₹' : '$';
+      
+      billingInfo = {
+        planName: plan.name + ' Plan',
+        price: `${currencySymbol}${parseFloat(plan.price).toFixed(2)}`,
+        currency: plan.currency,
+        billingCycle: plan.billing,
+        status: 'ACTIVE',
+        features: plan.features || {}
+      };
+    }
+
+    // Update user's billing_info
+    await pool.query(
+      'UPDATE users SET billing_info = $1 WHERE id = $2',
+      [billingInfo ? JSON.stringify(billingInfo) : '{}', userId]
+    );
+
+    await logAdminAction(req.admin.id, 'user_update_plan', 'user', userId, null, { planId, billingInfo }, req);
+
+    res.status(200).json({ success: true, billing_info: billingInfo });
+  } catch (err) {
+    console.error('Failed to update user plan:', err);
+    res.status(500).json({ error: 'Failed to update user plan' });
   }
 });
 
