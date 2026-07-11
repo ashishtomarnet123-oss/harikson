@@ -195,8 +195,8 @@ function PlanEditModal({ plan, models, isNew = false, onSave, onClose }: {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm">
-      <div className="w-full max-w-2xl bg-gray-900 border border-gray-800 rounded-2xl flex flex-col max-h-[90vh] overflow-hidden shadow-2xl">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
+      <div className="w-full max-w-2xl bg-gray-900 border border-gray-800 rounded-2xl flex flex-col overflow-hidden shadow-2xl" style={{ maxHeight: '85vh' }}>
         <div className="px-6 py-4 border-b border-gray-800 flex justify-between items-center bg-gray-950/20">
           <h2 className="text-base font-bold text-white">{isNew ? 'Create New Plan' : `Edit Plan — ${plan.name}`}</h2>
           <button onClick={onClose} className="p-1 hover:bg-gray-800 rounded text-gray-500 hover:text-white transition"><X size={18} /></button>
@@ -1398,8 +1398,8 @@ export default function TenantPlanManager() {
 
       {/* Webhook inspector */}
       {selectedWebhook && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm">
-          <div className="w-full max-w-lg bg-gray-900 border border-gray-800 p-6 rounded-2xl shadow-2xl flex flex-col max-h-[90vh]">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
+          <div className="w-full max-w-lg bg-gray-900 border border-gray-800 p-6 rounded-2xl shadow-2xl flex flex-col" style={{ maxHeight: '85vh' }}>
             <div className="flex justify-between items-center mb-4">
               <div>
                 <h3 className="text-sm font-bold text-white uppercase tracking-wider">Webhook Event Inspector</h3>
