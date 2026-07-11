@@ -266,17 +266,8 @@ function IntegrationCard({
           <div>
             <div className="flex items-center gap-2">
               <span className="font-bold text-slate-800 text-sm">{provider.name}</span>
-              {provider.plan_required !== 'free' && !isConnected && (
-                <span className={`text-[9px] px-1.5 py-0.5 rounded-md font-bold uppercase tracking-wider ${
-                  provider.plan_required === 'pro'
-                    ? 'bg-indigo-50 border border-indigo-200/60 text-indigo-600'
-                    : 'bg-purple-50 border border-purple-200/60 text-purple-600'
-                }`}>
-                  {provider.plan_required}
-                </span>
-              )}
             </div>
-            <div className="flex items-center gap-1.5 mt-0.5">
+            <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
               <div
                 className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${(isConnecting || isSyncing) ? 'animate-pulse' : ''}`}
                 style={{ background: cfg.dot }}
@@ -284,6 +275,15 @@ function IntegrationCard({
               <span className={`text-[11px] font-semibold ${cfg.text}`}>{cfg.label}</span>
               {isError && conn.error_count > 0 && (
                 <span className="text-[9px] text-red-500 font-bold">({conn.error_count} errors)</span>
+              )}
+              {provider.plan_required !== 'free' && !isConnected && (
+                <span className={`text-[8px] px-1.5 py-0.5 rounded font-bold uppercase tracking-wider ${
+                  provider.plan_required === 'pro'
+                    ? 'bg-indigo-50 border border-indigo-200/50 text-indigo-600'
+                    : 'bg-purple-50 border border-purple-200/50 text-purple-600'
+                }`} style={{ textTransform: 'uppercase' }}>
+                  {provider.plan_required}
+                </span>
               )}
             </div>
           </div>
@@ -373,9 +373,10 @@ function IntegrationCard({
         {status === 'disconnected' && (
           <button
             onClick={() => onConnect(provider)}
-            className="w-full flex items-center justify-center gap-2 bg-white hover:bg-indigo-600 border border-slate-200 hover:border-indigo-600 text-slate-700 hover:text-white transition-all duration-300 font-semibold px-3 py-2 rounded-xl shadow-sm text-xs"
+            className="w-full flex items-center justify-center gap-2 premium-btn-connect border text-xs px-3 py-2 rounded-xl"
           >
-            <Plug className="w-3.5 h-3.5 text-indigo-500 group-hover:text-white" /> Connect
+            <Plug className="w-3.5 h-3.5 text-indigo-500 transition-colors duration-200" />
+            <span>Connect</span>
           </button>
         )}
 
@@ -753,6 +754,113 @@ export default function IntegrationCenterPage() {
         @keyframes slideIn {
           from { transform: translateX(100%); opacity: 0; }
           to   { transform: translateX(0);    opacity: 1; }
+        }
+
+        /* ─── Premium Button Overrides to defeat globals.css overrides ─── */
+        
+        /* Connect Button */
+        button.premium-btn-connect {
+          background-color: #FFFFFF !important;
+          border: 1px solid #E2E8F0 !important;
+          border-radius: 12px !important;
+          font-weight: 600 !important;
+          transition: all 250ms ease-in-out !important;
+        }
+        button.premium-btn-connect:hover {
+          background-color: var(--accent-cyan) !important;
+          border-color: var(--accent-cyan) !important;
+        }
+        button.premium-btn-connect span {
+          color: var(--text-primary) !important;
+        }
+        button.premium-btn-connect:hover span {
+          color: #FFFFFF !important;
+        }
+        button.premium-btn-connect:hover svg {
+          color: #FFFFFF !important;
+        }
+
+        /* Sync Button */
+        button.premium-btn-sync {
+          background-color: rgba(79, 140, 255, 0.08) !important;
+          border: 1px solid rgba(79, 140, 255, 0.2) !important;
+          border-radius: 12px !important;
+          font-weight: 600 !important;
+          transition: all 250ms ease-in-out !important;
+        }
+        button.premium-btn-sync:hover {
+          background-color: var(--accent-cyan) !important;
+          border-color: var(--accent-cyan) !important;
+        }
+        button.premium-btn-sync span {
+          color: var(--accent-cyan) !important;
+        }
+        button.premium-btn-sync svg {
+          color: var(--accent-cyan) !important;
+        }
+        button.premium-btn-sync:hover span {
+          color: #FFFFFF !important;
+        }
+        button.premium-btn-sync:hover svg {
+          color: #FFFFFF !important;
+        }
+
+        /* Logs & generic secondary icon buttons */
+        button.premium-btn-logs {
+          background-color: #F8FAFC !important;
+          border: 1px solid #E2E8F0 !important;
+          border-radius: 12px !important;
+          transition: all 200ms ease-in-out !important;
+        }
+        button.premium-btn-logs:hover {
+          background-color: #F1F5F9 !important;
+          border-color: #CBD5E1 !important;
+        }
+        button.premium-btn-logs svg {
+          color: var(--text-muted) !important;
+        }
+
+        /* Disconnect Button */
+        button.premium-btn-disconnect {
+          background-color: rgba(255, 93, 115, 0.08) !important;
+          border: 1px solid rgba(255, 93, 115, 0.2) !important;
+          border-radius: 12px !important;
+          transition: all 200ms ease-in-out !important;
+        }
+        button.premium-btn-disconnect:hover {
+          background-color: var(--error-coral) !important;
+          border-color: var(--error-coral) !important;
+        }
+        button.premium-btn-disconnect svg {
+          color: var(--error-coral) !important;
+        }
+        button.premium-btn-disconnect:hover svg {
+          color: #FFFFFF !important;
+        }
+
+        /* Retry Button */
+        button.premium-btn-retry {
+          background-color: rgba(255, 93, 115, 0.08) !important;
+          border: 1px solid rgba(255, 93, 115, 0.2) !important;
+          border-radius: 12px !important;
+          font-weight: 600 !important;
+          transition: all 200ms ease-in-out !important;
+        }
+        button.premium-btn-retry:hover {
+          background-color: var(--error-coral) !important;
+          border-color: var(--error-coral) !important;
+        }
+        button.premium-btn-retry span {
+          color: var(--error-coral) !important;
+        }
+        button.premium-btn-retry svg {
+          color: var(--error-coral) !important;
+        }
+        button.premium-btn-retry:hover span {
+          color: #FFFFFF !important;
+        }
+        button.premium-btn-retry:hover svg {
+          color: #FFFFFF !important;
         }
       `}</style>
     </div>
