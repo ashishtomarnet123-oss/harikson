@@ -159,9 +159,9 @@ const INITIAL_PLANS: Plan[] = [
 ];
 
 const TIER_META: Record<string, { color: string; bg: string; border: string; icon: React.ElementType; badge: string }> = {
-  starter:      { color: '#64748B', bg: '#F8FAFC', border: '#E2E8F0', icon: Zap,   badge: 'FREE' },
-  professional: { color: '#3B82F6', bg: '#EFF6FF', border: '#BFDBFE', icon: Star,  badge: 'GROWTH' },
-  enterprise:   { color: '#7C3AED', bg: '#F5F3FF', border: '#DDD6FE', icon: Crown, badge: 'CUSTOM' },
+  starter:      { color: '#94A3B8', bg: 'rgba(148, 163, 184, 0.1)', border: 'rgba(148, 163, 184, 0.2)', icon: Zap,   badge: 'FREE' },
+  professional: { color: '#6366F1', bg: 'rgba(99, 102, 241, 0.1)', border: 'rgba(99, 102, 241, 0.2)', icon: Star,  badge: 'GROWTH' },
+  enterprise:   { color: '#A855F7', bg: 'rgba(168, 85, 247, 0.1)', border: 'rgba(168, 85, 247, 0.2)', icon: Crown, badge: 'CUSTOM' },
 };
 
 const AVAILABLE_MODELS = ['Harikson-3B', 'Qwen3-8B', 'Qwen3-32B', 'Qwen3-72B', 'Custom Fine-Tuned', 'Mistral-7B', 'Llama-3-8B'];
@@ -171,11 +171,11 @@ const AVAILABLE_MODELS = ['Harikson-3B', 'Qwen3-8B', 'Qwen3-32B', 'Qwen3-72B', '
 function FeatureValue({ feature }: { feature: PlanFeature }) {
   if (feature.type === 'boolean') {
     return feature.value
-      ? <CheckCircle size={16} style={{ color: '#22C55E' }} />
-      : <XCircle size={16} style={{ color: '#CBD5E1' }} />;
+      ? <CheckCircle size={16} className="text-green-500" />
+      : <XCircle size={16} className="text-gray-600" />;
   }
   const val = feature.value as number;
-  return <span style={{ fontSize: 13, fontWeight: 600, color: '#0F172A' }}>{val === -1 ? '∞ Unlimited' : val.toLocaleString()}</span>;
+  return <span className="text-sm font-semibold text-white">{val === -1 ? '∞ Unlimited' : val.toLocaleString()}</span>;
 }
 
 function PlanEditModal({ plan, models, isNew = false, onSave, onClose }: {
@@ -194,77 +194,97 @@ function PlanEditModal({ plan, models, isNew = false, onSave, onClose }: {
     setDraft(prev => ({ ...prev, features: prev.features.map(f => f.key === key ? { ...f, value } : f) }));
   };
 
-  const labelStyle: React.CSSProperties = { display: 'flex', flexDirection: 'column', gap: 6, fontSize: 12, fontWeight: 600, color: '#64748B' };
-  const inputStyle: React.CSSProperties = { padding: '9px 12px', borderRadius: 8, border: '1px solid #E2E8F0', fontSize: 14, color: '#0F172A', outline: 'none', background: '#fff' };
-
   return (
-    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
-      <div style={{ background: '#fff', borderRadius: 20, width: '90%', maxWidth: 680, maxHeight: '90vh', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-        <div style={{ padding: '24px 28px', borderBottom: '1px solid #F1F5F9', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: '#0F172A' }}>{isNew ? 'Create New Plan' : `Edit — ${plan.name}`}</h2>
-          <button onClick={onClose} style={{ background: '#F1F5F9', border: 'none', borderRadius: 8, padding: 8, cursor: 'pointer', color: '#64748B' }}><X size={18} /></button>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm">
+      <div className="w-full max-w-2xl bg-gray-900 border border-gray-800 rounded-2xl flex flex-col max-h-[90vh] overflow-hidden shadow-2xl">
+        <div className="px-6 py-4 border-b border-gray-800 flex justify-between items-center bg-gray-950/20">
+          <h2 className="text-base font-bold text-white">{isNew ? 'Create New Plan' : `Edit Plan — ${plan.name}`}</h2>
+          <button onClick={onClose} className="p-1 hover:bg-gray-800 rounded text-gray-500 hover:text-white transition"><X size={18} /></button>
         </div>
-        <div style={{ padding: '24px 28px', overflowY: 'auto', flex: 1, display: 'flex', flexDirection: 'column', gap: 20 }}>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
-            <label style={labelStyle}>Plan Name<input value={draft.name} onChange={e => update('name', e.target.value)} style={inputStyle} /></label>
-            <label style={labelStyle}>Tier
-              <select value={draft.tier} onChange={e => update('tier', e.target.value)} style={inputStyle}>
+        <div className="px-6 py-5 overflow-y-auto space-y-5 text-sm text-gray-300">
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5 font-semibold">Plan Name</label>
+              <input value={draft.name} onChange={e => update('name', e.target.value)} className="w-full bg-gray-950 border border-gray-800 text-xs rounded-xl p-2.5 text-white outline-none focus:border-indigo-500" />
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5 font-semibold">Tier</label>
+              <select value={draft.tier} onChange={e => update('tier', e.target.value)} className="w-full bg-gray-950 border border-gray-800 text-xs rounded-xl p-2.5 text-white outline-none focus:border-indigo-500">
                 <option value="starter">Starter</option>
                 <option value="professional">Professional</option>
                 <option value="enterprise">Enterprise</option>
               </select>
-            </label>
-            <label style={labelStyle}>Price ({draft.currency})<input type="number" value={draft.price} onChange={e => update('price', Number(e.target.value))} style={inputStyle} /></label>
-            <label style={labelStyle}>Billing Cycle
-              <select value={draft.billing} onChange={e => update('billing', e.target.value)} style={inputStyle}>
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5 font-semibold">Price ({draft.currency})</label>
+              <input type="number" value={draft.price} onChange={e => update('price', Number(e.target.value))} className="w-full bg-gray-950 border border-gray-800 text-xs rounded-xl p-2.5 text-white outline-none focus:border-indigo-500" />
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5 font-semibold">Billing Cycle</label>
+              <select value={draft.billing} onChange={e => update('billing', e.target.value)} className="w-full bg-gray-950 border border-gray-800 text-xs rounded-xl p-2.5 text-white outline-none focus:border-indigo-500">
                 <option value="monthly">Monthly</option>
                 <option value="yearly">Yearly</option>
                 <option value="custom">Custom</option>
               </select>
-            </label>
-            <label style={labelStyle}>Token Limit/month (-1 = unlimited)<input type="number" value={draft.tokenLimit} onChange={e => update('tokenLimit', Number(e.target.value))} style={inputStyle} /></label>
-            <label style={labelStyle}>Tenant Limit (-1 = unlimited)<input type="number" value={draft.tenantLimit} onChange={e => update('tenantLimit', Number(e.target.value))} style={inputStyle} /></label>
-            <label style={labelStyle}>Agent Limit (-1 = unlimited)<input type="number" value={draft.agentLimit} onChange={e => update('agentLimit', Number(e.target.value))} style={inputStyle} /></label>
-            <label style={labelStyle}>Currency
-              <select value={draft.currency} onChange={e => update('currency', e.target.value)} style={inputStyle}>
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5 font-semibold">Token Limit/month (-1 = unlimited)</label>
+              <input type="number" value={draft.tokenLimit} onChange={e => update('tokenLimit', Number(e.target.value))} className="w-full bg-gray-950 border border-gray-800 text-xs rounded-xl p-2.5 text-white outline-none focus:border-indigo-500" />
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5 font-semibold">Tenant Limit (-1 = unlimited)</label>
+              <input type="number" value={draft.tenantLimit} onChange={e => update('tenantLimit', Number(e.target.value))} className="w-full bg-gray-950 border border-gray-800 text-xs rounded-xl p-2.5 text-white outline-none focus:border-indigo-500" />
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5 font-semibold">Agent Limit (-1 = unlimited)</label>
+              <input type="number" value={draft.agentLimit} onChange={e => update('agentLimit', Number(e.target.value))} className="w-full bg-gray-950 border border-gray-800 text-xs rounded-xl p-2.5 text-white outline-none focus:border-indigo-500" />
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5 font-semibold">Currency</label>
+              <select value={draft.currency} onChange={e => update('currency', e.target.value)} className="w-full bg-gray-950 border border-gray-800 text-xs rounded-xl p-2.5 text-white outline-none focus:border-indigo-500">
                 <option value="INR">INR (₹)</option>
                 <option value="USD">USD ($)</option>
               </select>
-            </label>
-          </div>
-          <label style={labelStyle}>Description<textarea value={draft.description} onChange={e => update('description', e.target.value)} rows={2} style={{ ...inputStyle, resize: 'vertical' as const }} /></label>
-          <div>
-            <div style={{ fontSize: 11, fontWeight: 700, color: '#64748B', letterSpacing: '0.05em', marginBottom: 10 }}>MODEL ACCESS</div>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-              {models.map(m => (
-                <button key={m} onClick={() => toggleModel(m)} style={{
-                  padding: '6px 14px', borderRadius: 20, fontSize: 13, fontWeight: 500, cursor: 'pointer',
-                  background: draft.modelAccess.includes(m) ? '#EFF6FF' : '#F8FAFC',
-                  color: draft.modelAccess.includes(m) ? '#3B82F6' : '#94A3B8',
-                  border: draft.modelAccess.includes(m) ? '1.5px solid #BFDBFE' : '1.5px solid #E2E8F0',
-                }}>
-                  {draft.modelAccess.includes(m) ? '✓ ' : ''}{m}
-                </button>
-              ))}
             </div>
           </div>
           <div>
-            <div style={{ fontSize: 11, fontWeight: 700, color: '#64748B', letterSpacing: '0.05em', marginBottom: 10 }}>FEATURE FLAGS</div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5 font-semibold">Description</label>
+            <textarea value={draft.description} onChange={e => update('description', e.target.value)} rows={2} className="w-full bg-gray-950 border border-gray-800 text-xs rounded-xl p-2.5 text-white outline-none focus:border-indigo-500 resize-y" />
+          </div>
+          <div>
+            <div className="text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-2">Model Access</div>
+            <div className="flex flex-wrap gap-2">
+              {models.map(m => {
+                const isSelected = draft.modelAccess.includes(m);
+                return (
+                  <button key={m} type="button" onClick={() => toggleModel(m)} className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition ${
+                    isSelected
+                      ? 'bg-indigo-600/20 border border-indigo-500/50 text-indigo-400 font-bold'
+                      : 'bg-gray-950 border border-gray-850 text-gray-400 hover:border-gray-800'
+                  }`}>
+                    {isSelected ? '✓ ' : ''}{m}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+          <div>
+            <div className="text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-2">Feature Flags</div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
               {draft.features.map(f => {
                 const FIcon = f.icon;
                 return (
-                  <div key={f.key} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', background: '#F8FAFC', borderRadius: 10 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <FIcon size={14} color="#64748B" />
-                      <span style={{ fontSize: 14, color: '#334155' }}>{f.label}</span>
+                  <div key={f.key} className="flex items-center justify-between p-3 bg-gray-950/40 border border-gray-800/60 rounded-xl">
+                    <div className="flex items-center gap-2">
+                      <FIcon size={14} className="text-gray-500" />
+                      <span className="text-xs font-semibold text-gray-300">{f.label}</span>
                     </div>
                     {f.type === 'boolean'
-                      ? <button onClick={() => updateFeature(f.key, !f.value)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: f.value ? '#22C55E' : '#CBD5E1' }}>
-                          {f.value ? <ToggleRight size={26} /> : <ToggleLeft size={26} />}
+                      ? <button type="button" onClick={() => updateFeature(f.key, !f.value)} className={`text-2xl transition ${f.value ? 'text-indigo-400' : 'text-gray-600'}`}>
+                          {f.value ? <ToggleRight size={24} /> : <ToggleLeft size={24} />}
                         </button>
                       : <input type="number" value={f.value as number} onChange={e => updateFeature(f.key, Number(e.target.value))}
-                          style={{ width: 120, padding: '6px 10px', borderRadius: 8, border: '1px solid #E2E8F0', fontSize: 13, textAlign: 'right' as const }} />
+                          className="w-24 bg-gray-950 border border-gray-800 text-xs rounded-lg p-1.5 text-right text-white outline-none focus:border-indigo-500" />
                     }
                   </div>
                 );
@@ -272,9 +292,9 @@ function PlanEditModal({ plan, models, isNew = false, onSave, onClose }: {
             </div>
           </div>
         </div>
-        <div style={{ padding: '16px 28px', borderTop: '1px solid #F1F5F9', display: 'flex', justifyContent: 'flex-end', gap: 12 }}>
-          <button onClick={onClose} style={{ background: '#F1F5F9', border: 'none', padding: '10px 22px', borderRadius: 10, fontSize: 14, fontWeight: 600, cursor: 'pointer', color: '#64748B' }}>Cancel</button>
-          <button onClick={() => onSave(draft)} style={{ background: 'linear-gradient(135deg, #3B82F6, #7C3AED)', border: 'none', color: '#fff', padding: '10px 22px', borderRadius: 10, fontSize: 14, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8 }}>
+        <div className="px-6 py-4 border-t border-gray-800 bg-gray-950/20 flex justify-end gap-3">
+          <button onClick={onClose} className="px-4 py-2 bg-gray-850 hover:bg-gray-800 border border-gray-800 rounded-xl text-xs font-semibold text-gray-400 transition">Cancel</button>
+          <button onClick={() => onSave(draft)} className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold rounded-xl flex items-center gap-1.5 transition">
             <Save size={15} /> {isNew ? 'Create Plan' : 'Save Changes'}
           </button>
         </div>
@@ -906,31 +926,23 @@ export default function TenantPlanManager() {
         </div>
       )}
 
-      {/* ══════════════════════════════════════════
-          TAB: PLANS
-      ══════════════════════════════════════════ */}
       {activeTab === 'plans' && (
-        <div style={{ fontFamily: 'Inter, sans-serif' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24 }}>
+        <div className="space-y-6">
+          <div className="flex justify-between items-center">
             <div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                <div style={{ background: 'linear-gradient(135deg, #3B82F6, #7C3AED)', borderRadius: 10, padding: 8 }}>
-                  <Package size={20} color="#fff" />
-                </div>
-                <h2 style={{ fontSize: 20, fontWeight: 700, color: '#fff', margin: 0 }}>Subscription Plans</h2>
-              </div>
-              <p style={{ color: '#64748B', fontSize: 13, margin: '6px 0 0' }}>Define pricing tiers, feature access, and model permissions for all tenants.</p>
+              <h2 className="text-xl font-black text-white">Subscription Plans</h2>
+              <p className="text-gray-500 text-sm mt-1">Define pricing tiers, feature access, and model permissions for all tenants.</p>
             </div>
             <button
               onClick={() => setShowCreateModal(true)}
-              style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'linear-gradient(135deg, #3B82F6, #7C3AED)', color: '#fff', border: 'none', borderRadius: 10, padding: '10px 20px', fontSize: 14, fontWeight: 600, cursor: 'pointer' }}
+              className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-xl transition-all shadow-lg shadow-indigo-600/10 flex items-center gap-2"
             >
               <Plus size={16} /> Create New Plan
             </button>
           </div>
 
           {/* Plan stats */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 14, marginBottom: 24 }}>
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
             {[
               { label: 'Total Plans',      value: plans.length,                            icon: Package,     color: '#3B82F6' },
               { label: 'Active Plans',     value: plans.filter(p => p.isActive).length,    icon: CheckCircle, color: '#22C55E' },
@@ -939,13 +951,13 @@ export default function TenantPlanManager() {
             ].map(s => {
               const Icon = s.icon;
               return (
-                <div key={s.label} style={{ background: '#fff', border: '1px solid #E2E8F0', borderRadius: 12, padding: '18px 20px' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                    <div style={{ background: s.color + '15', borderRadius: 8, padding: 8 }}><Icon size={18} color={s.color} /></div>
-                    <div>
-                      <div style={{ fontSize: 22, fontWeight: 700, color: '#0F172A' }}>{s.value}</div>
-                      <div style={{ fontSize: 12, color: '#64748B' }}>{s.label}</div>
-                    </div>
+                <div key={s.label} className="bg-gray-900/40 border border-gray-800/80 rounded-2xl p-5 flex items-center gap-4">
+                  <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-gray-950/40" style={{ color: s.color }}>
+                    <Icon size={18} />
+                  </div>
+                  <div>
+                    <div className="text-2xl font-black text-white">{s.value}</div>
+                    <div className="text-xs text-gray-500">{s.label}</div>
                   </div>
                 </div>
               );
@@ -953,73 +965,112 @@ export default function TenantPlanManager() {
           </div>
 
           {/* Plan cards */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+          <div className="flex flex-col gap-4">
             {plans.map(plan => {
               const meta = TIER_META[plan.tier] || TIER_META.starter;
               const TierIcon = meta.icon;
               const isExpanded = expandedPlan === plan.id;
               const subCount = subscriberCount(plan.id);
               return (
-                <div key={plan.id} style={{ background: '#fff', border: `1px solid ${plan.isActive ? meta.border : '#E2E8F0'}`, borderRadius: 16, overflow: 'hidden', opacity: plan.isActive ? 1 : 0.65 }}>
-                  <div style={{ padding: '20px 24px', display: 'flex', alignItems: 'center', gap: 18 }}>
-                    <div style={{ background: meta.bg, borderRadius: 12, padding: 12, flexShrink: 0 }}>
-                      <TierIcon size={22} color={meta.color} />
+                <div
+                  key={plan.id}
+                  className="bg-gray-900/40 border rounded-2xl overflow-hidden transition-all duration-200"
+                  style={{
+                    borderColor: plan.isActive ? meta.border : 'rgba(255, 255, 255, 0.05)',
+                    opacity: plan.isActive ? 1 : 0.65
+                  }}
+                >
+                  <div className="p-5 flex items-center gap-5 flex-wrap md:flex-nowrap">
+                    <div className="p-3.5 rounded-xl shrink-0" style={{ backgroundColor: meta.bg }}>
+                      <TierIcon size={22} style={{ color: meta.color }} />
                     </div>
-                    <div style={{ flex: 1 }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-                        <span style={{ fontSize: 16, fontWeight: 700, color: '#0F172A' }}>{plan.name}</span>
-                        <span style={{ background: meta.bg, color: meta.color, border: `1px solid ${meta.border}`, fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 20 }}>{meta.badge}</span>
-                        {plan.isRecommended && <span style={{ background: '#FEF3C7', color: '#D97706', border: '1px solid #FCD34D', fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 20 }}>RECOMMENDED</span>}
-                        {!plan.isActive && <span style={{ background: '#FEE2E2', color: '#DC2626', fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 20 }}>INACTIVE</span>}
-                        {subCount > 0 && <span style={{ background: '#EFF6FF', color: '#3B82F6', border: '1px solid #BFDBFE', fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 20 }}>{subCount} subscriber{subCount !== 1 ? 's' : ''}</span>}
+                    <div className="flex-1 min-w-[200px]">
+                      <div className="flex flex-wrap items-center gap-2 mb-1.5">
+                        <span className="text-base font-bold text-white">{plan.name}</span>
+                        <span className="text-[10px] px-2 py-0.5 rounded font-bold uppercase tracking-wider border" style={{ color: meta.color, backgroundColor: meta.bg, borderColor: meta.border }}>
+                          {meta.badge}
+                        </span>
+                        {plan.isRecommended && (
+                          <span className="text-[10px] px-2 py-0.5 rounded font-bold uppercase tracking-wider bg-amber-950/30 border border-amber-900/30 text-amber-400">
+                            ★ RECOMMENDED
+                          </span>
+                        )}
+                        {!plan.isActive && (
+                          <span className="text-[10px] px-2 py-0.5 rounded font-bold uppercase tracking-wider bg-red-950/30 border border-red-900/30 text-red-400">
+                            INACTIVE
+                          </span>
+                        )}
+                        {subCount > 0 && (
+                          <span className="text-[10px] px-2 py-0.5 rounded font-bold uppercase tracking-wider bg-indigo-950/30 border border-indigo-900/30 text-indigo-400">
+                            {subCount} subscriber{subCount !== 1 ? 's' : ''}
+                          </span>
+                        )}
                       </div>
-                      <span style={{ fontSize: 13, color: '#64748B' }}>{plan.description}</span>
+                      <span className="text-xs text-gray-400">{plan.description}</span>
                     </div>
-                    <div style={{ textAlign: 'right', flexShrink: 0, minWidth: 130 }}>
-                      {plan.billing === 'custom'
-                        ? <div style={{ fontSize: 18, fontWeight: 700, color: '#7C3AED' }}>Custom Pricing</div>
-                        : <div style={{ fontSize: 20, fontWeight: 800, color: '#0F172A' }}>
-                            {plan.currency === 'INR' ? '₹' : '$'}{plan.price.toLocaleString()}
-                            <span style={{ fontSize: 12, fontWeight: 400, color: '#94A3B8' }}>/mo</span>
-                          </div>
-                      }
-                      <div style={{ fontSize: 11, color: '#94A3B8', marginTop: 2 }}>
+                    <div className="text-right shrink-0 min-w-[130px]">
+                      {plan.billing === 'custom' ? (
+                        <div className="text-base font-bold text-purple-400 font-sans">Custom Pricing</div>
+                      ) : (
+                        <div className="text-lg font-black text-white font-sans">
+                          {plan.currency === 'INR' ? '₹' : '$'}{plan.price.toLocaleString()}
+                          <span className="text-[10px] text-gray-500 font-normal font-sans ml-0.5">/mo</span>
+                        </div>
+                      )}
+                      <div className="text-[10px] text-gray-500 font-mono mt-1">
                         {plan.tokenLimit === -1 ? '∞ tokens' : `${(plan.tokenLimit / 1000000).toFixed(1)}M tokens`}
                         {' · '}
                         {plan.tenantLimit === -1 ? '∞ tenants' : `${plan.tenantLimit} tenants`}
                       </div>
                     </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
-                      <button onClick={() => togglePlan(plan.id)} title={plan.isActive ? 'Deactivate' : 'Activate'} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 6, borderRadius: 8, color: plan.isActive ? '#22C55E' : '#94A3B8' }}>
-                        {plan.isActive ? <ToggleRight size={24} /> : <ToggleLeft size={24} />}
+                    <div className="flex items-center gap-2 shrink-0">
+                      <button
+                        onClick={() => togglePlan(plan.id)}
+                        title={plan.isActive ? 'Deactivate' : 'Activate'}
+                        className={`p-2 bg-gray-850 hover:bg-gray-800 border border-gray-800 rounded-xl transition ${plan.isActive ? 'text-green-400' : 'text-gray-500'}`}
+                      >
+                        {plan.isActive ? <ToggleRight size={20} /> : <ToggleLeft size={20} />}
                       </button>
-                      <button onClick={() => setRecommended(plan.id)} title="Set as Recommended" style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 6, borderRadius: 8, color: plan.isRecommended ? '#F59E0B' : '#CBD5E1' }}>
-                        <Star size={18} fill={plan.isRecommended ? '#F59E0B' : 'none'} />
+                      <button
+                        onClick={() => setRecommended(plan.id)}
+                        title="Set as Recommended"
+                        className={`p-2 bg-gray-850 hover:bg-gray-800 border border-gray-800 rounded-xl transition ${plan.isRecommended ? 'text-amber-400' : 'text-gray-500'}`}
+                      >
+                        <Star size={16} fill={plan.isRecommended ? 'currentColor' : 'none'} />
                       </button>
-                      <button onClick={() => setEditingPlan(plan)} style={{ background: '#EFF6FF', border: 'none', cursor: 'pointer', padding: '7px 14px', borderRadius: 8, color: '#3B82F6', fontWeight: 600, fontSize: 13, display: 'flex', alignItems: 'center', gap: 6 }}>
-                        <Edit2 size={14} /> Edit
+                      <button
+                        onClick={() => setEditingPlan(plan)}
+                        className="px-3 py-2 bg-gray-850 hover:bg-gray-800 border border-gray-800 text-indigo-400 hover:text-indigo-300 text-xs font-semibold rounded-xl flex items-center gap-1.5 transition"
+                      >
+                        <Edit2 size={13} /> Edit
                       </button>
-                      <button onClick={() => setDeleteConfirm(plan.id)} style={{ background: '#FEF2F2', border: 'none', cursor: 'pointer', padding: 8, borderRadius: 8, color: '#EF4444' }}>
-                        <Trash2 size={16} />
+                      <button
+                        onClick={() => setDeleteConfirm(plan.id)}
+                        className="p-2 bg-red-950/20 hover:bg-red-900/20 border border-red-900/30 text-red-400 rounded-xl transition"
+                      >
+                        <Trash2 size={15} />
                       </button>
-                      <button onClick={() => setExpandedPlan(isExpanded ? null : plan.id)} style={{ background: '#F8FAFC', border: 'none', cursor: 'pointer', padding: 8, borderRadius: 8, color: '#64748B' }}>
-                        {isExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                      <button
+                        onClick={() => setExpandedPlan(isExpanded ? null : plan.id)}
+                        className="p-2 bg-gray-850 hover:bg-gray-800 border border-gray-800 rounded-xl transition text-gray-400 hover:text-white"
+                      >
+                        {isExpanded ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
                       </button>
                     </div>
                   </div>
                   {isExpanded && (
-                    <div style={{ borderTop: '1px solid #F1F5F9', padding: '20px 24px', background: '#FAFBFD' }}>
-                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 28 }}>
+                    <div className="border-t border-gray-800/80 bg-gray-950/20 p-5">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                         <div>
-                          <div style={{ fontSize: 11, fontWeight: 700, color: '#94A3B8', letterSpacing: '0.06em', marginBottom: 14 }}>FEATURE FLAGS</div>
-                          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                          <div className="text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-3">Feature Flags</div>
+                          <div className="space-y-2">
                             {plan.features.map(f => {
                               const FIcon = f.icon;
                               return (
-                                <div key={f.key} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                                    <FIcon size={14} color="#64748B" />
-                                    <span style={{ fontSize: 13, color: '#475569' }}>{f.label}</span>
+                                <div key={f.key} className="flex items-center justify-between text-xs py-1.5 border-b border-gray-850 last:border-0">
+                                  <div className="flex items-center gap-2 text-gray-300">
+                                    <FIcon size={13} className="text-gray-500" />
+                                    <span>{f.label}</span>
                                   </div>
                                   <FeatureValue feature={f} />
                                 </div>
@@ -1028,24 +1079,26 @@ export default function TenantPlanManager() {
                           </div>
                         </div>
                         <div>
-                          <div style={{ fontSize: 11, fontWeight: 700, color: '#94A3B8', letterSpacing: '0.06em', marginBottom: 14 }}>MODEL ACCESS</div>
-                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 20 }}>
+                          <div className="text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-3">Model Access</div>
+                          <div className="flex flex-wrap gap-1.5 mb-4">
                             {plan.modelAccess.map(m => (
-                              <span key={m} style={{ background: meta.bg, color: meta.color, border: `1px solid ${meta.border}`, fontSize: 12, fontWeight: 500, padding: '4px 10px', borderRadius: 20 }}>{m}</span>
+                              <span key={m} className="text-[10px] px-2.5 py-1 rounded-full font-medium tracking-wide bg-gray-950 border border-gray-850 text-gray-300">
+                                {m}
+                              </span>
                             ))}
                           </div>
-                          <div style={{ fontSize: 11, fontWeight: 700, color: '#94A3B8', letterSpacing: '0.06em', marginBottom: 14 }}>LIMITS</div>
-                          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                          <div className="text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-3">Limits Matrix</div>
+                          <div className="space-y-2">
                             {[
-                              { label: 'Monthly Tokens', value: plan.tokenLimit === -1 ? 'Unlimited' : plan.tokenLimit.toLocaleString() },
-                              { label: 'Max Tenants', value: plan.tenantLimit === -1 ? 'Unlimited' : plan.tenantLimit },
-                              { label: 'Max Agents', value: plan.agentLimit === -1 ? 'Unlimited' : plan.agentLimit },
-                              { label: 'Billing Cycle', value: plan.billing.charAt(0).toUpperCase() + plan.billing.slice(1) },
-                              { label: 'Subscribers', value: `${subCount} active tenant${subCount !== 1 ? 's' : ''}` },
+                              { label: 'Monthly Token Cap', value: plan.tokenLimit === -1 ? 'Unlimited' : plan.tokenLimit.toLocaleString() },
+                              { label: 'Max Active Tenants', value: plan.tenantLimit === -1 ? 'Unlimited' : plan.tenantLimit },
+                              { label: 'Max Active Agents', value: plan.agentLimit === -1 ? 'Unlimited' : plan.agentLimit },
+                              { label: 'Billing Schedule', value: plan.billing.charAt(0).toUpperCase() + plan.billing.slice(1) },
+                              { label: 'Active Subscribers', value: `${subCount} active tenant${subCount !== 1 ? 's' : ''}` },
                             ].map(row => (
-                              <div key={row.label} style={{ display: 'flex', justifyContent: 'space-between' }}>
-                                <span style={{ fontSize: 13, color: '#64748B' }}>{row.label}</span>
-                                <span style={{ fontSize: 13, fontWeight: 600, color: '#0F172A' }}>{row.value}</span>
+                              <div key={row.label} className="flex justify-between text-xs py-1 border-b border-gray-850 last:border-0">
+                                <span className="text-gray-400">{row.label}</span>
+                                <span className="font-semibold text-white">{row.value}</span>
                               </div>
                             ))}
                           </div>
@@ -1404,18 +1457,20 @@ export default function TenantPlanManager() {
 
       {/* Delete plan confirm */}
       {deleteConfirm && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
-          <div style={{ background: '#fff', borderRadius: 16, padding: 32, maxWidth: 420, width: '90%' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
-              <div style={{ background: '#FEE2E2', borderRadius: 10, padding: 10 }}><AlertTriangle size={20} color="#EF4444" /></div>
-              <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: '#0F172A' }}>Delete Plan</h3>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm">
+          <div className="bg-gray-900 border border-gray-800 p-6 rounded-2xl max-w-sm w-full shadow-2xl">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="p-2.5 bg-red-950/30 border border-red-900/30 rounded-xl text-red-400">
+                <AlertTriangle size={20} />
+              </div>
+              <h3 className="text-base font-bold text-white">Delete Plan</h3>
             </div>
-            <p style={{ color: '#64748B', fontSize: 14, marginBottom: 24 }}>
+            <p className="text-xs text-gray-400 leading-relaxed mb-6">
               Are you sure you want to delete <strong>{plans.find(p => p.id === deleteConfirm)?.name}</strong>? This cannot be undone and may affect {subscriberCount(deleteConfirm)} active subscriber{subscriberCount(deleteConfirm) !== 1 ? 's' : ''}.
             </p>
-            <div style={{ display: 'flex', gap: 12, justifyContent: 'flex-end' }}>
-              <button onClick={() => setDeleteConfirm(null)} style={{ background: '#F1F5F9', border: 'none', padding: '10px 20px', borderRadius: 8, fontSize: 14, fontWeight: 600, cursor: 'pointer' }}>Cancel</button>
-              <button onClick={() => deletePlan(deleteConfirm)} style={{ background: '#EF4444', border: 'none', color: '#fff', padding: '10px 20px', borderRadius: 8, fontSize: 14, fontWeight: 600, cursor: 'pointer' }}>Delete Plan</button>
+            <div className="flex gap-3 justify-end">
+              <button onClick={() => setDeleteConfirm(null)} className="px-4 py-2 bg-gray-850 hover:bg-gray-800 border border-gray-800 rounded-xl text-xs font-semibold text-gray-400 transition">Cancel</button>
+              <button onClick={() => deletePlan(deleteConfirm)} className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-xs font-semibold rounded-xl transition">Delete Plan</button>
             </div>
           </div>
         </div>
