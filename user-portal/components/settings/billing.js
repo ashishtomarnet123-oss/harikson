@@ -1,10 +1,24 @@
 import React, { useState, useEffect } from 'react';
-import { CreditCard, CheckCircle2, Download } from 'lucide-react';
+import { CreditCard, CheckCircle2, Download, XCircle } from 'lucide-react';
 
 export default function BillingSettings() {
   const [billing, setBilling] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+
+  const getFeaturesArray = (features) => {
+    if (!features) return [];
+    return [
+      { key: 'api_access', label: 'API Access', type: 'boolean', value: features.api_access !== false },
+      { key: 'webhook_logging', label: 'Webhook Logging', type: 'boolean', value: !!features.webhook_logging },
+      { key: 'rag_documents', label: 'RAG Documents Limit', type: 'number', value: typeof features.rag_documents === 'number' ? features.rag_documents : 500 },
+      { key: 'audit_trail', label: 'Audit Trail', type: 'boolean', value: !!features.audit_trail },
+      { key: 'priority_support', label: 'Priority Support', type: 'boolean', value: !!features.priority_support },
+      { key: 'custom_models', label: 'Custom Model Fine-Tuning', type: 'boolean', value: !!features.custom_models },
+      { key: 'dpdp_compliance', label: 'DPDP Compliance', type: 'boolean', value: features.dpdp_compliance !== false },
+      { key: 'sla_hours', label: 'SLA Response (hours)', type: 'number', value: typeof features.sla_hours === 'number' ? features.sla_hours : 72 },
+    ];
+  };
 
   useEffect(() => {
     fetchBilling();
@@ -60,9 +74,39 @@ export default function BillingSettings() {
                     {billing.price} <span>/ user / month</span>
                   </div>
                   <ul className="settings-plan-features">
-                    <li><CheckCircle2 size={15} color="var(--accent)" /> Unlimited messages (GPT-4o / Claude 3.5)</li>
-                    <li><CheckCircle2 size={15} color="var(--accent)" /> 100GB Document Storage</li>
-                    <li><CheckCircle2 size={15} color="var(--accent)" /> Custom Agents &amp; Webhooks</li>
+                    {billing.features ? (
+                      getFeaturesArray(billing.features).map(f => (
+                        <li key={f.key} style={{ display: 'flex', alignItems: 'center', gap: '8px', opacity: f.value || typeof f.value === 'number' && f.value !== 0 ? 1 : 0.6 }}>
+                          {f.type === 'boolean' ? (
+                            f.value ? (
+                              <CheckCircle2 size={15} color="var(--accent)" />
+                            ) : (
+                              <XCircle size={15} style={{ color: 'var(--text-muted)' }} />
+                            )
+                          ) : (
+                            <CheckCircle2 size={15} color="var(--accent)" />
+                          )}
+                          <span>
+                            {f.label}{': '}
+                            {f.type === 'number'
+                              ? f.value === -1
+                                ? 'Unlimited'
+                                : f.key === 'sla_hours'
+                                ? `${f.value}h response SLA`
+                                : f.value.toLocaleString()
+                              : f.value
+                              ? 'Included'
+                              : 'Not Included'}
+                          </span>
+                        </li>
+                      ))
+                    ) : (
+                      <>
+                        <li><CheckCircle2 size={15} color="var(--accent)" /> Unlimited messages (GPT-4o / Claude 3.5)</li>
+                        <li><CheckCircle2 size={15} color="var(--accent)" /> 100GB Document Storage</li>
+                        <li><CheckCircle2 size={15} color="var(--accent)" /> Custom Agents &amp; Webhooks</li>
+                      </>
+                    )}
                   </ul>
                 </div>
                 <div>

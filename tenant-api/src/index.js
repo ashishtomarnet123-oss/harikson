@@ -1218,8 +1218,13 @@ app.get('/api/user/billing', authMiddleware, async (req, res) => {
     // Derive plan info from the tenant's active plan (real data, no hardcoded fallback)
     const planName = req.tenant.plan || 'starter';
     const planDisplayName = planName.charAt(0).toUpperCase() + planName.slice(1) + ' Plan';
-    const price = req.tenant.price ? `$${req.tenant.price}` : (planName === 'starter' ? '$0' : planName === 'pro' ? '$49' : '$99');
     const currency = req.tenant.currency || 'USD';
+    const currencySymbol = currency === 'INR' ? '₹' : '$';
+    
+    const price = req.tenant.price !== undefined && req.tenant.price !== null
+      ? `${currencySymbol}${parseFloat(req.tenant.price).toFixed(2)}`
+      : (planName === 'starter' ? `${currencySymbol}0.00` : planName === 'pro' || planName === 'professional' ? `${currencySymbol}49.00` : `${currencySymbol}99.00`);
+      
     const billingCycle = req.tenant.billing || 'monthly';
 
     res.json({
@@ -1230,8 +1235,8 @@ app.get('/api/user/billing', authMiddleware, async (req, res) => {
       status: req.tenant.status === 'active' ? 'ACTIVE' : req.tenant.status?.toUpperCase() || 'ACTIVE',
       features: req.tenant.features || {},
       modelAccess: req.tenant.model_access || [],
-      paymentMethod: null,   // No payment method until user adds one
-      invoices: []           // No invoices until billing system is integrated
+      paymentMethod: null,
+      invoices: []
     });
   } catch (err) {
     console.error('Fetch billing error:', err);
