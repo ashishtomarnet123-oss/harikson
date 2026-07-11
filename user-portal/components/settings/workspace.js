@@ -14,14 +14,19 @@ export default function WorkspaceSettings() {
     try {
       const token = localStorage.getItem('hk_token');
       const apiBase = localStorage.getItem('hk_api_base') || 'http://localhost:3008';
+      const tenantSlug = localStorage.getItem('hk_tenant') || 'neuravolt';
       const res = await fetch(`${apiBase}/api/user/workspace`, {
-        headers: { 'Authorization': `Bearer ${token}` }
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'x-tenant-slug': tenantSlug
+        }
       });
       if (res.ok) {
         const data = await res.json();
         setWorkspace(data);
       } else {
-        throw new Error('Failed to load workspace details');
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || 'Failed to load workspace details');
       }
     } catch (err) {
       setError(err.message);

@@ -14,8 +14,12 @@ export default function UsageSettings() {
       try {
         const token = localStorage.getItem('hk_token');
         const apiBase = localStorage.getItem('hk_api_base') || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3008';
+      const tenantSlug = localStorage.getItem('hk_tenant') || 'neuravolt';
         const res = await fetch(`${apiBase}/api/user/usage?days=7`, {
-          headers: { 'Authorization': `Bearer ${token}` }
+          headers: {
+          'Authorization': `Bearer ${token}`,
+          'x-tenant-slug': tenantSlug
+        }
         });
         if (res.ok) {
           setUsage(await res.json());

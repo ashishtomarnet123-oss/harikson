@@ -22,8 +22,12 @@ export default function ActivitySettings() {
     try {
       const token = localStorage.getItem('hk_token');
       const apiBase = localStorage.getItem('hk_api_base') || 'http://localhost:3008';
+      const tenantSlug = localStorage.getItem('hk_tenant') || 'neuravolt';
       const res = await fetch(`${apiBase}/api/user/activity`, {
-        headers: { 'Authorization': `Bearer ${token}` }
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'x-tenant-slug': tenantSlug
+        }
       });
       if (res.ok) {
         const data = await res.json();

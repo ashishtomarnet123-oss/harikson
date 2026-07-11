@@ -18,8 +18,12 @@ export default function ProfileSettings() {
         const token = localStorage.getItem('hk_token');
         if (!token) { router.push('/login'); return; }
         const apiBase = localStorage.getItem('hk_api_base') || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3008';
+      const tenantSlug = localStorage.getItem('hk_tenant') || 'neuravolt';
         const res = await fetch(`${apiBase}/api/user/profile`, {
-          headers: { 'Authorization': `Bearer ${token}` }
+          headers: {
+          'Authorization': `Bearer ${token}`,
+          'x-tenant-slug': tenantSlug
+        }
         });
         if (res.ok) {
           const data = await res.json();
@@ -46,9 +50,14 @@ export default function ProfileSettings() {
     try {
       const token = localStorage.getItem('hk_token');
       const apiBase = localStorage.getItem('hk_api_base') || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3008';
+      const tenantSlug = localStorage.getItem('hk_tenant') || 'neuravolt';
       const res = await fetch(`${apiBase}/api/user/profile`, {
         method: 'PUT',
-        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'x-tenant-slug': tenantSlug,
+          'Content-Type': 'application/json'
+        },
         body: JSON.stringify(profile)
       });
       if (res.ok) {

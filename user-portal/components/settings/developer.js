@@ -14,8 +14,12 @@ export default function DeveloperSettings() {
     try {
       const token = localStorage.getItem('hk_token');
       const apiBase = localStorage.getItem('hk_api_base') || 'http://localhost:3008';
+      const tenantSlug = localStorage.getItem('hk_tenant') || 'neuravolt';
       const res = await fetch(`${apiBase}/api/user/developer/keys`, {
-        headers: { 'Authorization': `Bearer ${token}` }
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'x-tenant-slug': tenantSlug
+        }
       });
       if (res.ok) {
         const data = await res.json();
@@ -37,10 +41,12 @@ export default function DeveloperSettings() {
     try {
       const token = localStorage.getItem('hk_token');
       const apiBase = localStorage.getItem('hk_api_base') || 'http://localhost:3008';
+      const tenantSlug = localStorage.getItem('hk_tenant') || 'neuravolt';
       const res = await fetch(`${apiBase}/api/user/developer/keys`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
+          'x-tenant-slug': tenantSlug,
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({ name })
@@ -63,9 +69,13 @@ export default function DeveloperSettings() {
     try {
       const token = localStorage.getItem('hk_token');
       const apiBase = localStorage.getItem('hk_api_base') || 'http://localhost:3008';
+      const tenantSlug = localStorage.getItem('hk_tenant') || 'neuravolt';
       const res = await fetch(`${apiBase}/api/user/developer/keys/${id}`, {
         method: 'DELETE',
-        headers: { 'Authorization': `Bearer ${token}` }
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'x-tenant-slug': tenantSlug
+        }
       });
       if (res.ok) {
         const data = await res.json();
