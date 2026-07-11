@@ -10,6 +10,9 @@ export default function WorkspaceSettings() {
     fetchWorkspace();
   }, []);
 
+  const [editingMemberId, setEditingMemberId] = useState(null);
+  const [updatingRole, setUpdatingRole] = useState(false);
+
   const fetchWorkspace = async () => {
     try {
       const token = localStorage.getItem('hk_token');
@@ -33,6 +36,40 @@ export default function WorkspaceSettings() {
       setError(err.message);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleRoleChange = async (memberId, newRole) => {
+    setUpdatingRole(true);
+    setError(null);
+    try {
+      const token = localStorage.getItem('hk_token');
+      if (!token) return;
+      const apiBase = localStorage.getItem('hk_api_base') || 'http://localhost:3008';
+      const tenantSlug = localStorage.getItem('hk_tenant') || 'neuravolt';
+      const res = await fetch(`${apiBase}/api/user/workspace/members/${memberId}/role`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+          'x-tenant-slug': tenantSlug
+        },
+        body: JSON.stringify({ role: newRole })
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setWorkspace(prev => ({
+          ...prev,
+          members: prev.members.map(m => m.id === memberId ? { ...m, role: newRole } : m)
+        }));
+        setEditingMemberId(null);
+      } else {
+        throw new Error(data.error || 'Failed to update member role');
+      }
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setUpdatingRole(false);
     }
   };
 
@@ -112,10 +149,39 @@ export default function WorkspaceSettings() {
                     </div>
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexShrink: 0 }}>
-                    <span className={getRoleBadgeClass(m.role)}>{m.role}</span>
-                    <button style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: '4px', display: 'flex' }}>
-                      <Settings size={15} />
-                    </button>
+                    {editingMemberId === m.id ? (
+                      <select 
+                        defaultValue={m.role}
+                        disabled={updatingRole}
+                        onChange={(e) => handleRoleChange(m.id, e.target.value)}
+                        onBlur={() => setEditingMemberId(null)}
+                        style={{
+                          background: 'var(--bg-hover)',
+                          color: 'var(--text)',
+                          border: '1px solid var(--border)',
+                          borderRadius: '6px',
+                          padding: '4px 8px',
+                          fontSize: '13px',
+                          outline: 'none',
+                          cursor: 'pointer'
+                        }}
+                        autoFocus
+                      >
+                        <option value="Member">Member</option>
+                        <option value="Admin">Admin</option>
+                        <option value="Owner">Owner</option>
+                      </select>
+                    ) : (
+                      <>
+                        <span className={getRoleBadgeClass(m.role)}>{m.role}</span>
+                        <button 
+                          onClick={() => setEditingMemberId(m.id)}
+                          style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: '4px', display: 'flex' }}
+                        >
+                          <Settings size={15} />
+                        </button>
+                      </>
+                    )}
                   </div>
                 </div>
               ))}

@@ -1306,6 +1306,73 @@ app.get('/api/user/workspace', authMiddleware, async (req, res) => {
   }
 });
 
+// PUT /api/user/workspace/members/:memberId/role - Update workspace member role
+app.put('/api/user/workspace/members/:memberId/role', authMiddleware, async (req, res) => {
+  try {
+    const { memberId } = req.params;
+    const { role } = req.body; // e.g., 'Owner', 'Admin', 'Member'
+    
+    // Map UI role to database role string
+    let dbRole = 'user';
+    if (role === 'Admin') dbRole = 'admin';
+    if (role === 'Owner') dbRole = 'owner';
+    if (role === 'Member') dbRole = 'user';
+
+    // Verify current user is an admin or owner of the workspace to perform updates
+    if (req.user.role !== 'admin' && req.user.role !== 'owner' && req.user.role !== 'superadmin') {
+      return res.status(403).json({ error: 'Forbidden: Insufficient permissions' });
+    }
+
+    const updated = await executeTenantQuery(req.tenant.id, async (client) => {
+      const result = await client.query(
+        `UPDATE users
+         SET role = $1
+         WHERE id = $2 AND tenant_id = $3
+         RETURNING id, email, role`,
+        [dbRole, memberId, req.tenant.id]
+      );
+      
+      const updatedUser = result.rows[0];
+      if (updatedUser) {
+        // Record to activity timeline in settings of the editor
+        const eventId = crypto.randomUUID();
+        await client.query(
+          `UPDATE users
+           SET settings = jsonb_set(
+             COALESCE(settings, '{}'::jsonb),
+             '{activity_log}',
+             COALESCE(settings->'activity_log', '[]'::jsonb) || $1::jsonb
+           )
+           WHERE id = $2`,
+          [
+            JSON.stringify({
+              id: eventId,
+              event: 'Security',
+              details: `Changed role of ${updatedUser.email} to ${role}`,
+              timestamp: new Date().toISOString()
+            }),
+            req.user.id
+          ]
+        );
+      }
+      return updatedUser;
+    });
+
+    if (!updated) {
+      return res.status(404).json({ error: 'Workspace member not found' });
+    }
+
+    res.json({
+      id: updated.id,
+      email: updated.email,
+      role: role
+    });
+  } catch (err) {
+    console.error('Update member role error:', err);
+    res.status(500).json({ error: 'Failed to update member role' });
+  }
+});
+
 // GET /api/user/developer/keys - Get API Keys (real keys only)
 app.get('/api/user/developer/keys', authMiddleware, async (req, res) => {
   try {
