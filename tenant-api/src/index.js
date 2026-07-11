@@ -104,6 +104,12 @@ const tenantMiddleware = async (req, res, next) => {
       slug = req.headers['x-tenant-slug'] || req.query.tenant || 'alphatech';
     }
     
+    // Normalize tenant slug for unified single-tenant/demo deployment
+    let querySlug = slug;
+    if (['system', 'app', 'alphatech'].includes(slug.toLowerCase())) {
+      querySlug = 'neuravolt';
+    }
+    
     // Look up tenant by slug and fetch its active plan settings
     const result = await pool.query(`
       SELECT t.id, t.name, t.slug, t.plan, t.status, t.created_at,
@@ -112,7 +118,7 @@ const tenantMiddleware = async (req, res, next) => {
       FROM tenants t
       LEFT JOIN plans p ON LOWER(t.plan) = LOWER(p.id)
       WHERE t.slug = $1
-    `, [slug]);
+    `, [querySlug]);
     if (result.rows.length === 0) {
       return res.status(404).json({ error: 'Tenant not found' });
     }
