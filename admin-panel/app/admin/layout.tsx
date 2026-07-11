@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { 
   LayoutDashboard, Users, Terminal, FileCheck, LogOut, Menu, X,
   Cpu, CreditCard, Bot, Activity, Database, FlaskConical,
-  GitBranch, Shield, Plug, HardDrive, MonitorSpeaker, Bell, Search, Package
+  GitBranch, Shield, Plug, HardDrive, MonitorSpeaker, Bell, Search
 } from 'lucide-react';
 import { getCookie, deleteCookie } from 'cookies-next';
 
@@ -24,11 +24,10 @@ const menuSections = [
   {
     label: 'Operations',
     items: [
-      { name: 'Tenants', path: '/admin/tenants', icon: Users },
+      { name: 'Tenants & Plans', path: '/admin/tenants', icon: Users },
       { name: 'Users', path: '/admin/users', icon: Users },
       { name: 'Workflows', path: '/admin/workflows', icon: GitBranch },
       { name: 'Billing', path: '/admin/billing/providers', icon: CreditCard },
-      { name: 'Plans', path: '/admin/plans', icon: Package },
     ]
   },
   {
