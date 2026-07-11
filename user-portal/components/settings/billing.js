@@ -76,55 +76,69 @@ export default function BillingSettings() {
           <div className="settings-section">
             <div className="settings-section-header">
               <h2>Payment Method</h2>
-              <button className="btn-primary" onClick={() => alert('Update payment method feature is locked.')}>Update</button>
+              <button className="btn-primary" onClick={() => alert('Update payment method feature is locked.')}>
+                {billing.paymentMethod ? 'Update' : 'Add Card'}
+              </button>
             </div>
-            <div className="settings-payment-card" style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px', border: '1px solid var(--border)', borderRadius: '8px' }}>
-              <div className="settings-payment-icon">
-                <CreditCard size={22} color="var(--text-secondary)" />
+            {billing.paymentMethod ? (
+              <div className="settings-payment-card" style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px', border: '1px solid var(--border)', borderRadius: '8px' }}>
+                <div className="settings-payment-icon">
+                  <CreditCard size={22} color="var(--text-secondary)" />
+                </div>
+                <div>
+                  <div style={{ fontWeight: '500', fontSize: '14px' }}>{billing.paymentMethod.type} ending in {billing.paymentMethod.last4}</div>
+                  <div style={{ fontSize: '12.5px', color: 'var(--text-muted)', marginTop: '2px' }}>Expires {billing.paymentMethod.expiry}</div>
+                </div>
               </div>
-              <div>
-                <div style={{ fontWeight: '500', fontSize: '14px' }}>{billing.paymentMethod.type} ending in {billing.paymentMethod.last4}</div>
-                <div style={{ fontSize: '12.5px', color: 'var(--text-muted)', marginTop: '2px' }}>Expires {billing.paymentMethod.expiry}</div>
-              </div>
-            </div>
+            ) : (
+              <p style={{ fontSize: '13.5px', color: 'var(--text-secondary)', margin: 0 }}>
+                No payment method on file. Add a billing card to manage automated payments.
+              </p>
+            )}
           </div>
 
           {/* Billing History */}
           <div className="settings-section">
             <h2>Billing History</h2>
-            <div className="settings-table-wrapper">
-              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                <thead>
-                  <tr style={{ borderBottom: '1px solid var(--border)', textAlign: 'left' }}>
-                    <th style={{ color: 'var(--text-muted)', fontWeight: '500', padding: '8px' }}>Invoice</th>
-                    <th style={{ color: 'var(--text-muted)', fontWeight: '500', padding: '8px' }}>Date</th>
-                    <th style={{ color: 'var(--text-muted)', fontWeight: '500', padding: '8px' }}>Amount</th>
-                    <th style={{ color: 'var(--text-muted)', fontWeight: '500', padding: '8px' }}>Status</th>
-                    <th style={{ color: 'var(--text-muted)', fontWeight: '500', padding: '8px', textAlign: 'right' }}>Receipt</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {billing.invoices.map(inv => (
-                    <tr key={inv.id} style={{ borderBottom: '1px solid var(--border)' }}>
-                      <td style={{ fontWeight: '500', padding: '8px' }}>{inv.id}</td>
-                      <td style={{ color: 'var(--text-secondary)', padding: '8px' }}>{inv.date}</td>
-                      <td style={{ padding: '8px' }}>{inv.amount}</td>
-                      <td style={{ padding: '8px' }}>
-                        <span className="settings-badge paid" style={{ background: 'rgba(5, 150, 105, 0.1)', color: '#059669', padding: '2px 6px', borderRadius: '4px', fontSize: '11px', fontWeight: 'bold' }}>{inv.status}</span>
-                      </td>
-                      <td style={{ textAlign: 'right', padding: '8px' }}>
-                        <button 
-                          onClick={() => alert(`Downloading receipt for ${inv.id}...`)}
-                          style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: '4px' }}
-                        >
-                          <Download size={15} />
-                        </button>
-                      </td>
+            {!billing.invoices || billing.invoices.length === 0 ? (
+              <p style={{ fontSize: '13.5px', color: 'var(--text-secondary)', margin: 0 }}>
+                No invoices found for this billing period.
+              </p>
+            ) : (
+              <div className="settings-table-wrapper">
+                <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                  <thead>
+                    <tr style={{ borderBottom: '1px solid var(--border)', textAlign: 'left' }}>
+                      <th style={{ color: 'var(--text-muted)', fontWeight: '500', padding: '8px' }}>Invoice</th>
+                      <th style={{ color: 'var(--text-muted)', fontWeight: '500', padding: '8px' }}>Date</th>
+                      <th style={{ color: 'var(--text-muted)', fontWeight: '500', padding: '8px' }}>Amount</th>
+                      <th style={{ color: 'var(--text-muted)', fontWeight: '500', padding: '8px' }}>Status</th>
+                      <th style={{ color: 'var(--text-muted)', fontWeight: '500', padding: '8px', textAlign: 'right' }}>Receipt</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                  </thead>
+                  <tbody>
+                    {billing.invoices.map(inv => (
+                      <tr key={inv.id} style={{ borderBottom: '1px solid var(--border)' }}>
+                        <td style={{ fontWeight: '500', padding: '8px' }}>{inv.id}</td>
+                        <td style={{ color: 'var(--text-secondary)', padding: '8px' }}>{inv.date}</td>
+                        <td style={{ padding: '8px' }}>{inv.amount}</td>
+                        <td style={{ padding: '8px' }}>
+                          <span className="settings-badge paid" style={{ background: 'rgba(5, 150, 105, 0.1)', color: '#059669', padding: '2px 6px', borderRadius: '4px', fontSize: '11px', fontWeight: 'bold' }}>{inv.status}</span>
+                        </td>
+                        <td style={{ textAlign: 'right', padding: '8px' }}>
+                          <button 
+                            onClick={() => alert(`Downloading receipt for ${inv.id}...`)}
+                            style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: '4px' }}
+                          >
+                            <Download size={15} />
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
         </>
       )}
