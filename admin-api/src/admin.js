@@ -983,6 +983,81 @@ app.get('/admin/tenants', async (req, res) => {
   }
 });
 
+// POST /admin/tenants
+app.post('/admin/tenants', async (req, res) => {
+  const { name, slug, plan, status } = req.body;
+  if (!name || !slug || !plan) {
+    return res.status(400).json({ error: 'Name, slug, and plan are required' });
+  }
+
+  try {
+    const checkSlug = await pool.query('SELECT id FROM tenants WHERE LOWER(slug) = LOWER($1)', [slug]);
+    if (checkSlug.rows.length > 0) {
+      return res.status(400).json({ error: 'Slug must be unique. A tenant with this slug already exists.' });
+    }
+
+    const planLower = plan.toLowerCase();
+    const statusVal = status || 'active';
+
+    const result = await pool.query(`
+      INSERT INTO tenants (name, slug, plan, status)
+      VALUES ($1, $2, $3, $4)
+      RETURNING *
+    `, [name, slug.toLowerCase(), planLower, statusVal]);
+
+    const tenant = result.rows[0];
+
+    // Log admin action
+    await logAdminAction(req.admin.id, 'tenant_create', 'tenant', tenant.id, null, tenant, req);
+
+    res.status(201).json({ success: true, tenant });
+  } catch (err) {
+    console.error('Failed to create tenant:', err);
+    res.status(500).json({ error: 'Failed to create tenant' });
+  }
+});
+
+// PUT /admin/tenants/:id
+app.put('/admin/tenants/:id', async (req, res) => {
+  const { id } = req.params;
+  const { name, slug, plan, status } = req.body;
+
+  try {
+    const oldQuery = await pool.query('SELECT * FROM tenants WHERE id = $1', [id]);
+    if (oldQuery.rows.length === 0) return res.status(404).json({ error: 'Tenant not found' });
+    const oldTenant = oldQuery.rows[0];
+
+    if (slug && slug.toLowerCase() !== oldTenant.slug.toLowerCase()) {
+      const checkSlug = await pool.query('SELECT id FROM tenants WHERE LOWER(slug) = LOWER($1) AND id != $2', [slug, id]);
+      if (checkSlug.rows.length > 0) {
+        return res.status(400).json({ error: 'Slug must be unique. A tenant with this slug already exists.' });
+      }
+    }
+
+    const updatedName = name || oldTenant.name;
+    const updatedSlug = slug ? slug.toLowerCase() : oldTenant.slug;
+    const updatedPlan = plan ? plan.toLowerCase() : oldTenant.plan;
+    const updatedStatus = status || oldTenant.status;
+
+    const result = await pool.query(`
+      UPDATE tenants
+      SET name = $1, slug = $2, plan = $3, status = $4
+      WHERE id = $5
+      RETURNING *
+    `, [updatedName, updatedSlug, updatedPlan, updatedStatus, id]);
+
+    const newTenant = result.rows[0];
+
+    // Log admin action
+    await logAdminAction(req.admin.id, 'tenant_update', 'tenant', id, oldTenant, newTenant, req);
+
+    res.status(200).json({ success: true, tenant: newTenant });
+  } catch (err) {
+    console.error('Failed to update tenant details:', err);
+    res.status(500).json({ error: 'Failed to update tenant details' });
+  }
+});
+
 // 7. GET /admin/tenants/:id
 app.get('/admin/tenants/:id', async (req, res) => {
   const { id } = req.params;

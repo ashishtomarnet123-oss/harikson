@@ -325,6 +325,15 @@ export default function TenantPlanManager() {
   const [tenantPlanFilter, setTenantPlanFilter] = useState<string>('all');
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
+  const [showCreateTenantModal, setShowCreateTenantModal] = useState(false);
+  const [newTenantName, setNewTenantName] = useState('');
+  const [newTenantSlug, setNewTenantSlug] = useState('');
+  const [newTenantPlan, setNewTenantPlan] = useState('starter');
+
+  const [editingTenantDetails, setEditingTenantDetails] = useState<Tenant | null>(null);
+  const [editTenantName, setEditTenantName] = useState('');
+  const [editTenantSlug, setEditTenantSlug] = useState('');
+
   // ── Plans state ──
   const [plans, setPlans] = useState<Plan[]>([]);
   const [editingPlan, setEditingPlan] = useState<Plan | null>(null);
@@ -484,6 +493,78 @@ export default function TenantPlanManager() {
       if (selectedTenant?.id === id) setSelectedTenant(prev => prev ? { ...prev, status: targetStatus } : null);
       showToast(`Tenant ${targetStatus === 'active' ? 'activated' : 'suspended'}`);
     } catch { showToast('Failed to change tenant status.', 'error'); }
+  };
+
+  const handleCreateTenant = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newTenantName || !newTenantSlug || !newTenantPlan) {
+      showToast('Name, slug, and plan are required', 'error');
+      return;
+    }
+    const token = getCookie('admin_token') || localStorage.getItem('admin_token') || 'TEST_ADMIN_TOKEN';
+    try {
+      const res = await fetch(`${apiBase}/admin/tenants`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          name: newTenantName,
+          slug: newTenantSlug,
+          plan: newTenantPlan
+        })
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        showToast(`Tenant "${newTenantName}" created successfully!`);
+        setShowCreateTenantModal(false);
+        setNewTenantName('');
+        setNewTenantSlug('');
+        setNewTenantPlan('starter');
+        fetchData();
+      } else {
+        showToast(data.error || 'Failed to create tenant', 'error');
+      }
+    } catch {
+      showToast('API communication error', 'error');
+    }
+  };
+
+  const handleOpenEditDetails = (t: Tenant) => {
+    setEditingTenantDetails(t);
+    setEditTenantName(t.name);
+    setEditTenantSlug(t.slug);
+  };
+
+  const handleSaveTenantDetails = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingTenantDetails) return;
+    if (!editTenantName || !editTenantSlug) {
+      showToast('Name and slug are required', 'error');
+      return;
+    }
+    const token = getCookie('admin_token') || localStorage.getItem('admin_token') || 'TEST_ADMIN_TOKEN';
+    try {
+      const res = await fetch(`${apiBase}/admin/tenants/${editingTenantDetails.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          name: editTenantName,
+          slug: editTenantSlug
+        })
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        showToast('Tenant details updated successfully!');
+        setEditingTenantDetails(null);
+        fetchData();
+        if (selectedTenant && selectedTenant.id === editingTenantDetails.id) {
+          setSelectedTenant({ ...selectedTenant, name: editTenantName, slug: editTenantSlug });
+        }
+      } else {
+        showToast(data.error || 'Failed to update tenant', 'error');
+      }
+    } catch {
+      showToast('API communication error', 'error');
+    }
   };
 
   // ── Plan actions ──
@@ -798,6 +879,14 @@ export default function TenantPlanManager() {
               </div>
               
               <div className="flex flex-wrap items-center gap-3">
+                {/* Create Tenant Button */}
+                <button
+                  onClick={() => setShowCreateTenantModal(true)}
+                  className="px-3.5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-xl transition-all shadow-lg shadow-indigo-600/10 flex items-center gap-2"
+                >
+                  <Plus className="w-4 h-4" /> Add Tenant
+                </button>
+
                 {/* Status Filter */}
                 <select
                   value={tenantStatusFilter}
@@ -1421,6 +1510,12 @@ export default function TenantPlanManager() {
                   )}
                 </div>
                 <button
+                  onClick={() => { handleOpenEditDetails(selectedTenant); setSelectedTenant(null); }}
+                  className="w-full py-2 bg-gray-855 hover:bg-gray-800 border border-gray-850 text-white font-bold text-xs rounded-xl transition-all animate-transition"
+                >
+                  Edit Tenant Name & Slug
+                </button>
+                <button
                   onClick={() => { setEditingTenantPlan(selectedTenant); setSelectedTenant(null); }}
                   className="w-full py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-xl transition-all"
                 >
@@ -1476,6 +1571,128 @@ export default function TenantPlanManager() {
             <div className="flex justify-end mt-2">
               <button onClick={() => setEditingTenantPlan(null)} className="px-4 py-2 bg-gray-850 hover:bg-gray-800 text-xs font-semibold rounded-lg text-gray-400">Cancel</button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Create Tenant Modal */}
+      {showCreateTenantModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+          <div className="w-full max-w-md bg-gray-900 border border-gray-800 p-6 rounded-2xl flex flex-col gap-4 text-sm text-gray-300">
+            <div className="flex justify-between items-center mb-2">
+              <h3 className="text-base font-black text-white">Create New Tenant</h3>
+              <button onClick={() => setShowCreateTenantModal(false)} className="p-1 hover:bg-gray-850 rounded"><X className="w-5 h-5 text-gray-500" /></button>
+            </div>
+            <form onSubmit={handleCreateTenant} className="space-y-4">
+              <div>
+                <label className="text-xs text-gray-400 block mb-1.5 font-bold">Tenant Name</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. Acme Corporation"
+                  className="w-full bg-gray-955 border border-gray-800 text-xs rounded-xl p-2.5 text-white outline-none focus:border-indigo-500"
+                  value={newTenantName}
+                  onChange={e => {
+                    setNewTenantName(e.target.value);
+                    setNewTenantSlug(e.target.value.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, ''));
+                  }}
+                />
+              </div>
+
+              <div>
+                <label className="text-xs text-gray-400 block mb-1.5 font-bold">Unique Slug</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. acme-corp"
+                  className="w-full bg-gray-955 border border-gray-800 text-xs rounded-xl p-2.5 text-white outline-none focus:border-indigo-500 font-mono"
+                  value={newTenantSlug}
+                  onChange={e => setNewTenantSlug(e.target.value.toLowerCase().replace(/[^a-z0-9\-]+/g, ''))}
+                />
+              </div>
+
+              <div>
+                <label className="text-xs text-gray-400 block mb-1.5 font-bold">Initial Subscription Plan</label>
+                <select
+                  className="w-full bg-gray-955 border border-gray-800 text-xs rounded-xl p-2.5 text-white outline-none focus:border-indigo-500 cursor-pointer"
+                  value={newTenantPlan}
+                  onChange={e => setNewTenantPlan(e.target.value)}
+                >
+                  {plans.map(p => (
+                    <option key={p.id} value={p.id}>{p.name} ({p.tier.toUpperCase()})</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="flex justify-end gap-2.5 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowCreateTenantModal(false)}
+                  className="px-4 py-2 bg-gray-855 hover:bg-gray-800 text-xs font-semibold rounded-lg text-gray-400"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-lg transition-all"
+                >
+                  Create Tenant
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Tenant Details Modal */}
+      {editingTenantDetails && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+          <div className="w-full max-w-md bg-gray-900 border border-gray-800 p-6 rounded-2xl flex flex-col gap-4 text-sm text-gray-300">
+            <div className="flex justify-between items-center mb-2">
+              <h3 className="text-base font-black text-white">Edit Tenant Details</h3>
+              <button onClick={() => setEditingTenantDetails(null)} className="p-1 hover:bg-gray-850 rounded"><X className="w-5 h-5 text-gray-500" /></button>
+            </div>
+            <form onSubmit={handleSaveTenantDetails} className="space-y-4">
+              <div>
+                <label className="text-xs text-gray-400 block mb-1.5 font-bold">Tenant Name</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. Acme Corporation"
+                  className="w-full bg-gray-955 border border-gray-800 text-xs rounded-xl p-2.5 text-white outline-none focus:border-indigo-500"
+                  value={editTenantName}
+                  onChange={e => setEditTenantName(e.target.value)}
+                />
+              </div>
+
+              <div>
+                <label className="text-xs text-gray-400 block mb-1.5 font-bold">Unique Slug</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. acme-corp"
+                  className="w-full bg-gray-955 border border-gray-800 text-xs rounded-xl p-2.5 text-white outline-none focus:border-indigo-500 font-mono"
+                  value={editTenantSlug}
+                  onChange={e => setEditTenantSlug(e.target.value.toLowerCase().replace(/[^a-z0-9\-]+/g, ''))}
+                />
+              </div>
+
+              <div className="flex justify-end gap-2.5 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setEditingTenantDetails(null)}
+                  className="px-4 py-2 bg-gray-855 hover:bg-gray-800 text-xs font-semibold rounded-lg text-gray-400"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-lg transition-all"
+                >
+                  Save Changes
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}
