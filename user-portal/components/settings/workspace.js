@@ -13,6 +13,58 @@ export default function WorkspaceSettings() {
   const [editingMemberId, setEditingMemberId] = useState(null);
   const [updatingRole, setUpdatingRole] = useState(false);
 
+  const [showAddForm, setShowAddForm] = useState(false);
+  const [newEmail, setNewEmail] = useState('');
+  const [newName, setNewName] = useState('');
+  const [newRole, setNewRole] = useState('Member');
+  const [newPassword, setNewPassword] = useState('');
+  const [addingMember, setAddingMember] = useState(false);
+
+  const handleAddMember = async (e) => {
+    e.preventDefault();
+    if (!newEmail || !newName) return;
+    setAddingMember(true);
+    setError(null);
+    try {
+      const token = localStorage.getItem('hk_token');
+      if (!token) return;
+      const apiBase = localStorage.getItem('hk_api_base') || 'http://localhost:3008';
+      const tenantSlug = localStorage.getItem('hk_tenant') || 'neuravolt';
+      const res = await fetch(`${apiBase}/api/user/workspace/members`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+          'x-tenant-slug': tenantSlug
+        },
+        body: JSON.stringify({
+          email: newEmail,
+          name: newName,
+          role: newRole,
+          password: newPassword
+        })
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setWorkspace(prev => ({
+          ...prev,
+          members: [data, ...prev.members]
+        }));
+        setNewEmail('');
+        setNewName('');
+        setNewPassword('');
+        setNewRole('Member');
+        setShowAddForm(false);
+      } else {
+        throw new Error(data.error || 'Failed to add workspace member');
+      }
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setAddingMember(false);
+    }
+  };
+
   const fetchWorkspace = async () => {
     try {
       const token = localStorage.getItem('hk_token');
@@ -127,9 +179,143 @@ export default function WorkspaceSettings() {
           </div>
 
           <div className="settings-section">
-            <div className="settings-section-header">
+            <div className="settings-section-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
               <h2>Members &amp; Roles</h2>
+              {!showAddForm && (
+                <button 
+                  onClick={() => setShowAddForm(true)}
+                  style={{
+                    background: 'var(--accent)',
+                    border: 'none',
+                    borderRadius: '6px',
+                    padding: '6px 12px',
+                    color: '#fff',
+                    cursor: 'pointer',
+                    fontSize: '13px',
+                    fontWeight: '500'
+                  }}
+                >
+                  Add Member
+                </button>
+              )}
             </div>
+
+            {showAddForm && (
+              <form onSubmit={handleAddMember} style={{
+                background: 'var(--bg-hover)',
+                border: '1px solid var(--border)',
+                borderRadius: '8px',
+                padding: '16px',
+                marginBottom: '16px',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '12px'
+              }}>
+                <div style={{ fontWeight: '600', fontSize: '14px' }}>Add New Member</div>
+                <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+                  <input 
+                    type="text" 
+                    placeholder="Full Name" 
+                    value={newName} 
+                    onChange={e => setNewName(e.target.value)} 
+                    required 
+                    style={{
+                      flex: '1 1 200px',
+                      background: 'var(--bg-card)',
+                      border: '1px solid var(--border)',
+                      borderRadius: '6px',
+                      padding: '8px 12px',
+                      color: 'var(--text)',
+                      fontSize: '13.5px'
+                    }}
+                  />
+                  <input 
+                    type="email" 
+                    placeholder="Email Address" 
+                    value={newEmail} 
+                    onChange={e => setNewEmail(e.target.value)} 
+                    required 
+                    style={{
+                      flex: '1 1 200px',
+                      background: 'var(--bg-card)',
+                      border: '1px solid var(--border)',
+                      borderRadius: '6px',
+                      padding: '8px 12px',
+                      color: 'var(--text)',
+                      fontSize: '13.5px'
+                    }}
+                  />
+                </div>
+                <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+                  <select 
+                    value={newRole} 
+                    onChange={e => setNewRole(e.target.value)}
+                    style={{
+                      flex: '1 1 150px',
+                      background: 'var(--bg-card)',
+                      border: '1px solid var(--border)',
+                      borderRadius: '6px',
+                      padding: '8px 12px',
+                      color: 'var(--text)',
+                      fontSize: '13.5px',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    <option value="Member">Member</option>
+                    <option value="Admin">Admin</option>
+                    <option value="Owner">Owner</option>
+                  </select>
+                  <input 
+                    type="password" 
+                    placeholder="Password (Default: Welcome123!)" 
+                    value={newPassword} 
+                    onChange={e => setNewPassword(e.target.value)} 
+                    style={{
+                      flex: '1 1 200px',
+                      background: 'var(--bg-card)',
+                      border: '1px solid var(--border)',
+                      borderRadius: '6px',
+                      padding: '8px 12px',
+                      color: 'var(--text)',
+                      fontSize: '13.5px'
+                    }}
+                  />
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '4px' }}>
+                  <button 
+                    type="button" 
+                    onClick={() => setShowAddForm(false)}
+                    style={{
+                      background: 'none',
+                      border: '1px solid var(--border)',
+                      borderRadius: '6px',
+                      padding: '6px 12px',
+                      color: 'var(--text)',
+                      cursor: 'pointer',
+                      fontSize: '13px'
+                    }}
+                  >
+                    Cancel
+                  </button>
+                  <button 
+                    type="submit" 
+                    disabled={addingMember}
+                    style={{
+                      background: 'var(--accent)',
+                      border: 'none',
+                      borderRadius: '6px',
+                      padding: '6px 12px',
+                      color: '#fff',
+                      cursor: addingMember ? 'not-allowed' : 'pointer',
+                      fontSize: '13px',
+                      fontWeight: '500'
+                    }}
+                  >
+                    {addingMember ? 'Adding...' : 'Add Member'}
+                  </button>
+                </div>
+              </form>
+            )}
 
             <div className="settings-flex-col">
               {workspace.members.map(m => (

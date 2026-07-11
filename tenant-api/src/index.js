@@ -1373,6 +1373,86 @@ app.put('/api/user/workspace/members/:memberId/role', authMiddleware, async (req
   }
 });
 
+// POST /api/user/workspace/members - Invite/Add a new member to the workspace
+app.post('/api/user/workspace/members', authMiddleware, async (req, res) => {
+  try {
+    const { email, name, role, password } = req.body;
+    
+    if (!email || !name || !role) {
+      return res.status(400).json({ error: 'Email, name, and role are required' });
+    }
+
+    // Verify current user is an admin or owner to perform additions
+    if (req.user.role !== 'admin' && req.user.role !== 'owner' && req.user.role !== 'superadmin') {
+      return res.status(403).json({ error: 'Forbidden: Insufficient permissions to add members' });
+    }
+
+    // Map UI role to database role string
+    let dbRole = 'user';
+    if (role === 'Admin') dbRole = 'admin';
+    if (role === 'Owner') dbRole = 'owner';
+    if (role === 'Member') dbRole = 'user';
+
+    const defaultPwd = password || 'Welcome123!';
+    const passwordHash = await bcrypt.hash(defaultPwd, 10);
+
+    const newMember = await executeTenantQuery(req.tenant.id, async (client) => {
+      // Check if email already exists in this tenant
+      const checkResult = await client.query(
+        'SELECT id FROM users WHERE email = $1 AND tenant_id = $2',
+        [email, req.tenant.id]
+      );
+      if (checkResult.rows.length > 0) {
+        throw new Error('User already exists in this workspace');
+      }
+
+      const result = await client.query(
+        `INSERT INTO users (tenant_id, email, password_hash, role, name, username)
+         VALUES ($1, $2, $3, $4, $5, $6)
+         RETURNING id, email, role, name`,
+        [req.tenant.id, email, passwordHash, dbRole, name, email.split('@')[0]]
+      );
+      
+      const createdUser = result.rows[0];
+      if (createdUser) {
+        // Record to activity timeline in settings of the editor
+        const eventId = crypto.randomUUID();
+        await client.query(
+          `UPDATE users
+           SET settings = jsonb_set(
+             COALESCE(settings, '{}'::jsonb),
+             '{activity_log}',
+             COALESCE(settings->'activity_log', '[]'::jsonb) || $1::jsonb
+           )
+           WHERE id = $2`,
+          [
+            JSON.stringify({
+              id: eventId,
+              event: 'Security',
+              details: `Added new member ${email} as ${role}`,
+              timestamp: new Date().toISOString()
+            }),
+            req.user.id
+          ]
+        );
+      }
+      return createdUser;
+    });
+
+    res.status(201).json({
+      id: newMember.id,
+      name: newMember.name,
+      email: newMember.email,
+      role: role,
+      avatar: newMember.name.slice(0, 2).toUpperCase()
+    });
+
+  } catch (err) {
+    console.error('Add workspace member error:', err);
+    res.status(400).json({ error: err.message || 'Failed to add workspace member' });
+  }
+});
+
 // GET /api/user/developer/keys - Get API Keys (real keys only)
 app.get('/api/user/developer/keys', authMiddleware, async (req, res) => {
   try {
