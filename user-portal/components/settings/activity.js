@@ -51,6 +51,30 @@ export default function ActivitySettings() {
     return Info;
   };
 
+  const cleanIp = (ip) => {
+    if (!ip) return 'Unknown IP';
+    return ip.replace(/^::ffff:/, '');
+  };
+
+  const parseUA = (ua) => {
+    if (!ua) return 'Unknown Device';
+    if (ua.toLowerCase().includes('curl')) return 'Curl Client';
+    if (ua.toLowerCase().includes('node-fetch') || ua.toLowerCase().includes('axios') || ua.toLowerCase().includes('postman')) {
+      return 'API Client';
+    }
+    const browserMatch = ua.match(/(Chrome|Firefox|Safari|Edge|Opera|Brave)[/\s]([\d.]+)/i);
+    const osMatch = ua.match(/(Windows NT|Mac OS X|Linux|Android|iOS|iPhone OS)[\s/]?([\d._]+)?/i);
+    
+    let osName = 'Unknown OS';
+    if (osMatch) {
+      if (osMatch[1] === 'Windows NT') osName = 'Windows';
+      else if (osMatch[1] === 'iPhone OS') osName = 'iOS';
+      else osName = osMatch[1].replace('_', ' ');
+    }
+    const browserName = browserMatch ? browserMatch[1] : 'Unknown Browser';
+    return `${browserName} on ${osName}`;
+  };
+
   if (loading) return <div className="settings-loading">Loading activity history...</div>;
 
   return (
@@ -79,26 +103,33 @@ export default function ActivitySettings() {
                     <div style={{ width: '6px', height: '6px', background: '#fff', borderRadius: '50%' }} />
                   </div>
 
-                  <div className="settings-card">
-                    <div className="settings-flex-row" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                      <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', minWidth: 0 }}>
-                        <div style={{
-                          width: '30px', height: '30px', flexShrink: 0,
-                          borderRadius: '50%', background: 'var(--bg-hover)',
-                          display: 'flex', alignItems: 'center', justifyContent: 'center',
-                          color: log.color || 'var(--accent)'
-                        }}>
-                          <Icon size={14} />
-                        </div>
-                        <div style={{ minWidth: 0 }}>
-                          <div style={{ fontWeight: '500', fontSize: '14px', marginBottom: '3px' }}>{log.action}</div>
-                          <div style={{ fontSize: '12.5px', color: 'var(--text-secondary)', wordBreak: 'break-word' }}>
-                            {log.device} &middot; {log.ip}
-                          </div>
-                        </div>
+                  <div className="settings-card" style={{ padding: '14px 16px' }}>
+                    <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
+                      <div style={{
+                        width: '32px',
+                        height: '32px',
+                        flexShrink: 0,
+                        borderRadius: '50%',
+                        background: 'var(--bg-hover)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justify-content: 'center',
+                        color: log.color || 'var(--accent)'
+                      }}>
+                        <Icon size={15} />
                       </div>
-                      <div style={{ fontSize: '12px', color: 'var(--text-muted)', whiteSpace: 'nowrap', flexShrink: 0 }}>
-                        {log.date}
+                      <div style={{ minWidth: 0, flex: 1 }}>
+                        <div style={{ fontWeight: '600', fontSize: '14.5px', color: 'var(--text-primary)', marginBottom: '4px' }}>
+                          {log.action}
+                        </div>
+                        <div style={{ fontSize: '12.5px', color: 'var(--text-secondary)', display: 'flex', flexWrap: 'wrap', gap: '6px', alignItems: 'center' }}>
+                          <span>{parseUA(log.device)}</span>
+                          <span style={{ color: 'var(--text-muted)' }}>&bull;</span>
+                          <span style={{ fontFamily: 'var(--font-mono)', fontSize: '11px', background: 'var(--bg-hover)', padding: '1px 5px', borderRadius: '4px' }}>{cleanIp(log.ip)}</span>
+                        </div>
+                        <div style={{ fontSize: '11.5px', color: 'var(--text-muted)', marginTop: '5px' }}>
+                          {log.date}
+                        </div>
                       </div>
                     </div>
                   </div>
