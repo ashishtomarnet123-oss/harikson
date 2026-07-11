@@ -14,6 +14,14 @@ interface User {
   messages_count?: number;
   total_tokens?: number;
   is_suspended?: boolean;
+  name?: string;
+  username?: string;
+  phone?: string;
+  company?: string;
+  job_title?: string;
+  department?: string;
+  country?: string;
+  bio?: string;
 }
 
 export default function UsersPage() {
@@ -383,6 +391,46 @@ export default function UsersPage() {
                   <div className="flex justify-between items-center py-1 border-t border-gray-200 dark:border-gray-800/50 gap-2">
                     <span className="text-gray-500 font-medium shrink-0">User Unique ID</span>
                     <span className="text-gray-900 dark:text-gray-200 font-mono select-all text-[11px] break-all text-right">{selectedUser.id}</span>
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <span className="text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider block mb-2">Profile Details</span>
+                <div className="space-y-2.5 bg-gray-50 dark:bg-gray-950/40 p-4 rounded-xl border border-gray-200 dark:border-gray-800/60 text-xs">
+                  <div className="flex justify-between items-center py-1 gap-2">
+                    <span className="text-gray-500 font-medium shrink-0">Full Name</span>
+                    <span className="text-gray-900 dark:text-gray-200 font-bold text-right">{selectedUser.name || 'Not Provided'}</span>
+                  </div>
+                  <div className="flex justify-between items-center py-1 border-t border-gray-200 dark:border-gray-800/50 gap-2">
+                    <span className="text-gray-500 font-medium shrink-0">Username</span>
+                    <span className="text-gray-900 dark:text-gray-200 font-semibold text-right">{selectedUser.username || 'Not Provided'}</span>
+                  </div>
+                  <div className="flex justify-between items-center py-1 border-t border-gray-200 dark:border-gray-800/50 gap-2">
+                    <span className="text-gray-500 font-medium shrink-0">Phone</span>
+                    <span className="text-gray-900 dark:text-gray-200 font-semibold text-right">{selectedUser.phone || 'Not Provided'}</span>
+                  </div>
+                  <div className="flex justify-between items-center py-1 border-t border-gray-200 dark:border-gray-800/50 gap-2">
+                    <span className="text-gray-500 font-medium shrink-0">Company</span>
+                    <span className="text-gray-900 dark:text-gray-200 font-semibold text-right">{selectedUser.company || 'Not Provided'}</span>
+                  </div>
+                  <div className="flex justify-between items-center py-1 border-t border-gray-200 dark:border-gray-800/50 gap-2">
+                    <span className="text-gray-500 font-medium shrink-0">Title &amp; Dept</span>
+                    <span className="text-gray-900 dark:text-gray-200 font-semibold text-right">
+                      {selectedUser.job_title || selectedUser.department
+                        ? `${selectedUser.job_title || ''} ${selectedUser.department ? `(${selectedUser.department})` : ''}`.trim()
+                        : 'Not Provided'}
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center py-1 border-t border-gray-200 dark:border-gray-800/50 gap-2">
+                    <span className="text-gray-500 font-medium shrink-0">Country</span>
+                    <span className="text-gray-900 dark:text-gray-200 font-semibold text-right">{selectedUser.country || 'Not Provided'}</span>
+                  </div>
+                  <div className="flex flex-col py-1 border-t border-gray-200 dark:border-gray-800/50 gap-1.5">
+                    <span className="text-gray-500 font-medium">Bio</span>
+                    <span className="text-gray-800 dark:text-gray-300 italic whitespace-pre-wrap leading-normal bg-white/40 dark:bg-black/10 p-2 rounded-lg border border-gray-200/50 dark:border-gray-800/50">
+                      {selectedUser.bio || 'No biography written.'}
+                    </span>
                   </div>
                 </div>
               </div>
