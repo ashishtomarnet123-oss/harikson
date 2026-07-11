@@ -156,11 +156,13 @@ const tenantMiddleware = async (req, res, next) => {
 const authMiddleware = async (req, res, next) => {
   try {
     const authHeader = req.headers.authorization;
+    console.log(`[AUTH DEBUG] ${req.method} ${req.url} - Auth Header: "${authHeader}" - Tenant Header: "${req.headers['x-tenant-slug']}"`);
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
       return res.status(401).json({ error: 'Access Denied: No token provided' });
     }
     
     const token = authHeader.split(' ')[1];
+    console.log(`[AUTH DEBUG] Extracted Token: "${token}"`);
     let decoded;
     
     // Support fallback tokens for isolated sandbox testing
