@@ -201,7 +201,7 @@ function PlanEditModal({ plan, models, isNew = false, onSave, onClose }: {
           <h2 className="text-base font-bold text-white">{isNew ? 'Create New Plan' : `Edit Plan — ${plan.name}`}</h2>
           <button onClick={onClose} className="p-1 hover:bg-gray-800 rounded text-gray-500 hover:text-white transition"><X size={18} /></button>
         </div>
-        <div className="px-6 py-5 overflow-y-auto space-y-5 text-sm text-gray-300">
+        <div className="flex-1 min-h-0 px-6 py-5 overflow-y-auto space-y-5 text-sm text-gray-300">
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5 font-semibold">Plan Name</label>
@@ -1407,7 +1407,7 @@ export default function TenantPlanManager() {
               </div>
               <button onClick={() => setSelectedWebhook(null)} className="p-1 hover:bg-gray-800 text-gray-400 hover:text-white rounded"><X size={18} /></button>
             </div>
-            <div className="space-y-4 mb-5 text-xs text-gray-300 overflow-y-auto">
+            <div className="flex-1 min-h-0 space-y-4 mb-5 text-xs text-gray-300 overflow-y-auto">
               <div className="grid grid-cols-2 gap-4">
                 {[
                   { label: 'Event Type', value: <span className="font-mono text-indigo-400 font-semibold">{selectedWebhook.event_type}</span> },
