@@ -443,9 +443,13 @@ export default function LandingPage() {
             
             <div className="proof-grid">
               {/* Performance */}
-              <div className="proof-card">
+              <div className="proof-card proof-card-performance">
                 <div className="proof-card-header">
-                  <span className="proof-icon">📈</span>
+                  <div className="proof-icon-container">
+                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+                    </svg>
+                  </div>
                   <h3>Performance</h3>
                 </div>
                 <ul className="proof-list">
@@ -456,9 +460,13 @@ export default function LandingPage() {
               </div>
 
               {/* Compliance */}
-              <div className="proof-card">
+              <div className="proof-card proof-card-compliance">
                 <div className="proof-card-header">
-                  <span className="proof-icon">🏛️</span>
+                  <div className="proof-icon-container">
+                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                    </svg>
+                  </div>
                   <h3>Compliance</h3>
                 </div>
                 <ul className="proof-list">
@@ -470,28 +478,34 @@ export default function LandingPage() {
               </div>
 
               {/* Customer Voice */}
-              <div className="proof-card">
+              <div className="proof-card proof-card-testimonials">
                 <div className="proof-card-header">
-                  <span className="proof-icon">💬</span>
+                  <div className="proof-icon-container">
+                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                    </svg>
+                  </div>
                   <h3>Customer Voice</h3>
                 </div>
-                <div className="testimonial">
-                  <p className="testimonial-quote">
-                    "We migrated from OpenAI to Harikson in 2 days. Our legal team finally approved AI usage."
-                  </p>
-                  <p className="testimonial-author">— CTO, ₹500Cr Indian NBFC</p>
-                </div>
-                <div className="testimonial mt-4">
-                  <p className="testimonial-quote">
-                    "The multi-tenant RLS is bulletproof. Each of our 40 clients thinks they have their own AI."
-                  </p>
-                  <p className="testimonial-author">— Founder, LegalTech Startup</p>
+                <div className="testimonial-container">
+                  <div className="testimonial-bubble">
+                    <p className="testimonial-quote">
+                      "We migrated from OpenAI to Harikson in 2 days. Our legal team approved AI usage."
+                    </p>
+                    <p className="testimonial-author">— CTO, ₹500Cr Indian NBFC</p>
+                  </div>
+                  <div className="testimonial-bubble">
+                    <p className="testimonial-quote">
+                      "The multi-tenant RLS is bulletproof. Each client gets isolated context models."
+                    </p>
+                    <p className="testimonial-author">— Founder, LegalTech Startup</p>
+                  </div>
                 </div>
               </div>
             </div>
 
             <div className="center-action">
-              <a href="#founders-contact" className="btn-secondary-light">Read Case Studies →</a>
+              <a href="#founders-contact" className="btn-premium-action">Read Case Studies <span>→</span></a>
             </div>
           </div>
         </section>
@@ -1217,78 +1231,171 @@ export default function LandingPage() {
 
         /* ─── PROOF SECTION ─── */
         .section-proof {
-          background: #FFFFFF;
-          padding: 100px 0;
+          background: radial-gradient(circle at 10% 20%, rgba(79, 140, 255, 0.02) 0%, rgba(255, 255, 255, 1) 90%);
+          padding: 110px 0;
           border-bottom: 1px solid #E2E8F0;
         }
         .proof-grid {
           display: grid;
           grid-template-columns: repeat(3, 1fr);
-          gap: 24px;
-          margin-bottom: 32px;
+          gap: 28px;
+          margin-bottom: 40px;
+        }
+        @media (max-width: 968px) {
+          .proof-grid {
+            grid-template-columns: 1fr;
+            gap: 24px;
+          }
         }
         .proof-card {
-          background: #F8FAFC;
+          background: #FFFFFF;
           border: 1px solid #E2E8F0;
-          border-radius: 16px;
-          padding: 28px;
+          border-radius: 20px;
+          padding: 36px 30px;
+          box-shadow: 0 4px 20px rgba(15, 23, 42, 0.02);
+          transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+          position: relative;
+          display: flex;
+          flex-direction: column;
         }
+        .proof-card::before {
+          content: '';
+          position: absolute;
+          top: 0;
+          left: 0;
+          right: 0;
+          height: 4px;
+          border-radius: 20px 20px 0 0;
+          background: transparent;
+          transition: all 0.3s ease;
+        }
+        .proof-card:hover {
+          transform: translateY(-6px);
+          box-shadow: 0 16px 32px rgba(15, 23, 42, 0.04);
+          border-color: #CBD5E1;
+        }
+        .proof-card-performance::before { background: linear-gradient(90deg, #4F8CFF, #8B7FFF); }
+        .proof-card-compliance::before { background: linear-gradient(90deg, #10B981, #059669); }
+        .proof-card-testimonials::before { background: linear-gradient(90deg, #F59E0B, #D97706); }
+
         .proof-card-header {
           display: flex;
           align-items: center;
-          gap: 10px;
-          margin-bottom: 18px;
+          gap: 12px;
+          margin-bottom: 22px;
         }
-        .proof-icon {
-          font-size: 20px;
+        .proof-icon-container {
+          width: 42px;
+          height: 42px;
+          border-radius: 12px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          transition: transform 0.3s ease;
         }
+        .proof-card:hover .proof-icon-container {
+          transform: scale(1.1);
+        }
+        .proof-card-performance .proof-icon-container { background: rgba(79, 140, 255, 0.08); color: #4F8CFF; }
+        .proof-card-compliance .proof-icon-container { background: rgba(16, 185, 129, 0.08); color: #10B981; }
+        .proof-card-testimonials .proof-icon-container { background: rgba(245, 158, 11, 0.08); color: #F59E0B; }
+
         .proof-card-header h3 {
-          font-size: 16px;
-          font-weight: 700;
+          font-size: 17px;
+          font-weight: 800;
           color: #0F172A;
+          margin: 0;
         }
         .proof-list {
           list-style: none;
           padding: 0;
           margin: 0;
+          display: flex;
+          flex-direction: column;
+          gap: 16px;
+          flex: 1;
         }
         .proof-list li {
-          font-size: 13px;
-          color: #334155;
-          margin-bottom: 10px;
-          line-height: 1.5;
+          font-size: 13.5px;
+          color: #475569;
+          line-height: 1.6;
+          padding-left: 24px;
+          position: relative;
         }
-        .testimonial {
-          background: #FFFFFF;
-          border: 1px solid #E2E8F0;
-          border-radius: 8px;
-          padding: 12px;
+        .proof-list li::before {
+          content: '✓';
+          position: absolute;
+          left: 0;
+          top: 1px;
+          font-weight: 900;
+          font-size: 13px;
+        }
+        .proof-card-performance .proof-list li::before { color: #4F8CFF; }
+        .proof-card-compliance .proof-list li::before { color: #10B981; }
+
+        .proof-list li strong {
+          color: #0F172A;
+          font-weight: 700;
+        }
+        .testimonial-container {
+          display: flex;
+          flex-direction: column;
+          gap: 18px;
+          flex: 1;
+        }
+        .testimonial-bubble {
+          background: #F8FAFC;
+          border: 1px solid #F1F5F9;
+          border-radius: 14px;
+          padding: 16px;
+          position: relative;
+          transition: background 0.2s ease;
+        }
+        .testimonial-bubble:hover {
+          background: #F1F5F9;
         }
         .testimonial-quote {
-          font-size: 12px;
+          font-size: 12.5px;
           font-style: italic;
           color: #334155;
-          line-height: 1.5;
-          margin-bottom: 6px;
+          line-height: 1.6;
+          margin: 0 0 8px 0;
         }
         .testimonial-author {
-          font-size: 11px;
-          font-weight: 700;
+          font-size: 10.5px;
+          font-weight: 800;
           color: #64748B;
+          text-transform: uppercase;
+          letter-spacing: 0.05em;
+          margin: 0;
         }
-        .btn-secondary-light {
-          background: transparent;
+        .btn-premium-action {
+          background: #FFFFFF;
           border: 1px solid #E2E8F0;
           color: #334155;
           font-size: 13px;
-          font-weight: 600;
-          padding: 12px 24px;
+          font-weight: 700;
+          padding: 13px 26px;
           border-radius: 10px;
           text-decoration: none;
-          transition: background 0.2s;
+          display: inline-flex;
+          align-items: center;
+          gap: 8px;
+          box-shadow: 0 2px 6px rgba(15, 23, 42, 0.01);
+          transition: all 0.3s ease;
         }
-        .btn-secondary-light:hover {
-          background: #F8FAFC;
+        .btn-premium-action:hover {
+          background: #0f172a;
+          color: #FFFFFF !important;
+          border-color: #0f172a;
+          transform: translateY(-2px);
+          box-shadow: 0 8px 16px rgba(15, 23, 42, 0.08);
+        }
+        .btn-premium-action span {
+          transition: transform 0.2s ease;
+        }
+        .btn-premium-action:hover span {
+          transform: translateX(4px);
         }
 
         /* ─── HOW IT WORKS SECTION ─── */
