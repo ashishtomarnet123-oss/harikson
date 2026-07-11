@@ -915,6 +915,66 @@ app.post('/api/auth/login', async (req, res) => {
     if (!valid) return res.status(401).json({ error: 'Invalid email or password' });
 
     const token = jwt.sign({ userId: user.id, role: user.role }, jwtSecret, { expiresIn: '7d' });
+
+    // ── Record real login activity + device session ──────────────────────────
+    try {
+      const ua = req.headers['user-agent'] || 'Unknown Browser';
+      const ip = (req.headers['x-forwarded-for'] || req.socket?.remoteAddress || '').split(',')[0].trim() || '127.0.0.1';
+      const now = new Date();
+      const dateStr = now.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) +
+        ' at ' + now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+
+      await executeTenantQuery(req.tenant.id, async (client) => {
+        // Append to activity_logs (keep last 50)
+        const logsRes = await client.query(`SELECT activity_logs FROM users WHERE id = $1`, [user.id]);
+        const existingLogs = logsRes.rows[0]?.activity_logs || [];
+        const newLog = {
+          id: Date.now().toString(),
+          action: 'Logged in successfully',
+          ip,
+          device: ua.length > 80 ? ua.slice(0, 80) + '...' : ua,
+          date: dateStr,
+          level: 'info',
+          color: '#059669'
+        };
+        const updatedLogs = [newLog, ...existingLogs].slice(0, 50);
+
+        // Upsert device session (keep last 10, mark current)
+        const devsRes = await client.query(`SELECT connected_devices FROM users WHERE id = $1`, [user.id]);
+        const existingDevices = (devsRes.rows[0]?.connected_devices || []).map(d => ({ ...d, current: false }));
+        const deviceId = Buffer.from(ip + ua).toString('base64').slice(0, 16);
+        const alreadyExists = existingDevices.find(d => d.id === deviceId);
+        let updatedDevices;
+        if (alreadyExists) {
+          updatedDevices = existingDevices.map(d =>
+            d.id === deviceId ? { ...d, lastActive: 'Active now', current: true } : d
+          );
+        } else {
+          const browserMatch = ua.match(/(Chrome|Firefox|Safari|Edge|Opera|Brave)[/\s]([\d.]+)/i);
+          const osMatch = ua.match(/(Windows NT|Mac OS X|Linux|Android|iOS|iPhone OS)[\s/]?([\d._]+)?/i);
+          const newDevice = {
+            id: deviceId,
+            name: osMatch ? (osMatch[1] === 'Mac OS X' ? 'Mac' : osMatch[1]) + ' Device' : 'Unknown Device',
+            os: osMatch ? osMatch[1].replace('_', ' ') : 'Unknown OS',
+            browser: browserMatch ? browserMatch[1] : 'Unknown Browser',
+            ip,
+            lastActive: 'Active now',
+            current: true
+          };
+          updatedDevices = [newDevice, ...existingDevices].slice(0, 10);
+        }
+
+        await client.query(
+          `UPDATE users SET activity_logs = $1, connected_devices = $2 WHERE id = $3`,
+          [JSON.stringify(updatedLogs), JSON.stringify(updatedDevices), user.id]
+        );
+      });
+    } catch (trackErr) {
+      // Non-fatal — don't block login if tracking fails
+      console.warn('Failed to record login activity:', trackErr.message);
+    }
+    // ─────────────────────────────────────────────────────────────────────────
+
     res.json({
       token,
       user: { id: user.id, email: user.email, role: user.role, tenantSlug: req.tenant.slug }
@@ -1054,62 +1114,12 @@ app.get('/api/conversations/:id/messages', authMiddleware, async (req, res) => {
 app.get('/api/user/profile', authMiddleware, async (req, res) => {
   try {
     const user = await executeTenantQuery(req.tenant.id, async (client) => {
-      // 1. Fetch current profile from tenant users table
       const result = await client.query(
         `SELECT name, username, email, phone, company, job_title as "jobTitle", department, country, bio
          FROM users WHERE id = $1`,
         [req.user.id]
       );
-      let tenantUser = result.rows[0];
-
-      // 2. Query matching user from Control Plane "User" table by email
-      try {
-        const cpResult = await client.query(
-          `SELECT name, username, phone, company, "jobTitle", department, country, bio
-           FROM "User" WHERE email = $1`,
-          [req.user.email]
-        );
-        const cpUser = cpResult.rows[0];
-        
-        if (cpUser && tenantUser) {
-          // Compare and find if we need to sync/update empty fields
-          const nameVal = tenantUser.name || cpUser.name || '';
-          const usernameVal = tenantUser.username || cpUser.username || '';
-          const phoneVal = tenantUser.phone || cpUser.phone || '';
-          const companyVal = tenantUser.company || cpUser.company || '';
-          const jobTitleVal = tenantUser.jobTitle || cpUser.jobTitle || '';
-          const departmentVal = tenantUser.department || cpUser.department || '';
-          const countryVal = tenantUser.country || cpUser.country || '';
-          const bioVal = tenantUser.bio || cpUser.bio || '';
-          
-          // If tenant values are empty/different and CP has values, let's update real-time
-          if (
-            tenantUser.name !== nameVal ||
-            tenantUser.username !== usernameVal ||
-            tenantUser.phone !== phoneVal ||
-            tenantUser.company !== companyVal ||
-            tenantUser.jobTitle !== jobTitleVal ||
-            tenantUser.department !== departmentVal ||
-            tenantUser.country !== countryVal ||
-            tenantUser.bio !== bioVal
-          ) {
-            const updateResult = await client.query(
-              `UPDATE users
-               SET name = $1, username = $2, phone = $3, company = $4, job_title = $5, department = $6, country = $7, bio = $8
-               WHERE id = $9
-               RETURNING name, username, email, phone, company, job_title as "jobTitle", department, country, bio`,
-              [nameVal, usernameVal, phoneVal, companyVal, jobTitleVal, departmentVal, countryVal, bioVal, req.user.id]
-            );
-            tenantUser = updateResult.rows[0];
-            console.log(`⚡ Real-time synced profile info from Control Plane for: ${req.user.email}`);
-          }
-        }
-      } catch (cpErr) {
-        // Fallback silently if "User" table doesn't exist yet or other query error
-        console.warn('Control Plane "User" query skipped or failed:', cpErr.message);
-      }
-
-      return tenantUser;
+      return result.rows[0];
     });
     res.json(user || {});
   } catch (err) {
@@ -1123,7 +1133,6 @@ app.put('/api/user/profile', authMiddleware, async (req, res) => {
   try {
     const { name, username, phone, company, jobTitle, department, country, bio } = req.body;
     const user = await executeTenantQuery(req.tenant.id, async (client) => {
-      // Update tenant users table
       const result = await client.query(
         `UPDATE users
          SET name = $1, username = $2, phone = $3, company = $4, job_title = $5, department = $6, country = $7, bio = $8
@@ -1131,22 +1140,7 @@ app.put('/api/user/profile', authMiddleware, async (req, res) => {
          RETURNING name, username, email, phone, company, job_title as "jobTitle", department, country, bio`,
         [name, username, phone, company, jobTitle, department, country, bio, req.user.id]
       );
-      const updatedUser = result.rows[0];
-
-      // Keep Control Plane "User" table in sync
-      try {
-        await client.query(
-          `UPDATE "User"
-           SET name = $1, username = $2, phone = $3, company = $4, "jobTitle" = $5, department = $6, country = $7, bio = $8
-           WHERE email = $9`,
-          [name, username, phone, company, jobTitle, department, country, bio, req.user.email]
-        );
-        console.log(`⚡ Propagated profile changes to Control Plane for: ${req.user.email}`);
-      } catch (cpErr) {
-        console.warn('Failed to propagate profile changes to Control Plane:', cpErr.message);
-      }
-
-      return updatedUser;
+      return result.rows[0];
     });
     res.json(user || {});
   } catch (err) {
@@ -1187,45 +1181,52 @@ app.put('/api/user/settings', authMiddleware, async (req, res) => {
   }
 });
 
-// GET /api/user/billing - Get billing plan & invoice history
+// GET /api/user/billing - Get billing plan & invoice history (real tenant plan data)
 app.get('/api/user/billing', authMiddleware, async (req, res) => {
   try {
-    const billing = await executeTenantQuery(req.tenant.id, async (client) => {
+    // Try user-specific billing_info override first (set when admin assigns plan)
+    const billingOverride = await executeTenantQuery(req.tenant.id, async (client) => {
       const result = await client.query(`SELECT billing_info FROM users WHERE id = $1`, [req.user.id]);
       return result.rows[0]?.billing_info;
     });
-    
-    const defaultBilling = {
-      planName: 'Pro Plan',
-      price: '$49',
-      status: 'ACTIVE',
-      paymentMethod: { type: 'Mastercard', last4: '4242', expiry: '12/2028' },
-      invoices: [
-        { id: 'INV-2026-004', date: 'Jul 1, 2026', amount: '$49.00', status: 'Paid' },
-        { id: 'INV-2026-003', date: 'Jun 1, 2026', amount: '$49.00', status: 'Paid' },
-        { id: 'INV-2026-002', date: 'May 1, 2026', amount: '$49.00', status: 'Paid' }
-      ]
-    };
-    res.json(billing && Object.keys(billing).length > 0 ? billing : defaultBilling);
+
+    if (billingOverride && Object.keys(billingOverride).length > 0) {
+      return res.json(billingOverride);
+    }
+
+    // Derive plan info from the tenant's active plan (real data, no hardcoded fallback)
+    const planName = req.tenant.plan || 'starter';
+    const planDisplayName = planName.charAt(0).toUpperCase() + planName.slice(1) + ' Plan';
+    const price = req.tenant.price ? `$${req.tenant.price}` : (planName === 'starter' ? '$0' : planName === 'pro' ? '$49' : '$99');
+    const currency = req.tenant.currency || 'USD';
+    const billingCycle = req.tenant.billing || 'monthly';
+
+    res.json({
+      planName: planDisplayName,
+      price,
+      currency,
+      billingCycle,
+      status: req.tenant.status === 'active' ? 'ACTIVE' : req.tenant.status?.toUpperCase() || 'ACTIVE',
+      features: req.tenant.features || {},
+      modelAccess: req.tenant.model_access || [],
+      paymentMethod: null,   // No payment method until user adds one
+      invoices: []           // No invoices until billing system is integrated
+    });
   } catch (err) {
     console.error('Fetch billing error:', err);
     res.status(500).json({ error: 'Failed to fetch billing info' });
   }
 });
 
-// GET /api/user/devices - Get connected active sessions
+// GET /api/user/devices - Get connected active sessions (real sessions only)
 app.get('/api/user/devices', authMiddleware, async (req, res) => {
   try {
     const devices = await executeTenantQuery(req.tenant.id, async (client) => {
       const result = await client.query(`SELECT connected_devices FROM users WHERE id = $1`, [req.user.id]);
       return result.rows[0]?.connected_devices || [];
     });
-    
-    const defaultDevices = [
-      { id: '1', name: 'MacBook Pro 16"', os: 'macOS', browser: 'Chrome', ip: '192.168.1.1', lastActive: 'Active now', current: true },
-      { id: '2', name: 'iPhone 14 Pro', os: 'iOS', browser: 'Safari', ip: '10.0.0.45', lastActive: '2 hours ago', current: false }
-    ];
-    res.json(devices.length > 0 ? devices : defaultDevices);
+    // Return actual devices only — empty array for users with no recorded sessions
+    res.json(devices);
   } catch (err) {
     console.error('Fetch devices error:', err);
     res.status(500).json({ error: 'Failed to fetch connected devices' });
@@ -1238,10 +1239,7 @@ app.delete('/api/user/devices/:id', authMiddleware, async (req, res) => {
     const { id } = req.params;
     const updated = await executeTenantQuery(req.tenant.id, async (client) => {
       const currentRes = await client.query(`SELECT connected_devices FROM users WHERE id = $1`, [req.user.id]);
-      const list = currentRes.rows[0]?.connected_devices || [
-        { id: '1', name: 'MacBook Pro 16"', os: 'macOS', browser: 'Chrome', ip: '192.168.1.1', lastActive: 'Active now', current: true },
-        { id: '2', name: 'iPhone 14 Pro', os: 'iOS', browser: 'Safari', ip: '10.0.0.45', lastActive: '2 hours ago', current: false }
-      ];
+      const list = currentRes.rows[0]?.connected_devices || [];
       const filtered = list.filter(d => d.id !== id);
       await client.query(`UPDATE users SET connected_devices = $1 WHERE id = $2`, [JSON.stringify(filtered), req.user.id]);
       return filtered;
@@ -1253,20 +1251,15 @@ app.delete('/api/user/devices/:id', authMiddleware, async (req, res) => {
   }
 });
 
-// GET /api/user/activity - Get user audit logs
+// GET /api/user/activity - Get user audit logs (real events only)
 app.get('/api/user/activity', authMiddleware, async (req, res) => {
   try {
     const logs = await executeTenantQuery(req.tenant.id, async (client) => {
       const result = await client.query(`SELECT activity_logs FROM users WHERE id = $1`, [req.user.id]);
       return result.rows[0]?.activity_logs || [];
     });
-    
-    const defaultLogs = [
-      { id: '1', action: 'Logged in successfully', ip: '192.168.1.1', device: 'MacBook Pro 16" (Chrome)', date: 'Today at 10:45 AM', level: 'info', color: '#059669' },
-      { id: '2', action: 'API Key generated', ip: '192.168.1.1', device: 'MacBook Pro 16" (Chrome)', date: 'Yesterday at 3:12 PM', level: 'warn', color: '#d97706' },
-      { id: '3', action: 'Password changed', ip: '192.168.1.1', device: 'MacBook Pro 16" (Chrome)', date: 'Jul 4 at 11:30 AM', level: 'error', color: '#dc2626' }
-    ];
-    res.json(logs.length > 0 ? logs : defaultLogs);
+    // Return actual logs — empty array for users with no recorded activity
+    res.json(logs);
   } catch (err) {
     console.error('Fetch activity error:', err);
     res.status(500).json({ error: 'Failed to fetch activity logs' });
@@ -1281,41 +1274,21 @@ app.get('/api/user/workspace', authMiddleware, async (req, res) => {
       const company = uRes.rows[0]?.company || 'Harikson AI (Production)';
       
       const mRes = await client.query(
-        `SELECT id, email, role, name FROM users WHERE tenant_id = $1 ORDER BY role DESC`,
+        `SELECT id, email, role FROM users WHERE tenant_id = $1 ORDER BY role DESC`,
         [req.tenant.id]
       );
-      
-      const members = [];
-      for (const m of mRes.rows) {
-        let name = m.name;
-        
-        // If name is null or empty, check Control Plane "User" table
-        if (!name) {
-          try {
-            const cpResult = await client.query(`SELECT name FROM "User" WHERE email = $1`, [m.email]);
-            name = cpResult.rows[0]?.name;
-            if (name) {
-              // Update name in tenant users table for future speed
-              await client.query(`UPDATE users SET name = $1 WHERE id = $2`, [name, m.id]);
-            }
-          } catch (e) {}
-        }
-        
-        const finalName = name || m.email.split('@')[0];
-        members.push({
-          id: m.id,
-          name: finalName,
-          email: m.email,
-          role: m.role === 'admin' ? 'Admin' : m.role === 'owner' ? 'Owner' : 'Member',
-          avatar: finalName.slice(0, 2).toUpperCase()
-        });
-      }
       
       return {
         instanceId: `ins_prd_${req.tenant.id.slice(0, 5)}`,
         name: company,
         slug: req.tenant.slug,
-        members
+        members: mRes.rows.map(m => ({
+          id: m.id,
+          name: m.email.split('@')[0],
+          email: m.email,
+          role: m.role === 'admin' ? 'Admin' : m.role === 'owner' ? 'Owner' : 'Member',
+          avatar: m.email.slice(0, 2).toUpperCase()
+        }))
       };
     });
     res.json(workspace);
@@ -1325,19 +1298,15 @@ app.get('/api/user/workspace', authMiddleware, async (req, res) => {
   }
 });
 
-// GET /api/user/developer/keys - Get API Keys
+// GET /api/user/developer/keys - Get API Keys (real keys only)
 app.get('/api/user/developer/keys', authMiddleware, async (req, res) => {
   try {
     const keys = await executeTenantQuery(req.tenant.id, async (client) => {
       const result = await client.query(`SELECT developer_keys FROM users WHERE id = $1`, [req.user.id]);
       return result.rows[0]?.developer_keys || [];
     });
-    
-    const defaultKeys = [
-      { id: '1', name: 'Production API', key: 'hk_live_8f9a2b3c4d5e6f7a8b9c0d1e2f3a4b5c', created: '2026-06-15', lastUsed: '2 hours ago' },
-      { id: '2', name: 'Testing Key', key: 'hk_test_4c2d1e3f4a5b6c7d8e9f0a1b2c3d4e5f', created: '2026-07-01', lastUsed: 'Never' }
-    ];
-    res.json(keys.length > 0 ? keys : defaultKeys);
+    // Return real keys only — no fake pre-seeded keys for new users
+    res.json(keys);
   } catch (err) {
     console.error('Fetch keys error:', err);
     res.status(500).json({ error: 'Failed to fetch API keys' });
@@ -1400,10 +1369,7 @@ app.delete('/api/user/developer/keys/:id', authMiddleware, async (req, res) => {
     const { id } = req.params;
     const updated = await executeTenantQuery(req.tenant.id, async (client) => {
       const currentRes = await client.query(`SELECT developer_keys FROM users WHERE id = $1`, [req.user.id]);
-      const list = currentRes.rows[0]?.developer_keys || [
-        { id: '1', name: 'Production API', key: 'hk_live_8f9a2b3c4d5e6f7a8b9c0d1e2f3a4b5c', created: '2026-06-15', lastUsed: '2 hours ago' },
-        { id: '2', name: 'Testing Key', key: 'hk_test_4c2d1e3f4a5b6c7d8e9f0a1b2c3d4e5f', created: '2026-07-01', lastUsed: 'Never' }
-      ];
+      const list = currentRes.rows[0]?.developer_keys || [];
       const filtered = list.filter(k => k.id !== id);
       await client.query(`UPDATE users SET developer_keys = $1 WHERE id = $2`, [JSON.stringify(filtered), req.user.id]);
       return filtered;
@@ -1412,85 +1378,305 @@ app.delete('/api/user/developer/keys/:id', authMiddleware, async (req, res) => {
   } catch (err) {
     console.error('Delete key error:', err);
     res.status(500).json({ error: 'Failed to revoke developer key' });
-// GET /api/user/usage - Get real-time token and query usage for the logged-in user
+  }
+});
+
+// ─── USAGE ANALYTICS ────────────────────────────────────────────────────────
+
+// GET /api/user/usage - Real per-user token + query usage from messages table
 app.get('/api/user/usage', authMiddleware, async (req, res) => {
   try {
+    const days = parseInt(req.query.days) || 7;
     const usage = await executeTenantQuery(req.tenant.id, async (client) => {
-      // 1. Get total tokens and queries in last 7 days
-      const summaryRes = await client.query(
-        `SELECT 
-           COALESCE(SUM(m.tokens_used), 0)::integer as "totalTokens",
-           COUNT(CASE WHEN m.role = 'user' THEN 1 END)::integer as "totalQueries"
+      // Daily token + query counts for the past N days
+      const dailyResult = await client.query(
+        `SELECT
+           TO_CHAR(DATE_TRUNC('day', m.created_at), 'Dy') AS day,
+           COALESCE(SUM(m.tokens_used), 0)::int AS tokens,
+           COUNT(m.id)::int AS queries
          FROM messages m
-         JOIN conversations c ON m.conversation_id = c.id
-         WHERE c.user_id = $1 AND m.created_at >= NOW() - INTERVAL '7 days'`,
-        [req.user.id]
-      );
-      const summary = summaryRes.rows[0] || { totalTokens: 0, totalQueries: 0 };
-
-      // 2. Get previous 7 days to calculate week-over-week change comparison
-      const prevRes = await client.query(
-        `SELECT 
-           COALESCE(SUM(m.tokens_used), 0)::integer as "prevTokens",
-           COUNT(CASE WHEN m.role = 'user' THEN 1 END)::integer as "prevQueries"
-         FROM messages m
-         JOIN conversations c ON m.conversation_id = c.id
-         WHERE c.user_id = $1 AND m.created_at >= NOW() - INTERVAL '14 days' AND m.created_at < NOW() - INTERVAL '7 days'`,
-        [req.user.id]
-      );
-      const prev = prevRes.rows[0] || { prevTokens: 0, prevQueries: 0 };
-
-      // Calculate percentage changes
-      const tokensChange = prev.prevTokens > 0 
-        ? Math.round(((summary.totalTokens - prev.prevTokens) / prev.prevTokens) * 100) 
-        : 0;
-      const queriesChange = prev.prevQueries > 0 
-        ? Math.round(((summary.totalQueries - prev.prevQueries) / prev.prevQueries) * 100) 
-        : 0;
-
-      // 3. Get daily chart data grouped by ISO day of week
-      const dailyRes = await client.query(
-        `SELECT 
-           TO_CHAR(m.created_at, 'Dy') as name,
-           EXTRACT(ISODOW FROM m.created_at) as day_num,
-           COALESCE(SUM(m.tokens_used), 0)::integer as tokens,
-           COUNT(CASE WHEN m.role = 'user' THEN 1 END)::integer as queries
-         FROM messages m
-         JOIN conversations c ON m.conversation_id = c.id
-         WHERE c.user_id = $1 AND m.created_at >= NOW() - INTERVAL '7 days'
-         GROUP BY name, day_num
-         ORDER BY day_num ASC`,
-        [req.user.id]
+         JOIN conversations c ON c.id = m.conversation_id
+         WHERE c.user_id = $1
+           AND m.created_at >= NOW() - ($2 || ' days')::interval
+           AND m.role = 'assistant'
+         GROUP BY DATE_TRUNC('day', m.created_at)
+         ORDER BY DATE_TRUNC('day', m.created_at) ASC`,
+        [req.user.id, days]
       );
 
-      // Create a full 7-day week with fallback values for days without activity
-      const daysOfWeek = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-      const dailyMap = {};
-      dailyRes.rows.forEach(r => {
-        dailyMap[r.name] = { tokens: r.tokens, queries: r.queries };
-      });
+      // Totals for the period
+      const totalsResult = await client.query(
+        `SELECT
+           COALESCE(SUM(m.tokens_used), 0)::int AS total_tokens,
+           COUNT(m.id)::int AS total_queries
+         FROM messages m
+         JOIN conversations c ON c.id = m.conversation_id
+         WHERE c.user_id = $1
+           AND m.created_at >= NOW() - ($2 || ' days')::interval
+           AND m.role = 'assistant'`,
+        [req.user.id, days]
+      );
 
-      const chartData = daysOfWeek.map(day => {
-        return {
-          name: day,
-          tokens: dailyMap[day]?.tokens || 0,
-          queries: dailyMap[day]?.queries || 0
-        };
-      });
+      // Previous period totals for % change calculation
+      const prevTotalsResult = await client.query(
+        `SELECT
+           COALESCE(SUM(m.tokens_used), 0)::int AS total_tokens,
+           COUNT(m.id)::int AS total_queries
+         FROM messages m
+         JOIN conversations c ON c.id = m.conversation_id
+         WHERE c.user_id = $1
+           AND m.created_at >= NOW() - ($2 || ' days')::interval * 2
+           AND m.created_at < NOW() - ($2 || ' days')::interval
+           AND m.role = 'assistant'`,
+        [req.user.id, days]
+      );
 
       return {
-        totalTokens: summary.totalTokens,
-        totalQueries: summary.totalQueries,
-        tokensChange,
-        queriesChange,
-        chartData
+        daily: dailyResult.rows,
+        totals: totalsResult.rows[0],
+        prev: prevTotalsResult.rows[0]
       };
     });
 
-    res.json(usage);
+    const { daily, totals, prev } = usage;
+    const tokenChange = prev.total_tokens > 0
+      ? Math.round(((totals.total_tokens - prev.total_tokens) / prev.total_tokens) * 100)
+      : null;
+    const queryChange = prev.total_queries > 0
+      ? Math.round(((totals.total_queries - prev.total_queries) / prev.total_queries) * 100)
+      : null;
+
+    res.json({
+      daily,
+      totalTokens: totals.total_tokens,
+      totalQueries: totals.total_queries,
+      tokenChange,
+      queryChange,
+      days
+    });
   } catch (err) {
-    console.error('Fetch usage statistics error:', err);
-    res.status(500).json({ error: 'Failed to fetch usage statistics' });
+    console.error('Fetch usage error:', err);
+    res.status(500).json({ error: 'Failed to fetch usage analytics' });
+  }
+});
+
+// ─── SECURITY ────────────────────────────────────────────────────────────────
+
+// POST /api/user/security/change-password
+app.post('/api/user/security/change-password', authMiddleware, async (req, res) => {
+  const { currentPassword, newPassword } = req.body;
+  if (!currentPassword || !newPassword) {
+    return res.status(400).json({ error: 'Both current and new password are required' });
+  }
+  if (newPassword.length < 8) {
+    return res.status(400).json({ error: 'New password must be at least 8 characters' });
+  }
+  try {
+    const user = req.user;
+
+    // Verify current password
+    if (!user.password_hash || !user.password_hash.startsWith('$')) {
+      return res.status(400).json({ error: 'Password change not supported for this account type' });
+    }
+    const valid = await bcrypt.compare(currentPassword, user.password_hash);
+    if (!valid) {
+      return res.status(401).json({ error: 'Current password is incorrect' });
+    }
+
+    const newHash = await bcrypt.hash(newPassword, 10);
+    await executeTenantQuery(req.tenant.id, async (client) => {
+      await client.query(`UPDATE users SET password_hash = $1 WHERE id = $2`, [newHash, user.id]);
+
+      // Log the password change event
+      const logsRes = await client.query(`SELECT activity_logs FROM users WHERE id = $1`, [user.id]);
+      const existingLogs = logsRes.rows[0]?.activity_logs || [];
+      const ip = (req.headers['x-forwarded-for'] || req.socket?.remoteAddress || '').split(',')[0].trim() || '127.0.0.1';
+      const ua = req.headers['user-agent'] || 'Unknown';
+      const now = new Date();
+      const dateStr = now.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) +
+        ' at ' + now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+      const newLog = {
+        id: Date.now().toString(),
+        action: 'Password changed successfully',
+        ip,
+        device: ua.length > 80 ? ua.slice(0, 80) + '...' : ua,
+        date: dateStr,
+        level: 'warn',
+        color: '#d97706'
+      };
+      await client.query(
+        `UPDATE users SET activity_logs = $1 WHERE id = $2`,
+        [JSON.stringify([newLog, ...existingLogs].slice(0, 50)), user.id]
+      );
+    });
+
+    res.json({ success: true, message: 'Password updated successfully' });
+  } catch (err) {
+    console.error('Change password error:', err);
+    res.status(500).json({ error: 'Failed to change password' });
+  }
+});
+
+// ─── PROMPT PRESETS (server-side, per user) ───────────────────────────────────
+
+// GET /api/user/presets
+app.get('/api/user/presets', authMiddleware, async (req, res) => {
+  try {
+    const presets = await executeTenantQuery(req.tenant.id, async (client) => {
+      // Store presets in settings JSONB under the 'presets' key
+      const result = await client.query(`SELECT settings FROM users WHERE id = $1`, [req.user.id]);
+      return (result.rows[0]?.settings?.presets) || [];
+    });
+    res.json(presets);
+  } catch (err) {
+    console.error('Fetch presets error:', err);
+    res.status(500).json({ error: 'Failed to fetch presets' });
+  }
+});
+
+// POST /api/user/presets
+app.post('/api/user/presets', authMiddleware, async (req, res) => {
+  const { name, description, systemPrompt } = req.body;
+  if (!name || !systemPrompt) {
+    return res.status(400).json({ error: 'Name and system prompt are required' });
+  }
+  try {
+    const updated = await executeTenantQuery(req.tenant.id, async (client) => {
+      const result = await client.query(`SELECT settings FROM users WHERE id = $1`, [req.user.id]);
+      const settings = result.rows[0]?.settings || {};
+      const presets = settings.presets || [];
+      const newPreset = {
+        id: Date.now().toString(),
+        name,
+        description: description || '',
+        systemPrompt,
+        created_at: new Date().toISOString()
+      };
+      const updatedPresets = [...presets, newPreset];
+      const updatedSettings = { ...settings, presets: updatedPresets };
+      await client.query(
+        `UPDATE users SET settings = $1 WHERE id = $2`,
+        [JSON.stringify(updatedSettings), req.user.id]
+      );
+      return updatedPresets;
+    });
+    res.status(201).json(updated);
+  } catch (err) {
+    console.error('Create preset error:', err);
+    res.status(500).json({ error: 'Failed to create preset' });
+  }
+});
+
+// DELETE /api/user/presets/:id
+app.delete('/api/user/presets/:id', authMiddleware, async (req, res) => {
+  try {
+    const updated = await executeTenantQuery(req.tenant.id, async (client) => {
+      const result = await client.query(`SELECT settings FROM users WHERE id = $1`, [req.user.id]);
+      const settings = result.rows[0]?.settings || {};
+      const filtered = (settings.presets || []).filter(p => p.id !== req.params.id);
+      await client.query(
+        `UPDATE users SET settings = $1 WHERE id = $2`,
+        [JSON.stringify({ ...settings, presets: filtered }), req.user.id]
+      );
+      return filtered;
+    });
+    res.json(updated);
+  } catch (err) {
+    console.error('Delete preset error:', err);
+    res.status(500).json({ error: 'Failed to delete preset' });
+  }
+});
+
+// ─── RAG DRIVE FILES (server-side, per user) ──────────────────────────────────
+
+// GET /api/user/rag-files
+app.get('/api/user/rag-files', authMiddleware, async (req, res) => {
+  try {
+    const files = await executeTenantQuery(req.tenant.id, async (client) => {
+      const result = await client.query(`SELECT settings FROM users WHERE id = $1`, [req.user.id]);
+      return (result.rows[0]?.settings?.rag_files) || [];
+    });
+    // Strip out the text content for listing (bandwidth saving)
+    res.json(files.map(f => ({ id: f.id, name: f.name, size: f.size, isActive: f.isActive, created_at: f.created_at })));
+  } catch (err) {
+    console.error('Fetch rag files error:', err);
+    res.status(500).json({ error: 'Failed to fetch RAG files' });
+  }
+});
+
+// POST /api/user/rag-files - Save an indexed file entry (text extracted client-side)
+app.post('/api/user/rag-files', authMiddleware, async (req, res) => {
+  const { name, size, text, isActive } = req.body;
+  if (!name || !text) {
+    return res.status(400).json({ error: 'File name and text content are required' });
+  }
+  try {
+    const updated = await executeTenantQuery(req.tenant.id, async (client) => {
+      const result = await client.query(`SELECT settings FROM users WHERE id = $1`, [req.user.id]);
+      const settings = result.rows[0]?.settings || {};
+      const ragFiles = settings.rag_files || [];
+      const newFile = {
+        id: Date.now().toString(),
+        name,
+        size: size || 0,
+        text,
+        isActive: isActive !== false,
+        created_at: new Date().toISOString()
+      };
+      const updatedFiles = [...ragFiles, newFile];
+      await client.query(
+        `UPDATE users SET settings = $1 WHERE id = $2`,
+        [JSON.stringify({ ...settings, rag_files: updatedFiles }), req.user.id]
+      );
+      // Return without text for bandwidth efficiency
+      return updatedFiles.map(f => ({ id: f.id, name: f.name, size: f.size, isActive: f.isActive, created_at: f.created_at }));
+    });
+    res.status(201).json(updated);
+  } catch (err) {
+    console.error('Save rag file error:', err);
+    res.status(500).json({ error: 'Failed to save RAG file' });
+  }
+});
+
+// PATCH /api/user/rag-files/:id - Toggle active state
+app.patch('/api/user/rag-files/:id', authMiddleware, async (req, res) => {
+  try {
+    const updated = await executeTenantQuery(req.tenant.id, async (client) => {
+      const result = await client.query(`SELECT settings FROM users WHERE id = $1`, [req.user.id]);
+      const settings = result.rows[0]?.settings || {};
+      const ragFiles = (settings.rag_files || []).map(f =>
+        f.id === req.params.id ? { ...f, isActive: !f.isActive } : f
+      );
+      await client.query(
+        `UPDATE users SET settings = $1 WHERE id = $2`,
+        [JSON.stringify({ ...settings, rag_files: ragFiles }), req.user.id]
+      );
+      return ragFiles.map(f => ({ id: f.id, name: f.name, size: f.size, isActive: f.isActive, created_at: f.created_at }));
+    });
+    res.json(updated);
+  } catch (err) {
+    console.error('Toggle rag file error:', err);
+    res.status(500).json({ error: 'Failed to toggle RAG file' });
+  }
+});
+
+// DELETE /api/user/rag-files/:id
+app.delete('/api/user/rag-files/:id', authMiddleware, async (req, res) => {
+  try {
+    const updated = await executeTenantQuery(req.tenant.id, async (client) => {
+      const result = await client.query(`SELECT settings FROM users WHERE id = $1`, [req.user.id]);
+      const settings = result.rows[0]?.settings || {};
+      const ragFiles = (settings.rag_files || []).filter(f => f.id !== req.params.id);
+      await client.query(
+        `UPDATE users SET settings = $1 WHERE id = $2`,
+        [JSON.stringify({ ...settings, rag_files: ragFiles }), req.user.id]
+      );
+      return ragFiles.map(f => ({ id: f.id, name: f.name, size: f.size, isActive: f.isActive, created_at: f.created_at }));
+    });
+    res.json(updated);
+  } catch (err) {
+    console.error('Delete rag file error:', err);
+    res.status(500).json({ error: 'Failed to delete RAG file' });
   }
 });
 

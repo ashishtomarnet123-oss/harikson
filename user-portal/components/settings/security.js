@@ -1,17 +1,53 @@
 import React, { useState } from 'react';
-import { Save, Shield, Smartphone, Key } from 'lucide-react';
+import { Save, Smartphone } from 'lucide-react';
 
 export default function SecuritySettings() {
+  const [passwords, setPasswords] = useState({ current: '', newPass: '', confirm: '' });
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState(null);
 
-  const handleSave = (e) => {
+  const handleChange = (e) => {
+    setPasswords(prev => ({ ...prev, [e.target.name]: e.target.value }));
+  };
+
+  const handleSave = async (e) => {
     e.preventDefault();
+    setMessage(null);
+
+    if (!passwords.current) {
+      return setMessage({ type: 'error', text: 'Please enter your current password.' });
+    }
+    if (passwords.newPass.length < 8) {
+      return setMessage({ type: 'error', text: 'New password must be at least 8 characters.' });
+    }
+    if (passwords.newPass !== passwords.confirm) {
+      return setMessage({ type: 'error', text: 'New passwords do not match.' });
+    }
+
     setSaving(true);
-    setTimeout(() => {
-      setMessage({ type: 'success', text: 'Security settings updated successfully.' });
+    try {
+      const token = localStorage.getItem('hk_token');
+      const apiBase = localStorage.getItem('hk_api_base') || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3008';
+      const res = await fetch(`${apiBase}/api/user/security/change-password`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ currentPassword: passwords.current, newPassword: passwords.newPass })
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setMessage({ type: 'success', text: 'Password updated successfully.' });
+        setPasswords({ current: '', newPass: '', confirm: '' });
+      } else {
+        throw new Error(data.error || 'Failed to update password');
+      }
+    } catch (err) {
+      setMessage({ type: 'error', text: err.message });
+    } finally {
       setSaving(false);
-    }, 800);
+    }
   };
 
   return (
@@ -29,23 +65,44 @@ export default function SecuritySettings() {
 
           <div className="form-group">
             <label>Current Password</label>
-            <input type="password" placeholder="Enter current password" />
+            <input
+              type="password"
+              name="current"
+              value={passwords.current}
+              onChange={handleChange}
+              placeholder="Enter current password"
+              autoComplete="current-password"
+            />
           </div>
 
           <div className="form-row">
             <div className="form-group">
               <label>New Password</label>
-              <input type="password" placeholder="New password" />
+              <input
+                type="password"
+                name="newPass"
+                value={passwords.newPass}
+                onChange={handleChange}
+                placeholder="Min. 8 characters"
+                autoComplete="new-password"
+              />
             </div>
             <div className="form-group">
               <label>Confirm Password</label>
-              <input type="password" placeholder="Confirm new password" />
+              <input
+                type="password"
+                name="confirm"
+                value={passwords.confirm}
+                onChange={handleChange}
+                placeholder="Confirm new password"
+                autoComplete="new-password"
+              />
             </div>
           </div>
 
           <div className="settings-actions" style={{ marginTop: '8px' }}>
-            <button type="button" className="btn-secondary" onClick={handleSave}>
-              Update Password
+            <button type="submit" className="btn-secondary" disabled={saving}>
+              {saving ? 'Updating...' : 'Update Password'}
             </button>
           </div>
         </div>
@@ -66,7 +123,12 @@ export default function SecuritySettings() {
                 <div style={{ fontSize: '12.5px', color: 'var(--text-muted)' }}>Use Google Authenticator or Authy</div>
               </div>
             </div>
-            <button type="button" className="btn-secondary" style={{ flexShrink: 0 }}>
+            <button
+              type="button"
+              className="btn-secondary"
+              style={{ flexShrink: 0 }}
+              onClick={() => alert('2FA setup coming soon. Contact your workspace administrator to enable it.')}
+            >
               Enable 2FA
             </button>
           </div>

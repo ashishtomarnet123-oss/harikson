@@ -23,42 +23,56 @@ function PromptLibrarySettings() {
   const [name, setName] = useState('');
   const [systemPrompt, setSystemPrompt] = useState('');
   const [desc, setDesc] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+
+  const getApiBase = () => localStorage.getItem('hk_api_base') || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3008';
+  const getToken = () => localStorage.getItem('hk_token');
 
   useEffect(() => {
-    const stored = localStorage.getItem('hk_custom_presets');
-    if (stored) {
+    const fetchPresets = async () => {
       try {
-        setPresets(JSON.parse(stored));
-      } catch (e) {}
-    }
+        const res = await fetch(`${getApiBase()}/api/user/presets`, {
+          headers: { 'Authorization': `Bearer ${getToken()}` }
+        });
+        if (res.ok) setPresets(await res.json());
+      } catch (e) { console.error('Failed to load presets', e); }
+      finally { setLoading(false); }
+    };
+    fetchPresets();
   }, []);
 
-  const savePresets = (newPresets) => {
-    setPresets(newPresets);
-    localStorage.setItem('hk_custom_presets', JSON.stringify(newPresets));
-    // Trigger local storage storage event so other components sync
-    window.dispatchEvent(new Event('storage'));
-  };
-
-  const handleCreate = (e) => {
+  const handleCreate = async (e) => {
     e.preventDefault();
     if (!name.trim() || !systemPrompt.trim()) return;
-    const newPreset = {
-      id: Date.now().toString(),
-      name,
-      description: desc,
-      systemPrompt,
-      created_at: new Date().toISOString()
-    };
-    savePresets([...presets, newPreset]);
-    setName('');
-    setSystemPrompt('');
-    setDesc('');
+    setSaving(true);
+    try {
+      const res = await fetch(`${getApiBase()}/api/user/presets`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${getToken()}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, description: desc, systemPrompt })
+      });
+      if (res.ok) {
+        setPresets(await res.json());
+        setName(''); setSystemPrompt(''); setDesc('');
+        // Sync to local storage for chat.js consumption
+        window.dispatchEvent(new Event('storage'));
+      }
+    } catch (e) { console.error(e); }
+    finally { setSaving(false); }
   };
 
-  const handleDelete = (id) => {
-    savePresets(presets.filter(p => p.id !== id));
+  const handleDelete = async (id) => {
+    try {
+      const res = await fetch(`${getApiBase()}/api/user/presets/${id}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${getToken()}` }
+      });
+      if (res.ok) setPresets(await res.json());
+    } catch (e) { console.error(e); }
   };
+
+  if (loading) return <div className="settings-loading">Loading prompt library...</div>;
 
   return (
     <>
@@ -100,7 +114,9 @@ function PromptLibrarySettings() {
             />
           </div>
           <div className="settings-actions">
-            <button type="submit" className="btn-primary">Add Agent</button>
+            <button type="submit" className="btn-primary" disabled={saving}>
+              {saving ? 'Saving...' : 'Add Agent'}
+            </button>
           </div>
         </form>
       </div>
@@ -145,21 +161,23 @@ function PromptLibrarySettings() {
 function RagDriveSettings() {
   const [files, setFiles] = useState([]);
   const [uploading, setUploading] = useState(false);
+  const [loading, setLoading] = useState(true);
+
+  const getApiBase = () => localStorage.getItem('hk_api_base') || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3008';
+  const getToken = () => localStorage.getItem('hk_token');
 
   useEffect(() => {
-    const stored = localStorage.getItem('hk_rag_drive');
-    if (stored) {
+    const fetchFiles = async () => {
       try {
-        setFiles(JSON.parse(stored));
-      } catch (e) {}
-    }
+        const res = await fetch(`${getApiBase()}/api/user/rag-files`, {
+          headers: { 'Authorization': `Bearer ${getToken()}` }
+        });
+        if (res.ok) setFiles(await res.json());
+      } catch (e) { console.error('Failed to load RAG files', e); }
+      finally { setLoading(false); }
+    };
+    fetchFiles();
   }, []);
-
-  const saveFiles = (newFiles) => {
-    setFiles(newFiles);
-    localStorage.setItem('hk_rag_drive', JSON.stringify(newFiles));
-    window.dispatchEvent(new Event('storage'));
-  };
 
   const handleFileUpload = async (e) => {
     const file = e.target.files?.[0];
@@ -197,40 +215,56 @@ function RagDriveSettings() {
         text = await file.text();
       }
 
-      if (!text.trim()) {
-        text = `[Empty file content or unparseable format]`;
-      }
+      if (!text.trim()) text = `[Empty file content or unparseable format]`;
 
-      const newFile = {
-        id: Date.now().toString(),
-        name: file.name,
-        size: file.size,
-        text,
-        isActive: true,
-        created_at: new Date().toISOString()
-      };
-      saveFiles([...files, newFile]);
+      // Save to server
+      const res = await fetch(`${getApiBase()}/api/user/rag-files`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${getToken()}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: file.name, size: file.size, text, isActive: true })
+      });
+      if (res.ok) {
+        setFiles(await res.json());
+        window.dispatchEvent(new Event('storage'));
+      } else {
+        alert('Failed to save file to server');
+      }
     } catch (err) {
       console.error(err);
       alert('Failed to parse file: ' + err.message);
     } finally {
       setUploading(false);
+      e.target.value = '';
     }
   };
 
-  const toggleFile = (id) => {
-    saveFiles(files.map(f => f.id === id ? { ...f, isActive: !f.isActive } : f));
+  const toggleFile = async (id) => {
+    try {
+      const res = await fetch(`${getApiBase()}/api/user/rag-files/${id}`, {
+        method: 'PATCH',
+        headers: { 'Authorization': `Bearer ${getToken()}` }
+      });
+      if (res.ok) setFiles(await res.json());
+    } catch (e) { console.error(e); }
   };
 
-  const handleDelete = (id) => {
-    saveFiles(files.filter(f => f.id !== id));
+  const handleDelete = async (id) => {
+    try {
+      const res = await fetch(`${getApiBase()}/api/user/rag-files/${id}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${getToken()}` }
+      });
+      if (res.ok) setFiles(await res.json());
+    } catch (e) { console.error(e); }
   };
+
+  if (loading) return <div className="settings-loading">Loading RAG Drive...</div>;
 
   return (
     <>
       <div className="settings-page-header">
         <h1>My RAG Drive</h1>
-        <p>Upload files to index them client-side and use them as persistent context in your chats.</p>
+        <p>Upload files to index them and use them as persistent context in your chats. Files are saved to your account.</p>
       </div>
 
       <div className="settings-section">
@@ -239,7 +273,7 @@ function RagDriveSettings() {
           {uploading ? (
             <div style={{ textAlign: 'center' }}>
               <div className="settings-spinner" style={{ margin: '0 auto 12px auto' }} />
-              <div style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>Parsing and indexing document content...</div>
+              <div style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>Parsing and saving document...</div>
             </div>
           ) : (
             <>
