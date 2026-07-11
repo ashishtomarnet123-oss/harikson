@@ -6,6 +6,33 @@ export default function DevicesSettings() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
+  const formatLastActive = (dateStr) => {
+    if (!dateStr) return 'Unknown';
+    if (dateStr === 'Active now') return 'Active now';
+    try {
+      const date = new Date(dateStr);
+      if (isNaN(date.getTime())) return dateStr;
+      
+      const seconds = Math.floor((new Date() - date) / 1000);
+      if (seconds < 10) return 'Active now';
+      if (seconds < 60) return `${seconds}s ago`;
+      
+      const minutes = Math.floor(seconds / 60);
+      if (minutes < 60) return `${minutes}m ago`;
+      
+      const hours = Math.floor(minutes / 60);
+      if (hours < 24) return `${hours}h ago`;
+      
+      const days = Math.floor(hours / 24);
+      if (days === 1) return 'Yesterday';
+      if (days < 7) return `${days}d ago`;
+      
+      return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+    } catch (e) {
+      return dateStr;
+    }
+  };
+
   useEffect(() => {
     fetchDevices();
   }, []);
@@ -97,7 +124,7 @@ export default function DevicesSettings() {
                     {d.browser} on {d.os} &middot; {d.ip}
                   </div>
                   <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '3px' }}>
-                    Last active: {d.lastActive}
+                    Last active: {formatLastActive(d.lastActive)}
                   </div>
                 </div>
               </div>

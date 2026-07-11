@@ -927,7 +927,8 @@ app.post('/api/auth/login', async (req, res) => {
     // ── Record real login activity + device session ──────────────────────────
     try {
       const ua = req.headers['user-agent'] || 'Unknown Browser';
-      const ip = (req.headers['x-forwarded-for'] || req.socket?.remoteAddress || '').split(',')[0].trim() || '127.0.0.1';
+      const rawIp = (req.headers['x-forwarded-for'] || req.socket?.remoteAddress || '').split(',')[0].trim() || '127.0.0.1';
+      const ip = rawIp.replace(/^::ffff:/, '');
       const now = new Date();
       const dateStr = now.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) +
         ' at ' + now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
@@ -952,21 +953,33 @@ app.post('/api/auth/login', async (req, res) => {
         const existingDevices = (devsRes.rows[0]?.connected_devices || []).map(d => ({ ...d, current: false }));
         const deviceId = Buffer.from(ip + ua).toString('base64').slice(0, 16);
         const alreadyExists = existingDevices.find(d => d.id === deviceId);
+        
+        const browserMatch = ua.match(/(Chrome|Firefox|Safari|Edge|Opera|Brave)[/\s]([\d.]+)/i);
+        const osMatch = ua.match(/(Windows NT|Mac OS X|Linux|Android|iOS|iPhone OS)[\s/]?([\d._]+)?/i);
+        
+        let osName = 'Unknown OS';
+        if (osMatch) {
+          if (osMatch[1] === 'Windows NT') osName = 'Windows';
+          else if (osMatch[1] === 'iPhone OS') osName = 'iOS';
+          else osName = osMatch[1].replace('_', ' ');
+        }
+        const browserName = browserMatch ? browserMatch[1] : 'Unknown Browser';
+        const deviceName = osMatch ? (osMatch[1] === 'Mac OS X' ? 'Mac' : osName) + ' Device' : 'Unknown Device';
+        const nowISO = now.toISOString();
+
         let updatedDevices;
         if (alreadyExists) {
           updatedDevices = existingDevices.map(d =>
-            d.id === deviceId ? { ...d, lastActive: 'Active now', current: true } : d
+            d.id === deviceId ? { ...d, ip, os: osName, browser: browserName, name: deviceName, lastActive: nowISO, current: true } : d
           );
         } else {
-          const browserMatch = ua.match(/(Chrome|Firefox|Safari|Edge|Opera|Brave)[/\s]([\d.]+)/i);
-          const osMatch = ua.match(/(Windows NT|Mac OS X|Linux|Android|iOS|iPhone OS)[\s/]?([\d._]+)?/i);
           const newDevice = {
             id: deviceId,
-            name: osMatch ? (osMatch[1] === 'Mac OS X' ? 'Mac' : osMatch[1]) + ' Device' : 'Unknown Device',
-            os: osMatch ? osMatch[1].replace('_', ' ') : 'Unknown OS',
-            browser: browserMatch ? browserMatch[1] : 'Unknown Browser',
+            name: deviceName,
+            os: osName,
+            browser: browserName,
             ip,
-            lastActive: 'Active now',
+            lastActive: nowISO,
             current: true
           };
           updatedDevices = [newDevice, ...existingDevices].slice(0, 10);
@@ -1229,12 +1242,59 @@ app.get('/api/user/billing', authMiddleware, async (req, res) => {
 // GET /api/user/devices - Get connected active sessions (real sessions only)
 app.get('/api/user/devices', authMiddleware, async (req, res) => {
   try {
+    const ua = req.headers['user-agent'] || 'Unknown Browser';
+    const rawIp = (req.headers['x-forwarded-for'] || req.socket?.remoteAddress || '').split(',')[0].trim() || '127.0.0.1';
+    const ip = rawIp.replace(/^::ffff:/, '');
+    const deviceId = Buffer.from(ip + ua).toString('base64').slice(0, 16);
+
     const devices = await executeTenantQuery(req.tenant.id, async (client) => {
       const result = await client.query(`SELECT connected_devices FROM users WHERE id = $1`, [req.user.id]);
-      return result.rows[0]?.connected_devices || [];
+      let list = result.rows[0]?.connected_devices || [];
+
+      const browserMatch = ua.match(/(Chrome|Firefox|Safari|Edge|Opera|Brave)[/\s]([\d.]+)/i);
+      const osMatch = ua.match(/(Windows NT|Mac OS X|Linux|Android|iOS|iPhone OS)[\s/]?([\d._]+)?/i);
+
+      let osName = 'Unknown OS';
+      if (osMatch) {
+        if (osMatch[1] === 'Windows NT') osName = 'Windows';
+        else if (osMatch[1] === 'iPhone OS') osName = 'iOS';
+        else osName = osMatch[1].replace('_', ' ');
+      }
+      const browserName = browserMatch ? browserMatch[1] : 'Unknown Browser';
+      const deviceName = osMatch ? (osMatch[1] === 'Mac OS X' ? 'Mac' : osName) + ' Device' : 'Unknown Device';
+      const nowISO = new Date().toISOString();
+
+      const existingIdx = list.findIndex(d => d.id === deviceId);
+      if (existingIdx !== -1) {
+        list[existingIdx] = {
+          ...list[existingIdx],
+          ip,
+          os: osName,
+          browser: browserName,
+          name: deviceName,
+          lastActive: nowISO
+        };
+      } else {
+        const newDevice = {
+          id: deviceId,
+          name: deviceName,
+          os: osName,
+          browser: browserName,
+          ip,
+          lastActive: nowISO
+        };
+        list = [newDevice, ...list].slice(0, 10);
+      }
+
+      await client.query(`UPDATE users SET connected_devices = $1 WHERE id = $2`, [JSON.stringify(list), req.user.id]);
+      return list;
     });
-    // Return actual devices only — empty array for users with no recorded sessions
-    res.json(devices);
+
+    const mapped = devices.map(d => ({
+      ...d,
+      current: d.id === deviceId
+    }));
+    res.json(mapped);
   } catch (err) {
     console.error('Fetch devices error:', err);
     res.status(500).json({ error: 'Failed to fetch connected devices' });
@@ -1245,6 +1305,15 @@ app.get('/api/user/devices', authMiddleware, async (req, res) => {
 app.delete('/api/user/devices/:id', authMiddleware, async (req, res) => {
   try {
     const { id } = req.params;
+    const ua = req.headers['user-agent'] || 'Unknown Browser';
+    const rawIp = (req.headers['x-forwarded-for'] || req.socket?.remoteAddress || '').split(',')[0].trim() || '127.0.0.1';
+    const ip = rawIp.replace(/^::ffff:/, '');
+    const deviceId = Buffer.from(ip + ua).toString('base64').slice(0, 16);
+
+    if (id === deviceId) {
+      return res.status(400).json({ error: 'Cannot terminate your current active session' });
+    }
+
     const updated = await executeTenantQuery(req.tenant.id, async (client) => {
       const currentRes = await client.query(`SELECT connected_devices FROM users WHERE id = $1`, [req.user.id]);
       const list = currentRes.rows[0]?.connected_devices || [];
@@ -1252,7 +1321,12 @@ app.delete('/api/user/devices/:id', authMiddleware, async (req, res) => {
       await client.query(`UPDATE users SET connected_devices = $1 WHERE id = $2`, [JSON.stringify(filtered), req.user.id]);
       return filtered;
     });
-    res.json({ success: true, devices: updated });
+
+    const mapped = updated.map(d => ({
+      ...d,
+      current: d.id === deviceId
+    }));
+    res.json({ success: true, devices: mapped });
   } catch (err) {
     console.error('Delete device error:', err);
     res.status(500).json({ error: 'Failed to terminate device session' });
