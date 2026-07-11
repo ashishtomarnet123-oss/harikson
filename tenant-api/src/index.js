@@ -1054,12 +1054,62 @@ app.get('/api/conversations/:id/messages', authMiddleware, async (req, res) => {
 app.get('/api/user/profile', authMiddleware, async (req, res) => {
   try {
     const user = await executeTenantQuery(req.tenant.id, async (client) => {
+      // 1. Fetch current profile from tenant users table
       const result = await client.query(
         `SELECT name, username, email, phone, company, job_title as "jobTitle", department, country, bio
          FROM users WHERE id = $1`,
         [req.user.id]
       );
-      return result.rows[0];
+      let tenantUser = result.rows[0];
+
+      // 2. Query matching user from Control Plane "User" table by email
+      try {
+        const cpResult = await client.query(
+          `SELECT name, username, phone, company, "jobTitle", department, country, bio
+           FROM "User" WHERE email = $1`,
+          [req.user.email]
+        );
+        const cpUser = cpResult.rows[0];
+        
+        if (cpUser && tenantUser) {
+          // Compare and find if we need to sync/update empty fields
+          const nameVal = tenantUser.name || cpUser.name || '';
+          const usernameVal = tenantUser.username || cpUser.username || '';
+          const phoneVal = tenantUser.phone || cpUser.phone || '';
+          const companyVal = tenantUser.company || cpUser.company || '';
+          const jobTitleVal = tenantUser.jobTitle || cpUser.jobTitle || '';
+          const departmentVal = tenantUser.department || cpUser.department || '';
+          const countryVal = tenantUser.country || cpUser.country || '';
+          const bioVal = tenantUser.bio || cpUser.bio || '';
+          
+          // If tenant values are empty/different and CP has values, let's update real-time
+          if (
+            tenantUser.name !== nameVal ||
+            tenantUser.username !== usernameVal ||
+            tenantUser.phone !== phoneVal ||
+            tenantUser.company !== companyVal ||
+            tenantUser.jobTitle !== jobTitleVal ||
+            tenantUser.department !== departmentVal ||
+            tenantUser.country !== countryVal ||
+            tenantUser.bio !== bioVal
+          ) {
+            const updateResult = await client.query(
+              `UPDATE users
+               SET name = $1, username = $2, phone = $3, company = $4, job_title = $5, department = $6, country = $7, bio = $8
+               WHERE id = $9
+               RETURNING name, username, email, phone, company, job_title as "jobTitle", department, country, bio`,
+              [nameVal, usernameVal, phoneVal, companyVal, jobTitleVal, departmentVal, countryVal, bioVal, req.user.id]
+            );
+            tenantUser = updateResult.rows[0];
+            console.log(`⚡ Real-time synced profile info from Control Plane for: ${req.user.email}`);
+          }
+        }
+      } catch (cpErr) {
+        // Fallback silently if "User" table doesn't exist yet or other query error
+        console.warn('Control Plane "User" query skipped or failed:', cpErr.message);
+      }
+
+      return tenantUser;
     });
     res.json(user || {});
   } catch (err) {
@@ -1073,6 +1123,7 @@ app.put('/api/user/profile', authMiddleware, async (req, res) => {
   try {
     const { name, username, phone, company, jobTitle, department, country, bio } = req.body;
     const user = await executeTenantQuery(req.tenant.id, async (client) => {
+      // Update tenant users table
       const result = await client.query(
         `UPDATE users
          SET name = $1, username = $2, phone = $3, company = $4, job_title = $5, department = $6, country = $7, bio = $8
@@ -1080,7 +1131,22 @@ app.put('/api/user/profile', authMiddleware, async (req, res) => {
          RETURNING name, username, email, phone, company, job_title as "jobTitle", department, country, bio`,
         [name, username, phone, company, jobTitle, department, country, bio, req.user.id]
       );
-      return result.rows[0];
+      const updatedUser = result.rows[0];
+
+      // Keep Control Plane "User" table in sync
+      try {
+        await client.query(
+          `UPDATE "User"
+           SET name = $1, username = $2, phone = $3, company = $4, "jobTitle" = $5, department = $6, country = $7, bio = $8
+           WHERE email = $9`,
+          [name, username, phone, company, jobTitle, department, country, bio, req.user.email]
+        );
+        console.log(`⚡ Propagated profile changes to Control Plane for: ${req.user.email}`);
+      } catch (cpErr) {
+        console.warn('Failed to propagate profile changes to Control Plane:', cpErr.message);
+      }
+
+      return updatedUser;
     });
     res.json(user || {});
   } catch (err) {
@@ -1215,21 +1281,41 @@ app.get('/api/user/workspace', authMiddleware, async (req, res) => {
       const company = uRes.rows[0]?.company || 'Harikson AI (Production)';
       
       const mRes = await client.query(
-        `SELECT id, email, role FROM users WHERE tenant_id = $1 ORDER BY role DESC`,
+        `SELECT id, email, role, name FROM users WHERE tenant_id = $1 ORDER BY role DESC`,
         [req.tenant.id]
       );
+      
+      const members = [];
+      for (const m of mRes.rows) {
+        let name = m.name;
+        
+        // If name is null or empty, check Control Plane "User" table
+        if (!name) {
+          try {
+            const cpResult = await client.query(`SELECT name FROM "User" WHERE email = $1`, [m.email]);
+            name = cpResult.rows[0]?.name;
+            if (name) {
+              // Update name in tenant users table for future speed
+              await client.query(`UPDATE users SET name = $1 WHERE id = $2`, [name, m.id]);
+            }
+          } catch (e) {}
+        }
+        
+        const finalName = name || m.email.split('@')[0];
+        members.push({
+          id: m.id,
+          name: finalName,
+          email: m.email,
+          role: m.role === 'admin' ? 'Admin' : m.role === 'owner' ? 'Owner' : 'Member',
+          avatar: finalName.slice(0, 2).toUpperCase()
+        });
+      }
       
       return {
         instanceId: `ins_prd_${req.tenant.id.slice(0, 5)}`,
         name: company,
         slug: req.tenant.slug,
-        members: mRes.rows.map(m => ({
-          id: m.id,
-          name: m.email.split('@')[0],
-          email: m.email,
-          role: m.role === 'admin' ? 'Admin' : m.role === 'owner' ? 'Owner' : 'Member',
-          avatar: m.email.slice(0, 2).toUpperCase()
-        }))
+        members
       };
     });
     res.json(workspace);
