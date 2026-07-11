@@ -7,7 +7,7 @@ import {
   CheckCircle, XCircle, ToggleLeft, ToggleRight, Star, Zap,
   Shield, Crown, ChevronDown, ChevronUp, Save, AlertTriangle,
   Cpu, Database, Clock, Webhook, Code2, Lock, Key, Activity,
-  AlertOctagon
+  AlertOctagon, Check
 } from 'lucide-react';
 import { getCookie } from 'cookies-next';
 
@@ -321,6 +321,9 @@ export default function TenantPlanManager() {
   const [editingTenantPlan, setEditingTenantPlan] = useState<Tenant | null>(null);
   const [tenantSearch, setTenantSearch] = useState('');
   const [filterTenant, setFilterTenant] = useState('');
+  const [tenantStatusFilter, setTenantStatusFilter] = useState<'all' | 'active' | 'suspended'>('all');
+  const [tenantPlanFilter, setTenantPlanFilter] = useState<string>('all');
+  const [copiedId, setCopiedId] = useState<string | null>(null);
 
   // ── Plans state ──
   const [plans, setPlans] = useState<Plan[]>([]);
@@ -443,7 +446,9 @@ export default function TenantPlanManager() {
   // ── Tenant actions ──
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text);
+    setCopiedId(text);
     showToast('Tenant ID copied to clipboard');
+    setTimeout(() => setCopiedId(null), 2000);
   };
 
   const handleUpdatePlan = async (id: string, plan: string) => {
@@ -615,10 +620,14 @@ export default function TenantPlanManager() {
   };
 
   // ── Derived values ──
-  const filteredTenants = tenants.filter(t =>
-    t.name.toLowerCase().includes(tenantSearch.toLowerCase()) ||
-    t.slug.toLowerCase().includes(tenantSearch.toLowerCase())
-  );
+  const filteredTenants = tenants.filter(t => {
+    const matchesSearch = t.name.toLowerCase().includes(tenantSearch.toLowerCase()) ||
+                          t.slug.toLowerCase().includes(tenantSearch.toLowerCase()) ||
+                          t.id.toLowerCase().includes(tenantSearch.toLowerCase());
+    const matchesStatus = tenantStatusFilter === 'all' ? true : t.status.toLowerCase() === tenantStatusFilter.toLowerCase();
+    const matchesPlan = tenantPlanFilter === 'all' ? true : t.plan.toLowerCase() === tenantPlanFilter.toLowerCase();
+    return matchesSearch && matchesStatus && matchesPlan;
+  });
   const filteredViolations = violations.filter(v =>
     v.tenant.toLowerCase().includes(filterTenant.toLowerCase())
   );
@@ -775,26 +784,57 @@ export default function TenantPlanManager() {
                 ))}
               </div>
             </div>
-          </section>
-
-          {/* Tenant table */}
+          </section>          {/* Tenant table */}
           <section className="bg-gray-900/40 border border-gray-800/80 rounded-2xl overflow-hidden">
             <div className="p-5 border-b border-gray-800 flex flex-wrap items-center justify-between gap-4">
               <div>
-                <h2 className="text-lg font-black text-white">Tenant Registry</h2>
+                <div className="flex items-center gap-3">
+                  <h2 className="text-lg font-black text-white">Tenant Registry</h2>
+                  <span className="px-2.5 py-0.5 bg-gray-800 border border-gray-700 text-gray-400 text-[10px] font-bold rounded-full">
+                    {filteredTenants.length} {filteredTenants.length === 1 ? 'tenant' : 'tenants'}
+                  </span>
+                </div>
                 <p className="text-xs text-gray-500 mt-0.5">Manage tenant configurations, token caps, and subscriptions.</p>
               </div>
-              <div className="relative">
-                <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
-                <input
-                  type="text"
-                  className="pl-9 pr-3 py-2 bg-gray-950 border border-gray-800 text-xs rounded-xl outline-none focus:border-indigo-500 text-gray-300 w-52"
-                  placeholder="Search tenants..."
-                  value={tenantSearch}
-                  onChange={e => setTenantSearch(e.target.value)}
-                />
+              
+              <div className="flex flex-wrap items-center gap-3">
+                {/* Status Filter */}
+                <select
+                  value={tenantStatusFilter}
+                  onChange={e => setTenantStatusFilter(e.target.value as any)}
+                  className="px-3 py-2 bg-gray-950 border border-gray-800 text-xs rounded-xl outline-none focus:border-indigo-500 text-gray-300 cursor-pointer"
+                >
+                  <option value="all">All Statuses</option>
+                  <option value="active">Active Only</option>
+                  <option value="suspended">Suspended Only</option>
+                </select>
+
+                {/* Plan Filter */}
+                <select
+                  value={tenantPlanFilter}
+                  onChange={e => setTenantPlanFilter(e.target.value)}
+                  className="px-3 py-2 bg-gray-950 border border-gray-800 text-xs rounded-xl outline-none focus:border-indigo-500 text-gray-300 cursor-pointer"
+                >
+                  <option value="all">All Plans</option>
+                  {plans.map(p => (
+                    <option key={p.id} value={p.id}>{p.name}</option>
+                  ))}
+                </select>
+
+                {/* Search */}
+                <div className="relative">
+                  <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
+                  <input
+                    type="text"
+                    className="pl-9 pr-3 py-2 bg-gray-950 border border-gray-800 text-xs rounded-xl outline-none focus:border-indigo-500 text-gray-300 w-48"
+                    placeholder="Search name, slug, ID..."
+                    value={tenantSearch}
+                    onChange={e => setTenantSearch(e.target.value)}
+                  />
+                </div>
               </div>
             </div>
+
             <div className="overflow-x-auto">
               <table className="w-full text-left border-collapse">
                 <thead>
@@ -808,46 +848,111 @@ export default function TenantPlanManager() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-800 text-sm">
-                  {filteredTenants.map(t => (
-                    <tr key={t.id} className="hover:bg-gray-800/10 text-gray-300 transition-all">
-                      <td className="py-4 px-6 font-mono text-xs text-indigo-400 font-semibold">
-                        <button onClick={() => copyToClipboard(t.id)} className="flex items-center gap-1.5 hover:text-indigo-300">
-                          {t.id.substring(0, 8)}... <Copy className="w-3.5 h-3.5" />
-                        </button>
-                      </td>
-                      <td className="py-4 px-6 font-bold text-white">{t.name}</td>
-                      <td className="py-4 px-6">
-                        <span className="px-2 py-0.5 bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 text-xs rounded font-bold uppercase">
-                          {t.plan}
-                        </span>
-                      </td>
-                      <td className="py-4 px-6 font-mono text-xs">{t.tokens_used.toLocaleString()}</td>
-                      <td className="py-4 px-6">
-                        <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold border ${
-                          t.status === 'active'
-                            ? 'bg-green-950/20 border-green-900/30 text-green-400'
-                            : 'bg-red-950/20 border-red-900/30 text-red-400'
-                        }`}>
-                          <span className={`w-1.5 h-1.5 rounded-full ${t.status === 'active' ? 'bg-green-500' : 'bg-red-500'}`} />
-                          {t.status}
-                        </span>
-                      </td>
-                      <td className="py-4 px-6 text-right space-x-2">
-                        <button onClick={() => setSelectedTenant(t)} className="px-2.5 py-1 bg-gray-850 hover:bg-gray-800 border border-gray-800 rounded text-xs font-semibold">View</button>
-                        <button onClick={() => setEditingTenantPlan(t)} className="px-2.5 py-1 bg-gray-850 hover:bg-gray-800 border border-gray-800 rounded text-xs font-semibold text-amber-400">Edit Plan</button>
-                        <button
-                          onClick={() => handleToggleSuspend(t.id, t.status)}
-                          className={`px-2.5 py-1 rounded text-xs font-semibold border ${
-                            t.status === 'suspended'
-                              ? 'bg-green-950/20 hover:bg-green-900/20 border-green-900/30 text-green-400'
-                              : 'bg-red-950/20 hover:bg-red-900/20 border-red-900/30 text-red-400'
-                          }`}
-                        >
-                          {t.status === 'suspended' ? 'Activate' : 'Suspend'}
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
+                  {filteredTenants.map(t => {
+                    const planId = t.plan || '';
+                    const planObj = plans.find(p => p.id.toLowerCase() === planId.toLowerCase());
+                    const tier = planObj?.tier || 'starter';
+                    const meta = TIER_META[tier] || TIER_META.starter;
+                    const planName = planObj?.name || planId.toUpperCase();
+
+                    return (
+                      <tr key={t.id} className="hover:bg-gray-800/10 text-gray-300 transition-all">
+                        <td className="py-4 px-6 font-mono text-xs text-indigo-400 font-semibold">
+                          <button onClick={() => copyToClipboard(t.id)} className="flex items-center gap-1.5 hover:text-indigo-300">
+                            {t.id.substring(0, 8)}... {copiedId === t.id ? <Check className="w-3.5 h-3.5 text-green-400" /> : <Copy className="w-3.5 h-3.5 text-gray-500" />}
+                          </button>
+                        </td>
+                        <td className="py-4 px-6 font-bold text-white">{t.name}</td>
+                        <td className="py-4 px-6">
+                          <div className="flex flex-col gap-1">
+                            <span 
+                              className="px-2 py-0.5 text-[10px] rounded font-bold uppercase w-fit border"
+                              style={{ 
+                                color: meta.color, 
+                                backgroundColor: meta.bg, 
+                                borderColor: meta.border 
+                              }}
+                            >
+                              {planName}
+                            </span>
+                            {planObj?.billing && (
+                              <span className="text-[9px] text-gray-500 capitalize pl-0.5">
+                                {planObj.billing} billing
+                              </span>
+                            )}
+                          </div>
+                        </td>
+                        <td className="py-4 px-6">
+                          {(() => {
+                            const limit = t.token_limit ?? 0;
+                            if (limit <= 0 || limit === 999999999) {
+                              return (
+                                <div className="flex flex-col gap-0.5">
+                                  <span className="text-gray-300 font-mono text-xs">{t.tokens_used.toLocaleString()}</span>
+                                  <span className="text-[9px] text-indigo-400 font-semibold">
+                                    ∞ Unlimited quota
+                                  </span>
+                                </div>
+                              );
+                            }
+
+                            const percent = Math.min(100, (t.tokens_used / limit) * 100);
+                            let barColor = 'bg-indigo-500';
+                            let textColor = 'text-indigo-400';
+                            if (percent > 90) {
+                              barColor = 'bg-red-500';
+                              textColor = 'text-red-400 font-bold';
+                            } else if (percent > 75) {
+                              barColor = 'bg-amber-500';
+                              textColor = 'text-amber-400';
+                            }
+
+                            return (
+                              <div className="space-y-1.5 min-w-[140px] max-w-[180px]">
+                                <div className="flex justify-between text-[11px] font-semibold">
+                                  <span className="text-gray-300 font-mono">{t.tokens_used.toLocaleString()}</span>
+                                  <span className={`font-mono ${textColor}`}>{percent.toFixed(1)}%</span>
+                                </div>
+                                <div className="w-full bg-gray-950 h-1.5 rounded-full overflow-hidden border border-gray-800">
+                                  <div
+                                    className={`h-full ${barColor} rounded-full transition-all duration-300`}
+                                    style={{ width: `${percent}%` }}
+                                  />
+                                </div>
+                                <div className="text-[9px] text-gray-500">
+                                  Limit: {limit.toLocaleString()}
+                                </div>
+                              </div>
+                            );
+                          })()}
+                        </td>
+                        <td className="py-4 px-6">
+                          <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold border ${
+                            t.status === 'active'
+                              ? 'bg-green-950/20 border-green-900/30 text-green-400'
+                              : 'bg-red-950/20 border-red-900/30 text-red-400'
+                          }`}>
+                            <span className={`w-1.5 h-1.5 rounded-full ${t.status === 'active' ? 'bg-green-500' : 'bg-red-500'}`} />
+                            {t.status}
+                          </span>
+                        </td>
+                        <td className="py-4 px-6 text-right space-x-2">
+                          <button onClick={() => setSelectedTenant(t)} className="px-2.5 py-1 bg-gray-850 hover:bg-gray-800 border border-gray-800 rounded text-xs font-semibold">View</button>
+                          <button onClick={() => setEditingTenantPlan(t)} className="px-2.5 py-1 bg-gray-850 hover:bg-gray-800 border border-gray-800 rounded text-xs font-semibold text-indigo-400">Edit Plan</button>
+                          <button
+                            onClick={() => handleToggleSuspend(t.id, t.status)}
+                            className={`px-2.5 py-1 rounded text-xs font-semibold border ${
+                              t.status === 'suspended'
+                                ? 'bg-green-950/20 hover:bg-green-900/20 border-green-900/30 text-green-400'
+                                : 'bg-red-950/20 hover:bg-red-900/20 border-red-900/30 text-red-400'
+                            }`}
+                          >
+                            {t.status === 'suspended' ? 'Activate' : 'Suspend'}
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
                   {filteredTenants.length === 0 && (
                     <tr><td colSpan={6} className="py-12 text-center text-gray-500 italic">No tenants found.</td></tr>
                   )}
