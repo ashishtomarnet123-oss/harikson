@@ -84,6 +84,7 @@ export default function LandingPage() {
   const [terminalText, setTerminalText] = useState('');
   const [terminalLines, setTerminalLines] = useState([]);
   const terminalCommand = 'harikson deploy --model Qwen3-72B --region mumbai';
+  const hasAnimated = useRef(false);
   
   // Reduced motion preference
   const [reducedMotion, setReducedMotion] = useState(false);
@@ -96,7 +97,8 @@ export default function LandingPage() {
   }, []);
 
   useEffect(() => {
-    if (!mounted || reducedMotion) {
+    if (!mounted) return;
+    if (reducedMotion) {
       setTerminalText(terminalCommand);
       setTerminalLines([
         { text: '✓ Namespace neuravolt-prod initialized', color: '#10B981' },
@@ -107,8 +109,13 @@ export default function LandingPage() {
       return;
     }
 
+    if (hasAnimated.current) return;
+    hasAnimated.current = true;
+
+    setTerminalLines([]);
     let charIdx = 0;
     let textAccum = '';
+    
     const interval = setInterval(() => {
       if (charIdx < terminalCommand.length) {
         textAccum += terminalCommand[charIdx];
@@ -116,22 +123,28 @@ export default function LandingPage() {
         charIdx++;
       } else {
         clearInterval(interval);
-        setTimeout(() => {
+        
+        const t1 = setTimeout(() => {
           setTerminalLines(prev => [...prev, { text: '✓ Namespace neuravolt-prod initialized', color: '#10B981' }]);
-        }, 300);
-        setTimeout(() => {
+        }, 200);
+        
+        const t2 = setTimeout(() => {
           setTerminalLines(prev => [...prev, { text: '✓ Secured weights: harikson-qwen3-72b loaded', color: '#10B981' }]);
-        }, 900);
-        setTimeout(() => {
+        }, 700);
+        
+        const t3 = setTimeout(() => {
           setTerminalLines(prev => [...prev, { text: '✓ Gateway Router: ONLINE (ap-south-1)', color: '#10B981' }]);
-        }, 1500);
-        setTimeout(() => {
+        }, 1200);
+        
+        const t4 = setTimeout(() => {
           setTerminalLines(prev => [...prev, { text: '✓ DPDP local audit configuration: ENABLED', color: '#10B981' }]);
-        }, 2100);
+        }, 1700);
       }
-    }, 60);
+    }, 50);
 
-    return () => clearInterval(interval);
+    return () => {
+      clearInterval(interval);
+    };
   }, [mounted, reducedMotion]);
 
   const simulateCompile = () => {
@@ -224,7 +237,7 @@ export default function LandingPage() {
           </div>
         </header>
 
-        {/* ─── HERO SECTION (REDESIGNED) ─── */}
+        {/* ─── HERO SECTION ─── */}
         <section className="section-hero">
           <div className="mesh-gradient" />
           <div className="subtle-grid-bg" />
@@ -270,8 +283,9 @@ export default function LandingPage() {
             </div>
 
             <div className="hero-right">
-              {/* 3D Browser Mockup */}
+              {/* 3D Mockup Container (Redesigned & Cleaned) */}
               <div className="mockup-perspective">
+                {/* Main Browser Mockup */}
                 <div className="mockup-browser">
                   <div className="browser-title-bar">
                     <span className="mock-dot red" />
@@ -301,7 +315,7 @@ export default function LandingPage() {
                   </div>
                 </div>
 
-                {/* Animated Terminal behind it */}
+                {/* Integrated Terminal (Cleaned, readable, positioned below instead of heavy overlap) */}
                 <div className="mockup-terminal font-mono">
                   <div className="terminal-header">
                     <span className="term-dot" />
@@ -320,10 +334,10 @@ export default function LandingPage() {
                   </div>
                 </div>
 
-                {/* Floating Badges */}
-                <div className="floating-badge badge-dpdp">DPDP Ready</div>
-                <div className="floating-badge badge-price">₹0.001/token</div>
-                <div className="floating-badge badge-region">Mumbai Region</div>
+                {/* Floating Badges (Sleeker design and organic positioning) */}
+                <div className="floating-badge badge-dpdp">🛡️ DPDP Ready</div>
+                <div className="floating-badge badge-price">⚡ ₹0.001/token</div>
+                <div className="floating-badge badge-region">🇮🇳 Mumbai Region</div>
               </div>
             </div>
           </div>
@@ -1424,7 +1438,7 @@ export default function LandingPage() {
         }
         .hero-grid {
           display: grid;
-          grid-template-columns: 1.2fr 0.8fr;
+          grid-template-columns: 1.15fr 0.85fr;
           gap: 48px;
           align-items: center;
           max-width: 1280px;
@@ -1521,7 +1535,7 @@ export default function LandingPage() {
           border: 1px solid #334155;
           border-radius: 12px;
           overflow: hidden;
-          box-shadow: 0 25px 50px rgba(0, 0, 0, 0.2);
+          box-shadow: 0 25px 50px rgba(0, 0, 0, 0.18);
           transform: rotateY(-6deg) rotateX(5deg);
           transition: transform 0.5s ease;
           animation: floatMockup ${reducedMotion ? '0s' : '6s'} ease-in-out infinite alternate;
@@ -1639,16 +1653,16 @@ export default function LandingPage() {
           line-height: 1.5;
         }
 
-        /* Mockup Terminal */
+        /* Mockup Terminal (Positioned cleanly below the browser to prevent overlap layout bugs) */
         .mockup-terminal {
           position: absolute;
-          bottom: -30px;
-          left: -40px;
-          background: #090a0f;
-          border: 1px solid #334155;
+          bottom: -70px;
+          left: -20px;
+          background: #07090e;
+          border: 1px solid #1f2937;
           border-radius: 8px;
-          width: 280px;
-          box-shadow: 0 15px 30px rgba(0, 0, 0, 0.25);
+          width: 320px;
+          box-shadow: 0 15px 30px rgba(0, 0, 0, 0.35);
           text-align: left;
           z-index: 10;
         }
@@ -1666,15 +1680,20 @@ export default function LandingPage() {
         }
         .terminal-body {
           padding: 12px;
-          font-size: 10px;
+          font-size: 10.5px;
           line-height: 1.5;
         }
         .prompt {
-          color: #8b5cf6;
-          margin-right: 4px;
+          color: #818cf8;
+          margin-right: 6px;
+        }
+        .terminal-input {
+          color: #f8fafc; /* Crisp white command parameter */
+          font-weight: 500;
+          margin-bottom: 6px;
         }
         .cursor {
-          color: #6366f1;
+          color: #818cf8;
           font-weight: bold;
           animation: blink 1s step-end infinite;
         }
@@ -1682,32 +1701,31 @@ export default function LandingPage() {
           50% { opacity: 0; }
         }
 
-        /* Floating Badges */
+        /* Floating Badges (Polished white containers with subtle gray borders) */
         .floating-badge {
           position: absolute;
-          background: rgba(255, 255, 255, 0.95);
-          backdrop-filter: blur(8px);
-          border: 1px solid rgba(0, 0, 0, 0.1);
-          border-radius: 8px;
+          background: #ffffff;
+          border: 1px solid #e2e8f0;
+          border-radius: 9999px;
           padding: 6px 12px;
           font-size: 10px;
           font-weight: 700;
           color: #0f172a;
           z-index: 15;
-          box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
           animation: floatBadge ${reducedMotion ? '0s' : '4s'} ease-in-out infinite alternate;
         }
         @keyframes floatBadge {
           0% { transform: translateY(0); }
           100% { transform: translateY(-5px); }
         }
-        .badge-dpdp { top: -20px; right: 20px; animation-delay: 0.5s; border-color: #10b981; }
-        .badge-price { bottom: 40px; right: -20px; animation-delay: 1s; border-color: #f59e0b; }
-        .badge-region { top: 60px; left: -20px; animation-delay: 1.5s; border-color: #4f46e5; }
+        .badge-dpdp { top: -20px; right: 20px; animation-delay: 0.5s; }
+        .badge-price { bottom: 40px; right: -20px; animation-delay: 1s; }
+        .badge-region { top: 60px; left: -40px; animation-delay: 1.5s; }
 
         /* Infinite Scrolling Logos */
         .infinite-logo-wrap {
-          margin-top: 64px;
+          margin-top: 84px;
           border-top: 1px solid #e2e8f0;
           border-bottom: 1px solid #e2e8f0;
           padding: 16px 0;
