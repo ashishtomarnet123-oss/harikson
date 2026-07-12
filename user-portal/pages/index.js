@@ -1049,50 +1049,60 @@ export default function LandingPage() {
               <h2 className="title-scale">Customer Success Stories</h2>
             </div>
 
-            <div className="stories-grid flex flex-col gap-6">
-              <div className="story-card card-glass text-left">
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                  <div className="lg:col-span-2">
-                    <span className="story-badge">LEGAL TECHNOLOGY</span>
+            <div className="stories-list-wrapper">
+              {/* Card 1 */}
+              <div className="story-card-wrapper">
+                <div className="story-card-content">
+                  <div className="story-text-container">
+                    <span className="story-badge-custom">LEGAL TECHNOLOGY</span>
                     <h4>LexAI Solutions: 50,000 precursor contract analysis</h4>
-                    <p className="text-secondary leading-relaxed mt-2">
-                      <strong>Problem:</strong> LexAI could not pass confidential client agreements through US-based OpenAI endpoints without violating NDAs and data residency laws. Lawyers spent 40 minutes analyzing each precedent.<br />
-                      <strong>Solution:</strong> Deployed a private Llama-3-70B instance inside Harikson's Mumbai VPC gateway with dedicated workspace schema isolation.<br />
+                    <p className="story-paragraph">
+                      <strong>Problem:</strong> LexAI could not pass confidential client agreements through US-based OpenAI endpoints without violating NDAs and data residency laws. Lawyers spent 40 minutes analyzing each precedent.<br /><br />
+                      <strong>Solution:</strong> Deployed a private Llama-3-70B instance inside Harikson's Mumbai VPC gateway with dedicated workspace schema isolation.<br /><br />
                       <strong>Results:</strong> Contract analysis reduced to 8 seconds, achieving full DPDP compliance and saving over ₹12 Lakhs annually in API costs.
                     </p>
                   </div>
-                  <div className="flex flex-col justify-center bg-gray-50 p-6 rounded-xl border border-gray-200 text-center">
-                    <div className="text-2xl font-black text-indigo-600">8 Sec</div>
-                    <div className="text-[10px] text-gray-500 uppercase mt-1">Precedent Analysis Time</div>
-                    <div className="text-lg font-black text-emerald-600 mt-4">₹12L Saved</div>
-                    <div className="text-[10px] text-gray-500 uppercase mt-1">Annual API Savings</div>
+                  <div className="story-stats-container">
+                    <div className="story-stat-card">
+                      <div className="story-stat-val">8 Sec</div>
+                      <div className="story-stat-label">Precedent Analysis</div>
+                    </div>
+                    <div className="story-stat-card">
+                      <div className="story-stat-val emerald">₹12L</div>
+                      <div className="story-stat-label">Annual Savings</div>
+                    </div>
                   </div>
                 </div>
-                <div className="story-quote mt-6 border-t border-gray-250 pt-4 text-xs text-gray-500 italic">
-                  "— CTO, LexAI Solutions"
+                <div className="story-quote-signature">
+                  <span>— CTO, LexAI Solutions</span>
                 </div>
               </div>
 
-              <div className="story-card card-glass text-left">
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                  <div className="lg:col-span-2">
-                    <span className="story-badge">BANKING &amp; FINANCE</span>
+              {/* Card 2 */}
+              <div className="story-card-wrapper">
+                <div className="story-card-content">
+                  <div className="story-text-container">
+                    <span className="story-badge-custom">BANKING &amp; FINANCE</span>
                     <h4>Leading NBFC: Regional customer dialer agents</h4>
-                    <p className="text-secondary leading-relaxed mt-2">
-                      <strong>Problem:</strong> Standard models failed on Hinglish, regional dialects (Tamil, Kannada), and branch contexts. Security teams rejected foreign APIs due to data sovereignty audits.<br />
-                      <strong>Solution:</strong> Fine-tuned a Qwen3-72B model on private customer history logs inside a secure local cloud environment.<br />
+                    <p className="story-paragraph">
+                      <strong>Problem:</strong> Standard models failed on Hinglish, regional dialects (Tamil, Kannada), and branch contexts. Security teams rejected foreign APIs due to data sovereignty audits.<br /><br />
+                      <strong>Solution:</strong> Fine-tuned a Qwen3-72B model on private customer history logs inside a secure local cloud environment.<br /><br />
                       <strong>Results:</strong> Support resolution times dropped by 68% while regional language accuracy hit 94%. Deployed across 10 branches in under a week.
                     </p>
                   </div>
-                  <div className="flex flex-col justify-center bg-gray-50 p-6 rounded-xl border border-gray-200 text-center">
-                    <div className="text-2xl font-black text-indigo-600">-68%</div>
-                    <div className="text-[10px] text-gray-500 uppercase mt-1">Support Resolution Time</div>
-                    <div className="text-lg font-black text-emerald-600 mt-4">10 Branches</div>
-                    <div className="text-[10px] text-gray-500 uppercase mt-1">Onboarded in 7 Days</div>
+                  <div className="story-stats-container">
+                    <div className="story-stat-card">
+                      <div className="story-stat-val">-68%</div>
+                      <div className="story-stat-label">Resolution Time</div>
+                    </div>
+                    <div className="story-stat-card">
+                      <div className="story-stat-val emerald">10</div>
+                      <div className="story-stat-label">Active Branches</div>
+                    </div>
                   </div>
                 </div>
-                <div className="story-quote mt-6 border-t border-gray-250 pt-4 text-xs text-gray-500 italic">
-                  "— Head of Customer Experience, NBFC Group"
+                <div className="story-quote-signature">
+                  <span>— Head of Customer Experience, NBFC Group</span>
                 </div>
               </div>
             </div>
@@ -2614,19 +2624,117 @@ export default function LandingPage() {
           background-color: #F8FAFC;
           border-bottom: 1px solid #e2e8f0;
         }
-        .story-card {
-          padding: 24px;
-          border-radius: 16px;
+        .stories-list-wrapper {
+          display: flex;
+          flex-direction: column;
+          gap: 28px;
+          margin-top: 36px;
         }
-        .story-badge {
-          background: rgba(79, 70, 229, 0.1);
+        .story-card-wrapper {
+          background: #ffffff;
+          border: 1px solid #e2e8f0;
+          border-radius: 20px;
+          padding: 40px;
+          box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.02), 0 2px 4px -1px rgba(0, 0, 0, 0.01);
+          transition: transform 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease;
+          text-align: left;
+        }
+        .story-card-wrapper:hover {
+          transform: translateY(-4px);
+          border-color: #cbd5e1;
+          box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.05), 0 10px 10px -5px rgba(0, 0, 0, 0.02);
+        }
+        .story-card-content {
+          display: grid;
+          grid-template-columns: 1.8fr 1.2fr;
+          gap: 40px;
+          align-items: center;
+        }
+        .story-text-container {
+          display: flex;
+          flex-direction: column;
+          align-items: flex-start;
+          text-align: left;
+        }
+        .story-badge-custom {
+          background: rgba(79, 70, 229, 0.05);
+          border: 1px solid rgba(79, 70, 229, 0.15);
           color: #4f46e5;
-          font-size: 9px;
-          font-weight: bold;
-          padding: 2px 6px;
-          border-radius: 4px;
+          font-size: 10.5px;
+          font-weight: 700;
+          padding: 4px 10px;
+          border-radius: 6px;
+          text-transform: uppercase;
+          letter-spacing: 0.05em;
+          margin-bottom: 16px;
           display: inline-block;
-          margin-bottom: 8px;
+        }
+        .story-card-content h4 {
+          font-size: 22px;
+          font-weight: 800;
+          color: #0f172a;
+          margin: 0 0 16px 0;
+          line-height: 1.3;
+        }
+        .story-paragraph {
+          font-size: 14.5px;
+          color: #475569;
+          line-height: 1.65;
+          margin: 0;
+        }
+        .story-paragraph strong {
+          color: #0f172a;
+          font-weight: 700;
+        }
+        .story-stats-container {
+          display: flex;
+          gap: 16px;
+          width: 100%;
+        }
+        .story-stat-card {
+          flex: 1;
+          background: #f8fafc;
+          border: 1px solid #e2e8f0;
+          border-radius: 16px;
+          padding: 24px 16px;
+          text-align: center;
+          display: flex;
+          flex-direction: column;
+          justify-content: center;
+          align-items: center;
+          transition: transform 0.2s ease, border-color 0.2s ease;
+        }
+        .story-stat-card:hover {
+          border-color: #cbd5e1;
+          transform: scale(1.02);
+        }
+        .story-stat-val {
+          font-size: 32px;
+          font-weight: 900;
+          color: #4f46e5;
+          line-height: 1;
+        }
+        .story-stat-val.emerald {
+          color: #10b981;
+        }
+        .story-stat-label {
+          font-size: 10px;
+          font-weight: 700;
+          color: #64748b;
+          text-transform: uppercase;
+          margin-top: 6px;
+          letter-spacing: 0.03em;
+        }
+        .story-quote-signature {
+          margin-top: 24px;
+          border-top: 1px solid #e2e8f0;
+          padding-top: 16px;
+          font-size: 13px;
+          color: #64748b;
+          font-style: italic;
+          display: flex;
+          align-items: center;
+          gap: 6px;
         }
 
         /* ─── PRICING SECTION ─── */
@@ -3186,7 +3294,8 @@ export default function LandingPage() {
           .map-grid,
           .arch-flow-grid,
           .dx-split-grid,
-          .faq-wrapper {
+          .faq-wrapper,
+          .story-card-content {
             grid-template-columns: 1fr;
           }
           .faq-menu {
