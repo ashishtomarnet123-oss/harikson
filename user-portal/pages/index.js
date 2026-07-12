@@ -45,7 +45,7 @@ func main() {
             {Role: "user", Content: "Explain DPDP in Hindi"},
         },
     })
-    fmt.Println(res.Choices[0].Message.Content)
+    fmt.Println(res.Choices[0].Message.content)
 }`,
   curl: `curl https://api.harikson.ai/v1/chat/completions \\
   -H "Authorization: Bearer hk-free-xxx" \\
@@ -236,25 +236,6 @@ export default function LandingPage() {
             })
           }}
         />
-        
-        {/* FAQ Page Schema */}
-        <script
-          type="application/ld+json"
-          dangerouslySetInnerHTML={{
-            __html: JSON.stringify({
-              "@context": "https://schema.org",
-              "@type": "FAQPage",
-              "mainEntity": Object.values(faqData).flat().map(item => ({
-                "@type": "Question",
-                "name": item.q,
-                "acceptedAnswer": {
-                  "@type": "Answer",
-                  "text": item.a
-                }
-              }))
-            })
-          }}
-        />
       </Head>
 
       <div className="landing-container">
@@ -277,12 +258,11 @@ export default function LandingPage() {
           </div>
         </header>
 
-        {/* ─── PROMPT 1: HERO SECTION ─── */}
+        {/* ─── PROMPT 1: HERO SECTION (LIGHT MODE) ─── */}
         <section className="section-hero">
           <div className="mesh-gradient" />
-          
-          {/* Subtle Grid & Particle backgrounds */}
           <div className="subtle-grid-bg" />
+          
           <div className="particle-container">
             {[...Array(25)].map((_, i) => (
               <span key={i} className="particle-dot" style={{
@@ -322,7 +302,7 @@ export default function LandingPage() {
             </div>
 
             <div className="hero-right">
-              {/* 3D-tilted browser mockup */}
+              {/* 3D Browser Mockup */}
               <div className="mockup-perspective">
                 <div className="mockup-browser">
                   <div className="browser-title-bar">
@@ -380,7 +360,7 @@ export default function LandingPage() {
             </div>
           </div>
 
-          {/* Bottom Scrolling Logo Bar */}
+          {/* Scrolling Logos */}
           <div className="infinite-logo-wrap">
             <div className="logo-track">
               <span>IIT Bombay</span>
@@ -388,7 +368,6 @@ export default function LandingPage() {
               <span>NIC</span>
               <span>State Bank</span>
               <span>Ministry of IT</span>
-              {/* Duplicate track for infinite loop */}
               <span>IIT Bombay</span>
               <span>ISRO</span>
               <span>NIC</span>
@@ -406,7 +385,7 @@ export default function LandingPage() {
               <p className="sub-scale">From IIT Bombay research labs to ISRO mission control. Infrastructure that powers India's most critical systems.</p>
             </div>
 
-            {/* Metrics Dashboard */}
+            {/* Metrics Grid */}
             <div className="metrics-grid">
               <div className="metric-card card-glass">
                 <div className="metric-val">50,000+</div>
@@ -417,7 +396,7 @@ export default function LandingPage() {
                 <div className="metric-label">P99 Token Latency</div>
                 <div className="sparkline-wrapper">
                   <svg viewBox="0 0 100 30" className="sparkline">
-                    <path d="M 0 25 Q 10 15 20 22 T 40 10 T 60 18 T 80 5 T 100 12" fill="none" stroke="#6366f1" strokeWidth="2.5" />
+                    <path d="M 0 25 Q 10 15 20 22 T 40 10 T 60 18 T 80 5 T 100 12" fill="none" stroke="#4f46e5" strokeWidth="2.5" />
                   </svg>
                 </div>
               </div>
@@ -432,7 +411,7 @@ export default function LandingPage() {
               </div>
             </div>
 
-            {/* Customer Logos with use-case tooltips */}
+            {/* Tooltip Logos */}
             <div className="customer-logos-row">
               <div className="logo-item" data-tooltip="Deploying private LLMs for scientific report summarization">IIT Bombay</div>
               <div className="logo-item" data-tooltip="Hosting sovereign chat interfaces for launch checklists">ISRO</div>
@@ -449,8 +428,7 @@ export default function LandingPage() {
               <div className="map-grid">
                 <div className="map-visual">
                   <svg viewBox="0 0 400 450" className="india-map-svg">
-                    <path d="M120,400 L90,360 L80,300 L70,240 L100,200 L95,140 L130,80 L180,50 L200,80 L230,120 L280,180 L290,240 L260,300 L200,380 Z" fill="#111827" stroke="#334155" strokeWidth="2" />
-                    {/* Region Dots */}
+                    <path d="M120,400 L90,360 L80,300 L70,240 L100,200 L95,140 L130,80 L180,50 L200,80 L230,120 L280,180 L290,240 L260,300 L200,380 Z" fill="#f1f5f9" stroke="#cbd5e1" strokeWidth="2" />
                     <g className="map-dot-group" onMouseEnter={() => setHoveredRegion('mumbai')} onMouseLeave={() => setHoveredRegion(null)}>
                       <circle cx="120" cy="270" r="7" className="map-dot-pulse" />
                       <circle cx="120" cy="270" r="4" className="map-dot" />
@@ -469,7 +447,6 @@ export default function LandingPage() {
                     </g>
                   </svg>
                   
-                  {/* Interactive Popover */}
                   {hoveredRegion && (
                     <div className="map-popover">
                       <div className="pop-title">{mapRegions[hoveredRegion].name}</div>
@@ -506,7 +483,7 @@ export default function LandingPage() {
             <div className="flex justify-between items-center mb-8 flex-wrap gap-4">
               <div>
                 <span className="tag-line tag-purple">HOW IT WORKS</span>
-                <h2 className="section-heading white-text">Your Data. Your Models. Your Infrastructure.</h2>
+                <h2 className="section-heading">Your Data. Your Models. Your Infrastructure.</h2>
               </div>
               <button 
                 className="btn-ghost" 
@@ -568,9 +545,9 @@ export default function LandingPage() {
                       <p className="text-secondary mb-4">Upload 50,000 documents. Auto-chunk. Auto-embed.</p>
                       <div className="svg-container">
                         <svg viewBox="0 0 200 100" className="w-full max-w-[240px] mx-auto">
-                          <rect x="10" y="10" width="30" height="40" rx="4" fill="#1e293b" stroke="#6366f1" strokeWidth="1.5" />
-                          <rect x="50" y="15" width="30" height="40" rx="4" fill="#1e293b" stroke="#6366f1" strokeWidth="1.5" />
-                          <rect x="90" y="10" width="30" height="40" rx="4" fill="#1e293b" stroke="#6366f1" strokeWidth="1.5" />
+                          <rect x="10" y="10" width="30" height="40" rx="4" fill="#f8fafc" stroke="#4f46e5" strokeWidth="1.5" />
+                          <rect x="50" y="15" width="30" height="40" rx="4" fill="#f8fafc" stroke="#4f46e5" strokeWidth="1.5" />
+                          <rect x="90" y="10" width="30" height="40" rx="4" fill="#f8fafc" stroke="#4f46e5" strokeWidth="1.5" />
                           <path d="M 130 30 L 170 30" stroke="#10b981" strokeWidth="2" strokeDasharray="4 4" />
                           <circle cx="175" cy="30" r="10" fill="#10b981" />
                         </svg>
@@ -583,13 +560,13 @@ export default function LandingPage() {
                       <p className="text-secondary mb-4">AI Gateway routes to the optimal model based on cost, latency, or quality specs.</p>
                       <div className="svg-container">
                         <svg viewBox="0 0 200 100" className="w-full max-w-[240px] mx-auto">
-                          <circle cx="30" cy="50" r="15" fill="#1e293b" stroke="#6366f1" strokeWidth="1.5" />
-                          <path d="M 45 50 L 100 20" stroke="#6366f1" strokeWidth="2" />
-                          <path d="M 45 50 L 100 50" stroke="#6366f1" strokeWidth="2" />
-                          <path d="M 45 50 L 100 80" stroke="#6366f1" strokeWidth="2" />
-                          <rect x="105" y="10" width="60" height="20" rx="4" fill="#1e293b" stroke="#334155" />
+                          <circle cx="30" cy="50" r="15" fill="#f8fafc" stroke="#4f46e5" strokeWidth="1.5" />
+                          <path d="M 45 50 L 100 20" stroke="#4f46e5" strokeWidth="2" />
+                          <path d="M 45 50 L 100 50" stroke="#4f46e5" strokeWidth="2" />
+                          <path d="M 45 50 L 100 80" stroke="#4f46e5" strokeWidth="2" />
+                          <rect x="105" y="10" width="60" height="20" rx="4" fill="#f8fafc" stroke="#cbd5e1" />
                           <rect x="105" y="40" width="60" height="20" rx="4" fill="#10b981" stroke="#10b981" />
-                          <rect x="105" y="70" width="60" height="20" rx="4" fill="#1e293b" stroke="#334155" />
+                          <rect x="105" y="70" width="60" height="20" rx="4" fill="#f8fafc" stroke="#cbd5e1" />
                         </svg>
                       </div>
                     </div>
@@ -600,8 +577,8 @@ export default function LandingPage() {
                       <p className="text-secondary mb-4">Run any open model (Qwen3-72B, Llama-3-70B, Mistral-Large, DeepSeek-V3). Or bring your own weights.</p>
                       <div className="svg-container">
                         <svg viewBox="0 0 200 100" className="w-full max-w-[240px] mx-auto">
-                          <circle cx="50" cy="50" r="25" fill="#1e293b" stroke="#10b981" strokeWidth="2" />
-                          <circle cx="150" cy="50" r="25" fill="#1e293b" stroke="#334155" strokeWidth="1" />
+                          <circle cx="50" cy="50" r="25" fill="#f8fafc" stroke="#10b981" strokeWidth="2" />
+                          <circle cx="150" cy="50" r="25" fill="#f8fafc" stroke="#cbd5e1" strokeWidth="1" />
                           <path d="M 75 50 L 125 50" stroke="#10b981" strokeWidth="2" strokeDasharray="4" />
                         </svg>
                       </div>
@@ -613,7 +590,7 @@ export default function LandingPage() {
                       <p className="text-secondary mb-4">RAG retrieves context securely from your private database.</p>
                       <div className="svg-container">
                         <svg viewBox="0 0 200 100" className="w-full max-w-[240px] mx-auto">
-                          <rect x="20" y="20" width="40" height="60" rx="6" fill="#1e293b" stroke="#6366f1" strokeWidth="1.5" />
+                          <rect x="20" y="20" width="40" height="60" rx="6" fill="#f8fafc" stroke="#4f46e5" strokeWidth="1.5" />
                           <path d="M 60 50 L 140 50" stroke="#10b981" strokeWidth="2.5" />
                           <circle cx="160" cy="50" r="18" fill="#10b981" />
                         </svg>
@@ -627,7 +604,7 @@ export default function LandingPage() {
                       <div className="svg-container">
                         <svg viewBox="0 0 200 100" className="w-full max-w-[240px] mx-auto">
                           <path d="M 20 50 L 140 50" stroke="#10b981" strokeWidth="2" />
-                          <rect x="145" y="35" width="45" height="30" rx="4" fill="#111827" stroke="#10b981" />
+                          <rect x="145" y="35" width="45" height="30" rx="4" fill="#f8fafc" stroke="#10b981" />
                         </svg>
                       </div>
                     </div>
@@ -643,13 +620,13 @@ export default function LandingPage() {
           <div className="content-inner">
             <div className="section-header text-center">
               <span className="tag-line tag-blue">BUSINESS OUTCOMES</span>
-              <h2 className="title-scale text-white">Why Harikson AI?</h2>
+              <h2 className="title-scale">Why Harikson AI?</h2>
               <p className="sub-scale">Enterprise infrastructure that answers your compliance and cost targets before you deploy.</p>
             </div>
 
             <div className="features-grid-custom">
               <div className="feat-card border-glow-indigo">
-                <div className="feat-icon text-indigo-500"><Code2 size={24} /></div>
+                <div className="feat-icon text-indigo-600"><Code2 size={24} /></div>
                 <h4>Go live in 10 minutes, not 10 weeks.</h4>
                 <p>Migrate from OpenAI with one line of code change. Swap the base_url parameters and keep your current prompts.</p>
                 <div className="feat-tech">base_url = "https://api.harikson.ai/v1"</div>
@@ -665,7 +642,7 @@ export default function LandingPage() {
               </div>
 
               <div className="feat-card border-glow-amber">
-                <div className="feat-icon text-amber-500"><CreditCard size={24} /></div>
+                <div className="feat-icon text-amber-600"><CreditCard size={24} /></div>
                 <h4>Cut AI spend by 60%.</h4>
                 <p>Priced in INR. No dollar volatility. No hidden egress fees.</p>
                 <div className="feat-tech">₹0.001 / token · ₹4,999 / month Pro</div>
@@ -681,7 +658,7 @@ export default function LandingPage() {
               </div>
 
               <div className="feat-card border-glow-purple">
-                <div className="feat-icon text-purple-500"><Shield size={24} /></div>
+                <div className="feat-icon text-purple-600"><Shield size={24} /></div>
                 <h4>Compliance that audits itself.</h4>
                 <p>DPDP-ready audit trails. Data principal rights. Automated compliance reports.</p>
                 <div className="feat-tech">SOC2 Prep · ISO 27001 · DPDP 2023</div>
@@ -689,7 +666,7 @@ export default function LandingPage() {
               </div>
 
               <div className="feat-card border-glow-cyan">
-                <div className="feat-icon text-cyan-500"><BrainCircuit size={24} /></div>
+                <div className="feat-icon text-cyan-600"><BrainCircuit size={24} /></div>
                 <h4>22 Indian languages. Native fluency.</h4>
                 <p>Hindi, Tamil, Kannada, Marathi, Telugu, Bengali. Not translated. Truly understood.</p>
                 <div className="feat-tech">Fine-tuned on Indic corpus</div>
@@ -704,7 +681,7 @@ export default function LandingPage() {
           <div className="content-inner">
             <div className="section-header text-center">
               <span className="tag-line tag-purple">DEVELOPER EXPERIENCE</span>
-              <h2 className="title-scale text-white">Try it in 30 seconds</h2>
+              <h2 className="title-scale">Try it in 30 seconds</h2>
             </div>
 
             <div className="dx-split-grid">
@@ -757,7 +734,7 @@ export default function LandingPage() {
   }
 }`}
                       </div>
-                      <div className="output-meta border-t border-gray-800/40 mt-4 pt-3 text-xs text-gray-400 grid grid-cols-2 gap-2">
+                      <div className="output-meta border-t border-gray-800/40 mt-4 pt-3 text-xs text-gray-455 grid grid-cols-2 gap-2">
                         <div>Latency: <span className="text-indigo-400">142ms</span></div>
                         <div>Cost: <span className="text-indigo-400">₹0.000168</span></div>
                         <div>Region: <span className="text-indigo-400">Mumbai-1</span></div>
@@ -766,7 +743,7 @@ export default function LandingPage() {
                     </div>
                   )}
                   {!isRunning && !hasRun && (
-                    <div className="text-gray-500 italic text-center py-12">
+                    <div className="text-gray-400 italic text-center py-12">
                       Click "Run Code" to compile request and inspect live token cost, response payload, and routing telemetry.
                     </div>
                   )}
@@ -805,7 +782,7 @@ export default function LandingPage() {
           <div className="content-inner">
             <div className="section-header text-center">
               <span className="tag-line tag-blue">ZERO TRUST BY DEFAULT</span>
-              <h2 className="title-scale text-white">Security is not a feature. It is the foundation.</h2>
+              <h2 className="title-scale">Security is not a feature. It is the foundation.</h2>
               <p className="sub-scale">DPDP-ready architecture. Zero-trust by default. Indian sovereignty guaranteed.</p>
             </div>
 
@@ -849,36 +826,34 @@ export default function LandingPage() {
                 <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Network Architecture</span>
                 <div className="svg-diagram-card card-glass mt-4">
                   <svg viewBox="0 0 200 240" className="w-full">
-                    {/* Nodes */}
                     <g transform="translate(10, 10)">
-                      <rect width="180" height="20" rx="4" fill="#1e293b" stroke="#334155" />
-                      <text x="90" y="14" fill="#fff" fontSize="8" textAnchor="middle">User Client Requests</text>
+                      <rect width="180" height="20" rx="4" fill="#f8fafc" stroke="#e2e8f0" />
+                      <text x="90" y="14" fill="#0f172a" fontSize="8" textAnchor="middle">User Client Requests</text>
                     </g>
                     <g transform="translate(10, 40)">
-                      <rect width="180" height="20" rx="4" fill="#1e293b" stroke="#6366f1" />
-                      <text x="90" y="14" fill="#fff" fontSize="8" textAnchor="middle">WAF Shield &amp; Rate Limiter</text>
+                      <rect width="180" height="20" rx="4" fill="#f8fafc" stroke="#4f46e5" />
+                      <text x="90" y="14" fill="#0f172a" fontSize="8" textAnchor="middle">WAF Shield &amp; Rate Limiter</text>
                     </g>
                     <g transform="translate(10, 70)">
-                      <rect width="180" height="20" rx="4" fill="#1e293b" stroke="#334155" />
-                      <text x="90" y="14" fill="#fff" fontSize="8" textAnchor="middle">Gateway &amp; Router</text>
+                      <rect width="180" height="20" rx="4" fill="#f8fafc" stroke="#e2e8f0" />
+                      <text x="90" y="14" fill="#0f172a" fontSize="8" textAnchor="middle">Gateway &amp; Router</text>
                     </g>
                     <g transform="translate(10, 100)">
-                      <rect width="180" height="20" rx="4" fill="#1e293b" stroke="#6366f1" />
-                      <text x="90" y="14" fill="#fff" fontSize="8" textAnchor="middle">Tenant Isolation (RLS)</text>
+                      <rect width="180" height="20" rx="4" fill="#f8fafc" stroke="#4f46e5" />
+                      <text x="90" y="14" fill="#0f172a" fontSize="8" textAnchor="middle">Tenant Isolation (RLS)</text>
                     </g>
                     <g transform="translate(10, 130)">
                       <rect width="180" height="20" rx="4" fill="#10b981" stroke="#10b981" />
                       <text x="90" y="14" fill="#fff" fontSize="8" textAnchor="middle">Private Model Cluster</text>
                     </g>
                     <g transform="translate(10, 160)">
-                      <rect width="180" height="20" rx="4" fill="#1e293b" stroke="#334155" />
-                      <text x="90" y="14" fill="#fff" fontSize="8" textAnchor="middle">Secure Vector Storage</text>
+                      <rect width="180" height="20" rx="4" fill="#f8fafc" stroke="#e2e8f0" />
+                      <text x="90" y="14" fill="#0f172a" fontSize="8" textAnchor="middle">Secure Vector Storage</text>
                     </g>
 
-                    {/* Flow Lines */}
-                    <line x1="100" y1="30" x2="100" y2="40" stroke="#6366f1" strokeWidth="1.5" />
-                    <line x1="100" y1="60" x2="100" y2="70" stroke="#6366f1" strokeWidth="1.5" />
-                    <line x1="100" y1="90" x2="100" y2="100" stroke="#6366f1" strokeWidth="1.5" />
+                    <line x1="100" y1="30" x2="100" y2="40" stroke="#4f46e5" strokeWidth="1.5" />
+                    <line x1="100" y1="60" x2="100" y2="70" stroke="#4f46e5" strokeWidth="1.5" />
+                    <line x1="100" y1="90" x2="100" y2="100" stroke="#4f46e5" strokeWidth="1.5" />
                     <line x1="100" y1="120" x2="100" y2="130" stroke="#10b981" strokeWidth="1.5" />
                     <line x1="100" y1="150" x2="100" y2="160" stroke="#10b981" strokeWidth="1.5" />
                   </svg>
@@ -916,7 +891,7 @@ export default function LandingPage() {
           <div className="content-inner">
             <div className="section-header text-center">
               <span className="tag-line tag-purple">SPEED &amp; EFFICIENCY</span>
-              <h2 className="title-scale text-white">Performance Benchmarks</h2>
+              <h2 className="title-scale">Performance Benchmarks</h2>
               <p className="sub-scale">Faster response latency and reduced costs compared to overseas endpoints.</p>
             </div>
 
@@ -934,17 +909,17 @@ export default function LandingPage() {
                     <span className="text-[10px] font-bold text-gray-500 uppercase block mb-4">TTFT (Time to First Token) - ms</span>
                     <div className="bar-row">
                       <div className="bar-label">Harikson Mumbai</div>
-                      <div className="bar-track"><div className="bar-fill bg-indigo-500" style={{ width: '15%' }} /></div>
+                      <div className="bar-track"><div className="bar-fill bg-indigo-600" style={{ width: '15%' }} /></div>
                       <div className="bar-val">45ms</div>
                     </div>
                     <div className="bar-row">
                       <div className="bar-label">Azure India</div>
-                      <div className="bar-track"><div className="bar-fill bg-gray-600" style={{ width: '40%' }} /></div>
+                      <div className="bar-track"><div className="bar-fill bg-gray-400" style={{ width: '40%' }} /></div>
                       <div className="bar-val">120ms</div>
                     </div>
                     <div className="bar-row">
                       <div className="bar-label">OpenAI US</div>
-                      <div className="bar-track"><div className="bar-fill bg-gray-600" style={{ width: '90%' }} /></div>
+                      <div className="bar-track"><div className="bar-fill bg-gray-400" style={{ width: '90%' }} /></div>
                       <div className="bar-val">280ms</div>
                     </div>
                   </div>
@@ -962,29 +937,29 @@ export default function LandingPage() {
                   <div className="table-box card-glass overflow-hidden">
                     <table className="w-full text-xs text-left">
                       <thead>
-                        <tr className="bg-gray-950/40 border-b border-gray-800 text-[10px] text-gray-500 font-bold uppercase">
+                        <tr className="bg-gray-100 border-b border-gray-200 text-[10px] text-gray-500 font-bold uppercase">
                           <th className="p-3">Model Tier</th>
                           <th className="p-3">Harikson (INR)</th>
                           <th className="p-3">OpenAI (US)</th>
                           <th className="p-3">Azure (Global)</th>
                         </tr>
                       </thead>
-                      <tbody className="divide-y divide-gray-800/40">
+                      <tbody className="divide-y divide-gray-200">
                         <tr>
                           <td className="p-3 font-semibold">8B-class</td>
-                          <td className="p-3 text-indigo-400 font-bold">₹1,000 / 1M</td>
+                          <td className="p-3 text-indigo-600 font-bold">₹1,000 / 1M</td>
                           <td className="p-3">₹3,200 / 1M</td>
                           <td className="p-3">₹2,800 / 1M</td>
                         </tr>
                         <tr>
                           <td className="p-3 font-semibold">70B-class</td>
-                          <td className="p-3 text-indigo-400 font-bold">₹4,500 / 1M</td>
+                          <td className="p-3 text-indigo-600 font-bold">₹4,500 / 1M</td>
                           <td className="p-3">₹12,000 / 1M</td>
                           <td className="p-3">₹10,500 / 1M</td>
                         </tr>
                         <tr>
                           <td className="p-3 font-semibold">RAG Ingestion</td>
-                          <td className="p-3 text-indigo-400 font-bold">₹0.50 / query</td>
+                          <td className="p-3 text-indigo-600 font-bold">₹0.50 / query</td>
                           <td className="p-3">₹1.80 / query</td>
                           <td className="p-3">₹1.50 / query</td>
                         </tr>
@@ -1002,20 +977,20 @@ export default function LandingPage() {
             {benchmarkFilter === 'throughput' && (
               <div className="benchmark-details animate-fade-in text-left">
                 <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-                  <div className="p-4 bg-gray-900 border border-gray-800 rounded-xl">
-                    <div className="text-lg font-black text-indigo-400">50,000+</div>
+                  <div className="p-4 bg-gray-50 border border-gray-200 rounded-xl">
+                    <div className="text-lg font-black text-indigo-600">50,000+</div>
                     <div className="text-[10px] text-gray-500 uppercase mt-1">Users Per Cluster</div>
                   </div>
-                  <div className="p-4 bg-gray-900 border border-gray-800 rounded-xl">
-                    <div className="text-lg font-black text-indigo-400">2,400 T/s</div>
+                  <div className="p-4 bg-gray-50 border border-gray-200 rounded-xl">
+                    <div className="text-lg font-black text-indigo-600">2,400 T/s</div>
                     <div className="text-[10px] text-gray-500 uppercase mt-1">Throughput Qwen-72B</div>
                   </div>
-                  <div className="p-4 bg-gray-900 border border-gray-800 rounded-xl">
-                    <div className="text-lg font-black text-indigo-400">512 H100</div>
+                  <div className="p-4 bg-gray-50 border border-gray-200 rounded-xl">
+                    <div className="text-lg font-black text-indigo-600">512 H100</div>
                     <div className="text-[10px] text-gray-500 uppercase mt-1">GPUs Per Local Region</div>
                   </div>
-                  <div className="p-4 bg-gray-900 border border-gray-800 rounded-xl">
-                    <div className="text-lg font-black text-indigo-400">&lt;30 Sec</div>
+                  <div className="p-4 bg-gray-50 border border-gray-200 rounded-xl">
+                    <div className="text-lg font-black text-indigo-600">&lt;30 Sec</div>
                     <div className="text-[10px] text-gray-500 uppercase mt-1">Cluster Scaling Time</div>
                   </div>
                 </div>
@@ -1029,11 +1004,10 @@ export default function LandingPage() {
           <div className="content-inner">
             <div className="section-header text-center">
               <span className="tag-line tag-blue">CASE STUDIES</span>
-              <h2 className="title-scale text-white">Customer Success Stories</h2>
+              <h2 className="title-scale">Customer Success Stories</h2>
             </div>
 
             <div className="stories-grid flex flex-col gap-6">
-              {/* Story 1 */}
               <div className="story-card card-glass text-left">
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                   <div className="lg:col-span-2">
@@ -1045,19 +1019,18 @@ export default function LandingPage() {
                       <strong>Results:</strong> Contract analysis reduced to 8 seconds, achieving full DPDP compliance and saving over ₹12 Lakhs annually in API costs.
                     </p>
                   </div>
-                  <div className="flex flex-col justify-center bg-black/20 p-6 rounded-xl border border-gray-800/40 text-center">
-                    <div className="text-2xl font-black text-indigo-400">8 Sec</div>
+                  <div className="flex flex-col justify-center bg-gray-50 p-6 rounded-xl border border-gray-200 text-center">
+                    <div className="text-2xl font-black text-indigo-600">8 Sec</div>
                     <div className="text-[10px] text-gray-500 uppercase mt-1">Precedent Analysis Time</div>
-                    <div className="text-lg font-black text-emerald-400 mt-4">₹12L Saved</div>
+                    <div className="text-lg font-black text-emerald-600 mt-4">₹12L Saved</div>
                     <div className="text-[10px] text-gray-500 uppercase mt-1">Annual API Savings</div>
                   </div>
                 </div>
-                <div className="story-quote mt-6 border-t border-gray-800 pt-4 text-xs text-gray-400 italic">
+                <div className="story-quote mt-6 border-t border-gray-250 pt-4 text-xs text-gray-500 italic">
                   "— CTO, LexAI Solutions"
                 </div>
               </div>
 
-              {/* Story 2 */}
               <div className="story-card card-glass text-left">
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                   <div className="lg:col-span-2">
@@ -1069,14 +1042,14 @@ export default function LandingPage() {
                       <strong>Results:</strong> Support resolution times dropped by 68% while regional language accuracy hit 94%. Deployed across 10 branches in under a week.
                     </p>
                   </div>
-                  <div className="flex flex-col justify-center bg-black/20 p-6 rounded-xl border border-gray-800/40 text-center">
-                    <div className="text-2xl font-black text-indigo-400">-68%</div>
+                  <div className="flex flex-col justify-center bg-gray-50 p-6 rounded-xl border border-gray-200 text-center">
+                    <div className="text-2xl font-black text-indigo-600">-68%</div>
                     <div className="text-[10px] text-gray-500 uppercase mt-1">Support Resolution Time</div>
-                    <div className="text-lg font-black text-emerald-400 mt-4">10 Branches</div>
+                    <div className="text-lg font-black text-emerald-600 mt-4">10 Branches</div>
                     <div className="text-[10px] text-gray-500 uppercase mt-1">Onboarded in 7 Days</div>
                   </div>
                 </div>
-                <div className="story-quote mt-6 border-t border-gray-800 pt-4 text-xs text-gray-400 italic">
+                <div className="story-quote mt-6 border-t border-gray-250 pt-4 text-xs text-gray-500 italic">
                   "— Head of Customer Experience, NBFC Group"
                 </div>
               </div>
@@ -1089,20 +1062,19 @@ export default function LandingPage() {
           <div className="content-inner">
             <div className="section-header text-center">
               <span className="tag-line tag-blue">INR PRICING PLANS</span>
-              <h2 className="title-scale text-white">Pricing That Respects Indian Budgets</h2>
+              <h2 className="title-scale">Pricing That Respects Indian Budgets</h2>
               <p className="sub-scale font-medium mt-1">No forex risk. Direct invoicing. Cancel anytime.</p>
               
-              {/* Annual/Monthly Billing Toggle */}
               <div className="flex justify-center items-center gap-3 mt-6">
-                <span className={`text-xs ${billingPeriod === 'monthly' ? 'text-white' : 'text-gray-500'}`}>Monthly Billing</span>
+                <span className={`text-xs ${billingPeriod === 'monthly' ? 'text-gray-800' : 'text-gray-400'}`}>Monthly Billing</span>
                 <button 
                   className="w-12 h-6 bg-indigo-600 rounded-full p-0.5 transition-colors focus:outline-none relative" 
                   onClick={() => setBillingPeriod(billingPeriod === 'monthly' ? 'annual' : 'monthly')}
                 >
                   <span className={`w-5 h-5 bg-white rounded-full block shadow-sm transform transition-transform ${billingPeriod === 'annual' ? 'translate-x-6' : 'translate-x-0'}`} />
                 </button>
-                <span className={`text-xs ${billingPeriod === 'annual' ? 'text-white' : 'text-gray-500'}`}>
-                  Annual Billing <span className="bg-emerald-500/20 text-emerald-400 px-2 py-0.5 rounded text-[10px] font-bold ml-1">2 Months Free</span>
+                <span className={`text-xs ${billingPeriod === 'annual' ? 'text-gray-800' : 'text-gray-400'}`}>
+                  Annual Billing <span className="bg-emerald-500/20 text-emerald-600 px-2 py-0.5 rounded text-[10px] font-bold ml-1">2 Months Free</span>
                 </span>
               </div>
             </div>
@@ -1114,11 +1086,11 @@ export default function LandingPage() {
                 <div className="plan-price">₹0 <span className="period">/ month</span></div>
                 <p className="plan-desc">100K tokens included free</p>
                 <ul className="plan-feats mt-6">
-                  <li><CheckCircle2 size={12} className="text-indigo-400" /> Qwen3-8B model access</li>
-                  <li><CheckCircle2 size={12} className="text-indigo-400" /> 1 isolated workspace</li>
-                  <li><CheckCircle2 size={12} className="text-indigo-400" /> Developer dashboard</li>
-                  <li><XCircle size={12} className="text-gray-600" /> Fine-tuning</li>
-                  <li><XCircle size={12} className="text-gray-600" /> Tenant isolation override</li>
+                  <li><CheckCircle2 size={12} className="text-indigo-600" /> Qwen3-8B model access</li>
+                  <li><CheckCircle2 size={12} className="text-indigo-600" /> 1 isolated workspace</li>
+                  <li><CheckCircle2 size={12} className="text-indigo-600" /> Developer dashboard</li>
+                  <li><XCircle size={12} className="text-gray-450" /> Fine-tuning</li>
+                  <li><XCircle size={12} className="text-gray-455" /> Tenant isolation override</li>
                 </ul>
                 <div className="mt-8">
                   <Link href="/signup" passHref legacyBehavior><a className="btn-price">Start Free</a></Link>
@@ -1134,11 +1106,11 @@ export default function LandingPage() {
                 </div>
                 <p className="plan-desc">5M tokens included · ₹0.001 after</p>
                 <ul className="plan-feats mt-6">
-                  <li><CheckCircle2 size={12} className="text-indigo-400" /> All models (8B, 32B, 72B)</li>
-                  <li><CheckCircle2 size={12} className="text-indigo-400" /> Up to 10 isolated tenants</li>
-                  <li><CheckCircle2 size={12} className="text-indigo-400" /> Webhook logs &amp; analytics</li>
-                  <li><CheckCircle2 size={12} className="text-indigo-400" /> Basic RAG (10K documents)</li>
-                  <li><CheckCircle2 size={12} className="text-indigo-400" /> 99.9% Uptime SLA</li>
+                  <li><CheckCircle2 size={12} className="text-indigo-600" /> All models (8B, 32B, 72B)</li>
+                  <li><CheckCircle2 size={12} className="text-indigo-600" /> Up to 10 isolated tenants</li>
+                  <li><CheckCircle2 size={12} className="text-indigo-600" /> Webhook logs &amp; analytics</li>
+                  <li><CheckCircle2 size={12} className="text-indigo-600" /> Basic RAG (10K documents)</li>
+                  <li><CheckCircle2 size={12} className="text-indigo-600" /> 99.9% Uptime SLA</li>
                 </ul>
                 <div className="mt-8">
                   <Link href="/signup" passHref legacyBehavior><a className="btn-price primary-gradient">Start Pro</a></Link>
@@ -1153,28 +1125,28 @@ export default function LandingPage() {
                 </div>
                 <p className="plan-desc">25M tokens · dedicated resources</p>
                 <ul className="plan-feats mt-6">
-                  <li><CheckCircle2 size={12} className="text-indigo-400" /> Everything in Pro</li>
-                  <li><CheckCircle2 size={12} className="text-indigo-400" /> Up to 50 isolated tenants</li>
-                  <li><CheckCircle2 size={12} className="text-indigo-400" /> Advanced RAG (50K docs)</li>
-                  <li><CheckCircle2 size={12} className="text-indigo-400" /> Fine-tuning engines</li>
-                  <li><CheckCircle2 size={12} className="text-indigo-400" /> 99.95% Uptime SLA</li>
+                  <li><CheckCircle2 size={12} className="text-indigo-600" /> Everything in Pro</li>
+                  <li><CheckCircle2 size={12} className="text-indigo-600" /> Up to 50 isolated tenants</li>
+                  <li><CheckCircle2 size={12} className="text-indigo-600" /> Advanced RAG (50K docs)</li>
+                  <li><CheckCircle2 size={12} className="text-indigo-600" /> Fine-tuning engines</li>
+                  <li><CheckCircle2 size={12} className="text-indigo-600" /> 99.95% Uptime SLA</li>
                 </ul>
                 <div className="mt-8">
                   <Link href="/signup" passHref legacyBehavior><a className="btn-price">Start Business</a></Link>
                 </div>
               </div>
 
-              {/* Card 4: Enterprise / Government */}
+              {/* Card 4: Enterprise */}
               <div className="price-card-custom">
                 <h3 className="plan-name">Enterprise</h3>
                 <div className="plan-price">Custom <span className="period">/ contact</span></div>
                 <p className="plan-desc">Unlimited scale · air-gapped options</p>
                 <ul className="plan-feats mt-6">
-                  <li><CheckCircle2 size={12} className="text-indigo-400" /> Everything in Business</li>
-                  <li><CheckCircle2 size={12} className="text-indigo-400" /> Unlimited tokens &amp; tenants</li>
-                  <li><CheckCircle2 size={12} className="text-indigo-400" /> Air-gapped / local deployments</li>
-                  <li><CheckCircle2 size={12} className="text-indigo-400" /> Dedicated GPU resources</li>
-                  <li><CheckCircle2 size={12} className="text-indigo-400" /> 99.99% Uptime SLA</li>
+                  <li><CheckCircle2 size={12} className="text-indigo-600" /> Everything in Business</li>
+                  <li><CheckCircle2 size={12} className="text-indigo-600" /> Unlimited tokens &amp; tenants</li>
+                  <li><CheckCircle2 size={12} className="text-indigo-600" /> Air-gapped / local deployments</li>
+                  <li><CheckCircle2 size={12} className="text-indigo-600" /> Dedicated GPU resources</li>
+                  <li><CheckCircle2 size={12} className="text-indigo-600" /> 99.99% Uptime SLA</li>
                 </ul>
                 <div className="mt-8">
                   <a href="#founders-contact" className="btn-price">Talk to Sales</a>
@@ -1188,7 +1160,7 @@ export default function LandingPage() {
               <div className="table-box card-glass overflow-x-auto">
                 <table className="w-full text-xs text-left border-collapse">
                   <thead>
-                    <tr className="bg-gray-950/40 border-b border-gray-800 text-[10px] text-gray-500 font-bold uppercase">
+                    <tr className="bg-gray-100 border-b border-gray-200 text-[10px] text-gray-500 font-bold uppercase">
                       <th className="p-3">Feature</th>
                       <th className="p-3">Starter</th>
                       <th className="p-3">Professional</th>
@@ -1196,7 +1168,7 @@ export default function LandingPage() {
                       <th className="p-3">Enterprise</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-gray-800/40">
+                  <tbody className="divide-y divide-gray-200">
                     <tr>
                       <td className="p-3 font-semibold">Supported Models</td>
                       <td className="p-3">Qwen3-8B only</td>
@@ -1244,12 +1216,11 @@ export default function LandingPage() {
           <div className="content-inner">
             <div className="section-header text-center">
               <span className="tag-line tag-purple">FAQ</span>
-              <h2 className="title-scale text-white">Frequently Asked Questions</h2>
+              <h2 className="title-scale">Frequently Asked Questions</h2>
               <p className="sub-scale">Specific answers about sovereign setups, compliance guidelines, and system tech.</p>
             </div>
 
             <div className="faq-wrapper grid grid-cols-1 lg:grid-cols-4 gap-8 mt-8">
-              {/* FAQ Left Menu */}
               <div className="faq-menu flex flex-col gap-2 text-left">
                 <button className={`faq-tab-btn ${faqCategory === 'sovereignty' ? 'active' : ''}`} onClick={() => { setFaqCategory('sovereignty'); setOpenFaq(null); }}>Data Sovereignty</button>
                 <button className={`faq-tab-btn ${faqCategory === 'compliance' ? 'active' : ''}`} onClick={() => { setFaqCategory('compliance'); setOpenFaq(null); }}>Compliance</button>
@@ -1259,16 +1230,15 @@ export default function LandingPage() {
                 <button className={`faq-tab-btn ${faqCategory === 'pricing' ? 'active' : ''}`} onClick={() => { setFaqCategory('pricing'); setOpenFaq(null); }}>Pricing</button>
               </div>
 
-              {/* FAQ Accordion List */}
               <div className="faq-list lg:col-span-3 text-left">
                 {faqData[faqCategory].map((faq, idx) => (
-                  <div key={idx} className="faq-item border-b border-gray-800/80 py-4">
+                  <div key={idx} className="faq-item border-b border-gray-200 py-4">
                     <button className="faq-question flex justify-between items-center w-full text-sm font-semibold py-2 focus:outline-none" onClick={() => setOpenFaq(openFaq === idx ? null : idx)}>
                       <span>{faq.q}</span>
                       <ChevronDown size={16} className={`transform transition-transform ${openFaq === idx ? 'rotate-180' : ''}`} />
                     </button>
                     {openFaq === idx && (
-                      <div className="faq-answer text-xs text-gray-400 mt-2 leading-relaxed animate-fade-in">
+                      <div className="faq-answer text-xs text-gray-600 mt-2 leading-relaxed animate-fade-in">
                         {faq.a}
                       </div>
                     )}
@@ -1295,7 +1265,7 @@ export default function LandingPage() {
 
         {/* ─── FOOTER & SITEMAP ─── */}
         <footer className="footer-directory mt-16 text-left">
-          <div className="content-inner grid grid-cols-2 md:grid-cols-5 gap-8 py-12 border-t border-gray-800">
+          <div className="content-inner grid grid-cols-2 md:grid-cols-5 gap-8 py-12 border-t border-gray-200">
             <div className="footer-col">
               <span className="footer-logo">⚡ Harikson AI</span>
               <p className="text-[10px] text-gray-500 mt-2">Sovereign enterprise AI infrastructure built in India for global reliability.</p>
@@ -1329,7 +1299,7 @@ export default function LandingPage() {
               <a href="#founders-contact">Partner Network</a>
             </div>
           </div>
-          <div className="footer-bottom-row border-t border-gray-900 py-6 text-center text-[10px] text-gray-500">
+          <div className="footer-bottom-row border-t border-gray-250 py-6 text-center text-[10px] text-gray-500">
             <div>&copy; 2026 Harikson AI. All rights reserved. Sovereign infrastructure engineered precisely in India.</div>
           </div>
         </footer>
@@ -1337,10 +1307,10 @@ export default function LandingPage() {
       </div>
 
       <style jsx global>{`
-        /* ─── GLOBAL DESIGN SYSTEM STYLES ─── */
+        /* ─── GLOBAL DESIGN SYSTEM STYLES (LIGHT MODE) ─── */
         body {
-          background-color: #0A0A0F;
-          color: #F8FAFC;
+          background-color: #FFFFFF;
+          color: #0F172A;
           font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
           margin: 0;
           padding: 0;
@@ -1348,7 +1318,7 @@ export default function LandingPage() {
         }
 
         .landing-container {
-          background-color: #0A0A0F;
+          background-color: #FFFFFF;
           min-height: 100vh;
         }
 
@@ -1367,9 +1337,9 @@ export default function LandingPage() {
           align-items: center;
           justify-content: space-between;
           padding: 20px 48px;
-          background: rgba(10, 10, 15, 0.85);
+          background: rgba(255, 255, 255, 0.85);
           backdrop-filter: blur(12px);
-          border-bottom: 1px solid #1e293b;
+          border-bottom: 1px solid #e2e8f0;
         }
         .logo-section {
           display: flex;
@@ -1378,12 +1348,13 @@ export default function LandingPage() {
         }
         .logo-icon {
           font-size: 20px;
-          color: #6366f1;
+          color: #4f46e5;
         }
         .logo-text {
           font-weight: 900;
           font-size: 18px;
           letter-spacing: -0.03em;
+          color: #0f172a;
         }
         .nav-links-desktop {
           display: flex;
@@ -1393,17 +1364,17 @@ export default function LandingPage() {
         .nav-link {
           font-size: 13.5px;
           font-weight: 500;
-          color: #94a3b8;
+          color: #475569;
           text-decoration: none;
           transition: color 0.15s ease;
         }
         .nav-link:hover {
-          color: #f8fafc;
+          color: #0f172a;
         }
         .nav-link-btn {
           font-size: 13px;
           font-weight: 600;
-          background: #6366f1;
+          background: #4f46e5;
           color: #fff;
           padding: 8px 18px;
           border-radius: 8px;
@@ -1422,8 +1393,8 @@ export default function LandingPage() {
           right: 0;
           height: 100vh;
           z-index: 1;
-          background: radial-gradient(circle at 30% 30%, rgba(30, 27, 75, 0.4) 0%, transparent 60%),
-                      radial-gradient(circle at 70% 60%, rgba(15, 23, 42, 0.4) 0%, transparent 70%);
+          background: radial-gradient(circle at 30% 30%, rgba(99, 102, 241, 0.05) 0%, transparent 60%),
+                      radial-gradient(circle at 70% 60%, rgba(139, 92, 246, 0.03) 0%, transparent 70%);
           pointer-events: none;
           opacity: 0.85;
           animation: morphMesh ${reducedMotion ? '0s' : '20s'} ease-in-out infinite alternate;
@@ -1450,7 +1421,7 @@ export default function LandingPage() {
           width: 3px;
           height: 3px;
           border-radius: 50%;
-          background: rgba(139, 92, 246, 0.35);
+          background: rgba(79, 70, 229, 0.2);
           animation: floatParticle 20s linear infinite;
         }
         @keyframes floatParticle {
@@ -1467,11 +1438,11 @@ export default function LandingPage() {
           right: 0;
           height: 100vh;
           z-index: 2;
-          opacity: 0.03;
+          opacity: 0.06;
           pointer-events: none;
           background-size: 40px 40px;
-          background-image: linear-gradient(to right, #fff 1px, transparent 1px),
-                            linear-gradient(to bottom, #fff 1px, transparent 1px);
+          background-image: linear-gradient(to right, #000 1px, transparent 1px),
+                            linear-gradient(to bottom, #000 1px, transparent 1px);
         }
 
         /* Hero Layout */
@@ -1501,12 +1472,12 @@ export default function LandingPage() {
           margin-bottom: 24px;
         }
         .trust-pill {
-          background: rgba(30, 41, 59, 0.6);
-          border: 1px solid #334155;
+          background: rgba(241, 245, 249, 0.8);
+          border: 1px solid #cbd5e1;
           backdrop-filter: blur(12px);
           font-size: 11px;
           font-weight: 600;
-          color: #94a3b8;
+          color: #475569;
           padding: 6px 14px;
           border-radius: 9999px;
         }
@@ -1516,12 +1487,12 @@ export default function LandingPage() {
           font-weight: 700;
           line-height: 1.1;
           letter-spacing: -0.02em;
-          color: #ffffff;
+          color: #0F172A;
           margin-bottom: 16px;
         }
         .hero-sub {
           font-size: 20px;
-          color: #94a3b8;
+          color: #475569;
           line-height: 1.6;
           max-width: 580px;
           margin-bottom: 32px;
@@ -1532,7 +1503,7 @@ export default function LandingPage() {
           gap: 16px;
         }
         .btn-hero-primary {
-          background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+          background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
           color: #ffffff;
           font-size: 16px;
           font-weight: 600;
@@ -1543,16 +1514,16 @@ export default function LandingPage() {
         }
         .btn-hero-primary:hover {
           transform: scale(1.02);
-          box-shadow: 0 10px 20px rgba(99, 102, 241, 0.25);
+          box-shadow: 0 10px 20px rgba(79, 70, 229, 0.2);
         }
         .btn-hero-secondary {
           background: transparent;
-          color: #ffffff;
+          color: #0f172a;
           font-size: 16px;
           font-weight: 600;
           padding: 16px 32px;
           border-radius: 12px;
-          border: 1px solid #475569;
+          border: 1px solid #cbd5e1;
           text-decoration: none;
           display: flex;
           align-items: center;
@@ -1560,7 +1531,7 @@ export default function LandingPage() {
           transition: background 0.15s ease;
         }
         .btn-hero-secondary:hover {
-          background: rgba(255, 255, 255, 0.05);
+          background: rgba(0, 0, 0, 0.03);
         }
 
         /* Mockup Perspective Wrapper */
@@ -1576,7 +1547,7 @@ export default function LandingPage() {
           border: 1px solid #334155;
           border-radius: 12px;
           overflow: hidden;
-          box-shadow: 0 25px 50px rgba(0, 0, 0, 0.4);
+          box-shadow: 0 25px 50px rgba(0, 0, 0, 0.2);
           transform: ${reducedMotion ? 'none' : 'rotateY(-5deg) rotateX(4deg)'};
           transition: transform 0.5s ease;
           animation: floatMockup ${reducedMotion ? '0s' : '6s'} ease-in-out infinite alternate;
@@ -1703,7 +1674,7 @@ export default function LandingPage() {
           border: 1px solid #334155;
           border-radius: 8px;
           width: 280px;
-          box-shadow: 0 15px 30px rgba(0, 0, 0, 0.5);
+          box-shadow: 0 15px 30px rgba(0, 0, 0, 0.3);
           text-align: left;
           z-index: 10;
         }
@@ -1740,14 +1711,14 @@ export default function LandingPage() {
         /* Floating Badges */
         .floating-badge {
           position: absolute;
-          background: rgba(30, 41, 59, 0.85);
+          background: rgba(255, 255, 255, 0.9);
           backdrop-filter: blur(8px);
-          border: 1px solid rgba(255, 255, 255, 0.15);
+          border: 1px solid rgba(0, 0, 0, 0.1);
           border-radius: 8px;
           padding: 6px 12px;
           font-size: 10px;
           font-weight: 700;
-          color: #fff;
+          color: #0f172a;
           z-index: 15;
           animation: floatBadge ${reducedMotion ? '0s' : '4s'} ease-in-out infinite alternate;
         }
@@ -1757,13 +1728,13 @@ export default function LandingPage() {
         }
         .badge-dpdp { top: -20px; right: 20px; animation-delay: 0.5s; border-color: #10b981; }
         .badge-price { bottom: 40px; right: -20px; animation-delay: 1s; border-color: #f59e0b; }
-        .badge-region { top: 60px; left: -20px; animation-delay: 1.5s; border-color: #6366f1; }
+        .badge-region { top: 60px; left: -20px; animation-delay: 1.5s; border-color: #4f46e5; }
 
         /* Infinite Scrolling Logos */
         .infinite-logo-wrap {
           margin-top: 64px;
-          border-top: 1px solid #1e293b;
-          border-bottom: 1px solid #1e293b;
+          border-top: 1px solid #e2e8f0;
+          border-bottom: 1px solid #e2e8f0;
           padding: 16px 0;
           overflow: hidden;
           width: 100vw;
@@ -1788,28 +1759,29 @@ export default function LandingPage() {
           font-weight: 800;
           font-size: 15px;
           text-transform: uppercase;
-          color: #64748b;
+          color: #94a3b8;
           transition: color 0.15s ease;
           cursor: default;
         }
         .logo-track span:hover {
-          color: #f8fafc;
+          color: #0f172a;
         }
 
         /* ─── ENTERPRISE TRUST SECTION ─── */
         .section-scale {
-          background-color: #0A0A0F;
-          border-bottom: 1px solid #1e293b;
+          background-color: #F8FAFC;
+          border-bottom: 1px solid #e2e8f0;
         }
         .title-scale {
           font-size: 36px;
           font-weight: 700;
           letter-spacing: -0.02em;
           margin-bottom: 12px;
+          color: #0F172A;
         }
         .sub-scale {
           font-size: 16px;
-          color: #94a3b8;
+          color: #475569;
           max-width: 620px;
           margin: 0 auto 48px;
         }
@@ -1825,20 +1797,20 @@ export default function LandingPage() {
           position: relative;
         }
         .card-glass {
-          background: rgba(30, 41, 59, 0.4);
+          background: rgba(255, 255, 255, 0.7);
           backdrop-filter: blur(12px);
-          border: 1px solid #334155;
+          border: 1px solid #e2e8f0;
           border-radius: 16px;
         }
         .metric-val {
           font-size: 32px;
           font-weight: 900;
-          color: #fff;
+          color: #0f172a;
           margin-bottom: 4px;
         }
         .metric-label {
           font-size: 12px;
-          color: #94a3b8;
+          color: #475569;
           font-weight: 500;
         }
         .sparkline-wrapper {
@@ -1872,14 +1844,14 @@ export default function LandingPage() {
         .logo-item {
           font-weight: 800;
           font-size: 13px;
-          color: #64748b;
+          color: #94a3b8;
           text-transform: uppercase;
           cursor: help;
           position: relative;
           transition: color 0.15s ease, transform 0.15s ease;
         }
         .logo-item:hover {
-          color: #6366f1;
+          color: #4f46e5;
           transform: scale(1.05);
         }
         .logo-item[data-tooltip]::after {
@@ -1888,9 +1860,9 @@ export default function LandingPage() {
           bottom: 24px;
           left: 50%;
           transform: translateX(-50%);
-          background: #1e293b;
-          border: 1px solid #334155;
-          color: #fff;
+          background: #ffffff;
+          border: 1px solid #cbd5e1;
+          color: #0f172a;
           font-size: 10px;
           padding: 6px 10px;
           border-radius: 6px;
@@ -1898,7 +1870,7 @@ export default function LandingPage() {
           opacity: 0;
           pointer-events: none;
           transition: opacity 0.15s ease;
-          box-shadow: 0 10px 20px rgba(0,0,0,0.3);
+          box-shadow: 0 10px 20px rgba(0,0,0,0.15);
         }
         .logo-item:hover[data-tooltip]::after {
           opacity: 1;
@@ -1906,8 +1878,8 @@ export default function LandingPage() {
 
         /* Map Section */
         .deployment-map-container {
-          background: rgba(30, 41, 59, 0.2);
-          border: 1px solid #1e293b;
+          background: rgba(255, 255, 255, 0.4);
+          border: 1px solid #e2e8f0;
           border-radius: 20px;
           padding: 32px;
         }
@@ -1929,10 +1901,10 @@ export default function LandingPage() {
           cursor: pointer;
         }
         .map-dot {
-          fill: #6366f1;
+          fill: #4f46e5;
         }
         .map-dot-pulse {
-          fill: #6366f1;
+          fill: #4f46e5;
           opacity: 0.4;
           transform-origin: center;
           animation: dotPulse 2s infinite;
@@ -1943,14 +1915,14 @@ export default function LandingPage() {
         }
         .map-popover {
           position: absolute;
-          background: #1e293b;
-          border: 1px solid #334155;
+          background: #ffffff;
+          border: 1px solid #cbd5e1;
           border-radius: 8px;
           padding: 10px 14px;
           font-size: 11px;
-          color: #fff;
+          color: #0f172a;
           text-align: left;
-          box-shadow: 0 10px 25px rgba(0,0,0,0.4);
+          box-shadow: 0 10px 25px rgba(0,0,0,0.15);
           z-index: 20;
           width: 140px;
           top: 10px;
@@ -1959,7 +1931,7 @@ export default function LandingPage() {
         .pop-title {
           font-weight: bold;
           margin-bottom: 4px;
-          color: #6366f1;
+          color: #4f46e5;
         }
         .region-list {
           list-style: none;
@@ -1981,7 +1953,7 @@ export default function LandingPage() {
           width: 6px;
           height: 6px;
           border-radius: 50%;
-          background-color: #64748b;
+          background-color: #cbd5e1;
         }
         .region-list .dot.active {
           background-color: #10b981;
@@ -1989,8 +1961,8 @@ export default function LandingPage() {
         }
         .btn-ghost {
           background: transparent;
-          border: 1px solid #334155;
-          color: #94a3b8;
+          border: 1px solid #cbd5e1;
+          color: #475569;
           font-size: 12px;
           font-weight: 600;
           padding: 8px 18px;
@@ -1999,15 +1971,23 @@ export default function LandingPage() {
           transition: all 0.15s ease;
         }
         .btn-ghost:hover {
-          color: #fff;
-          border-color: #475569;
-          background: rgba(255, 255, 255, 0.05);
+          color: #0f172a;
+          border-color: #94a3b8;
+          background: rgba(0, 0, 0, 0.02);
         }
 
         /* ─── ARCHITECTURE SECTION ─── */
         .section-howitworks {
-          background-color: #09090B;
-          border-bottom: 1px solid #1e293b;
+          background-color: #FFFFFF;
+          border-bottom: 1px solid #e2e8f0;
+          color: #0F172A;
+        }
+        .section-heading {
+          font-size: 36px;
+          font-weight: 700;
+          letter-spacing: -0.02em;
+          color: #0F172A;
+          margin-bottom: 12px;
         }
         .arch-flow-grid {
           display: grid;
@@ -2022,7 +2002,7 @@ export default function LandingPage() {
         }
         .arch-step-item {
           padding: 16px 20px;
-          border-left: 2px solid #334155;
+          border-left: 2px solid #cbd5e1;
           text-align: left;
           cursor: pointer;
           font-weight: 600;
@@ -2031,9 +2011,9 @@ export default function LandingPage() {
           transition: all 0.15s ease;
         }
         .arch-step-item.active {
-          color: #6366f1;
-          border-color: #6366f1;
-          background: rgba(99, 102, 241, 0.04);
+          color: #4f46e5;
+          border-color: #4f46e5;
+          background: rgba(79, 70, 229, 0.04);
         }
         .arch-step-item .num {
           font-size: 11px;
@@ -2051,15 +2031,15 @@ export default function LandingPage() {
         .step-content h4 {
           font-weight: 800;
           font-size: 12px;
-          color: #6366f1;
+          color: #4f46e5;
           letter-spacing: 0.05em;
           margin-bottom: 4px;
         }
 
         /* ─── FEATURES SECTION ─── */
         .section-features {
-          background-color: #0A0A0F;
-          border-bottom: 1px solid #1e293b;
+          background-color: #F8FAFC;
+          border-bottom: 1px solid #e2e8f0;
         }
         .features-grid-custom {
           display: grid;
@@ -2067,8 +2047,8 @@ export default function LandingPage() {
           gap: 20px;
         }
         .feat-card {
-          background: #111827;
-          border: 1px solid #334155;
+          background: #ffffff;
+          border: 1px solid #cbd5e1;
           border-radius: 16px;
           padding: 24px;
           text-align: left;
@@ -2079,12 +2059,12 @@ export default function LandingPage() {
         .feat-card:hover {
           transform: translateY(-4px);
         }
-        .feat-card.border-glow-indigo:hover { border-color: #6366f1; box-shadow: 0 10px 30px rgba(99, 102, 241, 0.1); }
-        .feat-card.border-glow-emerald:hover { border-color: #10b981; box-shadow: 0 10px 30px rgba(16, 185, 129, 0.1); }
-        .feat-card.border-glow-amber:hover { border-color: #f59e0b; box-shadow: 0 10px 30px rgba(245, 158, 11, 0.1); }
-        .feat-card.border-glow-pink:hover { border-color: #ec4899; box-shadow: 0 10px 30px rgba(236, 72, 153, 0.1); }
-        .feat-card.border-glow-purple:hover { border-color: #8b5cf6; box-shadow: 0 10px 30px rgba(139, 92, 246, 0.1); }
-        .feat-card.border-glow-cyan:hover { border-color: #06b6d4; box-shadow: 0 10px 30px rgba(6, 182, 212, 0.1); }
+        .feat-card.border-glow-indigo:hover { border-color: #4f46e5; box-shadow: 0 10px 30px rgba(79, 70, 229, 0.15); }
+        .feat-card.border-glow-emerald:hover { border-color: #10b981; box-shadow: 0 10px 30px rgba(16, 185, 129, 0.15); }
+        .feat-card.border-glow-amber:hover { border-color: #d97706; box-shadow: 0 10px 30px rgba(217, 119, 6, 0.15); }
+        .feat-card.border-glow-pink:hover { border-color: #db2777; box-shadow: 0 10px 30px rgba(219, 39, 119, 0.15); }
+        .feat-card.border-glow-purple:hover { border-color: #7c3aed; box-shadow: 0 10px 30px rgba(124, 58, 237, 0.15); }
+        .feat-card.border-glow-cyan:hover { border-color: #0891b2; box-shadow: 0 10px 30px rgba(8, 145, 178, 0.15); }
         
         .feat-card:hover .feat-icon {
           transform: rotate(12deg);
@@ -2096,12 +2076,12 @@ export default function LandingPage() {
         .feat-card h4 {
           font-size: 17px;
           font-weight: 700;
-          color: #fff;
+          color: #0f172a;
           margin-bottom: 8px;
         }
         .feat-card p {
           font-size: 13px;
-          color: #94a3b8;
+          color: #475569;
           line-height: 1.5;
           margin-bottom: 16px;
           flex: 1;
@@ -2109,26 +2089,26 @@ export default function LandingPage() {
         .feat-tech {
           font-family: monospace;
           font-size: 11px;
-          color: #64748b;
+          color: #475569;
           margin-bottom: 16px;
-          background: rgba(0,0,0,0.25);
+          background: #f1f5f9;
           padding: 6px 10px;
           border-radius: 6px;
         }
         .feat-link {
           font-size: 12px;
           font-weight: 600;
-          color: #94a3b8;
+          color: #475569;
           text-decoration: none;
         }
         .feat-link:hover {
-          color: #fff;
+          color: #0f172a;
         }
 
         /* ─── DEVELOPER SECTION ─── */
         .section-dx {
-          background-color: #09090B;
-          border-bottom: 1px solid #1e293b;
+          background-color: #FFFFFF;
+          border-bottom: 1px solid #e2e8f0;
         }
         .dx-split-grid {
           display: grid;
@@ -2136,9 +2116,9 @@ export default function LandingPage() {
           gap: 24px;
         }
         .dx-panel {
-          border: 1px solid #334155;
+          border: 1px solid #cbd5e1;
           border-radius: 16px;
-          background: #111827;
+          background: #111827; /* Code block remains dark for high contrast dev view */
           overflow: hidden;
           min-height: 280px;
           display: flex;
@@ -2153,7 +2133,7 @@ export default function LandingPage() {
           padding: 10px 18px;
           background: transparent;
           border: none;
-          color: #64748b;
+          color: #94a3b8;
           font-family: monospace;
           font-size: 12px;
           cursor: pointer;
@@ -2162,7 +2142,7 @@ export default function LandingPage() {
         }
         .tab-btn.active {
           background: #111827;
-          color: #6366f1;
+          color: #818cf8;
           font-weight: bold;
         }
         .code-editor-body {
@@ -2183,7 +2163,7 @@ export default function LandingPage() {
           justify-content: flex-end;
         }
         .btn-run {
-          background: #6366f1;
+          background: #4f46e5;
           color: #fff;
           border: none;
           padding: 8px 16px;
@@ -2213,10 +2193,13 @@ export default function LandingPage() {
           flex: 1;
         }
         .integ-card {
-          background: #111827;
-          border: 1px solid #334155;
+          background: #f8fafc;
+          border: 1px solid #e2e8f0;
           border-radius: 12px;
           padding: 14px;
+        }
+        .integ-card .text-indigo-400 {
+          color: #4f46e5;
         }
         .green-status-dot {
           width: 8px;
@@ -2228,8 +2211,8 @@ export default function LandingPage() {
 
         /* ─── SECURITY SECTION ─── */
         .section-security {
-          background-color: #0A0A0F;
-          border-bottom: 1px solid #1e293b;
+          background-color: #F8FAFC;
+          border-bottom: 1px solid #e2e8f0;
         }
         .security-grid {
           display: grid;
@@ -2237,8 +2220,8 @@ export default function LandingPage() {
           gap: 24px;
         }
         .compliance-card {
-          background: #111827;
-          border: 1px solid #334155;
+          background: #ffffff;
+          border: 1px solid #cbd5e1;
           border-radius: 12px;
           padding: 16px;
         }
@@ -2248,7 +2231,7 @@ export default function LandingPage() {
         .compliance-card .badge-title {
           font-weight: bold;
           font-size: 13px;
-          color: #fff;
+          color: #0f172a;
           display: flex;
           align-items: center;
           gap: 8px;
@@ -2256,7 +2239,7 @@ export default function LandingPage() {
         }
         .compliance-card p {
           font-size: 11px;
-          color: #94a3b8;
+          color: #475569;
           line-height: 1.5;
         }
         .sec-features-list {
@@ -2268,18 +2251,18 @@ export default function LandingPage() {
         }
         .sec-features-list li {
           font-size: 13px;
-          color: #94a3b8;
+          color: #475569;
           line-height: 1.5;
         }
         .sec-features-list li strong {
-          color: #fff;
+          color: #0f172a;
         }
         .timeline-node {
-          border-top: 2px solid #334155;
+          border-top: 2px solid #cbd5e1;
           padding-top: 12px;
         }
         .timeline-node.active {
-          border-color: #6366f1;
+          border-color: #4f46e5;
         }
         .node-date {
           font-size: 10px;
@@ -2288,20 +2271,20 @@ export default function LandingPage() {
         }
         .node-label {
           font-size: 12.5px;
-          color: #fff;
+          color: #0f172a;
           font-weight: 600;
           margin-top: 4px;
         }
 
         /* ─── BENCHMARKS SECTION ─── */
         .section-benchmarks {
-          background-color: #09090B;
-          border-bottom: 1px solid #1e293b;
+          background-color: #FFFFFF;
+          border-bottom: 1px solid #e2e8f0;
         }
         .toggle-btn {
           background: transparent;
-          border: 1px solid #334155;
-          color: #94a3b8;
+          border: 1px solid #cbd5e1;
+          color: #475569;
           font-size: 12.5px;
           font-weight: 600;
           padding: 10px 20px;
@@ -2310,9 +2293,9 @@ export default function LandingPage() {
           transition: all 0.15s ease;
         }
         .toggle-btn.active {
-          background: #6366f1;
+          background: #4f46e5;
           color: #fff;
-          border-color: #6366f1;
+          border-color: #4f46e5;
         }
         .bar-row {
           display: flex;
@@ -2328,7 +2311,7 @@ export default function LandingPage() {
         .bar-track {
           flex: 1;
           height: 8px;
-          background: #1e293b;
+          background: #e2e8f0;
           border-radius: 4px;
           overflow: hidden;
         }
@@ -2343,16 +2326,16 @@ export default function LandingPage() {
 
         /* ─── STORIES SECTION ─── */
         .section-stories {
-          background-color: #0A0A0F;
-          border-bottom: 1px solid #1e293b;
+          background-color: #F8FAFC;
+          border-bottom: 1px solid #e2e8f0;
         }
         .story-card {
           padding: 24px;
           border-radius: 16px;
         }
         .story-badge {
-          background: rgba(99, 102, 241, 0.1);
-          color: #6366f1;
+          background: rgba(79, 70, 229, 0.1);
+          color: #4f46e5;
           font-size: 9px;
           font-weight: bold;
           padding: 2px 6px;
@@ -2363,8 +2346,8 @@ export default function LandingPage() {
 
         /* ─── PRICING SECTION ─── */
         .section-pricing {
-          background-color: #09090B;
-          border-bottom: 1px solid #1e293b;
+          background-color: #FFFFFF;
+          border-bottom: 1px solid #e2e8f0;
         }
         .pricing-grid-custom {
           display: grid;
@@ -2372,22 +2355,22 @@ export default function LandingPage() {
           gap: 20px;
         }
         .price-card-custom {
-          background: #111827;
-          border: 1px solid #334155;
+          background: #ffffff;
+          border: 1px solid #e2e8f0;
           border-radius: 16px;
           padding: 24px;
           text-align: left;
           position: relative;
         }
         .price-card-custom.highlighted {
-          background: #161c2d;
-          border-color: #6366f1;
+          background: #fcfcff;
+          border-color: #4f46e5;
         }
         .badge-promo {
           position: absolute;
           top: 12px;
           right: 12px;
-          background: #6366f1;
+          background: #4f46e5;
           color: #fff;
           font-size: 8.5px;
           font-weight: bold;
@@ -2397,13 +2380,13 @@ export default function LandingPage() {
         .plan-name {
           font-size: 15px;
           font-weight: 600;
-          color: #94a3b8;
+          color: #475569;
           text-transform: uppercase;
         }
         .plan-price {
           font-size: 32px;
           font-weight: 900;
-          color: #fff;
+          color: #0f172a;
           margin-top: 4px;
         }
         .plan-price .period {
@@ -2427,14 +2410,14 @@ export default function LandingPage() {
           align-items: center;
           gap: 8px;
           font-size: 11.5px;
-          color: #94a3b8;
+          color: #475569;
         }
         .btn-price {
           display: block;
           text-align: center;
           background: transparent;
-          border: 1px solid #334155;
-          color: #fff;
+          border: 1px solid #cbd5e1;
+          color: #475569;
           font-size: 12.5px;
           font-weight: 600;
           padding: 10px;
@@ -2443,22 +2426,23 @@ export default function LandingPage() {
           transition: all 0.15s ease;
         }
         .btn-price.primary-gradient {
-          background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+          background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
           border: none;
+          color: #fff;
         }
         .btn-price:hover {
-          background: rgba(255, 255, 255, 0.05);
+          background: rgba(0, 0, 0, 0.03);
           transform: scale(1.01);
         }
         .btn-price.primary-gradient:hover {
-          background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+          background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
           opacity: 0.95;
         }
 
         /* ─── FAQ SECTION ─── */
         .section-faq {
-          background-color: #0A0A0F;
-          border-bottom: 1px solid #1e293b;
+          background-color: #F8FAFC;
+          border-bottom: 1px solid #e2e8f0;
         }
         .faq-tab-btn {
           background: transparent;
@@ -2470,44 +2454,52 @@ export default function LandingPage() {
           border-radius: 8px;
           cursor: pointer;
           transition: all 0.15s ease;
+          text-align: left;
         }
         .faq-tab-btn.active {
-          background: rgba(99, 102, 241, 0.08);
-          color: #6366f1;
+          background: rgba(79, 70, 229, 0.08);
+          color: #4f46e5;
         }
         .faq-question {
-          color: #fff;
+          color: #0f172a;
           transition: color 0.15s ease;
         }
         .faq-question:hover {
-          color: #6366f1;
+          color: #4f46e5;
+        }
+        .faq-answer {
+          color: #475569;
         }
 
         /* ─── FOOTER ─── */
         .footer-directory {
-          background-color: #0A0A0F;
+          background-color: #FFFFFF;
         }
         .footer-logo {
           font-weight: bold;
           font-size: 16px;
+          color: #0f172a;
         }
         .col-title {
           font-weight: bold;
           font-size: 12px;
-          color: #fff;
+          color: #0f172a;
           margin-bottom: 12px;
           display: block;
         }
         .footer-col a {
           font-size: 11px;
-          color: #64748b;
+          color: #475569;
           text-decoration: none;
           display: block;
           margin-bottom: 8px;
           transition: color 0.15s ease;
         }
         .footer-col a:hover {
-          color: #fff;
+          color: #0f172a;
+        }
+        .footer-bottom-row {
+          border-color: #cbd5e1;
         }
 
         /* Responsive */
