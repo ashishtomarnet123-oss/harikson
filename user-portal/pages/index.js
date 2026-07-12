@@ -600,7 +600,7 @@ export default function LandingPage() {
         {/* ─── REDESIGNED FEATURE SECTION ─── */}
         <section className="section-features" id="features">
           <div className="content-inner">
-            <div className="section-header text-center">
+            <div className="section-header text-left">
               <span className="tag-line tag-blue">BUSINESS OUTCOMES</span>
               <h2 className="title-scale">Why Harikson AI?</h2>
               <p className="sub-scale">Enterprise infrastructure that answers your compliance and cost targets before you deploy.</p>
@@ -1828,11 +1828,30 @@ export default function LandingPage() {
           margin-bottom: 12px;
           color: #0F172A;
         }
+        .text-center {
+          text-align: center;
+        }
+        .text-left {
+          text-align: left;
+        }
         .sub-scale {
           font-size: 16px;
           color: #475569;
           max-width: 620px;
-          margin: 0 auto 48px;
+          margin-top: 12px;
+          margin-bottom: 48px;
+        }
+        .text-center .sub-scale {
+          margin-left: auto;
+          margin-right: auto;
+        }
+        .text-left .sub-scale {
+          margin-left: 0;
+          margin-right: auto;
+        }
+        .section-header:not(.text-center) .sub-scale {
+          margin-left: 0;
+          margin-right: auto;
         }
 
         .metrics-grid {
