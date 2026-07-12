@@ -2565,31 +2565,73 @@ export default function LandingPage() {
           background-color: #F8FAFC;
           border-bottom: 1px solid #e2e8f0;
         }
+        .faq-wrapper {
+          display: grid;
+          grid-template-columns: 260px 1fr;
+          gap: 48px;
+          margin-top: 48px;
+        }
+        .faq-menu {
+          display: flex;
+          flex-direction: column;
+          gap: 6px;
+          text-align: left;
+        }
         .faq-tab-btn {
           background: transparent;
           border: none;
-          color: #64748b;
-          font-size: 13px;
+          color: #475569;
+          font-size: 14px;
           font-weight: 600;
-          padding: 10px 14px;
+          padding: 12px 16px;
           border-radius: 8px;
           cursor: pointer;
-          transition: all 0.15s ease;
+          transition: all 0.2s ease;
           text-align: left;
+          width: 100%;
+          font-family: inherit;
+        }
+        .faq-tab-btn:hover {
+          background: rgba(0, 0, 0, 0.02);
+          color: #0f172a;
         }
         .faq-tab-btn.active {
-          background: rgba(79, 70, 229, 0.08);
+          background: rgba(79, 70, 229, 0.06);
           color: #4f46e5;
         }
+        .faq-item {
+          border-bottom: 1px solid #e2e8f0;
+        }
         .faq-question {
+          background: transparent;
+          border: none;
+          padding: 20px 0;
+          margin: 0;
+          text-align: left;
+          cursor: pointer;
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          width: 100%;
+          font-size: 16px;
+          font-weight: 600;
           color: #0f172a;
           transition: color 0.15s ease;
+          font-family: inherit;
         }
         .faq-question:hover {
           color: #4f46e5;
         }
         .faq-answer {
+          font-size: 14.5px;
           color: #475569;
+          line-height: 1.65;
+          padding-bottom: 20px;
+          animation: slideDownFaq 0.2s ease-out;
+        }
+        @keyframes slideDownFaq {
+          from { opacity: 0; transform: translateY(-4px); }
+          to { opacity: 1; transform: translateY(0); }
         }
 
         /* ─── FOOTER ─── */
@@ -2628,8 +2670,17 @@ export default function LandingPage() {
           .hero-grid,
           .map-grid,
           .arch-flow-grid,
-          .dx-split-grid {
+          .dx-split-grid,
+          .faq-wrapper {
             grid-template-columns: 1fr;
+          }
+          .faq-menu {
+            flex-direction: row;
+            flex-wrap: wrap;
+            gap: 8px;
+          }
+          .faq-tab-btn {
+            width: auto;
           }
           .hero-title {
             font-size: 42px;
