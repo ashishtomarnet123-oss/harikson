@@ -199,43 +199,9 @@ export default function LandingPage() {
     <>
       <Head>
         <title>Harikson AI — Sovereign AI Infrastructure for India</title>
-        <meta name="description" content="Deploy private LLMs, AI agents, and RAG systems inside India. DPDP-compliant, OpenAI-compatible API. 100% data residency. Start free with 100K tokens." />
+        <meta name="description" content="Deploy private LLMs, AI agents, RAG systems, and enterprise AI workloads inside India. DPDP-compliant, OpenAI-compatible." />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <link rel="canonical" href="https://harikson.ai" />
-        
-        {/* Open Graph / Facebook */}
-        <meta property="og:type" content="website" />
-        <meta property="og:url" content="https://harikson.ai" />
-        <meta property="og:title" content="Harikson AI — Sovereign AI Platform" />
-        <meta property="og:description" content="Private LLMs, RAG, and AI agents. 100% India-hosted. DPDP-compliant." />
-        <meta property="og:image" content="https://harikson.ai/og-image.jpg" />
-
-        {/* Twitter */}
-        <meta property="twitter:card" content="summary_large_image" />
-        <meta property="twitter:url" content="https://harikson.ai" />
-        <meta property="twitter:title" content="Harikson AI — Sovereign AI Platform" />
-        <meta property="twitter:description" content="Private LLMs, RAG, and AI agents. 100% India-hosted. DPDP-compliant." />
-        <meta property="twitter:image" content="https://harikson.ai/og-image.jpg" />
-
-        {/* Structured Schema.org Markup */}
-        <script
-          type="application/ld+json"
-          dangerouslySetInnerHTML={{
-            __html: JSON.stringify({
-              "@context": "https://schema.org",
-              "@type": "SoftwareApplication",
-              "name": "Harikson AI",
-              "applicationCategory": "AI Infrastructure Application",
-              "operatingSystem": "Linux, Kubernetes, On-Premise",
-              "description": "Sovereign enterprise AI infrastructure for private LLM deployment, multi-tenant workspace routing, and RAG architecture.",
-              "offers": {
-                "@type": "Offer",
-                "price": "0.00",
-                "priceCurrency": "INR"
-              }
-            })
-          }}
-        />
       </Head>
 
       <div className="landing-container">
@@ -258,7 +224,7 @@ export default function LandingPage() {
           </div>
         </header>
 
-        {/* ─── PROMPT 1: HERO SECTION (LIGHT MODE) ─── */}
+        {/* ─── HERO SECTION (REDESIGNED) ─── */}
         <section className="section-hero">
           <div className="mesh-gradient" />
           <div className="subtle-grid-bg" />
@@ -285,15 +251,17 @@ export default function LandingPage() {
               </div>
               
               <h1 className="hero-title">
-                Deploy Private AI That Never Leaves India
+                Enterprise AI Infrastructure.<br />
+                <span className="gradient-text">Built in India.</span> Trusted Everywhere.
               </h1>
+              
               <p className="hero-sub">
-                Run Qwen3, Llama, and Mistral inside your VPC. DPDP-compliant. OpenAI-compatible API. Priced in INR.
+                Deploy private LLMs, AI agents, RAG systems, and enterprise AI workloads inside India with complete control over your data, infrastructure, compliance, and costs.
               </p>
 
               <div className="hero-ctas">
                 <Link href="/signup" passHref legacyBehavior>
-                  <a className="btn-hero-primary">Start Free — 100K Tokens</a>
+                  <a className="btn-hero-primary">Start Free</a>
                 </Link>
                 <a href="#developer" className="btn-hero-secondary">
                   <PlayCircle size={16} /> Watch Demo
@@ -1337,7 +1305,7 @@ export default function LandingPage() {
           align-items: center;
           justify-content: space-between;
           padding: 20px 48px;
-          background: rgba(255, 255, 255, 0.85);
+          background: rgba(255, 255, 255, 0.9);
           backdrop-filter: blur(12px);
           border-bottom: 1px solid #e2e8f0;
         }
@@ -1393,16 +1361,16 @@ export default function LandingPage() {
           right: 0;
           height: 100vh;
           z-index: 1;
-          background: radial-gradient(circle at 30% 30%, rgba(99, 102, 241, 0.05) 0%, transparent 60%),
-                      radial-gradient(circle at 70% 60%, rgba(139, 92, 246, 0.03) 0%, transparent 70%);
+          background: radial-gradient(circle at 20% 20%, rgba(79, 70, 229, 0.04) 0%, transparent 50%),
+                      radial-gradient(circle at 80% 50%, rgba(139, 92, 246, 0.02) 0%, transparent 60%);
           pointer-events: none;
           opacity: 0.85;
           animation: morphMesh ${reducedMotion ? '0s' : '20s'} ease-in-out infinite alternate;
         }
         @keyframes morphMesh {
           0% { transform: scale(1) translate(0, 0); }
-          50% { transform: scale(1.05) translate(2%, 3%); }
-          100% { transform: scale(1) translate(-2%, -3%); }
+          50% { transform: scale(1.03) translate(1%, 2%); }
+          100% { transform: scale(1) translate(-1%, -2%); }
         }
 
         /* Particle drift backdrop */
@@ -1421,16 +1389,16 @@ export default function LandingPage() {
           width: 3px;
           height: 3px;
           border-radius: 50%;
-          background: rgba(79, 70, 229, 0.2);
+          background: rgba(79, 70, 229, 0.15);
           animation: floatParticle 20s linear infinite;
         }
         @keyframes floatParticle {
           0% { transform: translateY(0) translateX(0); opacity: 0.1; }
-          50% { opacity: 0.6; }
+          50% { opacity: 0.5; }
           100% { transform: translateY(-120px) translateX(40px); opacity: 0; }
         }
 
-        /* Subtle grid pattern overlay */
+        /* Subtle grid pattern overlay (Sleek Dotted Matrix Redesign) */
         .subtle-grid-bg {
           position: absolute;
           top: 0;
@@ -1438,11 +1406,10 @@ export default function LandingPage() {
           right: 0;
           height: 100vh;
           z-index: 2;
-          opacity: 0.06;
+          opacity: 0.45;
           pointer-events: none;
-          background-size: 40px 40px;
-          background-image: linear-gradient(to right, #000 1px, transparent 1px),
-                            linear-gradient(to bottom, #000 1px, transparent 1px);
+          background-size: 24px 24px;
+          background-image: radial-gradient(circle, #cbd5e1 1px, transparent 1px);
         }
 
         /* Hero Layout */
@@ -1457,7 +1424,7 @@ export default function LandingPage() {
         }
         .hero-grid {
           display: grid;
-          grid-template-columns: 1.15fr 0.85fr;
+          grid-template-columns: 1.2fr 0.8fr;
           gap: 48px;
           align-items: center;
           max-width: 1280px;
@@ -1472,7 +1439,7 @@ export default function LandingPage() {
           margin-bottom: 24px;
         }
         .trust-pill {
-          background: rgba(241, 245, 249, 0.8);
+          background: rgba(248, 250, 252, 0.9);
           border: 1px solid #cbd5e1;
           backdrop-filter: blur(12px);
           font-size: 11px;
@@ -1480,22 +1447,28 @@ export default function LandingPage() {
           color: #475569;
           padding: 6px 14px;
           border-radius: 9999px;
+          box-shadow: 0 1px 2px rgba(0,0,0,0.03);
         }
 
         .hero-title {
-          font-size: 64px;
-          font-weight: 700;
-          line-height: 1.1;
-          letter-spacing: -0.02em;
+          font-size: 56px;
+          font-weight: 800;
+          line-height: 1.15;
+          letter-spacing: -0.03em;
           color: #0F172A;
-          margin-bottom: 16px;
+          margin-bottom: 20px;
+        }
+        .gradient-text {
+          background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+          -webkit-background-clip: text;
+          -webkit-text-fill-color: transparent;
         }
         .hero-sub {
-          font-size: 20px;
+          font-size: 18px;
           color: #475569;
           line-height: 1.6;
           max-width: 580px;
-          margin-bottom: 32px;
+          margin-bottom: 36px;
         }
 
         .hero-ctas {
@@ -1505,24 +1478,25 @@ export default function LandingPage() {
         .btn-hero-primary {
           background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
           color: #ffffff;
-          font-size: 16px;
+          font-size: 15px;
           font-weight: 600;
-          padding: 16px 32px;
-          border-radius: 12px;
+          padding: 14px 28px;
+          border-radius: 8px;
           text-decoration: none;
+          box-shadow: 0 4px 14px rgba(79, 70, 229, 0.25);
           transition: transform 0.2s ease, box-shadow 0.2s ease;
         }
         .btn-hero-primary:hover {
-          transform: scale(1.02);
-          box-shadow: 0 10px 20px rgba(79, 70, 229, 0.2);
+          transform: translateY(-1px);
+          box-shadow: 0 6px 20px rgba(79, 70, 229, 0.35);
         }
         .btn-hero-secondary {
           background: transparent;
           color: #0f172a;
-          font-size: 16px;
+          font-size: 15px;
           font-weight: 600;
-          padding: 16px 32px;
-          border-radius: 12px;
+          padding: 14px 28px;
+          border-radius: 8px;
           border: 1px solid #cbd5e1;
           text-decoration: none;
           display: flex;
@@ -1548,13 +1522,13 @@ export default function LandingPage() {
           border-radius: 12px;
           overflow: hidden;
           box-shadow: 0 25px 50px rgba(0, 0, 0, 0.2);
-          transform: ${reducedMotion ? 'none' : 'rotateY(-5deg) rotateX(4deg)'};
+          transform: rotateY(-6deg) rotateX(5deg);
           transition: transform 0.5s ease;
           animation: floatMockup ${reducedMotion ? '0s' : '6s'} ease-in-out infinite alternate;
         }
         @keyframes floatMockup {
-          0% { transform: rotateY(-5deg) rotateX(4deg) translateY(0); }
-          100% { transform: rotateY(-5deg) rotateX(4deg) translateY(-10px); }
+          0% { transform: rotateY(-6deg) rotateX(5deg) translateY(0); }
+          100% { transform: rotateY(-6deg) rotateX(5deg) translateY(-8px); }
         }
 
         .browser-title-bar {
@@ -1674,7 +1648,7 @@ export default function LandingPage() {
           border: 1px solid #334155;
           border-radius: 8px;
           width: 280px;
-          box-shadow: 0 15px 30px rgba(0, 0, 0, 0.3);
+          box-shadow: 0 15px 30px rgba(0, 0, 0, 0.25);
           text-align: left;
           z-index: 10;
         }
@@ -1711,7 +1685,7 @@ export default function LandingPage() {
         /* Floating Badges */
         .floating-badge {
           position: absolute;
-          background: rgba(255, 255, 255, 0.9);
+          background: rgba(255, 255, 255, 0.95);
           backdrop-filter: blur(8px);
           border: 1px solid rgba(0, 0, 0, 0.1);
           border-radius: 8px;
@@ -1720,6 +1694,7 @@ export default function LandingPage() {
           font-weight: 700;
           color: #0f172a;
           z-index: 15;
+          box-shadow: 0 4px 12px rgba(0,0,0,0.05);
           animation: floatBadge ${reducedMotion ? '0s' : '4s'} ease-in-out infinite alternate;
         }
         @keyframes floatBadge {
@@ -2118,7 +2093,7 @@ export default function LandingPage() {
         .dx-panel {
           border: 1px solid #cbd5e1;
           border-radius: 16px;
-          background: #111827; /* Code block remains dark for high contrast dev view */
+          background: #111827;
           overflow: hidden;
           min-height: 280px;
           display: flex;
