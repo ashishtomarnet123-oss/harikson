@@ -83,7 +83,7 @@ export default function LandingPage() {
   // Shell simulator
   const [terminalText, setTerminalText] = useState('');
   const [terminalLines, setTerminalLines] = useState([]);
-  const terminalCommand = 'harikson deploy --model Qwen3-72B --region mumbai';
+  const terminalCommand = 'harikson deploy --model harikson8B --region in-your-region';
   const hasAnimated = useRef(false);
   
   // Reduced motion preference
@@ -102,7 +102,7 @@ export default function LandingPage() {
       setTerminalText(terminalCommand);
       setTerminalLines([
         { text: '✓ Namespace neuravolt-prod initialized', color: '#10B981' },
-        { text: '✓ Secured weights: harikson-qwen3-72b loaded', color: '#10B981' },
+        { text: '✓ Secured weights: harikson-8B loaded', color: '#10B981' },
         { text: '✓ Gateway Router: ONLINE (ap-south-1)', color: '#10B981' },
         { text: '✓ DPDP local audit configuration: ENABLED', color: '#10B981' }
       ]);
@@ -129,7 +129,7 @@ export default function LandingPage() {
         }, 200);
         
         const t2 = setTimeout(() => {
-          setTerminalLines(prev => [...prev, { text: '✓ Secured weights: harikson-qwen3-72b loaded', color: '#10B981' }]);
+          setTerminalLines(prev => [...prev, { text: '✓ Secured weights: harikson-8B loaded', color: '#10B981' }]);
         }, 700);
         
         const t3 = setTimeout(() => {
@@ -283,7 +283,7 @@ export default function LandingPage() {
             </div>
 
             <div className="hero-right">
-              {/* 3D Mockup Container (Redesigned & Cleaned) */}
+              {/* 3D Mockup Container */}
               <div className="mockup-perspective">
                 {/* Main Browser Mockup */}
                 <div className="mockup-browser">
@@ -302,7 +302,7 @@ export default function LandingPage() {
                     </aside>
                     <main className="browser-chat-pane">
                       <header className="chat-header">
-                        <div className="model-selector">harikson-qwen3-72b</div>
+                        <div className="model-selector">harikson-8b</div>
                         <span className="badge-active">ACTIVE</span>
                       </header>
                       <div className="chat-messages font-sans">
@@ -315,7 +315,7 @@ export default function LandingPage() {
                   </div>
                 </div>
 
-                {/* Integrated Terminal (Cleaned, readable, positioned below instead of heavy overlap) */}
+                {/* Integrated Terminal */}
                 <div className="mockup-terminal font-mono">
                   <div className="terminal-header">
                     <span className="term-dot" />
@@ -334,7 +334,7 @@ export default function LandingPage() {
                   </div>
                 </div>
 
-                {/* Floating Badges (Sleeker design and organic positioning) */}
+                {/* Floating Badges */}
                 <div className="floating-badge badge-dpdp">🛡️ DPDP Ready</div>
                 <div className="floating-badge badge-price">⚡ ₹0.001/token</div>
                 <div className="floating-badge badge-region">🇮🇳 Mumbai Region</div>
@@ -1412,14 +1412,14 @@ export default function LandingPage() {
           100% { transform: translateY(-120px) translateX(40px); opacity: 0; }
         }
 
-        /* Subtle grid pattern overlay (Sleek Dotted Matrix Redesign) */
+        /* Subtle grid pattern overlay (Sleek Dotted Matrix) */
         .subtle-grid-bg {
           position: absolute;
           top: 0;
           left: 0;
           right: 0;
           height: 100vh;
-          z-index: 2;
+          z-index: 1; /* Under hero-grid to prevent overlap dots */
           opacity: 0.45;
           pointer-events: none;
           background-size: 24px 24px;
@@ -1444,6 +1444,8 @@ export default function LandingPage() {
           max-width: 1280px;
           margin: 0 auto;
           width: 100%;
+          position: relative; /* Relative bounds */
+          z-index: 10;        /* Above background dots overlay */
         }
 
         .trust-pills-row {
@@ -1653,7 +1655,7 @@ export default function LandingPage() {
           line-height: 1.5;
         }
 
-        /* Mockup Terminal (Positioned cleanly below the browser to prevent overlap layout bugs) */
+        /* Mockup Terminal */
         .mockup-terminal {
           position: absolute;
           bottom: -70px;
@@ -1662,7 +1664,7 @@ export default function LandingPage() {
           border: 1px solid #1f2937;
           border-radius: 8px;
           width: 320px;
-          box-shadow: 0 15px 30px rgba(0, 0, 0, 0.35);
+          box-shadow: 0 15px 30px rgba(0, 0, 0, 0.25);
           text-align: left;
           z-index: 10;
         }
@@ -1688,7 +1690,7 @@ export default function LandingPage() {
           margin-right: 6px;
         }
         .terminal-input {
-          color: #f8fafc; /* Crisp white command parameter */
+          color: #f8fafc;
           font-weight: 500;
           margin-bottom: 6px;
         }
@@ -1701,7 +1703,7 @@ export default function LandingPage() {
           50% { opacity: 0; }
         }
 
-        /* Floating Badges (Polished white containers with subtle gray borders) */
+        /* Floating Badges */
         .floating-badge {
           position: absolute;
           background: #ffffff;
