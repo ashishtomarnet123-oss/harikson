@@ -597,7 +597,7 @@ export default function LandingPage() {
           </div>
         </section>
 
-        {/* ─── PROMPT 4: FEATURE SECTION ─── */}
+        {/* ─── REDESIGNED FEATURE SECTION ─── */}
         <section className="section-features" id="features">
           <div className="content-inner">
             <div className="section-header text-center">
@@ -607,52 +607,106 @@ export default function LandingPage() {
             </div>
 
             <div className="features-grid-custom">
+              {/* Card 1 */}
               <div className="feat-card border-glow-indigo">
-                <div className="feat-icon text-indigo-600"><Code2 size={24} /></div>
-                <h4>Go live in 10 minutes, not 10 weeks.</h4>
+                <div className="feat-header-row">
+                  <div className="feat-icon-wrap bg-indigo-50 text-indigo-600">
+                    <Code2 size={20} />
+                  </div>
+                  <h4>Go live in 10 minutes, not 10 weeks.</h4>
+                </div>
                 <p>Migrate from OpenAI with one line of code change. Swap the base_url parameters and keep your current prompts.</p>
-                <div className="feat-tech">base_url = "https://api.harikson.ai/v1"</div>
-                <a href="#developer" className="feat-link">Learn more →</a>
+                <div className="mini-editor-box font-mono">
+                  <span className="keyword">base_url</span> = <span className="string">"https://api.harikson.ai/v1"</span>
+                </div>
+                <a href="#developer" className="feat-link">Learn more <ArrowRight size={12} className="inline-arrow" /></a>
               </div>
 
+              {/* Card 2 */}
               <div className="feat-card border-glow-emerald">
-                <div className="feat-icon text-emerald-500"><ShieldCheck size={24} /></div>
-                <h4>Your data never crosses a border.</h4>
+                <div className="feat-header-row">
+                  <div className="feat-icon-wrap bg-emerald-50 text-emerald-600">
+                    <ShieldCheck size={20} />
+                  </div>
+                  <h4>Your data never crosses a border.</h4>
+                </div>
                 <p>100% hosted in India. DPDP-compliant by default. Zero data residency risk.</p>
-                <div className="feat-tech">Mumbai · Delhi · Bangalore · Hyderabad</div>
-                <a href="#security" className="feat-link">Learn more →</a>
+                <div className="mini-tag-row">
+                  <span className="mini-badge-pill">🇮🇳 Mumbai</span>
+                  <span className="mini-badge-pill">🇮🇳 Delhi</span>
+                  <span className="mini-badge-pill">🇮🇳 Bangalore</span>
+                  <span className="mini-badge-pill">🇮🇳 Hyderabad</span>
+                </div>
+                <a href="#security" className="feat-link">Learn more <ArrowRight size={12} className="inline-arrow" /></a>
               </div>
 
+              {/* Card 3 */}
               <div className="feat-card border-glow-amber">
-                <div className="feat-icon text-amber-600"><CreditCard size={24} /></div>
-                <h4>Cut AI spend by 60%.</h4>
+                <div className="feat-header-row">
+                  <div className="feat-icon-wrap bg-amber-50 text-amber-600">
+                    <CreditCard size={20} />
+                  </div>
+                  <h4>Cut AI spend by 60%.</h4>
+                </div>
                 <p>Priced in INR. No dollar volatility. No hidden egress fees.</p>
-                <div className="feat-tech">₹0.001 / token · ₹4,999 / month Pro</div>
-                <a href="#pricing" className="feat-link">Learn more →</a>
+                <div className="mini-tag-row">
+                  <span className="mini-badge-pill amber">₹0.001 / token</span>
+                  <span className="mini-badge-pill amber">₹4,999 / mo Pro</span>
+                </div>
+                <a href="#pricing" className="feat-link">Learn more <ArrowRight size={12} className="inline-arrow" /></a>
               </div>
 
+              {/* Card 4 */}
               <div className="feat-card border-glow-pink">
-                <div className="feat-icon text-pink-500"><Layers size={24} /></div>
-                <h4>One platform. Hundreds of teams. Zero leakage.</h4>
+                <div className="feat-header-row">
+                  <div className="feat-icon-wrap bg-pink-50 text-pink-600">
+                    <Layers size={20} />
+                  </div>
+                  <h4>One platform. Hundreds of teams. Zero leakage.</h4>
+                </div>
                 <p>Row-level tenant isolation. Per-team billing. Custom models per workspace.</p>
-                <div className="feat-tech">Multi-tenant · RBAC · SSO</div>
-                <a href="#security" className="feat-link">Learn more →</a>
+                <div className="mini-tag-row">
+                  <span className="mini-badge-pill pink">Multi-tenant</span>
+                  <span className="mini-badge-pill pink">RBAC</span>
+                  <span className="mini-badge-pill pink">SSO Logs</span>
+                </div>
+                <a href="#security" className="feat-link">Learn more <ArrowRight size={12} className="inline-arrow" /></a>
               </div>
 
+              {/* Card 5 */}
               <div className="feat-card border-glow-purple">
-                <div className="feat-icon text-purple-600"><Shield size={24} /></div>
-                <h4>Compliance that audits itself.</h4>
+                <div className="feat-header-row">
+                  <div className="feat-icon-wrap bg-purple-50 text-purple-600">
+                    <Shield size={20} />
+                  </div>
+                  <h4>Compliance that audits itself.</h4>
+                </div>
                 <p>DPDP-ready audit trails. Data principal rights. Automated compliance reports.</p>
-                <div className="feat-tech">SOC2 Prep · ISO 27001 · DPDP 2023</div>
-                <a href="#security" className="feat-link">Learn more →</a>
+                <div className="mini-tag-row">
+                  <span className="mini-badge-pill purple">SOC2 Prep</span>
+                  <span className="mini-badge-pill purple">ISO 27001</span>
+                  <span className="mini-badge-pill purple">DPDP 2023</span>
+                </div>
+                <a href="#security" className="feat-link">Learn more <ArrowRight size={12} className="inline-arrow" /></a>
               </div>
 
+              {/* Card 6 */}
               <div className="feat-card border-glow-cyan">
-                <div className="feat-icon text-cyan-600"><BrainCircuit size={24} /></div>
-                <h4>22 Indian languages. Native fluency.</h4>
+                <div className="feat-header-row">
+                  <div className="feat-icon-wrap bg-cyan-50 text-cyan-600">
+                    <BrainCircuit size={20} />
+                  </div>
+                  <h4>22 Indian languages. Native fluency.</h4>
+                </div>
                 <p>Hindi, Tamil, Kannada, Marathi, Telugu, Bengali. Not translated. Truly understood.</p>
-                <div className="feat-tech">Fine-tuned on Indic corpus</div>
-                <a href="#how-it-works" className="feat-link">Learn more →</a>
+                <div className="mini-tag-row language-pills">
+                  <span className="mini-badge-pill cyan">हिंदी</span>
+                  <span className="mini-badge-pill cyan">தமிழ்</span>
+                  <span className="mini-badge-pill cyan">ಕನ್ನಡ</span>
+                  <span className="mini-badge-pill cyan">తెలుగు</span>
+                  <span className="mini-badge-pill cyan">বাংলা</span>
+                </div>
+                <a href="#how-it-works" className="feat-link">Learn more <ArrowRight size={12} className="inline-arrow" /></a>
               </div>
             </div>
           </div>
@@ -1419,7 +1473,7 @@ export default function LandingPage() {
           left: 0;
           right: 0;
           height: 100vh;
-          z-index: 1; /* Under hero-grid to prevent overlap dots */
+          z-index: 1;
           opacity: 0.45;
           pointer-events: none;
           background-size: 24px 24px;
@@ -1444,8 +1498,8 @@ export default function LandingPage() {
           max-width: 1280px;
           margin: 0 auto;
           width: 100%;
-          position: relative; /* Relative bounds */
-          z-index: 10;        /* Above background dots overlay */
+          position: relative;
+          z-index: 10;
         }
 
         .trust-pills-row {
@@ -2031,7 +2085,7 @@ export default function LandingPage() {
           margin-bottom: 4px;
         }
 
-        /* ─── FEATURES SECTION ─── */
+        /* ─── FEATURES SECTION (REDESIGNED) ─── */
         .section-features {
           background-color: #F8FAFC;
           border-bottom: 1px solid #e2e8f0;
@@ -2039,65 +2093,118 @@ export default function LandingPage() {
         .features-grid-custom {
           display: grid;
           grid-template-columns: repeat(3, 1fr);
-          gap: 20px;
+          gap: 24px;
         }
         .feat-card {
           background: #ffffff;
-          border: 1px solid #cbd5e1;
-          border-radius: 16px;
-          padding: 24px;
+          border: 1px solid #e2e8f0;
+          border-radius: 20px;
+          padding: 28px;
           text-align: left;
           display: flex;
           flex-direction: column;
-          transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+          box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.02), 0 2px 4px -1px rgba(0, 0, 0, 0.01);
+          transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1),
+                      border-color 0.25s cubic-bezier(0.4, 0, 0.2, 1),
+                      box-shadow 0.25s cubic-bezier(0.4, 0, 0.2, 1);
         }
         .feat-card:hover {
-          transform: translateY(-4px);
+          transform: translateY(-5px);
         }
-        .feat-card.border-glow-indigo:hover { border-color: #4f46e5; box-shadow: 0 10px 30px rgba(79, 70, 229, 0.15); }
-        .feat-card.border-glow-emerald:hover { border-color: #10b981; box-shadow: 0 10px 30px rgba(16, 185, 129, 0.15); }
-        .feat-card.border-glow-amber:hover { border-color: #d97706; box-shadow: 0 10px 30px rgba(217, 119, 6, 0.15); }
-        .feat-card.border-glow-pink:hover { border-color: #db2777; box-shadow: 0 10px 30px rgba(219, 39, 119, 0.15); }
-        .feat-card.border-glow-purple:hover { border-color: #7c3aed; box-shadow: 0 10px 30px rgba(124, 58, 237, 0.15); }
-        .feat-card.border-glow-cyan:hover { border-color: #0891b2; box-shadow: 0 10px 30px rgba(8, 145, 178, 0.15); }
         
-        .feat-card:hover .feat-icon {
-          transform: rotate(12deg);
-        }
-        .feat-icon {
+        /* Colored Borders on hover */
+        .feat-card.border-glow-indigo:hover { border-color: #4f46e5; box-shadow: 0 20px 25px -5px rgba(79, 70, 229, 0.1), 0 10px 10px -5px rgba(79, 70, 229, 0.04); }
+        .feat-card.border-glow-emerald:hover { border-color: #10b981; box-shadow: 0 20px 25px -5px rgba(16, 185, 129, 0.1), 0 10px 10px -5px rgba(16, 185, 129, 0.04); }
+        .feat-card.border-glow-amber:hover { border-color: #d97706; box-shadow: 0 20px 25px -5px rgba(217, 119, 6, 0.1), 0 10px 10px -5px rgba(217, 119, 6, 0.04); }
+        .feat-card.border-glow-pink:hover { border-color: #db2777; box-shadow: 0 20px 25px -5px rgba(219, 39, 119, 0.1), 0 10px 10px -5px rgba(219, 39, 119, 0.04); }
+        .feat-card.border-glow-purple:hover { border-color: #7c3aed; box-shadow: 0 20px 25px -5px rgba(124, 58, 237, 0.1), 0 10px 10px -5px rgba(124, 58, 237, 0.04); }
+        .feat-card.border-glow-cyan:hover { border-color: #0891b2; box-shadow: 0 20px 25px -5px rgba(8, 145, 178, 0.15), 0 10px 10px -5px rgba(8, 145, 178, 0.04); }
+
+        .feat-header-row {
+          display: flex;
+          align-items: center;
+          gap: 16px;
           margin-bottom: 16px;
+        }
+        .feat-icon-wrap {
+          width: 44px;
+          height: 44px;
+          border-radius: 12px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          flex-shrink: 0;
           transition: transform 0.2s ease;
         }
+        .feat-card:hover .feat-icon-wrap {
+          transform: rotate(8deg) scale(1.05);
+        }
+        
         .feat-card h4 {
           font-size: 17px;
           font-weight: 700;
           color: #0f172a;
-          margin-bottom: 8px;
+          line-height: 1.35;
+          margin: 0;
         }
         .feat-card p {
-          font-size: 13px;
+          font-size: 13.5px;
           color: #475569;
-          line-height: 1.5;
-          margin-bottom: 16px;
+          line-height: 1.55;
+          margin: 0 0 20px 0;
           flex: 1;
         }
-        .feat-tech {
-          font-family: monospace;
+
+        /* Monospace snippet styling */
+        .mini-editor-box {
+          background: #0f172a;
+          border-radius: 8px;
+          padding: 10px 14px;
           font-size: 11px;
-          color: #475569;
-          margin-bottom: 16px;
+          color: #94a3b8;
+          margin-bottom: 24px;
+        }
+        .mini-editor-box .keyword { color: #f43f5e; }
+        .mini-editor-box .string { color: #10b981; }
+
+        /* Stylized tag arrays */
+        .mini-tag-row {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 6px;
+          margin-bottom: 24px;
+          min-height: 28px;
+        }
+        .mini-badge-pill {
           background: #f1f5f9;
-          padding: 6px 10px;
-          border-radius: 6px;
-        }
-        .feat-link {
-          font-size: 12px;
-          font-weight: 600;
+          border: 1px solid #e2e8f0;
           color: #475569;
-          text-decoration: none;
+          font-size: 10.5px;
+          font-weight: 600;
+          padding: 4px 10px;
+          border-radius: 9999px;
         }
-        .feat-link:hover {
-          color: #0f172a;
+        /* Color themes for badges */
+        .mini-badge-pill.amber { background: rgba(245, 158, 11, 0.06); border-color: rgba(245, 158, 11, 0.15); color: #b45309; }
+        .mini-badge-pill.pink { background: rgba(236, 72, 153, 0.06); border-color: rgba(236, 72, 153, 0.15); color: #be185d; }
+        .mini-badge-pill.purple { background: rgba(139, 92, 246, 0.06); border-color: rgba(139, 92, 246, 0.15); color: #6d28d9; }
+        .mini-badge-pill.cyan { background: rgba(6, 182, 212, 0.06); border-color: rgba(6, 182, 212, 0.15); color: #0891b2; }
+
+        .feat-link {
+          font-size: 13px;
+          font-weight: 600;
+          color: #4f46e5;
+          text-decoration: none;
+          display: flex;
+          align-items: center;
+          gap: 4px;
+          width: fit-content;
+        }
+        .inline-arrow {
+          transition: transform 0.2s ease;
+        }
+        .feat-link:hover .inline-arrow {
+          transform: translateX(4px);
         }
 
         /* ─── DEVELOPER SECTION ─── */
