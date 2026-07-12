@@ -89,6 +89,12 @@ export default function LandingPage() {
   // Reduced motion preference
   const [reducedMotion, setReducedMotion] = useState(false);
 
+  // Mobile footer accordion toggle state
+  const [activeFooterAccordion, setActiveFooterAccordion] = useState(null);
+  const toggleFooterAccordion = (index) => {
+    setActiveFooterAccordion(activeFooterAccordion === index ? null : index);
+  };
+
   useEffect(() => {
     setMounted(true);
     if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
@@ -1285,58 +1291,216 @@ export default function LandingPage() {
           </div>
         </section>
 
-        {/* ─── CONTACT FOR OVERRIDES ─── */}
-        <section className="section-contact" id="founders-contact">
-          <div className="content-inner">
-            <div className="contact-box card-glass p-8 text-center max-w-2xl mx-auto">
-              <h3>Talk to an AI Infrastructure Architect</h3>
-              <p className="text-secondary text-sm mt-2">Deploy Qwen3 or custom models on-premise, configure air-gapped clusters, or schedule custom migrations. We respond in under 2 hours.</p>
-              <div className="mt-6 flex justify-center gap-4 flex-wrap">
-                <a href="mailto:admin@harikson.ai" className="btn-hero-primary">Email: admin@harikson.ai</a>
-                <button className="btn-ghost" onClick={() => alert('Callback requested. We will contact you at your registered email.')}>Request Callback</button>
-              </div>
+        {/* ─── SECTION 1: PREMIUM CTA ─── */}
+        <section className="section-premium-cta">
+          <div className="content-inner premium-cta-grid">
+            <div className="cta-left">
+              <h2>Ready to Build Enterprise AI?</h2>
+              <p>Deploy secure, compliant AI infrastructure in India with complete ownership of your data, models, and deployment.</p>
+            </div>
+            <div className="cta-right">
+              <Link href="/signup" passHref legacyBehavior><a className="btn-premium-primary">Start Free</a></Link>
+              <button className="btn-premium-secondary" onClick={() => alert('Architecture consultation request logged. We will contact you shortly.')}>Book Architecture Session</button>
+              <a href="mailto:sales@harikson.ai" className="btn-premium-link">Talk to Sales →</a>
+              <button className="btn-premium-outline" onClick={() => alert('Demo request logged. Enterprise sales will reach out within 2 hours.')}>Request Enterprise Demo</button>
             </div>
           </div>
         </section>
 
-        {/* ─── FOOTER & SITEMAP ─── */}
-        <footer className="footer-directory mt-16 text-left">
-          <div className="content-inner grid grid-cols-2 md:grid-cols-5 gap-8 py-12 border-t border-gray-200">
-            <div className="footer-col">
+        {/* ─── SECTION 2: TRUST METRICS BAR ─── */}
+        <section className="section-trust-metrics">
+          <div className="content-inner trust-metrics-wrap">
+            <div className="trust-metric-item"><CheckCircle2 size={14} className="text-emerald-500" /> <span>99.99% SLA</span></div>
+            <div className="trust-metric-item">🇮🇳 <span>100% India Data Residency</span></div>
+            <div className="trust-metric-item"><Zap size={14} className="text-indigo-600" /> <span>OpenAI Compatible API</span></div>
+            <div className="trust-metric-item"><ShieldCheck size={14} className="text-emerald-500" /> <span>DPDP Ready</span></div>
+            <div className="trust-metric-item"><Lock size={14} className="text-indigo-600" /> <span>AES-256 Encryption</span></div>
+            <div className="trust-metric-item"><Activity size={14} className="text-indigo-600" /> <span>24×7 Enterprise Support</span></div>
+          </div>
+        </section>
+
+        {/* ─── MAIN FOOTER & DIRECTORY ─── */}
+        <footer className="footer-premium" id="founders-contact">
+          <div className="content-inner footer-grid-columns">
+            {/* Column 1: Brand & Badges */}
+            <div className="footer-brand-col">
               <span className="footer-logo">⚡ Harikson AI</span>
-              <p className="text-[10px] text-gray-500 mt-2">Sovereign enterprise AI infrastructure built in India for global reliability.</p>
+              <p className="footer-desc mt-2">
+                India's sovereign enterprise AI infrastructure platform. Enforcing local data ownership, localized network latency, and strict DPDP Act compliance for critical infrastructure.
+              </p>
+              <div className="brand-badges-grid mt-4">
+                <span className="brand-badge-pill">🇮🇳 Made in India</span>
+                <span className="brand-badge-pill">🛡️ Enterprise Ready</span>
+                <span className="brand-badge-pill">💻 Developer First</span>
+                <span className="brand-badge-pill">⚖️ DPDP Ready</span>
+                <span className="brand-badge-pill">🔌 API First</span>
+                <span className="brand-badge-pill">⚡ OpenAI Compatible</span>
+              </div>
             </div>
-            <div className="footer-col">
-              <span className="col-title">Product</span>
-              <a href="#features">Features</a>
-              <a href="#how-it-works">Architecture</a>
-              <a href="#security">Control Gateways</a>
-              <a href="#pricing">Model Routers</a>
+
+            {/* Column 2: Platform */}
+            <div className="footer-link-col">
+              <span className="col-title" onClick={() => toggleFooterAccordion(0)}>Platform <ChevronDown size={14} className="mobile-only-chevron" /></span>
+              <div className={`col-links ${activeFooterAccordion === 0 ? 'mobile-open' : ''}`}>
+                <a href="#scale">AI Gateway</a>
+                <a href="#how-it-works">Private LLM</a>
+                <a href="#how-it-works">AI Agents</a>
+                <a href="#how-it-works">Enterprise RAG</a>
+                <a href="#features">Model Router</a>
+                <a href="#features">Prompt Studio</a>
+                <a href="#features">Prompt Management</a>
+                <a href="#features">Vector Database</a>
+                <a href="#features">Multi Tenant Workspace</a>
+                <a href="#benchmarks">Analytics</a>
+                <a href="#developer">API Sandbox</a>
+                <a href="#pricing">Billing</a>
+              </div>
             </div>
-            <div className="footer-col">
-              <span className="col-title">Developers</span>
-              <a href="#developer">Docs</a>
-              <a href="#developer">API Reference</a>
-              <a href="#developer">SDKs</a>
-              <a href="https://github.com" target="_blank" rel="noopener noreferrer">GitHub</a>
+
+            {/* Column 3: Solutions */}
+            <div className="footer-link-col">
+              <span className="col-title" onClick={() => toggleFooterAccordion(1)}>Solutions <ChevronDown size={14} className="mobile-only-chevron" /></span>
+              <div className={`col-links ${activeFooterAccordion === 1 ? 'mobile-open' : ''}`}>
+                <a href="#scale">Government</a>
+                <a href="#scale">Banking</a>
+                <a href="#scale">Healthcare</a>
+                <a href="#scale">Manufacturing</a>
+                <a href="#scale">Legal</a>
+                <a href="#scale">Education</a>
+                <a href="#scale">Customer Support</a>
+                <a href="#scale">Knowledge Management</a>
+                <a href="#scale">Internal AI</a>
+                <a href="#scale">Enterprise Search</a>
+                <a href="#scale">Document Intelligence</a>
+              </div>
             </div>
-            <div className="footer-col">
-              <span className="col-title">Sovereignty</span>
-              <a href="#security">DPDP Act 2023</a>
-              <a href="#security">Audit Trails</a>
-              <a href="#security">Data residency</a>
-              <a href="#security">Compliance logs</a>
+
+            {/* Column 4: Developers */}
+            <div className="footer-link-col">
+              <span className="col-title" onClick={() => toggleFooterAccordion(2)}>Developers <ChevronDown size={14} className="mobile-only-chevron" /></span>
+              <div className={`col-links ${activeFooterAccordion === 2 ? 'mobile-open' : ''}`}>
+                <a href="#developer">Documentation</a>
+                <a href="#developer">Quick Start</a>
+                <a href="#developer">API Reference</a>
+                <a href="#developer">SDKs</a>
+                <a href="#developer">CLI</a>
+                <a href="#developer">Python</a>
+                <a href="#developer">Node.js</a>
+                <a href="#developer">Go</a>
+                <a href="#developer">Java</a>
+                <a href="#developer">Terraform</a>
+                <a href="#developer">Docker</a>
+                <a href="#developer">Kubernetes</a>
+                <a href="https://github.com" target="_blank" rel="noopener noreferrer">GitHub</a>
+                <a href="#developer">Postman Collection</a>
+                <a href="#developer">Release Notes</a>
+                <a href="#developer">Status Page</a>
+              </div>
             </div>
-            <div className="footer-col">
-              <span className="col-title">Company</span>
-              <a href="#founders-contact">About Us</a>
-              <a href="#founders-contact">Careers</a>
-              <a href="#founders-contact">Contact</a>
-              <a href="#founders-contact">Partner Network</a>
+
+            {/* Column 5: Security & Compliance */}
+            <div className="footer-link-col">
+              <span className="col-title" onClick={() => toggleFooterAccordion(3)}>Security & Compliance <ChevronDown size={14} className="mobile-only-chevron" /></span>
+              <div className={`col-links ${activeFooterAccordion === 3 ? 'mobile-open' : ''}`}>
+                <a href="#security">Security Overview</a>
+                <a href="#security">Trust Center</a>
+                <a href="#security">DPDP Compliance</a>
+                <a href="#security">Data Residency</a>
+                <a href="#security">Encryption</a>
+                <a href="#security">Tenant Isolation</a>
+                <a href="#security">RBAC</a>
+                <a href="#security">SSO</a>
+                <a href="#security">Audit Logs</a>
+                <a href="#security">Disaster Recovery</a>
+                <a href="#security">Compliance Center</a>
+                <a href="#security">Privacy</a>
+                <a href="#security">Responsible AI</a>
+              </div>
+            </div>
+
+            {/* Column 6: Company */}
+            <div className="footer-link-col">
+              <span className="col-title" onClick={() => toggleFooterAccordion(4)}>Company <ChevronDown size={14} className="mobile-only-chevron" /></span>
+              <div className={`col-links ${activeFooterAccordion === 4 ? 'mobile-open' : ''}`}>
+                <a href="#founders-contact">About</a>
+                <a href="#scale">Customers</a>
+                <a href="#stories">Case Studies</a>
+                <a href="#founders-contact">Partners</a>
+                <a href="#founders-contact">Blog</a>
+                <a href="#founders-contact">Careers</a>
+                <a href="#founders-contact">Events</a>
+                <a href="#founders-contact">Press</a>
+                <a href="#founders-contact">Contact Sales</a>
+                <a href="#founders-contact">Support</a>
+                <a href="#founders-contact">Media Kit</a>
+                <a href="#founders-contact">Investor Relations</a>
+              </div>
             </div>
           </div>
-          <div className="footer-bottom-row border-t border-gray-250 py-6 text-center text-[10px] text-gray-500">
-            <div>&copy; 2026 Harikson AI. All rights reserved. Sovereign infrastructure engineered precisely in India.</div>
+
+          {/* ─── SECTION 4: ENTERPRISE CONTACT CARD & NEWSLETTER ─── */}
+          <div className="content-inner footer-contact-newsletter">
+            {/* Contact Card */}
+            <div className="enterprise-contact-card">
+              <h4>🏢 Harikson Enterprise Support</h4>
+              <p className="address mt-2">Level 5, Block B, Outer Ring Road, Tech Park, Bangalore, KA, India</p>
+              <div className="contact-details mt-4">
+                <div><span>Sales Email:</span> <a href="mailto:sales@harikson.ai">sales@harikson.ai</a></div>
+                <div><span>Support Email:</span> <a href="mailto:support@harikson.ai">support@harikson.ai</a></div>
+                <div><span>Phone:</span> <a href="tel:18003098890">1800-309-8890 (Toll-Free)</a></div>
+                <div><span>Avg SLA Response:</span> <span className="highlight-text">&lt; 2 Hours</span></div>
+                <div><span>Business Hours:</span> 24x7 Enterprise NOC Operations</div>
+              </div>
+            </div>
+
+            {/* Newsletter */}
+            <div className="newsletter-card">
+              <h4>Stay Updated</h4>
+              <p className="subtitle mt-2">Receive product updates, release notes, security advisories, and enterprise AI insights.</p>
+              <form className="newsletter-form mt-4" onSubmit={(e) => { e.preventDefault(); alert('Subscribed corporate email successfully.'); }}>
+                <input type="email" placeholder="Enter corporate email address..." required className="newsletter-input" />
+                <button type="submit" className="newsletter-btn">Subscribe</button>
+              </form>
+            </div>
+          </div>
+
+          {/* ─── FOOTER BOTTOM: LEGAL, SOCIALS & PLATFORM STATUS ─── */}
+          <div className="content-inner footer-bottom-panel">
+            <div className="footer-bottom-grid">
+              {/* Technical Status & Socials */}
+              <div className="footer-bottom-left">
+                <div className="technical-status-pill">
+                  <span className="status-dot pulsing" />
+                  <span className="status-text">All Systems Operational (99.99% Uptime)</span>
+                  <a href="#developer" className="status-link">Status Page</a>
+                </div>
+                <div className="social-links-row mt-4">
+                  <a href="https://linkedin.com" target="_blank" rel="noopener noreferrer">LinkedIn</a>
+                  <a href="https://github.com" target="_blank" rel="noopener noreferrer">GitHub</a>
+                  <a href="https://x.com" target="_blank" rel="noopener noreferrer">X</a>
+                  <a href="https://youtube.com" target="_blank" rel="noopener noreferrer">YouTube</a>
+                  <a href="https://discord.com" target="_blank" rel="noopener noreferrer">Discord</a>
+                </div>
+              </div>
+
+              {/* Legal Links */}
+              <div className="footer-legal-links">
+                <a href="#security">Privacy Policy</a>
+                <a href="#security">Terms of Service</a>
+                <a href="#security">Security Policy</a>
+                <a href="#security">Cookie Policy</a>
+                <a href="#security">Data Processing Agreement</a>
+                <a href="#security">Acceptable Use Policy</a>
+                <a href="#security">Trademark</a>
+                <a href="#security">Licenses</a>
+                <a href="#security">Responsible AI Policy</a>
+              </div>
+            </div>
+
+            <div className="footer-copyright-row mt-8 border-t border-gray-200/50 pt-6">
+              <div>© 2026 Harikson AI Technologies Pvt. Ltd. All Rights Reserved.</div>
+              <div className="origin-statement">Built with ❤️ in India. Made in India. Built for the World.</div>
+            </div>
           </div>
         </footer>
 
@@ -2635,34 +2799,385 @@ export default function LandingPage() {
         }
 
         /* ─── FOOTER ─── */
-        .footer-directory {
-          background-color: #FFFFFF;
+        .section-premium-cta {
+          background: #fbfbfe;
+          border-top: 1px solid #e2e8f0;
+          border-bottom: 1px solid #e2e8f0;
+        }
+        .premium-cta-grid {
+          display: grid;
+          grid-template-columns: 1.2fr 0.8fr;
+          gap: 48px;
+          align-items: center;
+        }
+        .cta-left h2 {
+          font-size: 32px;
+          font-weight: 800;
+          color: #0f172a;
+          letter-spacing: -0.02em;
+          margin-bottom: 12px;
+        }
+        .cta-left p {
+          font-size: 16px;
+          color: #475569;
+          line-height: 1.6;
+          max-width: 580px;
+          margin: 0;
+        }
+        .cta-right {
+          display: flex;
+          flex-direction: column;
+          gap: 12px;
+          align-items: stretch;
+        }
+        .btn-premium-primary {
+          background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+          color: #ffffff;
+          font-size: 14.5px;
+          font-weight: 600;
+          padding: 12px 24px;
+          border-radius: 8px;
+          text-align: center;
+          text-decoration: none;
+          box-shadow: 0 4px 12px rgba(79, 70, 229, 0.2);
+          transition: transform 0.2s ease, opacity 0.2s ease;
+        }
+        .btn-premium-primary:hover {
+          transform: translateY(-1px);
+          opacity: 0.95;
+        }
+        .btn-premium-secondary {
+          background: #ffffff;
+          border: 1px solid #cbd5e1;
+          color: #0f172a;
+          font-size: 14px;
+          font-weight: 600;
+          padding: 12px 24px;
+          border-radius: 8px;
+          cursor: pointer;
+          transition: background 0.15s ease;
+        }
+        .btn-premium-secondary:hover {
+          background: rgba(0, 0, 0, 0.02);
+        }
+        .btn-premium-outline {
+          background: transparent;
+          border: 1px solid #cbd5e1;
+          color: #475569;
+          font-size: 14px;
+          font-weight: 600;
+          padding: 12px 24px;
+          border-radius: 8px;
+          cursor: pointer;
+          transition: all 0.15s ease;
+        }
+        .btn-premium-outline:hover {
+          color: #0f172a;
+          border-color: #94a3b8;
+          background: rgba(0,0,0,0.01);
+        }
+        .btn-premium-link {
+          font-size: 13.5px;
+          font-weight: 600;
+          color: #4f46e5;
+          text-decoration: none;
+          text-align: center;
+          transition: transform 0.2s ease;
+        }
+        .btn-premium-link:hover {
+          transform: translateX(3px);
+        }
+
+        /* ─── TRUST METRICS BAR ─── */
+        .section-trust-metrics {
+          background: #ffffff;
+          border-bottom: 1px solid #e2e8f0;
+          padding: 12px 0;
+        }
+        .trust-metrics-wrap {
+          display: flex;
+          justify-content: space-between;
+          flex-wrap: wrap;
+          gap: 20px;
+          padding: 16px 24px;
+        }
+        .trust-metric-item {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          font-size: 12px;
+          font-weight: 700;
+          color: #475569;
+        }
+
+        /* ─── PREMIUM FOOTER CONTAINER ─── */
+        .footer-premium {
+          background: #ffffff;
+          border-top: 1px solid #e2e8f0;
+        }
+        .footer-grid-columns {
+          display: grid;
+          grid-template-columns: 2fr repeat(5, 1fr);
+          gap: 40px;
+          padding-top: 80px;
+          padding-bottom: 60px;
+        }
+        .footer-brand-col {
+          display: flex;
+          flex-direction: column;
+          align-items: flex-start;
+          text-align: left;
         }
         .footer-logo {
-          font-weight: bold;
-          font-size: 16px;
+          font-size: 18px;
+          font-weight: 900;
           color: #0f172a;
+          letter-spacing: -0.03em;
+        }
+        .footer-desc {
+          font-size: 12.5px;
+          color: #64748b;
+          line-height: 1.6;
+          margin-top: 12px;
+          max-width: 260px;
+        }
+        .brand-badges-grid {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 6px;
+        }
+        .brand-badge-pill {
+          background: #f1f5f9;
+          border: 1px solid #e2e8f0;
+          color: #475569;
+          font-size: 9.5px;
+          font-weight: 700;
+          padding: 4px 8px;
+          border-radius: 6px;
+          text-transform: uppercase;
+        }
+
+        .footer-link-col {
+          display: flex;
+          flex-direction: column;
+          align-items: flex-start;
+          text-align: left;
         }
         .col-title {
-          font-weight: bold;
-          font-size: 12px;
+          font-size: 13.5px;
+          font-weight: 700;
           color: #0f172a;
-          margin-bottom: 12px;
-          display: block;
+          margin-bottom: 20px;
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          width: 100%;
         }
-        .footer-col a {
-          font-size: 11px;
+        .mobile-only-chevron {
+          display: none;
+        }
+        .col-links {
+          display: flex;
+          flex-direction: column;
+          gap: 10px;
+        }
+        .col-links a {
+          font-size: 13px;
           color: #475569;
           text-decoration: none;
-          display: block;
-          margin-bottom: 8px;
-          transition: color 0.15s ease;
+          transition: all 0.15s ease;
         }
-        .footer-col a:hover {
+        .col-links a:hover {
+          color: #4f46e5;
+          transform: translateX(2px);
+        }
+
+        /* ─── CONTACT & NEWSLETTER BLOCKS ─── */
+        .footer-contact-newsletter {
+          display: grid;
+          grid-template-columns: 1.1fr 0.9fr;
+          gap: 48px;
+          border-top: 1px solid #e2e8f0;
+          border-bottom: 1px solid #e2e8f0;
+          padding-top: 48px;
+          padding-bottom: 48px;
+        }
+        .enterprise-contact-card {
+          background: #f8fafc;
+          border: 1px solid #e2e8f0;
+          border-radius: 16px;
+          padding: 24px;
+          text-align: left;
+        }
+        .enterprise-contact-card h4 {
+          font-size: 15px;
+          font-weight: 700;
+          color: #0f172a;
+          margin: 0;
+        }
+        .enterprise-contact-card .address {
+          font-size: 12.5px;
+          color: #64748b;
+          line-height: 1.5;
+        }
+        .contact-details {
+          display: flex;
+          flex-direction: column;
+          gap: 8px;
+          font-size: 12.5px;
+          color: #475569;
+        }
+        .contact-details span {
+          font-weight: 600;
           color: #0f172a;
         }
-        .footer-bottom-row {
-          border-color: #cbd5e1;
+        .contact-details a {
+          color: #4f46e5;
+          text-decoration: none;
+        }
+        .highlight-text {
+          font-weight: 700;
+          color: #10b981;
+        }
+
+        .newsletter-card {
+          text-align: left;
+          display: flex;
+          flex-direction: column;
+          justify-content: center;
+        }
+        .newsletter-card h4 {
+          font-size: 15px;
+          font-weight: 700;
+          color: #0f172a;
+          margin: 0;
+        }
+        .newsletter-card .subtitle {
+          font-size: 13px;
+          color: #64748b;
+          line-height: 1.5;
+          margin: 0;
+        }
+        .newsletter-form {
+          display: flex;
+          gap: 10px;
+        }
+        .newsletter-input {
+          flex: 1;
+          background: #ffffff;
+          border: 1px solid #cbd5e1;
+          border-radius: 8px;
+          padding: 10px 14px;
+          font-size: 13px;
+          color: #0f172a;
+          outline: none;
+          transition: border-color 0.15s ease;
+        }
+        .newsletter-input:focus {
+          border-color: #4f46e5;
+        }
+        .newsletter-btn {
+          background: #0f172a;
+          color: #ffffff;
+          border: none;
+          padding: 10px 20px;
+          font-size: 13px;
+          font-weight: 600;
+          border-radius: 8px;
+          cursor: pointer;
+          transition: background 0.15s ease;
+        }
+        .newsletter-btn:hover {
+          background: #1e293b;
+        }
+
+        /* ─── FOOTER BOTTOM PANEL ─── */
+        .footer-bottom-panel {
+          padding-top: 48px;
+          padding-bottom: 48px;
+        }
+        .footer-bottom-grid {
+          display: grid;
+          grid-template-columns: 1fr 1.2fr;
+          gap: 40px;
+          align-items: flex-start;
+        }
+        .footer-bottom-left {
+          display: flex;
+          flex-direction: column;
+          align-items: flex-start;
+          text-align: left;
+        }
+        .technical-status-pill {
+          display: inline-flex;
+          align-items: center;
+          gap: 8px;
+          background: rgba(16, 185, 129, 0.06);
+          border: 1px solid rgba(16, 185, 129, 0.15);
+          border-radius: 9999px;
+          padding: 6px 14px;
+          font-size: 11.5px;
+        }
+        .status-dot {
+          width: 6px;
+          height: 6px;
+          background: #10b981;
+          border-radius: 50%;
+        }
+        .status-dot.pulsing {
+          box-shadow: 0 0 8px #10b981;
+          animation: statusPulse 2s infinite;
+        }
+        .status-text {
+          font-weight: 600;
+          color: #10b981;
+        }
+        .status-link {
+          color: #4f46e5;
+          text-decoration: none;
+          font-weight: 700;
+          margin-left: 6px;
+        }
+        .social-links-row {
+          display: flex;
+          gap: 16px;
+        }
+        .social-links-row a {
+          font-size: 12.5px;
+          font-weight: 600;
+          color: #475569;
+          text-decoration: none;
+          transition: color 0.15s ease;
+        }
+        .social-links-row a:hover {
+          color: #0f172a;
+        }
+
+        .footer-legal-links {
+          display: grid;
+          grid-template-columns: repeat(3, 1fr);
+          gap: 12px;
+          text-align: left;
+        }
+        .footer-legal-links a {
+          font-size: 12px;
+          color: #64748b;
+          text-decoration: none;
+          transition: color 0.15s ease;
+        }
+        .footer-legal-links a:hover {
+          color: #0f172a;
+        }
+
+        .footer-copyright-row {
+          display: flex;
+          justify-content: space-between;
+          font-size: 11px;
+          color: #94a3b8;
+        }
+        .origin-statement {
+          font-weight: 600;
+          color: #64748b;
         }
 
         /* Responsive */
@@ -2694,6 +3209,47 @@ export default function LandingPage() {
           .security-grid {
             grid-template-columns: 1fr;
           }
+
+          /* New Footer Responsive overrides */
+          .premium-cta-grid,
+          .footer-grid-columns,
+          .footer-contact-newsletter,
+          .footer-bottom-grid {
+            grid-template-columns: 1fr !important;
+            gap: 32px;
+          }
+          .cta-right {
+            align-items: stretch;
+          }
+          .footer-brand-col {
+            margin-bottom: 20px;
+          }
+          .mobile-only-chevron {
+            display: inline-block;
+            transition: transform 0.2s ease;
+          }
+          .col-title {
+            cursor: pointer;
+            border-bottom: 1px solid #f1f5f9;
+            padding-bottom: 8px;
+            margin-bottom: 12px;
+          }
+          .col-links {
+            display: none;
+            padding-left: 8px;
+            padding-bottom: 16px;
+          }
+          .col-links.mobile-open {
+            display: flex;
+          }
+          .footer-legal-links {
+            grid-template-columns: repeat(2, 1fr);
+          }
+          .footer-copyright-row {
+            flex-direction: column;
+            gap: 12px;
+            text-align: left;
+          }
         }
         @media (max-width: 768px) {
           .features-grid-custom,
@@ -2706,6 +3262,11 @@ export default function LandingPage() {
           .hero-nav {
             padding: 16px 24px;
           }
+        }
+        @keyframes statusPulse {
+          0% { transform: scale(1); opacity: 1; }
+          50% { transform: scale(1.4); opacity: 0.4; }
+          100% { transform: scale(1); opacity: 1; }
         }
       `}</style>
     </>
