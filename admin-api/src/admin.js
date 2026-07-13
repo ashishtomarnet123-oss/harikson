@@ -615,6 +615,73 @@ async function logAdminAction(adminId, action, targetType, targetId, oldValue, n
 // UNPROTECTED ROUTES
 // ────────────────────────────────────────────────────────────
 
+// GET /api/user/billing — Syncs admin-defined plan data to user portal billing page
+// Accepts x-tenant-slug header to identify tenant. No auth required (public plan info).
+app.get('/api/user/billing', async (req, res) => {
+  const tenantSlug = req.headers['x-tenant-slug'] || 'system';
+  try {
+    // Join tenant → plan to get full plan details
+    const result = await pool.query(`
+      SELECT
+        t.id         AS tenant_id,
+        t.name       AS tenant_name,
+        t.plan       AS plan_id,
+        t.status     AS tenant_status,
+        p.name       AS plan_name,
+        p.tier,
+        p.price,
+        p.billing    AS billing_cycle,
+        p.currency,
+        p.token_limit,
+        p.tenant_limit,
+        p.agent_limit,
+        p.model_access,
+        p.features,
+        p.description
+      FROM tenants t
+      LEFT JOIN plans p ON t.plan = p.id
+      WHERE t.slug = $1
+      LIMIT 1
+    `, [tenantSlug]);
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Tenant not found' });
+    }
+
+    const row = result.rows[0];
+
+    // Format price as ₹X,XXX.XX
+    const priceNum = parseFloat(row.price) || 0;
+    const priceFormatted = priceNum === 0
+      ? '₹0'
+      : `₹${priceNum.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
+    res.status(200).json({
+      tenantId:    row.tenant_id,
+      tenantName:  row.tenant_name,
+      planId:      row.plan_id,
+      planName:    row.plan_name ? `${row.plan_name} Plan` : 'Starter Plan',
+      tier:        row.tier,
+      price:       priceFormatted,
+      priceRaw:    priceNum,
+      billingCycle: row.billing_cycle || 'monthly',
+      currency:    row.currency || 'INR',
+      tokenLimit:  row.token_limit,
+      tenantLimit: row.tenant_limit,
+      agentLimit:  row.agent_limit,
+      modelAccess: row.model_access || [],
+      features:    row.features || {},
+      description: row.description || '',
+      status:      'ACTIVE',
+      paymentMethod: null,
+      invoices:    []
+    });
+  } catch (err) {
+    console.error('User billing fetch failed:', err);
+    res.status(500).json({ error: 'Failed to load billing information' });
+  }
+});
+
 // POST /admin/login
 app.post('/admin/login', async (req, res) => {
   const { email, password } = req.body;

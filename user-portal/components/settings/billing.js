@@ -27,20 +27,30 @@ export default function BillingSettings() {
   const fetchBilling = async () => {
     try {
       const token = localStorage.getItem('hk_token');
-      if (!token) return;
-      const apiBase = localStorage.getItem('hk_api_base') || 'http://localhost:3008';
       const tenantSlug = localStorage.getItem('hk_tenant') || 'neuravolt';
-      const res = await fetch(`${apiBase}/api/user/billing`, {
+
+      // Derive admin-api base from the current host (admin-api is on port 4018 externally, 4000 internally)
+      const apiHostBase = (() => {
+        if (typeof window === 'undefined') return 'http://admin-api:4000';
+        const { hostname, port } = window.location;
+        // On the VM: user portal is on 3028, admin-api is on 4018
+        if (port === '3028' || port === '3000') return `http://${hostname}:4018`;
+        // Local dev fallback
+        return 'http://localhost:4018';
+      })();
+
+      const res = await fetch(`${apiHostBase}/api/user/billing`, {
         headers: {
-          'Authorization': `Bearer ${token}`,
-          'x-tenant-slug': tenantSlug
+          'x-tenant-slug': tenantSlug,
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {})
         }
       });
       if (res.ok) {
         const data = await res.json();
         setBilling(data);
       } else {
-        throw new Error('Failed to load billing history');
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.error || 'Failed to load billing information');
       }
     } catch (err) {
       setError(err.message);
