@@ -930,7 +930,10 @@ export default function LandingPage() {
 
         {/* ─── PROMPT 8: PERFORMANCE BENCHMARKS ─── */}
         <section className="section-benchmarks" id="benchmarks">
-          <div className="content-inner">
+          <div className="content-inner relative z-10">
+            {/* Background design accents */}
+            <div className="benchmarks-bg-glow" />
+            
             <div className="section-header text-center">
               <span className="tag-line tag-purple">SPEED &amp; EFFICIENCY</span>
               <h2 className="title-scale">Performance Benchmarks</h2>
@@ -938,102 +941,196 @@ export default function LandingPage() {
             </div>
 
             {/* Filter Toggle */}
-            <div className="benchmark-toggle flex justify-center gap-2 mb-8 flex-wrap">
-              <button className={`toggle-btn ${benchmarkFilter === 'latency' ? 'active' : ''}`} onClick={() => setBenchmarkFilter('latency')}>Latency Comparison</button>
-              <button className={`toggle-btn ${benchmarkFilter === 'cost' ? 'active' : ''}`} onClick={() => setBenchmarkFilter('cost')}>Cost Comparison</button>
-              <button className={`toggle-btn ${benchmarkFilter === 'throughput' ? 'active' : ''}`} onClick={() => setBenchmarkFilter('throughput')}>Throughput &amp; Scale</button>
+            <div className="benchmark-toggle-container">
+              <div className="benchmark-tabs">
+                <button 
+                  className={`toggle-btn ${benchmarkFilter === 'latency' ? 'active' : ''}`} 
+                  onClick={() => setBenchmarkFilter('latency')}
+                >
+                  <span className="btn-icon">⚡</span> Latency Comparison
+                </button>
+                <button 
+                  className={`toggle-btn ${benchmarkFilter === 'cost' ? 'active' : ''}`} 
+                  onClick={() => setBenchmarkFilter('cost')}
+                >
+                  <span className="btn-icon">₹</span> Cost Comparison
+                </button>
+                <button 
+                  className={`toggle-btn ${benchmarkFilter === 'throughput' ? 'active' : ''}`} 
+                  onClick={() => setBenchmarkFilter('throughput')}
+                >
+                  <span className="btn-icon">📊</span> Throughput &amp; Scale
+                </button>
+              </div>
             </div>
 
             {benchmarkFilter === 'latency' && (
-              <div className="benchmark-details animate-fade-in text-left">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-center">
-                  <div className="chart-box card-glass p-6">
-                    <span className="text-[10px] font-bold text-gray-500 uppercase block mb-4">TTFT (Time to First Token) - ms</span>
-                    <div className="bar-row">
-                      <div className="bar-label">Harikson Mumbai</div>
-                      <div className="bar-track"><div className="bar-fill bg-indigo-600" style={{ width: '15%' }} /></div>
-                      <div className="bar-val">45ms</div>
+              <div className="benchmark-details text-left">
+                <div className="benchmark-panel-grid">
+                  <div className="chart-card">
+                    <div className="chart-header">
+                      <span className="chart-title">TTFT (Time to First Token)</span>
+                      <span className="chart-subtitle">Measured in milliseconds — lower is better</span>
                     </div>
-                    <div className="bar-row">
-                      <div className="bar-label">Azure India</div>
-                      <div className="bar-track"><div className="bar-fill bg-gray-400" style={{ width: '40%' }} /></div>
-                      <div className="bar-val">120ms</div>
-                    </div>
-                    <div className="bar-row">
-                      <div className="bar-label">OpenAI US</div>
-                      <div className="bar-track"><div className="bar-fill bg-gray-400" style={{ width: '90%' }} /></div>
-                      <div className="bar-val">280ms</div>
+                    
+                    <div className="bars-list">
+                      {/* Harikson Mumbai */}
+                      <div className="bar-item highlight-row">
+                        <div className="bar-meta">
+                          <span className="bar-label font-bold text-gray-900">Harikson Mumbai</span>
+                          <span className="bar-badge">SOVEREIGN EDGE</span>
+                        </div>
+                        <div className="bar-track-wrapper">
+                          <div className="bar-track">
+                            <div className="bar-fill gradient-fill" style={{ width: '16%' }}>
+                              <div className="bar-shimmer" />
+                            </div>
+                          </div>
+                          <span className="bar-val highlight-text">45ms</span>
+                        </div>
+                      </div>
+
+                      {/* Azure India */}
+                      <div className="bar-item">
+                        <div className="bar-meta">
+                          <span className="bar-label text-gray-600">Azure India</span>
+                        </div>
+                        <div className="bar-track-wrapper">
+                          <div className="bar-track">
+                            <div className="bar-fill standard-fill" style={{ width: '43%' }} />
+                          </div>
+                          <span className="bar-val">120ms</span>
+                        </div>
+                      </div>
+
+                      {/* OpenAI US */}
+                      <div className="bar-item">
+                        <div className="bar-meta">
+                          <span className="bar-label text-gray-600">OpenAI US</span>
+                        </div>
+                        <div className="bar-track-wrapper">
+                          <div className="bar-track">
+                            <div className="bar-fill standard-fill" style={{ width: '100%' }} />
+                          </div>
+                          <span className="bar-val">280ms</span>
+                        </div>
+                      </div>
                     </div>
                   </div>
-                  <div>
-                    <h4>100% Indian Network Routing</h4>
-                    <p className="text-secondary leading-relaxed">Because your request doesn't cross oceanic sub-sea cables to US data centers, we achieve Time to First Token under 45ms. Native regional languages are fine-tuned on local corpora, reducing execution delays.</p>
+
+                  <div className="benchmark-info-pane">
+                    <span className="badge-sovereign">100% Domestic Routing</span>
+                    <h3>Zero Oceanic Latency</h3>
+                    <p className="text-secondary leading-relaxed mt-4">
+                      Because your requests do not cross oceanic sub-sea fiber lines to US or European data centers, we achieve a baseline Time to First Token (TTFT) of under <strong>45ms</strong>. All regional language inference occurs directly within Tier-IV Indian facilities.
+                    </p>
+                    
+                    <div className="metric-callouts-grid">
+                      <div className="metric-callout">
+                        <span className="metric-number">2.7x</span>
+                        <span className="metric-label">Faster than Azure India</span>
+                      </div>
+                      <div className="metric-callout">
+                        <span className="metric-number">6.2x</span>
+                        <span className="metric-label">Faster than OpenAI US</span>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
             )}
 
             {benchmarkFilter === 'cost' && (
-              <div className="benchmark-details animate-fade-in text-left">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-center">
-                  <div className="table-box card-glass overflow-hidden">
-                    <table className="w-full text-xs text-left">
-                      <thead>
-                        <tr className="bg-gray-100 border-b border-gray-200 text-[10px] text-gray-500 font-bold uppercase">
-                          <th className="p-3">Model Tier</th>
-                          <th className="p-3">Harikson (INR)</th>
-                          <th className="p-3">OpenAI (US)</th>
-                          <th className="p-3">Azure (Global)</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-gray-200">
-                        <tr>
-                          <td className="p-3 font-semibold">8B-class</td>
-                          <td className="p-3 text-indigo-600 font-bold">₹1,000 / 1M</td>
-                          <td className="p-3">₹3,200 / 1M</td>
-                          <td className="p-3">₹2,800 / 1M</td>
-                        </tr>
-                        <tr>
-                          <td className="p-3 font-semibold">70B-class</td>
-                          <td className="p-3 text-indigo-600 font-bold">₹4,500 / 1M</td>
-                          <td className="p-3">₹12,000 / 1M</td>
-                          <td className="p-3">₹10,500 / 1M</td>
-                        </tr>
-                        <tr>
-                          <td className="p-3 font-semibold">RAG Ingestion</td>
-                          <td className="p-3 text-indigo-600 font-bold">₹0.50 / query</td>
-                          <td className="p-3">₹1.80 / query</td>
-                          <td className="p-3">₹1.50 / query</td>
-                        </tr>
-                      </tbody>
-                    </table>
+              <div className="benchmark-details text-left">
+                <div className="benchmark-panel-grid">
+                  <div className="chart-card overflow-hidden no-padding">
+                    <div className="chart-header p-6 pb-4">
+                      <span className="chart-title">Pricing in Indian Rupees (INR)</span>
+                      <span className="chart-subtitle">Standardized cost comparison per 1 Million Tokens</span>
+                    </div>
+                    
+                    <div className="table-responsive">
+                      <table className="cost-comparison-table">
+                        <thead>
+                          <tr>
+                            <th>Model Tier</th>
+                            <th>Harikson (INR)</th>
+                            <th>OpenAI (US)</th>
+                            <th>Azure (Global)</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          <tr className="highlight-table-row">
+                            <td className="font-semibold">8B-class</td>
+                            <td className="highlight-cell">₹1,000 <span className="cell-per">/ 1M</span></td>
+                            <td>₹3,200 <span className="cell-per">/ 1M</span></td>
+                            <td>₹2,800 <span className="cell-per">/ 1M</span></td>
+                          </tr>
+                          <tr className="highlight-table-row">
+                            <td className="font-semibold">70B-class</td>
+                            <td className="highlight-cell">₹4,500 <span className="cell-per">/ 1M</span></td>
+                            <td>₹12,000 <span className="cell-per">/ 1M</span></td>
+                            <td>₹10,500 <span className="cell-per">/ 1M</span></td>
+                          </tr>
+                          <tr className="highlight-table-row">
+                            <td className="font-semibold">RAG Ingestion</td>
+                            <td className="highlight-cell">₹0.50 <span className="cell-per">/ query</span></td>
+                            <td>₹1.80 <span className="cell-per">/ query</span></td>
+                            <td>₹1.50 <span className="cell-per">/ query</span></td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
                   </div>
-                  <div>
-                    <h4>Save up to 60% with Zero Forex Exposure</h4>
-                    <p className="text-secondary leading-relaxed">Overseas APIs charge premium USD rates subject to currency volatility. Harikson AI is priced natively in INR, saving corporate finance teams from FX risks and massive cross-border data transit surcharges.</p>
+
+                  <div className="benchmark-info-pane">
+                    <span className="badge-sovereign">Zero Forex Volatility</span>
+                    <h3>Save Up to 60% Natively</h3>
+                    <p className="text-secondary leading-relaxed mt-4">
+                      Avoid cross-border transaction fees, foreign currency exposure, and US-centric premium markup. Harikson AI routes and bills natively in INR, allowing local enterprises to deploy scalable LLMs under predictable budgets.
+                    </p>
+                    
+                    <div className="metric-callouts-grid">
+                      <div className="metric-callout">
+                        <span className="metric-number">₹0</span>
+                        <span className="metric-label">Forex conversion fees</span>
+                      </div>
+                      <div className="metric-callout">
+                        <span className="metric-number">62%</span>
+                        <span className="metric-label">Average pricing savings</span>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
             )}
 
             {benchmarkFilter === 'throughput' && (
-              <div className="benchmark-details animate-fade-in text-left">
-                <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-                  <div className="p-4 bg-gray-50 border border-gray-200 rounded-xl">
-                    <div className="text-lg font-black text-indigo-600">50,000+</div>
-                    <div className="text-[10px] text-gray-500 uppercase mt-1">Users Per Cluster</div>
+              <div className="benchmark-details text-left">
+                <div className="throughput-metrics-grid">
+                  <div className="throughput-card">
+                    <div className="throughput-icon">⚡</div>
+                    <div className="throughput-val">2,400 T/s</div>
+                    <div className="throughput-title">Concurrent Token Throughput</div>
+                    <p className="throughput-desc">High-throughput custom inference engines built specifically for high-concurrency enterprise RAG pipelines.</p>
                   </div>
-                  <div className="p-4 bg-gray-50 border border-gray-200 rounded-xl">
-                    <div className="text-lg font-black text-indigo-600">2,400 T/s</div>
-                    <div className="text-[10px] text-gray-500 uppercase mt-1">Throughput Qwen-72B</div>
+                  <div className="throughput-card">
+                    <div className="throughput-icon">🖥️</div>
+                    <div className="throughput-val">512 H100s</div>
+                    <div className="throughput-title">Dedicated Compute Clusters</div>
+                    <p className="throughput-desc">Private GPU capacity natively managed inside Indian availability zones with hardware SLA guarantees.</p>
                   </div>
-                  <div className="p-4 bg-gray-50 border border-gray-200 rounded-xl">
-                    <div className="text-lg font-black text-indigo-600">512 H100</div>
-                    <div className="text-[10px] text-gray-500 uppercase mt-1">GPUs Per Local Region</div>
+                  <div className="throughput-card">
+                    <div className="throughput-icon">⏳</div>
+                    <div className="throughput-val">&lt; 30 Sec</div>
+                    <div className="throughput-title">Auto-Cluster Scaling</div>
+                    <p className="throughput-desc">Instant provisioning of additional virtual nodes to meet high-volume user traffic demands without drops in performance.</p>
                   </div>
-                  <div className="p-4 bg-gray-50 border border-gray-200 rounded-xl">
-                    <div className="text-lg font-black text-indigo-600">&lt;30 Sec</div>
-                    <div className="text-[10px] text-gray-500 uppercase mt-1">Cluster Scaling Time</div>
+                  <div className="throughput-card">
+                    <div className="throughput-icon">👥</div>
+                    <div className="throughput-val">50,000+</div>
+                    <div className="throughput-title">Users Per GPU Cluster</div>
+                    <p className="throughput-desc">Highly optimized memory virtualization layer allowing massive concurrent user connections per cluster.</p>
                   </div>
                 </div>
               </div>
@@ -2575,48 +2672,309 @@ export default function LandingPage() {
         .section-benchmarks {
           background-color: #FFFFFF;
           border-bottom: 1px solid #e2e8f0;
+          position: relative;
+          overflow: hidden;
         }
-        .toggle-btn {
+        .benchmarks-bg-glow {
+          position: absolute;
+          width: 500px;
+          height: 500px;
+          background: radial-gradient(circle, rgba(99, 102, 241, 0.05) 0%, rgba(255, 255, 255, 0) 70%);
+          top: 10%;
+          left: 5%;
+          pointer-events: none;
+          z-index: 1;
+        }
+        .benchmark-toggle-container {
+          display: flex;
+          justify-content: center;
+          margin-bottom: 40px;
+          position: relative;
+          z-index: 10;
+        }
+        .benchmark-tabs {
+          display: flex;
+          background: #f1f5f9;
+          padding: 6px;
+          border-radius: 9999px;
+          border: 1px solid #e2e8f0;
+          box-shadow: inset 0 2px 4px 0 rgba(0,0,0,0.02);
+        }
+        .benchmark-tabs .toggle-btn {
           background: transparent;
-          border: 1px solid #cbd5e1;
-          color: #475569;
-          font-size: 12.5px;
+          border: none;
+          color: #64748b;
+          font-size: 13px;
           font-weight: 600;
-          padding: 10px 20px;
+          padding: 8px 18px;
           border-radius: 9999px;
           cursor: pointer;
-          transition: all 0.15s ease;
+          transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+          display: flex;
+          align-items: center;
+          gap: 8px;
         }
-        .toggle-btn.active {
-          background: #4f46e5;
-          color: #fff;
-          border-color: #4f46e5;
+        .benchmark-tabs .toggle-btn:hover {
+          color: #0f172a;
         }
-        .bar-row {
+        .benchmark-tabs .toggle-btn.active {
+          background: #ffffff;
+          color: #4f46e5;
+          box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.08), 0 2px 4px -1px rgba(0, 0, 0, 0.04);
+        }
+        .benchmark-tabs .toggle-btn .btn-icon {
+          font-size: 14px;
+        }
+        .benchmark-panel-grid {
+          display: grid;
+          grid-template-columns: 1.2fr 0.8fr;
+          gap: 40px;
+          align-items: start;
+        }
+        .chart-card {
+          background: #ffffff;
+          border: 1px solid #e2e8f0;
+          border-radius: 24px;
+          padding: 32px;
+          box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.02), 0 10px 15px -3px rgba(0, 0, 0, 0.03);
+        }
+        .chart-card.no-padding {
+          padding: 0;
+        }
+        .chart-header {
+          display: flex;
+          flex-direction: column;
+          align-items: flex-start;
+          margin-bottom: 24px;
+        }
+        .chart-title {
+          font-size: 16px;
+          font-weight: 800;
+          color: #0f172a;
+        }
+        .chart-subtitle {
+          font-size: 11.5px;
+          color: #64748b;
+          margin-top: 4px;
+        }
+        .bars-list {
+          display: flex;
+          flex-direction: column;
+          gap: 20px;
+        }
+        .bar-item {
+          display: flex;
+          flex-direction: column;
+          gap: 8px;
+        }
+        .bar-meta {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+        }
+        .bar-label {
+          font-size: 13.5px;
+          font-weight: 600;
+          color: #334155;
+        }
+        .bar-badge {
+          background: rgba(79, 70, 229, 0.08);
+          border: 1px solid rgba(79, 70, 229, 0.15);
+          color: #4f46e5;
+          font-size: 8.5px;
+          font-weight: 800;
+          padding: 2px 6px;
+          border-radius: 4px;
+          letter-spacing: 0.05em;
+        }
+        .bar-track-wrapper {
           display: flex;
           align-items: center;
           gap: 16px;
-          margin-bottom: 12px;
-          font-size: 12px;
-        }
-        .bar-label {
-          width: 110px;
-          font-weight: 600;
         }
         .bar-track {
           flex: 1;
-          height: 8px;
-          background: #e2e8f0;
-          border-radius: 4px;
+          height: 14px;
+          background: #f1f5f9;
+          border-radius: 9999px;
           overflow: hidden;
+          position: relative;
         }
         .bar-fill {
           height: 100%;
+          border-radius: 9999px;
+          transition: width 1s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .bar-fill.gradient-fill {
+          background: linear-gradient(90deg, #4f46e5 0%, #6366f1 50%, #818cf8 100%);
+          position: relative;
+        }
+        .bar-fill.standard-fill {
+          background: #cbd5e1;
+        }
+        .bar-shimmer {
+          position: absolute;
+          top: 0;
+          left: 0;
+          width: 100%;
+          height: 100%;
+          background: linear-gradient(
+            90deg,
+            rgba(255, 255, 255, 0) 0%,
+            rgba(255, 255, 255, 0.15) 50%,
+            rgba(255, 255, 255, 0) 100%
+          );
+          animation: shimmer 2s infinite;
+        }
+        @keyframes shimmer {
+          0% { transform: translateX(-100%); }
+          100% { transform: translateX(100%); }
         }
         .bar-val {
-          width: 45px;
-          font-weight: bold;
+          font-size: 13.5px;
+          font-weight: 700;
+          color: #475569;
+          min-width: 50px;
           text-align: right;
+        }
+        .bar-val.highlight-text {
+          color: #4f46e5;
+        }
+        .benchmark-info-pane {
+          display: flex;
+          flex-direction: column;
+          align-items: flex-start;
+          text-align: left;
+        }
+        .badge-sovereign {
+          background: rgba(16, 185, 129, 0.08);
+          border: 1px solid rgba(16, 185, 129, 0.15);
+          color: #059669;
+          font-size: 10px;
+          font-weight: 700;
+          padding: 4px 10px;
+          border-radius: 6px;
+          text-transform: uppercase;
+          letter-spacing: 0.05em;
+          margin-bottom: 16px;
+        }
+        .benchmark-info-pane h3 {
+          font-size: 26px;
+          font-weight: 800;
+          color: #0f172a;
+          margin: 0;
+          line-height: 1.25;
+        }
+        .metric-callouts-grid {
+          display: grid;
+          grid-template-columns: repeat(2, 1fr);
+          gap: 16px;
+          margin-top: 32px;
+          width: 100%;
+        }
+        .metric-callout {
+          background: #f8fafc;
+          border: 1px solid #e2e8f0;
+          border-radius: 16px;
+          padding: 20px 16px;
+          display: flex;
+          flex-direction: column;
+          align-items: flex-start;
+        }
+        .metric-number {
+          font-size: 28px;
+          font-weight: 900;
+          color: #4f46e5;
+          line-height: 1;
+        }
+        .metric-label {
+          font-size: 10px;
+          font-weight: 700;
+          color: #64748b;
+          text-transform: uppercase;
+          margin-top: 8px;
+          letter-spacing: 0.03em;
+        }
+        .table-responsive {
+          width: 100%;
+          overflow-x: auto;
+        }
+        .cost-comparison-table {
+          width: 100%;
+          border-collapse: collapse;
+          text-align: left;
+        }
+        .cost-comparison-table th {
+          background: #f8fafc;
+          border-bottom: 1px solid #e2e8f0;
+          color: #475569;
+          font-weight: 600;
+          font-size: 11px;
+          text-transform: uppercase;
+          letter-spacing: 0.05em;
+          padding: 16px 24px;
+        }
+        .cost-comparison-table td {
+          padding: 18px 24px;
+          border-bottom: 1px solid #f1f5f9;
+          font-size: 13px;
+          color: #334155;
+        }
+        .cost-comparison-table tr:last-child td {
+          border-bottom: none;
+        }
+        .cost-comparison-table tr.highlight-table-row:hover {
+          background: #f8fafc;
+        }
+        .cost-comparison-table td.highlight-cell {
+          font-weight: 800;
+          color: #4f46e5;
+        }
+        .cost-comparison-table .cell-per {
+          font-size: 10px;
+          color: #94a3b8;
+          font-weight: 400;
+        }
+        .throughput-metrics-grid {
+          display: grid;
+          grid-template-columns: repeat(2, 1fr);
+          gap: 20px;
+        }
+        .throughput-card {
+          background: #ffffff;
+          border: 1px solid #e2e8f0;
+          border-radius: 20px;
+          padding: 32px;
+          text-align: left;
+          box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.02);
+          transition: transform 0.2s ease, border-color 0.2s ease;
+        }
+        .throughput-card:hover {
+          transform: translateY(-2px);
+          border-color: #cbd5e1;
+        }
+        .throughput-icon {
+          font-size: 24px;
+          margin-bottom: 16px;
+        }
+        .throughput-val {
+          font-size: 32px;
+          font-weight: 900;
+          color: #4f46e5;
+          line-height: 1;
+        }
+        .throughput-title {
+          font-size: 14.5px;
+          font-weight: 700;
+          color: #0f172a;
+          margin-top: 10px;
+          margin-bottom: 8px;
+        }
+        .throughput-desc {
+          font-size: 12.5px;
+          color: #64748b;
+          line-height: 1.5;
+          margin: 0;
         }
 
         /* ─── STORIES SECTION ─── */
@@ -3295,7 +3653,9 @@ export default function LandingPage() {
           .arch-flow-grid,
           .dx-split-grid,
           .faq-wrapper,
-          .story-card-content {
+          .story-card-content,
+          .benchmark-panel-grid,
+          .throughput-metrics-grid {
             grid-template-columns: 1fr;
           }
           .faq-menu {
