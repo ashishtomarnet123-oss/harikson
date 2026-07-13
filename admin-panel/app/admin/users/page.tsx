@@ -1,7 +1,8 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { getCookie } from 'cookies-next';
+import { useRouter } from 'next/navigation';
+import { getCookie, deleteCookie } from 'cookies-next';
 import { Users, Loader2, BadgeCheck, Clock, Building, Search, MessageSquare, Zap, X } from 'lucide-react';
 
 interface User {
@@ -26,6 +27,7 @@ interface User {
 }
 
 export default function UsersPage() {
+  const router = useRouter();
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -43,23 +45,41 @@ export default function UsersPage() {
 
   const fetchUsers = async () => {
     setLoading(true);
-    const token = getCookie('admin_token') || localStorage.getItem('admin_token') || 'TEST_ADMIN_TOKEN';
+    setError('');
+    const token = getCookie('admin_token') || localStorage.getItem('admin_token');
+    if (!token) {
+      // No token at all — redirect to login
+      router.replace('/admin/login');
+      return;
+    }
     try {
       const res = await fetch(`${apiBase}/admin/users`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
-      if (!res.ok) throw new Error('Failed to fetch users');
+      if (res.status === 401 || res.status === 403) {
+        // Token expired or invalid — clear and redirect to login
+        deleteCookie('admin_token');
+        localStorage.removeItem('admin_token');
+        localStorage.removeItem('admin_user');
+        router.replace('/admin/login');
+        return;
+      }
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.error || `Server error (${res.status})`);
+      }
       const data = await res.json();
       setUsers(data.users || []);
     } catch (err: any) {
-      setError(err.message);
+      setError(err.message || 'Failed to connect to admin API');
     } finally {
       setLoading(false);
     }
   };
 
   const fetchPlans = async () => {
-    const token = getCookie('admin_token') || localStorage.getItem('admin_token') || 'TEST_ADMIN_TOKEN';
+    const token = getCookie('admin_token') || localStorage.getItem('admin_token');
+    if (!token) return;
     try {
       const res = await fetch(`${apiBase}/admin/plans`, {
         headers: { 'Authorization': `Bearer ${token}` }
@@ -76,7 +96,8 @@ export default function UsersPage() {
   const handleUserPlanChange = async (planId: string) => {
     if (!selectedUser) return;
     setUpdatingPlan(true);
-    const token = getCookie('admin_token') || localStorage.getItem('admin_token') || 'TEST_ADMIN_TOKEN';
+    const token = getCookie('admin_token') || localStorage.getItem('admin_token');
+    if (!token) return;
     try {
       const res = await fetch(`${apiBase}/admin/users/${selectedUser.id}/plan`, {
         method: 'PUT',
@@ -119,7 +140,7 @@ export default function UsersPage() {
     }
     const fetchConversations = async () => {
       setLoadingConvs(true);
-      const token = getCookie('admin_token') || localStorage.getItem('admin_token') || 'TEST_ADMIN_TOKEN';
+      const token = getCookie('admin_token') || localStorage.getItem('admin_token');
       try {
         const res = await fetch(`${apiBase}/admin/users/${selectedUser.id}/conversations`, {
           headers: { 'Authorization': `Bearer ${token}` }
