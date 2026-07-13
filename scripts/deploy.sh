@@ -242,7 +242,7 @@ until [ "$(docker inspect --format='{{.State.Health.Status}}' harikson-postgres 
 done
 
 # Provision default superadmin account
-# Email: admin@harikson.ai, Password: superadmin_pwd_2026
+# Email: admin@harikson.ai, Password: 12345678
 echo "👤 Creating default system tenant and superadmin user..."
 docker exec -i harikson-postgres psql -U neuravolt -d neuravolt <<EOF
 -- Create default system tenant
@@ -252,8 +252,8 @@ ON CONFLICT (slug) DO NOTHING;
 
 -- Create default superadmin account
 INSERT INTO users (id, tenant_id, email, password_hash, role)
-VALUES ('00000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-000000000000', 'admin@harikson.ai', '\$2a\$10\$Pr0NGqzB.1NjLDY0U6kpleOT059r26ii2cQ2WRN1f64QKvl3VJ5mm', 'superadmin')
-ON CONFLICT (tenant_id, email) DO UPDATE SET password_hash = '\$2a\$10\$Pr0NGqzB.1NjLDY0U6kpleOT059r26ii2cQ2WRN1f64QKvl3VJ5mm';
+VALUES ('00000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-000000000000', 'admin@harikson.ai', '\$2b\$10\$AcOM2sIZpvpH7EcKCc4yie36q5WI0HCEX.C3/yVtBV2GZyA.8CMpu', 'superadmin')
+ON CONFLICT (tenant_id, email) DO UPDATE SET password_hash = '\$2b\$10\$AcOM2sIZpvpH7EcKCc4yie36q5WI0HCEX.C3/yVtBV2GZyA.8CMpu';
 EOF
 
 echo -e "${GREEN}✅ Database tables and defaults generated.${NC}"
