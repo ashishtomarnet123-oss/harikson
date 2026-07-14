@@ -242,7 +242,7 @@ until [ "$(docker inspect --format='{{.State.Health.Status}}' harikson-postgres 
 done
 
 # Provision default superadmin account
-# Email: admin@harikson.ai, Password: 12345678
+# Email: ashishtomar.net123@gmail.com, Password: 12345678
 echo "👤 Creating default system tenant and superadmin user..."
 docker exec -i harikson-postgres psql -U neuravolt -d neuravolt <<EOF
 -- Create default system tenant
@@ -252,7 +252,7 @@ ON CONFLICT (slug) DO NOTHING;
 
 -- Create default superadmin account
 INSERT INTO users (id, tenant_id, email, password_hash, role)
-VALUES ('00000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-000000000000', 'admin@harikson.ai', '\$2b\$10\$AcOM2sIZpvpH7EcKCc4yie36q5WI0HCEX.C3/yVtBV2GZyA.8CMpu', 'superadmin')
+VALUES ('00000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-000000000000', 'ashishtomar.net123@gmail.com', '\$2b\$10\$AcOM2sIZpvpH7EcKCc4yie36q5WI0HCEX.C3/yVtBV2GZyA.8CMpu', 'superadmin')
 ON CONFLICT (tenant_id, email) DO UPDATE SET password_hash = '\$2b\$10\$AcOM2sIZpvpH7EcKCc4yie36q5WI0HCEX.C3/yVtBV2GZyA.8CMpu';
 EOF
 
@@ -303,6 +303,6 @@ echo -e "Access Details:"
 echo -e "  - Tenant API: http://localhost:3008/health"
 echo -e "  - Admin Panel: http://localhost:3018"
 echo -e "  - User Portal: http://localhost:3028"
-echo -e "  - Default Admin Username: admin@harikson.ai"
+echo -e "  - Default Admin Username: ashishtomar.net123@gmail.com"
 echo -e "  - Default Admin Password: superadmin_pwd_2026"
 echo -e "${BLUE}======================================================================${NC}"
