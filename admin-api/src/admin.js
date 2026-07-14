@@ -635,6 +635,66 @@ async function initDb() {
           WITH CHECK (tenant_id = get_tenant_context());
     `).catch(err => console.error("Policy recreation failed on password_reset_tokens:", err));
 
+    // Create activity_logs table and policies
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS activity_logs (
+          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+          tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+          action VARCHAR(255) NOT NULL,
+          metadata JSONB DEFAULT '{}'::jsonb,
+          ip_address VARCHAR(45),
+          user_agent TEXT,
+          created_at TIMESTAMPTZ DEFAULT NOW()
+      );
+      
+      ALTER TABLE activity_logs ENABLE ROW LEVEL SECURITY;
+      ALTER TABLE activity_logs FORCE ROW LEVEL SECURITY;
+    `);
+
+    await pool.query(`
+      DROP POLICY IF EXISTS tenant_isolation_policy ON activity_logs;
+      CREATE POLICY tenant_isolation_policy ON activity_logs
+          FOR ALL
+          USING (tenant_id = get_tenant_context())
+          WITH CHECK (tenant_id = get_tenant_context());
+    `).catch(err => console.error("Policy recreation failed on activity_logs:", err));
+
+    // Create user_sessions table and policies
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS user_sessions (
+          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+          tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+          device_name VARCHAR(255),
+          ip_address VARCHAR(45),
+          user_agent TEXT,
+          created_at TIMESTAMPTZ DEFAULT NOW(),
+          expires_at TIMESTAMPTZ NOT NULL,
+          revoked_at TIMESTAMPTZ,
+          last_active_at TIMESTAMPTZ DEFAULT NOW()
+      );
+      
+      ALTER TABLE user_sessions ENABLE ROW LEVEL SECURITY;
+      ALTER TABLE user_sessions FORCE ROW LEVEL SECURITY;
+    `);
+
+    await pool.query(`
+      DROP POLICY IF EXISTS tenant_isolation_policy ON user_sessions;
+      CREATE POLICY tenant_isolation_policy ON user_sessions
+          FOR ALL
+          USING (tenant_id = get_tenant_context())
+          WITH CHECK (tenant_id = get_tenant_context());
+    `).catch(err => console.error("Policy recreation failed on user_sessions:", err));
+
+    // Create indexes for optimization
+    await pool.query(`
+      CREATE INDEX IF NOT EXISTS idx_activity_logs_user_created ON activity_logs (user_id, created_at);
+      CREATE INDEX IF NOT EXISTS idx_activity_logs_tenant_action_created ON activity_logs (tenant_id, action, created_at);
+      CREATE INDEX IF NOT EXISTS idx_user_sessions_user_expires ON user_sessions (user_id, expires_at);
+      CREATE INDEX IF NOT EXISTS idx_user_sessions_revoked ON user_sessions (revoked_at);
+    `);
+
     console.log('✅ All Phase 1-5 database tables migrated successfully.');
 
     // Integration Center tables

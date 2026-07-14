@@ -124,12 +124,158 @@ async function initUserTables() {
       );
     `);
 
+    // 5. Create activity_logs table if not exists
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS activity_logs (
+        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+        user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+        action VARCHAR(255) NOT NULL,
+        metadata JSONB DEFAULT '{}'::jsonb,
+        ip_address VARCHAR(45),
+        user_agent TEXT,
+        created_at TIMESTAMPTZ DEFAULT NOW()
+      );
+      
+      ALTER TABLE activity_logs ENABLE ROW LEVEL SECURITY;
+      ALTER TABLE activity_logs FORCE ROW LEVEL SECURITY;
+    `);
+
+    // Create policy for activity_logs
+    await pool.query(`
+      DROP POLICY IF EXISTS tenant_isolation_policy ON activity_logs;
+      CREATE POLICY tenant_isolation_policy ON activity_logs
+          FOR ALL
+          USING (tenant_id = get_tenant_context())
+          WITH CHECK (tenant_id = get_tenant_context());
+    `).catch(err => console.error("Policy recreation failed on activity_logs:", err));
+
+    // Migrate existing JSONB activity logs if users has rows and activity_logs table is empty
+    const checkLogs = await pool.query("SELECT COUNT(*)::int FROM activity_logs");
+    if (checkLogs.rows[0].count === 0) {
+      console.log("[MIGRATION] Migrating JSONB activity logs to activity_logs table...");
+      await pool.query(`
+        INSERT INTO activity_logs (user_id, tenant_id, action, metadata, ip_address, user_agent, created_at)
+        SELECT 
+          u.id, 
+          u.tenant_id, 
+          COALESCE(log->>'action', 'Action'), 
+          log, 
+          log->>'ip', 
+          log->>'device',
+          CASE 
+            WHEN log->>'id' ~ '^[0-9]+$' THEN to_timestamp((log->>'id')::bigint / 1000)
+            ELSE COALESCE(u.created_at, NOW())
+          END
+        FROM users u,
+        jsonb_array_elements(CASE WHEN jsonb_typeof(u.activity_logs) = 'array' THEN u.activity_logs ELSE '[]'::jsonb END) log
+        ON CONFLICT DO NOTHING;
+      `).catch(err => console.warn("[MIGRATION WARNING] Failed to migrate JSONB activity logs:", err.message));
+    }
+
+    // 6. Create user_sessions table if not exists
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS user_sessions (
+        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+        user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+        device_name VARCHAR(255),
+        ip_address VARCHAR(45),
+        user_agent TEXT,
+        created_at TIMESTAMPTZ DEFAULT NOW(),
+        expires_at TIMESTAMPTZ NOT NULL,
+        revoked_at TIMESTAMPTZ,
+        last_active_at TIMESTAMPTZ DEFAULT NOW()
+      );
+      
+      ALTER TABLE user_sessions ENABLE ROW LEVEL SECURITY;
+      ALTER TABLE user_sessions FORCE ROW LEVEL SECURITY;
+    `);
+
+    // Create policy for user_sessions
+    await pool.query(`
+      DROP POLICY IF EXISTS tenant_isolation_policy ON user_sessions;
+      CREATE POLICY tenant_isolation_policy ON user_sessions
+          FOR ALL
+          USING (tenant_id = get_tenant_context())
+          WITH CHECK (tenant_id = get_tenant_context());
+    `).catch(err => console.error("Policy recreation failed on user_sessions:", err));
+
+    // Migrate existing JSONB connected_devices if user_sessions table is empty
+    const checkSessions = await pool.query("SELECT COUNT(*)::int FROM user_sessions");
+    if (checkSessions.rows[0].count === 0) {
+      console.log("[MIGRATION] Migrating JSONB connected_devices to user_sessions table...");
+      await pool.query(`
+        INSERT INTO user_sessions (user_id, tenant_id, device_name, ip_address, user_agent, created_at, expires_at, last_active_at)
+        SELECT 
+          u.id, 
+          u.tenant_id, 
+          COALESCE(dev->>'name', dev->>'browser' || ' Device', 'Unknown Device'), 
+          dev->>'ip', 
+          dev->>'browser' || ' / ' || COALESCE(dev->>'os', 'Unknown OS'), 
+          CASE 
+            WHEN dev->>'lastActive' IS NOT NULL THEN (dev->>'lastActive')::timestamptz
+            ELSE COALESCE(u.created_at, NOW())
+          END,
+          COALESCE(u.created_at, NOW()) + INTERVAL '30 days',
+          CASE 
+            WHEN dev->>'lastActive' IS NOT NULL THEN (dev->>'lastActive')::timestamptz
+            ELSE COALESCE(u.created_at, NOW())
+          END
+        FROM users u,
+        jsonb_array_elements(CASE WHEN jsonb_typeof(u.connected_devices) = 'array' THEN u.connected_devices ELSE '[]'::jsonb END) dev
+        ON CONFLICT DO NOTHING;
+      `).catch(err => console.warn("[MIGRATION WARNING] Failed to migrate JSONB connected devices:", err.message));
+    }
+
+    // 7. Add Indexes for optimization
+    await pool.query(`
+      CREATE INDEX IF NOT EXISTS idx_activity_logs_user_created ON activity_logs (user_id, created_at);
+      CREATE INDEX IF NOT EXISTS idx_activity_logs_tenant_action_created ON activity_logs (tenant_id, action, created_at);
+      
+      CREATE INDEX IF NOT EXISTS idx_user_sessions_user_expires ON user_sessions (user_id, expires_at);
+      CREATE INDEX IF NOT EXISTS idx_user_sessions_revoked ON user_sessions (revoked_at);
+    `);
+
     console.log("✅ Tenant users schema extension verified successfully.");
   } catch (err) {
     console.error("❌ Failed to extend tenant users schema:", err);
   }
 }
 initUserTables().catch(console.error);
+
+// Daily Clean-up Cron Job
+function startDailyCleanupCron() {
+  const ONE_DAY = 24 * 60 * 60 * 1000;
+  
+  async function runCleanup() {
+    console.log('[CRON] Running daily database cleanup...');
+    try {
+      // 1. Delete activity logs older than 90 days
+      const delLogs = await pool.query(
+        `DELETE FROM activity_logs WHERE created_at < NOW() - INTERVAL '90 days'`
+      );
+      console.log(`[CRON] Cleaned up ${delLogs.rowCount} activity logs older than 90 days.`);
+      
+      // 2. Clean expired or revoked sessions daily (keep active ones)
+      const delSessions = await pool.query(
+        `DELETE FROM user_sessions WHERE expires_at < NOW() OR revoked_at IS NOT NULL`
+      );
+      console.log(`[CRON] Cleaned up ${delSessions.rowCount} expired/revoked user sessions.`);
+    } catch (err) {
+      console.error('[CRON ERROR] Daily database cleanup failed:', err);
+    }
+  }
+  
+  // Run once immediately on startup (with 5s delay)
+  setTimeout(() => { runCleanup().catch(console.error); }, 5000);
+  
+  // Schedule to run every 24 hours
+  setInterval(() => {
+    runCleanup().catch(console.error);
+  }, ONE_DAY);
+}
+startDailyCleanupCron();
 
 
 // Redis Client
@@ -1212,34 +1358,25 @@ app.post('/api/auth/login', async (req, res) => {
       const ua = req.headers['user-agent'] || 'Unknown Browser';
       const rawIp = (req.headers['x-forwarded-for'] || req.socket?.remoteAddress || '').split(',')[0].trim() || '127.0.0.1';
       const ip = rawIp.replace(/^::ffff:/, '');
-      const now = new Date();
-      const dateStr = now.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) +
-        ' at ' + now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
 
       await executeTenantQuery(req.tenant.id, async (client) => {
-        // Append to activity_logs (keep last 50)
-        const logsRes = await client.query(`SELECT activity_logs FROM users WHERE id = $1`, [user.id]);
-        const existingLogs = logsRes.rows[0]?.activity_logs || [];
-        const newLog = {
-          id: Date.now().toString(),
-          action: 'Logged in successfully',
-          ip,
-          device: ua.length > 80 ? ua.slice(0, 80) + '...' : ua,
-          date: dateStr,
-          level: 'info',
-          color: '#059669'
-        };
-        const updatedLogs = [newLog, ...existingLogs].slice(0, 50);
+        // Write to new activity_logs table
+        await client.query(
+          `INSERT INTO activity_logs (user_id, tenant_id, action, metadata, ip_address, user_agent)
+           VALUES ($1, $2, $3, $4, $5, $6)`,
+          [
+            user.id,
+            req.tenant.id,
+            'Logged in successfully',
+            JSON.stringify({ level: 'info', color: '#059669' }),
+            ip,
+            ua
+          ]
+        );
 
-        // Upsert device session (keep last 10, mark current)
-        const devsRes = await client.query(`SELECT connected_devices FROM users WHERE id = $1`, [user.id]);
-        const existingDevices = (devsRes.rows[0]?.connected_devices || []).map(d => ({ ...d, current: false }));
-        const deviceId = Buffer.from(ip + ua).toString('base64').slice(0, 16);
-        const alreadyExists = existingDevices.find(d => d.id === deviceId);
-        
+        // Upsert user session in new user_sessions table
         const browserMatch = ua.match(/(Chrome|Firefox|Safari|Edge|Opera|Brave)[/\s]([\d.]+)/i);
         const osMatch = ua.match(/(Windows NT|Mac OS X|Linux|Android|iOS|iPhone OS)[\s/]?([\d._]+)?/i);
-        
         let osName = 'Unknown OS';
         if (osMatch) {
           if (osMatch[1] === 'Windows NT') osName = 'Windows';
@@ -1248,33 +1385,28 @@ app.post('/api/auth/login', async (req, res) => {
         }
         const browserName = browserMatch ? browserMatch[1] : 'Unknown Browser';
         const deviceName = osMatch ? (osMatch[1] === 'Mac OS X' ? 'Mac' : osName) + ' Device' : 'Unknown Device';
-        const nowISO = now.toISOString();
 
-        let updatedDevices;
-        if (alreadyExists) {
-          updatedDevices = existingDevices.map(d =>
-            d.id === deviceId ? { ...d, ip, os: osName, browser: browserName, name: deviceName, lastActive: nowISO, current: true } : d
+        const existingSession = await client.query(
+          `SELECT id FROM user_sessions 
+           WHERE user_id = $1 AND ip_address = $2 AND user_agent = $3 AND revoked_at IS NULL AND expires_at > NOW()
+           LIMIT 1`,
+          [user.id, ip, ua]
+        );
+
+        if (existingSession.rows.length > 0) {
+          await client.query(
+            `UPDATE user_sessions SET last_active_at = NOW() WHERE id = $1`,
+            [existingSession.rows[0].id]
           );
         } else {
-          const newDevice = {
-            id: deviceId,
-            name: deviceName,
-            os: osName,
-            browser: browserName,
-            ip,
-            lastActive: nowISO,
-            current: true
-          };
-          updatedDevices = [newDevice, ...existingDevices].slice(0, 10);
+          await client.query(
+            `INSERT INTO user_sessions (user_id, tenant_id, device_name, ip_address, user_agent, expires_at)
+             VALUES ($1, $2, $3, $4, $5, NOW() + INTERVAL '30 days')`,
+            [user.id, req.tenant.id, deviceName, ip, ua]
+          );
         }
-
-        await client.query(
-          `UPDATE users SET activity_logs = $1, connected_devices = $2 WHERE id = $3`,
-          [JSON.stringify(updatedLogs), JSON.stringify(updatedDevices), user.id]
-        );
       });
     } catch (trackErr) {
-      // Non-fatal — don't block login if tracking fails
       console.warn('Failed to record login activity:', trackErr.message);
     }
     // ─────────────────────────────────────────────────────────────────────────
@@ -1535,6 +1667,23 @@ app.post('/api/auth/logout', async (req, res) => {
         "UPDATE refresh_tokens SET revoked_at = NOW() WHERE token = $1",
         [refreshToken]
       );
+    }
+
+    const ua = req.headers['user-agent'] || 'Unknown Browser';
+    const rawIp = (req.headers['x-forwarded-for'] || req.socket?.remoteAddress || '').split(',')[0].trim() || '127.0.0.1';
+    const ip = rawIp.replace(/^::ffff:/, '');
+
+    // Revoke matching active user session
+    let token = cookies.hk_access_token;
+    if (token) {
+      try {
+        const decoded = jwt.verify(token, jwtSecret);
+        await pool.query(
+          `UPDATE user_sessions SET revoked_at = NOW() 
+           WHERE user_id = $1 AND ip_address = $2 AND user_agent = $3 AND revoked_at IS NULL`,
+          [decoded.userId, ip, ua]
+        );
+      } catch {}
     }
     
     const host = req.headers.host || '';
@@ -1874,61 +2023,68 @@ app.get('/api/user/billing', authMiddleware, async (req, res) => {
   }
 });
 
-// GET /api/user/devices - Get connected active sessions (real sessions only)
+// GET /api/user/devices
 app.get('/api/user/devices', authMiddleware, async (req, res) => {
   try {
     const ua = req.headers['user-agent'] || 'Unknown Browser';
     const rawIp = (req.headers['x-forwarded-for'] || req.socket?.remoteAddress || '').split(',')[0].trim() || '127.0.0.1';
     const ip = rawIp.replace(/^::ffff:/, '');
-    const deviceId = Buffer.from(ip + ua).toString('base64').slice(0, 16);
 
-    const devices = await executeTenantQuery(req.tenant.id, async (client) => {
-      const result = await client.query(`SELECT connected_devices FROM users WHERE id = $1`, [req.user.id]);
-      let list = result.rows[0]?.connected_devices || [];
+    const browserMatch = ua.match(/(Chrome|Firefox|Safari|Edge|Opera|Brave)[/\s]([\d.]+)/i);
+    const osMatch = ua.match(/(Windows NT|Mac OS X|Linux|Android|iOS|iPhone OS)[\s/]?([\d._]+)?/i);
+    let osName = 'Unknown OS';
+    if (osMatch) {
+      if (osMatch[1] === 'Windows NT') osName = 'Windows';
+      else if (osMatch[1] === 'iPhone OS') osName = 'iOS';
+      else osName = osMatch[1].replace('_', ' ');
+    }
+    const browserName = browserMatch ? browserMatch[1] : 'Unknown Browser';
+    const deviceName = osMatch ? (osMatch[1] === 'Mac OS X' ? 'Mac' : osName) + ' Device' : 'Unknown Device';
 
-      const browserMatch = ua.match(/(Chrome|Firefox|Safari|Edge|Opera|Brave)[/\s]([\d.]+)/i);
-      const osMatch = ua.match(/(Windows NT|Mac OS X|Linux|Android|iOS|iPhone OS)[\s/]?([\d._]+)?/i);
+    const sessions = await executeTenantQuery(req.tenant.id, async (client) => {
+      // First, upsert active session for current user/IP/UA if it doesn't exist
+      const existing = await client.query(
+        `SELECT id FROM user_sessions 
+         WHERE user_id = $1 AND ip_address = $2 AND user_agent = $3 AND revoked_at IS NULL AND expires_at > NOW()
+         LIMIT 1`,
+        [req.user.id, ip, ua]
+      );
 
-      let osName = 'Unknown OS';
-      if (osMatch) {
-        if (osMatch[1] === 'Windows NT') osName = 'Windows';
-        else if (osMatch[1] === 'iPhone OS') osName = 'iOS';
-        else osName = osMatch[1].replace('_', ' ');
-      }
-      const browserName = browserMatch ? browserMatch[1] : 'Unknown Browser';
-      const deviceName = osMatch ? (osMatch[1] === 'Mac OS X' ? 'Mac' : osName) + ' Device' : 'Unknown Device';
-      const nowISO = new Date().toISOString();
-
-      const existingIdx = list.findIndex(d => d.id === deviceId);
-      if (existingIdx !== -1) {
-        list[existingIdx] = {
-          ...list[existingIdx],
-          ip,
-          os: osName,
-          browser: browserName,
-          name: deviceName,
-          lastActive: nowISO
-        };
+      if (existing.rows.length === 0) {
+        await client.query(
+          `INSERT INTO user_sessions (user_id, tenant_id, device_name, ip_address, user_agent, expires_at)
+           VALUES ($1, $2, $3, $4, $5, NOW() + INTERVAL '30 days')`,
+          [req.user.id, req.tenant.id, deviceName, ip, ua]
+        );
       } else {
-        const newDevice = {
-          id: deviceId,
-          name: deviceName,
-          os: osName,
-          browser: browserName,
-          ip,
-          lastActive: nowISO
-        };
-        list = [newDevice, ...list].slice(0, 10);
+        await client.query(
+          `UPDATE user_sessions SET last_active_at = NOW() WHERE id = $1`,
+          [existing.rows[0].id]
+        );
       }
 
-      await client.query(`UPDATE users SET connected_devices = $1 WHERE id = $2`, [JSON.stringify(list), req.user.id]);
-      return list;
+      // Fetch all active sessions
+      const result = await client.query(
+        `SELECT id, device_name, ip_address, user_agent, created_at, expires_at, last_active_at
+         FROM user_sessions
+         WHERE user_id = $1 AND revoked_at IS NULL AND expires_at > NOW()
+         ORDER BY last_active_at DESC
+         LIMIT 10`,
+        [req.user.id]
+      );
+      return result.rows;
     });
 
-    const mapped = devices.map(d => ({
-      ...d,
-      current: d.id === deviceId
-    }));
+    const mapped = sessions.map(s => {
+      const isCurrent = s.ip_address === ip && s.user_agent === ua;
+      return {
+        id: s.id,
+        name: s.device_name,
+        ip: s.ip_address,
+        lastActive: s.last_active_at ? new Date(s.last_active_at).toISOString() : new Date().toISOString(),
+        current: isCurrent
+      };
+    });
     res.json(mapped);
   } catch (err) {
     console.error('Fetch devices error:', err);
@@ -1943,24 +2099,48 @@ app.delete('/api/user/devices/:id', authMiddleware, async (req, res) => {
     const ua = req.headers['user-agent'] || 'Unknown Browser';
     const rawIp = (req.headers['x-forwarded-for'] || req.socket?.remoteAddress || '').split(',')[0].trim() || '127.0.0.1';
     const ip = rawIp.replace(/^::ffff:/, '');
-    const deviceId = Buffer.from(ip + ua).toString('base64').slice(0, 16);
 
-    if (id === deviceId) {
+    const currentSession = await executeTenantQuery(req.tenant.id, async (client) => {
+      const res = await client.query(
+        `SELECT id FROM user_sessions WHERE user_id = $1 AND ip_address = $2 AND user_agent = $3 AND revoked_at IS NULL AND expires_at > NOW() LIMIT 1`,
+        [req.user.id, ip, ua]
+      );
+      return res.rows[0];
+    });
+
+    if (currentSession && id === currentSession.id) {
       return res.status(400).json({ error: 'Cannot terminate your current active session' });
     }
 
     const updated = await executeTenantQuery(req.tenant.id, async (client) => {
-      const currentRes = await client.query(`SELECT connected_devices FROM users WHERE id = $1`, [req.user.id]);
-      const list = currentRes.rows[0]?.connected_devices || [];
-      const filtered = list.filter(d => d.id !== id);
-      await client.query(`UPDATE users SET connected_devices = $1 WHERE id = $2`, [JSON.stringify(filtered), req.user.id]);
-      return filtered;
+      // Revoke the requested session
+      await client.query(
+        `UPDATE user_sessions SET revoked_at = NOW() WHERE id = $1 AND user_id = $2`,
+        [id, req.user.id]
+      );
+
+      // Fetch remaining active sessions
+      const result = await client.query(
+        `SELECT id, device_name, ip_address, user_agent, last_active_at
+         FROM user_sessions
+         WHERE user_id = $1 AND revoked_at IS NULL AND expires_at > NOW()
+         ORDER BY last_active_at DESC
+         LIMIT 10`,
+        [req.user.id]
+      );
+      return result.rows;
     });
 
-    const mapped = updated.map(d => ({
-      ...d,
-      current: d.id === deviceId
-    }));
+    const mapped = updated.map(s => {
+      const isCurrent = s.ip_address === ip && s.user_agent === ua;
+      return {
+        id: s.id,
+        name: s.device_name,
+        ip: s.ip_address,
+        lastActive: s.last_active_at ? new Date(s.last_active_at).toISOString() : new Date().toISOString(),
+        current: isCurrent
+      };
+    });
     res.json({ success: true, devices: mapped });
   } catch (err) {
     console.error('Delete device error:', err);
@@ -1972,8 +2152,26 @@ app.delete('/api/user/devices/:id', authMiddleware, async (req, res) => {
 app.get('/api/user/activity', authMiddleware, async (req, res) => {
   try {
     const logs = await executeTenantQuery(req.tenant.id, async (client) => {
-      const result = await client.query(`SELECT activity_logs FROM users WHERE id = $1`, [req.user.id]);
-      return result.rows[0]?.activity_logs || [];
+      const result = await client.query(
+        `SELECT id, action, metadata, ip_address AS ip, user_agent AS device, created_at AS date
+         FROM activity_logs
+         WHERE user_id = $1
+         ORDER BY created_at DESC
+         LIMIT 100`,
+        [req.user.id]
+      );
+      // Format to match old UI structure:
+      return result.rows.map(row => ({
+        id: row.id,
+        action: row.action,
+        ip: row.ip,
+        device: row.device,
+        date: row.date ? new Date(row.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) +
+              ' at ' + new Date(row.date).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })
+            : '',
+        color: row.metadata?.color,
+        level: row.metadata?.level
+      }));
     });
     // Return actual logs — empty array for users with no recorded activity
     res.json(logs);
@@ -2428,26 +2626,20 @@ app.post('/api/user/security/change-password', authMiddleware, async (req, res) 
     await executeTenantQuery(req.tenant.id, async (client) => {
       await client.query(`UPDATE users SET password_hash = $1 WHERE id = $2`, [newHash, user.id]);
 
-      // Log the password change event
-      const logsRes = await client.query(`SELECT activity_logs FROM users WHERE id = $1`, [user.id]);
-      const existingLogs = logsRes.rows[0]?.activity_logs || [];
       const ip = (req.headers['x-forwarded-for'] || req.socket?.remoteAddress || '').split(',')[0].trim() || '127.0.0.1';
       const ua = req.headers['user-agent'] || 'Unknown';
-      const now = new Date();
-      const dateStr = now.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) +
-        ' at ' + now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
-      const newLog = {
-        id: Date.now().toString(),
-        action: 'Password changed successfully',
-        ip,
-        device: ua.length > 80 ? ua.slice(0, 80) + '...' : ua,
-        date: dateStr,
-        level: 'warn',
-        color: '#d97706'
-      };
+      
       await client.query(
-        `UPDATE users SET activity_logs = $1 WHERE id = $2`,
-        [JSON.stringify([newLog, ...existingLogs].slice(0, 50)), user.id]
+        `INSERT INTO activity_logs (user_id, tenant_id, action, metadata, ip_address, user_agent)
+         VALUES ($1, $2, $3, $4, $5, $6)`,
+        [
+          user.id,
+          req.tenant.id,
+          'Password changed successfully',
+          JSON.stringify({ level: 'warn', color: '#d97706' }),
+          ip,
+          ua
+        ]
       );
     });
 
