@@ -348,21 +348,7 @@ export default function LandingPage() {
             </div>
           </div>
 
-          {/* Scrolling Logos */}
-          <div className="infinite-logo-wrap">
-            <div className="logo-track">
-              <span>IIT Bombay</span>
-              <span>ISRO</span>
-              <span>NIC</span>
-              <span>State Bank</span>
-              <span>Ministry of IT</span>
-              <span>IIT Bombay</span>
-              <span>ISRO</span>
-              <span>NIC</span>
-              <span>State Bank</span>
-              <span>Ministry of IT</span>
-            </div>
-          </div>
+
         </section>
 
         {/* ─── PROMPT 2: ENTERPRISE TRUST SECTION ─── */}
@@ -399,17 +385,7 @@ export default function LandingPage() {
               </div>
             </div>
 
-            {/* Tooltip Logos */}
-            <div className="customer-logos-row">
-              <div className="logo-item" data-tooltip="Deploying private LLMs for scientific report summarization">IIT Bombay</div>
-              <div className="logo-item" data-tooltip="Hosting sovereign chat interfaces for launch checklists">ISRO</div>
-              <div className="logo-item" data-tooltip="Empowering state departments with isolated document routers">NIC</div>
-              <div className="logo-item" data-tooltip="Enforcing localized context analysis on security policies">Ministry of IT</div>
-              <div className="logo-item" data-tooltip="Hosting on-premise models for secure transaction analysis">State Bank of India</div>
-              <div className="logo-item" data-tooltip="Running row-isolated legal precedence lookups">LexAI Solutions</div>
-              <div className="logo-item" data-tooltip="Powering localized customer support dialer agents">Indian NBFC</div>
-              <div className="logo-item" data-tooltip="Structuring regional clinical record insights">Health Network</div>
-            </div>
+
 
             {/* Deployment Map */}
             <div className="deployment-map-container">
