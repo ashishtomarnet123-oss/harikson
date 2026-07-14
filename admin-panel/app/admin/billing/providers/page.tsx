@@ -1,5 +1,4 @@
 'use client';
-
 import React, { useState, useEffect } from 'react';
 import { CreditCard, Eye, EyeOff, Copy, Trash2, CheckCircle, HelpCircle } from 'lucide-react';
 import { getCookie } from 'cookies-next';
@@ -51,7 +50,7 @@ export default function BillingProvidersPage() {
     const token = getCookie('admin_token') || localStorage.getItem('admin_token') || 'TEST_ADMIN_TOKEN';
     try {
       const res = await fetch(`${apiBase}/admin/billing/providers`, {
-        headers: { 'Authorization': `Bearer ${token}` }
+        headers: { Authorization: `Bearer ${token}` }
       });
       if (res.ok) {
         const data = await res.json();
@@ -60,14 +59,22 @@ export default function BillingProvidersPage() {
     } catch (err) {
       console.warn('Failed to fetch providers, running mock config values');
       setProviders([
-        { id: '1', provider: 'razorpay', name: 'Bharat AI Razorpay', merchant_id: 'rzp_test_keyid', is_active: true, is_test_mode: true, created_at: new Date().toISOString(), api_key_masked: 'rzp_test****', api_secret_masked: 'secret****' }
+        {
+          id: '1',
+          provider: 'razorpay',
+          name: 'Bharat AI Razorpay',
+          merchant_id: 'rzp_test_keyid',
+          is_active: true,
+          is_test_mode: true,
+          created_at: new Date().toISOString(),
+          api_key_masked: 'rzp_test****',
+          api_secret_masked: 'secret****'
+        }
       ]);
     } finally {
       setLoading(false);
     }
   };
-
-  
 
   useEffect(() => {
     fetchData();
@@ -83,7 +90,7 @@ export default function BillingProvidersPage() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
+          Authorization: `Bearer ${token}`
         },
         body: JSON.stringify({
           provider: providerType,
@@ -122,7 +129,7 @@ export default function BillingProvidersPage() {
     try {
       const res = await fetch(`${apiBase}/admin/billing/providers/${id}`, {
         method: 'DELETE',
-        headers: { 'Authorization': `Bearer ${token}` }
+        headers: { Authorization: `Bearer ${token}` }
       });
       if (!res.ok) throw new Error('Deactivation request failed');
       fetchData();
@@ -139,164 +146,170 @@ export default function BillingProvidersPage() {
   };
 
   return (
-    <div className="space-y-10 p-6 max-w-7xl mx-auto">
-      {/* Title */}
-      <div>
-        <h1 className="text-2xl font-black text-slate-900 flex items-center gap-2">
-          <CreditCard className="w-7 h-7 text-indigo-500" />
-          Live Payment Providers Manager
+    <div className="space-y-6 max-w-7xl mx-auto p-4 sm:p-6">
+      {/* Title block */}
+      <div className="pb-5 border-b border-gray-100">
+        <h1 className="text-2xl sm:text-3xl font-extrabold text-gray-900 tracking-tight flex items-center gap-2.5">
+          <CreditCard className="w-7 h-7 text-blue-600 shrink-0" /> Live Payment Providers Manager
         </h1>
-        <p className="text-xs text-slate-500 mt-1">Configure credentials for Razorpay (INR subscriptions) and Stripe (USD Global payments).</p>
+        <p className="text-gray-500 mt-1.5 text-sm sm:text-base">
+          Configure credentials for Razorpay (INR subscriptions) and Stripe (USD Global payments).
+        </p>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Form Column */}
-        <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm flex flex-col justify-between">
+        <div className="bg-white border border-gray-100 rounded-2xl p-6 shadow-sm flex flex-col justify-between">
           <div>
-            <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wider mb-2">Connect Account</h3>
-            <p className="text-[10px] text-slate-500 mb-6 font-medium">Validates credentials with a live sandbox ping before storing.</p>
+            <h3 className="text-base font-bold text-gray-900 uppercase tracking-wider mb-1">Connect Account</h3>
+            <p className="text-xs text-gray-500 mb-6">Validates credentials with a live sandbox ping before storing.</p>
 
             <form onSubmit={handleSaveProvider} className="space-y-4">
               {/* Type Radio */}
               <div>
-                <span className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2">Merchant Provider</span>
+                <span className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Merchant Provider</span>
                 <div className="flex gap-4">
-                  <label className="flex items-center gap-2 text-xs font-semibold text-slate-700 cursor-pointer">
-                    <input 
-                      type="radio" 
-                      name="provider" 
-                      value="razorpay" 
-                      checked={providerType === 'razorpay'} 
+                  <label className="flex items-center gap-2 text-xs font-semibold text-gray-700 cursor-pointer select-none">
+                    <input
+                      type="radio"
+                      name="provider"
+                      value="razorpay"
+                      checked={providerType === 'razorpay'}
                       onChange={() => setProviderType('razorpay')}
+                      className="w-4 h-4 text-blue-600 border-gray-300 focus:ring-blue-500"
                     />
-                    Razorpay (India)
+                    <span>Razorpay (India)</span>
                   </label>
-                  <label className="flex items-center gap-2 text-xs font-semibold text-slate-700 cursor-pointer">
-                    <input 
-                      type="radio" 
-                      name="provider" 
-                      value="stripe" 
-                      checked={providerType === 'stripe'} 
+                  <label className="flex items-center gap-2 text-xs font-semibold text-gray-700 cursor-pointer select-none">
+                    <input
+                      type="radio"
+                      name="provider"
+                      value="stripe"
+                      checked={providerType === 'stripe'}
                       onChange={() => setProviderType('stripe')}
+                      className="w-4 h-4 text-blue-600 border-gray-300 focus:ring-blue-500"
                     />
-                    Stripe (Global)
+                    <span>Stripe (Global)</span>
                   </label>
                 </div>
               </div>
 
               {/* Name */}
               <div>
-                <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">Account Label</label>
-                <input 
-                  type="text" 
+                <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">Account Label</label>
+                <input
+                  type="text"
                   required
                   placeholder="e.g. Bharat AI Sandbox"
-                  className="w-full bg-slate-50 border border-slate-200 text-xs rounded-xl p-2.5 text-slate-800"
+                  className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm text-gray-700 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 bg-white"
                   value={name}
-                  onChange={(e) => setName(e.target.value)}
+                  onChange={e => setName(e.target.value)}
                 />
               </div>
 
               {/* Merchant ID */}
               <div>
-                <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">
+                <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">
                   {providerType === 'razorpay' ? 'Razorpay Key ID' : 'Stripe Account ID / Account Name'}
                 </label>
-                <input 
-                  type="text" 
+                <input
+                  type="text"
                   required
                   placeholder={providerType === 'razorpay' ? 'rzp_test_xxxx' : 'acct_xxxx'}
-                  className="w-full bg-slate-50 border border-slate-200 text-xs rounded-xl p-2.5 text-slate-800"
+                  className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm text-gray-700 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 bg-white"
                   value={merchantId}
-                  onChange={(e) => setMerchantId(e.target.value)}
+                  onChange={e => setMerchantId(e.target.value)}
                 />
               </div>
 
               {/* API Key */}
               <div>
-                <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">
-                  {providerType === 'razorpay' ? 'Razorpay Key ID (Same as Key ID)' : 'Stripe publishable Key'}
+                <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">
+                  {providerType === 'razorpay' ? 'Razorpay Key ID (Same as Key ID)' : 'Stripe Publishable Key'}
                 </label>
                 <div className="relative">
-                  <input 
-                    type={showApiKey ? 'text' : 'password'} 
+                  <input
+                    type={showApiKey ? 'text' : 'password'}
                     required
                     placeholder="pk_test_xxxx"
-                    className="w-full bg-slate-50 border border-slate-200 text-xs rounded-xl p-2.5 pr-10 text-slate-800"
+                    className="w-full border border-gray-200 rounded-xl px-3 py-2 pr-10 text-sm text-gray-700 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 bg-white"
                     value={apiKey}
-                    onChange={(e) => setApiKey(e.target.value)}
+                    onChange={e => setApiKey(e.target.value)}
                   />
-                  <button 
-                    type="button" 
+                  <button
+                    type="button"
                     onClick={() => setShowApiKey(!showApiKey)}
-                    className="absolute right-3 top-3 text-slate-400 hover:text-slate-600"
+                    style={{ color: '#475569' }}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
                   >
-                    {showApiKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    {showApiKey ? <EyeOff className="w-4 h-4 text-slate-600" /> : <Eye className="w-4 h-4 text-slate-600" />}
                   </button>
                 </div>
               </div>
 
               {/* API Secret */}
               <div>
-                <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">
+                <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">
                   {providerType === 'razorpay' ? 'Key Secret' : 'Stripe Secret Key (sk_test)'}
                 </label>
                 <div className="relative">
-                  <input 
-                    type={showApiSecret ? 'text' : 'password'} 
+                  <input
+                    type={showApiSecret ? 'text' : 'password'}
                     required
                     placeholder={providerType === 'razorpay' ? 'secret_xxxx' : 'sk_test_xxxx'}
-                    className="w-full bg-slate-50 border border-slate-200 text-xs rounded-xl p-2.5 pr-10 text-slate-800"
+                    className="w-full border border-gray-200 rounded-xl px-3 py-2 pr-10 text-sm text-gray-700 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 bg-white"
                     value={apiSecret}
-                    onChange={(e) => setApiSecret(e.target.value)}
+                    onChange={e => setApiSecret(e.target.value)}
                   />
-                  <button 
-                    type="button" 
+                  <button
+                    type="button"
                     onClick={() => setShowApiSecret(!showApiSecret)}
-                    className="absolute right-3 top-3 text-slate-400 hover:text-slate-600"
+                    style={{ color: '#475569' }}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
                   >
-                    {showApiSecret ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    {showApiSecret ? <EyeOff className="w-4 h-4 text-slate-600" /> : <Eye className="w-4 h-4 text-slate-600" />}
                   </button>
                 </div>
               </div>
 
               {/* Webhook Secret */}
               <div>
-                <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">Webhook Signing Secret</label>
+                <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">Webhook Signing Secret</label>
                 <div className="relative">
-                  <input 
-                    type={showWebhookSecret ? 'text' : 'password'} 
+                  <input
+                    type={showWebhookSecret ? 'text' : 'password'}
                     required
                     placeholder="whsec_xxxx"
-                    className="w-full bg-slate-50 border border-slate-200 text-xs rounded-xl p-2.5 pr-10 text-slate-800"
+                    className="w-full border border-gray-200 rounded-xl px-3 py-2 pr-10 text-sm text-gray-700 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 bg-white"
                     value={webhookSecret}
-                    onChange={(e) => setWebhookSecret(e.target.value)}
+                    onChange={e => setWebhookSecret(e.target.value)}
                   />
-                  <button 
-                    type="button" 
+                  <button
+                    type="button"
                     onClick={() => setShowWebhookSecret(!showWebhookSecret)}
-                    className="absolute right-3 top-3 text-slate-400 hover:text-slate-600"
+                    style={{ color: '#475569' }}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
                   >
-                    {showWebhookSecret ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    {showWebhookSecret ? <EyeOff className="w-4 h-4 text-slate-600" /> : <Eye className="w-4 h-4 text-slate-600" />}
                   </button>
                 </div>
               </div>
 
               {/* Mode Toggle */}
-              <div className="flex items-center justify-between py-1 bg-slate-50 p-3 rounded-xl border border-slate-100">
-                <span className="text-xs font-semibold text-slate-700">Sandbox Test Mode</span>
-                <input 
-                  type="checkbox" 
-                  checked={isTestMode} 
-                  onChange={(e) => setIsTestMode(e.target.checked)}
-                  className="w-4 h-4 text-indigo-600 cursor-pointer"
+              <label className="flex items-center justify-between p-3 bg-gray-50/50 rounded-xl border border-gray-100 cursor-pointer select-none">
+                <span className="text-xs font-semibold text-gray-700">Sandbox Test Mode</span>
+                <input
+                  type="checkbox"
+                  checked={isTestMode}
+                  onChange={e => setIsTestMode(e.target.checked)}
+                  className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
                 />
-              </div>
+              </label>
 
               <button
                 type="submit"
                 disabled={submitting}
-                className="w-full py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-xl shadow transition-all mt-4 disabled:opacity-50"
+                className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl shadow-sm transition-all mt-4 disabled:opacity-50"
               >
                 {submitting ? 'Verifying Credentials...' : 'Validate & Save Merchant'}
               </button>
@@ -305,56 +318,63 @@ export default function BillingProvidersPage() {
         </div>
 
         {/* Configurations list & Webhooks Config instructions */}
-        <div className="lg:col-span-2 space-y-8">
+        <div className="lg:col-span-2 space-y-6">
           {/* Active List */}
-          <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
-            <div className="p-5 border-b border-slate-200">
-              <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wider">Configured Merchants</h3>
-              <p className="text-[10px] text-slate-500 mt-0.5 font-medium">Currently active transaction handlers.</p>
+          <div className="bg-white border border-gray-100 rounded-2xl overflow-hidden shadow-sm">
+            <div className="p-5 border-b border-gray-100 bg-gray-50/50">
+              <h3 className="text-base font-bold text-gray-900 uppercase tracking-wider">Configured Merchants</h3>
+              <p className="text-xs text-gray-500 mt-0.5">Currently active transaction handlers.</p>
             </div>
 
             <div className="overflow-x-auto">
               <table className="w-full text-left border-collapse text-xs">
                 <thead>
-                  <tr className="bg-slate-50/50 border-b border-slate-200 text-[10px] font-bold text-slate-500 uppercase tracking-wider">
-                    <th className="py-3 px-4">Label</th>
-                    <th className="py-3 px-4">Provider</th>
-                    <th className="py-3 px-4">Merchant ID</th>
-                    <th className="py-3 px-4">Environment</th>
-                    <th className="py-3 px-4 text-right">Actions</th>
+                  <tr className="bg-gray-50/25 border-b border-gray-100 text-xs font-bold text-gray-500 uppercase tracking-wider">
+                    <th className="py-3.5 px-5">Label</th>
+                    <th className="py-3.5 px-5">Provider</th>
+                    <th className="py-3.5 px-5">Merchant ID</th>
+                    <th className="py-3.5 px-5">Environment</th>
+                    <th className="py-3.5 px-5 text-right">Actions</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100 text-slate-700">
+                <tbody className="divide-y divide-gray-100 text-gray-700">
                   {providers.length === 0 ? (
                     <tr>
-                      <td colSpan={5} className="py-8 text-center text-slate-400 italic">No configured providers active.</td>
+                      <td colSpan={5} className="py-12 text-center text-gray-400 font-medium">
+                        No configured providers active.
+                      </td>
                     </tr>
                   ) : (
-                    providers.map((p) => (
-                      <tr key={p.id} className="hover:bg-slate-50/40">
-                        <td className="py-3 px-4 font-bold text-slate-900">{p.name}</td>
-                        <td className="py-3 px-4">
-                          <span className={`px-2 py-0.5 text-[9px] font-bold rounded uppercase ${
-                            p.provider === 'stripe' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'
+                    providers.map(p => (
+                      <tr key={p.id} className="hover:bg-slate-50/50 transition-colors">
+                        <td className="py-4 px-5 font-bold text-gray-900">{p.name}</td>
+                        <td className="py-4 px-5">
+                          <span className={`px-2.5 py-0.5 text-[10px] font-bold rounded-lg border uppercase ${
+                            p.provider === 'stripe'
+                              ? 'bg-purple-50 text-purple-700 border-purple-100'
+                              : 'bg-blue-50 text-blue-700 border-blue-100'
                           }`}>
                             {p.provider}
                           </span>
                         </td>
-                        <td className="py-3 px-4 font-mono">{p.merchant_id}</td>
-                        <td className="py-3 px-4 font-semibold">
-                          <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold uppercase ${
-                            p.is_test_mode ? 'bg-slate-100 text-slate-500' : 'bg-emerald-100 text-emerald-700'
+                        <td className="py-4 px-5 font-mono text-gray-600">{p.merchant_id}</td>
+                        <td className="py-4 px-5">
+                          <span className={`px-2 py-0.5 rounded-lg text-[10px] font-bold border uppercase ${
+                            p.is_test_mode
+                              ? 'bg-gray-50 text-gray-600 border-gray-100'
+                              : 'bg-emerald-50 text-emerald-700 border-emerald-100'
                           }`}>
                             {p.is_test_mode ? 'Test Mode' : 'Live Mode'}
                           </span>
                         </td>
-                        <td className="py-3 px-4 text-right">
+                        <td className="py-4 px-5 text-right">
                           <button
                             onClick={() => handleDeleteProvider(p.id)}
-                            className="p-1 hover:bg-red-50 text-red-500 rounded border border-transparent hover:border-red-100"
+                            style={{ color: '#E11D48' }}
+                            className="p-1.5 bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-100 rounded-lg shadow-xs transition-all"
                             title="Disconnect Merchant"
                           >
-                            <Trash2 className="w-4 h-4" />
+                            <Trash2 className="w-4 h-4" style={{ color: '#E11D48' }} />
                           </button>
                         </td>
                       </tr>
@@ -366,48 +386,48 @@ export default function BillingProvidersPage() {
           </div>
 
           {/* Webhooks config panel */}
-          <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm space-y-6">
+          <div className="bg-white border border-gray-100 rounded-2xl p-6 shadow-sm space-y-6">
             <div>
-              <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wider">Gateway Webhook Integration</h3>
-              <p className="text-[10px] text-slate-500 mt-0.5 font-medium">Copy these callback urls to your payment provider dashboard keys settings.</p>
+              <h3 className="text-base font-bold text-gray-900 uppercase tracking-wider">Gateway Webhook Integration</h3>
+              <p className="text-xs text-gray-500 mt-0.5">Copy these callback urls to your payment provider dashboard keys settings.</p>
             </div>
 
             {/* Razorpay Box */}
-            <div className="p-4 bg-slate-50 border border-slate-200/60 rounded-xl space-y-3">
-              <div className="flex justify-between items-center">
+            <div className="p-4 bg-gray-50/50 border border-gray-100 rounded-xl space-y-3">
+              <div className="flex justify-between items-center gap-4">
                 <span className="text-xs font-bold text-blue-600 uppercase tracking-wider">Razorpay webhook endpoint</span>
                 <button
                   onClick={() => copyWebhookToClipboard('razorpay')}
-                  className="px-2 py-1 bg-white border border-slate-200 rounded text-[10px] font-bold text-slate-600 hover:text-slate-900 flex items-center gap-1 shadow-sm"
+                  className="px-3 py-1.5 bg-slate-800 hover:bg-slate-900 text-white text-xs font-semibold rounded-xl flex items-center gap-1 shadow-sm transition-all"
                 >
-                  <Copy className="w-3.5 h-3.5" />
-                  {copiedUrl === 'razorpay' ? 'Copied ✓' : 'Copy URL'}
+                  <Copy className="w-3.5 h-3.5 text-white" />
+                  <span>{copiedUrl === 'razorpay' ? 'Copied ✓' : 'Copy URL'}</span>
                 </button>
               </div>
-              <div className="bg-slate-100/60 border border-slate-200 p-2.5 rounded font-mono text-[11px] text-slate-600 break-all select-all">
+              <div className="bg-white border border-gray-200 p-2.5 rounded-xl font-mono text-xs text-gray-600 break-all select-all shadow-inner">
                 {getWebhookUrl('razorpay')}
               </div>
-              <p className="text-[10px] text-slate-500 leading-relaxed">
+              <p className="text-[10px] text-gray-500 leading-relaxed">
                 <strong>Dashboard configuration</strong>: Add webhooks in settings. Subscribe to <code>subscription.activated</code>, <code>subscription.charged</code>, <code>subscription.cancelled</code>, <code>invoice.paid</code>, <code>payment.failed</code> events.
               </p>
             </div>
 
             {/* Stripe Box */}
-            <div className="p-4 bg-slate-50 border border-slate-200/60 rounded-xl space-y-3">
-              <div className="flex justify-between items-center">
+            <div className="p-4 bg-gray-50/50 border border-gray-100 rounded-xl space-y-3">
+              <div className="flex justify-between items-center gap-4">
                 <span className="text-xs font-bold text-purple-600 uppercase tracking-wider">Stripe webhook endpoint</span>
                 <button
                   onClick={() => copyWebhookToClipboard('stripe')}
-                  className="px-2 py-1 bg-white border border-slate-200 rounded text-[10px] font-bold text-slate-600 hover:text-slate-900 flex items-center gap-1 shadow-sm"
+                  className="px-3 py-1.5 bg-slate-800 hover:bg-slate-900 text-white text-xs font-semibold rounded-xl flex items-center gap-1 shadow-sm transition-all"
                 >
-                  <Copy className="w-3.5 h-3.5" />
-                  {copiedUrl === 'stripe' ? 'Copied ✓' : 'Copy URL'}
+                  <Copy className="w-3.5 h-3.5 text-white" />
+                  <span>{copiedUrl === 'stripe' ? 'Copied ✓' : 'Copy URL'}</span>
                 </button>
               </div>
-              <div className="bg-slate-100/60 border border-slate-200 p-2.5 rounded font-mono text-[11px] text-slate-600 break-all select-all">
+              <div className="bg-white border border-gray-200 p-2.5 rounded-xl font-mono text-xs text-gray-600 break-all select-all shadow-inner">
                 {getWebhookUrl('stripe')}
               </div>
-              <p className="text-[10px] text-slate-500 leading-relaxed">
+              <p className="text-[10px] text-gray-500 leading-relaxed">
                 <strong>Dashboard configuration</strong>: Create webhook endpoints. Listen for <code>customer.subscription.created</code>, <code>customer.subscription.updated</code>, <code>invoice.paid</code>, <code>invoice.payment_failed</code>.
               </p>
             </div>
