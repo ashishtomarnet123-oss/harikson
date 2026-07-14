@@ -221,6 +221,74 @@ function parseCookies(cookieHeader) {
   return cookies;
 }
 
+// Validate password criteria, including minimum length and character variation
+function validatePassword(password, email, name) {
+  const errors = [];
+  
+  if (password.length < 12) {
+    errors.push('Password must be at least 12 characters long.');
+  }
+  if (!/[A-Z]/.test(password)) {
+    errors.push('Password must contain at least one uppercase letter.');
+  }
+  if (!/[a-z]/.test(password)) {
+    errors.push('Password must contain at least one lowercase letter.');
+  }
+  if (!/[0-9]/.test(password)) {
+    errors.push('Password must contain at least one number.');
+  }
+  if (!/[!@#$%^&*(),.?":{}|<>]/.test(password)) {
+    errors.push('Password must contain at least one special character.');
+  }
+  
+  const lowerPwd = password.toLowerCase();
+  
+  if (email) {
+    const lowerEmail = email.toLowerCase();
+    const emailPrefix = lowerEmail.split('@')[0];
+    if (lowerPwd === lowerEmail || lowerPwd.includes(lowerEmail)) {
+      errors.push('Password must not contain or match your email address.');
+    }
+    if (emailPrefix.length >= 3 && (lowerPwd === emailPrefix || lowerPwd.includes(emailPrefix))) {
+      errors.push('Password must not contain or match your email username.');
+    }
+  }
+  
+  if (name) {
+    const lowerName = name.toLowerCase();
+    if (lowerName.length >= 3 && (lowerPwd === lowerName || lowerPwd.includes(lowerName))) {
+      errors.push('Password must not contain or match your name.');
+    }
+  }
+  
+  return errors;
+}
+
+// Check against HaveIBeenPwned API range protocol
+async function isPasswordPwned(password) {
+  try {
+    const sha1 = crypto.createHash('sha1').update(password).digest('hex').toUpperCase();
+    const prefix = sha1.slice(0, 5);
+    const suffix = sha1.slice(5);
+    
+    const response = await axios.get(`https://api.pwnedpasswords.com/range/${prefix}`, {
+      timeout: 3000
+    });
+    
+    const lines = response.data.split('\n');
+    for (const line of lines) {
+      const [hashSuffix, count] = line.split(':');
+      if (hashSuffix.trim() === suffix) {
+        return parseInt(count, 10) > 0;
+      }
+    }
+    return false;
+  } catch (err) {
+    console.warn('HaveIBeenPwned check failed, falling open:', err.message);
+    return false;
+  }
+}
+
 // Auth Middleware
 const authMiddleware = async (req, res, next) => {
   try {
@@ -1166,10 +1234,27 @@ app.post('/api/auth/register', async (req, res) => {
   if (!email || !password) {
     return res.status(400).json({ error: 'Email and password are required' });
   }
-  if (password.length < 8) {
-    return res.status(400).json({ error: 'Password must be at least 8 characters' });
-  }
   try {
+    // Rate limit check
+    const ip = (req.headers['x-forwarded-for'] || req.socket.remoteAddress || '').split(',')[0].trim() || '127.0.0.1';
+    const key = `ratelimit:password:${ip}`;
+    const attempts = await redis.incr(key);
+    if (attempts === 1) {
+      await redis.expire(key, 3600); // 1 hour TTL
+    }
+    if (attempts > 5) {
+      return res.status(429).json({ error: 'Too many password attempts. Rate limit exceeded. Try again in an hour.' });
+    }
+
+    const valErrors = validatePassword(password, email, name);
+    if (valErrors.length > 0) {
+      return res.status(400).json({ error: 'Password validation failed', details: valErrors });
+    }
+
+    const compromised = await isPasswordPwned(password);
+    if (compromised) {
+      return res.status(400).json({ error: 'Password validation failed', details: ['This password has been compromised in data breaches. Please choose a different one.'] });
+    }
     // Check if email already exists in this tenant
     const existing = await pool.query(
       'SELECT id FROM users WHERE email = $1 AND tenant_id = $2',
@@ -2087,11 +2172,27 @@ app.post('/api/user/security/change-password', authMiddleware, async (req, res) 
   if (!currentPassword || !newPassword) {
     return res.status(400).json({ error: 'Both current and new password are required' });
   }
-  if (newPassword.length < 8) {
-    return res.status(400).json({ error: 'New password must be at least 8 characters' });
-  }
   try {
+    const ip = (req.headers['x-forwarded-for'] || req.socket.remoteAddress || '').split(',')[0].trim() || '127.0.0.1';
+    const key = `ratelimit:password:${ip}`;
+    const attempts = await redis.incr(key);
+    if (attempts === 1) {
+      await redis.expire(key, 3600); // 1 hour TTL
+    }
+    if (attempts > 5) {
+      return res.status(429).json({ error: 'Too many password attempts. Rate limit exceeded. Try again in an hour.' });
+    }
+
     const user = req.user;
+    const valErrors = validatePassword(newPassword, user.email, user.name);
+    if (valErrors.length > 0) {
+      return res.status(400).json({ error: 'Password validation failed', details: valErrors });
+    }
+
+    const compromised = await isPasswordPwned(newPassword);
+    if (compromised) {
+      return res.status(400).json({ error: 'Password validation failed', details: ['This password has been compromised in data breaches. Please choose a different one.'] });
+    }
 
     // Verify current password
     if (!user.password_hash || !user.password_hash.startsWith('$')) {
