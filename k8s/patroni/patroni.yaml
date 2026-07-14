@@ -1,0 +1,51 @@
+scope: harikson-postgres-cluster
+namespace: /service
+name: pg-node-1
+
+etcd3:
+  hosts:
+    - etcd-1.internal.neuravolt.cloud:2379
+    - etcd-2.internal.neuravolt.cloud:2379
+    - etcd-3.internal.neuravolt.cloud:2379
+
+bootstrap:
+  dcs:
+    ttl: 30
+    loop_wait: 10
+    retry_timeout: 10
+    maximum_lag_on_failover: 1048576
+    postgresql:
+      use_pg_rewind: true
+      use_slots: true
+      parameters:
+        shared_buffers: 256MB
+        max_connections: 100
+        archive_mode: "on"
+        archive_command: "pgbackrest --stanza=harikson archive-push %p"
+        wal_level: replica
+        max_wal_senders: 10
+        max_replication_slots: 10
+        hot_standby: "on"
+
+  init:
+    pg_hba:
+      - host replication replicator 10.0.0.0/8 md5
+      - host all all 0.0.0.0/0 md5
+    
+  pg_create_replica_methods:
+    - pgbackrest
+    - basebackup
+
+postgresql:
+  listen: 0.0.0.0:5432
+  connect_address: pg-node-1.internal.neuravolt.cloud:5432
+  data_dir: /var/lib/postgresql/data
+  bin_dir: /usr/lib/postgresql/15/bin
+  pgpass: /var/lib/postgresql/.pgpass
+  authentication:
+    replication:
+      username: replicator
+      password: replicator_password_2026
+    superuser:
+      username: postgres
+      password: superuser_password_2026

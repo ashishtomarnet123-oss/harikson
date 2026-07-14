@@ -31,6 +31,10 @@ const pool = new Pool({
   connectionString: process.env.DATABASE_URL
 });
 
+const readPool = new Pool({
+  connectionString: process.env.DATABASE_READ_URL || process.env.DATABASE_URL
+});
+
 // Extend users table to store profile, settings, keys, billing, devices and logs per user
 async function initUserTables() {
   try {
@@ -421,11 +425,12 @@ pool.on('error', (err) => {
 });
 
 // Helper: Acquire a verified clean connection from the pool
-async function connectWithValidation() {
+async function connectWithValidation(useReplica = false) {
   let client;
   let retries = 3;
+  const targetPool = useReplica ? readPool : pool;
   while (retries > 0) {
-    client = await pool.connect();
+    client = await targetPool.connect();
     try {
       const valRes = await client.query("SELECT current_setting('app.current_tenant', true) AS tenant");
       const currentTenant = valRes.rows[0]?.tenant;
@@ -448,8 +453,8 @@ async function connectWithValidation() {
 }
 
 // Helper: Secure RLS query executor to prevent connection resource exhaustion and session state pollution
-async function executeTenantQuery(tenantId, callback) {
-  const client = await connectWithValidation();
+async function executeTenantQuery(tenantId, callback, useReplica = false) {
+  const client = await connectWithValidation(useReplica);
   let contextSet = false;
   try {
     // Set RLS context on the connection
@@ -2126,7 +2131,7 @@ app.get('/api/conversations', authMiddleware, async (req, res) => {
         [req.user.id]
       );
       return result.rows;
-    });
+    }, true);
     res.json({ conversations });
   } catch (err) {
     console.error('List conversations error:', err);
@@ -2178,7 +2183,7 @@ app.get('/api/conversations/:id/messages', authMiddleware, async (req, res) => {
         [req.params.id]
       );
       return result.rows;
-    });
+    }, true);
     res.json({ messages });
   } catch (err) {
     console.error('Get messages error:', err);
@@ -2798,7 +2803,7 @@ async function listApiKeys(req, res) {
         expires_at: r.expires_at,
         revoked_at: r.revoked_at
       }));
-    });
+    }, true);
     res.json(keys);
   } catch (err) {
     console.error('List API keys error:', err);

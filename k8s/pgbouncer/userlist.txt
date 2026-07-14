@@ -1,0 +1,2 @@
+"neuravolt" "md5_hashed_password_placeholder_here"
+"monitoring" "md5_hashed_password_placeholder_here"

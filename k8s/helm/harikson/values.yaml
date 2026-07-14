@@ -1,0 +1,130 @@
+global:
+  postgresql:
+    auth:
+      database: neuravolt
+      username: neuravolt
+      password: "secure_postgres_password_2026"
+  redis:
+    auth:
+      password: "secure_redis_password_2026"
+
+postgresql-ha:
+  enabled: true
+  pgpool:
+    enabled: true
+    replicaCount: 2
+  postgresql:
+    replicaCount: 3
+
+redis:
+  enabled: true
+  architecture: replication
+  auth:
+    enabled: true
+
+# App deployment parameters
+tenantApi:
+  replicaCount: 2
+  image:
+    repository: harikson-tenant-api
+    tag: latest
+    pullPolicy: IfNotPresent
+  resources:
+    limits:
+      cpu: 1000m
+      memory: 1024Mi
+    requests:
+      cpu: 200m
+      memory: 256Mi
+  hpa:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 10
+    targetCPUUtilizationPercentage: 80
+  service:
+    port: 3000
+
+adminApi:
+  replicaCount: 1
+  image:
+    repository: harikson-admin-api
+    tag: latest
+    pullPolicy: IfNotPresent
+  resources:
+    limits:
+      cpu: 500m
+      memory: 512Mi
+    requests:
+      cpu: 100m
+      memory: 128Mi
+  service:
+    port: 4000
+
+userPortal:
+  replicaCount: 2
+  image:
+    repository: harikson-user-portal
+    tag: latest
+    pullPolicy: IfNotPresent
+  resources:
+    limits:
+      cpu: 1000m
+      memory: 1024Mi
+    requests:
+      cpu: 200m
+      memory: 256Mi
+  service:
+    port: 3000
+
+adminPanel:
+  replicaCount: 1
+  image:
+    repository: harikson-admin-panel
+    tag: latest
+    pullPolicy: IfNotPresent
+  resources:
+    limits:
+      cpu: 500m
+      memory: 512Mi
+    requests:
+      cpu: 100m
+      memory: 128Mi
+  service:
+    port: 3000
+
+# SSL Termination / Load Balancer
+ingress:
+  enabled: true
+  className: nginx
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/proxy-body-size: "50m"
+  hosts:
+    - host: admin.neuravolt.cloud
+      paths:
+        - path: /
+          pathType: Prefix
+          backend: adminPanel
+    - host: api.neuravolt.cloud
+      paths:
+        - path: /
+          pathType: Prefix
+          backend: tenantApi
+    - host: admin-api.neuravolt.cloud
+      paths:
+        - path: /
+          pathType: Prefix
+          backend: adminApi
+    - host: "*.neuravolt.cloud"
+      paths:
+        - path: /
+          pathType: Prefix
+          backend: userPortal
+  tls:
+    - secretName: neuravolt-cloud-tls
+      hosts:
+        - admin.neuravolt.cloud
+        - api.neuravolt.cloud
+        - admin-api.neuravolt.cloud
+        - "*.neuravolt.cloud"
