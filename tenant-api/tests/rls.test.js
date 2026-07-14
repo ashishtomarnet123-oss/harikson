@@ -87,7 +87,7 @@ async function runTests() {
       await setupClient.query('DELETE FROM tenants WHERE id IN ($1, $2)', [tenantA, tenantB]);
 
       // Insert tenants
-      await setupClient.query("INSERT INTO tenants (id, name, slug) VALUES ($1, 'Tenant A', 'tenant-a'), ($2, 'Tenant B', 'tenant-b')", [tenantA, tenantB]);
+      await setupClient.query("INSERT INTO tenants (id, name, slug, plan) VALUES ($1, 'Tenant A', 'tenant-a', 'starter'), ($2, 'Tenant B', 'tenant-b', 'starter')", [tenantA, tenantB]);
       // Insert users
       await setupClient.query("INSERT INTO users (id, tenant_id, email, password_hash, role) VALUES ($1, $2, 'user-a@test.com', 'pwd', 'user'), ($3, $4, 'user-b@test.com', 'pwd', 'user')", [userA, tenantA, userB, tenantB]);
       // Insert conversations
