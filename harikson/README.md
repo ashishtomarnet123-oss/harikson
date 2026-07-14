@@ -304,6 +304,91 @@ npm install && npm run dev
 # 5. Open http://localhost:3001 and sign up
 ```
 
+## 📊 Database ER Diagram
+
+```mermaid
+erDiagram
+    tenants ||--o{ users : "has"
+    tenants ||--o{ subscriptions : "has"
+    tenants ||--o{ invoices : "has"
+    tenants ||--o{ conversations : "has"
+    tenants ||--o{ messages : "has"
+    users ||--o{ conversations : "owns"
+    users ||--o{ password_reset_tokens : "has"
+    users ||--o{ activity_logs : "has"
+    users ||--o{ user_sessions : "has"
+    users ||--o{ api_keys : "has"
+    conversations ||--o{ messages : "contains"
+    plans ||--o{ subscriptions : "defines"
+    subscriptions ||--o{ invoices : "bills"
+
+    tenants {
+        uuid id PK
+        varchar name
+        varchar slug
+        varchar plan
+        varchar status
+        timestamptz created_at
+        timestamptz updated_at
+    }
+    users {
+        uuid id PK
+        uuid tenant_id FK
+        varchar email
+        varchar password_hash
+        varchar role
+        timestamptz created_at
+        timestamptz updated_at
+    }
+    plans {
+        varchar id PK
+        varchar name
+        varchar tier
+        numeric price
+        varchar billing
+        varchar currency
+        boolean is_active
+        boolean is_recommended
+        integer token_limit
+        integer tenant_limit
+        integer agent_limit
+        text_array model_access
+        jsonb features
+        text description
+        timestamptz created_at
+    }
+    subscriptions {
+        uuid id PK
+        uuid tenant_id FK
+        varchar provider
+        varchar provider_subscription_id
+        varchar plan_id FK
+        varchar status
+        timestamptz current_period_start
+        timestamptz current_period_end
+        decimal amount
+        varchar currency
+        jsonb metadata
+        timestamptz created_at
+        timestamptz updated_at
+    }
+    invoices {
+        uuid id PK
+        uuid tenant_id FK
+        uuid subscription_id FK
+        varchar provider
+        varchar provider_invoice_id
+        decimal amount
+        varchar currency
+        varchar status
+        timestamptz paid_at
+        text invoice_url
+        text pdf_url
+        timestamptz created_at
+        timestamptz updated_at
+    }
+```
+
 ---
 
 ## 🗺️ Roadmap

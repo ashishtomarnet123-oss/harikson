@@ -19,7 +19,7 @@ const adminPool = new Pool({
 const appRoleUrl = dbUrl.replace('neuravolt:neuravolt_dev_pwd', 'tenant_test_role:tenant_test_pwd');
 const testRolePool = new Pool({
   connectionString: appRoleUrl,
-  max: 5,
+  max: 1, // Set to 1 to guarantee connection reuse for pollution tests
   idleTimeoutMillis: 1000
 });
 

@@ -326,7 +326,7 @@ async function initUserTables() {
 
           -- 4. Clean up orphaned records
           UPDATE tenants SET plan = 'starter' WHERE plan NOT IN (SELECT id FROM plans);
-          UPDATE subscriptions SET plan = 'starter' WHERE plan NOT IN (SELECT id FROM plans);
+          UPDATE subscriptions SET plan_id = 'starter' WHERE plan_id NOT IN (SELECT id FROM plans);
           DELETE FROM subscriptions WHERE tenant_id NOT IN (SELECT id FROM tenants);
           DELETE FROM invoices WHERE tenant_id NOT IN (SELECT id FROM tenants);
           UPDATE invoices SET subscription_id = NULL WHERE subscription_id NOT IN (SELECT id FROM subscriptions);
@@ -337,7 +337,7 @@ async function initUserTables() {
           END IF;
 
           IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_subscriptions_plan') THEN
-              ALTER TABLE subscriptions ADD CONSTRAINT fk_subscriptions_plan FOREIGN KEY (plan) REFERENCES plans(id) ON UPDATE CASCADE ON DELETE RESTRICT;
+              ALTER TABLE subscriptions ADD CONSTRAINT fk_subscriptions_plan FOREIGN KEY (plan_id) REFERENCES plans(id) ON UPDATE CASCADE ON DELETE RESTRICT;
           END IF;
 
           IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_subscriptions_tenant') THEN
@@ -3557,6 +3557,8 @@ app.use((err, req, res, next) => {
   console.error('Unhandled server error:', err);
   res.status(500).json({ error: 'Internal Server Error' });
 });
+
+initUserTables().catch(err => console.error("❌ Error initializing tables:", err));
 
 app.listen(port, () => {
   console.log(`⚡ [Tenant API] Operational and listening on port ${port}`);
