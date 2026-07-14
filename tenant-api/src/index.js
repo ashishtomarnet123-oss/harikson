@@ -63,6 +63,67 @@ async function initUserTables() {
       );
     `);
 
+    // 1. Create archived_users table if not exists
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS archived_users (
+          id UUID,
+          tenant_id UUID,
+          email VARCHAR(255),
+          password_hash VARCHAR(255),
+          role VARCHAR(50),
+          created_at TIMESTAMPTZ,
+          archived_at TIMESTAMPTZ DEFAULT NOW(),
+          original_data JSONB
+      );
+    `);
+
+    // 2. Handle existing duplicates: keep the newest based on created_at, archive the older ones
+    await pool.query(`
+      WITH duplicates AS (
+        SELECT id, ROW_NUMBER() OVER (PARTITION BY tenant_id, email ORDER BY created_at DESC, id DESC) as rn
+        FROM users
+      )
+      INSERT INTO archived_users (id, tenant_id, email, password_hash, role, created_at, original_data)
+      SELECT id, tenant_id, email, password_hash, role, created_at, to_jsonb(users.*)
+      FROM users
+      WHERE id IN (SELECT id FROM duplicates WHERE rn > 1)
+      ON CONFLICT DO NOTHING;
+    `);
+
+    await pool.query(`
+      WITH duplicates AS (
+        SELECT id, ROW_NUMBER() OVER (PARTITION BY tenant_id, email ORDER BY created_at DESC, id DESC) as rn
+        FROM users
+      )
+      DELETE FROM users
+      WHERE id IN (SELECT id FROM duplicates WHERE rn > 1);
+    `);
+
+    // 3. Add UNIQUE constraint to users table if not exists
+    await pool.query(`
+      DO $$
+      BEGIN
+        IF NOT EXISTS (
+          SELECT 1 FROM pg_constraint WHERE conname = 'unique_tenant_email'
+        ) THEN
+          ALTER TABLE users ADD CONSTRAINT unique_tenant_email UNIQUE (tenant_id, email);
+        END IF;
+      END $$;
+    `);
+
+    // 4. Create password_reset_tokens table if not exists
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS password_reset_tokens (
+          id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+          tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+          user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+          token_hash VARCHAR(255) UNIQUE NOT NULL,
+          expires_at TIMESTAMPTZ NOT NULL,
+          used_at TIMESTAMPTZ,
+          created_at TIMESTAMPTZ DEFAULT NOW()
+      );
+    `);
+
     console.log("✅ Tenant users schema extension verified successfully.");
   } catch (err) {
     console.error("❌ Failed to extend tenant users schema:", err);
@@ -1303,7 +1364,167 @@ app.post('/api/auth/register', async (req, res) => {
   }
 });
 
-// 6c. POST /api/auth/logout
+// 6c. POST /api/auth/forgot-password
+app.post('/api/auth/forgot-password', async (req, res) => {
+  const { email } = req.body;
+  if (!email) {
+    return res.status(400).json({ error: 'Email is required' });
+  }
+
+  try {
+    // Rate limit: 3 requests per email per day
+    const rateLimitKey = `ratelimit:forgotpwd:${req.tenant.id}:${email.toLowerCase()}`;
+    const attempts = await redis.incr(rateLimitKey);
+    if (attempts === 1) {
+      await redis.expire(rateLimitKey, 86400); // 24 hours (1 day)
+    }
+    if (attempts > 3) {
+      return res.status(429).json({ error: 'Too many password reset requests. Rate limit exceeded. Try again tomorrow.' });
+    }
+
+    // Check if user exists in this tenant (using executeTenantQuery to respect RLS)
+    const user = await executeTenantQuery(req.tenant.id, async (client) => {
+      const result = await client.query('SELECT id, email, name FROM users WHERE email = $1', [email]);
+      return result.rows[0];
+    });
+
+    if (!user) {
+      // Return 200/success anyway to prevent username enumeration, but log it
+      console.log(`[FORGOT PASSWORD] Requested email "${email}" does not exist in tenant "${req.tenant.slug}"`);
+      return res.status(200).json({ message: 'If this email exists in our records, a reset link will be sent.' });
+    }
+
+    const token = crypto.randomBytes(20).toString('hex');
+    const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
+    const expiresAt = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
+
+    await executeTenantQuery(req.tenant.id, async (client) => {
+      await client.query(
+        `INSERT INTO password_reset_tokens (tenant_id, user_id, token_hash, expires_at)
+         VALUES ($1, $2, $3, $4)`,
+        [req.tenant.id, user.id, tokenHash, expiresAt]
+      );
+    });
+
+    const resetLink = `http://${req.tenant.slug}.neuravolt.cloud/reset-password?token=${token}&email=${encodeURIComponent(email)}`;
+    
+    // Simulate sending email
+    const emailHtml = `
+      <div style="font-family: sans-serif; padding: 20px; color: #1e293b; max-width: 600px; margin: 0 auto; border: 1px solid #e2e8f0; border-radius: 8px;">
+        <h2 style="color: #3b82f6; border-bottom: 2px solid #3b82f6; padding-bottom: 10px;">Password Reset Request</h2>
+        <p>Hello ${user.name || 'User'},</p>
+        <p>We received a request to reset your password for your Harikson AI account under tenant **${req.tenant.name}**.</p>
+        <p>Please click the button below to reset your password (link is valid for 1 hour):</p>
+        <div style="text-align: center; margin: 30px 0;">
+          <a href="${resetLink}" style="display: inline-block; padding: 12px 24px; background-color: #3b82f6; color: white; text-decoration: none; border-radius: 6px; font-weight: bold;">Reset Password</a>
+        </div>
+        <p style="font-size: 13px; color: #64748b;">If the button doesn't work, you can copy and paste this link into your browser:</p>
+        <p style="font-size: 13px; color: #3b82f6; word-break: break-all;">${resetLink}</p>
+        <hr style="border: 0; border-top: 1px solid #e2e8f0; margin: 20px 0;" />
+        <p style="font-size: 12px; color: #94a3b8;">If you did not request a password reset, you can safely ignore this email.</p>
+      </div>
+    `;
+
+    // Log the simulated email details to console
+    console.log(`
+============================================================
+📧 SIMULATED RESET EMAIL SENT TO: ${email}
+============================================================
+${emailHtml}
+============================================================
+    `);
+
+    // Write to a local log file for proof/automated audit
+    try {
+      const emailLog = {
+        to: email,
+        sentAt: new Date().toISOString(),
+        tenantSlug: req.tenant.slug,
+        resetLink,
+        body: emailHtml
+      };
+      // Append to local log file
+      const fs = await import('fs/promises');
+      await fs.appendFile('/Users/ashishpratapsinghtomar/Downloads/files/tenant-api/sent_emails.log', JSON.stringify(emailLog) + '\n');
+    } catch (logErr) {
+      console.warn('[EMAIL LOG] Failed to log email locally:', logErr.message);
+    }
+
+    res.status(200).json({ message: 'If this email exists in our records, a reset link will be sent.' });
+  } catch (err) {
+    console.error('Forgot password error:', err);
+    res.status(500).json({ error: 'Failed to process password reset request' });
+  }
+});
+
+// 6d. POST /api/auth/reset-password
+app.post('/api/auth/reset-password', async (req, res) => {
+  const { token, email, newPassword } = req.body;
+  if (!token || !email || !newPassword) {
+    return res.status(400).json({ error: 'Token, email, and newPassword are required' });
+  }
+
+  try {
+    const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
+
+    // Find and validate token (using executeTenantQuery to respect RLS)
+    const tokenRecord = await executeTenantQuery(req.tenant.id, async (client) => {
+      const result = await client.query(
+        `SELECT prt.*, u.id AS user_id, u.email, u.name
+         FROM password_reset_tokens prt
+         JOIN users u ON prt.user_id = u.id
+         WHERE prt.token_hash = $1 AND u.email = $2 AND prt.used_at IS NULL AND prt.expires_at > NOW()
+         LIMIT 1`,
+        [tokenHash, email]
+      );
+      return result.rows[0];
+    });
+
+    if (!tokenRecord) {
+      return res.status(400).json({ error: 'Invalid or expired password reset token' });
+    }
+
+    // Run password validation rules
+    const valErrors = validatePassword(newPassword, tokenRecord.email, tokenRecord.name);
+    if (valErrors.length > 0) {
+      return res.status(400).json({ error: 'Password validation failed', details: valErrors });
+    }
+
+    const compromised = await isPasswordPwned(newPassword);
+    if (compromised) {
+      return res.status(400).json({ error: 'Password validation failed', details: ['This password has been compromised in data breaches. Please choose a different one.'] });
+    }
+
+    // Update password, mark token as used, revoke all user refresh tokens and clear active devices
+    const passwordHash = await bcrypt.hash(newPassword, 10);
+    await executeTenantQuery(req.tenant.id, async (client) => {
+      // 1. Update user password hash and clear connected devices (sessions invalidation!)
+      await client.query(
+        `UPDATE users SET password_hash = $1, connected_devices = '[]'::jsonb WHERE id = $2`,
+        [passwordHash, tokenRecord.user_id]
+      );
+
+      // 2. Mark reset token as used
+      await client.query(
+        `UPDATE password_reset_tokens SET used_at = NOW() WHERE id = $1`,
+        [tokenRecord.id]
+      );
+
+      // 3. Revoke all refresh tokens
+      await client.query(
+        `UPDATE refresh_tokens SET revoked_at = NOW() WHERE user_id = $1`,
+        [tokenRecord.user_id]
+      );
+    });
+
+    res.status(200).json({ message: 'Password has been reset successfully. All other active sessions have been logged out.' });
+  } catch (err) {
+    console.error('Reset password error:', err);
+    res.status(500).json({ error: 'Failed to reset password' });
+  }
+});
+
+// 6e. POST /api/auth/logout
 app.post('/api/auth/logout', async (req, res) => {
   try {
     const cookies = parseCookies(req.headers.cookie);

@@ -108,6 +108,24 @@ CREATE POLICY tenant_isolation_policy ON messages
     USING (tenant_id = get_tenant_context())
     WITH CHECK (tenant_id = get_tenant_context());
 
+CREATE TABLE IF NOT EXISTS password_reset_tokens (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    token_hash VARCHAR(255) UNIQUE NOT NULL,
+    expires_at TIMESTAMPTZ NOT NULL,
+    used_at TIMESTAMPTZ,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+ALTER TABLE password_reset_tokens ENABLE ROW LEVEL SECURITY;
+ALTER TABLE password_reset_tokens FORCE ROW LEVEL SECURITY;
+
+CREATE POLICY tenant_isolation_policy ON password_reset_tokens
+    FOR ALL
+    USING (tenant_id = get_tenant_context())
+    WITH CHECK (tenant_id = get_tenant_context());
+
 -- ==========================================
 -- 3. UTILITY HELPER FUNCTIONS
 -- ==========================================

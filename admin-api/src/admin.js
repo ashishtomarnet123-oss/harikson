@@ -611,6 +611,30 @@ async function initDb() {
           WITH CHECK (tenant_id = get_tenant_context());
     `).catch(err => console.error("Policy recreation failed on messages:", err));
 
+    // Create password_reset_tokens table and policies
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS password_reset_tokens (
+          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+          user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+          token_hash VARCHAR(255) UNIQUE NOT NULL,
+          expires_at TIMESTAMPTZ NOT NULL,
+          used_at TIMESTAMPTZ,
+          created_at TIMESTAMPTZ DEFAULT NOW()
+      );
+      
+      ALTER TABLE password_reset_tokens ENABLE ROW LEVEL SECURITY;
+      ALTER TABLE password_reset_tokens FORCE ROW LEVEL SECURITY;
+    `);
+
+    await pool.query(`
+      DROP POLICY IF EXISTS tenant_isolation_policy ON password_reset_tokens;
+      CREATE POLICY tenant_isolation_policy ON password_reset_tokens
+          FOR ALL
+          USING (tenant_id = get_tenant_context())
+          WITH CHECK (tenant_id = get_tenant_context());
+    `).catch(err => console.error("Policy recreation failed on password_reset_tokens:", err));
+
     console.log('✅ All Phase 1-5 database tables migrated successfully.');
 
     // Integration Center tables
