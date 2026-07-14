@@ -37,7 +37,8 @@ CREATE TABLE conversations (
     title VARCHAR(255) NOT NULL,
     model VARCHAR(255) NOT NULL,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    deleted_at TIMESTAMP WITH TIME ZONE
 );
 
 -- Messages Table
@@ -49,6 +50,7 @@ CREATE TABLE messages (
     content TEXT NOT NULL,
     tokens_used INTEGER NOT NULL DEFAULT 0,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    deleted_at TIMESTAMP WITH TIME ZONE,
     CONSTRAINT check_message_role CHECK (role IN ('user', 'assistant', 'system'))
 );
 
@@ -102,23 +104,23 @@ $$ LANGUAGE plpgsql STABLE;
 
 CREATE POLICY tenant_isolation_policy ON tenants
     FOR ALL
-    USING (id = get_tenant_context())
-    WITH CHECK (id = get_tenant_context());
+    USING (id = get_tenant_context() AND deleted_at IS NULL)
+    WITH CHECK (id = get_tenant_context() AND deleted_at IS NULL);
 
 CREATE POLICY tenant_isolation_policy ON users
     FOR ALL
-    USING (tenant_id = get_tenant_context())
-    WITH CHECK (tenant_id = get_tenant_context());
+    USING (tenant_id = get_tenant_context() AND deleted_at IS NULL)
+    WITH CHECK (tenant_id = get_tenant_context() AND deleted_at IS NULL);
 
 CREATE POLICY tenant_isolation_policy ON conversations
     FOR ALL
-    USING (tenant_id = get_tenant_context())
-    WITH CHECK (tenant_id = get_tenant_context());
+    USING (tenant_id = get_tenant_context() AND deleted_at IS NULL)
+    WITH CHECK (tenant_id = get_tenant_context() AND deleted_at IS NULL);
 
 CREATE POLICY tenant_isolation_policy ON messages
     FOR ALL
-    USING (tenant_id = get_tenant_context())
-    WITH CHECK (tenant_id = get_tenant_context());
+    USING (tenant_id = get_tenant_context() AND deleted_at IS NULL)
+    WITH CHECK (tenant_id = get_tenant_context() AND deleted_at IS NULL);
 
 CREATE TABLE IF NOT EXISTS password_reset_tokens (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),

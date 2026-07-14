@@ -583,32 +583,32 @@ async function initDb() {
       DROP POLICY IF EXISTS tenant_isolation_policy ON tenants;
       CREATE POLICY tenant_isolation_policy ON tenants
           FOR ALL
-          USING (id = get_tenant_context())
-          WITH CHECK (id = get_tenant_context());
+          USING (id = get_tenant_context() AND deleted_at IS NULL)
+          WITH CHECK (id = get_tenant_context() AND deleted_at IS NULL);
     `).catch(err => console.error("Policy recreation failed on tenants:", err));
 
     await pool.query(`
       DROP POLICY IF EXISTS tenant_isolation_policy ON users;
       CREATE POLICY tenant_isolation_policy ON users
           FOR ALL
-          USING (tenant_id = get_tenant_context())
-          WITH CHECK (tenant_id = get_tenant_context());
+          USING (tenant_id = get_tenant_context() AND deleted_at IS NULL)
+          WITH CHECK (tenant_id = get_tenant_context() AND deleted_at IS NULL);
     `).catch(err => console.error("Policy recreation failed on users:", err));
 
     await pool.query(`
       DROP POLICY IF EXISTS tenant_isolation_policy ON conversations;
       CREATE POLICY tenant_isolation_policy ON conversations
           FOR ALL
-          USING (tenant_id = get_tenant_context())
-          WITH CHECK (tenant_id = get_tenant_context());
+          USING (tenant_id = get_tenant_context() AND deleted_at IS NULL)
+          WITH CHECK (tenant_id = get_tenant_context() AND deleted_at IS NULL);
     `).catch(err => console.error("Policy recreation failed on conversations:", err));
 
     await pool.query(`
       DROP POLICY IF EXISTS tenant_isolation_policy ON messages;
       CREATE POLICY tenant_isolation_policy ON messages
           FOR ALL
-          USING (tenant_id = get_tenant_context())
-          WITH CHECK (tenant_id = get_tenant_context());
+          USING (tenant_id = get_tenant_context() AND deleted_at IS NULL)
+          WITH CHECK (tenant_id = get_tenant_context() AND deleted_at IS NULL);
     `).catch(err => console.error("Policy recreation failed on messages:", err));
 
     // Create password_reset_tokens table and policies
@@ -706,6 +706,12 @@ async function initDb() {
           ALTER TABLE plans ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP;
           ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP;
           ALTER TABLE invoices ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP;
+
+          -- Ensure deleted_at columns exist for soft deletes
+          ALTER TABLE tenants ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ;
+          ALTER TABLE users ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ;
+          ALTER TABLE conversations ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ;
+          ALTER TABLE messages ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ;
 
           -- 2. Create trigger function if not exists
           CREATE OR REPLACE FUNCTION update_updated_at_column()
@@ -1885,6 +1891,23 @@ app.post('/webhooks/stripe', async (req, res) => {
     const provider = providerRes.rows[0];
     const webhookSecret = decryptText(provider.webhook_secret_encrypted);
 
+    // Verify Stripe-Signature timestamp is within 5 minutes (300 seconds)
+    if (sig) {
+      const match = sig.match(/t=(\d+)/);
+      if (match) {
+        const timestamp = parseInt(match[1], 10);
+        const now = Math.floor(Date.now() / 1000);
+        if (Math.abs(now - timestamp) > 300) {
+          console.error('Stripe webhook timestamp is older than 5 minutes');
+          return res.status(400).json({ error: 'Webhook timestamp expired' });
+        }
+      } else {
+        return res.status(400).json({ error: 'Invalid Stripe signature format' });
+      }
+    } else {
+      return res.status(400).json({ error: 'Stripe-Signature header is missing' });
+    }
+
     let event;
     try {
       const stripeInstance = new Stripe(decryptText(provider.api_secret_encrypted));
@@ -1906,7 +1929,19 @@ app.post('/webhooks/stripe', async (req, res) => {
           JSON.stringify({ error: err.message })
         ]
       );
-      return res.status(200).json({ status: 'signature_invalid' });
+      return res.status(400).json({ error: 'Invalid Stripe signature' });
+    }
+
+    const eventId = event.id;
+
+    // Idempotency Check: prevent double-processing of events
+    const existing = await pool.query(
+      "SELECT id FROM payment_webhooks WHERE event_id = $1 AND provider = 'stripe' AND processed_at IS NOT NULL",
+      [eventId]
+    );
+    if (existing.rows.length > 0) {
+      console.log(`[WEBHOOK] Stripe event ${eventId} has already been processed.`);
+      return res.status(200).json({ status: 'already_processed' });
     }
 
     const eventObj = event.data.object;
@@ -1991,12 +2026,21 @@ app.post('/webhooks/razorpay', async (req, res) => {
     const provider = providerRes.rows[0];
     const webhookSecret = decryptText(provider.webhook_secret_encrypted);
 
-    const expectedSignature = crypto
-      .createHmac('sha256', webhookSecret)
-      .update(payload)
-      .digest('hex');
+    let isVerified = false;
+    try {
+      const expectedSignature = crypto
+        .createHmac('sha256', webhookSecret)
+        .update(payload)
+        .digest('hex');
 
-    const isVerified = crypto.timingSafeEqual(Buffer.from(expectedSignature), Buffer.from(signature));
+      const a = Buffer.from(expectedSignature);
+      const b = Buffer.from(signature);
+      if (a.length === b.length) {
+        isVerified = crypto.timingSafeEqual(a, b);
+      }
+    } catch (err) {
+      isVerified = false;
+    }
 
     if (!isVerified) {
       console.error('Razorpay signature mismatch');
@@ -2015,13 +2059,23 @@ app.post('/webhooks/razorpay', async (req, res) => {
           payload.toString()
         ]
       );
-      return res.status(200).json({ status: 'signature_invalid' });
+      return res.status(400).json({ error: 'Invalid Razorpay signature' });
     }
 
     const eventData = JSON.parse(payload.toString());
     const eventType = eventData.event;
     const entity = eventData.payload?.payment?.entity || eventData.payload?.subscription?.entity || eventData.payload?.invoice?.entity;
     const eventId = eventData.id;
+
+    // Idempotency Check: prevent double-processing of events
+    const existing = await pool.query(
+      "SELECT id FROM payment_webhooks WHERE event_id = $1 AND provider = 'razorpay' AND processed_at IS NOT NULL",
+      [eventId]
+    );
+    if (existing.rows.length > 0) {
+      console.log(`[WEBHOOK] Razorpay event ${eventId} has already been processed.`);
+      return res.status(200).json({ status: 'already_processed' });
+    }
 
     // Extract tenant_id from notes
     const tenantId = entity?.notes?.tenant_id || null;

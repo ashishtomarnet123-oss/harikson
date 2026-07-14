@@ -249,6 +249,12 @@ async function initUserTables() {
           ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP;
           ALTER TABLE invoices ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP;
 
+          -- Ensure deleted_at columns exist for soft deletes
+          ALTER TABLE tenants ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ;
+          ALTER TABLE users ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ;
+          ALTER TABLE conversations ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ;
+          ALTER TABLE messages ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ;
+
           -- 2. Create trigger function if not exists
           CREATE OR REPLACE FUNCTION update_updated_at_column()
           RETURNS TRIGGER AS $_$
@@ -337,6 +343,33 @@ function startDailyCleanupCron() {
         `DELETE FROM user_sessions WHERE expires_at < NOW() OR revoked_at IS NOT NULL`
       );
       console.log(`[CRON] Cleaned up ${delSessions.rowCount} expired/revoked user sessions.`);
+
+      // 3. Clean permanently soft-deleted records after retention period (default 30 days)
+      const retentionDays = parseInt(process.env.HARD_DELETE_AFTER_DAYS || '30', 10);
+      
+      const delTenants = await pool.query(
+        `DELETE FROM tenants WHERE deleted_at < NOW() - $1 * INTERVAL '1 day'`,
+        [retentionDays]
+      );
+      console.log(`[CRON] Hard deleted ${delTenants.rowCount} soft-deleted tenants older than ${retentionDays} days.`);
+
+      const delUsers = await pool.query(
+        `DELETE FROM users WHERE deleted_at < NOW() - $1 * INTERVAL '1 day'`,
+        [retentionDays]
+      );
+      console.log(`[CRON] Hard deleted ${delUsers.rowCount} soft-deleted users older than ${retentionDays} days.`);
+
+      const delConvs = await pool.query(
+        `DELETE FROM conversations WHERE deleted_at < NOW() - $1 * INTERVAL '1 day'`,
+        [retentionDays]
+      );
+      console.log(`[CRON] Hard deleted ${delConvs.rowCount} soft-deleted conversations older than ${retentionDays} days.`);
+
+      const delMsgs = await pool.query(
+        `DELETE FROM messages WHERE deleted_at < NOW() - $1 * INTERVAL '1 day'`,
+        [retentionDays]
+      );
+      console.log(`[CRON] Hard deleted ${delMsgs.rowCount} soft-deleted messages older than ${retentionDays} days.`);
     } catch (err) {
       console.error('[CRON ERROR] Daily database cleanup failed:', err);
     }
@@ -449,7 +482,7 @@ const tenantMiddleware = async (req, res, next) => {
              p.token_limit, p.tenant_limit, p.agent_limit, p.model_access, p.features, p.description as plan_description
       FROM tenants t
       LEFT JOIN plans p ON LOWER(t.plan) = LOWER(p.id)
-      WHERE t.slug = $1
+      WHERE t.slug = $1 AND t.deleted_at IS NULL
     `, [querySlug]);
     if (result.rows.length === 0) {
       return res.status(404).json({ error: 'Tenant not found' });
@@ -1396,7 +1429,7 @@ app.post('/api/auth/login', async (req, res) => {
     return res.status(400).json({ error: 'Email and password are required' });
   }
   try {
-    const userResult = await pool.query('SELECT * FROM users WHERE email = $1 AND tenant_id = $2', [email, req.tenant.id]);
+    const userResult = await pool.query('SELECT * FROM users WHERE email = $1 AND tenant_id = $2 AND deleted_at IS NULL', [email, req.tenant.id]);
     const user = userResult.rows[0];
     if (!user) return res.status(401).json({ error: 'Invalid email or password' });
 
@@ -2220,6 +2253,29 @@ app.delete('/api/user/devices/:id', authMiddleware, async (req, res) => {
   } catch (err) {
     console.error('Delete device error:', err);
     res.status(500).json({ error: 'Failed to terminate device session' });
+  }
+});
+
+// DELETE /api/user/account/gdpr - GDPR immediate hard delete of user account
+app.delete('/api/user/account/gdpr', authMiddleware, async (req, res) => {
+  try {
+    await executeTenantQuery(req.tenant.id, async (client) => {
+      // Permanently delete user row (which cascades and deletes all related sessions, messages, etc.)
+      await client.query('DELETE FROM users WHERE id = $1', [req.user.id]);
+    });
+    
+    // Invalidate active session cookies
+    const host = req.headers.host || '';
+    const domainSuffix = host.includes('neuravolt.cloud') ? '; Domain=.neuravolt.cloud' : '';
+    res.setHeader('Set-Cookie', [
+      `hk_access_token=; HttpOnly; Path=/; Max-Age=0${domainSuffix}`,
+      `hk_refresh_token=; HttpOnly; Path=/; Max-Age=0${domainSuffix}`
+    ]);
+    
+    res.status(200).json({ success: true, message: 'Your account and all associated data have been permanently deleted.' });
+  } catch (err) {
+    console.error('GDPR hard delete error:', err);
+    res.status(500).json({ error: 'Failed to process hard delete request' });
   }
 });
 
