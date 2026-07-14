@@ -11,6 +11,7 @@ export default function SignupPage() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [valDetails, setValDetails] = useState([]);
   const [success, setSuccess] = useState('');
   const [apiBase, setApiBase] = useState('http://localhost:3008');
   const [tenantSlug, setTenantSlug] = useState('system');
@@ -42,14 +43,15 @@ export default function SignupPage() {
   const handleSignup = async (e) => {
     e.preventDefault();
     setError('');
+    setValDetails([]);
     setSuccess('');
 
     if (password !== confirmPassword) {
       setError('Passwords do not match.');
       return;
     }
-    if (password.length < 8) {
-      setError('Password must be at least 8 characters.');
+    if (password.length < 12) {
+      setError('Password must be at least 12 characters.');
       return;
     }
 
@@ -64,7 +66,15 @@ export default function SignupPage() {
         body: JSON.stringify({ name, email, password }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Registration failed');
+      if (!res.ok) {
+        if (data.details && Array.isArray(data.details)) {
+          setError(data.error || 'Password validation failed');
+          setValDetails(data.details);
+          setLoading(false);
+          return;
+        }
+        throw new Error(data.error || 'Registration failed');
+      }
 
       // Auto-login after successful registration
       localStorage.setItem('hk_token', data.token);
@@ -135,12 +145,12 @@ export default function SignupPage() {
                 id="password"
                 type="password"
                 className="form-input"
-                placeholder="Min 8 characters"
+                placeholder="Min 12 characters"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 autoComplete="new-password"
                 required
-                minLength={8}
+                minLength={12}
               />
             </div>
             <div className="form-group">
@@ -163,7 +173,18 @@ export default function SignupPage() {
             </button>
           </form>
 
-          {error && <div className="login-error">⚠ {error}</div>}
+          {error && (
+            <div className="login-error">
+              <div style={{ fontWeight: 'bold' }}>⚠ {error}</div>
+              {valDetails.length > 0 && (
+                <ul style={{ margin: '8px 0 0 16px', padding: 0, fontSize: '12px', textAlign: 'left' }}>
+                  {valDetails.map((detail, idx) => (
+                    <li key={idx} style={{ listStyleType: 'disc', marginTop: '4px' }}>{detail}</li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          )}
           {success && (
             <div style={{
               marginTop: '14px', padding: '10px 14px',

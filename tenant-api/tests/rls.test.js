@@ -32,6 +32,7 @@ async function connectWithValidation() {
     try {
       const valRes = await client.query("SELECT current_setting('app.current_tenant', true) AS tenant");
       const currentTenant = valRes.rows[0]?.tenant;
+      console.log(`   [connectWithValidation] current_setting('app.current_tenant') = "${currentTenant}"`);
       if (currentTenant && currentTenant.trim() !== '') {
         client.release(true); // Discard from pool
         throw new Error(`Connection pollution detected: app.current_tenant is already set to "${currentTenant}"`);
