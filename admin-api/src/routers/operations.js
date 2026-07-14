@@ -373,6 +373,49 @@ async function seedWorkflows() {
 }
 seedWorkflows();
 
+// ─── KNOWLEDGE BASE SEED DATA (auto-seed on first load) ───────────────────────
+async function seedKnowledge() {
+  try {
+    const existing = await pool.query('SELECT COUNT(*) FROM knowledge_bases');
+    if (parseInt(existing.rows[0].count) === 0) {
+      const tenants = await pool.query('SELECT id FROM tenants LIMIT 1');
+      const tenantId = tenants.rows.length > 0 ? tenants.rows[0].id : null;
+
+      const kb1 = await pool.query(`
+        INSERT INTO knowledge_bases (name, description, tenant_id, index_status, total_documents, total_embeddings, storage_bytes)
+        VALUES ('Neuravolt Technical Docs', 'RAG reference manuals for model optimization, latency profiling, and vLLM parameter setups.', $1, 'completed', 2, 420, 2450000)
+        RETURNING id
+      `, [tenantId]);
+
+      const kb2 = await pool.query(`
+        INSERT INTO knowledge_bases (name, description, tenant_id, index_status, total_documents, total_embeddings, storage_bytes)
+        VALUES ('Harikson SaaS Platform Guide', 'Sovereign platform capabilities, billing features, and vector drive setup guides.', $1, 'completed', 2, 185, 984000)
+        RETURNING id
+      `, [tenantId]);
+
+      if (kb1.rows.length > 0) {
+        await pool.query(`
+          INSERT INTO knowledge_documents (knowledge_base_id, filename, file_type, file_size_bytes, status, chunk_count, embedding_count) VALUES
+          ($1, 'gpu_optimization_guide.pdf', 'pdf', 1850000, 'indexed', 250, 250),
+          ($1, 'vllm_config_parameters.txt', 'txt', 600000, 'indexed', 170, 170)
+        `, [kb1.rows[0].id]);
+      }
+
+      if (kb2.rows.length > 0) {
+        await pool.query(`
+          INSERT INTO knowledge_documents (knowledge_base_id, filename, file_type, file_size_bytes, status, chunk_count, embedding_count) VALUES
+          ($1, 'tenant_provisioning_flow.docx', 'docx', 784000, 'indexed', 125, 125),
+          ($1, 'stripe_payment_setup.md', 'md', 200000, 'indexed', 60, 60)
+        `, [kb2.rows[0].id]);
+      }
+      console.log('✅ Seeded default knowledge bases and documents');
+    }
+  } catch (err) {
+    console.error('Failed to seed knowledge base:', err);
+  }
+}
+seedKnowledge();
+
 // ─── GPU MONITORING (Phase 3.1) ───────────────────────────────────────────────
 
 router.get('/gpu', async (req, res) => {
