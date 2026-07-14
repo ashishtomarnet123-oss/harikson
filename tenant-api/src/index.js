@@ -2599,11 +2599,23 @@ app.get('/api/user/devices', authMiddleware, async (req, res) => {
     });
 
     const mapped = sessions.map(s => {
+      const sUa = s.user_agent || '';
+      const browserMatch = sUa.match(/(Chrome|Firefox|Safari|Edge|Opera|Brave)[/\s]([\d.]+)/i);
+      const osMatch = sUa.match(/(Windows NT|Mac OS X|Linux|Android|iOS|iPhone OS)[\s/]?([\d._]+)?/i);
+      let osName = 'Unknown OS';
+      if (osMatch) {
+        if (osMatch[1] === 'Windows NT') osName = 'Windows';
+        else if (osMatch[1] === 'iPhone OS') osName = 'iOS';
+        else osName = osMatch[1].replace('_', ' ');
+      }
+      const browserName = browserMatch ? browserMatch[1] : 'Unknown Browser';
       const isCurrent = s.ip_address === ip && s.user_agent === ua;
       return {
         id: s.id,
         name: s.device_name,
         ip: s.ip_address,
+        browser: browserName,
+        os: osName,
         lastActive: s.last_active_at ? new Date(s.last_active_at).toISOString() : new Date().toISOString(),
         current: isCurrent
       };
@@ -2655,11 +2667,23 @@ app.delete('/api/user/devices/:id', authMiddleware, async (req, res) => {
     });
 
     const mapped = updated.map(s => {
+      const sUa = s.user_agent || '';
+      const browserMatch = sUa.match(/(Chrome|Firefox|Safari|Edge|Opera|Brave)[/\s]([\d.]+)/i);
+      const osMatch = sUa.match(/(Windows NT|Mac OS X|Linux|Android|iOS|iPhone OS)[\s/]?([\d._]+)?/i);
+      let osName = 'Unknown OS';
+      if (osMatch) {
+        if (osMatch[1] === 'Windows NT') osName = 'Windows';
+        else if (osMatch[1] === 'iPhone OS') osName = 'iOS';
+        else osName = osMatch[1].replace('_', ' ');
+      }
+      const browserName = browserMatch ? browserMatch[1] : 'Unknown Browser';
       const isCurrent = s.ip_address === ip && s.user_agent === ua;
       return {
         id: s.id,
         name: s.device_name,
         ip: s.ip_address,
+        browser: browserName,
+        os: osName,
         lastActive: s.last_active_at ? new Date(s.last_active_at).toISOString() : new Date().toISOString(),
         current: isCurrent
       };
