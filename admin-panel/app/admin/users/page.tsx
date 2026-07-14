@@ -167,6 +167,32 @@ export default function UsersPage() {
     }));
   };
 
+  const handleDeleteUser = async (userId: string, email: string) => {
+    if (!confirm(`Are you sure you want to permanently delete user "${email}"? This action cannot be undone.`)) {
+      return;
+    }
+    const token = getCookie('admin_token') || localStorage.getItem('admin_token');
+    if (!token) return;
+    try {
+      const res = await fetch(`${apiBase}/admin/users/${userId}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (res.ok) {
+        setUsers(prev => prev.filter(u => u.id !== userId));
+        if (selectedUser?.id === userId) {
+          setSelectedUser(null);
+        }
+      } else {
+        const errData = await res.json().catch(() => ({}));
+        alert(errData.error || 'Failed to delete user');
+      }
+    } catch (err) {
+      console.error(err);
+      alert('Error deleting user');
+    }
+  };
+
   const getInitials = (email: string) => {
     if (!email) return 'US';
     return email.split('@')[0].substring(0, 2).toUpperCase();
@@ -370,7 +396,7 @@ export default function UsersPage() {
                     </td>
 
                     {/* Row Actions */}
-                    <td className="py-3 px-6 text-right whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
+                    <td className="py-3 px-6 text-right whitespace-nowrap space-x-2" onClick={(e) => e.stopPropagation()}>
                       <button 
                         onClick={() => toggleSuspendUser(user.id)}
                         className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all duration-200 shadow-sm ${
@@ -380,6 +406,12 @@ export default function UsersPage() {
                         }`}
                       >
                         {user.is_suspended ? 'Unsuspend' : 'Suspend'}
+                      </button>
+                      <button 
+                        onClick={() => handleDeleteUser(user.id, user.email)}
+                        className="px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all duration-200 shadow-sm bg-red-600 hover:bg-red-700 text-white active:scale-95"
+                      >
+                        Delete
                       </button>
                     </td>
                   </tr>
@@ -624,6 +656,12 @@ export default function UsersPage() {
                   }`}
                 >
                   {selectedUser.is_suspended ? 'Activate User' : 'Suspend User'}
+                </button>
+                <button 
+                  onClick={() => handleDeleteUser(selectedUser.id, selectedUser.email)}
+                  className="flex-1 py-2 rounded-xl text-xs font-bold uppercase tracking-wider transition-all duration-200 shadow-sm bg-red-600 hover:bg-red-700 text-white"
+                >
+                  Delete User
                 </button>
               </div>
             </div>

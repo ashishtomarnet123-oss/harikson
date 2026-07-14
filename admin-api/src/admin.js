@@ -1330,6 +1330,35 @@ app.put('/admin/users/:userId/plan', async (req, res) => {
   }
 });
 
+// DELETE /admin/users/:userId - Permanently delete a user
+app.delete('/admin/users/:userId', async (req, res) => {
+  const { userId } = req.params;
+
+  try {
+    // Check if user exists
+    const userCheck = await pool.query('SELECT * FROM users WHERE id = $1', [userId]);
+    if (userCheck.rows.length === 0) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    const user = userCheck.rows[0];
+
+    // Prevent deleting the currently authenticated admin if they try to delete themselves
+    if (user.id === req.admin.id) {
+      return res.status(400).json({ error: 'You cannot delete your own admin account.' });
+    }
+
+    // Delete user from public.users
+    await pool.query('DELETE FROM users WHERE id = $1', [userId]);
+
+    await logAdminAction(req.admin.id, 'user_delete', 'user', userId, { email: user.email }, null, req);
+
+    res.status(200).json({ success: true, message: `User ${user.email} deleted successfully.` });
+  } catch (err) {
+    console.error('Failed to delete user:', err);
+    res.status(500).json({ error: 'Failed to delete user' });
+  }
+});
+
 app.get('/admin/users/:userId/conversations', async (req, res) => {
   const { userId } = req.params;
   try {
