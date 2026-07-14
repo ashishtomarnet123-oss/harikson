@@ -563,6 +563,54 @@ async function initDb() {
       `);
     }
 
+    // Create/update tenant context getter function and recreate RLS policies
+    await pool.query(`
+      CREATE OR REPLACE FUNCTION get_tenant_context()
+      RETURNS UUID AS $$
+      DECLARE
+          val TEXT;
+      BEGIN
+          val := current_setting('app.current_tenant', true);
+          IF val IS NULL OR val = '' THEN
+              RAISE EXCEPTION 'Database tenant context is not set. Access Denied.';
+          END IF;
+          RETURN val::uuid;
+      END;
+      $$ LANGUAGE plpgsql STABLE;
+    `);
+
+    await pool.query(`
+      DROP POLICY IF EXISTS tenant_isolation_policy ON tenants;
+      CREATE POLICY tenant_isolation_policy ON tenants
+          FOR ALL
+          USING (id = get_tenant_context())
+          WITH CHECK (id = get_tenant_context());
+    `).catch(err => console.error("Policy recreation failed on tenants:", err));
+
+    await pool.query(`
+      DROP POLICY IF EXISTS tenant_isolation_policy ON users;
+      CREATE POLICY tenant_isolation_policy ON users
+          FOR ALL
+          USING (tenant_id = get_tenant_context())
+          WITH CHECK (tenant_id = get_tenant_context());
+    `).catch(err => console.error("Policy recreation failed on users:", err));
+
+    await pool.query(`
+      DROP POLICY IF EXISTS tenant_isolation_policy ON conversations;
+      CREATE POLICY tenant_isolation_policy ON conversations
+          FOR ALL
+          USING (tenant_id = get_tenant_context())
+          WITH CHECK (tenant_id = get_tenant_context());
+    `).catch(err => console.error("Policy recreation failed on conversations:", err));
+
+    await pool.query(`
+      DROP POLICY IF EXISTS tenant_isolation_policy ON messages;
+      CREATE POLICY tenant_isolation_policy ON messages
+          FOR ALL
+          USING (tenant_id = get_tenant_context())
+          WITH CHECK (tenant_id = get_tenant_context());
+    `).catch(err => console.error("Policy recreation failed on messages:", err));
+
     console.log('✅ All Phase 1-5 database tables migrated successfully.');
 
     // Integration Center tables

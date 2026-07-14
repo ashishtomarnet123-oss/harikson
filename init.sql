@@ -74,28 +74,39 @@ ALTER TABLE users ENABLE ROW LEVEL SECURITY;
 ALTER TABLE conversations ENABLE ROW LEVEL SECURITY;
 ALTER TABLE messages ENABLE ROW LEVEL SECURITY;
 
--- Create RLS policies for tenant isolation using current_setting('app.current_tenant')
--- NULLIF is used to handle cases where the session variable is unset without throwing errors
+-- Create RLS context getter function
+CREATE OR REPLACE FUNCTION get_tenant_context()
+RETURNS UUID AS $$
+DECLARE
+    val TEXT;
+BEGIN
+    val := current_setting('app.current_tenant', true);
+    IF val IS NULL OR val = '' THEN
+        RAISE EXCEPTION 'Database tenant context is not set. Access Denied.';
+    END IF;
+    RETURN val::uuid;
+END;
+$$ LANGUAGE plpgsql STABLE;
 
 CREATE POLICY tenant_isolation_policy ON tenants
     FOR ALL
-    USING (id = NULLIF(current_setting('app.current_tenant', true), '')::uuid)
-    WITH CHECK (id = NULLIF(current_setting('app.current_tenant', true), '')::uuid);
+    USING (id = get_tenant_context())
+    WITH CHECK (id = get_tenant_context());
 
 CREATE POLICY tenant_isolation_policy ON users
     FOR ALL
-    USING (tenant_id = NULLIF(current_setting('app.current_tenant', true), '')::uuid)
-    WITH CHECK (tenant_id = NULLIF(current_setting('app.current_tenant', true), '')::uuid);
+    USING (tenant_id = get_tenant_context())
+    WITH CHECK (tenant_id = get_tenant_context());
 
 CREATE POLICY tenant_isolation_policy ON conversations
     FOR ALL
-    USING (tenant_id = NULLIF(current_setting('app.current_tenant', true), '')::uuid)
-    WITH CHECK (tenant_id = NULLIF(current_setting('app.current_tenant', true), '')::uuid);
+    USING (tenant_id = get_tenant_context())
+    WITH CHECK (tenant_id = get_tenant_context());
 
 CREATE POLICY tenant_isolation_policy ON messages
     FOR ALL
-    USING (tenant_id = NULLIF(current_setting('app.current_tenant', true), '')::uuid)
-    WITH CHECK (tenant_id = NULLIF(current_setting('app.current_tenant', true), '')::uuid);
+    USING (tenant_id = get_tenant_context())
+    WITH CHECK (tenant_id = get_tenant_context());
 
 -- ==========================================
 -- 3. UTILITY HELPER FUNCTIONS

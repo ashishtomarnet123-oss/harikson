@@ -79,25 +79,60 @@ pool.on('error', (err) => {
   console.error('Unexpected error on inactive database client', err);
 });
 
+// Helper: Acquire a verified clean connection from the pool
+async function connectWithValidation() {
+  let client;
+  let retries = 3;
+  while (retries > 0) {
+    client = await pool.connect();
+    try {
+      const valRes = await client.query("SELECT current_setting('app.current_tenant', true) AS tenant");
+      const currentTenant = valRes.rows[0]?.tenant;
+      if (currentTenant && currentTenant.trim() !== '') {
+        console.error('[DB WARNING] Stale tenant context found on connection checkout, discarding connection:', currentTenant);
+        client.release(true); // Discard from pool
+        retries--;
+        continue;
+      }
+      return client;
+    } catch (err) {
+      if (err.message.includes('unrecognized configuration parameter')) {
+        return client;
+      }
+      client.release(true); // Discard on error
+      throw err;
+    }
+  }
+  throw new Error('Failed to acquire a clean database connection after multiple retries.');
+}
+
 // Helper: Secure RLS query executor to prevent connection resource exhaustion and session state pollution
 async function executeTenantQuery(tenantId, callback) {
-  const client = await pool.connect();
+  const client = await connectWithValidation();
+  let contextSet = false;
   try {
     // Set RLS context on the connection
     await client.query('SELECT set_tenant_context($1)', [tenantId]);
+    contextSet = true;
     // Run the queries
     const result = await callback(client);
-    // Clear context to prevent leakage to subsequent checkouts of this connection
-    await client.query('SELECT set_tenant_context(NULL)');
     return result;
   } catch (err) {
-    // Ensure we attempt to clear context even on query failure
-    try {
-      await client.query('SELECT set_tenant_context(NULL)');
-    } catch {}
     throw err;
   } finally {
-    client.release();
+    if (contextSet) {
+      try {
+        // Clear context to prevent leakage to subsequent checkouts of this connection
+        await client.query('SELECT set_tenant_context(NULL)');
+        client.release();
+      } catch (resetErr) {
+        console.error('[DB FATAL] Failed to reset tenant context, destroying connection:', resetErr);
+        // Mark connection as bad and discard it from pool
+        client.release(true);
+      }
+    } else {
+      client.release();
+    }
   }
 }
 
