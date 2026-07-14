@@ -2735,7 +2735,7 @@ app.get('/api/user/workspace', authMiddleware, async (req, res) => {
       const company = uRes.rows[0]?.company || 'Harikson AI (Production)';
       
       const mRes = await client.query(
-        `SELECT id, email, role FROM users WHERE tenant_id = $1 ORDER BY role DESC`,
+        `SELECT id, email, role, name FROM users WHERE tenant_id = $1 ORDER BY role DESC`,
         [req.tenant.id]
       );
       
@@ -2745,10 +2745,10 @@ app.get('/api/user/workspace', authMiddleware, async (req, res) => {
         slug: req.tenant.slug,
         members: mRes.rows.map(m => ({
           id: m.id,
-          name: m.email.split('@')[0],
+          name: m.name || m.email.split('@')[0],
           email: m.email,
           role: (m.role === 'admin' || m.role === 'superadmin') ? 'Admin' : m.role === 'owner' ? 'Owner' : 'Member',
-          avatar: m.email.slice(0, 2).toUpperCase()
+          avatar: (m.name || m.email).slice(0, 2).toUpperCase()
         }))
       };
     });
