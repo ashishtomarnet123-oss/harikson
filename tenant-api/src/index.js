@@ -285,6 +285,11 @@ async function initUserTables() {
           ALTER TABLE conversations ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ;
           ALTER TABLE messages ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ;
 
+          -- Ensure plan downgrade columns exist
+          ALTER TABLE tenants ADD COLUMN IF NOT EXISTS downgrade_grace_ends TIMESTAMPTZ;
+          ALTER TABLE tenants ADD COLUMN IF NOT EXISTS plan_downgrade_notified TIMESTAMPTZ;
+          ALTER TABLE tenants ADD COLUMN IF NOT EXISTS plan_downgraded_at TIMESTAMPTZ;
+
           -- 2. Create trigger function if not exists
           CREATE OR REPLACE FUNCTION update_updated_at_column()
           RETURNS TRIGGER AS $_$
@@ -400,6 +405,57 @@ function startDailyCleanupCron() {
         [retentionDays]
       );
       console.log(`[CRON] Hard deleted ${delMsgs.rowCount} soft-deleted messages older than ${retentionDays} days.`);
+      // 4. Check plan downgrade grace period violations
+      const expiredGraceTenants = await pool.query(
+        `SELECT id, plan, downgrade_grace_ends FROM tenants 
+         WHERE downgrade_grace_ends < NOW() AND status = 'active'`
+      );
+
+      for (const tRow of expiredGraceTenants.rows) {
+        const tenantId = tRow.id;
+        const planId = tRow.plan.toLowerCase();
+
+        const planRes = await pool.query('SELECT agent_limit, features FROM plans WHERE id = $1', [planId]);
+        if (planRes.rows.length > 0) {
+          const plan = planRes.rows[0];
+          const agentLimit = plan.agent_limit;
+
+          if (agentLimit !== -1) {
+            const activeAgents = await pool.query(
+              `SELECT id FROM agents WHERE tenant_id = $1 AND status = 'active' ORDER BY created_at ASC`,
+              [tenantId]
+            );
+            if (activeAgents.rows.length > agentLimit) {
+              const extraAgentIds = activeAgents.rows.slice(agentLimit).map(r => r.id);
+              await pool.query(
+                `UPDATE agents SET status = 'disabled' WHERE id = ANY($1)`,
+                [extraAgentIds]
+              );
+              console.log(`[CRON] Disabled ${extraAgentIds.length} extra agents for tenant ${tenantId}`);
+            }
+          }
+
+          await pool.query(
+            `INSERT INTO activity_logs (tenant_id, action, metadata)
+             VALUES ($1, 'PLAN_LIMIT_VIOLATION_NOTIFIED', $2)`,
+            [
+              tenantId,
+              JSON.stringify({
+                message: 'Tenant has violated plan limits after grace period. Immediate action required.',
+                plan: planId,
+                grace_ends: tRow.downgrade_grace_ends
+              })
+            ]
+          );
+
+          const graceEnds = new Date(tRow.downgrade_grace_ends);
+          const autoSuspendTime = new Date(graceEnds.getTime() + 14 * 24 * 60 * 60 * 1000);
+          if (new Date() > autoSuspendTime) {
+            await pool.query(`UPDATE tenants SET status = 'suspended' WHERE id = $1`, [tenantId]);
+            console.log(`[CRON] Auto-suspended tenant ${tenantId} due to unresolved plan limit violations for 14 days.`);
+          }
+        }
+      }
     } catch (err) {
       console.error('[CRON ERROR] Daily database cleanup failed:', err);
     }
@@ -1413,8 +1469,15 @@ app.post('/api/chat', authMiddleware, async (req, res) => {
         [req.tenant.id]
       );
       const tokensUsed = tokenRes.rows[0].tokens_used;
-      if (tokensUsed >= req.tenant.token_limit) {
-        return res.status(403).json({ error: `Monthly token limit exceeded (${(req.tenant.token_limit).toLocaleString()} tokens). Please upgrade your subscription plan.` });
+      const hardLimit = req.tenant.token_limit * 1.10;
+      const promptTokenEstimate = Math.ceil(message.length / 4);
+      const expectedGenerated = agentConfig ? parseInt(agentConfig.max_tokens) : 250;
+      const estimatedTokensNeeded = promptTokenEstimate + expectedGenerated;
+
+      if (tokensUsed >= hardLimit) {
+        return res.status(403).json({ 
+          error: `Monthly token limit exceeded. Your current usage is ${(tokensUsed).toLocaleString()} tokens (limit is ${(req.tenant.token_limit).toLocaleString()}). Please upgrade your subscription plan.` 
+        });
       }
     } catch (err) {
       console.warn('Failed to verify token limit:', err);
@@ -1535,7 +1598,6 @@ app.post('/api/chat', authMiddleware, async (req, res) => {
     res.setHeader('X-Conversation-Id', currentConvId);
 
     try {
-      // Use Ollama /api/chat — natively supports multi-turn conversation memory
       const response = await axios.post(`${ollamaHost}/api/chat`, {
         model: selectedModel,
         messages: messages,
@@ -1555,13 +1617,92 @@ app.post('/api/chat', authMiddleware, async (req, res) => {
       let fullResponseText = '';
       let promptTokens = promptTokenEstimate;
       let completionTokens = 0;
+      let streamExceeded = false;
+      let generatedTokensCount = 0;
+      let dbSaved = false;
+
+      async function saveCompletedChat(inTokens, outTokens, textContent, wasTerminated = false) {
+        if (dbSaved) return;
+        dbSaved = true;
+
+        try {
+          await executeTenantQuery(req.tenant.id, async (client) => {
+            await client.query(
+              'INSERT INTO messages (tenant_id, conversation_id, role, content, tokens_used) VALUES ($1, $2, $3, $4, $5)',
+              [req.tenant.id, currentConvId, 'user', message, inTokens]
+            );
+            await client.query(
+              'INSERT INTO messages (tenant_id, conversation_id, role, content, tokens_used) VALUES ($1, $2, $3, $4, $5)',
+              [req.tenant.id, currentConvId, 'assistant', textContent, outTokens]
+            );
+            await client.query(
+              'UPDATE conversations SET updated_at = NOW() WHERE id = $1',
+              [currentConvId]
+            );
+            if (agentConfig) {
+              await client.query(
+                'UPDATE agents SET total_requests = total_requests + 1, total_tokens = total_tokens + $1, last_used_at = NOW() WHERE id = $2',
+                [inTokens + outTokens, agentConfig.id]
+              );
+            }
+
+            const totalFinalUsage = (typeof tokensUsed === 'number' ? tokensUsed : 0) + inTokens + outTokens;
+            if (req.tenant.token_limit > 0 && totalFinalUsage > req.tenant.token_limit) {
+              await client.query(
+                `INSERT INTO activity_logs (tenant_id, action, metadata)
+                 VALUES ($1, $2, $3)`,
+                [
+                  req.tenant.id,
+                  'TOKEN_OVERAGE_FLAGGED',
+                  JSON.stringify({
+                    message: wasTerminated 
+                      ? 'Tenant hit hard 10% token buffer cutoff and was stream-terminated'
+                      : 'Tenant exceeded token limit but completed within 10% buffer',
+                    token_limit: req.tenant.token_limit,
+                    tokens_used: totalFinalUsage,
+                    excess_tokens: totalFinalUsage - req.tenant.token_limit
+                  })
+                ]
+              );
+            }
+          });
+        } catch (dbErr) {
+          console.error('Failed to save chat messages to DB:', dbErr);
+        }
+
+        const latency = Date.now() - chatStartTime;
+        if (activityId) {
+          axios.post(`${process.env.ADMIN_API_URL || 'http://admin-api:4000'}/admin/activity`, {
+            tenant_id: req.tenant.id, user_id: req.user.id, agent_id: agentConfig?.id || null,
+            model: selectedModel, status: wasTerminated ? 'failed' : 'completed',
+            tokens_in: inTokens, tokens_out: outTokens, latency_ms: latency
+          }).catch(() => {});
+        }
+      }
 
       response.data.on('data', (chunk) => {
+        if (streamExceeded) return;
         const lines = chunk.toString().split('\n').filter(Boolean);
         for (const line of lines) {
+          if (streamExceeded) break;
           try {
             const parsed = JSON.parse(line);
             if (parsed.message && parsed.message.content) {
+              const chunkTokens = Math.ceil(parsed.message.content.length / 4) || 1;
+              generatedTokensCount += chunkTokens;
+
+              const currentUsage = (typeof tokensUsed === 'number' ? tokensUsed : 0);
+              if (req.tenant.token_limit > 0 && (currentUsage + promptTokens + generatedTokensCount) >= req.tenant.token_limit * 1.10) {
+                streamExceeded = true;
+                res.write('\n\n⚠️ [SYSTEM NOTICE]: Monthly token quota limit has been exceeded. Gracefully terminating generation stream. Please upgrade your subscription plan.');
+                response.data.destroy();
+                res.end();
+
+                completionTokens = generatedTokensCount;
+                saveCompletedChat(promptTokens, completionTokens, fullResponseText, true);
+                break;
+              }
+
               fullResponseText += parsed.message.content;
               res.write(parsed.message.content);
             }
@@ -1574,42 +1715,8 @@ app.post('/api/chat', authMiddleware, async (req, res) => {
       });
 
       response.data.on('end', async () => {
-        // ✅ CRITICAL FIX: Save to DB FIRST, then end response
-        // This prevents race condition where next message arrives before history is saved
-        try {
-          await executeTenantQuery(req.tenant.id, async (client) => {
-            await client.query(
-              'INSERT INTO messages (tenant_id, conversation_id, role, content, tokens_used) VALUES ($1, $2, $3, $4, $5)',
-              [req.tenant.id, currentConvId, 'user', message, promptTokens]
-            );
-            await client.query(
-              'INSERT INTO messages (tenant_id, conversation_id, role, content, tokens_used) VALUES ($1, $2, $3, $4, $5)',
-              [req.tenant.id, currentConvId, 'assistant', fullResponseText, completionTokens]
-            );
-            await client.query(
-              'UPDATE conversations SET updated_at = NOW() WHERE id = $1',
-              [currentConvId]
-            );
-            if (agentConfig) {
-              await client.query(
-                'UPDATE agents SET total_requests = total_requests + 1, total_tokens = total_tokens + $1, last_used_at = NOW() WHERE id = $2',
-                [promptTokens + completionTokens, agentConfig.id]
-              );
-            }
-          });
-        } catch (dbErr) {
-          console.error('Failed to save chat messages to DB:', dbErr);
-        }
-        // Update ai_activity log with completion stats
-        const latency = Date.now() - chatStartTime;
-        if (activityId) {
-          axios.post(`${process.env.ADMIN_API_URL || 'http://admin-api:4000'}/admin/activity`, {
-            tenant_id: req.tenant.id, user_id: req.user.id, agent_id: agentConfig?.id || null,
-            model: selectedModel, status: 'completed',
-            tokens_in: promptTokens, tokens_out: completionTokens, latency_ms: latency
-          }).catch(() => {});
-        }
-        res.end(); // End AFTER DB save
+        await saveCompletedChat(promptTokens, completionTokens, fullResponseText, false);
+        res.end();
       });
 
       response.data.on('error', (streamErr) => {
@@ -3147,6 +3254,31 @@ app.post('/api/user/rag-files', authMiddleware, async (req, res) => {
     return res.status(400).json({ error: 'File name and text content are required' });
   }
   try {
+    const ragLimit = req.tenant.features?.rag_documents || 500;
+    if (ragLimit !== -1) {
+      const currentRAGCount = await executeTenantQuery(req.tenant.id, async (client) => {
+        const res = await client.query(
+          `SELECT COALESCE(SUM(jsonb_array_length(settings->'rag_files')), 0)::int as count 
+           FROM users 
+           WHERE tenant_id = $1`,
+          [req.tenant.id]
+        );
+        return res.rows[0].count;
+      }, true);
+
+      const graceQuery = await pool.query('SELECT downgrade_grace_ends FROM tenants WHERE id = $1', [req.tenant.id]);
+      const downgradeGraceEnds = graceQuery.rows[0]?.downgrade_grace_ends;
+      const isGraceExpired = downgradeGraceEnds && new Date() > new Date(downgradeGraceEnds);
+
+      if (currentRAGCount >= ragLimit) {
+        if (!downgradeGraceEnds || isGraceExpired) {
+          return res.status(403).json({ 
+            error: `RAG upload frozen: Document count (${currentRAGCount}) exceeds plan limit (${ragLimit}). Please upgrade your plan or resolve outstanding violations.` 
+          });
+        }
+      }
+    }
+
     const updated = await executeTenantQuery(req.tenant.id, async (client) => {
       const result = await client.query(`SELECT settings FROM users WHERE id = $1`, [req.user.id]);
       const settings = result.rows[0]?.settings || {};

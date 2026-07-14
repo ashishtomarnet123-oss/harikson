@@ -741,6 +741,11 @@ async function initDb() {
           ALTER TABLE conversations ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ;
           ALTER TABLE messages ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ;
 
+          -- Ensure plan downgrade columns exist
+          ALTER TABLE tenants ADD COLUMN IF NOT EXISTS downgrade_grace_ends TIMESTAMPTZ;
+          ALTER TABLE tenants ADD COLUMN IF NOT EXISTS plan_downgrade_notified TIMESTAMPTZ;
+          ALTER TABLE tenants ADD COLUMN IF NOT EXISTS plan_downgraded_at TIMESTAMPTZ;
+
           -- 2. Create trigger function if not exists
           CREATE OR REPLACE FUNCTION update_updated_at_column()
           RETURNS TRIGGER AS $_$
@@ -1527,11 +1532,53 @@ app.put('/admin/tenants/:id/plan', async (req, res) => {
   try {
     const oldQuery = await pool.query('SELECT plan FROM tenants WHERE id = $1', [id]);
     if (oldQuery.rows.length === 0) return res.status(404).json({ error: 'Tenant not found' });
-    const oldPlan = oldQuery.rows[0].plan;
+    const oldPlanId = oldQuery.rows[0].plan;
+
+    const oldPlanRes = await pool.query('SELECT * FROM plans WHERE id = $1', [oldPlanId.toLowerCase()]);
+    const newPlanRes = await pool.query('SELECT * FROM plans WHERE id = $1', [plan.toLowerCase()]);
+
+    let isDowngrade = false;
+    let refundCredit = 0;
+
+    if (oldPlanRes.rows.length > 0 && newPlanRes.rows.length > 0) {
+      const oldPlan = oldPlanRes.rows[0];
+      const newPlan = newPlanRes.rows[0];
+
+      if (newPlan.price < oldPlan.price || 
+          (newPlan.agent_limit !== -1 && (oldPlan.agent_limit === -1 || newPlan.agent_limit < oldPlan.agent_limit)) ||
+          (newPlan.token_limit !== -1 && (oldPlan.token_limit === -1 || newPlan.token_limit < oldPlan.token_limit))) {
+        isDowngrade = true;
+        const remainingDays = 15;
+        const totalDays = 30;
+        refundCredit = Math.max(0, (oldPlan.price - newPlan.price) * (remainingDays / totalDays));
+      }
+    }
+
+    const graceEnds = isDowngrade ? new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) : null;
 
     await pool.query(
-      'UPDATE tenants SET plan = $1 WHERE id = $2',
-      [plan.toLowerCase(), id]
+      `UPDATE tenants 
+       SET plan = $1, 
+           downgrade_grace_ends = $2,
+           plan_downgraded_at = $3
+       WHERE id = $4`,
+      [plan.toLowerCase(), graceEnds, isDowngrade ? new Date() : null, id]
+    );
+
+    await pool.query(
+      `INSERT INTO activity_logs (tenant_id, action, metadata)
+       VALUES ($1, $2, $3)`,
+      [
+        id,
+        'PLAN_CHANGED',
+        JSON.stringify({
+          old_plan: oldPlanId,
+          new_plan: plan,
+          type: isDowngrade ? 'downgrade' : 'upgrade',
+          grace_ends: graceEnds,
+          pro_rated_credit: refundCredit
+        })
+      ]
     );
 
     const selectQuery = `
@@ -1548,7 +1595,7 @@ app.put('/admin/tenants/:id/plan', async (req, res) => {
     `;
     const result = await pool.query(selectQuery, [id]);
 
-    await logAdminAction(req.admin.id, 'plan_change', 'tenant', id, { plan: oldPlan }, { plan }, req);
+    await logAdminAction(req.admin.id, 'plan_change', 'tenant', id, { plan: oldPlanId }, { plan }, req);
 
     res.status(200).json({ success: true, tenant: result.rows[0] });
   } catch (err) {
