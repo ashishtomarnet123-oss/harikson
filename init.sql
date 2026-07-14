@@ -180,6 +180,28 @@ CREATE POLICY tenant_isolation_policy ON user_sessions
     USING (tenant_id = get_tenant_context())
     WITH CHECK (tenant_id = get_tenant_context());
 
+CREATE TABLE IF NOT EXISTS api_keys (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+    name VARCHAR(255) NOT NULL,
+    key_hash VARCHAR(255) UNIQUE NOT NULL,
+    key_prefix VARCHAR(16) NOT NULL,
+    scopes JSONB DEFAULT '[]'::jsonb,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    last_used_at TIMESTAMPTZ,
+    revoked_at TIMESTAMPTZ,
+    expires_at TIMESTAMPTZ
+);
+
+ALTER TABLE api_keys ENABLE ROW LEVEL SECURITY;
+ALTER TABLE api_keys FORCE ROW LEVEL SECURITY;
+
+CREATE POLICY tenant_isolation_policy ON api_keys
+    FOR ALL
+    USING (tenant_id = get_tenant_context())
+    WITH CHECK (tenant_id = get_tenant_context());
+
 -- Indexes for performance
 CREATE INDEX IF NOT EXISTS idx_activity_logs_user_created ON activity_logs (user_id, created_at);
 CREATE INDEX IF NOT EXISTS idx_activity_logs_tenant_action_created ON activity_logs (tenant_id, action, created_at);

@@ -228,6 +228,32 @@ async function initUserTables() {
       `).catch(err => console.warn("[MIGRATION WARNING] Failed to migrate JSONB connected devices:", err.message));
     }
 
+    // Create api_keys table if not exists
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS api_keys (
+        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+        user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+        name VARCHAR(255) NOT NULL,
+        key_hash VARCHAR(255) UNIQUE NOT NULL,
+        key_prefix VARCHAR(16) NOT NULL,
+        scopes JSONB DEFAULT '[]'::jsonb,
+        created_at TIMESTAMPTZ DEFAULT NOW(),
+        last_used_at TIMESTAMPTZ,
+        revoked_at TIMESTAMPTZ,
+        expires_at TIMESTAMPTZ
+      );
+    `);
+
+    // Create policy for api_keys
+    await pool.query(`
+      DROP POLICY IF EXISTS tenant_isolation_policy ON api_keys;
+      CREATE POLICY tenant_isolation_policy ON api_keys
+          FOR ALL
+          USING (tenant_id = get_tenant_context())
+          WITH CHECK (tenant_id = get_tenant_context());
+    `).catch(err => console.error("Policy recreation failed on api_keys:", err));
+
     // 7. Add Indexes for optimization
     await pool.query(`
       CREATE INDEX IF NOT EXISTS idx_activity_logs_user_created ON activity_logs (user_id, created_at);
@@ -604,6 +630,174 @@ async function isPasswordPwned(password) {
   }
 }
 
+// Generic Sliding Window Rate Limiter using Redis Sorted Sets
+async function checkSlidingWindowLimit(key, limit, windowSeconds = 60) {
+  if (limit === -1) {
+    return { allowed: true, limit, remaining: 99999, reset: Math.ceil(Date.now() / 1000) + windowSeconds, retryAfter: 0 };
+  }
+  const now = Date.now();
+  const clearBefore = now - (windowSeconds * 1000);
+  const member = `${now}-${Math.random()}`; // Ensure uniqueness inside ZSET
+
+  try {
+    const multi = redis.multi();
+    multi.zadd(key, now, member);
+    multi.zremrangebyscore(key, 0, clearBefore);
+    multi.zcard(key);
+    multi.expire(key, windowSeconds + 10);
+    const results = await multi.exec();
+    
+    const count = results[2][1];
+    const remaining = Math.max(0, limit - count);
+    const resetTime = Math.ceil((now + (windowSeconds * 1000)) / 1000);
+    const retryAfter = count > limit ? windowSeconds : 0;
+
+    return {
+      allowed: count <= limit,
+      limit,
+      remaining,
+      reset: resetTime,
+      retryAfter
+    };
+  } catch (err) {
+    console.error(`[RATE LIMIT ERROR] Redis key ${key} failed:`, err.message);
+    return { allowed: true, limit, remaining: 1, reset: Math.ceil(Date.now() / 1000), retryAfter: 0 };
+  }
+}
+
+// Comprehensive rate-limiting middleware
+const rateLimiterMiddleware = async (req, res, next) => {
+  try {
+    // 1. IP Determination
+    const rawIp = (req.headers['x-forwarded-for'] || req.socket?.remoteAddress || '').split(',')[0].trim() || '127.0.0.1';
+    const ip = rawIp.replace(/^::ffff:/, '');
+
+    const path = req.path || '';
+    const isAuthEndpoint = path.startsWith('/api/auth');
+    const isChatEndpoint = path.startsWith('/api/conversations') || path.startsWith('/api/messages') || path.includes('/chat');
+    const isApiEndpoint = path.startsWith('/api/') && !isAuthEndpoint;
+
+    // A. IP Limit:
+    // - Auth endpoints: 10 req/min
+    // - Public/Other endpoints: 100 req/min
+    const ipLimit = isAuthEndpoint ? 10 : 100;
+    const ipKey = `rl:ip:${ip}:${isAuthEndpoint ? 'auth' : 'public'}`;
+    const ipRes = await checkSlidingWindowLimit(ipKey, ipLimit, 60);
+
+    // Set rate limit headers on response
+    res.setHeader('X-RateLimit-Limit', ipRes.limit);
+    res.setHeader('X-RateLimit-Remaining', ipRes.remaining);
+    res.setHeader('X-RateLimit-Reset', ipRes.reset);
+
+    if (!ipRes.allowed) {
+      res.setHeader('Retry-After', ipRes.retryAfter);
+      return res.status(429).json({ error: 'Too Many Requests: IP rate limit exceeded', retryAfter: ipRes.retryAfter });
+    }
+
+    // Resolve context to determine API Key / User / Tenant limits
+    let tenantId = null;
+    let userId = null;
+    let tenantPlan = 'starter';
+    let isApiKey = false;
+    let apiKeyId = null;
+
+    let token = null;
+    const cookies = parseCookies(req.headers.cookie);
+    if (cookies && cookies.hk_access_token) {
+      token = cookies.hk_access_token;
+    }
+    const authHeader = req.headers.authorization;
+    if (!token && authHeader && authHeader.startsWith('Bearer ')) {
+      token = authHeader.split(' ')[1];
+    }
+
+    if (token) {
+      if (token.startsWith('hk_live_') || token.startsWith('hk_test_')) {
+        isApiKey = true;
+        const keyHash = crypto.createHash('sha256').update(token).digest('hex');
+        const keyRes = await pool.query('SELECT * FROM api_keys WHERE key_hash = $1 AND revoked_at IS NULL AND (expires_at IS NULL OR expires_at > NOW())', [keyHash]);
+        if (keyRes.rows.length > 0) {
+          apiKeyId = keyRes.rows[0].id;
+          tenantId = keyRes.rows[0].tenant_id;
+          userId = keyRes.rows[0].user_id;
+        }
+      } else if (token !== 'TEST_TOKEN' && token !== 'TEST_ADMIN_TOKEN') {
+        try {
+          const decoded = jwt.verify(token, jwtSecret);
+          userId = decoded.userId;
+        } catch (err) {
+          // Ignore token parsing error here
+        }
+      }
+    }
+
+    // Resolve tenant context via header if not set by API key
+    const tenantSlug = req.headers['x-tenant-slug'] || '';
+    if (!tenantId && tenantSlug) {
+      let querySlug = tenantSlug;
+      if (['system', 'app', 'alphatech'].includes(tenantSlug.toLowerCase())) {
+        querySlug = 'neuravolt';
+      }
+      const tRes = await pool.query('SELECT id, plan FROM tenants WHERE slug = $1 AND deleted_at IS NULL', [querySlug]);
+      if (tRes.rows.length > 0) {
+        tenantId = tRes.rows[0].id;
+        tenantPlan = tRes.rows[0].plan || 'starter';
+      }
+    }
+
+    // B. Developer API Key Limit: 500 req/min per key
+    if (isApiKey && apiKeyId) {
+      const keyLimitRes = await checkSlidingWindowLimit(`rl:key:${apiKeyId}`, 500, 60);
+      res.setHeader('X-RateLimit-Limit', keyLimitRes.limit);
+      res.setHeader('X-RateLimit-Remaining', keyLimitRes.remaining);
+      res.setHeader('X-RateLimit-Reset', keyLimitRes.reset);
+      if (!keyLimitRes.allowed) {
+        res.setHeader('Retry-After', keyLimitRes.retryAfter);
+        return res.status(429).json({ error: 'Too Many Requests: API Key rate limit exceeded', retryAfter: keyLimitRes.retryAfter });
+      }
+    }
+
+    // C. Tenant Plan limits: Starter: 100/min, Pro/Professional: 1000/min, Enterprise: unlimited
+    if (tenantId) {
+      let tenantLimit = 100;
+      if (tenantPlan === 'professional' || tenantPlan === 'pro') {
+        tenantLimit = 1000;
+      } else if (tenantPlan === 'enterprise') {
+        tenantLimit = -1; // unlimited
+      }
+
+      if (tenantLimit !== -1) {
+        const tenantLimitRes = await checkSlidingWindowLimit(`rl:tenant:${tenantId}`, tenantLimit, 60);
+        res.setHeader('X-RateLimit-Limit', tenantLimitRes.limit);
+        res.setHeader('X-RateLimit-Remaining', tenantLimitRes.remaining);
+        res.setHeader('X-RateLimit-Reset', tenantLimitRes.reset);
+        if (!tenantLimitRes.allowed) {
+          res.setHeader('Retry-After', tenantLimitRes.retryAfter);
+          return res.status(429).json({ error: 'Too Many Requests: Tenant plan rate limit exceeded', retryAfter: tenantLimitRes.retryAfter });
+        }
+      }
+    }
+
+    // D. User-based limits: API: 1000 req/min, Chat: 60 req/min
+    if (userId) {
+      const userLimit = isChatEndpoint ? 60 : 1000;
+      const userLimitKey = `rl:user:${userId}:${isChatEndpoint ? 'chat' : 'api'}`;
+      const userLimitRes = await checkSlidingWindowLimit(userLimitKey, userLimit, 60);
+      res.setHeader('X-RateLimit-Limit', userLimitRes.limit);
+      res.setHeader('X-RateLimit-Remaining', userLimitRes.remaining);
+      res.setHeader('X-RateLimit-Reset', userLimitRes.reset);
+      if (!userLimitRes.allowed) {
+        res.setHeader('Retry-After', userLimitRes.retryAfter);
+        return res.status(429).json({ error: 'Too Many Requests: User rate limit exceeded', retryAfter: userLimitRes.retryAfter });
+      }
+    }
+  } catch (err) {
+    console.error('[RATE LIMIT MIDDLEWARE ERROR]:', err);
+  }
+
+  next();
+};
+
 // Auth Middleware
 const authMiddleware = async (req, res, next) => {
   try {
@@ -618,6 +812,36 @@ const authMiddleware = async (req, res, next) => {
       }
     }
     
+    // INTERCEPT Developer API Keys (starting with hk_live_ or hk_test_)
+    if (token && (token.startsWith('hk_live_') || token.startsWith('hk_test_'))) {
+      const keyHash = crypto.createHash('sha256').update(token).digest('hex');
+      // Look up key in DB
+      const keyRes = await pool.query(
+        `SELECT * FROM api_keys 
+         WHERE key_hash = $1 AND revoked_at IS NULL AND (expires_at IS NULL OR expires_at > NOW())`,
+        [keyHash]
+      );
+      if (keyRes.rows.length === 0) {
+        return res.status(401).json({ error: 'Access Denied: Invalid or revoked API Key' });
+      }
+      
+      const keyRecord = keyRes.rows[0];
+      
+      // Update last_used_at in the background (non-blocking)
+      pool.query('UPDATE api_keys SET last_used_at = NOW() WHERE id = $1', [keyRecord.id]).catch(() => {});
+      
+      // Fetch user details to mock JWT session context
+      const userRes = await pool.query('SELECT * FROM users WHERE id = $1 AND deleted_at IS NULL', [keyRecord.user_id]);
+      if (userRes.rows.length === 0) {
+        return res.status(401).json({ error: 'Access Denied: User account is inactive or deleted' });
+      }
+      
+      const user = userRes.rows[0];
+      req.user = { id: user.id, email: user.email, role: user.role, name: user.name, isDeveloperKey: true, apiKeyId: keyRecord.id };
+      req.tenant = { id: keyRecord.tenant_id };
+      return next();
+    }
+
     console.log(`[AUTH DEBUG] ${req.method} ${req.url} - Token: "${token ? 'Present' : 'None'}" - Tenant Header: "${req.headers['x-tenant-slug']}"`);
     
     let decoded;
@@ -729,6 +953,8 @@ const authMiddleware = async (req, res, next) => {
     res.status(401).json({ error: 'Access Denied: Invalid or expired token' });
   }
 };
+
+app.use(rateLimiterMiddleware);
 
 // 1. GET /health (Bypasses tenant middleware for status probes)
 app.get('/health', (req, res) => {
@@ -2552,88 +2778,129 @@ app.delete('/api/user/workspace/members/:memberId', authMiddleware, async (req, 
   }
 });
 
-// GET /api/user/developer/keys - Get API Keys (real keys only)
-app.get('/api/user/developer/keys', authMiddleware, async (req, res) => {
+// GET /api/keys & /api/user/developer/keys - List API Keys
+async function listApiKeys(req, res) {
   try {
     const keys = await executeTenantQuery(req.tenant.id, async (client) => {
-      const result = await client.query(`SELECT developer_keys FROM users WHERE id = $1`, [req.user.id]);
-      return result.rows[0]?.developer_keys || [];
+      const result = await client.query(
+        `SELECT id, name, key_prefix as key, created_at as created, last_used_at as lastUsed, expires_at, revoked_at
+         FROM api_keys
+         WHERE user_id = $1 AND revoked_at IS NULL AND (expires_at IS NULL OR expires_at > NOW())
+         ORDER BY created_at DESC`,
+        [req.user.id]
+      );
+      return result.rows.map(r => ({
+        id: r.id,
+        name: r.name,
+        key: r.key + '...',
+        created: r.created ? new Date(r.created).toISOString().split('T')[0] : '',
+        lastUsed: r.lastUsed ? new Date(r.lastUsed).toLocaleString() : 'Never',
+        expires_at: r.expires_at,
+        revoked_at: r.revoked_at
+      }));
     });
-    // Return real keys only — no fake pre-seeded keys for new users
     res.json(keys);
   } catch (err) {
-    console.error('Fetch keys error:', err);
+    console.error('List API keys error:', err);
     res.status(500).json({ error: 'Failed to fetch API keys' });
   }
-});
+}
 
-// POST /api/user/developer/keys - Create API Key
-app.post('/api/user/developer/keys', authMiddleware, async (req, res) => {
+app.get('/api/keys', authMiddleware, listApiKeys);
+app.get('/api/user/developer/keys', authMiddleware, listApiKeys);
+
+// POST /api/keys & /api/user/developer/keys - Create API Key
+async function createApiKey(req, res) {
   try {
-    const { name } = req.body;
+    const { name, scopes, expires_at } = req.body;
     if (!name) return res.status(400).json({ error: 'Key name is required' });
-    
-    const newKeyVal = `hk_${Math.random() > 0.5 ? 'live' : 'test'}_${crypto.randomBytes(16).toString('hex')}`;
-    
-    const updated = await executeTenantQuery(req.tenant.id, async (client) => {
-      const currentRes = await client.query(`SELECT developer_keys FROM users WHERE id = $1`, [req.user.id]);
-      const list = currentRes.rows[0]?.developer_keys || [
-        { id: '1', name: 'Production API', key: 'hk_live_8f9a2b3c4d5e6f7a8b9c0d1e2f3a4b5c', created: '2026-06-15', lastUsed: '2 hours ago' },
-        { id: '2', name: 'Testing Key', key: 'hk_test_4c2d1e3f4a5b6c7d8e9f0a1b2c3d4e5f', created: '2026-07-01', lastUsed: 'Never' }
-      ];
-      
-      const newKey = {
-        id: Date.now().toString(),
-        name,
-        key: newKeyVal,
-        created: new Date().toISOString().split('T')[0],
-        lastUsed: 'Never'
-      };
-      const newList = [...list, newKey];
-      await client.query(`UPDATE users SET developer_keys = $1 WHERE id = $2`, [JSON.stringify(newList), req.user.id]);
-      return newList;
-    });
-    
-    // Log key generation activity
-    await executeTenantQuery(req.tenant.id, async (client) => {
-      const logsRes = await client.query(`SELECT activity_logs FROM users WHERE id = $1`, [req.user.id]);
-      const logs = logsRes.rows[0]?.activity_logs || [];
-      const newLog = {
-        id: Date.now().toString(),
-        action: `API Key '${name}' generated`,
-        ip: req.ip || '127.0.0.1',
-        device: req.headers['user-agent'] || 'Unknown Device',
-        date: 'Today at ' + new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
-        level: 'warn',
-        color: '#d97706'
-      };
-      await client.query(`UPDATE users SET activity_logs = $1 WHERE id = $2`, [JSON.stringify([newLog, ...logs]), req.user.id]);
-    });
-    
-    res.json({ success: true, keys: updated });
-  } catch (err) {
-    console.error('Create key error:', err);
-    res.status(500).json({ error: 'Failed to create developer key' });
-  }
-});
 
-// DELETE /api/user/developer/keys/:id - Revoke API Key
-app.delete('/api/user/developer/keys/:id', authMiddleware, async (req, res) => {
+    // Generate secure API key format: hk_live_<32 random hex chars>
+    const rawKey = 'hk_live_' + crypto.randomBytes(16).toString('hex');
+    const keyPrefix = rawKey.substring(0, 12); // hk_live_abcd (12 chars)
+    const keyHash = crypto.createHash('sha256').update(rawKey).digest('hex');
+    const keyScopes = Array.isArray(scopes) ? JSON.stringify(scopes) : JSON.stringify(['read', 'write']);
+
+    await executeTenantQuery(req.tenant.id, async (client) => {
+      await client.query(
+        `INSERT INTO api_keys (user_id, tenant_id, name, key_hash, key_prefix, scopes, expires_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+        [req.user.id, req.tenant.id, name, keyHash, keyPrefix, keyScopes, expires_at || null]
+      );
+    });
+
+    // Fetch updated active keys to match UI expectations
+    const keys = await executeTenantQuery(req.tenant.id, async (client) => {
+      const result = await client.query(
+        `SELECT id, name, key_prefix as key, created_at as created, last_used_at as lastUsed, expires_at
+         FROM api_keys
+         WHERE user_id = $1 AND revoked_at IS NULL AND (expires_at IS NULL OR expires_at > NOW())
+         ORDER BY created_at DESC`,
+        [req.user.id]
+      );
+      return result.rows.map(r => ({
+        id: r.id,
+        name: r.name,
+        key: r.key + '...',
+        created: r.created ? new Date(r.created).toISOString().split('T')[0] : '',
+        lastUsed: r.lastUsed ? new Date(r.lastUsed).toLocaleString() : 'Never',
+        expires_at: r.expires_at
+      }));
+    });
+
+    res.json({
+      success: true,
+      key: rawKey, // Show raw full key ONCE on creation response
+      keys: keys
+    });
+  } catch (err) {
+    console.error('Create API key error:', err);
+    res.status(500).json({ error: 'Failed to create API key' });
+  }
+}
+
+app.post('/api/keys', authMiddleware, createApiKey);
+app.post('/api/user/developer/keys', authMiddleware, createApiKey);
+
+// DELETE /api/keys/:id & /api/user/developer/keys/:id - Revoke API Key
+async function revokeApiKey(req, res) {
   try {
     const { id } = req.params;
-    const updated = await executeTenantQuery(req.tenant.id, async (client) => {
-      const currentRes = await client.query(`SELECT developer_keys FROM users WHERE id = $1`, [req.user.id]);
-      const list = currentRes.rows[0]?.developer_keys || [];
-      const filtered = list.filter(k => k.id !== id);
-      await client.query(`UPDATE users SET developer_keys = $1 WHERE id = $2`, [JSON.stringify(filtered), req.user.id]);
-      return filtered;
+    await executeTenantQuery(req.tenant.id, async (client) => {
+      await client.query(
+        `UPDATE api_keys SET revoked_at = NOW() WHERE id = $1 AND user_id = $2`,
+        [id, req.user.id]
+      );
     });
-    res.json({ success: true, keys: updated });
+
+    // Fetch updated list of active keys
+    const keys = await executeTenantQuery(req.tenant.id, async (client) => {
+      const result = await client.query(
+        `SELECT id, name, key_prefix as key, created_at as created, last_used_at as lastUsed, expires_at
+         FROM api_keys
+         WHERE user_id = $1 AND revoked_at IS NULL AND (expires_at IS NULL OR expires_at > NOW())
+         ORDER BY created_at DESC`,
+        [req.user.id]
+      );
+      return result.rows.map(r => ({
+        id: r.id,
+        name: r.name,
+        key: r.key + '...',
+        created: r.created ? new Date(r.created).toISOString().split('T')[0] : '',
+        lastUsed: r.lastUsed ? new Date(r.lastUsed).toLocaleString() : 'Never',
+        expires_at: r.expires_at
+      }));
+    });
+
+    res.json({ success: true, keys });
   } catch (err) {
-    console.error('Delete key error:', err);
-    res.status(500).json({ error: 'Failed to revoke developer key' });
+    console.error('Revoke API key error:', err);
+    res.status(500).json({ error: 'Failed to revoke API key' });
   }
-});
+}
+
+app.delete('/api/keys/:id', authMiddleware, revokeApiKey);
+app.delete('/api/user/developer/keys/:id', authMiddleware, revokeApiKey);
 
 // ─── USAGE ANALYTICS ────────────────────────────────────────────────────────
 

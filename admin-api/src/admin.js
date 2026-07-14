@@ -695,6 +695,34 @@ async function initDb() {
       CREATE INDEX IF NOT EXISTS idx_user_sessions_revoked ON user_sessions (revoked_at);
     `);
 
+    // Create api_keys table and policies
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS api_keys (
+          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+          tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+          name VARCHAR(255) NOT NULL,
+          key_hash VARCHAR(255) UNIQUE NOT NULL,
+          key_prefix VARCHAR(16) NOT NULL,
+          scopes JSONB DEFAULT '[]'::jsonb,
+          created_at TIMESTAMPTZ DEFAULT NOW(),
+          last_used_at TIMESTAMPTZ,
+          revoked_at TIMESTAMPTZ,
+          expires_at TIMESTAMPTZ
+      );
+      
+      ALTER TABLE api_keys ENABLE ROW LEVEL SECURITY;
+      ALTER TABLE api_keys FORCE ROW LEVEL SECURITY;
+    `);
+
+    await pool.query(`
+      DROP POLICY IF EXISTS tenant_isolation_policy ON api_keys;
+      CREATE POLICY tenant_isolation_policy ON api_keys
+          FOR ALL
+          USING (tenant_id = get_tenant_context())
+          WITH CHECK (tenant_id = get_tenant_context());
+    `).catch(err => console.error("Policy recreation failed on api_keys:", err));
+
     // ── Database Schema Alignment (Fk & updated_at Triggers) ────────────────
     console.log('[MIGRATION] Running constraint and updated_at column migrations...');
     await pool.query(`
