@@ -1948,7 +1948,6 @@ app.post('/webhooks/stripe', async (req, res) => {
     const amount = eventObj.amount_due ? eventObj.amount_due / 100 : (eventObj.amount ? eventObj.amount / 100 : 0);
     const currency = eventObj.currency || 'USD';
     const status = eventObj.status || 'success';
-    const eventId = event.id;
 
     // Extract tenant_id from metadata
     const tenantId = eventObj.metadata?.tenant_id || null;
