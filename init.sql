@@ -54,6 +54,61 @@ CREATE TABLE messages (
     CONSTRAINT check_message_role CHECK (role IN ('user', 'assistant', 'system'))
 );
 
+-- Plans Table
+CREATE TABLE plans (
+    id VARCHAR(50) PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    tier VARCHAR(50) NOT NULL,
+    price NUMERIC(10,2) NOT NULL DEFAULT 0.00,
+    billing VARCHAR(50) NOT NULL DEFAULT 'monthly',
+    currency VARCHAR(10) NOT NULL DEFAULT 'INR',
+    is_active BOOLEAN NOT NULL DEFAULT true,
+    is_recommended BOOLEAN NOT NULL DEFAULT false,
+    token_limit INTEGER NOT NULL DEFAULT -1,
+    tenant_limit INTEGER NOT NULL DEFAULT -1,
+    agent_limit INTEGER NOT NULL DEFAULT -1,
+    model_access TEXT[] NOT NULL DEFAULT '{}',
+    features JSONB NOT NULL DEFAULT '{}',
+    description TEXT,
+    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Subscriptions Table
+CREATE TABLE subscriptions (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+    provider VARCHAR(50) NOT NULL CHECK (provider IN ('stripe', 'razorpay')),
+    provider_subscription_id VARCHAR(255) NOT NULL,
+    plan_id VARCHAR(50) NOT NULL REFERENCES plans(id),
+    status VARCHAR(50) NOT NULL CHECK (status IN ('active', 'past_due', 'cancelled', 'unpaid', 'paused')),
+    current_period_start TIMESTAMPTZ,
+    current_period_end TIMESTAMPTZ,
+    amount DECIMAL,
+    currency VARCHAR(50),
+    metadata JSONB,
+    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT unique_provider_subscription UNIQUE (provider, provider_subscription_id)
+);
+
+-- Invoices Table
+CREATE TABLE invoices (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+    subscription_id UUID REFERENCES subscriptions(id) ON DELETE SET NULL,
+    provider VARCHAR(50) NOT NULL,
+    provider_invoice_id VARCHAR(255) NOT NULL,
+    amount DECIMAL,
+    currency VARCHAR(50),
+    status VARCHAR(50) NOT NULL CHECK (status IN ('draft', 'open', 'paid', 'uncollectible', 'void')),
+    paid_at TIMESTAMPTZ,
+    invoice_url TEXT,
+    pdf_url TEXT,
+    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT unique_provider_invoice UNIQUE (provider, provider_invoice_id)
+);
+
 -- Trigger to auto-update conversations.updated_at
 CREATE OR REPLACE FUNCTION update_updated_at_column()
 RETURNS TRIGGER AS $$
@@ -75,6 +130,16 @@ CREATE TRIGGER update_tenants_updated_at
 
 CREATE TRIGGER update_users_updated_at
     BEFORE UPDATE ON users
+    FOR EACH ROW
+    EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TRIGGER update_subscriptions_updated_at
+    BEFORE UPDATE ON subscriptions
+    FOR EACH ROW
+    EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TRIGGER update_invoices_updated_at
+    BEFORE UPDATE ON invoices
     FOR EACH ROW
     EXECUTE FUNCTION update_updated_at_column();
 
@@ -133,6 +198,24 @@ CREATE POLICY tenant_isolation_policy ON messages
     FOR ALL
     USING (tenant_id = current_setting('app.current_tenant', true)::uuid AND deleted_at IS NULL)
     WITH CHECK (tenant_id = current_setting('app.current_tenant', true)::uuid AND deleted_at IS NULL);
+
+-- Subscriptions RLS
+ALTER TABLE subscriptions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE subscriptions FORCE ROW LEVEL SECURITY;
+
+CREATE POLICY tenant_isolation_policy ON subscriptions
+    FOR ALL
+    USING (tenant_id = current_setting('app.current_tenant', true)::uuid)
+    WITH CHECK (tenant_id = current_setting('app.current_tenant', true)::uuid);
+
+-- Invoices RLS
+ALTER TABLE invoices ENABLE ROW LEVEL SECURITY;
+ALTER TABLE invoices FORCE ROW LEVEL SECURITY;
+
+CREATE POLICY tenant_isolation_policy ON invoices
+    FOR ALL
+    USING (tenant_id = current_setting('app.current_tenant', true)::uuid)
+    WITH CHECK (tenant_id = current_setting('app.current_tenant', true)::uuid);
 
 CREATE TABLE IF NOT EXISTS password_reset_tokens (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -219,6 +302,15 @@ CREATE INDEX IF NOT EXISTS idx_activity_logs_user_created ON activity_logs (user
 CREATE INDEX IF NOT EXISTS idx_activity_logs_tenant_action_created ON activity_logs (tenant_id, action, created_at);
 CREATE INDEX IF NOT EXISTS idx_user_sessions_user_expires ON user_sessions (user_id, expires_at);
 CREATE INDEX IF NOT EXISTS idx_user_sessions_revoked ON user_sessions (revoked_at);
+
+-- Billing & Invoices Indexes
+CREATE INDEX IF NOT EXISTS idx_subscriptions_tenant ON subscriptions(tenant_id);
+CREATE INDEX IF NOT EXISTS idx_subscriptions_provider ON subscriptions(provider, provider_subscription_id);
+CREATE INDEX IF NOT EXISTS idx_invoices_tenant ON invoices(tenant_id);
+CREATE INDEX IF NOT EXISTS idx_invoices_subscription ON invoices(subscription_id);
+
+-- Retention Policy for tax compliance
+COMMENT ON TABLE invoices IS 'Retention Policy: invoices kept for 7 years (tax compliance)';
 
 -- ==========================================
 -- 3. UTILITY HELPER FUNCTIONS

@@ -60,6 +60,20 @@ function decryptText(encryptedText) {
 // Self-healing database migrations on startup
 async function initDb() {
   try {
+    // Check if subscriptions has old schema (e.g. plan column instead of plan_id)
+    const tableInfo = await pool.query(`
+      SELECT column_name 
+      FROM information_schema.columns 
+      WHERE table_name = 'subscriptions' AND column_name = 'plan'
+    `);
+    if (tableInfo.rows.length > 0) {
+      console.log('🔄 Recreating subscriptions and invoices tables for new schema alignment...');
+      await pool.query(`
+        DROP TABLE IF EXISTS invoices CASCADE;
+        DROP TABLE IF EXISTS subscriptions CASCADE;
+      `);
+    }
+
     // 1. Create payment_providers table
     await pool.query(`
       CREATE TABLE IF NOT EXISTS payment_providers (
@@ -139,48 +153,47 @@ async function initDb() {
       CREATE TABLE IF NOT EXISTS subscriptions (
         id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
         tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE,
-        provider_id UUID REFERENCES payment_providers(id),
-        provider TEXT CHECK (provider IN ('razorpay', 'stripe')),
-        provider_subscription_id TEXT NOT NULL UNIQUE,
-        plan TEXT NOT NULL,
-        status TEXT NOT NULL CHECK (status IN ('active', 'cancelled', 'past_due', 'unpaid', 'paused')),
+        provider VARCHAR(50) NOT NULL CHECK (provider IN ('stripe', 'razorpay')),
+        provider_subscription_id VARCHAR(255) NOT NULL,
+        plan_id VARCHAR(50) NOT NULL REFERENCES plans(id),
+        status VARCHAR(50) NOT NULL CHECK (status IN ('active', 'past_due', 'cancelled', 'unpaid', 'paused')),
         current_period_start TIMESTAMPTZ,
         current_period_end TIMESTAMPTZ,
-        cancel_at_period_end BOOLEAN DEFAULT false,
-        amount DECIMAL(10,2),
-        currency TEXT DEFAULT 'INR',
+        amount DECIMAL,
+        currency VARCHAR(50),
         metadata JSONB,
         created_at TIMESTAMPTZ DEFAULT NOW(),
-        updated_at TIMESTAMPTZ DEFAULT NOW()
+        updated_at TIMESTAMPTZ DEFAULT NOW(),
+        CONSTRAINT unique_provider_subscription UNIQUE (provider, provider_subscription_id)
       )
     `);
 
-    // Ensure database-level constraint updates for active deployment
-    await pool.query('ALTER TABLE subscriptions DROP CONSTRAINT IF EXISTS subscriptions_plan_check').catch(() => {});
-    await pool.query('ALTER TABLE subscriptions ADD CONSTRAINT unique_provider_subscription_id UNIQUE (provider_subscription_id)').catch(() => {});
-
     await pool.query('CREATE INDEX IF NOT EXISTS idx_subscriptions_tenant ON subscriptions(tenant_id)');
-    await pool.query('CREATE INDEX IF NOT EXISTS idx_subscriptions_provider ON subscriptions(provider_subscription_id)');
+    await pool.query('CREATE INDEX IF NOT EXISTS idx_subscriptions_provider ON subscriptions(provider, provider_subscription_id)');
 
     // 5. Create invoices table
     await pool.query(`
       CREATE TABLE IF NOT EXISTS invoices (
         id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
         tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE,
-        subscription_id UUID REFERENCES subscriptions(id),
-        provider_id UUID REFERENCES payment_providers(id),
-        provider TEXT CHECK (provider IN ('razorpay', 'stripe')),
-        provider_invoice_id TEXT NOT NULL,
-        amount DECIMAL(10,2),
-        currency TEXT,
-        status TEXT CHECK (status IN ('draft', 'open', 'paid', 'uncollectible', 'void')),
+        subscription_id UUID REFERENCES subscriptions(id) ON DELETE SET NULL,
+        provider VARCHAR(50) NOT NULL,
+        provider_invoice_id VARCHAR(255) NOT NULL,
+        amount DECIMAL,
+        currency VARCHAR(50),
+        status VARCHAR(50) NOT NULL CHECK (status IN ('draft', 'open', 'paid', 'uncollectible', 'void')),
         paid_at TIMESTAMPTZ,
         invoice_url TEXT,
         pdf_url TEXT,
-        metadata JSONB,
-        created_at TIMESTAMPTZ DEFAULT NOW()
+        created_at TIMESTAMPTZ DEFAULT NOW(),
+        updated_at TIMESTAMPTZ DEFAULT NOW(),
+        CONSTRAINT unique_provider_invoice UNIQUE (provider, provider_invoice_id)
       )
     `);
+
+    await pool.query('CREATE INDEX IF NOT EXISTS idx_invoices_tenant ON invoices(tenant_id)');
+    await pool.query('CREATE INDEX IF NOT EXISTS idx_invoices_subscription ON invoices(subscription_id)');
+    await pool.query("COMMENT ON TABLE invoices IS 'Retention Policy: invoices kept for 7 years (tax compliance)'");
 
     // Mock provider check & warning logic (Step 6 Migration)
     const providers = await pool.query("SELECT COUNT(*) FROM payment_providers WHERE is_active = true");
@@ -813,7 +826,7 @@ async function initDb() {
 
           -- 4. Clean up orphaned records
           UPDATE tenants SET plan = 'starter' WHERE plan NOT IN (SELECT id FROM plans);
-          UPDATE subscriptions SET plan = 'starter' WHERE plan NOT IN (SELECT id FROM plans);
+          UPDATE subscriptions SET plan_id = 'starter' WHERE plan_id NOT IN (SELECT id FROM plans);
           DELETE FROM subscriptions WHERE tenant_id NOT IN (SELECT id FROM tenants);
           DELETE FROM invoices WHERE tenant_id NOT IN (SELECT id FROM tenants);
           UPDATE invoices SET subscription_id = NULL WHERE subscription_id NOT IN (SELECT id FROM subscriptions);
@@ -824,7 +837,7 @@ async function initDb() {
           END IF;
 
           IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_subscriptions_plan') THEN
-              ALTER TABLE subscriptions ADD CONSTRAINT fk_subscriptions_plan FOREIGN KEY (plan) REFERENCES plans(id) ON UPDATE CASCADE ON DELETE RESTRICT;
+              ALTER TABLE subscriptions ADD CONSTRAINT fk_subscriptions_plan FOREIGN KEY (plan_id) REFERENCES plans(id) ON UPDATE CASCADE ON DELETE RESTRICT;
           END IF;
 
           IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_subscriptions_tenant') THEN
@@ -2076,24 +2089,30 @@ app.post('/webhooks/stripe', async (req, res) => {
     // Business Logic processing
     if (event.type === 'customer.subscription.created' || event.type === 'customer.subscription.updated') {
       const subId = eventObj.id;
-      const plan = eventObj.metadata?.plan || 'developer';
+      const plan = eventObj.metadata?.plan || 'starter';
+      let planId = plan.toLowerCase();
+      if (!['starter', 'professional', 'enterprise'].includes(planId)) {
+        if (planId === 'developer' || planId === 'solo') planId = 'starter';
+        else if (planId === 'pro') planId = 'professional';
+        else planId = 'starter';
+      }
       const subStatus = eventObj.status === 'active' ? 'active' : (eventObj.status === 'canceled' ? 'cancelled' : 'paused');
       const start = new Date(eventObj.current_period_start * 1000);
       const end = new Date(eventObj.current_period_end * 1000);
 
       if (tenantId) {
         await pool.query(
-          `INSERT INTO subscriptions (tenant_id, provider_id, provider, provider_subscription_id, plan, status, current_period_start, current_period_end, amount, currency)
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
-           ON CONFLICT (provider_subscription_id) DO UPDATE SET 
+          `INSERT INTO subscriptions (tenant_id, provider, provider_subscription_id, plan_id, status, current_period_start, current_period_end, amount, currency)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+           ON CONFLICT (provider, provider_subscription_id) DO UPDATE SET 
              status = EXCLUDED.status, 
              current_period_start = EXCLUDED.current_period_start, 
              current_period_end = EXCLUDED.current_period_end, 
              amount = EXCLUDED.amount,
              updated_at = NOW()`,
-          [tenantId, provider.id, 'stripe', subId, plan, subStatus, start, end, amount, currency]
+          [tenantId, 'stripe', subId, planId, subStatus, start, end, amount, currency]
         );
-        await pool.query('UPDATE tenants SET plan = $1 WHERE id = $2', [plan.toUpperCase(), tenantId]);
+        await pool.query('UPDATE tenants SET plan = $1 WHERE id = $2', [planId.toUpperCase(), tenantId]);
       }
     } else if (event.type === 'invoice.paid') {
       const invId = eventObj.id;
@@ -2106,9 +2125,9 @@ app.post('/webhooks/stripe', async (req, res) => {
         const subscriptionUuid = subRes.rows.length > 0 ? subRes.rows[0].id : null;
 
         await pool.query(
-          `INSERT INTO invoices (tenant_id, subscription_id, provider_id, provider, provider_invoice_id, amount, currency, status, paid_at, invoice_url, pdf_url)
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW(), $9, $10)`,
-          [tenantId, subscriptionUuid, provider.id, 'stripe', invId, amount, currency, 'paid', invoiceUrl, pdfUrl]
+          `INSERT INTO invoices (tenant_id, subscription_id, provider, provider_invoice_id, amount, currency, status, paid_at, invoice_url, pdf_url)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, NOW(), $8, $9)`,
+          [tenantId, subscriptionUuid, 'stripe', invId, amount, currency, 'paid', invoiceUrl, pdfUrl]
         );
       }
     }
@@ -2207,23 +2226,29 @@ app.post('/webhooks/razorpay', async (req, res) => {
     if (tenantId) {
       if (eventType === 'subscription.activated' || eventType === 'subscription.charged') {
         const subId = entity.id;
-        const plan = entity.notes?.plan || 'developer';
+        const plan = entity.notes?.plan || 'starter';
+        let planId = plan.toLowerCase();
+        if (!['starter', 'professional', 'enterprise'].includes(planId)) {
+          if (planId === 'developer' || planId === 'solo') planId = 'starter';
+          else if (planId === 'pro') planId = 'professional';
+          else planId = 'starter';
+        }
         const subStatus = entity.status === 'active' || entity.status === 'authenticated' ? 'active' : 'paused';
         const start = entity.current_start ? new Date(entity.current_start * 1000) : new Date();
         const end = entity.current_end ? new Date(entity.current_end * 1000) : new Date();
 
         await pool.query(
-          `INSERT INTO subscriptions (tenant_id, provider_id, provider, provider_subscription_id, plan, status, current_period_start, current_period_end, amount, currency)
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
-           ON CONFLICT (provider_subscription_id) DO UPDATE SET 
+          `INSERT INTO subscriptions (tenant_id, provider, provider_subscription_id, plan_id, status, current_period_start, current_period_end, amount, currency)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+           ON CONFLICT (provider, provider_subscription_id) DO UPDATE SET 
              status = EXCLUDED.status, 
              current_period_start = EXCLUDED.current_period_start, 
              current_period_end = EXCLUDED.current_period_end, 
              amount = EXCLUDED.amount,
              updated_at = NOW()`,
-          [tenantId, provider.id, 'razorpay', subId, plan, subStatus, start, end, amount, 'INR']
+          [tenantId, 'razorpay', subId, planId, subStatus, start, end, amount, 'INR']
         );
-        await pool.query('UPDATE tenants SET plan = $1 WHERE id = $2', [plan.toUpperCase(), tenantId]);
+        await pool.query('UPDATE tenants SET plan = $1 WHERE id = $2', [planId.toUpperCase(), tenantId]);
       } else if (eventType === 'subscription.cancelled') {
         const subId = entity.id;
         await pool.query(
