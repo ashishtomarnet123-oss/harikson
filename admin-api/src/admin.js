@@ -745,6 +745,7 @@ async function initDb() {
           ALTER TABLE tenants ADD COLUMN IF NOT EXISTS downgrade_grace_ends TIMESTAMPTZ;
           ALTER TABLE tenants ADD COLUMN IF NOT EXISTS plan_downgrade_notified TIMESTAMPTZ;
           ALTER TABLE tenants ADD COLUMN IF NOT EXISTS plan_downgraded_at TIMESTAMPTZ;
+          ALTER TABLE tenants ADD COLUMN IF NOT EXISTS retention_overrides JSONB DEFAULT '{}'::jsonb;
 
           -- 2. Create trigger function if not exists
           CREATE OR REPLACE FUNCTION update_updated_at_column()

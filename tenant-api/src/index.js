@@ -6,8 +6,11 @@ import axios from 'axios';
 import jwt from 'jsonwebtoken';
 import bcrypt from 'bcrypt';
 import dotenv from 'dotenv';
-import * as cheerio from 'cheerio';
 import crypto from 'crypto';
+import * as cheerio from 'cheerio';
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
 
 dotenv.config();
 
@@ -289,6 +292,7 @@ async function initUserTables() {
           ALTER TABLE tenants ADD COLUMN IF NOT EXISTS downgrade_grace_ends TIMESTAMPTZ;
           ALTER TABLE tenants ADD COLUMN IF NOT EXISTS plan_downgrade_notified TIMESTAMPTZ;
           ALTER TABLE tenants ADD COLUMN IF NOT EXISTS plan_downgraded_at TIMESTAMPTZ;
+          ALTER TABLE tenants ADD COLUMN IF NOT EXISTS retention_overrides JSONB DEFAULT '{}'::jsonb;
 
           -- 2. Create trigger function if not exists
           CREATE OR REPLACE FUNCTION update_updated_at_column()
@@ -358,14 +362,44 @@ async function initUserTables() {
     console.error("❌ Failed to extend tenant users schema:", err);
   }
 }
-initUserTables().catch(console.error);
+// GDPR Data Export Helper
+async function exportGDPRData(tenantId) {
+  try {
+    const fs = require('fs');
+    const path = require('path');
+    
+    // Fetch all user and conversation rows bypassing RLS context (using master pool)
+    const users = await pool.query('SELECT * FROM users WHERE tenant_id = $1', [tenantId]);
+    const conversations = await pool.query('SELECT * FROM conversations WHERE tenant_id = $1', [tenantId]);
+    const messages = await pool.query('SELECT * FROM messages WHERE tenant_id = $1', [tenantId]);
+    const invoices = await pool.query('SELECT * FROM invoices WHERE tenant_id = $1', [tenantId]);
+    const tenant = await pool.query('SELECT * FROM tenants WHERE id = $1', [tenantId]);
+    
+    const payload = {
+      exported_at: new Date().toISOString(),
+      tenant: tenant.rows[0] || null,
+      users: users.rows,
+      conversations: conversations.rows,
+      messages: messages.rows,
+      invoices: invoices.rows
+    };
+    
+    const exportDir = path.join(__dirname, 'backups', 'gdpr_exports');
+    fs.mkdirSync(exportDir, { recursive: true });
+    const exportPath = path.join(exportDir, `tenant_gdpr_export_${tenantId}_${Date.now()}.json`);
+    fs.writeFileSync(exportPath, JSON.stringify(payload, null, 2));
+    console.log(`[GDPR] Exported tenant ${tenantId} data successfully to ${exportPath}`);
+  } catch (err) {
+    console.error(`[GDPR ERROR] Failed to export tenant data for ${tenantId}:`, err);
+  }
+}
 
 // Daily Clean-up Cron Job
 function startDailyCleanupCron() {
   const ONE_DAY = 24 * 60 * 60 * 1000;
   
   async function runCleanup() {
-    console.log('[CRON] Running daily database cleanup...');
+    console.log('[CRON] Running daily database cleanup & data retention rules...');
     try {
       // 1. Delete activity logs older than 90 days
       const delLogs = await pool.query(
@@ -379,9 +413,52 @@ function startDailyCleanupCron() {
       );
       console.log(`[CRON] Cleaned up ${delSessions.rowCount} expired/revoked user sessions.`);
 
-      // 3. Clean permanently soft-deleted records after retention period (default 30 days)
+      // 3. Clean invoices older than 7 years (tax compliance retention)
+      const delInvoices = await pool.query(
+        `DELETE FROM invoices WHERE created_at < NOW() - INTERVAL '2555 days'`
+      );
+      console.log(`[CRON] Hard deleted ${delInvoices.rowCount} invoices older than 7 years.`);
+
+      // 4. Clean conversations based on plans: Starter (1yr), Pro (2yr), Enterprise (Unlimited or overrides)
+      const activeTenants = await pool.query(
+        `SELECT id, plan, retention_overrides FROM tenants WHERE status = 'active' AND deleted_at IS NULL`
+      );
+      for (const tenantRow of activeTenants.rows) {
+        const tId = tenantRow.id;
+        const plan = (tenantRow.plan || 'starter').toLowerCase();
+        const overrides = tenantRow.retention_overrides || {};
+
+        let days = 365; // default Starter (1 year)
+        if (plan === 'pro' || plan === 'professional') {
+          days = 730; // Pro (2 years)
+        } else if (plan === 'enterprise') {
+          days = overrides.conversations_days ? parseInt(overrides.conversations_days, 10) : null;
+        }
+
+        if (days !== null) {
+          const delConvsResult = await pool.query(
+            `DELETE FROM conversations 
+             WHERE tenant_id = $1 AND updated_at < NOW() - $2 * INTERVAL '1 day'`,
+            [tId, days]
+          );
+          if (delConvsResult.rowCount > 0) {
+            console.log(`[CRON] Conversations retention: Hard deleted ${delConvsResult.rowCount} conversations older than ${days} days for tenant ${tId}`);
+          }
+        }
+      }
+
+      // 5. Clean permanently soft-deleted records after retention period (default 30 days)
       const retentionDays = parseInt(process.env.HARD_DELETE_AFTER_DAYS || '30', 10);
       
+      // GDPR Export soft-deleted tenants before hard deleting them
+      const softDeletedTenantsToPurge = await pool.query(
+        `SELECT id FROM tenants WHERE deleted_at < NOW() - $1 * INTERVAL '1 day'`,
+        [retentionDays]
+      );
+      for (const tRow of softDeletedTenantsToPurge.rows) {
+        await exportGDPRData(tRow.id);
+      }
+
       const delTenants = await pool.query(
         `DELETE FROM tenants WHERE deleted_at < NOW() - $1 * INTERVAL '1 day'`,
         [retentionDays]
@@ -3345,6 +3422,105 @@ app.delete('/api/user/rag-files/:id', authMiddleware, async (req, res) => {
   } catch (err) {
     console.error('Delete rag file error:', err);
     res.status(500).json({ error: 'Failed to delete RAG file' });
+  }
+});
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+// Serve openapi.json spec file
+app.get('/api/openapi.json', (req, res) => {
+  try {
+    const specPath = path.join(__dirname, 'openapi.json');
+    const specRaw = fs.readFileSync(specPath, 'utf8');
+    res.setHeader('Content-Type', 'application/json');
+    res.send(specRaw);
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to read OpenAPI spec' });
+  }
+});
+
+// Serve Swagger UI HTML page at /api/docs
+app.get('/api/docs', (req, res) => {
+  res.setHeader('Content-Type', 'text/html');
+  res.send(`
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+      <meta charset="utf-8" />
+      <title>Harikson AI OpenAPI Docs</title>
+      <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/swagger-ui/5.11.0/swagger-ui.min.css" />
+      <style>
+        html { box-sizing: border-box; overflow: -y-scroll; }
+        *, *:before, *:after { box-sizing: inherit; }
+        body { margin: 0; background: #fafafa; }
+      </style>
+    </head>
+    <body>
+      <div id="swagger-ui"></div>
+      <script src="https://cdnjs.cloudflare.com/ajax/libs/swagger-ui/5.11.0/swagger-ui-bundle.min.js"></script>
+      <script src="https://cdnjs.cloudflare.com/ajax/libs/swagger-ui/5.11.0/swagger-ui-standalone-preset.min.js"></script>
+      <script>
+        window.onload = () => {
+          window.ui = SwaggerUIBundle({
+            url: '/api/openapi.json',
+            dom_id: '#swagger-ui',
+            deepLinking: true,
+            presets: [
+              SwaggerUIBundle.presets.apis,
+              SwaggerUIStandalonePreset
+            ],
+            layout: "BaseLayout"
+          });
+        };
+      </script>
+    </body>
+    </html>
+  `);
+});
+
+// Chat history endpoint
+app.get('/api/chat/history', authMiddleware, async (req, res) => {
+  try {
+    const conversations = await executeTenantQuery(req.tenant.id, async (client) => {
+      const result = await client.query(
+        `SELECT id, title, model, created_at, updated_at
+         FROM conversations
+         WHERE user_id = $1 AND deleted_at IS NULL
+         ORDER BY updated_at DESC
+         LIMIT 100`,
+        [req.user.id]
+      );
+      return result.rows;
+    }, true);
+    res.json({ conversations });
+  } catch (err) {
+    console.error('Chat history error:', err);
+    res.status(500).json({ error: 'Failed to fetch chat history' });
+  }
+});
+
+// Billing endpoint aliases
+app.get('/api/billing', authMiddleware, async (req, res) => {
+  res.redirect('/api/user/billing');
+});
+
+app.get('/api/billing/invoices', authMiddleware, async (req, res) => {
+  try {
+    const invoices = await executeTenantQuery(req.tenant.id, async (client) => {
+      const result = await client.query(
+        `SELECT id, amount, currency, status, created_at, paid_at, invoice_url, pdf_url
+         FROM invoices
+         WHERE tenant_id = $1
+         ORDER BY created_at DESC`,
+        [req.tenant.id]
+      );
+      return result.rows;
+    }, true);
+    res.json({ invoices });
+  } catch (err) {
+    console.error('Fetch billing invoices error:', err);
+    res.status(500).json({ error: 'Failed to fetch invoices' });
   }
 });
 
