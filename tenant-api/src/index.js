@@ -7,6 +7,7 @@ import jwt from 'jsonwebtoken';
 import bcrypt from 'bcrypt';
 import dotenv from 'dotenv';
 import * as cheerio from 'cheerio';
+import crypto from 'crypto';
 
 dotenv.config();
 
@@ -48,6 +49,20 @@ async function initUserTables() {
       ALTER TABLE users ADD COLUMN IF NOT EXISTS connected_devices JSONB DEFAULT '[]'::jsonb;
       ALTER TABLE users ADD COLUMN IF NOT EXISTS activity_logs JSONB DEFAULT '[]'::jsonb;
     `);
+
+    // Create refresh_tokens table if not exists
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS refresh_tokens (
+        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+        token VARCHAR(255) UNIQUE NOT NULL,
+        user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+        expires_at TIMESTAMPTZ NOT NULL,
+        created_at TIMESTAMPTZ DEFAULT NOW(),
+        revoked_at TIMESTAMPTZ
+      );
+    `);
+
     console.log("✅ Tenant users schema extension verified successfully.");
   } catch (err) {
     console.error("❌ Failed to extend tenant users schema:", err);
@@ -158,24 +173,111 @@ const tenantMiddleware = async (req, res, next) => {
   }
 };
 
+// Helper to parse cookies from Header
+function parseCookies(cookieHeader) {
+  const cookies = {};
+  if (!cookieHeader) return cookies;
+  cookieHeader.split(';').forEach(cookie => {
+    const parts = cookie.split('=');
+    if (parts.length >= 2) {
+      cookies[parts[0].trim()] = parts.slice(1).join('=').trim();
+    }
+  });
+  return cookies;
+}
+
 // Auth Middleware
 const authMiddleware = async (req, res, next) => {
   try {
-    const authHeader = req.headers.authorization;
-    console.log(`[AUTH DEBUG] ${req.method} ${req.url} - Auth Header: "${authHeader}" - Tenant Header: "${req.headers['x-tenant-slug']}"`);
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return res.status(401).json({ error: 'Access Denied: No token provided' });
+    const cookies = parseCookies(req.headers.cookie);
+    let token = cookies.hk_access_token;
+    
+    // Fallback to Authorization header
+    if (!token) {
+      const authHeader = req.headers.authorization;
+      if (authHeader && authHeader.startsWith('Bearer ')) {
+        token = authHeader.split(' ')[1];
+      }
     }
     
-    const token = authHeader.split(' ')[1];
-    console.log(`[AUTH DEBUG] Extracted Token: "${token}"`);
+    console.log(`[AUTH DEBUG] ${req.method} ${req.url} - Token: "${token ? 'Present' : 'None'}" - Tenant Header: "${req.headers['x-tenant-slug']}"`);
+    
     let decoded;
+    let tokenExpired = false;
     
     // Support fallback tokens for isolated sandbox testing
     if (token === 'TEST_TOKEN' || token === 'TEST_ADMIN_TOKEN') {
       decoded = { userId: '00000000-0000-0000-0000-000000000001', role: 'superadmin' };
-    } else {
-      decoded = jwt.verify(token, jwtSecret);
+    } else if (token) {
+      try {
+        decoded = jwt.verify(token, jwtSecret);
+      } catch (err) {
+        if (err.name === 'TokenExpiredError') {
+          tokenExpired = true;
+        } else {
+          return res.status(401).json({ error: 'Access Denied: Invalid token' });
+        }
+      }
+    }
+    
+    // Auto-refresh token rotation if access token is missing/expired but valid refresh cookie is present
+    if (!decoded || tokenExpired) {
+      const refreshToken = cookies.hk_refresh_token;
+      if (!refreshToken) {
+        return res.status(401).json({ error: 'Access Denied: Session expired' });
+      }
+      
+      // Look up and validate refresh token
+      const rtQuery = await pool.query(
+        'SELECT * FROM refresh_tokens WHERE token = $1 AND revoked_at IS NULL AND expires_at > NOW() LIMIT 1',
+        [refreshToken]
+      );
+      
+      if (rtQuery.rows.length === 0) {
+        return res.status(401).json({ error: 'Access Denied: Session expired' });
+      }
+      
+      const rtRecord = rtQuery.rows[0];
+      
+      // Revoke old refresh token (rotation!)
+      await pool.query(
+        'UPDATE refresh_tokens SET revoked_at = NOW() WHERE id = $1',
+        [rtRecord.id]
+      );
+      
+      // Look up user
+      const userQuery = await pool.query(
+        'SELECT * FROM users WHERE id = $1',
+        [rtRecord.user_id]
+      );
+      
+      if (userQuery.rows.length === 0) {
+        return res.status(401).json({ error: 'Access Denied: User not found' });
+      }
+      
+      const user = userQuery.rows[0];
+      
+      // Issue new token pair
+      const newAccessToken = jwt.sign({ userId: user.id, role: user.role }, jwtSecret, { expiresIn: '15m' });
+      const newRefreshToken = crypto.randomBytes(20).toString('hex');
+      const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000); // 30 days
+      
+      await pool.query(
+        `INSERT INTO refresh_tokens (token, user_id, tenant_id, expires_at)
+         VALUES ($1, $2, $3, $4)`,
+        [newRefreshToken, user.id, rtRecord.tenant_id, expiresAt]
+      );
+      
+      const host = req.headers.host || '';
+      const domainSuffix = host.includes('neuravolt.cloud') ? '; Domain=.neuravolt.cloud' : '';
+      const secureFlag = process.env.NODE_ENV === 'production' ? 'Secure;' : '';
+      
+      res.setHeader('Set-Cookie', [
+        `hk_access_token=${newAccessToken}; HttpOnly; ${secureFlag} SameSite=Strict; Path=/; Max-Age=${15 * 60}${domainSuffix}`,
+        `hk_refresh_token=${newRefreshToken}; HttpOnly; ${secureFlag} SameSite=Strict; Path=/; Max-Age=${30 * 24 * 60 * 60}${domainSuffix}`
+      ]);
+      
+      decoded = { userId: user.id, role: user.role };
     }
     
     // Verify user exists in the current tenant (RLS-enforced query)
@@ -922,7 +1024,24 @@ app.post('/api/auth/login', async (req, res) => {
     }
     if (!valid) return res.status(401).json({ error: 'Invalid email or password' });
 
-    const token = jwt.sign({ userId: user.id, role: user.role }, jwtSecret, { expiresIn: '7d' });
+    const accessToken = jwt.sign({ userId: user.id, role: user.role }, jwtSecret, { expiresIn: '15m' });
+    const refreshToken = crypto.randomBytes(20).toString('hex');
+    const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000); // 30 days
+    
+    await pool.query(
+      `INSERT INTO refresh_tokens (token, user_id, tenant_id, expires_at)
+       VALUES ($1, $2, $3, $4)`,
+      [refreshToken, user.id, req.tenant.id, expiresAt]
+    );
+
+    const host = req.headers.host || '';
+    const domainSuffix = host.includes('neuravolt.cloud') ? '; Domain=.neuravolt.cloud' : '';
+    const secureFlag = process.env.NODE_ENV === 'production' ? 'Secure;' : '';
+    
+    res.setHeader('Set-Cookie', [
+      `hk_access_token=${accessToken}; HttpOnly; ${secureFlag} SameSite=Strict; Path=/; Max-Age=${15 * 60}${domainSuffix}`,
+      `hk_refresh_token=${refreshToken}; HttpOnly; ${secureFlag} SameSite=Strict; Path=/; Max-Age=${30 * 24 * 60 * 60}${domainSuffix}`
+    ]);
 
     // ── Record real login activity + device session ──────────────────────────
     try {
@@ -997,7 +1116,7 @@ app.post('/api/auth/login', async (req, res) => {
     // ─────────────────────────────────────────────────────────────────────────
 
     res.json({
-      token,
+      token: accessToken,
       user: { id: user.id, email: user.email, role: user.role, tenantSlug: req.tenant.slug }
     });
   } catch (err) {
@@ -1035,14 +1154,128 @@ app.post('/api/auth/register', async (req, res) => {
       return result.rows[0];
     });
 
-    const token = jwt.sign({ userId: newUser.id, role: newUser.role }, jwtSecret, { expiresIn: '7d' });
+    const accessToken = jwt.sign({ userId: newUser.id, role: newUser.role }, jwtSecret, { expiresIn: '15m' });
+    const refreshToken = crypto.randomBytes(20).toString('hex');
+    const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000); // 30 days
+    
+    await pool.query(
+      `INSERT INTO refresh_tokens (token, user_id, tenant_id, expires_at)
+       VALUES ($1, $2, $3, $4)`,
+      [refreshToken, newUser.id, req.tenant.id, expiresAt]
+    );
+
+    const host = req.headers.host || '';
+    const domainSuffix = host.includes('neuravolt.cloud') ? '; Domain=.neuravolt.cloud' : '';
+    const secureFlag = process.env.NODE_ENV === 'production' ? 'Secure;' : '';
+    
+    res.setHeader('Set-Cookie', [
+      `hk_access_token=${accessToken}; HttpOnly; ${secureFlag} SameSite=Strict; Path=/; Max-Age=${15 * 60}${domainSuffix}`,
+      `hk_refresh_token=${refreshToken}; HttpOnly; ${secureFlag} SameSite=Strict; Path=/; Max-Age=${30 * 24 * 60 * 60}${domainSuffix}`
+    ]);
+
     res.status(201).json({
-      token,
+      token: accessToken,
       user: { id: newUser.id, email: newUser.email, role: newUser.role, name: name || email.split('@')[0], tenantSlug: req.tenant.slug }
     });
   } catch (err) {
     console.error('Register error:', err);
     res.status(500).json({ error: 'Registration failed' });
+  }
+});
+
+// 6c. POST /api/auth/logout
+app.post('/api/auth/logout', async (req, res) => {
+  try {
+    const cookies = parseCookies(req.headers.cookie);
+    const refreshToken = cookies.hk_refresh_token;
+    
+    if (refreshToken) {
+      await pool.query(
+        "UPDATE refresh_tokens SET revoked_at = NOW() WHERE token = $1",
+        [refreshToken]
+      );
+    }
+    
+    const host = req.headers.host || '';
+    const domainSuffix = host.includes('neuravolt.cloud') ? '; Domain=.neuravolt.cloud' : '';
+    
+    res.setHeader('Set-Cookie', [
+      `hk_access_token=; HttpOnly; Path=/; Max-Age=0${domainSuffix}`,
+      `hk_refresh_token=; HttpOnly; Path=/; Max-Age=0${domainSuffix}`
+    ]);
+    
+    res.status(200).json({ success: true, message: 'Logged out successfully' });
+  } catch (err) {
+    console.error('Logout error:', err);
+    res.status(500).json({ error: 'Logout failed' });
+  }
+});
+
+// 6d. POST /api/auth/refresh
+app.post('/api/auth/refresh', async (req, res) => {
+  try {
+    const cookies = parseCookies(req.headers.cookie);
+    const refreshToken = cookies.hk_refresh_token;
+    
+    if (!refreshToken) {
+      return res.status(401).json({ error: 'No refresh token provided' });
+    }
+    
+    const rtQuery = await pool.query(
+      'SELECT * FROM refresh_tokens WHERE token = $1 AND revoked_at IS NULL AND expires_at > NOW() LIMIT 1',
+      [refreshToken]
+    );
+    
+    if (rtQuery.rows.length === 0) {
+      return res.status(401).json({ error: 'Invalid or expired refresh token' });
+    }
+    
+    const rtRecord = rtQuery.rows[0];
+    
+    // Revoke old token
+    await pool.query(
+      'UPDATE refresh_tokens SET revoked_at = NOW() WHERE id = $1',
+      [rtRecord.id]
+    );
+    
+    const userQuery = await pool.query(
+      'SELECT * FROM users WHERE id = $1',
+      [rtRecord.user_id]
+    );
+    
+    if (userQuery.rows.length === 0) {
+      return res.status(401).json({ error: 'User not found' });
+    }
+    
+    const user = userQuery.rows[0];
+    
+    // Issue new pair
+    const newAccessToken = jwt.sign({ userId: user.id, role: user.role }, jwtSecret, { expiresIn: '15m' });
+    const newRefreshToken = crypto.randomBytes(20).toString('hex');
+    const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000); // 30 days
+    
+    await pool.query(
+      `INSERT INTO refresh_tokens (token, user_id, tenant_id, expires_at)
+       VALUES ($1, $2, $3, $4)`,
+      [newRefreshToken, user.id, rtRecord.tenant_id, expiresAt]
+    );
+    
+    const host = req.headers.host || '';
+    const domainSuffix = host.includes('neuravolt.cloud') ? '; Domain=.neuravolt.cloud' : '';
+    const secureFlag = process.env.NODE_ENV === 'production' ? 'Secure;' : '';
+    
+    res.setHeader('Set-Cookie', [
+      `hk_access_token=${newAccessToken}; HttpOnly; ${secureFlag} SameSite=Strict; Path=/; Max-Age=${15 * 60}${domainSuffix}`,
+      `hk_refresh_token=${newRefreshToken}; HttpOnly; ${secureFlag} SameSite=Strict; Path=/; Max-Age=${30 * 24 * 60 * 60}${domainSuffix}`
+    ]);
+    
+    res.status(200).json({
+      token: newAccessToken,
+      user: { id: user.id, email: user.email, role: user.role }
+    });
+  } catch (err) {
+    console.error('Refresh error:', err);
+    res.status(500).json({ error: 'Token refresh failed' });
   }
 });
 

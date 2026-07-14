@@ -1460,7 +1460,21 @@ If any check fails, revise the relevant section before output.`;
   };
 
   /* ── Logout ── */
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    try {
+      const apiBase = localStorage.getItem('hk_api_base') || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3008';
+      const token = localStorage.getItem('hk_token');
+      const tenantSlug = localStorage.getItem('hk_tenant') || 'neuravolt';
+      await fetch(`${apiBase}/api/auth/logout`, {
+        method: 'POST',
+        headers: {
+          'x-tenant-slug': tenantSlug,
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+        }
+      });
+    } catch (e) {
+      console.error('Logout error', e);
+    }
     localStorage.removeItem('hk_token');
     localStorage.removeItem('hk_user');
     localStorage.removeItem('hk_tenant');
@@ -2001,6 +2015,7 @@ If any check fails, revise the relevant section before output.`;
           isOpen={showSettingsModal} 
           onClose={() => setShowSettingsModal(false)} 
           initialTab="profile"
+          handleLogout={handleLogout}
         />
       </div>
     </>

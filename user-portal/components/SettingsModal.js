@@ -394,7 +394,7 @@ const navSections = [
 // Flatten all items for easy lookup
 const allItems = navSections.flatMap(s => s.items);
 
-export default function SettingsModal({ isOpen, onClose, initialTab = 'profile' }) {
+export default function SettingsModal({ isOpen, onClose, initialTab = 'profile', handleLogout }) {
   const [activeTab, setActiveTab] = useState(initialTab);
   const router = useRouter();
 
@@ -452,9 +452,13 @@ export default function SettingsModal({ isOpen, onClose, initialTab = 'profile' 
             <div className="settings-sidebar-footer">
               <button
                 className="settings-logout-btn"
-                onClick={() => {
-                  localStorage.removeItem('hk_token');
-                  router.push('/login');
+                onClick={async () => {
+                  if (handleLogout) {
+                    await handleLogout();
+                  } else {
+                    localStorage.removeItem('hk_token');
+                    router.push('/login');
+                  }
                 }}
               >
                 <LogOut size={15} /> Log Out
