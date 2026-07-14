@@ -79,7 +79,7 @@ async function runTests() {
     const setupClient = await pool.connect();
     try {
       // Temporarily bypass RLS for setup by using superuser role without RLS context checks on insert
-      await setupClient.query('SET ROW LEVEL SECURITY = OFF');
+      await setupClient.query('SET row_security = off;');
       
       // Clean up previous runs
       await setupClient.query('DELETE FROM conversations WHERE tenant_id IN ($1, $2)', [tenantA, tenantB]);
@@ -93,7 +93,7 @@ async function runTests() {
       // Insert conversations
       await setupClient.query("INSERT INTO conversations (tenant_id, user_id, title, model) VALUES ($1, $2, 'Conv Tenant A', 'model'), ($3, $4, 'Conv Tenant B', 'model')", [tenantA, userA, tenantB, userB]);
       
-      await setupClient.query('SET ROW LEVEL SECURITY = ON');
+      await setupClient.query('SET row_security = on;');
     } finally {
       setupClient.release();
     }
