@@ -153,8 +153,8 @@ async function initUserTables() {
       DROP POLICY IF EXISTS tenant_isolation_policy ON activity_logs;
       CREATE POLICY tenant_isolation_policy ON activity_logs
           FOR ALL
-          USING (tenant_id = get_tenant_context())
-          WITH CHECK (tenant_id = get_tenant_context());
+          USING (tenant_id = current_setting('app.current_tenant', true)::uuid)
+          WITH CHECK (tenant_id = current_setting('app.current_tenant', true)::uuid);
     `).catch(err => console.error("Policy recreation failed on activity_logs:", err));
 
     // Migrate existing JSONB activity logs if users has rows and activity_logs table is empty
@@ -204,8 +204,8 @@ async function initUserTables() {
       DROP POLICY IF EXISTS tenant_isolation_policy ON user_sessions;
       CREATE POLICY tenant_isolation_policy ON user_sessions
           FOR ALL
-          USING (tenant_id = get_tenant_context())
-          WITH CHECK (tenant_id = get_tenant_context());
+          USING (tenant_id = current_setting('app.current_tenant', true)::uuid)
+          WITH CHECK (tenant_id = current_setting('app.current_tenant', true)::uuid);
     `).catch(err => console.error("Policy recreation failed on user_sessions:", err));
 
     // Migrate existing JSONB connected_devices if user_sessions table is empty
@@ -257,8 +257,8 @@ async function initUserTables() {
       DROP POLICY IF EXISTS tenant_isolation_policy ON api_keys;
       CREATE POLICY tenant_isolation_policy ON api_keys
           FOR ALL
-          USING (tenant_id = get_tenant_context())
-          WITH CHECK (tenant_id = get_tenant_context());
+          USING (tenant_id = current_setting('app.current_tenant', true)::uuid)
+          WITH CHECK (tenant_id = current_setting('app.current_tenant', true)::uuid);
     `).catch(err => console.error("Policy recreation failed on api_keys:", err));
 
     // 7. Add Indexes for optimization
@@ -568,10 +568,8 @@ async function connectWithValidation(useReplica = false) {
       const valRes = await client.query("SELECT current_setting('app.current_tenant', true) AS tenant");
       const currentTenant = valRes.rows[0]?.tenant;
       if (currentTenant && currentTenant.trim() !== '') {
-        console.error('[DB WARNING] Stale tenant context found on connection checkout, discarding connection:', currentTenant);
         client.release(true); // Discard from pool
-        retries--;
-        continue;
+        throw new Error(`Connection pollution detected: app.current_tenant is already set to "${currentTenant}"`);
       }
       return client;
     } catch (err) {
@@ -591,8 +589,12 @@ async function executeTenantQuery(tenantId, callback, useReplica = false) {
   let contextSet = false;
   try {
     // Set RLS context on the connection
-    await client.query('SELECT set_tenant_context($1)', [tenantId]);
+    await client.query("SELECT set_config('app.current_tenant', $1, false)", [tenantId]);
     contextSet = true;
+    
+    // Assert tenant context is set correctly
+    await client.query("SELECT assert_tenant_context()");
+
     // Run the queries
     const result = await callback(client);
     return result;
@@ -602,7 +604,7 @@ async function executeTenantQuery(tenantId, callback, useReplica = false) {
     if (contextSet) {
       try {
         // Clear context to prevent leakage to subsequent checkouts of this connection
-        await client.query('SELECT set_tenant_context(NULL)');
+        await client.query("SELECT set_config('app.current_tenant', '', false)");
         client.release();
       } catch (resetErr) {
         console.error('[DB FATAL] Failed to reset tenant context, destroying connection:', resetErr);

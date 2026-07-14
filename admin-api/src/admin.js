@@ -563,8 +563,20 @@ async function initDb() {
       `);
     }
 
-    // Create/update tenant context getter function and recreate RLS policies
+    // Create/update tenant context validation functions
     await pool.query(`
+      CREATE OR REPLACE FUNCTION assert_tenant_context()
+      RETURNS VOID AS $$
+      DECLARE
+          val TEXT;
+      BEGIN
+          val := current_setting('app.current_tenant', true);
+          IF val IS NULL OR val = '' THEN
+              RAISE EXCEPTION 'Database tenant context is not set. Access Denied.';
+          END IF;
+      END;
+      $$ LANGUAGE plpgsql STABLE;
+
       CREATE OR REPLACE FUNCTION get_tenant_context()
       RETURNS UUID AS $$
       DECLARE
@@ -583,32 +595,32 @@ async function initDb() {
       DROP POLICY IF EXISTS tenant_isolation_policy ON tenants;
       CREATE POLICY tenant_isolation_policy ON tenants
           FOR ALL
-          USING (id = get_tenant_context() AND deleted_at IS NULL)
-          WITH CHECK (id = get_tenant_context() AND deleted_at IS NULL);
+          USING (id = current_setting('app.current_tenant', true)::uuid AND deleted_at IS NULL)
+          WITH CHECK (id = current_setting('app.current_tenant', true)::uuid AND deleted_at IS NULL);
     `).catch(err => console.error("Policy recreation failed on tenants:", err));
 
     await pool.query(`
       DROP POLICY IF EXISTS tenant_isolation_policy ON users;
       CREATE POLICY tenant_isolation_policy ON users
           FOR ALL
-          USING (tenant_id = get_tenant_context() AND deleted_at IS NULL)
-          WITH CHECK (tenant_id = get_tenant_context() AND deleted_at IS NULL);
+          USING (tenant_id = current_setting('app.current_tenant', true)::uuid AND deleted_at IS NULL)
+          WITH CHECK (tenant_id = current_setting('app.current_tenant', true)::uuid AND deleted_at IS NULL);
     `).catch(err => console.error("Policy recreation failed on users:", err));
 
     await pool.query(`
       DROP POLICY IF EXISTS tenant_isolation_policy ON conversations;
       CREATE POLICY tenant_isolation_policy ON conversations
           FOR ALL
-          USING (tenant_id = get_tenant_context() AND deleted_at IS NULL)
-          WITH CHECK (tenant_id = get_tenant_context() AND deleted_at IS NULL);
+          USING (tenant_id = current_setting('app.current_tenant', true)::uuid AND deleted_at IS NULL)
+          WITH CHECK (tenant_id = current_setting('app.current_tenant', true)::uuid AND deleted_at IS NULL);
     `).catch(err => console.error("Policy recreation failed on conversations:", err));
 
     await pool.query(`
       DROP POLICY IF EXISTS tenant_isolation_policy ON messages;
       CREATE POLICY tenant_isolation_policy ON messages
           FOR ALL
-          USING (tenant_id = get_tenant_context() AND deleted_at IS NULL)
-          WITH CHECK (tenant_id = get_tenant_context() AND deleted_at IS NULL);
+          USING (tenant_id = current_setting('app.current_tenant', true)::uuid AND deleted_at IS NULL)
+          WITH CHECK (tenant_id = current_setting('app.current_tenant', true)::uuid AND deleted_at IS NULL);
     `).catch(err => console.error("Policy recreation failed on messages:", err));
 
     // Create password_reset_tokens table and policies
@@ -631,8 +643,8 @@ async function initDb() {
       DROP POLICY IF EXISTS tenant_isolation_policy ON password_reset_tokens;
       CREATE POLICY tenant_isolation_policy ON password_reset_tokens
           FOR ALL
-          USING (tenant_id = get_tenant_context())
-          WITH CHECK (tenant_id = get_tenant_context());
+          USING (tenant_id = current_setting('app.current_tenant', true)::uuid)
+          WITH CHECK (tenant_id = current_setting('app.current_tenant', true)::uuid);
     `).catch(err => console.error("Policy recreation failed on password_reset_tokens:", err));
 
     // Create activity_logs table and policies
@@ -656,8 +668,8 @@ async function initDb() {
       DROP POLICY IF EXISTS tenant_isolation_policy ON activity_logs;
       CREATE POLICY tenant_isolation_policy ON activity_logs
           FOR ALL
-          USING (tenant_id = get_tenant_context())
-          WITH CHECK (tenant_id = get_tenant_context());
+          USING (tenant_id = current_setting('app.current_tenant', true)::uuid)
+          WITH CHECK (tenant_id = current_setting('app.current_tenant', true)::uuid);
     `).catch(err => console.error("Policy recreation failed on activity_logs:", err));
 
     // Create user_sessions table and policies
@@ -683,8 +695,8 @@ async function initDb() {
       DROP POLICY IF EXISTS tenant_isolation_policy ON user_sessions;
       CREATE POLICY tenant_isolation_policy ON user_sessions
           FOR ALL
-          USING (tenant_id = get_tenant_context())
-          WITH CHECK (tenant_id = get_tenant_context());
+          USING (tenant_id = current_setting('app.current_tenant', true)::uuid)
+          WITH CHECK (tenant_id = current_setting('app.current_tenant', true)::uuid);
     `).catch(err => console.error("Policy recreation failed on user_sessions:", err));
 
     // Create indexes for optimization
@@ -719,9 +731,31 @@ async function initDb() {
       DROP POLICY IF EXISTS tenant_isolation_policy ON api_keys;
       CREATE POLICY tenant_isolation_policy ON api_keys
           FOR ALL
-          USING (tenant_id = get_tenant_context())
-          WITH CHECK (tenant_id = get_tenant_context());
+          USING (tenant_id = current_setting('app.current_tenant', true)::uuid)
+          WITH CHECK (tenant_id = current_setting('app.current_tenant', true)::uuid);
     `).catch(err => console.error("Policy recreation failed on api_keys:", err));
+
+    // Enable and set RLS for workflows
+    await pool.query(`
+      ALTER TABLE workflows ENABLE ROW LEVEL SECURITY;
+      ALTER TABLE workflows FORCE ROW LEVEL SECURITY;
+      DROP POLICY IF EXISTS tenant_isolation_policy ON workflows;
+      CREATE POLICY tenant_isolation_policy ON workflows
+          FOR ALL
+          USING (tenant_id = current_setting('app.current_tenant', true)::uuid)
+          WITH CHECK (tenant_id = current_setting('app.current_tenant', true)::uuid);
+    `).catch(err => console.error("Policy recreation failed on workflows:", err));
+
+    // Enable and set RLS for knowledge_bases
+    await pool.query(`
+      ALTER TABLE knowledge_bases ENABLE ROW LEVEL SECURITY;
+      ALTER TABLE knowledge_bases FORCE ROW LEVEL SECURITY;
+      DROP POLICY IF EXISTS tenant_isolation_policy ON knowledge_bases;
+      CREATE POLICY tenant_isolation_policy ON knowledge_bases
+          FOR ALL
+          USING (tenant_id = current_setting('app.current_tenant', true)::uuid)
+          WITH CHECK (tenant_id = current_setting('app.current_tenant', true)::uuid);
+    `).catch(err => console.error("Policy recreation failed on knowledge_bases:", err));
 
     // ── Database Schema Alignment (Fk & updated_at Triggers) ────────────────
     console.log('[MIGRATION] Running constraint and updated_at column migrations...');

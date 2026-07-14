@@ -89,6 +89,18 @@ ALTER TABLE conversations ENABLE ROW LEVEL SECURITY;
 ALTER TABLE messages ENABLE ROW LEVEL SECURITY;
 
 -- Create RLS context getter function
+CREATE OR REPLACE FUNCTION assert_tenant_context()
+RETURNS VOID AS $$
+DECLARE
+    val TEXT;
+BEGIN
+    val := current_setting('app.current_tenant', true);
+    IF val IS NULL OR val = '' THEN
+        RAISE EXCEPTION 'Database tenant context is not set. Access Denied.';
+    END IF;
+END;
+$$ LANGUAGE plpgsql STABLE;
+
 CREATE OR REPLACE FUNCTION get_tenant_context()
 RETURNS UUID AS $$
 DECLARE
@@ -104,23 +116,23 @@ $$ LANGUAGE plpgsql STABLE;
 
 CREATE POLICY tenant_isolation_policy ON tenants
     FOR ALL
-    USING (id = get_tenant_context() AND deleted_at IS NULL)
-    WITH CHECK (id = get_tenant_context() AND deleted_at IS NULL);
+    USING (id = current_setting('app.current_tenant', true)::uuid AND deleted_at IS NULL)
+    WITH CHECK (id = current_setting('app.current_tenant', true)::uuid AND deleted_at IS NULL);
 
 CREATE POLICY tenant_isolation_policy ON users
     FOR ALL
-    USING (tenant_id = get_tenant_context() AND deleted_at IS NULL)
-    WITH CHECK (tenant_id = get_tenant_context() AND deleted_at IS NULL);
+    USING (tenant_id = current_setting('app.current_tenant', true)::uuid AND deleted_at IS NULL)
+    WITH CHECK (tenant_id = current_setting('app.current_tenant', true)::uuid AND deleted_at IS NULL);
 
 CREATE POLICY tenant_isolation_policy ON conversations
     FOR ALL
-    USING (tenant_id = get_tenant_context() AND deleted_at IS NULL)
-    WITH CHECK (tenant_id = get_tenant_context() AND deleted_at IS NULL);
+    USING (tenant_id = current_setting('app.current_tenant', true)::uuid AND deleted_at IS NULL)
+    WITH CHECK (tenant_id = current_setting('app.current_tenant', true)::uuid AND deleted_at IS NULL);
 
 CREATE POLICY tenant_isolation_policy ON messages
     FOR ALL
-    USING (tenant_id = get_tenant_context() AND deleted_at IS NULL)
-    WITH CHECK (tenant_id = get_tenant_context() AND deleted_at IS NULL);
+    USING (tenant_id = current_setting('app.current_tenant', true)::uuid AND deleted_at IS NULL)
+    WITH CHECK (tenant_id = current_setting('app.current_tenant', true)::uuid AND deleted_at IS NULL);
 
 CREATE TABLE IF NOT EXISTS password_reset_tokens (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -137,8 +149,8 @@ ALTER TABLE password_reset_tokens FORCE ROW LEVEL SECURITY;
 
 CREATE POLICY tenant_isolation_policy ON password_reset_tokens
     FOR ALL
-    USING (tenant_id = get_tenant_context())
-    WITH CHECK (tenant_id = get_tenant_context());
+    USING (tenant_id = current_setting('app.current_tenant', true)::uuid)
+    WITH CHECK (tenant_id = current_setting('app.current_tenant', true)::uuid);
 
 CREATE TABLE IF NOT EXISTS activity_logs (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -156,8 +168,8 @@ ALTER TABLE activity_logs FORCE ROW LEVEL SECURITY;
 
 CREATE POLICY tenant_isolation_policy ON activity_logs
     FOR ALL
-    USING (tenant_id = get_tenant_context())
-    WITH CHECK (tenant_id = get_tenant_context());
+    USING (tenant_id = current_setting('app.current_tenant', true)::uuid)
+    WITH CHECK (tenant_id = current_setting('app.current_tenant', true)::uuid);
 
 CREATE TABLE IF NOT EXISTS user_sessions (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -177,8 +189,8 @@ ALTER TABLE user_sessions FORCE ROW LEVEL SECURITY;
 
 CREATE POLICY tenant_isolation_policy ON user_sessions
     FOR ALL
-    USING (tenant_id = get_tenant_context())
-    WITH CHECK (tenant_id = get_tenant_context());
+    USING (tenant_id = current_setting('app.current_tenant', true)::uuid)
+    WITH CHECK (tenant_id = current_setting('app.current_tenant', true)::uuid);
 
 CREATE TABLE IF NOT EXISTS api_keys (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -199,8 +211,8 @@ ALTER TABLE api_keys FORCE ROW LEVEL SECURITY;
 
 CREATE POLICY tenant_isolation_policy ON api_keys
     FOR ALL
-    USING (tenant_id = get_tenant_context())
-    WITH CHECK (tenant_id = get_tenant_context());
+    USING (tenant_id = current_setting('app.current_tenant', true)::uuid)
+    WITH CHECK (tenant_id = current_setting('app.current_tenant', true)::uuid);
 
 -- Indexes for performance
 CREATE INDEX IF NOT EXISTS idx_activity_logs_user_created ON activity_logs (user_id, created_at);
