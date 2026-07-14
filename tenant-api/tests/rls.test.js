@@ -8,8 +8,17 @@ const dbUrl = process.env.DATABASE_URL || 'postgresql://neuravolt:neuravolt_dev_
 
 console.log('🧪 Connecting to test database at:', dbUrl);
 
-const pool = new Pool({
+// Admin pool (superuser role) for setup/teardown and DDL operations
+const adminPool = new Pool({
   connectionString: dbUrl,
+  max: 5,
+  idleTimeoutMillis: 1000
+});
+
+// App pool (non-superuser role) for testing client queries and RLS policies
+const appRoleUrl = dbUrl.replace('neuravolt:neuravolt_dev_pwd', 'tenant_test_role:tenant_test_pwd');
+const testRolePool = new Pool({
+  connectionString: appRoleUrl,
   max: 5,
   idleTimeoutMillis: 1000
 });
@@ -19,7 +28,7 @@ async function connectWithValidation() {
   let client;
   let retries = 3;
   while (retries > 0) {
-    client = await pool.connect();
+    client = await testRolePool.connect();
     try {
       const valRes = await client.query("SELECT current_setting('app.current_tenant', true) AS tenant");
       const currentTenant = valRes.rows[0]?.tenant;
@@ -74,10 +83,24 @@ async function runTests() {
   const userB = 'b0000000-0000-0000-0000-000000000001';
 
   try {
-    // Setup test records
-    console.log('🔹 Setting up test database records...');
-    const setupClient = await pool.connect();
+    // 1. Setup test role and test records
+    console.log('🔹 Setting up test database records and role...');
+    const setupClient = await adminPool.connect();
     try {
+      // Create non-superuser role if not exists
+      await setupClient.query(`
+        DO $$
+        BEGIN
+          IF NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = 'tenant_test_role') THEN
+            CREATE ROLE tenant_test_role WITH LOGIN PASSWORD 'tenant_test_pwd';
+          END IF;
+        END
+        $$;
+        GRANT USAGE ON SCHEMA public TO tenant_test_role;
+        GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO tenant_test_role;
+        GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO tenant_test_role;
+      `);
+
       // Temporarily bypass RLS for setup by using superuser role without RLS context checks on insert
       await setupClient.query('SET row_security = off;');
       
@@ -110,8 +133,8 @@ async function runTests() {
       console.log('   ✓ Query 2 returned correct tenant:', res2.rows[0].tenant);
     });
 
-    // Test 2: RLS Isolation Enforcement
-    console.log('\n🔹 Test 2: RLS Isolation Enforcement...');
+    // Test 2: RLS Isolation Enforcement (run as non-superuser tenant_test_role)
+    console.log('\n🔹 Test 2: RLS Isolation Enforcement (non-superuser)...');
     // Querying as Tenant A
     const rowsA = await executeTenantQuery(tenantA, async (client) => {
       const res = await client.query('SELECT title FROM conversations');
@@ -132,7 +155,7 @@ async function runTests() {
 
     // Test 3: Assert Context raises exception if empty
     console.log('\n🔹 Test 3: assert_tenant_context() raises error when empty...');
-    const assertClient = await pool.connect();
+    const assertClient = await testRolePool.connect();
     try {
       await assertClient.query("SELECT set_config('app.current_tenant', '', false)");
       await assertClient.query("SELECT assert_tenant_context()");
@@ -147,7 +170,7 @@ async function runTests() {
     // Test 4: Connection Pollution Detection
     console.log('\n🔹 Test 4: Connection Pollution Detection...');
     // Manually pollute a client and return it to the pool
-    const pollutedClient = await pool.connect();
+    const pollutedClient = await testRolePool.connect();
     await pollutedClient.query("SELECT set_config('app.current_tenant', $1, false)", [tenantA]);
     pollutedClient.release(); // Return to pool while polluted!
 
@@ -164,7 +187,8 @@ async function runTests() {
     console.error('\n❌ TEST SUITE FAILED:', err);
     process.exit(1);
   } finally {
-    await pool.end();
+    await adminPool.end();
+    await testRolePool.end();
   }
 }
 
