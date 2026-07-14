@@ -237,6 +237,81 @@ async function initUserTables() {
       CREATE INDEX IF NOT EXISTS idx_user_sessions_revoked ON user_sessions (revoked_at);
     `);
 
+    // ── Database Schema Alignment (Fk & updated_at Triggers) ────────────────
+    console.log('[MIGRATION] Running constraint and updated_at column migrations...');
+    await pool.query(`
+      DO $$
+      BEGIN
+          -- 1. Ensure updated_at column exists in all requested tables
+          ALTER TABLE tenants ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP;
+          ALTER TABLE users ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP;
+          ALTER TABLE plans ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP;
+          ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP;
+          ALTER TABLE invoices ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP;
+
+          -- 2. Create trigger function if not exists
+          CREATE OR REPLACE FUNCTION update_updated_at_column()
+          RETURNS TRIGGER AS $_$
+          BEGIN
+              NEW.updated_at = CURRENT_TIMESTAMP;
+              RETURN NEW;
+          END;
+          $_$ LANGUAGE plpgsql;
+
+          -- 3. Bind update triggers
+          IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'update_tenants_updated_at') THEN
+              CREATE TRIGGER update_tenants_updated_at BEFORE UPDATE ON tenants FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+          END IF;
+          
+          IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'update_users_updated_at') THEN
+              CREATE TRIGGER update_users_updated_at BEFORE UPDATE ON users FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+          END IF;
+
+          IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'update_plans_updated_at') THEN
+              CREATE TRIGGER update_plans_updated_at BEFORE UPDATE ON plans FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+          END IF;
+
+          IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'update_subscriptions_updated_at') THEN
+              CREATE TRIGGER update_subscriptions_updated_at BEFORE UPDATE ON subscriptions FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+          END IF;
+
+          IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'update_invoices_updated_at') THEN
+              CREATE TRIGGER update_invoices_updated_at BEFORE UPDATE ON invoices FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+          END IF;
+
+          -- 4. Clean up orphaned records
+          UPDATE tenants SET plan = 'starter' WHERE plan NOT IN (SELECT id FROM plans);
+          UPDATE subscriptions SET plan = 'starter' WHERE plan NOT IN (SELECT id FROM plans);
+          DELETE FROM subscriptions WHERE tenant_id NOT IN (SELECT id FROM tenants);
+          DELETE FROM invoices WHERE tenant_id NOT IN (SELECT id FROM tenants);
+          UPDATE invoices SET subscription_id = NULL WHERE subscription_id NOT IN (SELECT id FROM subscriptions);
+
+          -- 5. Add foreign key constraints
+          IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_tenants_plan') THEN
+              ALTER TABLE tenants ADD CONSTRAINT fk_tenants_plan FOREIGN KEY (plan) REFERENCES plans(id) ON UPDATE CASCADE ON DELETE RESTRICT;
+          END IF;
+
+          IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_subscriptions_plan') THEN
+              ALTER TABLE subscriptions ADD CONSTRAINT fk_subscriptions_plan FOREIGN KEY (plan) REFERENCES plans(id) ON UPDATE CASCADE ON DELETE RESTRICT;
+          END IF;
+
+          IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_subscriptions_tenant') THEN
+              ALTER TABLE subscriptions DROP CONSTRAINT IF EXISTS subscriptions_tenant_id_fkey;
+              ALTER TABLE subscriptions ADD CONSTRAINT fk_subscriptions_tenant FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE;
+          END IF;
+
+          IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_invoices_tenant') THEN
+              ALTER TABLE invoices DROP CONSTRAINT IF EXISTS invoices_tenant_id_fkey;
+              ALTER TABLE invoices ADD CONSTRAINT fk_invoices_tenant FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE;
+          END IF;
+
+          IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_invoices_subscription') THEN
+              ALTER TABLE invoices DROP CONSTRAINT IF EXISTS invoices_subscription_id_fkey;
+              ALTER TABLE invoices ADD CONSTRAINT fk_invoices_subscription FOREIGN KEY (subscription_id) REFERENCES subscriptions(id) ON DELETE SET NULL;
+          END IF;
+      END $$;
+    `).catch(err => console.error("❌ Schema alignment migration failed:", err));
+
     console.log("✅ Tenant users schema extension verified successfully.");
   } catch (err) {
     console.error("❌ Failed to extend tenant users schema:", err);
