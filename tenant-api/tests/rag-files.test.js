@@ -83,12 +83,63 @@ async function runTests() {
     assert.strictEqual(docRecordToggled.rows[0].is_active, false);
     console.log('   ✓ Verified: Active state successfully toggled.');
 
-    // Test 5: Delete document
-    console.log('\n🔹 Test 5: Deleting RAG document...');
-    await pool.query('DELETE FROM knowledge_documents WHERE id = $1', [docId]);
-    const docRecordDeleted = await pool.query('SELECT COUNT(*)::int FROM knowledge_documents WHERE id = $1', [docId]);
-    assert.strictEqual(docRecordDeleted.rows[0].count, 0);
-    console.log('   ✓ Verified: RAG document successfully deleted.');
+    // Test 5: pgvector table structure and embeddings mapping
+    console.log('\n🔹 Test 5: Verifying document_embeddings schema and pgvector table creation...');
+    const tableCheck = await pool.query(`
+      SELECT column_name, data_type 
+      FROM information_schema.columns 
+      WHERE table_name = 'document_embeddings' 
+      ORDER BY ordinal_position
+    `);
+    assert.ok(tableCheck.rows.length > 0, 'document_embeddings table should exist');
+    const hasEmbeddingCol = tableCheck.rows.some(r => r.column_name === 'embedding' && (r.data_type === 'USER-DEFINED' || r.data_type === 'vector'));
+    assert.ok(hasEmbeddingCol, 'embedding column should exist with vector data type');
+    console.log('   ✓ Verified: document_embeddings table exists with vector column.');
+
+    // Test 6: Insert chunk and vector embedding, and run similarity search
+    console.log('\n🔹 Test 6: Inserting chunk, vector embedding, and performing similarity search...');
+    const docId2 = crypto.randomUUID();
+    const docName2 = 'vector-test-doc.txt';
+    const docContent2 = 'This is vector database content for matching semantic embeddings.';
+    
+    await pool.query(`
+      INSERT INTO knowledge_documents (id, tenant_id, user_id, filename, file_type, file_size_bytes, content, is_active, status)
+      VALUES ($1, $2, $3, $4, 'txt', $5, $6, true, 'indexed')
+    `, [docId2, tenantId, userId, docName2, docContent2.length, docContent2]);
+
+    // Insert mock 1536-dimensional embedding
+    const mockVector = new Array(1536).fill(0.0);
+    mockVector[0] = 0.5;
+    mockVector[10] = -0.3;
+    mockVector[100] = 0.8;
+    const mockVectorStr = `[${mockVector.join(',')}]`;
+
+    const embId = crypto.randomUUID();
+    await pool.query(`
+      INSERT INTO document_embeddings (id, tenant_id, knowledge_document_id, content, embedding)
+      VALUES ($1, $2, $3, $4, $5::vector)
+    `, [embId, tenantId, docId2, 'semantic query chunk text content', mockVectorStr]);
+
+    // Query using cosine similarity
+    const searchRes = await pool.query(`
+      SELECT content, 1 - (embedding <=> $1::vector) AS similarity
+      FROM document_embeddings
+      WHERE tenant_id = $2
+      ORDER BY embedding <=> $1::vector
+      LIMIT 1
+    `, [mockVectorStr, tenantId]);
+
+    assert.strictEqual(searchRes.rows.length, 1);
+    assert.ok(searchRes.rows[0].similarity > 0.99, 'Similarity should be near 1.0 for the identical vector');
+    assert.strictEqual(searchRes.rows[0].content, 'semantic query chunk text content');
+    console.log('   ✓ Verified: pgvector cosine similarity search executed correctly with expected result.');
+
+    // Test 7: Verify cascade deletion
+    console.log('\n🔹 Test 7: Verifying cascade deletion of embeddings on document delete...');
+    await pool.query('DELETE FROM knowledge_documents WHERE id = $1', [docId2]);
+    const embRecordCheck = await pool.query('SELECT COUNT(*)::int FROM document_embeddings WHERE id = $1', [embId]);
+    assert.strictEqual(embRecordCheck.rows[0].count, 0, 'Associated document embedding should be deleted automatically via cascade reference');
+    console.log('   ✓ Verified: Cascade deletion removed associated embeddings when the knowledge document was removed.');
 
     // Cleanup
     console.log('\n🔹 Cleaning up test database records...');
