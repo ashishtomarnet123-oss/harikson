@@ -1,6 +1,8 @@
 import express from 'express';
 import pg from 'pg';
 import dotenv from 'dotenv';
+import { validate } from '../middleware/validation.middleware.js';
+import { createAgentSchema, updateAgentSchema } from '../validators/agents.schema.js';
 
 dotenv.config();
 
@@ -28,7 +30,7 @@ router.get('/', async (req, res) => {
 });
 
 // POST / - Create an agent
-router.post('/', async (req, res) => {
+router.post('/', validate(createAgentSchema), async (req, res) => {
   try {
     const { 
       name, description, category, model, system_prompt, 
@@ -57,7 +59,7 @@ router.post('/', async (req, res) => {
 });
 
 // PUT /:id - Update an agent
-router.put('/:id', async (req, res) => {
+router.put('/:id', validate(updateAgentSchema), async (req, res) => {
   try {
     const { id } = req.params;
     const { 

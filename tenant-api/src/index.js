@@ -16,6 +16,10 @@ import { fileURLToPath } from 'url';
 dotenv.config();
 
 import { sendPasswordReset, sendWelcomeEmail } from './services/email.js';
+import { validate } from './middleware/validation.middleware.js';
+import { loginSchema, registerSchema, forgotPasswordSchema, resetPasswordSchema } from './validators/auth.schema.js';
+import { profileUpdateSchema, settingsUpdateSchema } from './validators/user.schema.js';
+import { chatMessageSchema } from './validators/chat.schema.js';
 
 if (!process.env.JWT_SECRET || process.env.JWT_SECRET.length < 32) {
   console.error('FATAL: JWT_SECRET not set or too short (min 32 characters)');
@@ -1739,11 +1743,8 @@ app.get('/api/agents', authMiddleware, async (req, res) => {
 });
 
 // 5. POST /api/chat
-app.post('/api/chat', authMiddleware, async (req, res) => {
+app.post('/api/chat', authMiddleware, validate(chatMessageSchema), async (req, res) => {
   const { message, model, conversationId, clientHistory, agent_id, deepSearch, reasoning } = req.body;
-  if (!message) {
-    return res.status(400).json({ error: 'Message is required' });
-  }
 
   let selectedModel = model || 'harikson-plus';
   let agentConfig = null;
@@ -2119,11 +2120,8 @@ app.post('/api/chat', authMiddleware, async (req, res) => {
 
 
 // 6. POST /api/auth/login
-app.post('/api/auth/login', async (req, res) => {
+app.post('/api/auth/login', validate(loginSchema), async (req, res) => {
   const { email, password } = req.body;
-  if (!email || !password) {
-    return res.status(400).json({ error: 'Email and password are required' });
-  }
   try {
     const userResult = await pool.query('SELECT * FROM users WHERE email = $1 AND tenant_id = $2 AND deleted_at IS NULL', [email, req.tenant.id]);
     const user = userResult.rows[0];
@@ -2225,11 +2223,8 @@ app.post('/api/auth/login', async (req, res) => {
 });
 
 // 6b. POST /api/auth/register
-app.post('/api/auth/register', async (req, res) => {
+app.post('/api/auth/register', validate(registerSchema), async (req, res) => {
   const { name, email, password } = req.body;
-  if (!email || !password) {
-    return res.status(400).json({ error: 'Email and password are required' });
-  }
   try {
     // Rate limit check
     const ip = (req.headers['x-forwarded-for'] || req.socket.remoteAddress || '').split(',')[0].trim() || '127.0.0.1';
@@ -2304,12 +2299,8 @@ app.post('/api/auth/register', async (req, res) => {
 });
 
 // 6c. POST /api/auth/forgot-password
-app.post('/api/auth/forgot-password', async (req, res) => {
+app.post('/api/auth/forgot-password', validate(forgotPasswordSchema), async (req, res) => {
   const { email } = req.body;
-  if (!email) {
-    return res.status(400).json({ error: 'Email is required' });
-  }
-
   try {
     // Rate limit: 3 requests per email per day
     const rateLimitKey = `ratelimit:forgotpwd:${req.tenant.id}:${email.toLowerCase()}`;
@@ -2400,12 +2391,8 @@ ${emailHtml}
 });
 
 // 6d. POST /api/auth/reset-password
-app.post('/api/auth/reset-password', async (req, res) => {
+app.post('/api/auth/reset-password', validate(resetPasswordSchema), async (req, res) => {
   const { token, email, newPassword } = req.body;
-  if (!token || !email || !newPassword) {
-    return res.status(400).json({ error: 'Token, email, and newPassword are required' });
-  }
-
   try {
     const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
 
@@ -2688,7 +2675,7 @@ app.get('/api/user/profile', authMiddleware, async (req, res) => {
 });
 
 // PUT /api/user/profile - Update current user profile
-app.put('/api/user/profile', authMiddleware, async (req, res) => {
+app.put('/api/user/profile', authMiddleware, validate(profileUpdateSchema), async (req, res) => {
   try {
     const { name, username, phone, company, jobTitle, department, country, bio } = req.body;
     const user = await executeTenantQuery(req.tenant.id, async (client) => {
@@ -2723,7 +2710,7 @@ app.get('/api/user/settings', authMiddleware, async (req, res) => {
 });
 
 // PUT /api/user/settings - Update settings
-app.put('/api/user/settings', authMiddleware, async (req, res) => {
+app.put('/api/user/settings', authMiddleware, validate(settingsUpdateSchema), async (req, res) => {
   try {
     const settings = req.body;
     const updated = await executeTenantQuery(req.tenant.id, async (client) => {

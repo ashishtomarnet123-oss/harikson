@@ -4,6 +4,11 @@ import { exec } from 'child_process';
 import util from 'util';
 import axios from 'axios';
 import { adminAuth } from '../middleware/adminAuth.js';
+import { validate } from '../middleware/validation.middleware.js';
+import { 
+  activitySchema, workflowSchema, updateWorkflowSchema, backupSchema, 
+  vectorSchema, costSchema, notificationSchema, integrationSchema 
+} from '../validators/operations.schema.js';
 
 const router = express.Router();
 const { Pool } = pg;
@@ -63,7 +68,7 @@ router.get('/activity', async (req, res) => {
 });
 
 // POST /admin/activity (internal — called by tenant-api without admin token)
-router.post('/activity', async (req, res) => {
+router.post('/activity', validate(activitySchema), async (req, res) => {
   const { tenant_id, user_id, agent_id, model, status, tokens_in, tokens_out, latency_ms, gpu_percent, error_message } = req.body;
   try {
     const result = await pool.query(
@@ -281,9 +286,8 @@ router.get('/workflows', async (req, res) => {
   }
 });
 
-router.post('/workflows', async (req, res) => {
+router.post('/workflows', validate(workflowSchema), async (req, res) => {
   const { name, description, trigger_type, steps, tenant_id } = req.body;
-  if (!name) return res.status(400).json({ error: 'Name is required' });
   try {
     const result = await pool.query(
       `INSERT INTO workflows (name, description, trigger_type, steps, tenant_id) VALUES ($1,$2,$3,$4,$5) RETURNING *`,
@@ -295,7 +299,7 @@ router.post('/workflows', async (req, res) => {
   }
 });
 
-router.put('/workflows/:id', async (req, res) => {
+router.put('/workflows/:id', validate(updateWorkflowSchema), async (req, res) => {
   const { name, description, trigger_type, steps, status } = req.body;
   try {
     const result = await pool.query(
@@ -557,7 +561,7 @@ router.patch('/notifications/read-all', async (req, res) => {
 });
 
 // POST /admin/notifications — create system notification (internal use)
-router.post('/notifications', async (req, res) => {
+router.post('/notifications', validate(notificationSchema), async (req, res) => {
   const { user_id, type, title, message, link } = req.body;
   try {
     const result = await pool.query(
@@ -603,7 +607,7 @@ router.get('/costs', async (req, res) => {
   }
 });
 
-router.post('/costs', async (req, res) => {
+router.post('/costs', validate(costSchema), async (req, res) => {
   const { category, description, amount, currency, period_start, period_end } = req.body;
   try {
     const result = await pool.query(
@@ -640,7 +644,7 @@ router.get('/integrations', async (req, res) => {
   }
 });
 
-router.post('/integrations', async (req, res) => {
+router.post('/integrations', validate(integrationSchema), async (req, res) => {
   const { provider, display_name, tenant_id, status } = req.body;
   try {
     // Check if already exists, update status if so
@@ -696,7 +700,7 @@ router.get('/vectors', async (req, res) => {
   }
 });
 
-router.post('/vectors', async (req, res) => {
+router.post('/vectors', validate(vectorSchema), async (req, res) => {
   const { name, description } = req.body;
   try {
     const result = await pool.query(
@@ -727,7 +731,7 @@ router.get('/backups', async (req, res) => {
   }
 });
 
-router.post('/backups', async (req, res) => {
+router.post('/backups', validate(backupSchema), async (req, res) => {
   const { name, type = 'full', retention_days = 30 } = req.body;
   try {
     const backup = await pool.query(
