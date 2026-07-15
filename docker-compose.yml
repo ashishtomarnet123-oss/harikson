@@ -235,6 +235,7 @@ services:
   grafana:
     image: grafana/grafana:latest
     container_name: harikson-grafana
+    user: "0"
     restart: unless-stopped
     ports:
       - "3038:3003"
