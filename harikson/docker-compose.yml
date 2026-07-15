@@ -9,7 +9,7 @@ networks:
 
 services:
   harikson-postgres:
-    image: postgres:16-alpine
+    image: pgvector/pgvector:16-pgvector
     container_name: harikson-postgres
     restart: unless-stopped
     ports:
