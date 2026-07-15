@@ -1059,10 +1059,12 @@ const authMiddleware = async (req, res, next) => {
         return res.status(401).json({ error: 'Access Denied: Session expired' });
       }
       
+      const refreshTokenHash = crypto.createHash('sha256').update(refreshToken).digest('hex');
+      
       // Look up and validate refresh token
       const rtQuery = await pool.query(
         'SELECT * FROM refresh_tokens WHERE token = $1 AND revoked_at IS NULL AND expires_at > NOW() LIMIT 1',
-        [refreshToken]
+        [refreshTokenHash]
       );
       
       if (rtQuery.rows.length === 0) {
@@ -1091,13 +1093,14 @@ const authMiddleware = async (req, res, next) => {
       
       // Issue new token pair
       const newAccessToken = jwt.sign({ userId: user.id, role: user.role }, jwtSecret, { expiresIn: '15m' });
-      const newRefreshToken = crypto.randomBytes(20).toString('hex');
+      const newRefreshToken = crypto.randomBytes(32).toString('hex');
+      const newRefreshTokenHash = crypto.createHash('sha256').update(newRefreshToken).digest('hex');
       const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000); // 30 days
       
       await pool.query(
         `INSERT INTO refresh_tokens (token, user_id, tenant_id, expires_at)
          VALUES ($1, $2, $3, $4)`,
-        [newRefreshToken, user.id, rtRecord.tenant_id, expiresAt]
+        [newRefreshTokenHash, user.id, rtRecord.tenant_id, expiresAt]
       );
       
       const host = req.headers.host || '';
@@ -1908,13 +1911,14 @@ app.post('/api/auth/login', async (req, res) => {
     if (!valid) return res.status(401).json({ error: 'Invalid email or password' });
 
     const accessToken = jwt.sign({ userId: user.id, role: user.role }, jwtSecret, { expiresIn: '15m' });
-    const refreshToken = crypto.randomBytes(20).toString('hex');
+    const refreshToken = crypto.randomBytes(32).toString('hex');
+    const refreshTokenHash = crypto.createHash('sha256').update(refreshToken).digest('hex');
     const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000); // 30 days
     
     await pool.query(
       `INSERT INTO refresh_tokens (token, user_id, tenant_id, expires_at)
        VALUES ($1, $2, $3, $4)`,
-      [refreshToken, user.id, req.tenant.id, expiresAt]
+      [refreshTokenHash, user.id, req.tenant.id, expiresAt]
     );
 
     const host = req.headers.host || '';
@@ -2044,13 +2048,14 @@ app.post('/api/auth/register', async (req, res) => {
     sendWelcomeEmail(email, name).catch(err => console.error('[WELCOME EMAIL SEND ERROR]:', err.message));
 
     const accessToken = jwt.sign({ userId: newUser.id, role: newUser.role }, jwtSecret, { expiresIn: '15m' });
-    const refreshToken = crypto.randomBytes(20).toString('hex');
+    const refreshToken = crypto.randomBytes(32).toString('hex');
+    const refreshTokenHash = crypto.createHash('sha256').update(refreshToken).digest('hex');
     const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000); // 30 days
     
     await pool.query(
       `INSERT INTO refresh_tokens (token, user_id, tenant_id, expires_at)
        VALUES ($1, $2, $3, $4)`,
-      [refreshToken, newUser.id, req.tenant.id, expiresAt]
+      [refreshTokenHash, newUser.id, req.tenant.id, expiresAt]
     );
 
     const host = req.headers.host || '';
@@ -2242,9 +2247,10 @@ app.post('/api/auth/logout', async (req, res) => {
     const refreshToken = cookies.hk_refresh_token;
     
     if (refreshToken) {
+      const refreshTokenHash = crypto.createHash('sha256').update(refreshToken).digest('hex');
       await pool.query(
         "UPDATE refresh_tokens SET revoked_at = NOW() WHERE token = $1",
-        [refreshToken]
+        [refreshTokenHash]
       );
     }
 
@@ -2290,9 +2296,10 @@ app.post('/api/auth/refresh', async (req, res) => {
       return res.status(401).json({ error: 'No refresh token provided' });
     }
     
+    const refreshTokenHash = crypto.createHash('sha256').update(refreshToken).digest('hex');
     const rtQuery = await pool.query(
       'SELECT * FROM refresh_tokens WHERE token = $1 AND revoked_at IS NULL AND expires_at > NOW() LIMIT 1',
-      [refreshToken]
+      [refreshTokenHash]
     );
     
     if (rtQuery.rows.length === 0) {
@@ -2320,13 +2327,14 @@ app.post('/api/auth/refresh', async (req, res) => {
     
     // Issue new pair
     const newAccessToken = jwt.sign({ userId: user.id, role: user.role }, jwtSecret, { expiresIn: '15m' });
-    const newRefreshToken = crypto.randomBytes(20).toString('hex');
+    const newRefreshToken = crypto.randomBytes(32).toString('hex');
+    const newRefreshTokenHash = crypto.createHash('sha256').update(newRefreshToken).digest('hex');
     const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000); // 30 days
     
     await pool.query(
       `INSERT INTO refresh_tokens (token, user_id, tenant_id, expires_at)
        VALUES ($1, $2, $3, $4)`,
-      [newRefreshToken, user.id, rtRecord.tenant_id, expiresAt]
+      [newRefreshTokenHash, user.id, rtRecord.tenant_id, expiresAt]
     );
     
     const host = req.headers.host || '';
