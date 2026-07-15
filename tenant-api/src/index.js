@@ -409,6 +409,8 @@ async function initUserTables() {
     `).catch(err => console.error("Failed to drop duplicate JSONB columns from users:", err.message));
 
     // 9.5 Create document_embeddings table with pgvector support
+    console.log("[MIGRATION] Enabling pgvector extension...");
+    await pool.query('CREATE EXTENSION IF NOT EXISTS vector;');
     console.log("[MIGRATION] Creating document_embeddings table with pgvector...");
     await pool.query(`
       CREATE TABLE IF NOT EXISTS document_embeddings (
