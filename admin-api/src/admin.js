@@ -586,14 +586,13 @@ async function initDb() {
       CREATE OR REPLACE FUNCTION assert_tenant_context()
       RETURNS VOID AS $$
       DECLARE
-          val TEXT;
+          val TEXT := current_setting('app.current_tenant', true);
       BEGIN
-          val := current_setting('app.current_tenant', true);
           IF val IS NULL OR val = '' THEN
-              RAISE EXCEPTION 'Database tenant context is not set. Access Denied.';
+              RAISE EXCEPTION 'Tenant context (app.current_tenant) is not set. Query aborted to prevent cross-tenant data leakage.';
           END IF;
       END;
-      $$ LANGUAGE plpgsql STABLE;
+      $$ LANGUAGE plpgsql;
 
       CREATE OR REPLACE FUNCTION get_tenant_context()
       RETURNS UUID AS $$

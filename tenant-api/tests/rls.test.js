@@ -162,7 +162,7 @@ async function runTests() {
       await assertClient.query("SELECT assert_tenant_context()");
       assert.fail('Should have thrown an exception');
     } catch (err) {
-      assert.ok(err.message.includes('tenant context is not set'));
+      assert.ok(err.message.toLowerCase().includes('tenant context is not set'));
       console.log('   ✓ Correctly rejected empty context with error:', err.message);
     } finally {
       assertClient.release();
