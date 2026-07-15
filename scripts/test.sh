@@ -67,16 +67,16 @@ done
 
 # Ports checks using /dev/tcp
 ports=(
-  "80"
-  "443"
-  "3000"
-  "3001"
-  "3002"
-  "3003"
-  "5432"
-  "6379"
-  "9090"
-  "11434"
+  "8085"
+  "8443"
+  "3008"
+  "3018"
+  "3028"
+  "3038"
+  "5435"
+  "6375"
+  "9098"
+  "11435"
 )
 
 for p in "${ports[@]}"; do
@@ -89,10 +89,10 @@ done
 # ==========================================
 echo -e "\n${BLUE}🤖 Category 2: Ollama AI Engine Verification${NC}"
 
-run_test "Ollama local API status" "curl -s -f http://localhost:11434/api/tags"
-run_test "harikson-plus model exists" "curl -s http://localhost:11434/api/tags | grep -q 'harikson-plus'"
-run_test "harikson-max model exists" "curl -s http://localhost:11434/api/tags | grep -q 'harikson-max'"
-run_test "harikson-plus text generation test" "curl -s -X POST -H 'Content-Type: application/json' -d '{\"model\": \"harikson-plus\", \"prompt\": \"Hello! What is your name?\", \"stream\": false}' http://localhost:11434/api/generate | grep -q 'response'"
+run_test "Ollama local API status" "curl -s -f http://localhost:11435/api/tags"
+run_test "harikson-plus model exists" "curl -s http://localhost:11435/api/tags | grep -q 'harikson-plus'"
+run_test "harikson-max model exists" "curl -s http://localhost:11435/api/tags | grep -q 'harikson-max'"
+run_test "harikson-plus text generation test" "curl -s -X POST -H 'Content-Type: application/json' -d '{\"model\": \"harikson-plus\", \"prompt\": \"Hello! What is your name?\", \"stream\": false}' http://localhost:11435/api/generate | grep -q 'response'"
 
 
 # ==========================================
@@ -115,11 +115,11 @@ run_test "set_tenant_context helper capability" "docker exec harikson-postgres p
 # ==========================================
 echo -e "\n${BLUE}📡 Category 4: Tenant API Endpoint Verification${NC}"
 
-run_test "Tenant API /health endpoint check" "curl -s -f -H 'x-tenant-slug: system' http://localhost:3000/health | grep -q 'healthy'"
-run_test "Tenant API /api/models catalog pull" "curl -s -f -H 'x-tenant-slug: system' http://localhost:3000/api/models | grep -q 'harikson-plus'"
+run_test "Tenant API /health endpoint check" "curl -s -f -H 'x-tenant-slug: system' http://localhost:3008/health | grep -q 'healthy'"
+run_test "Tenant API /api/models catalog pull" "curl -s -f -H 'x-tenant-slug: system' http://localhost:3008/api/models | grep -q 'harikson-plus'"
 
 chat_payload='{"message": "Provide code test", "model": "harikson-plus"}'
-run_test "Tenant API /api/chat generation & storage check" "curl -s -X POST -H 'Content-Type: application/json' -H 'Authorization: Bearer TEST_TOKEN' -H 'x-tenant-slug: system' -d '$chat_payload' http://localhost:3000/api/chat | grep -q 'response'"
+run_test "Tenant API /api/chat generation & storage check" "curl -s -X POST -H 'Content-Type: application/json' -H 'Authorization: Bearer TEST_TOKEN' -H 'x-tenant-slug: system' -d '$chat_payload' http://localhost:3008/api/chat | grep -q 'response'"
 
 
 # ==========================================
@@ -127,8 +127,8 @@ run_test "Tenant API /api/chat generation & storage check" "curl -s -X POST -H '
 # ==========================================
 echo -e "\n${BLUE}🎨 Category 5: Next.js Frontend Portals Verification${NC}"
 
-run_test "Admin Panel active (3001)" "curl -s -f -o /dev/null -w '%{http_code}' http://localhost:3001 | grep -q '200\\|302\\|307\\|308'"
-run_test "User Portal active (3002)" "curl -s -f -o /dev/null -w '%{http_code}' http://localhost:3002 | grep -q '200\\|302\\|307\\|308'"
+run_test "Admin Panel active (3018)" "curl -s -f -o /dev/null -w '%{http_code}' http://localhost:3018 | grep -q '200\\|302\\|307\\|308'"
+run_test "User Portal active (3028)" "curl -s -f -o /dev/null -w '%{http_code}' http://localhost:3028 | grep -q '200\\|302\\|307\\|308'"
 
 
 # ==========================================
@@ -146,7 +146,7 @@ stress_test() {
       -H "Authorization: Bearer TEST_TOKEN" \
       -H "x-tenant-slug: system" \
       -d '{"message": "Perform code optimization test", "model": "harikson-plus"}' \
-      http://localhost:3000/api/chat &
+      http://localhost:3008/api/chat &
   done
   
   # Wait for all async subprocesses to compile
