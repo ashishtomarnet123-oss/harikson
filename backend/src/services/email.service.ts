@@ -8,8 +8,8 @@ export class EmailService {
       if (fs.existsSync(keyPath)) {
         return fs.readFileSync(keyPath, "utf-8").trim();
       }
-    } catch {
-      // Ignored
+    } catch (err: any) {
+      console.warn("Warning reading Resend API key file:", err.message);
     }
     return process.env.RESEND_API_KEY || "re_dev_key_placeholder_value";
   }

@@ -77,7 +77,9 @@ export class ContextBuilder {
         try {
           rulesText = fs.readFileSync(rulePath, "utf-8");
           contextSources.workspaceRulesLoaded = true;
-        } catch {}
+        } catch (err: any) {
+          console.warn(`Warning reading workspace rules at ${rulePath}:`, err.message);
+        }
       }
     }
     const devRulesCombined = `${DEVELOPER_PROMPT}\n\n${rulesText ? `[Workspace Rules]:\n${rulesText}` : ""}`;
@@ -98,7 +100,9 @@ export class ContextBuilder {
           return `- ${m.memory}`;
         }).join("\n");
       }
-    } catch {}
+    } catch (err: any) {
+      console.warn("Warning retrieving memories for context:", err.message);
+    }
     memoriesText = TokenBudgetManager.truncateFromEnd(memoriesText, budgets.memories);
     const memoriesTokens = TokenBudgetManager.estimateTokens(memoriesText);
 
@@ -118,7 +122,9 @@ export class ContextBuilder {
           return `--- File: ${r.source_path} ---\n${r.content}`;
         }).join("\n\n");
       }
-    } catch {}
+    } catch (err: any) {
+      console.warn("Warning performing vector search for context:", err.message);
+    }
     codeChunksText = TokenBudgetManager.truncateFromEnd(codeChunksText, budgets.codeChunks);
     const codeChunksTokens = TokenBudgetManager.estimateTokens(codeChunksText);
 
@@ -137,7 +143,9 @@ export class ContextBuilder {
           } else {
             currentFileText = `[Current Open File Context: ${currentFilePath}]:\n${fileContent}`;
           }
-        } catch {}
+        } catch (err: any) {
+          console.warn(`Warning reading open file context at ${absolutePath}:`, err.message);
+        }
       }
     }
     // Cap open file context at remaining budget space or ~4000 tokens maximum

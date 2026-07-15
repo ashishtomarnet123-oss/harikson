@@ -89,7 +89,9 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     try {
       const res = await fetch(`${apiBase}/admin/notifications`, { headers: { Authorization: `Bearer ${token}` } });
       if (res.ok) { const d = await res.json(); setNotifications(d.notifications || []); setUnreadCount(d.unread_count || 0); }
-    } catch {}
+    } catch (err: any) {
+      console.error('Error fetching admin notifications:', err);
+    }
   };
 
   useEffect(() => {
@@ -102,7 +104,9 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   const markRead = async (id: string) => {
     const token = getCookie('admin_token') || localStorage.getItem('admin_token');
-    await fetch(`${apiBase}/admin/notifications/${id}/read`, { method: 'PATCH', headers: { Authorization: `Bearer ${token}` } }).catch(() => {});
+    await fetch(`${apiBase}/admin/notifications/${id}/read`, { method: 'PATCH', headers: { Authorization: `Bearer ${token}` } }).catch(err => {
+      console.warn('Warning marking notification as read:', err.message);
+    });
     fetchNotifications();
   };
 
@@ -114,7 +118,9 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     try {
       const res = await fetch(`${apiBase}/admin/search?q=${encodeURIComponent(q)}`, { headers: { Authorization: `Bearer ${token}` } });
       if (res.ok) { const d = await res.json(); setSearchResults(d.results || []); }
-    } catch {}
+    } catch (err: any) {
+      console.error('Error performing global admin search:', err);
+    }
   };
 
   const resultIcons: Record<string, string> = { tenant: '🏢', agent: '🤖', knowledge_base: '📚', workflow: '⚡' };

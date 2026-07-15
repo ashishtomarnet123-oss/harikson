@@ -128,7 +128,9 @@ async function runToolTests() {
   // Cleanup temp files
   try {
     fs.rmSync(toolsWorkspace, { recursive: true, force: true });
-  } catch {}
+  } catch (err: any) {
+    console.warn("Warning cleaning up temp directory:", err.message);
+  }
 
   // Restore mocks
   (ToolExecutor as any).executeQuery = originalExecuteQuery;

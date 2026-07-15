@@ -83,7 +83,9 @@ export default function KnowledgePage() {
     try {
       const res = await fetch(`${apiBase}/admin/knowledge/${kbId}/documents`, { headers: { Authorization: `Bearer ${token()}` } });
       if (res.ok) setDocs(await res.json());
-    } catch {}
+    } catch (err: any) {
+      console.error('Error fetching knowledge base documents:', err);
+    }
   };
 
   useEffect(() => {

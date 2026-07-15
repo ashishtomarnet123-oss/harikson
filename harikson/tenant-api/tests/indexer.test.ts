@@ -202,7 +202,9 @@ async function runIndexerTests() {
   // Cleanup temp files
   try {
     fs.rmSync(tempWorkspace, { recursive: true, force: true });
-  } catch {}
+  } catch (err: any) {
+    console.warn("Warning cleaning up temp directory:", err.message);
+  }
 
   // Restore static methods
   OllamaClient.embed = originalEmbed;

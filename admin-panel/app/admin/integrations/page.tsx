@@ -509,7 +509,9 @@ export default function IntegrationCenterPage() {
             job.status === 'completed' ? 'success' : 'error'
           );
         }
-      } catch {}
+      } catch (err: any) {
+        console.error('Error polling integration sync status:', err);
+      }
     };
 
     poll();

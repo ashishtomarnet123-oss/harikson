@@ -160,7 +160,9 @@ async function runWorkerTests() {
   try {
     HariksonScheduler.stopAll();
     fs.rmSync(workerWorkspace, { recursive: true, force: true });
-  } catch {}
+  } catch (err: any) {
+    console.warn("Warning cleaning up temp directory:", err.message);
+  }
 
   // Restore mocks
   RepositoryIndexer.indexWorkspace = originalIndexWorkspace;

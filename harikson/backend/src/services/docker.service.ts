@@ -144,16 +144,15 @@ export class DockerService {
         try {
           const container = docker.getContainer(cName);
           await container.remove({ force: true });
-        } catch {
-          // ignore if missing
+        } catch (err: any) {
+          console.warn(`Warning removing container ${cName}:`, err.message);
         }
       }
 
-      // Cleanup volume
       try {
         await docker.getVolume(`harikson-tenant-${name}-ai-data`).remove();
-      } catch {
-        // ignore volume removal failure
+      } catch (err: any) {
+        console.warn(`Warning removing associated tenant-${name}-ai-data volume:`, err.message);
       }
       console.log(`🐳 [Harikson Docker] Destroyed tenant stack for ${name}.`);
     } catch (error) {
@@ -167,7 +166,9 @@ export class DockerService {
     for (const cName of containers) {
       try {
         await docker.getContainer(cName).stop();
-      } catch {}
+      } catch (err: any) {
+        console.warn(`Warning stopping associated tenant container ${cName}:`, err.message);
+      }
     }
   }
 
@@ -177,7 +178,9 @@ export class DockerService {
     for (const cName of containers) {
       try {
         await docker.getContainer(cName).start();
-      } catch {}
+      } catch (err: any) {
+        console.warn(`Warning starting associated tenant container ${cName}:`, err.message);
+      }
     }
   }
 
@@ -187,7 +190,9 @@ export class DockerService {
     for (const cName of containers) {
       try {
         await docker.getContainer(cName).restart();
-      } catch {}
+      } catch (err: any) {
+        console.warn(`Warning restarting associated tenant container ${cName}:`, err.message);
+      }
     }
   }
 

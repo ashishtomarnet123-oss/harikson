@@ -49,8 +49,8 @@ router.get("/", async (req: AuthenticatedAdminRequest, res: Response) => {
             cpuUsage = metrics.cpuUsage;
             memoryUsage = metrics.memoryUsage;
             diskUsage = metrics.diskUsage;
-          } catch {
-            // fail-silent for offline docker daemons
+          } catch (err: any) {
+            console.warn(`Warning getting tenant metrics for ${t.name}:`, err.message);
           }
         }
 

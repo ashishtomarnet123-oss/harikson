@@ -111,7 +111,9 @@ export class RepositoryIndexer {
       } catch (err) {
         try {
           await client.query("SELECT set_tenant_context(NULL)");
-        } catch {}
+        } catch (cleanupErr: any) {
+          console.warn("Warning clearing tenant context on query error in RepositoryIndexer:", cleanupErr.message);
+        }
         reject(err);
       } finally {
         client.release();

@@ -61,14 +61,18 @@ export default function WorkflowsPage() {
           if (updated) setSelectedWf(updated);
         }
       }
-    } catch {}
+    } catch (err: any) {
+      console.error('Error fetching workflows:', err);
+    }
   };
 
   const fetchExecutions = async (id: string) => {
     try {
       const res = await fetch(`${apiBase}/admin/workflows/${id}/executions`, { headers: headers() });
       if (res.ok) setExecutions(await res.json());
-    } catch {}
+    } catch (err: any) {
+      console.error('Error fetching workflow executions:', err);
+    }
   };
 
   useEffect(() => {

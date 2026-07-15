@@ -559,7 +559,9 @@ export default function ChatPage() {
         if (isVoiceMode && !loading) {
           try {
             recognition.start();
-          } catch (err) {}
+          } catch (err) {
+            console.warn("Failed to restart voice recognition:", err.message);
+          }
         }
       };
 

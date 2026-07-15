@@ -303,10 +303,14 @@ export class DockerService {
           const name = containerName.replace("nv-instance-", "");
           try {
             await docker.getContainer(`harikson-tenant-${name}-api`).stop();
-          } catch {}
+          } catch (err: any) {
+            console.warn(`Warning stopping associated tenant-${name}-api sidecar container:`, err.message);
+          }
           try {
             await docker.getContainer(`harikson-tenant-${name}-ai`).stop();
-          } catch {}
+          } catch (err: any) {
+            console.warn(`Warning stopping associated tenant-${name}-ai sidecar container:`, err.message);
+          }
         }
       }
     } catch (error) {
@@ -331,10 +335,14 @@ export class DockerService {
           const name = containerName.replace("nv-instance-", "");
           try {
             await docker.getContainer(`harikson-tenant-${name}-api`).start();
-          } catch {}
+          } catch (err: any) {
+            console.warn(`Warning starting associated tenant-${name}-api sidecar container:`, err.message);
+          }
           try {
             await docker.getContainer(`harikson-tenant-${name}-ai`).start();
-          } catch {}
+          } catch (err: any) {
+            console.warn(`Warning starting associated tenant-${name}-ai sidecar container:`, err.message);
+          }
         }
       }
     } catch (error) {
@@ -359,10 +367,14 @@ export class DockerService {
           const name = containerName.replace("nv-instance-", "");
           try {
             await docker.getContainer(`harikson-tenant-${name}-api`).restart();
-          } catch {}
+          } catch (err: any) {
+            console.warn(`Warning restarting associated tenant-${name}-api sidecar container:`, err.message);
+          }
           try {
             await docker.getContainer(`harikson-tenant-${name}-ai`).restart();
-          } catch {}
+          } catch (err: any) {
+            console.warn(`Warning restarting associated tenant-${name}-ai sidecar container:`, err.message);
+          }
         }
       }
     } catch (error) {
@@ -387,13 +399,19 @@ export class DockerService {
           const name = containerName.replace("nv-instance-", "");
           try {
             await docker.getContainer(`harikson-tenant-${name}-api`).remove({ force: true });
-          } catch {}
+          } catch (err: any) {
+            console.warn(`Warning removing associated tenant-${name}-api sidecar container:`, err.message);
+          }
           try {
             await docker.getContainer(`harikson-tenant-${name}-ai`).remove({ force: true });
-          } catch {}
+          } catch (err: any) {
+            console.warn(`Warning removing associated tenant-${name}-ai sidecar container:`, err.message);
+          }
           try {
             await docker.getVolume(`harikson-tenant-${name}-ai-data`).remove();
-          } catch {}
+          } catch (err: any) {
+            console.warn(`Warning removing associated tenant-${name}-ai-data volume:`, err.message);
+          }
         }
       }
     } catch (error) {

@@ -63,7 +63,9 @@ export class HariksonScheduler {
     } catch (err) {
       try {
         await client.query("SELECT set_tenant_context(NULL)");
-      } catch {}
+      } catch (cleanupErr: any) {
+        console.warn("Warning clearing tenant context on query error:", cleanupErr.message);
+      }
       throw err;
     } finally {
       client.release();
@@ -171,7 +173,9 @@ export class HariksonScheduler {
               // Trigger embedding warming call
               await OllamaClient.embed(content);
             }
-          } catch {}
+          } catch (err: any) {
+            console.warn(`Warning warming cache for file ${full}:`, err.message);
+          }
         }
       }
     };

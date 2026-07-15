@@ -9,8 +9,8 @@ const getJwtSecret = (): string => {
     if (fs.existsSync(secretPath)) {
       return fs.readFileSync(secretPath, "utf-8").trim();
     }
-  } catch {
-    // Ignored
+  } catch (err: any) {
+    console.warn("Warning reading JWT secret file:", err.message);
   }
   return process.env.JWT_SECRET || "";
 };

@@ -19,7 +19,9 @@ export class ToolExecutor {
     } catch (err) {
       try {
         await client.query("SELECT set_tenant_context(NULL)");
-      } catch {}
+      } catch (cleanupErr: any) {
+        console.warn("Warning clearing tenant context on query error in ToolExecutor:", cleanupErr.message);
+      }
       throw err;
     } finally {
       client.release();

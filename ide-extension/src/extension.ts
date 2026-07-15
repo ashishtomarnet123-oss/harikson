@@ -126,7 +126,9 @@ export function activate(context: vscode.ExtensionContext) {
             try {
               await fs.promises.unlink(originalTempPath);
               await fs.promises.unlink(reviewedTempPath);
-            } catch {}
+            } catch (err: any) {
+              console.warn("Warning deleting temp code review files:", err.message);
+            }
           }, 15000);
 
         } catch (err: any) {

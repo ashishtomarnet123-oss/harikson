@@ -1007,7 +1007,7 @@ const rateLimiterMiddleware = async (req, res, next) => {
           const decoded = jwt.verify(token, jwtSecret);
           userId = decoded.userId;
         } catch (err) {
-          // Ignore token parsing error here
+          console.warn('Warning verifying JWT token in request logging middleware:', err.message);
         }
       }
     }
