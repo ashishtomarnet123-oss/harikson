@@ -27,8 +27,32 @@ const jwtSecret = process.env.JWT_SECRET;
 const ollamaHost = process.env.OLLAMA_HOST || 'http://localhost:11434';
 
 // Express Setup
+const defaultOrigins = [
+  'https://app.neuravolt.cloud',
+  'https://admin.neuravolt.cloud',
+  'https://neuravolt.cloud',
+  'http://localhost:3002',
+  'http://localhost:3018',
+  'http://localhost:3028'
+];
+
+let allowedOrigins = defaultOrigins;
+if (process.env.ALLOWED_ORIGINS) {
+  allowedOrigins = process.env.ALLOWED_ORIGINS.split(',').map(o => o.trim());
+}
+
+if (process.env.NODE_ENV === 'production') {
+  allowedOrigins = allowedOrigins.filter(o => !o.includes('localhost') && !o.includes('127.0.0.1'));
+}
+
 app.use(cors({
-  origin: true,
+  origin: function (origin, callback) {
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error('CORS policy violation'));
+    }
+  },
   credentials: true,
   exposedHeaders: ['x-conversation-id', 'X-Conversation-Id']
 }));
