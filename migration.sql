@@ -27,8 +27,7 @@ END;
 $$ LANGUAGE plpgsql STABLE;
 
 -- 2. Force Enable Row-Level Security on targeted tables
-ALTER TABLE tenants ENABLE ROW LEVEL SECURITY;
-ALTER TABLE tenants FORCE ROW LEVEL SECURITY;
+ALTER TABLE tenants DISABLE ROW LEVEL SECURITY;
 
 ALTER TABLE users ENABLE ROW LEVEL SECURITY;
 ALTER TABLE users FORCE ROW LEVEL SECURITY;
@@ -48,10 +47,6 @@ ALTER TABLE workflows FORCE ROW LEVEL SECURITY;
 -- 3. Recreate policies to use the new pattern
 -- tenants
 DROP POLICY IF EXISTS tenant_isolation_policy ON tenants;
-CREATE POLICY tenant_isolation_policy ON tenants
-    FOR ALL
-    USING (id = current_setting('app.current_tenant', true)::uuid AND deleted_at IS NULL)
-    WITH CHECK (id = current_setting('app.current_tenant', true)::uuid AND deleted_at IS NULL);
 
 -- users
 DROP POLICY IF EXISTS tenant_isolation_policy ON users;

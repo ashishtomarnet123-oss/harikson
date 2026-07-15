@@ -148,7 +148,6 @@ CREATE TRIGGER update_invoices_updated_at
 -- ==========================================
 
 -- Enable RLS on all tables
-ALTER TABLE tenants ENABLE ROW LEVEL SECURITY;
 ALTER TABLE users ENABLE ROW LEVEL SECURITY;
 ALTER TABLE conversations ENABLE ROW LEVEL SECURITY;
 ALTER TABLE messages ENABLE ROW LEVEL SECURITY;
@@ -178,10 +177,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql STABLE;
 
-CREATE POLICY tenant_isolation_policy ON tenants
-    FOR ALL
-    USING (id = current_setting('app.current_tenant', true)::uuid AND deleted_at IS NULL)
-    WITH CHECK (id = current_setting('app.current_tenant', true)::uuid AND deleted_at IS NULL);
+
 
 CREATE POLICY tenant_isolation_policy ON users
     FOR ALL

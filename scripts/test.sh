@@ -103,7 +103,7 @@ echo -e "\n${BLUE}🐘 Category 3: PostgreSQL Database & RLS Policy Verification
 run_test "Postgres service status" "docker exec harikson-postgres pg_isready -U neuravolt"
 run_test "DB login & ping query" "docker exec harikson-postgres psql -U neuravolt -d neuravolt -c 'SELECT 1;' | grep -q '1'"
 run_test "uuid-ossp extension active" "docker exec harikson-postgres psql -U neuravolt -d neuravolt -c 'SELECT uuid_generate_v4();' | grep -q '-'"
-run_test "RLS policy enabled on tenants" "docker exec harikson-postgres psql -U neuravolt -d neuravolt -c \"SELECT policyname FROM pg_policies WHERE tablename='tenants';\" | grep -q 'tenant_isolation_policy'"
+run_test "RLS policy disabled on tenants" "docker exec harikson-postgres psql -U neuravolt -d neuravolt -c \"SELECT rowsecurity FROM pg_tables WHERE tablename='tenants';\" | grep -q 'f'"
 run_test "RLS policy enabled on users" "docker exec harikson-postgres psql -U neuravolt -d neuravolt -c \"SELECT policyname FROM pg_policies WHERE tablename='users';\" | grep -q 'tenant_isolation_policy'"
 run_test "RLS policy enabled on conversations" "docker exec harikson-postgres psql -U neuravolt -d neuravolt -c \"SELECT policyname FROM pg_policies WHERE tablename='conversations';\" | grep -q 'tenant_isolation_policy'"
 run_test "RLS policy enabled on messages" "docker exec harikson-postgres psql -U neuravolt -d neuravolt -c \"SELECT policyname FROM pg_policies WHERE tablename='messages';\" | grep -q 'tenant_isolation_policy'"

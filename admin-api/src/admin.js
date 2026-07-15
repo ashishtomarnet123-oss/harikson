@@ -609,12 +609,9 @@ async function initDb() {
     `);
 
     await pool.query(`
+      ALTER TABLE tenants DISABLE ROW LEVEL SECURITY;
       DROP POLICY IF EXISTS tenant_isolation_policy ON tenants;
-      CREATE POLICY tenant_isolation_policy ON tenants
-          FOR ALL
-          USING (id = current_setting('app.current_tenant', true)::uuid AND deleted_at IS NULL)
-          WITH CHECK (id = current_setting('app.current_tenant', true)::uuid AND deleted_at IS NULL);
-    `).catch(err => console.error("Policy recreation failed on tenants:", err));
+    `).catch(err => console.error("RLS disable failed on tenants:", err));
 
     await pool.query(`
       DROP POLICY IF EXISTS tenant_isolation_policy ON users;
