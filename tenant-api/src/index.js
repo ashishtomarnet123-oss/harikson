@@ -1,5 +1,6 @@
 import express from 'express';
 import cors from 'cors';
+import helmet from 'helmet';
 import pg from 'pg';
 import Redis from 'ioredis';
 import axios from 'axios';
@@ -44,6 +45,21 @@ if (process.env.ALLOWED_ORIGINS) {
 if (process.env.NODE_ENV === 'production') {
   allowedOrigins = allowedOrigins.filter(o => !o.includes('localhost') && !o.includes('127.0.0.1'));
 }
+
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'", "'unsafe-inline'"],
+      styleSrc: ["'self'", "'unsafe-inline'"],
+      imgSrc: ["'self'", "data:", "https:"],
+    },
+  },
+  crossOriginEmbedderPolicy: false,
+  frameguard: {
+    action: 'deny'
+  }
+}));
 
 app.use(cors({
   origin: function (origin, callback) {
