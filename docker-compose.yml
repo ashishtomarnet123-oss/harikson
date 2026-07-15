@@ -217,11 +217,11 @@ services:
       - "traefik.http.services.user-portal.loadbalancer.server.port=3002"
     depends_on:
       - tenant-api
-
   # 8. Prometheus (Metrics Scraper)
   prometheus:
     image: prom/prometheus:latest
     container_name: harikson-prometheus
+    user: "0"
     restart: unless-stopped
     ports:
       - "9098:9090"
