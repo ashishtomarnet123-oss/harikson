@@ -19,8 +19,10 @@ router.post("/upload", upload.single("file"), async (req: Request, res: Response
 
     const { originalname, buffer } = req.file;
     const extension = originalname.split(".").pop() || "";
+    const tenantId = (req.headers["x-tenant-id"] as string) || "00000000-0000-0000-0000-000000000000";
+    const userId = (req.headers["x-user-id"] as string) || "00000000-0000-0000-0000-000000000001";
 
-    const chunks = await RagService.indexFile(originalname, buffer, extension);
+    const chunks = await RagService.indexFile(tenantId, userId, originalname, buffer, extension);
 
     return res.status(200).json({
       message: `File ${originalname} parsed and indexed successfully.`,
@@ -41,7 +43,10 @@ router.post("/crawl", async (req: Request, res: Response) => {
     }
 
     const { url } = check.data;
-    const chunks = await RagService.indexUrl(url);
+    const tenantId = (req.headers["x-tenant-id"] as string) || "00000000-0000-0000-0000-000000000000";
+    const userId = (req.headers["x-user-id"] as string) || "00000000-0000-0000-0000-000000000001";
+
+    const chunks = await RagService.indexUrl(tenantId, userId, url);
 
     return res.status(200).json({
       message: `Website content from ${url} crawled and indexed.`,

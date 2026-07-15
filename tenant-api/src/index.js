@@ -408,6 +408,36 @@ async function initUserTables() {
       ALTER TABLE users DROP COLUMN IF EXISTS developer_keys;
     `).catch(err => console.error("Failed to drop duplicate JSONB columns from users:", err.message));
 
+    // 9.5 Create document_embeddings table with pgvector support
+    console.log("[MIGRATION] Creating document_embeddings table with pgvector...");
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS document_embeddings (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+        knowledge_document_id UUID NOT NULL REFERENCES knowledge_documents(id) ON DELETE CASCADE,
+        content TEXT NOT NULL,
+        embedding VECTOR(1536) NOT NULL,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+      );
+    `);
+
+    await pool.query(`
+      ALTER TABLE document_embeddings ENABLE ROW LEVEL SECURITY;
+      ALTER TABLE document_embeddings FORCE ROW LEVEL SECURITY;
+    `).catch(err => console.warn("Warning enabling RLS on document_embeddings:", err.message));
+
+    await pool.query(`
+      DROP POLICY IF EXISTS tenant_isolation_policy ON document_embeddings;
+      CREATE POLICY tenant_isolation_policy ON document_embeddings
+          FOR ALL
+          USING (tenant_id = NULLIF(current_setting('app.current_tenant', true), '')::uuid)
+          WITH CHECK (tenant_id = NULLIF(current_setting('app.current_tenant', true), '')::uuid);
+    `).catch(err => console.error("Policy recreation failed on document_embeddings:", err.message));
+
+    await pool.query(`
+      CREATE INDEX IF NOT EXISTS document_embeddings_embedding_idx ON document_embeddings USING ivfflat (embedding vector_cosine_ops);
+    `).catch(err => console.error("Failed to create embedding index on document_embeddings:", err.message));
+
     // ── Database Schema Alignment (Fk & updated_at Triggers) ────────────────
     console.log('[MIGRATION] Running constraint and updated_at column migrations...');
     await pool.query(`
@@ -1602,6 +1632,63 @@ async function crawlWebsite(url, maxDepth = 1, currentDepth = 0, visited = new S
   }
 }
 
+// Helper: Sliding window character-based text chunker
+function chunkText(text, size = 800, overlap = 150) {
+  const chunks = [];
+  let start = 0;
+  while (start < text.length) {
+    const end = Math.min(start + size, text.length);
+    chunks.push(text.substring(start, end));
+    if (end === text.length) break;
+    start += (size - overlap);
+  }
+  return chunks;
+}
+
+// Helper: Get vector embedding from Ollama model
+async function getEmbedding(text, model = 'qwen2.5-coder:7b') {
+  const lower = model.toLowerCase();
+  let mappedModel = 'qwen2.5:0.5b';
+  if (lower.includes('coder') || lower.includes('code')) {
+    mappedModel = 'qwen2.5-coder:1.5b';
+  }
+  if (process.env.NODE_ENV !== 'development') {
+    mappedModel = 'qwen2.5-coder:7b';
+  }
+
+  try {
+    const response = await axios.post(`${ollamaHost}/api/embeddings`, {
+      model: mappedModel,
+      prompt: text
+    });
+    let embedding = response.data.embedding || [];
+    
+    // Ensure length is exactly 1536 (pgvector target)
+    if (embedding.length < 1536) {
+      const pad = new Array(1536 - embedding.length).fill(0.0);
+      embedding = embedding.concat(pad);
+    } else if (embedding.length > 1536) {
+      embedding = embedding.slice(0, 1536);
+    }
+    return embedding;
+  } catch (error) {
+    console.warn('Ollama embeddings error in tenant-api, returning fallback mock vector.', error.message);
+    return generateMockEmbedding(text);
+  }
+}
+
+function generateMockEmbedding(text) {
+  const embedding = new Array(1536).fill(0.0);
+  let hash = 0;
+  for (let i = 0; i < text.length; i++) {
+    hash = text.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  for (let j = 0; j < 1536; j++) {
+    embedding[j] = Math.sin(hash + j) * 0.1;
+  }
+  return embedding;
+}
+
 // Helper: build messages array for Ollama /api/chat (proper multi-turn memory)
 function buildMessages(history, userMessage, model, agentConfig = null) {
   const messages = [
@@ -1793,9 +1880,44 @@ app.post('/api/chat', authMiddleware, async (req, res) => {
       crawledContext += `\n--- LIVE WEB SEARCH RESULTS ---\n${searchResults}\n`;
     }
 
+    // RAG: Query relevant document embeddings using pgvector cosine similarity
+    let ragContextText = '';
+    try {
+      const queryEmbedding = await getEmbedding(message, selectedModel);
+      const embeddingString = `[${queryEmbedding.join(',')}]`;
+      const ragRows = await executeTenantQuery(req.tenant.id, async (client) => {
+        const res = await client.query(
+          `SELECT de.content, 1 - (de.embedding <=> $1::vector) AS similarity
+           FROM document_embeddings de
+           JOIN knowledge_documents kd ON de.knowledge_document_id = kd.id
+           WHERE de.tenant_id = $2 AND kd.is_active = true
+           ORDER BY de.embedding <=> $1::vector
+           LIMIT 5`,
+          [embeddingString, req.tenant.id]
+        );
+        return res.rows;
+      }, true);
+
+      if (ragRows && ragRows.length > 0) {
+        ragContextText = ragRows
+          .filter(row => row.similarity > 0.35)
+          .map(row => row.content)
+          .join('\n\n');
+      }
+    } catch (err) {
+      console.warn('Warning retrieving RAG context from document_embeddings:', err.message);
+    }
+
     // Build messages array with full conversation history for proper context
     const messages = buildMessages(finalHistory, message, selectedModel, agentConfig);
     
+    if (ragContextText) {
+      messages.splice(messages.length - 1, 0, {
+        role: 'system',
+        content: `KNOWLEDGE BASE CONTEXT (Extracted from uploaded documents):\n${ragContextText}\nUse this context to answer the user request accurately.`
+      });
+    }
+
     if (crawledContext) {
       messages.splice(messages.length - 1, 0, { 
         role: 'system', 
@@ -3553,16 +3675,36 @@ app.post('/api/user/rag-files', authMiddleware, async (req, res) => {
       }
     }
 
-    const updated = await executeTenantQuery(req.tenant.id, async (client) => {
-      const newId = crypto.randomUUID();
-      const isActiveBool = isActive !== false;
-      const fileType = name.split('.').pop() || 'txt';
-      
+    const newId = crypto.randomUUID();
+    const isActiveBool = isActive !== false;
+    const fileType = name.split('.').pop() || 'txt';
+
+    await executeTenantQuery(req.tenant.id, async (client) => {
       await client.query(
         `INSERT INTO knowledge_documents (id, tenant_id, user_id, filename, file_type, file_size_bytes, content, is_active, status)
          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'indexed')`,
         [newId, req.tenant.id, req.user.id, name, fileType, size || 0, text, isActiveBool]
       );
+    });
+
+    // Chunk and generate embeddings outside the transactional connection block
+    const chunks = chunkText(text, 800, 150);
+    const chunkEmbeddings = [];
+    for (const chunk of chunks) {
+      if (!chunk.trim()) continue;
+      const embedding = await getEmbedding(chunk, 'qwen2.5-coder:7b');
+      chunkEmbeddings.push({ chunk, embedding });
+    }
+
+    const updated = await executeTenantQuery(req.tenant.id, async (client) => {
+      for (const item of chunkEmbeddings) {
+        const embeddingString = `[${item.embedding.join(',')}]`;
+        await client.query(
+          `INSERT INTO document_embeddings (tenant_id, knowledge_document_id, content, embedding)
+           VALUES ($1, $2, $3, $4::vector)`,
+          [req.tenant.id, newId, item.chunk, embeddingString]
+        );
+      }
       
       const result = await client.query(
         `SELECT id, filename as name, file_size_bytes as size, is_active as "isActive", created_at 

@@ -27,7 +27,7 @@ router.post("/", async (req: Request, res: Response) => {
     let context = "";
 
     if (useRag) {
-      context = RagService.queryContext(message);
+      context = await RagService.queryContext(tenantId, message);
     }
 
     // Retrieve memories
