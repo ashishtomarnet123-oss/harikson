@@ -20,6 +20,8 @@ import { router as integrationsRouter, initIntegrationTables, startIntegrationWo
 
 dotenv.config();
 
+import { sendInvoiceReceipt } from './services/email.js';
+
 if (!process.env.JWT_SECRET || process.env.JWT_SECRET.length < 32) {
   console.error('FATAL: JWT_SECRET not set or too short (min 32 characters)');
   process.exit(1);
@@ -2247,6 +2249,22 @@ app.post('/webhooks/stripe', async (req, res) => {
            VALUES ($1, $2, $3, $4, $5, $6, $7, NOW(), $8, $9)`,
           [tenantId, subscriptionUuid, 'stripe', invId, amount, currency, 'paid', invoiceUrl, pdfUrl]
         );
+
+        // Retrieve tenant's primary administrator/user email and send receipt
+        const userRes = await pool.query(
+          `SELECT email, name FROM users WHERE tenant_id = $1 ORDER BY role = 'admin' DESC, created_at ASC LIMIT 1`,
+          [tenantId]
+        );
+        if (userRes.rows.length > 0) {
+          const userEmail = userRes.rows[0].email;
+          sendInvoiceReceipt(userEmail, {
+            amount,
+            currency,
+            status: 'paid',
+            invoiceUrl,
+            pdfUrl
+          }).catch(err => console.error('[INVOICE EMAIL RECEIPT SEND ERROR]:', err.message));
+        }
       }
     }
 

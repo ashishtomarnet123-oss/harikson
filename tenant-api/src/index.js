@@ -15,6 +15,8 @@ import { fileURLToPath } from 'url';
 
 dotenv.config();
 
+import { sendPasswordReset, sendWelcomeEmail } from './services/email.js';
+
 if (!process.env.JWT_SECRET || process.env.JWT_SECRET.length < 32) {
   console.error('FATAL: JWT_SECRET not set or too short (min 32 characters)');
   process.exit(1);
@@ -2038,6 +2040,9 @@ app.post('/api/auth/register', async (req, res) => {
       return result.rows[0];
     });
 
+    // Send welcome email in background (non-blocking)
+    sendWelcomeEmail(email, name).catch(err => console.error('[WELCOME EMAIL SEND ERROR]:', err.message));
+
     const accessToken = jwt.sign({ userId: newUser.id, role: newUser.role }, jwtSecret, { expiresIn: '15m' });
     const refreshToken = crypto.randomBytes(20).toString('hex');
     const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000); // 30 days
@@ -2152,6 +2157,9 @@ ${emailHtml}
     } catch (logErr) {
       console.warn('[EMAIL LOG] Failed to log email locally:', logErr.message);
     }
+
+    // Send password reset email in background (non-blocking)
+    sendPasswordReset(email, resetLink).catch(err => console.error('[PASSWORD RESET EMAIL SEND ERROR]:', err.message));
 
     res.status(200).json({ message: 'If this email exists in our records, a reset link will be sent.' });
   } catch (err) {
