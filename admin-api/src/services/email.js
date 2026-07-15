@@ -30,7 +30,7 @@ export const sendPasswordReset = async (to, resetUrl) => {
   }
   
   try {
-    const data = await resend.emails.send({
+    const { data, error } = await resend.emails.send({
       from: 'Harikson AI <noreply@neuravolt.cloud>',
       to,
       subject: 'Reset your password',
@@ -49,6 +49,10 @@ export const sendPasswordReset = async (to, resetUrl) => {
         </div>
       `
     });
+    if (error) {
+      console.error('[EMAIL SEND ERROR - PASSWORD RESET]:', error.message || error);
+      return { success: false, error: error.message || 'Failed to send password reset email' };
+    }
     return { success: true, data };
   } catch (err) {
     console.error('[EMAIL SEND ERROR - PASSWORD RESET]:', err.message);
@@ -62,7 +66,7 @@ export const sendWelcomeEmail = async (to, name) => {
   }
 
   try {
-    const data = await resend.emails.send({
+    const { data, error } = await resend.emails.send({
       from: 'Harikson AI <noreply@neuravolt.cloud>',
       to,
       subject: 'Welcome to Harikson AI!',
@@ -77,6 +81,10 @@ export const sendWelcomeEmail = async (to, name) => {
         </div>
       `
     });
+    if (error) {
+      console.error('[EMAIL SEND ERROR - WELCOME]:', error.message || error);
+      return { success: false, error: error.message || 'Failed to send welcome email' };
+    }
     return { success: true, data };
   } catch (err) {
     console.error('[EMAIL SEND ERROR - WELCOME]:', err.message);
@@ -91,7 +99,7 @@ export const sendInvoiceReceipt = async (to, invoiceDetails) => {
 
   try {
     const { amount, currency, status, invoiceUrl, pdfUrl } = invoiceDetails;
-    const data = await resend.emails.send({
+    const { data, error } = await resend.emails.send({
       from: 'Harikson AI <noreply@neuravolt.cloud>',
       to,
       subject: 'Payment Receipt - Harikson AI',
@@ -111,6 +119,10 @@ export const sendInvoiceReceipt = async (to, invoiceDetails) => {
         </div>
       `
     });
+    if (error) {
+      console.error('[EMAIL SEND ERROR - INVOICE]:', error.message || error);
+      return { success: false, error: error.message || 'Failed to send invoice receipt' };
+    }
     return { success: true, data };
   } catch (err) {
     console.error('[EMAIL SEND ERROR - INVOICE]:', err.message);
