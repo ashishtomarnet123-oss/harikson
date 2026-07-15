@@ -1,3 +1,9 @@
+-- ==============================================================================
+-- DEPRECATED: Table creations in this file are deprecated.
+-- The Prisma schema (backend/prisma/schema.prisma) is the single source of truth.
+-- SQL migrations are generated via "prisma migrate dev" and deployed on startup.
+-- This file now only handles PostgreSQL extensions, custom procedures, and policies.
+-- ==============================================================================
 -- MIGRATION: Update RLS Policies & Tenant context validation
 
 -- 1. Create assert_tenant_context() function

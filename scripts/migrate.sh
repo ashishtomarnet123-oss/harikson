@@ -12,7 +12,7 @@ npx prisma generate
 
 # Execute DB push or schema migration
 if [ -n "$DATABASE_URL" ]; then
-  npx prisma db push --accept-data-loss
+  npx prisma migrate deploy
   echo "✅ Database schema pushed to target database instance successfully."
 else
   echo "⚠️ DATABASE_URL is not set. Skipping actual database sync."

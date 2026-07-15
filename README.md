@@ -205,7 +205,7 @@ Ollama loads models dynamically. On a 16GB RAM VM, running both 7B and 14B model
 ./scripts/model-manager.sh unload
 ```
 
-### 3. Comprehensive Diagnostics Suite (`scripts/test.sh`)
+### 4. Comprehensive Diagnostics Suite (`scripts/test.sh`)
 Verifies your platform health across 6 diagnostic layers:
 ```bash
 ./scripts/test.sh
@@ -217,7 +217,7 @@ Verifies your platform health across 6 diagnostic layers:
 *   **Frontend**: Confirms Next.js ports respond.
 *   **Stress Test**: Sends **10 concurrent requests** and measures response time.
 
-### 4. Git Push & SSH VM Deployer (`scripts/deploy-to-vm.sh`)
+### 5. Git Push & SSH VM Deployer (`scripts/deploy-to-vm.sh`)
 Deploys local code changes directly to your remote VM:
 ```bash
 ./scripts/deploy-to-vm.sh
@@ -225,3 +225,24 @@ Deploys local code changes directly to your remote VM:
 *   Stages and commits local code edits.
 *   Pushes code updates to your GitHub repository.
 *   Establishes an SSH connection to the Ace Cloud VM (`154.201.127.68`), pulls the fresh code, generates random environment secrets, runs migrations, triggers model downloads, and restarts containers.
+
+---
+
+## 🗃️ Database Schema & Migration Guide
+
+> [!IMPORTANT]
+> The **Prisma schema** ([schema.prisma](file:///Users/ashishpratapsinghtomar/Downloads/files/backend/prisma/schema.prisma)) is the **single source of truth** for the database schema. Raw SQL migrations (`init.sql` / `migration.sql`) are deprecated for manual table creation, but remain supported for PostgreSQL-specific setups (extensions, functions, triggers, and Row-Level Security policies).
+
+### Generating SQL Migrations
+All database migrations should be generated and managed using Prisma Migrate:
+```bash
+# Inside the backend/ directory
+npx prisma migrate dev --name <migration_name>
+```
+
+### Applying Migrations in Production
+During VM deployments and startup, migrations are automatically applied via:
+```bash
+npx prisma migrate deploy
+```
+
