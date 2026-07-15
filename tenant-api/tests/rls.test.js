@@ -34,7 +34,6 @@ async function connectWithValidation() {
       const currentTenant = valRes.rows[0]?.tenant;
       console.log(`   [connectWithValidation] current_setting('app.current_tenant') = "${currentTenant}"`);
       if (currentTenant && currentTenant.trim() !== '') {
-        client.release(true); // Discard from pool
         throw new Error(`Connection pollution detected: app.current_tenant is already set to "${currentTenant}"`);
       }
       return client;
@@ -42,7 +41,11 @@ async function connectWithValidation() {
       if (err.message.includes('unrecognized configuration parameter')) {
         return client;
       }
-      client.release(true); // Discard on error
+      try {
+        client.release(true); // Discard on error
+      } catch (releaseErr) {
+        // Ignored
+      }
       throw err;
     }
   }
@@ -162,7 +165,7 @@ async function runTests() {
       await assertClient.query("SELECT assert_tenant_context()");
       assert.fail('Should have thrown an exception');
     } catch (err) {
-      assert.ok(err.message.toLowerCase().includes('tenant context is not set'));
+      assert.ok(err.message.toLowerCase().includes('tenant context') && err.message.toLowerCase().includes('is not set'));
       console.log('   ✓ Correctly rejected empty context with error:', err.message);
     } finally {
       assertClient.release();

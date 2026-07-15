@@ -573,7 +573,6 @@ async function connectWithValidation(useReplica = false) {
       const valRes = await client.query("SELECT current_setting('app.current_tenant', true) AS tenant");
       const currentTenant = valRes.rows[0]?.tenant;
       if (currentTenant && currentTenant.trim() !== '') {
-        client.release(true); // Discard from pool
         throw new Error(`Connection pollution detected: app.current_tenant is already set to "${currentTenant}"`);
       }
       return client;
@@ -581,7 +580,11 @@ async function connectWithValidation(useReplica = false) {
       if (err.message.includes('unrecognized configuration parameter')) {
         return client;
       }
-      client.release(true); // Discard on error
+      try {
+        client.release(true); // Discard on error
+      } catch (releaseErr) {
+        // Ignored
+      }
       throw err;
     }
   }
