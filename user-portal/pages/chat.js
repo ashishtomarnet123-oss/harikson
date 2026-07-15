@@ -750,10 +750,8 @@ export default function ChatPage() {
 
 
   useEffect(() => {
-    const savedToken = localStorage.getItem('hk_token');
     const savedInstructions = localStorage.getItem('harikson_custom_instructions');
     if (savedInstructions) setCustomInstructions(savedInstructions);
-    if (!savedToken) { router.replace('/login'); return; }
     let savedUser = null;
     try {
       savedUser = JSON.parse(localStorage.getItem('hk_user') || 'null');
@@ -764,9 +762,10 @@ export default function ChatPage() {
       router.replace('/login');
       return;
     }
+    if (!savedUser) { router.replace('/login'); return; }
     const savedBase = localStorage.getItem('hk_api_base') || 'http://localhost:3008';
     const savedTenant = localStorage.getItem('hk_tenant') || 'system';
-    setToken(savedToken);
+    setToken('cookie_auth');
     setUser(savedUser);
     setApiBase(savedBase);
     setTenantSlug(savedTenant);
@@ -815,14 +814,13 @@ export default function ChatPage() {
 
   const authHeaders = useCallback(() => ({
     'Content-Type': 'application/json',
-    'Authorization': `Bearer ${token}`,
     'x-tenant-slug': tenantSlug,
-  }), [token, tenantSlug]);
+  }), [tenantSlug]);
 
   /* ── Fetch conversation list ── */
   const fetchConversations = async () => {
     try {
-      const res = await fetch(`${apiBase}/api/conversations`, { headers: authHeaders() });
+      const res = await fetch(`${apiBase}/api/conversations`, { headers: authHeaders(), credentials: 'include' });
       if (res.status === 401) { handleLogout(); return; }
       const data = await res.json();
       setConversations(data.conversations || []);
@@ -838,7 +836,7 @@ export default function ChatPage() {
     setMessages([]);
     router.replace(`/chat?conversation=${convId}`, undefined, { shallow: true });
     try {
-      const res = await fetch(`${apiBase}/api/conversations/${convId}/messages`, { headers: authHeaders() });
+      const res = await fetch(`${apiBase}/api/conversations/${convId}/messages`, { headers: authHeaders(), credentials: 'include' });
       const data = await res.json();
       const loaded = (data.messages || []).map((m) => ({
         id: m.id,
@@ -1339,6 +1337,7 @@ If any check fails, revise the relevant section before output.`;
       const res = await fetch(`${apiBase}/api/chat`, {
         method: 'POST',
         headers: authHeaders(),
+        credentials: 'include',
         signal: controller.signal,
         body: JSON.stringify({
           message: finalMessage,
@@ -1428,6 +1427,7 @@ If any check fails, revise the relevant section before output.`;
       await fetch(`${apiBase}/api/conversations/${convId}`, {
         method: 'DELETE',
         headers: authHeaders(),
+        credentials: 'include',
       });
       setConversations((prev) => prev.filter((c) => c.id !== convId));
       if (activeConvId === convId) startNewChat();
@@ -1448,6 +1448,7 @@ If any check fails, revise the relevant section before output.`;
       await fetch(`${apiBase}/api/conversations/${convId}`, {
         method: 'PATCH',
         headers: authHeaders(),
+        credentials: 'include',
         body: JSON.stringify({ title: renameValue.trim() }),
       });
       setConversations((prev) =>
@@ -1469,8 +1470,8 @@ If any check fails, revise the relevant section before output.`;
         method: 'POST',
         headers: {
           'x-tenant-slug': tenantSlug,
-          ...(token ? { 'Authorization': `Bearer ${token}` } : {})
-        }
+        },
+        credentials: 'include',
       });
     } catch (e) {
       console.error('Logout error', e);

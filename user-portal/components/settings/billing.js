@@ -26,14 +26,15 @@ export default function BillingSettings() {
 
   const fetchBilling = async () => {
     try {
-      const token = localStorage.getItem('hk_token');
+      const token = (localStorage.getItem('hk_user') ? 'cookie_auth' : null);
       const tenantSlug = localStorage.getItem('hk_tenant') || 'neuravolt';
       const apiBase = localStorage.getItem('hk_api_base') || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3008';
 
       const res = await fetch(`${apiBase}/api/user/billing`, {
+          credentials: 'include',
         headers: {
           'x-tenant-slug': tenantSlug,
-          ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+          ...(token ? {  } : {})
         }
       });
       if (res.ok) {

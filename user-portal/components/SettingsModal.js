@@ -27,7 +27,7 @@ function PromptLibrarySettings() {
   const [saving, setSaving] = useState(false);
 
   const getApiBase = () => localStorage.getItem('hk_api_base') || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3008';
-  const getToken = () => localStorage.getItem('hk_token');
+  const getToken = () => localStorage.getItem('hk_user') ? 'cookie_auth' : null;
   const getTenant = () => localStorage.getItem('hk_tenant') || 'neuravolt';
 
   useEffect(() => {
@@ -36,7 +36,8 @@ function PromptLibrarySettings() {
       if (!token) return;
       try {
         const res = await fetch(`${getApiBase()}/api/user/presets`, {
-          headers: { 'Authorization': `Bearer ${token}`, 'x-tenant-slug': getTenant() }
+          headers: { 'x-tenant-slug': getTenant() },
+          credentials: 'include'
         });
         if (res.ok) setPresets(await res.json());
       } catch (e) { console.error('Failed to load presets', e); }
@@ -52,7 +53,8 @@ function PromptLibrarySettings() {
     try {
       const res = await fetch(`${getApiBase()}/api/user/presets`, {
         method: 'POST',
-        headers: { 'Authorization': `Bearer ${getToken()}`, 'x-tenant-slug': getTenant(), 'Content-Type': 'application/json' },
+        headers: { 'x-tenant-slug': getTenant(), 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({ name, description: desc, systemPrompt })
       });
       if (res.ok) {
@@ -69,7 +71,8 @@ function PromptLibrarySettings() {
     try {
       const res = await fetch(`${getApiBase()}/api/user/presets/${id}`, {
         method: 'DELETE',
-        headers: { 'Authorization': `Bearer ${getToken()}`, 'x-tenant-slug': getTenant() }
+        headers: { 'x-tenant-slug': getTenant() },
+        credentials: 'include'
       });
       if (res.ok) setPresets(await res.json());
     } catch (e) { console.error(e); }
@@ -167,7 +170,7 @@ function RagDriveSettings() {
   const [loading, setLoading] = useState(true);
 
   const getApiBase = () => localStorage.getItem('hk_api_base') || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3008';
-  const getToken = () => localStorage.getItem('hk_token');
+  const getToken = () => localStorage.getItem('hk_user') ? 'cookie_auth' : null;
   const getTenant = () => localStorage.getItem('hk_tenant') || 'neuravolt';
 
   useEffect(() => {
@@ -176,7 +179,8 @@ function RagDriveSettings() {
       if (!token) return;
       try {
         const res = await fetch(`${getApiBase()}/api/user/rag-files`, {
-          headers: { 'Authorization': `Bearer ${token}`, 'x-tenant-slug': getTenant() }
+          headers: { 'x-tenant-slug': getTenant() },
+          credentials: 'include'
         });
         if (res.ok) setFiles(await res.json());
       } catch (e) { console.error('Failed to load RAG files', e); }
@@ -226,7 +230,8 @@ function RagDriveSettings() {
       // Save to server
       const res = await fetch(`${getApiBase()}/api/user/rag-files`, {
         method: 'POST',
-        headers: { 'Authorization': `Bearer ${getToken()}`, 'x-tenant-slug': getTenant(), 'Content-Type': 'application/json' },
+        headers: { 'x-tenant-slug': getTenant(), 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({ name: file.name, size: file.size, text, isActive: true })
       });
       if (res.ok) {
@@ -248,7 +253,8 @@ function RagDriveSettings() {
     try {
       const res = await fetch(`${getApiBase()}/api/user/rag-files/${id}`, {
         method: 'PATCH',
-        headers: { 'Authorization': `Bearer ${getToken()}`, 'x-tenant-slug': getTenant() }
+        headers: { 'x-tenant-slug': getTenant() },
+        credentials: 'include'
       });
       if (res.ok) setFiles(await res.json());
     } catch (e) { console.error(e); }
@@ -258,7 +264,8 @@ function RagDriveSettings() {
     try {
       const res = await fetch(`${getApiBase()}/api/user/rag-files/${id}`, {
         method: 'DELETE',
-        headers: { 'Authorization': `Bearer ${getToken()}`, 'x-tenant-slug': getTenant() }
+        headers: { 'x-tenant-slug': getTenant() },
+        credentials: 'include'
       });
       if (res.ok) setFiles(await res.json());
     } catch (e) { console.error(e); }

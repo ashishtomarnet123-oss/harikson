@@ -17,8 +17,8 @@ export default function SignupPage() {
   const [tenantSlug, setTenantSlug] = useState('system');
 
   useEffect(() => {
-    const token = localStorage.getItem('hk_token');
-    if (token) { router.replace('/chat'); return; }
+    const user = localStorage.getItem('hk_user');
+    if (user) { router.replace('/chat'); return; }
 
     if (typeof window !== 'undefined') {
       const hostname = window.location.hostname;
@@ -63,6 +63,7 @@ export default function SignupPage() {
           'Content-Type': 'application/json',
           'x-tenant-slug': tenantSlug,
         },
+        credentials: 'include',
         body: JSON.stringify({ name, email, password }),
       });
       const data = await res.json();
@@ -77,7 +78,7 @@ export default function SignupPage() {
       }
 
       // Auto-login after successful registration
-      localStorage.setItem('hk_token', data.token);
+      localStorage.removeItem('hk_token');
       localStorage.setItem('hk_user', JSON.stringify(data.user));
       localStorage.setItem('hk_tenant', tenantSlug);
       localStorage.setItem('hk_api_base', apiBase);

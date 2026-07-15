@@ -949,7 +949,7 @@ const rateLimiterMiddleware = async (req, res, next) => {
 // Auth Middleware
 const authMiddleware = async (req, res, next) => {
   try {
-    const cookies = parseCookies(req.headers.cookie);
+    const cookies = req.cookies || parseCookies(req.headers.cookie);
     let token = cookies.hk_access_token;
     
     // Fallback to Authorization header
@@ -1943,7 +1943,7 @@ app.post('/api/auth/login', async (req, res) => {
     // ─────────────────────────────────────────────────────────────────────────
 
     res.json({
-      token: accessToken,
+      success: true,
       user: { id: user.id, email: user.email, role: user.role, tenantSlug: req.tenant.slug }
     });
   } catch (err) {
@@ -2018,7 +2018,7 @@ app.post('/api/auth/register', async (req, res) => {
     ]);
 
     res.status(201).json({
-      token: accessToken,
+      success: true,
       user: { id: newUser.id, email: newUser.email, role: newUser.role, name: name || email.split('@')[0], tenantSlug: req.tenant.slug }
     });
   } catch (err) {
@@ -2291,7 +2291,7 @@ app.post('/api/auth/refresh', async (req, res) => {
     ]);
     
     res.status(200).json({
-      token: newAccessToken,
+      success: true,
       user: { id: user.id, email: user.email, role: user.role }
     });
   } catch (err) {

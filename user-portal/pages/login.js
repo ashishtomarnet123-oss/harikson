@@ -14,8 +14,8 @@ export default function LoginPage() {
 
   useEffect(() => {
     // Check if already logged in
-    const token = localStorage.getItem('hk_token');
-    if (token) {
+    const user = localStorage.getItem('hk_user');
+    if (user) {
       router.replace('/chat');
       return;
     }
@@ -51,11 +51,12 @@ export default function LoginPage() {
           'Content-Type': 'application/json',
           'x-tenant-slug': tenantSlug,
         },
+        credentials: 'include',
         body: JSON.stringify({ email, password }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Login failed');
-      localStorage.setItem('hk_token', data.token);
+      localStorage.removeItem('hk_token');
       localStorage.setItem('hk_user', JSON.stringify(data.user));
       localStorage.setItem('hk_tenant', tenantSlug);
       localStorage.setItem('hk_api_base', apiBase);

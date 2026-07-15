@@ -39,14 +39,14 @@ export default function DevicesSettings() {
 
   const fetchDevices = async () => {
     try {
-      const token = localStorage.getItem('hk_token');
+      const token = (localStorage.getItem('hk_user') ? 'cookie_auth' : null);
       if (!token) return;
       const apiBase = localStorage.getItem('hk_api_base') || 'http://localhost:3008';
       const tenantSlug = localStorage.getItem('hk_tenant') || 'neuravolt';
       const res = await fetch(`${apiBase}/api/user/devices`, {
+          credentials: 'include',
         headers: {
-          'Authorization': `Bearer ${token}`,
-          'x-tenant-slug': tenantSlug
+                    'x-tenant-slug': tenantSlug
         }
       });
       if (res.ok) {
@@ -66,15 +66,15 @@ export default function DevicesSettings() {
     if (!confirm('Are you sure you want to log out of this device?')) return;
 
     try {
-      const token = localStorage.getItem('hk_token');
+      const token = (localStorage.getItem('hk_user') ? 'cookie_auth' : null);
       if (!token) return;
       const apiBase = localStorage.getItem('hk_api_base') || 'http://localhost:3008';
       const tenantSlug = localStorage.getItem('hk_tenant') || 'neuravolt';
       const res = await fetch(`${apiBase}/api/user/devices/${id}`, {
+          credentials: 'include',
         method: 'DELETE',
         headers: {
-          'Authorization': `Bearer ${token}`,
-          'x-tenant-slug': tenantSlug
+                    'x-tenant-slug': tenantSlug
         }
       });
       if (res.ok) {

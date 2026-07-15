@@ -10,7 +10,7 @@ export default function WorkspaceSettings() {
 
   useEffect(() => {
     fetchWorkspace();
-    const token = localStorage.getItem('hk_token');
+    const token = (localStorage.getItem('hk_user') ? 'cookie_auth' : null);
     if (token) {
       try {
         const payload = JSON.parse(atob(token.split('.')[1]));
@@ -39,16 +39,16 @@ export default function WorkspaceSettings() {
     setAddingMember(true);
     setError(null);
     try {
-      const token = localStorage.getItem('hk_token');
+      const token = (localStorage.getItem('hk_user') ? 'cookie_auth' : null);
       if (!token) return;
       const apiBase = localStorage.getItem('hk_api_base') || 'http://localhost:3008';
       const tenantSlug = localStorage.getItem('hk_tenant') || 'neuravolt';
       const res = await fetch(`${apiBase}/api/user/workspace/members`, {
+          credentials: 'include',
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-          'x-tenant-slug': tenantSlug
+                    'x-tenant-slug': tenantSlug
         },
         body: JSON.stringify({
           email: newEmail,
@@ -80,14 +80,14 @@ export default function WorkspaceSettings() {
 
   const fetchWorkspace = async () => {
     try {
-      const token = localStorage.getItem('hk_token');
+      const token = (localStorage.getItem('hk_user') ? 'cookie_auth' : null);
       if (!token) return;
       const apiBase = localStorage.getItem('hk_api_base') || 'http://localhost:3008';
       const tenantSlug = localStorage.getItem('hk_tenant') || 'neuravolt';
       const res = await fetch(`${apiBase}/api/user/workspace`, {
+          credentials: 'include',
         headers: {
-          'Authorization': `Bearer ${token}`,
-          'x-tenant-slug': tenantSlug
+                    'x-tenant-slug': tenantSlug
         }
       });
       if (res.ok) {
@@ -108,16 +108,16 @@ export default function WorkspaceSettings() {
     setUpdatingRole(true);
     setError(null);
     try {
-      const token = localStorage.getItem('hk_token');
+      const token = (localStorage.getItem('hk_user') ? 'cookie_auth' : null);
       if (!token) return;
       const apiBase = localStorage.getItem('hk_api_base') || 'http://localhost:3008';
       const tenantSlug = localStorage.getItem('hk_tenant') || 'neuravolt';
       const res = await fetch(`${apiBase}/api/user/workspace/members/${memberId}/role`, {
+          credentials: 'include',
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-          'x-tenant-slug': tenantSlug
+                    'x-tenant-slug': tenantSlug
         },
         body: JSON.stringify({ role: newRole })
       });
@@ -145,15 +145,15 @@ export default function WorkspaceSettings() {
     setUpdatingRole(true);
     setError(null);
     try {
-      const token = localStorage.getItem('hk_token');
+      const token = (localStorage.getItem('hk_user') ? 'cookie_auth' : null);
       if (!token) return;
       const apiBase = localStorage.getItem('hk_api_base') || 'http://localhost:3008';
       const tenantSlug = localStorage.getItem('hk_tenant') || 'neuravolt';
       const res = await fetch(`${apiBase}/api/user/workspace/members/${memberId}`, {
+          credentials: 'include',
         method: 'DELETE',
         headers: {
-          'Authorization': `Bearer ${token}`,
-          'x-tenant-slug': tenantSlug
+                    'x-tenant-slug': tenantSlug
         }
       });
       const data = await res.json();

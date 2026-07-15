@@ -13,14 +13,14 @@ export default function LanguageSettings() {
   useEffect(() => {
     const fetchProfile = async () => {
       try {
-        const token = localStorage.getItem('hk_token');
+        const token = (localStorage.getItem('hk_user') ? 'cookie_auth' : null);
         if (!token) return;
         const apiBase = localStorage.getItem('hk_api_base') || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3008';
       const tenantSlug = localStorage.getItem('hk_tenant') || 'neuravolt';
         const res = await fetch(`${apiBase}/api/user/profile`, {
+          credentials: 'include',
           headers: {
-          'Authorization': `Bearer ${token}`,
-          'x-tenant-slug': tenantSlug
+                    'x-tenant-slug': tenantSlug
         }
         });
         if (res.ok) {
@@ -50,14 +50,14 @@ export default function LanguageSettings() {
     setSaving(true);
     setMessage(null);
     try {
-      const token = localStorage.getItem('hk_token');
+      const token = (localStorage.getItem('hk_user') ? 'cookie_auth' : null);
       const apiBase = localStorage.getItem('hk_api_base') || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3008';
       const tenantSlug = localStorage.getItem('hk_tenant') || 'neuravolt';
       const res = await fetch(`${apiBase}/api/user/profile`, {
+          credentials: 'include',
         method: 'PUT',
         headers: {
-          'Authorization': `Bearer ${token}`,
-          'x-tenant-slug': tenantSlug,
+                    'x-tenant-slug': tenantSlug,
           'Content-Type': 'application/json'
         },
         body: JSON.stringify(profile)
