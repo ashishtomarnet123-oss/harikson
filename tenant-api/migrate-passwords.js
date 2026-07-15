@@ -1,10 +1,11 @@
-const pg = require('pg');
-const bcrypt = require('bcrypt');
+import pg from 'pg';
+import bcrypt from 'bcrypt';
 
+const { Pool } = pg;
 const connectionString = process.env.DATABASE_URL || 'postgresql://neuravolt:neuravolt_dev_pwd@postgres:5432/neuravolt';
 
 async function main() {
-  const pool = new pg.Pool({ connectionString });
+  const pool = new Pool({ connectionString });
   
   try {
     console.log('🔄 Checking database for plaintext passwords...');

@@ -14,11 +14,16 @@ import { fileURLToPath } from 'url';
 
 dotenv.config();
 
+if (!process.env.JWT_SECRET || process.env.JWT_SECRET.length < 32) {
+  console.error('FATAL: JWT_SECRET not set or too short (min 32 characters)');
+  process.exit(1);
+}
+
 const { Pool } = pg;
 
 const app = express();
 const port = process.env.PORT || 3000;
-const jwtSecret = process.env.JWT_SECRET || 'super_secret_jwt_key';
+const jwtSecret = process.env.JWT_SECRET;
 const ollamaHost = process.env.OLLAMA_HOST || 'http://localhost:11434';
 
 // Express Setup

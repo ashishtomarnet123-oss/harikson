@@ -19,6 +19,11 @@ import { router as integrationsRouter, initIntegrationTables, startIntegrationWo
 
 dotenv.config();
 
+if (!process.env.JWT_SECRET || process.env.JWT_SECRET.length < 32) {
+  console.error('FATAL: JWT_SECRET not set or too short (min 32 characters)');
+  process.exit(1);
+}
+
 const { Pool } = pg;
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL
@@ -873,7 +878,7 @@ const execPromise = util.promisify(exec);
 
 const app = express();
 const port = process.env.PORT || 4000;
-const jwtSecret = process.env.JWT_SECRET || 'super_secret_jwt_key';
+const jwtSecret = process.env.JWT_SECRET;
 
 app.use(cors({
   origin: true,

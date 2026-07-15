@@ -12,7 +12,7 @@ const getJwtSecret = (): string => {
   } catch {
     // Ignored
   }
-  return process.env.JWT_SECRET || "neuravolt_dev_jwt_secret_key_extremely_long_and_secure_value_12345!";
+  return process.env.JWT_SECRET || "";
 };
 
 export class AuthUtils {

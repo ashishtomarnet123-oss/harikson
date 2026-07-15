@@ -29,7 +29,7 @@ export const founderAuth = async (req, res, next) => {
       return res.status(404).json({ error: 'Not Found' }); // Masked as 404
     }
 
-    const jwtSecret = process.env.JWT_SECRET || 'super_secret_jwt_key';
+    const jwtSecret = process.env.JWT_SECRET;
     let decoded;
 
     if (token === 'TEST_ADMIN_TOKEN' || token === 'TEST_TOKEN') {

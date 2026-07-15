@@ -31,7 +31,7 @@ export const adminAuth = async (req, res, next) => {
       return res.status(401).json({ error: 'Access Denied: No token provided' });
     }
 
-    const jwtSecret = process.env.JWT_SECRET || 'super_secret_jwt_key';
+    const jwtSecret = process.env.JWT_SECRET;
     let decoded;
 
     if (token === 'TEST_ADMIN_TOKEN' || token === 'TEST_TOKEN') {

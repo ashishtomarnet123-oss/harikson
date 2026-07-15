@@ -115,7 +115,7 @@ services:
     environment:
       - DATABASE_URL=postgresql://neuravolt:neuravolt_dev_pwd@postgres:5432/neuravolt
       - REDIS_URL=redis://redis:6379
-      - JWT_SECRET=super_secret_jwt_key
+      - JWT_SECRET
       - PORT=3000
       - NODE_ENV=production
       - OLLAMA_HOST=http://ollama:11434
@@ -152,7 +152,7 @@ services:
       - "4008:4000"
     environment:
       - DATABASE_URL=postgresql://neuravolt:neuravolt_dev_pwd@postgres:5432/neuravolt
-      - JWT_SECRET=super_secret_jwt_key
+      - JWT_SECRET
       - PORT=4000
     depends_on:
       postgres:
@@ -178,7 +178,7 @@ services:
     environment:
       - PORT=3001
       - NEXT_PUBLIC_API_URL=https://api.neuravolt.cloud
-      - NEXTAUTH_SECRET=super_secret_jwt_key
+      - NEXTAUTH_SECRET
       - NEXTAUTH_URL=https://admin.neuravolt.cloud
     networks:
       - harikson-network
@@ -205,7 +205,7 @@ services:
     environment:
       - PORT=3002
       - NEXT_PUBLIC_API_URL=https://api.neuravolt.cloud
-      - NEXTAUTH_SECRET=super_secret_jwt_key
+      - NEXTAUTH_SECRET
       - NEXTAUTH_URL=https://app.neuravolt.cloud
     networks:
       - harikson-network
