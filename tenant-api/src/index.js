@@ -3401,11 +3401,16 @@ app.delete('/api/user/presets/:id', authMiddleware, async (req, res) => {
 app.get('/api/user/rag-files', authMiddleware, async (req, res) => {
   try {
     const files = await executeTenantQuery(req.tenant.id, async (client) => {
-      const result = await client.query(`SELECT settings FROM users WHERE id = $1`, [req.user.id]);
-      return (result.rows[0]?.settings?.rag_files) || [];
+      const result = await client.query(
+        `SELECT id, filename as name, file_size_bytes as size, is_active as "isActive", created_at 
+         FROM knowledge_documents 
+         WHERE user_id = $1 AND tenant_id = $2
+         ORDER BY created_at DESC`,
+        [req.user.id, req.tenant.id]
+      );
+      return result.rows;
     });
-    // Strip out the text content for listing (bandwidth saving)
-    res.json(files.map(f => ({ id: f.id, name: f.name, size: f.size, isActive: f.isActive, created_at: f.created_at })));
+    res.json(files);
   } catch (err) {
     console.error('Fetch rag files error:', err);
     res.status(500).json({ error: 'Failed to fetch RAG files' });
@@ -3423,8 +3428,8 @@ app.post('/api/user/rag-files', authMiddleware, async (req, res) => {
     if (ragLimit !== -1) {
       const currentRAGCount = await executeTenantQuery(req.tenant.id, async (client) => {
         const res = await client.query(
-          `SELECT COALESCE(SUM(jsonb_array_length(settings->'rag_files')), 0)::int as count 
-           FROM users 
+          `SELECT COUNT(*)::int as count 
+           FROM knowledge_documents 
            WHERE tenant_id = $1`,
           [req.tenant.id]
         );
@@ -3445,24 +3450,24 @@ app.post('/api/user/rag-files', authMiddleware, async (req, res) => {
     }
 
     const updated = await executeTenantQuery(req.tenant.id, async (client) => {
-      const result = await client.query(`SELECT settings FROM users WHERE id = $1`, [req.user.id]);
-      const settings = result.rows[0]?.settings || {};
-      const ragFiles = settings.rag_files || [];
-      const newFile = {
-        id: Date.now().toString(),
-        name,
-        size: size || 0,
-        text,
-        isActive: isActive !== false,
-        created_at: new Date().toISOString()
-      };
-      const updatedFiles = [...ragFiles, newFile];
+      const newId = crypto.randomUUID();
+      const isActiveBool = isActive !== false;
+      const fileType = name.split('.').pop() || 'txt';
+      
       await client.query(
-        `UPDATE users SET settings = $1 WHERE id = $2`,
-        [JSON.stringify({ ...settings, rag_files: updatedFiles }), req.user.id]
+        `INSERT INTO knowledge_documents (id, tenant_id, user_id, filename, file_type, file_size_bytes, content, is_active, status)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'indexed')`,
+        [newId, req.tenant.id, req.user.id, name, fileType, size || 0, text, isActiveBool]
       );
-      // Return without text for bandwidth efficiency
-      return updatedFiles.map(f => ({ id: f.id, name: f.name, size: f.size, isActive: f.isActive, created_at: f.created_at }));
+      
+      const result = await client.query(
+        `SELECT id, filename as name, file_size_bytes as size, is_active as "isActive", created_at 
+         FROM knowledge_documents 
+         WHERE user_id = $1 AND tenant_id = $2
+         ORDER BY created_at DESC`,
+        [req.user.id, req.tenant.id]
+      );
+      return result.rows;
     });
     res.status(201).json(updated);
   } catch (err) {
@@ -3475,16 +3480,21 @@ app.post('/api/user/rag-files', authMiddleware, async (req, res) => {
 app.patch('/api/user/rag-files/:id', authMiddleware, async (req, res) => {
   try {
     const updated = await executeTenantQuery(req.tenant.id, async (client) => {
-      const result = await client.query(`SELECT settings FROM users WHERE id = $1`, [req.user.id]);
-      const settings = result.rows[0]?.settings || {};
-      const ragFiles = (settings.rag_files || []).map(f =>
-        f.id === req.params.id ? { ...f, isActive: !f.isActive } : f
-      );
       await client.query(
-        `UPDATE users SET settings = $1 WHERE id = $2`,
-        [JSON.stringify({ ...settings, rag_files: ragFiles }), req.user.id]
+        `UPDATE knowledge_documents 
+         SET is_active = NOT COALESCE(is_active, true) 
+         WHERE id = $1 AND user_id = $2 AND tenant_id = $3`,
+        [req.params.id, req.user.id, req.tenant.id]
       );
-      return ragFiles.map(f => ({ id: f.id, name: f.name, size: f.size, isActive: f.isActive, created_at: f.created_at }));
+      
+      const result = await client.query(
+        `SELECT id, filename as name, file_size_bytes as size, is_active as "isActive", created_at 
+         FROM knowledge_documents 
+         WHERE user_id = $1 AND tenant_id = $2
+         ORDER BY created_at DESC`,
+        [req.user.id, req.tenant.id]
+      );
+      return result.rows;
     });
     res.json(updated);
   } catch (err) {
@@ -3497,14 +3507,20 @@ app.patch('/api/user/rag-files/:id', authMiddleware, async (req, res) => {
 app.delete('/api/user/rag-files/:id', authMiddleware, async (req, res) => {
   try {
     const updated = await executeTenantQuery(req.tenant.id, async (client) => {
-      const result = await client.query(`SELECT settings FROM users WHERE id = $1`, [req.user.id]);
-      const settings = result.rows[0]?.settings || {};
-      const ragFiles = (settings.rag_files || []).filter(f => f.id !== req.params.id);
       await client.query(
-        `UPDATE users SET settings = $1 WHERE id = $2`,
-        [JSON.stringify({ ...settings, rag_files: ragFiles }), req.user.id]
+        `DELETE FROM knowledge_documents 
+         WHERE id = $1 AND user_id = $2 AND tenant_id = $3`,
+        [req.params.id, req.user.id, req.tenant.id]
       );
-      return ragFiles.map(f => ({ id: f.id, name: f.name, size: f.size, isActive: f.isActive, created_at: f.created_at }));
+      
+      const result = await client.query(
+        `SELECT id, filename as name, file_size_bytes as size, is_active as "isActive", created_at 
+         FROM knowledge_documents 
+         WHERE user_id = $1 AND tenant_id = $2
+         ORDER BY created_at DESC`,
+        [req.user.id, req.tenant.id]
+      );
+      return result.rows;
     });
     res.json(updated);
   } catch (err) {

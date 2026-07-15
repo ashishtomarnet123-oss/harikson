@@ -58,6 +58,7 @@ model User {
   agents              Agent[]
   notifications       Notification[]
   playgroundSessions  PlaygroundSession[]
+  KnowledgeDocument   KnowledgeDocument[]
 
   @@unique([tenantId, email], name: "unique_tenant_email")
   @@map("users")
@@ -289,6 +290,8 @@ model KnowledgeDocument {
   id              String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   tenantId        String?        @map("tenant_id") @db.Uuid
   tenant          Tenant?        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  userId          String?        @map("user_id") @db.Uuid
+  user            User?          @relation(fields: [userId], references: [id], onDelete: Cascade)
   knowledgeBaseId String?        @map("knowledge_base_id") @db.Uuid
   knowledgeBase   KnowledgeBase? @relation(fields: [knowledgeBaseId], references: [id], onDelete: Cascade)
   filename        String?
@@ -298,6 +301,8 @@ model KnowledgeDocument {
   embeddingCount  Int?           @map("embedding_count")
   status          String?        @default("pending")
   errorMessage    String?        @map("error_message")
+  content         String?
+  isActive        Boolean?       @default(true) @map("is_active")
   createdAt       DateTime?      @default(now()) @map("created_at") @db.Timestamptz
 
   @@map("knowledge_documents")
