@@ -7,6 +7,7 @@ Harikson is a high-performance, enterprise-grade multi-tenant AI developer platf
 ## 1. Project Overview
 
 ### Elevator Pitch
+
 Harikson is a sovereign, self-hosted AI developer platform that enables enterprises to run isolated, custom LLMs (Qwen, DeepSeek) for their developers on standard 16GB RAM Virtual Machines, avoiding the massive cost and data privacy risks of SaaS-based alternatives.
 
 - **What is this platform?** A multi-tenant AI workspace and developer platform with a built-in VS Code extension, a tenant control panel, a superadmin administration panel, and local model orchestration.
@@ -35,6 +36,7 @@ Harikson is a sovereign, self-hosted AI developer platform that enables enterpri
 ## 3. Product Features
 
 ### Authentication & Authorization
+
 - **JWT Tokens**: Secure stateless access tokens (15-minute expiry) and refresh tokens (30-day expiry) stored in HTTP-Only, Secure cookies (`hk_access_token` and `hk_refresh_token`).
 - **Secure Password Hashing**: Utilizes `bcrypt` with 10 salt rounds.
 - **Complexity Rules**: Enforces minimum 12 characters, uppercase/lowercase, numbers, special characters, and matches against name/email inputs.
@@ -43,17 +45,20 @@ Harikson is a sovereign, self-hosted AI developer platform that enables enterpri
 - **API Keys**: Users can generate secure keys (`hk_live_...` or `hk_test_...`) hashed with SHA-256 in the database for programmatic SDK/CLI operations.
 
 ### User Workspace & Chat
+
 - **Markdown Chat**: High-performance streaming interface with real-time token rendering.
 - **Voice Mode**: Integrated Web Speech API text-to-speech engine that speaks assistant responses out loud sentence-by-sentence.
 - **Sidebar History**: Create, rename, search, and delete past conversations.
 - **Model Selector**: Swapping models (Plus vs Max) dynamically unloads inactive weights to protect system memory limits.
 
 ### RAG (My RAG Drive)
+
 - **Document Ingestion**: Client-side parsing of txt, md, and json files.
 - **Text Retrieval**: In-memory text matching and active document filters to contextually feed target prompts.
 - **Quota Bounding**: Limits uploaded document counts according to tenant plan limits (with automated billing grace periods).
 
 ### Superadmin Panel
+
 - **Telemetry Charts**: Real-time VM resource usage gauges (CPU, VRAM, RAM) via Tremor / Recharts.
 - **Tenant Controls**: Instant tenant creation, plan assignments, custom resource allocations (CPU/RAM limits), and suspensions.
 - **Models Telemetry**: View performance stats and load/unload Ollama weights.
@@ -69,16 +74,16 @@ Harikson uses a split control-plane/data-plane architecture orchestrated via Doc
 graph TD
     User([Developer User]) -->|VS Code Extension / Browser| Proxy[Traefik Proxy: 8085 / 8443]
     Admin([Superadmin User]) -->|Admin Dashboard| Proxy
-    
+
     subgraph Control Plane
         Proxy -->|Port 3018| AdminPanel[Next.js Admin Panel]
         Proxy -->|Port 4008| AdminAPI[Admin API]
     end
-    
+
     subgraph Data Plane
         Proxy -->|Port 3028| UserPortal[Next.js User Portal]
         Proxy -->|Port 3008| TenantAPI[Tenant API Gateway]
-        
+
         TenantAPI -->|RLS Context Pool| Postgres[(PostgreSQL: 5435)]
         TenantAPI -->|Plan Limit Quota| Redis[(Redis Cache: 6375)]
         TenantAPI -->|Axios Stream Inference| Ollama[Ollama Inference: 11435]
@@ -86,6 +91,7 @@ graph TD
 ```
 
 ### Request Lifecycle Flow
+
 1. **Resolution**: Request hits Traefik. Subdomain/Header parsing identifies tenant slug (e.g. `tenant1.neuravolt.cloud`).
 2. **Rate Limiting**: Tenant API queries Redis to verify request counts against sliding window limits.
 3. **Authentication**: JWT cookie / API key header is verified.
@@ -127,26 +133,27 @@ graph TD
 
 ## 6. Tech Stack
 
-| Category | Technology | Description |
-|---|---|---|
-| **Languages** | TypeScript, JavaScript, SQL, HTML, CSS | Core programming languages |
-| **Frontend** | React, Next.js (v14.2.3), Tremor, Recharts | User portal and Admin panels |
-| **Backend** | Node.js, Express JS | Main API Gateway & Admin API |
-| **Database** | PostgreSQL v15 | Relational database containing data tables |
-| **ORM** | Prisma Client (v5.14.0) | Schema mapping and migrations |
-| **Caching & Queue** | Redis v7 | Rate-limiting tracker and session store |
-| **Reverse Proxy** | Traefik v2.11 | Subdomain-based SSL reverse proxy |
-| **AI Inference** | Ollama | Model loading and prompt completions |
-| **Email Service** | Resend SDK | Password reset & transaction emails |
-| **Payment Gateways**| Stripe SDK, Razorpay | Dynamic subscription billing handlers |
-| **Monitoring** | Prometheus, Grafana | Health check metrics logging & visualizers |
-| **Testing** | Node assert, integration suites | Testing RLS & agent functionalities |
+| Category             | Technology                                 | Description                                |
+| -------------------- | ------------------------------------------ | ------------------------------------------ |
+| **Languages**        | TypeScript, JavaScript, SQL, HTML, CSS     | Core programming languages                 |
+| **Frontend**         | React, Next.js (v14.2.3), Tremor, Recharts | User portal and Admin panels               |
+| **Backend**          | Node.js, Express JS                        | Main API Gateway & Admin API               |
+| **Database**         | PostgreSQL v15                             | Relational database containing data tables |
+| **ORM**              | Prisma Client (v5.14.0)                    | Schema mapping and migrations              |
+| **Caching & Queue**  | Redis v7                                   | Rate-limiting tracker and session store    |
+| **Reverse Proxy**    | Traefik v2.11                              | Subdomain-based SSL reverse proxy          |
+| **AI Inference**     | Ollama                                     | Model loading and prompt completions       |
+| **Email Service**    | Resend SDK                                 | Password reset & transaction emails        |
+| **Payment Gateways** | Stripe SDK, Razorpay                       | Dynamic subscription billing handlers      |
+| **Monitoring**       | Prometheus, Grafana                        | Health check metrics logging & visualizers |
+| **Testing**          | Node assert, integration suites            | Testing RLS & agent functionalities        |
 
 ---
 
 ## 7. Platform Flow Diagrams
 
 ### Authentication & Tenant Resolution Flow
+
 ```mermaid
 sequenceDiagram
     participant User as Client Browser
@@ -165,6 +172,7 @@ sequenceDiagram
 ```
 
 ### Context-Bound Database Query Flow (Anti-Leak)
+
 ```mermaid
 sequenceDiagram
     participant API as Tenant API Gateway
@@ -251,6 +259,7 @@ erDiagram
 ```
 
 ### Table Indexes Configuration
+
 - `idx_users_email_tenant` Unique composite key on `users (email, tenant_id)`.
 - `idx_subscriptions_provider` Unique index on `subscriptions (provider, provider_subscription_id)`.
 - `idx_invoices_provider` Unique index on `invoices (provider, provider_invoice_id)`.
@@ -264,6 +273,7 @@ erDiagram
 ### Core Endpoints
 
 #### `POST /api/auth/login`
+
 - **Authentication**: None
 - **Body**: `{ "email": "user@example.com", "password": "securepassword" }`
 - **Response (200 OK)**:
@@ -276,6 +286,7 @@ erDiagram
 - **Cookies**: Sets `hk_access_token` and `hk_refresh_token`.
 
 #### `POST /api/chat`
+
 - **Authentication**: JWT Cookie / Bearer Key
 - **Body**:
   ```json
@@ -288,11 +299,18 @@ erDiagram
 - **Response**: Chunked Text Event Stream (`text/event-stream`).
 
 #### `GET /api/user/rag-files`
+
 - **Authentication**: JWT Cookie / Bearer Key
 - **Response (200 OK)**:
   ```json
   [
-    { "id": "uuid", "name": "docs.txt", "size": 1024, "isActive": true, "created_at": "2026-07-15..." }
+    {
+      "id": "uuid",
+      "name": "docs.txt",
+      "size": 1024,
+      "isActive": true,
+      "created_at": "2026-07-15..."
+    }
   ]
   ```
 
@@ -301,6 +319,7 @@ erDiagram
 ## 10. Frontend Architecture
 
 The user portal runs on Next.js Pages Router and Tremor custom CSS files.
+
 - **Pages**:
   - `/index.js`: Marketing landing pages and plan comparative grids.
   - `/login.js` & `/signup.js`: Form screens handling credentials authentication.
@@ -313,6 +332,7 @@ The user portal runs on Next.js Pages Router and Tremor custom CSS files.
 ## 11. Backend Architecture
 
 The backend services run Express.js routing structures.
+
 - **Middlewares**:
   - `tenantMiddleware`: Resolves tenant parameters from subdomains, headers, or query filters.
   - `authMiddleware`: Parses tokens, evaluates expirations, and intercepts developer API keys.
@@ -381,12 +401,15 @@ The backend services run Express.js routing structures.
 ## 19. Installation Guide
 
 ### Prerequisites
+
 - Node.js v20+
 - Docker and Docker Compose
 - PostgreSQL client
 
 ### Setup Environment
+
 Create `.env` inside root folder:
+
 ```env
 DATABASE_URL=postgresql://neuravolt:neuravolt_dev_pwd@localhost:5435/neuravolt
 REDIS_URL=redis://localhost:6375
@@ -397,6 +420,7 @@ STRIPE_WEBHOOK_SECRET=whsec_123
 ```
 
 ### Bootstrapping Services
+
 1. Run compose services:
    ```bash
    docker compose up -d --build
@@ -417,12 +441,14 @@ STRIPE_WEBHOOK_SECRET=whsec_123
 This section lists missing functionalities, critical fixes, and structural improvements required for enterprise readiness.
 
 ### 1. In-Memory RAG Alternative (Critical Priority)
+
 - **Problem**: The current RAG drive parses document text client-side and filters documents in-memory using basic string matching (`.includes()`). This approach does not scale for large documents and limits the context window efficiency.
 - **Business Impact**: RAG capability is a primary sales feature; in-memory filtering results in poor response quality for large corporate files.
 - **Technical Impact**: Generates massive API payloads and causes browser memory slowdowns.
 - **Recommended Approach**: Integrate **pgvector** directly into the PostgreSQL database. Embed uploaded files using local HuggingFace models on Ollama and perform vector cosine similarity searches at the database level.
 
 ### 2. Missing RLS Policies on Sub-Tables (High Priority)
+
 - **Problem**: Key tables such as `agents`, `knowledge_documents`, `integrations`, and `workflow_executions` lack Row-Level Security policies in the database. They rely purely on code-level filtering.
 - **Business Impact**: Potential compliance risk. A bug in the Express backend query builder could leak proprietary corporate documents to another tenant.
 - **Technical Impact**: Fails basic security compliance audits.
@@ -433,12 +459,14 @@ This section lists missing functionalities, critical fixes, and structural impro
   ```
 
 ### 3. Production transactional email flows (Medium Priority)
+
 - **Problem**: Tenant user verification and portal welcome emails are stubbed/simulated.
 - **Business Impact**: Hard to onboard paid users without password verification.
 - **Technical Impact**: High risk of user account takeover if reset flows are not locked down.
 - **Recommended Approach**: Activate the configured Resend SDK client across user signup and transactional billing handlers to send email verifications and invoice receipts.
 
 ### 4. CI/CD and Automation Pipelines (Low Priority)
+
 - **Problem**: Deployment is triggered manually from developers' machines via local terminal scripts (`deploy-to-vm.sh`).
 - **Business Impact**: Slower release cycles and risk of deploying broken code.
 - **Recommended Approach**: Set up GitHub Actions workflow templates to automate linting, run tests (`tests/rls.test.js`), build Docker images, and deploy to VM on pushes to the main branch.
@@ -461,6 +489,7 @@ Enterprise Ready   | [████████████████░░] 80
 ```
 
 ### Executive Assessment
+
 - **Strengths**: High-security posture with unified database RLS policies. Cost-efficient design capable of routing hundreds of distinct tenant pipelines through a single lightweight $40/month Ace Cloud instance. Strong programmatic API key safety layers.
 - **Weaknesses**: Current RAG drive is keyword-search-bound. Standard Express gateway lacks automated validation layers.
 - **Risks**: Running multiple active models on a 16GB RAM instance under heavy load can cause latency spikes or Out-of-Memory (OOM) failures.

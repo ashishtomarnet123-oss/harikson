@@ -20,18 +20,18 @@ bootstrap:
       parameters:
         shared_buffers: 256MB
         max_connections: 100
-        archive_mode: "on"
-        archive_command: "pgbackrest --stanza=harikson archive-push %p"
+        archive_mode: 'on'
+        archive_command: 'pgbackrest --stanza=harikson archive-push %p'
         wal_level: replica
         max_wal_senders: 10
         max_replication_slots: 10
-        hot_standby: "on"
+        hot_standby: 'on'
 
   init:
     pg_hba:
       - host replication replicator 10.0.0.0/8 md5
       - host all all 0.0.0.0/0 md5
-    
+
   pg_create_replica_methods:
     - pgbackrest
     - basebackup

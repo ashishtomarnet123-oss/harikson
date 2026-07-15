@@ -1,4 +1,4 @@
-version: "3.8"
+version: '3.8'
 
 networks:
   harikson-network:
@@ -13,21 +13,21 @@ services:
     container_name: harikson-traefik
     restart: unless-stopped
     command:
-      - "--api.insecure=true"
-      - "--api.dashboard=true"
-      - "--providers.docker=true"
-      - "--providers.docker.exposedbydefault=false"
-      - "--entrypoints.web.address=:80"
-      - "--entrypoints.websecure.address=:443"
-      - "--certificatesresolvers.letsencrypt.acme.tlschallenge=true"
-      - "--certificatesresolvers.letsencrypt.acme.email=admin@neuravolt.cloud"
-      - "--certificatesresolvers.letsencrypt.acme.storage=/letsencrypt/acme.json"
-      - "--providers.file.directory=/dynamic"
-      - "--providers.file.watch=true"
+      - '--api.insecure=true'
+      - '--api.dashboard=true'
+      - '--providers.docker=true'
+      - '--providers.docker.exposedbydefault=false'
+      - '--entrypoints.web.address=:80'
+      - '--entrypoints.websecure.address=:443'
+      - '--certificatesresolvers.letsencrypt.acme.tlschallenge=true'
+      - '--certificatesresolvers.letsencrypt.acme.email=admin@neuravolt.cloud'
+      - '--certificatesresolvers.letsencrypt.acme.storage=/letsencrypt/acme.json'
+      - '--providers.file.directory=/dynamic'
+      - '--providers.file.watch=true'
     ports:
-      - "8085:80"
-      - "8443:443"
-      - "8088:8080"
+      - '8085:80'
+      - '8443:443'
+      - '8088:8080'
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - ${DATA_DIR:-./data}/traefik:/letsencrypt
@@ -41,7 +41,7 @@ services:
     container_name: harikson-ollama
     restart: unless-stopped
     ports:
-      - "11435:11434"
+      - '11435:11434'
     environment:
       - OLLAMA_HOST=0.0.0.0
       - OLLAMA_MAX_LOADED_MODELS=1
@@ -62,7 +62,7 @@ services:
     container_name: harikson-postgres
     restart: unless-stopped
     ports:
-      - "5435:5432"
+      - '5435:5432'
     environment:
       - POSTGRES_USER=neuravolt
       - POSTGRES_PASSWORD=neuravolt_dev_pwd
@@ -77,7 +77,7 @@ services:
         limits:
           memory: 512m
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U neuravolt"]
+      test: ['CMD-SHELL', 'pg_isready -U neuravolt']
       interval: 10s
       timeout: 5s
       retries: 5
@@ -89,7 +89,7 @@ services:
     restart: unless-stopped
     command: redis-server --appendonly yes
     ports:
-      - "6375:6379"
+      - '6375:6379'
     volumes:
       - ${DATA_DIR:-./data}/redis:/data
     networks:
@@ -99,7 +99,7 @@ services:
         limits:
           memory: 256m
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: ['CMD', 'redis-cli', 'ping']
       interval: 10s
       timeout: 5s
       retries: 5
@@ -111,7 +111,7 @@ services:
     container_name: harikson-tenant-api
     restart: unless-stopped
     ports:
-      - "3008:3000"
+      - '3008:3000'
     environment:
       - DATABASE_URL=postgresql://neuravolt:neuravolt_dev_pwd@postgres:5432/neuravolt
       - REDIS_URL=redis://redis:6379
@@ -128,17 +128,23 @@ services:
     networks:
       - harikson-network
     labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.tenant-api.rule=Host(`api.neuravolt.cloud`)"
-      - "traefik.http.routers.tenant-api.entrypoints=websecure"
-      - "traefik.http.routers.tenant-api.tls.certresolver=letsencrypt"
-      - "traefik.http.services.tenant-api.loadbalancer.server.port=3000"
+      - 'traefik.enable=true'
+      - 'traefik.http.routers.tenant-api.rule=Host(`api.neuravolt.cloud`)'
+      - 'traefik.http.routers.tenant-api.entrypoints=websecure'
+      - 'traefik.http.routers.tenant-api.tls.certresolver=letsencrypt'
+      - 'traefik.http.services.tenant-api.loadbalancer.server.port=3000'
     deploy:
       resources:
         limits:
           memory: 1g
     healthcheck:
-      test: ["CMD", "node", "-e", "fetch('http://localhost:3000/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      test:
+        [
+          'CMD',
+          'node',
+          '-e',
+          "fetch('http://localhost:3000/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+        ]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -150,7 +156,7 @@ services:
     container_name: harikson-admin-api
     restart: unless-stopped
     ports:
-      - "4008:4000"
+      - '4008:4000'
     environment:
       - DATABASE_URL=postgresql://neuravolt:neuravolt_dev_pwd@postgres:5432/neuravolt
       - JWT_SECRET
@@ -176,7 +182,7 @@ services:
     restart: unless-stopped
     command: npx next start -p 3001
     ports:
-      - "3018:3001"
+      - '3018:3001'
     environment:
       - PORT=3001
       - NEXT_PUBLIC_API_URL=https://api.neuravolt.cloud
@@ -185,11 +191,11 @@ services:
     networks:
       - harikson-network
     labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.admin-panel.rule=Host(`admin.neuravolt.cloud`)"
-      - "traefik.http.routers.admin-panel.entrypoints=websecure"
-      - "traefik.http.routers.admin-panel.tls.certresolver=letsencrypt"
-      - "traefik.http.services.admin-panel.loadbalancer.server.port=3001"
+      - 'traefik.enable=true'
+      - 'traefik.http.routers.admin-panel.rule=Host(`admin.neuravolt.cloud`)'
+      - 'traefik.http.routers.admin-panel.entrypoints=websecure'
+      - 'traefik.http.routers.admin-panel.tls.certresolver=letsencrypt'
+      - 'traefik.http.services.admin-panel.loadbalancer.server.port=3001'
     depends_on:
       - tenant-api
 
@@ -203,7 +209,7 @@ services:
     restart: unless-stopped
     command: npx next start -p 3002
     ports:
-      - "3028:3002"
+      - '3028:3002'
     environment:
       - PORT=3002
       - NEXT_PUBLIC_API_URL=https://api.neuravolt.cloud
@@ -212,21 +218,21 @@ services:
     networks:
       - harikson-network
     labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.user-portal.rule=Host(`app.neuravolt.cloud`)"
-      - "traefik.http.routers.user-portal.entrypoints=websecure"
-      - "traefik.http.routers.user-portal.tls.certresolver=letsencrypt"
-      - "traefik.http.services.user-portal.loadbalancer.server.port=3002"
+      - 'traefik.enable=true'
+      - 'traefik.http.routers.user-portal.rule=Host(`app.neuravolt.cloud`)'
+      - 'traefik.http.routers.user-portal.entrypoints=websecure'
+      - 'traefik.http.routers.user-portal.tls.certresolver=letsencrypt'
+      - 'traefik.http.services.user-portal.loadbalancer.server.port=3002'
     depends_on:
       - tenant-api
   # 8. Prometheus (Metrics Scraper)
   prometheus:
     image: prom/prometheus:latest
     container_name: harikson-prometheus
-    user: "0"
+    user: '0'
     restart: unless-stopped
     ports:
-      - "9098:9090"
+      - '9098:9090'
     volumes:
       - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - ${DATA_DIR:-./data}/prometheus:/prometheus
@@ -237,10 +243,10 @@ services:
   grafana:
     image: grafana/grafana:latest
     container_name: harikson-grafana
-    user: "0"
+    user: '0'
     restart: unless-stopped
     ports:
-      - "3038:3003"
+      - '3038:3003'
     environment:
       - GF_SECURITY_ADMIN_PASSWORD=admin_password
       - GF_SERVER_HTTP_PORT=3003
@@ -249,8 +255,8 @@ services:
     networks:
       - harikson-network
     labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.grafana.rule=Host(`monitor.neuravolt.cloud`)"
-      - "traefik.http.routers.grafana.entrypoints=websecure"
-      - "traefik.http.routers.grafana.tls.certresolver=letsencrypt"
-      - "traefik.http.services.grafana.loadbalancer.server.port=3003"
+      - 'traefik.enable=true'
+      - 'traefik.http.routers.grafana.rule=Host(`monitor.neuravolt.cloud`)'
+      - 'traefik.http.routers.grafana.entrypoints=websecure'
+      - 'traefik.http.routers.grafana.tls.certresolver=letsencrypt'
+      - 'traefik.http.services.grafana.loadbalancer.server.port=3003'

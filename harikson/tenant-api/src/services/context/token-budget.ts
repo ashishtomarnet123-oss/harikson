@@ -1,11 +1,11 @@
 export interface BudgetAllocation {
-  systemPrompt: number;          // 4k (fixed)
-  developerPromptRules: number;  // 4k (fixed)
-  memories: number;              // 2k (variable max)
-  codeChunks: number;            // 40k (variable max)
-  userPrompt: number;            // 2k (fixed)
-  toolBuffer: number;            // 4k (fixed)
-  history: number;               // Remaining (variable max)
+  systemPrompt: number; // 4k (fixed)
+  developerPromptRules: number; // 4k (fixed)
+  memories: number; // 2k (variable max)
+  codeChunks: number; // 40k (variable max)
+  userPrompt: number; // 2k (fixed)
+  toolBuffer: number; // 4k (fixed)
+  history: number; // Remaining (variable max)
 }
 
 export class TokenBudgetManager {
@@ -17,7 +17,9 @@ export class TokenBudgetManager {
     return Math.ceil(text.length / 4);
   }
 
-  static getBudgets(contextWindow = this.DEFAULT_CONTEXT_WINDOW): BudgetAllocation {
+  static getBudgets(
+    contextWindow = this.DEFAULT_CONTEXT_WINDOW
+  ): BudgetAllocation {
     const systemPrompt = 4000;
     const developerPromptRules = 4000;
     const memories = 2000;
@@ -26,7 +28,13 @@ export class TokenBudgetManager {
     const toolBuffer = 4000;
 
     // Remaining tokens go to conversation history
-    const fixedReserve = systemPrompt + developerPromptRules + memories + codeChunks + userPrompt + toolBuffer;
+    const fixedReserve =
+      systemPrompt +
+      developerPromptRules +
+      memories +
+      codeChunks +
+      userPrompt +
+      toolBuffer;
     const history = Math.max(0, contextWindow - fixedReserve);
 
     return {

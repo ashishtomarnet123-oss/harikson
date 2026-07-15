@@ -1,47 +1,50 @@
-export const HARIKSON_MODELS: Record<string, { displayName: string; description: string; icon: string; plan: string }> = {
+export const HARIKSON_MODELS: Record<
+  string,
+  { displayName: string; description: string; icon: string; plan: string }
+> = {
   'harikson/qwen3-coder:1.5b': {
     displayName: 'Harikson Starter',
     description: 'Fast responses for everyday tasks',
     icon: 'Zap',
-    plan: 'STARTER'
+    plan: 'STARTER',
   },
   'harikson/qwen3-coder:4b': {
     displayName: 'Harikson Pro',
     description: 'Advanced coding and reasoning',
     icon: 'Code',
-    plan: 'PRO'
+    plan: 'PRO',
   },
   'harikson/qwen3-coder:8b': {
     displayName: 'Harikson Business',
     description: 'Complex multi-file projects',
     icon: 'Building',
-    plan: 'BUSINESS'
+    plan: 'BUSINESS',
   },
   'harikson/qwen3-coder:14b': {
     displayName: 'Harikson Enterprise',
     description: 'Maximum capability for large teams',
     icon: 'Crown',
-    plan: 'ENTERPRISE'
+    plan: 'ENTERPRISE',
   },
   // Also support default / existing fallback names in database
   'qwen3-coder-4b': {
     displayName: 'Harikson Pro',
     description: 'Advanced coding and reasoning',
     icon: 'Code',
-    plan: 'PRO'
+    plan: 'PRO',
   },
   'qwen3-coder-8b': {
     displayName: 'Harikson Business',
     description: 'Complex multi-file projects',
     icon: 'Building',
-    plan: 'BUSINESS'
+    plan: 'BUSINESS',
   },
   'qwen3-coder-14b': {
     displayName: 'Harikson Enterprise',
     description: 'Maximum capability for large teams',
     icon: 'Crown',
-    plan: 'ENTERPRISE'
-  }
+    plan: 'ENTERPRISE',
+  },
 };
 
 export function getDisplayModelName(internalName: string): string {
@@ -56,9 +59,10 @@ export function sanitizeTenantResponse(tenant: any) {
     email: tenant.email,
     plan: tenant.plan,
     aiAgent: getDisplayModelName(modelName),
-    aiDescription: HARIKSON_MODELS[modelName]?.description || 'Private AI Assistant',
+    aiDescription:
+      HARIKSON_MODELS[modelName]?.description || 'Private AI Assistant',
     status: tenant.status,
     subdomain: tenant.name,
-    branding: tenant.whiteLabelSettings || {}
+    branding: tenant.whiteLabelSettings || {},
   };
 }

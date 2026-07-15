@@ -1,13 +1,14 @@
-import { Router, Request, Response } from "express";
+import { Router, Request, Response } from 'express';
 
 const router = Router();
 
 // GET /widget.js - Returns dynamic script tag to inject chat widget on host websites
-router.get("/widget.js", (req: Request, res: Response) => {
-  const color = (req.query.color as string) || "#8b5cf6";
-  const tenant = (req.query.tenant as string) || "default-agent";
-  const welcome = (req.query.welcome as string) || "Hello! How can I help you today?";
-  
+router.get('/widget.js', (req: Request, res: Response) => {
+  const color = (req.query.color as string) || '#8b5cf6';
+  const tenant = (req.query.tenant as string) || 'default-agent';
+  const welcome =
+    (req.query.welcome as string) || 'Hello! How can I help you today?';
+
   const jsScript = `
 (function() {
   console.log("⚡ [Neuravolt Chat] Initializing widget for tenant: ${tenant}");
@@ -120,7 +121,7 @@ router.get("/widget.js", (req: Request, res: Response) => {
 })();
   `;
 
-  res.setHeader("Content-Type", "application/javascript");
+  res.setHeader('Content-Type', 'application/javascript');
   return res.status(200).send(jsScript);
 });
 

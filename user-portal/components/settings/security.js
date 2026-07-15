@@ -2,12 +2,16 @@ import React, { useState } from 'react';
 import { Save, Smartphone } from 'lucide-react';
 
 export default function SecuritySettings() {
-  const [passwords, setPasswords] = useState({ current: '', newPass: '', confirm: '' });
+  const [passwords, setPasswords] = useState({
+    current: '',
+    newPass: '',
+    confirm: '',
+  });
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState(null);
 
   const handleChange = (e) => {
-    setPasswords(prev => ({ ...prev, [e.target.name]: e.target.value }));
+    setPasswords((prev) => ({ ...prev, [e.target.name]: e.target.value }));
   };
 
   const handleSave = async (e) => {
@@ -15,10 +19,16 @@ export default function SecuritySettings() {
     setMessage(null);
 
     if (!passwords.current) {
-      return setMessage({ type: 'error', text: 'Please enter your current password.' });
+      return setMessage({
+        type: 'error',
+        text: 'Please enter your current password.',
+      });
     }
     if (passwords.newPass.length < 8) {
-      return setMessage({ type: 'error', text: 'New password must be at least 8 characters.' });
+      return setMessage({
+        type: 'error',
+        text: 'New password must be at least 8 characters.',
+      });
     }
     if (passwords.newPass !== passwords.confirm) {
       return setMessage({ type: 'error', text: 'New passwords do not match.' });
@@ -26,18 +36,24 @@ export default function SecuritySettings() {
 
     setSaving(true);
     try {
-      const token = (localStorage.getItem('hk_user') ? 'cookie_auth' : null);
+      const token = localStorage.getItem('hk_user') ? 'cookie_auth' : null;
       if (!token) return;
-      const apiBase = localStorage.getItem('hk_api_base') || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3008';
+      const apiBase =
+        localStorage.getItem('hk_api_base') ||
+        process.env.NEXT_PUBLIC_API_URL ||
+        'http://localhost:3008';
       const tenantSlug = localStorage.getItem('hk_tenant') || 'neuravolt';
       const res = await fetch(`${apiBase}/api/user/security/change-password`, {
-          credentials: 'include',
+        credentials: 'include',
         method: 'POST',
         headers: {
-                    'x-tenant-slug': tenantSlug,
-          'Content-Type': 'application/json'
+          'x-tenant-slug': tenantSlug,
+          'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ currentPassword: passwords.current, newPassword: passwords.newPass })
+        body: JSON.stringify({
+          currentPassword: passwords.current,
+          newPassword: passwords.newPass,
+        }),
       });
       const data = await res.json();
       if (res.ok) {
@@ -60,7 +76,9 @@ export default function SecuritySettings() {
         <p>Manage your password and 2-step verification.</p>
       </div>
 
-      {message && <div className={`settings-alert ${message.type}`}>{message.text}</div>}
+      {message && (
+        <div className={`settings-alert ${message.type}`}>{message.text}</div>
+      )}
 
       <form className="settings-form" onSubmit={handleSave}>
         <div className="settings-section">
@@ -112,8 +130,16 @@ export default function SecuritySettings() {
 
         <div className="settings-section">
           <h2>Two-Factor Authentication</h2>
-          <p style={{ color: 'var(--text-secondary)', fontSize: '13.5px', marginBottom: '16px', lineHeight: '1.5' }}>
-            Add an extra layer of security by requiring a verification code alongside your password.
+          <p
+            style={{
+              color: 'var(--text-secondary)',
+              fontSize: '13.5px',
+              marginBottom: '16px',
+              lineHeight: '1.5',
+            }}
+          >
+            Add an extra layer of security by requiring a verification code
+            alongside your password.
           </p>
 
           <div className="settings-2fa-card">
@@ -122,15 +148,29 @@ export default function SecuritySettings() {
                 <Smartphone size={20} />
               </div>
               <div style={{ minWidth: 0 }}>
-                <div style={{ fontWeight: '500', fontSize: '14px', marginBottom: '3px' }}>Authenticator App</div>
-                <div style={{ fontSize: '12.5px', color: 'var(--text-muted)' }}>Use Google Authenticator or Authy</div>
+                <div
+                  style={{
+                    fontWeight: '500',
+                    fontSize: '14px',
+                    marginBottom: '3px',
+                  }}
+                >
+                  Authenticator App
+                </div>
+                <div style={{ fontSize: '12.5px', color: 'var(--text-muted)' }}>
+                  Use Google Authenticator or Authy
+                </div>
               </div>
             </div>
             <button
               type="button"
               className="btn-secondary"
               style={{ flexShrink: 0 }}
-              onClick={() => alert('2FA setup coming soon. Contact your workspace administrator to enable it.')}
+              onClick={() =>
+                alert(
+                  '2FA setup coming soon. Contact your workspace administrator to enable it.'
+                )
+              }
             >
               Enable 2FA
             </button>

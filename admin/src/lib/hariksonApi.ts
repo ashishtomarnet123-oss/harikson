@@ -1,17 +1,18 @@
-const API_BASE_URL = process.env.NEXT_PUBLIC_HARIKSON_API_URL || "http://localhost:9000";
+const API_BASE_URL =
+  process.env.NEXT_PUBLIC_HARIKSON_API_URL || 'http://localhost:9000';
 
 export class HariksonApiClient {
   private static getHeaders(): HeadersInit {
     const headers: HeadersInit = {
-      "Content-Type": "application/json",
+      'Content-Type': 'application/json',
     };
-    
-    if (typeof window !== "undefined") {
-      const token = localStorage.getItem("nv_token");
+
+    if (typeof window !== 'undefined') {
+      const token = localStorage.getItem('nv_token');
       if (token) {
         // Shared JWT passed as custom token header or Authorization
-        headers["Authorization"] = `Bearer ${token}`;
-        headers["x-n8n-token"] = token;
+        headers['Authorization'] = `Bearer ${token}`;
+        headers['x-n8n-token'] = token;
       }
     }
     return headers;
@@ -19,7 +20,7 @@ export class HariksonApiClient {
 
   static async get<T>(path: string): Promise<T> {
     const res = await fetch(`${API_BASE_URL}${path}`, {
-      method: "GET",
+      method: 'GET',
       headers: this.getHeaders(),
     });
     if (!res.ok) {
@@ -31,7 +32,7 @@ export class HariksonApiClient {
 
   static async post<T>(path: string, body?: any): Promise<T> {
     const res = await fetch(`${API_BASE_URL}${path}`, {
-      method: "POST",
+      method: 'POST',
       headers: this.getHeaders(),
       body: body ? JSON.stringify(body) : undefined,
     });

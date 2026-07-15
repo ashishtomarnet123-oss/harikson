@@ -1,12 +1,41 @@
 import { useState, useEffect, useRef } from 'react';
 import Head from 'next/head';
 import Link from 'next/link';
-import { 
-  Cpu, Layers, Database, BrainCircuit, ShieldCheck, Code2, 
-  Play, CheckCircle2, XCircle, CreditCard, Download, Shield, 
-  Key, Clock, Webhook, Info, Star, Crown, Zap, Lock, Terminal,
-  ExternalLink, ArrowRight, RefreshCw, Activity, ChevronDown, HelpCircle,
-  MapPin, AlertTriangle, FileText, Settings, Sparkles, Building, PlayCircle
+import {
+  Cpu,
+  Layers,
+  Database,
+  BrainCircuit,
+  ShieldCheck,
+  Code2,
+  Play,
+  CheckCircle2,
+  XCircle,
+  CreditCard,
+  Download,
+  Shield,
+  Key,
+  Clock,
+  Webhook,
+  Info,
+  Star,
+  Crown,
+  Zap,
+  Lock,
+  Terminal,
+  ExternalLink,
+  ArrowRight,
+  RefreshCw,
+  Activity,
+  ChevronDown,
+  HelpCircle,
+  MapPin,
+  AlertTriangle,
+  FileText,
+  Settings,
+  Sparkles,
+  Building,
+  PlayCircle,
 } from 'lucide-react';
 
 const CODE_TEMPLATES = {
@@ -53,7 +82,7 @@ func main() {
   -d '{
     "model": "harikson-qwen3-8b",
     "messages": [{"role": "user", "content": "Explain DPDP in Hindi"}]
-  }'`
+  }'`,
 };
 
 export default function LandingPage() {
@@ -61,18 +90,18 @@ export default function LandingPage() {
   const [activeTab, setActiveTab] = useState('python');
   const [isRunning, setIsRunning] = useState(false);
   const [hasRun, setHasRun] = useState(false);
-  
+
   // Interactive Benchmark Toggles
   const [benchmarkFilter, setBenchmarkFilter] = useState('latency'); // latency, cost, throughput, languages
   const [selectedRegion, setSelectedRegion] = useState('mumbai');
-  
+
   // Pricing annual discount toggle
   const [billingPeriod, setBillingPeriod] = useState('monthly'); // monthly, annual
 
   // FAQ Tab and search
   const [faqCategory, setFaqCategory] = useState('sovereignty');
   const [openFaq, setOpenFaq] = useState(null);
-  
+
   // Deployment Map Regions
   const [hoveredRegion, setHoveredRegion] = useState(null);
 
@@ -83,9 +112,10 @@ export default function LandingPage() {
   // Shell simulator
   const [terminalText, setTerminalText] = useState('');
   const [terminalLines, setTerminalLines] = useState([]);
-  const terminalCommand = 'harikson deploy --model harikson8B --region in-your-region';
+  const terminalCommand =
+    'harikson deploy --model harikson8B --region in-your-region';
   const hasAnimated = useRef(false);
-  
+
   // Reduced motion preference
   const [reducedMotion, setReducedMotion] = useState(false);
 
@@ -110,7 +140,7 @@ export default function LandingPage() {
         { text: '✓ Namespace neuravolt-prod initialized', color: '#10B981' },
         { text: '✓ Secured weights: harikson-8B loaded', color: '#10B981' },
         { text: '✓ Gateway Router: ONLINE (ap-south-1)', color: '#10B981' },
-        { text: '✓ DPDP local audit configuration: ENABLED', color: '#10B981' }
+        { text: '✓ DPDP local audit configuration: ENABLED', color: '#10B981' },
       ]);
       return;
     }
@@ -121,7 +151,7 @@ export default function LandingPage() {
     setTerminalLines([]);
     let charIdx = 0;
     let textAccum = '';
-    
+
     const interval = setInterval(() => {
       if (charIdx < terminalCommand.length) {
         textAccum += terminalCommand[charIdx];
@@ -129,21 +159,39 @@ export default function LandingPage() {
         charIdx++;
       } else {
         clearInterval(interval);
-        
+
         const t1 = setTimeout(() => {
-          setTerminalLines(prev => [...prev, { text: '✓ Namespace neuravolt-prod initialized', color: '#10B981' }]);
+          setTerminalLines((prev) => [
+            ...prev,
+            {
+              text: '✓ Namespace neuravolt-prod initialized',
+              color: '#10B981',
+            },
+          ]);
         }, 200);
-        
+
         const t2 = setTimeout(() => {
-          setTerminalLines(prev => [...prev, { text: '✓ Secured weights: harikson-8B loaded', color: '#10B981' }]);
+          setTerminalLines((prev) => [
+            ...prev,
+            { text: '✓ Secured weights: harikson-8B loaded', color: '#10B981' },
+          ]);
         }, 700);
-        
+
         const t3 = setTimeout(() => {
-          setTerminalLines(prev => [...prev, { text: '✓ Gateway Router: ONLINE (ap-south-1)', color: '#10B981' }]);
+          setTerminalLines((prev) => [
+            ...prev,
+            { text: '✓ Gateway Router: ONLINE (ap-south-1)', color: '#10B981' },
+          ]);
         }, 1200);
-        
+
         const t4 = setTimeout(() => {
-          setTerminalLines(prev => [...prev, { text: '✓ DPDP local audit configuration: ENABLED', color: '#10B981' }]);
+          setTerminalLines((prev) => [
+            ...prev,
+            {
+              text: '✓ DPDP local audit configuration: ENABLED',
+              color: '#10B981',
+            },
+          ]);
         }, 1700);
       }
     }, 50);
@@ -163,68 +211,184 @@ export default function LandingPage() {
   };
 
   const mapRegions = {
-    mumbai: { name: 'Mumbai Region', status: 'Active', latency: '12ms', gpus: '512 H100', cost: '₹0.001/token' },
-    delhi: { name: 'Delhi (NCR) Region', status: 'Active', latency: '18ms', gpus: '256 H100', cost: '₹0.001/token' },
-    bangalore: { name: 'Bangalore Region', status: 'Active', latency: '8ms', gpus: '384 H100', cost: '₹0.001/token' },
-    hyderabad: { name: 'Hyderabad Region', status: 'Active', latency: '14ms', gpus: '256 H100', cost: '₹0.001/token' }
+    mumbai: {
+      name: 'Mumbai Region',
+      status: 'Active',
+      latency: '12ms',
+      gpus: '512 H100',
+      cost: '₹0.001/token',
+    },
+    delhi: {
+      name: 'Delhi (NCR) Region',
+      status: 'Active',
+      latency: '18ms',
+      gpus: '256 H100',
+      cost: '₹0.001/token',
+    },
+    bangalore: {
+      name: 'Bangalore Region',
+      status: 'Active',
+      latency: '8ms',
+      gpus: '384 H100',
+      cost: '₹0.001/token',
+    },
+    hyderabad: {
+      name: 'Hyderabad Region',
+      status: 'Active',
+      latency: '14ms',
+      gpus: '256 H100',
+      cost: '₹0.001/token',
+    },
   };
 
   const faqData = {
     sovereignty: [
-      { q: "Is my data ever stored outside India?", a: "No. All servers, caches, backup databases, and metadata tables are strictly hosted inside local tier-4 Indian facilities. Your prompts, embeddings, and chat histories never cross political borders." },
-      { q: "What happens to my data if I cancel?", a: "We purge all tenant instances, vector database namespaces, and backups completely within 72 hours of cancel confirmation using overwrite protocols." },
-      { q: "Can I request complete data deletion under DPDP?", a: "Yes, we support automated erasure requests for individual user identities (Data Principals) via simple API triggers or your admin workspace controls." },
-      { q: "Do you support data principal rights requests?", a: "Yes, we support exports of raw transaction data histories, modifications of identity logs, and total erasure to fulfill regulatory queries." },
-      { q: "Is my vector database isolated from other customers?", a: "Absolutely. Tenant datasets utilize isolated database schemas and dedicated cryptographic indexes, preventing overlap or indexing leakage." }
+      {
+        q: 'Is my data ever stored outside India?',
+        a: 'No. All servers, caches, backup databases, and metadata tables are strictly hosted inside local tier-4 Indian facilities. Your prompts, embeddings, and chat histories never cross political borders.',
+      },
+      {
+        q: 'What happens to my data if I cancel?',
+        a: 'We purge all tenant instances, vector database namespaces, and backups completely within 72 hours of cancel confirmation using overwrite protocols.',
+      },
+      {
+        q: 'Can I request complete data deletion under DPDP?',
+        a: 'Yes, we support automated erasure requests for individual user identities (Data Principals) via simple API triggers or your admin workspace controls.',
+      },
+      {
+        q: 'Do you support data principal rights requests?',
+        a: 'Yes, we support exports of raw transaction data histories, modifications of identity logs, and total erasure to fulfill regulatory queries.',
+      },
+      {
+        q: 'Is my vector database isolated from other customers?',
+        a: 'Absolutely. Tenant datasets utilize isolated database schemas and dedicated cryptographic indexes, preventing overlap or indexing leakage.',
+      },
     ],
     compliance: [
-      { q: "Are you DPDP Act 2023 compliant?", a: "Yes. The platform provides localized consent mechanisms, immutably signed system transaction logs, and localized hosting pipelines out of the box." },
-      { q: "When will ISO 27001 certification be complete?", a: "Our certification frameworks are completely integrated. The official ISO 27001 audit completion is scheduled for Q3 2026." },
-      { q: "Do you support BIS/MeitY empanelment requirements?", a: "Our BIS registration is fully validated. Our MeitY cloud service provider empanelment is active in progress, targeting completion by Q3 2026." },
-      { q: "Can you sign a Data Processing Agreement?", a: "Yes. We offer standard DPDP-ready DPAs built specifically for Indian financial, public, and enterprise institutions." },
-      { q: "Are you prepared for SOC 2 Type II audit?", a: "We are in the final preparation stages with automated compliance logging active. The official audit validation starts in Q4 2026." }
+      {
+        q: 'Are you DPDP Act 2023 compliant?',
+        a: 'Yes. The platform provides localized consent mechanisms, immutably signed system transaction logs, and localized hosting pipelines out of the box.',
+      },
+      {
+        q: 'When will ISO 27001 certification be complete?',
+        a: 'Our certification frameworks are completely integrated. The official ISO 27001 audit completion is scheduled for Q3 2026.',
+      },
+      {
+        q: 'Do you support BIS/MeitY empanelment requirements?',
+        a: 'Our BIS registration is fully validated. Our MeitY cloud service provider empanelment is active in progress, targeting completion by Q3 2026.',
+      },
+      {
+        q: 'Can you sign a Data Processing Agreement?',
+        a: 'Yes. We offer standard DPDP-ready DPAs built specifically for Indian financial, public, and enterprise institutions.',
+      },
+      {
+        q: 'Are you prepared for SOC 2 Type II audit?',
+        a: 'We are in the final preparation stages with automated compliance logging active. The official audit validation starts in Q4 2026.',
+      },
     ],
     security: [
-      { q: "What encryption standards do you use?", a: "We enforce AES-256 for all stored database records and TLS 1.3 for transiting networks. Credentials use salted bcrypt hashing." },
-      { q: "Can I use my own encryption keys?", a: "Yes. Our Enterprise plan supports Customer-Managed Encryption Keys (CMEK) via localized cloud KMS managers or hardware security modules (HSMs)." },
-      { q: "How is tenant isolation enforced?", a: "We apply strict logical namespace routers and row-level security (RLS) policies at the PostgreSQL database level." },
-      { q: "Do you support SSO/SAML/SCIM?", a: "Yes. Harikson integrates with all SAML 2.0 and OIDC identity providers, including Okta, Active Directory, and Azure AD." },
-      { q: "What is your disaster recovery RPO/RTO?", a: "We target a Recovery Point Objective (RPO) of 4 hours and a Recovery Time Objective (RTO) of 24 hours via cross-region replication." }
+      {
+        q: 'What encryption standards do you use?',
+        a: 'We enforce AES-256 for all stored database records and TLS 1.3 for transiting networks. Credentials use salted bcrypt hashing.',
+      },
+      {
+        q: 'Can I use my own encryption keys?',
+        a: 'Yes. Our Enterprise plan supports Customer-Managed Encryption Keys (CMEK) via localized cloud KMS managers or hardware security modules (HSMs).',
+      },
+      {
+        q: 'How is tenant isolation enforced?',
+        a: 'We apply strict logical namespace routers and row-level security (RLS) policies at the PostgreSQL database level.',
+      },
+      {
+        q: 'Do you support SSO/SAML/SCIM?',
+        a: 'Yes. Harikson integrates with all SAML 2.0 and OIDC identity providers, including Okta, Active Directory, and Azure AD.',
+      },
+      {
+        q: 'What is your disaster recovery RPO/RTO?',
+        a: 'We target a Recovery Point Objective (RPO) of 4 hours and a Recovery Time Objective (RTO) of 24 hours via cross-region replication.',
+      },
     ],
     technical: [
-      { q: "Which models do you support?", a: "We support Qwen3 (8B, 32B, 72B), Llama 3 (8B, 70B), Mistral-Large, and DeepSeek-V3." },
-      { q: "Can I bring my own fine-tuned model?", a: "Yes, you can upload custom weights in safetensors or GGUF formats directly to your private cluster." },
-      { q: "Is your API fully compatible with OpenAI?", a: "Yes. Swapping the OpenAI SDK `base_url` parameter to Harikson endpoints is all that is required." },
-      { q: "Do you support function calling and streaming?", a: "Yes, we support structured JSON schema outputs, function calls, and stream response tokens." },
-      { q: "What is the maximum context window?", a: "We support up to a 128K context window, depending on the model and hardware configuration chosen." }
+      {
+        q: 'Which models do you support?',
+        a: 'We support Qwen3 (8B, 32B, 72B), Llama 3 (8B, 70B), Mistral-Large, and DeepSeek-V3.',
+      },
+      {
+        q: 'Can I bring my own fine-tuned model?',
+        a: 'Yes, you can upload custom weights in safetensors or GGUF formats directly to your private cluster.',
+      },
+      {
+        q: 'Is your API fully compatible with OpenAI?',
+        a: 'Yes. Swapping the OpenAI SDK `base_url` parameter to Harikson endpoints is all that is required.',
+      },
+      {
+        q: 'Do you support function calling and streaming?',
+        a: 'Yes, we support structured JSON schema outputs, function calls, and stream response tokens.',
+      },
+      {
+        q: 'What is the maximum context window?',
+        a: 'We support up to a 128K context window, depending on the model and hardware configuration chosen.',
+      },
     ],
     deployment: [
-      { q: "Can you deploy on-premise or air-gapped?", a: "Yes. We distribute secure container images and Helm charts for fully offline, bare-metal server environments." },
-      { q: "How long does deployment take?", a: "Self-serve cloud instances provision in under 10 minutes. Custom VPC or on-premises server setups take 2-3 business days." },
-      { q: "Do you support Kubernetes and Docker?", a: "Yes, the control plane and model deployments are packaged as standard Helm charts and Docker containers." },
-      { q: "Can I deploy in my own AWS/Azure/GCP account?", a: "Yes. Our Terraform modules deploy securely inside your private cloud account, ensuring total infrastructure control." },
-      { q: "What regions are available?", a: "Active regions are Mumbai, Delhi (NCR), Bangalore, and Hyderabad. You can select your region during tenant setup." }
+      {
+        q: 'Can you deploy on-premise or air-gapped?',
+        a: 'Yes. We distribute secure container images and Helm charts for fully offline, bare-metal server environments.',
+      },
+      {
+        q: 'How long does deployment take?',
+        a: 'Self-serve cloud instances provision in under 10 minutes. Custom VPC or on-premises server setups take 2-3 business days.',
+      },
+      {
+        q: 'Do you support Kubernetes and Docker?',
+        a: 'Yes, the control plane and model deployments are packaged as standard Helm charts and Docker containers.',
+      },
+      {
+        q: 'Can I deploy in my own AWS/Azure/GCP account?',
+        a: 'Yes. Our Terraform modules deploy securely inside your private cloud account, ensuring total infrastructure control.',
+      },
+      {
+        q: 'What regions are available?',
+        a: 'Active regions are Mumbai, Delhi (NCR), Bangalore, and Hyderabad. You can select your region during tenant setup.',
+      },
     ],
     pricing: [
-      { q: "How does token pricing work after limits?", a: "For our Professional plan, additional tokens are billed at a flat rate of ₹0.001 per token, billed monthly in INR." },
-      { q: "Can I get invoicing instead of credit card?", a: "Yes, our Pro, Business, and Enterprise plans offer direct bank transfer (NEFT/RTGS) invoicing options." },
-      { q: "Is there a minimum contract for Enterprise?", a: "Enterprise plans support monthly or annual terms, with substantial discounts offered on annual contracts." },
-      { q: "Do you offer government pricing?", a: "Yes. We offer special sovereign discounts for Indian public sector units, educational labs, and state departments." },
-      { q: "What happens if I exceed my token limit?", a: "We do not hard-block your access. If you exceed the plan limits, additional tokens are calculated on a pay-as-you-go basis in the next billing cycle." }
-    ]
+      {
+        q: 'How does token pricing work after limits?',
+        a: 'For our Professional plan, additional tokens are billed at a flat rate of ₹0.001 per token, billed monthly in INR.',
+      },
+      {
+        q: 'Can I get invoicing instead of credit card?',
+        a: 'Yes, our Pro, Business, and Enterprise plans offer direct bank transfer (NEFT/RTGS) invoicing options.',
+      },
+      {
+        q: 'Is there a minimum contract for Enterprise?',
+        a: 'Enterprise plans support monthly or annual terms, with substantial discounts offered on annual contracts.',
+      },
+      {
+        q: 'Do you offer government pricing?',
+        a: 'Yes. We offer special sovereign discounts for Indian public sector units, educational labs, and state departments.',
+      },
+      {
+        q: 'What happens if I exceed my token limit?',
+        a: 'We do not hard-block your access. If you exceed the plan limits, additional tokens are calculated on a pay-as-you-go basis in the next billing cycle.',
+      },
+    ],
   };
 
   return (
     <>
       <Head>
         <title>Harikson AI — Sovereign AI Infrastructure for India</title>
-        <meta name="description" content="Deploy private LLMs, AI agents, RAG systems, and enterprise AI workloads inside India. DPDP-compliant, OpenAI-compatible." />
+        <meta
+          name="description"
+          content="Deploy private LLMs, AI agents, RAG systems, and enterprise AI workloads inside India. DPDP-compliant, OpenAI-compatible."
+        />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <link rel="canonical" href="https://harikson.ai" />
       </Head>
 
       <div className="landing-container">
-        
         {/* ─── STICKY HEADER NAVIGATION ─── */}
         <header className="hero-nav">
           <div className="logo-section">
@@ -232,12 +396,24 @@ export default function LandingPage() {
             <span className="logo-text">Harikson AI</span>
           </div>
           <div className="nav-links-desktop">
-            <a href="#scale" className="nav-link">Scale</a>
-            <a href="#how-it-works" className="nav-link">Architecture</a>
-            <a href="#features" className="nav-link">Features</a>
-            <a href="#pricing" className="nav-link">Pricing</a>
-            <Link href="/login" passHref legacyBehavior><a className="nav-link">Sign In</a></Link>
-            <Link href="/signup" passHref legacyBehavior><a className="nav-link-btn">Start Free</a></Link>
+            <a href="#scale" className="nav-link">
+              Scale
+            </a>
+            <a href="#how-it-works" className="nav-link">
+              Architecture
+            </a>
+            <a href="#features" className="nav-link">
+              Features
+            </a>
+            <a href="#pricing" className="nav-link">
+              Pricing
+            </a>
+            <Link href="/login" passHref legacyBehavior>
+              <a className="nav-link">Sign In</a>
+            </Link>
+            <Link href="/signup" passHref legacyBehavior>
+              <a className="nav-link-btn">Start Free</a>
+            </Link>
           </div>
         </header>
 
@@ -245,15 +421,19 @@ export default function LandingPage() {
         <section className="section-hero">
           <div className="mesh-gradient" />
           <div className="subtle-grid-bg" />
-          
+
           <div className="particle-container">
             {[...Array(25)].map((_, i) => (
-              <span key={i} className="particle-dot" style={{
-                left: `${Math.random() * 100}%`,
-                top: `${Math.random() * 100}%`,
-                animationDelay: `${Math.random() * 10}s`,
-                animationDuration: `${15 + Math.random() * 15}s`
-              }} />
+              <span
+                key={i}
+                className="particle-dot"
+                style={{
+                  left: `${Math.random() * 100}%`,
+                  top: `${Math.random() * 100}%`,
+                  animationDelay: `${Math.random() * 10}s`,
+                  animationDuration: `${15 + Math.random() * 15}s`,
+                }}
+              />
             ))}
           </div>
 
@@ -266,14 +446,18 @@ export default function LandingPage() {
                 <span className="trust-pill">22+ Languages</span>
                 <span className="trust-pill">100% India Residency</span>
               </div>
-              
+
               <h1 className="hero-title">
-                Enterprise AI Infrastructure.<br />
-                <span className="gradient-text">Built in India.</span> Trusted Everywhere.
+                Enterprise AI Infrastructure.
+                <br />
+                <span className="gradient-text">Built in India.</span> Trusted
+                Everywhere.
               </h1>
-              
+
               <p className="hero-sub">
-                Deploy private LLMs, AI agents, RAG systems, and enterprise AI workloads inside India with complete control over your data, infrastructure, compliance, and costs.
+                Deploy private LLMs, AI agents, RAG systems, and enterprise AI
+                workloads inside India with complete control over your data,
+                infrastructure, compliance, and costs.
               </p>
 
               <div className="hero-ctas">
@@ -300,9 +484,15 @@ export default function LandingPage() {
                   <div className="browser-content-grid">
                     <aside className="browser-sidebar">
                       <div className="side-logo">⚡ Harikson</div>
-                      <div className="side-item active"><Cpu size={12} /> Workspaces</div>
-                      <div className="side-item"><Layers size={12} /> Model Router</div>
-                      <div className="side-item"><Database size={12} /> Vector RAG</div>
+                      <div className="side-item active">
+                        <Cpu size={12} /> Workspaces
+                      </div>
+                      <div className="side-item">
+                        <Layers size={12} /> Model Router
+                      </div>
+                      <div className="side-item">
+                        <Database size={12} /> Vector RAG
+                      </div>
                     </aside>
                     <main className="browser-chat-pane">
                       <header className="chat-header">
@@ -310,9 +500,13 @@ export default function LandingPage() {
                         <span className="badge-active">ACTIVE</span>
                       </header>
                       <div className="chat-messages font-sans">
-                        <div className="msg user">Explain DPDP Act in regional languages.</div>
+                        <div className="msg user">
+                          Explain DPDP Act in regional languages.
+                        </div>
                         <div className="msg assistant">
-                          भारतीय नागरिकों के डेटा की सुरक्षा सुनिश्चित करने के लिए <strong>DPDP Act 2023</strong> को लागू किया गया है। यह डेटा स्थानीयकरण को बढ़ावा देता है...
+                          भारतीय नागरिकों के डेटा की सुरक्षा सुनिश्चित करने के
+                          लिए <strong>DPDP Act 2023</strong> को लागू किया गया
+                          है। यह डेटा स्थानीयकरण को बढ़ावा देता है...
                         </div>
                       </div>
                     </main>
@@ -331,7 +525,11 @@ export default function LandingPage() {
                       <span className="cursor">_</span>
                     </div>
                     {terminalLines.map((line, idx) => (
-                      <div key={idx} className="terminal-row" style={{ color: line.color }}>
+                      <div
+                        key={idx}
+                        className="terminal-row"
+                        style={{ color: line.color }}
+                      >
                         {line.text}
                       </div>
                     ))}
@@ -340,13 +538,15 @@ export default function LandingPage() {
 
                 {/* Floating Badges */}
                 <div className="floating-badge badge-dpdp">🛡️ DPDP Ready</div>
-                <div className="floating-badge badge-price">⚡ ₹0.001/token</div>
-                <div className="floating-badge badge-region">🇮🇳 Mumbai Region</div>
+                <div className="floating-badge badge-price">
+                  ⚡ ₹0.001/token
+                </div>
+                <div className="floating-badge badge-region">
+                  🇮🇳 Mumbai Region
+                </div>
               </div>
             </div>
           </div>
-
-
         </section>
 
         {/* ─── PROMPT 2: ENTERPRISE TRUST SECTION ─── */}
@@ -354,7 +554,10 @@ export default function LandingPage() {
           <div className="content-inner">
             <div className="section-header text-center">
               <h2 className="title-scale">Built for Indian Scale</h2>
-              <p className="sub-scale">From IIT Bombay research labs to ISRO mission control. Infrastructure that powers India's most critical systems.</p>
+              <p className="sub-scale">
+                From IIT Bombay research labs to ISRO mission control.
+                Infrastructure that powers India's most critical systems.
+              </p>
             </div>
 
             {/* Metrics Grid */}
@@ -368,7 +571,12 @@ export default function LandingPage() {
                 <div className="metric-label">P99 Token Latency</div>
                 <div className="sparkline-wrapper">
                   <svg viewBox="0 0 100 30" className="sparkline">
-                    <path d="M 0 25 Q 10 15 20 22 T 40 10 T 60 18 T 80 5 T 100 12" fill="none" stroke="#4f46e5" strokeWidth="2.5" />
+                    <path
+                      d="M 0 25 Q 10 15 20 22 T 40 10 T 60 18 T 80 5 T 100 12"
+                      fill="none"
+                      stroke="#4f46e5"
+                      strokeWidth="2.5"
+                    />
                   </svg>
                 </div>
               </div>
@@ -383,36 +591,82 @@ export default function LandingPage() {
               </div>
             </div>
 
-
-
             {/* Deployment Map */}
             <div className="deployment-map-container">
               <div className="map-grid">
                 <div className="map-visual">
                   <svg viewBox="0 0 400 450" className="india-map-svg">
-                    <path d="M120,400 L90,360 L80,300 L70,240 L100,200 L95,140 L130,80 L180,50 L200,80 L230,120 L280,180 L290,240 L260,300 L200,380 Z" fill="#f1f5f9" stroke="#cbd5e1" strokeWidth="2" />
-                    <g className="map-dot-group" onMouseEnter={() => setHoveredRegion('mumbai')} onMouseLeave={() => setHoveredRegion(null)}>
-                      <circle cx="120" cy="270" r="7" className="map-dot-pulse" />
+                    <path
+                      d="M120,400 L90,360 L80,300 L70,240 L100,200 L95,140 L130,80 L180,50 L200,80 L230,120 L280,180 L290,240 L260,300 L200,380 Z"
+                      fill="#f1f5f9"
+                      stroke="#cbd5e1"
+                      strokeWidth="2"
+                    />
+                    <g
+                      className="map-dot-group"
+                      onMouseEnter={() => setHoveredRegion('mumbai')}
+                      onMouseLeave={() => setHoveredRegion(null)}
+                    >
+                      <circle
+                        cx="120"
+                        cy="270"
+                        r="7"
+                        className="map-dot-pulse"
+                      />
                       <circle cx="120" cy="270" r="4" className="map-dot" />
                     </g>
-                    <g className="map-dot-group" onMouseEnter={() => setHoveredRegion('delhi')} onMouseLeave={() => setHoveredRegion(null)}>
-                      <circle cx="160" cy="140" r="7" className="map-dot-pulse" />
+                    <g
+                      className="map-dot-group"
+                      onMouseEnter={() => setHoveredRegion('delhi')}
+                      onMouseLeave={() => setHoveredRegion(null)}
+                    >
+                      <circle
+                        cx="160"
+                        cy="140"
+                        r="7"
+                        className="map-dot-pulse"
+                      />
                       <circle cx="160" cy="140" r="4" className="map-dot" />
                     </g>
-                    <g className="map-dot-group" onMouseEnter={() => setHoveredRegion('bangalore')} onMouseLeave={() => setHoveredRegion(null)}>
-                      <circle cx="150" cy="360" r="7" className="map-dot-pulse" />
+                    <g
+                      className="map-dot-group"
+                      onMouseEnter={() => setHoveredRegion('bangalore')}
+                      onMouseLeave={() => setHoveredRegion(null)}
+                    >
+                      <circle
+                        cx="150"
+                        cy="360"
+                        r="7"
+                        className="map-dot-pulse"
+                      />
                       <circle cx="150" cy="360" r="4" className="map-dot" />
                     </g>
-                    <g className="map-dot-group" onMouseEnter={() => setHoveredRegion('hyderabad')} onMouseLeave={() => setHoveredRegion(null)}>
-                      <circle cx="180" cy="310" r="7" className="map-dot-pulse" />
+                    <g
+                      className="map-dot-group"
+                      onMouseEnter={() => setHoveredRegion('hyderabad')}
+                      onMouseLeave={() => setHoveredRegion(null)}
+                    >
+                      <circle
+                        cx="180"
+                        cy="310"
+                        r="7"
+                        className="map-dot-pulse"
+                      />
                       <circle cx="180" cy="310" r="4" className="map-dot" />
                     </g>
                   </svg>
-                  
+
                   {hoveredRegion && (
                     <div className="map-popover">
-                      <div className="pop-title">{mapRegions[hoveredRegion].name}</div>
-                      <div>Status: <span className="text-success">{mapRegions[hoveredRegion].status}</span></div>
+                      <div className="pop-title">
+                        {mapRegions[hoveredRegion].name}
+                      </div>
+                      <div>
+                        Status:{' '}
+                        <span className="text-success">
+                          {mapRegions[hoveredRegion].status}
+                        </span>
+                      </div>
                       <div>Latency: {mapRegions[hoveredRegion].latency}</div>
                       <div>GPUs: {mapRegions[hoveredRegion].gpus}</div>
                       <div>Cost: {mapRegions[hoveredRegion].cost}</div>
@@ -422,20 +676,40 @@ export default function LandingPage() {
 
                 <div className="map-info flex flex-col justify-center">
                   <h3>Sovereign Local Regions</h3>
-                  <p>Our clusters run inside certified tier-4 facilities in key metropolitan networks, bringing high-speed GPU power closer to your local databases.</p>
+                  <p>
+                    Our clusters run inside certified tier-4 facilities in key
+                    metropolitan networks, bringing high-speed GPU power closer
+                    to your local databases.
+                  </p>
                   <ul className="region-list">
-                    <li><span className="dot active" /> Mumbai Region</li>
-                    <li><span className="dot active" /> Delhi (NCR) Region</li>
-                    <li><span className="dot active" /> Bangalore Region</li>
-                    <li><span className="dot active" /> Hyderabad Region</li>
+                    <li>
+                      <span className="dot active" /> Mumbai Region
+                    </li>
+                    <li>
+                      <span className="dot active" /> Delhi (NCR) Region
+                    </li>
+                    <li>
+                      <span className="dot active" /> Bangalore Region
+                    </li>
+                    <li>
+                      <span className="dot active" /> Hyderabad Region
+                    </li>
                   </ul>
                   <div>
-                    <button className="btn-ghost" onClick={() => alert('Request logged. Our solutions team will reach out shortly.')}>Request New Region</button>
+                    <button
+                      className="btn-ghost"
+                      onClick={() =>
+                        alert(
+                          'Request logged. Our solutions team will reach out shortly.'
+                        )
+                      }
+                    >
+                      Request New Region
+                    </button>
                   </div>
                 </div>
               </div>
             </div>
-
           </div>
         </section>
 
@@ -445,13 +719,17 @@ export default function LandingPage() {
             <div className="flex justify-between items-center mb-8 flex-wrap gap-4">
               <div>
                 <span className="tag-line tag-purple">HOW IT WORKS</span>
-                <h2 className="section-heading">Your Data. Your Models. Your Infrastructure.</h2>
+                <h2 className="section-heading">
+                  Your Data. Your Models. Your Infrastructure.
+                </h2>
               </div>
-              <button 
-                className="btn-ghost" 
+              <button
+                className="btn-ghost"
                 onClick={() => setViewArchitectureCode(!viewArchitectureCode)}
               >
-                {viewArchitectureCode ? 'View Visual Flow' : 'View as Code (Terraform)'}
+                {viewArchitectureCode
+                  ? 'View Visual Flow'
+                  : 'View as Code (Terraform)'}
               </button>
             </div>
 
@@ -461,7 +739,7 @@ export default function LandingPage() {
                   <span className="editor-tab">harikson_cluster.tf</span>
                 </div>
                 <pre className="p-6 text-xs leading-relaxed text-indigo-200 overflow-x-auto">
-{`module "harikson_cluster" {
+                  {`module "harikson_cluster" {
   source       = "harikson/sovereign-cluster/aws"
   version      = "1.2.0"
   
@@ -483,19 +761,34 @@ export default function LandingPage() {
             ) : (
               <div className="arch-flow-grid">
                 <div className="arch-steps-nav">
-                  <div className={`arch-step-item ${activeArchStep === 0 ? 'active' : ''}`} onClick={() => setActiveArchStep(0)}>
+                  <div
+                    className={`arch-step-item ${activeArchStep === 0 ? 'active' : ''}`}
+                    onClick={() => setActiveArchStep(0)}
+                  >
                     <span className="num">1</span> Ingest
                   </div>
-                  <div className={`arch-step-item ${activeArchStep === 1 ? 'active' : ''}`} onClick={() => setActiveArchStep(1)}>
+                  <div
+                    className={`arch-step-item ${activeArchStep === 1 ? 'active' : ''}`}
+                    onClick={() => setActiveArchStep(1)}
+                  >
                     <span className="num">2</span> Route
                   </div>
-                  <div className={`arch-step-item ${activeArchStep === 2 ? 'active' : ''}`} onClick={() => setActiveArchStep(2)}>
+                  <div
+                    className={`arch-step-item ${activeArchStep === 2 ? 'active' : ''}`}
+                    onClick={() => setActiveArchStep(2)}
+                  >
                     <span className="num">3</span> Process
                   </div>
-                  <div className={`arch-step-item ${activeArchStep === 3 ? 'active' : ''}`} onClick={() => setActiveArchStep(3)}>
+                  <div
+                    className={`arch-step-item ${activeArchStep === 3 ? 'active' : ''}`}
+                    onClick={() => setActiveArchStep(3)}
+                  >
                     <span className="num">4</span> Retrieve
                   </div>
-                  <div className={`arch-step-item ${activeArchStep === 4 ? 'active' : ''}`} onClick={() => setActiveArchStep(4)}>
+                  <div
+                    className={`arch-step-item ${activeArchStep === 4 ? 'active' : ''}`}
+                    onClick={() => setActiveArchStep(4)}
+                  >
                     <span className="num">5</span> Deliver
                   </div>
                 </div>
@@ -504,13 +797,50 @@ export default function LandingPage() {
                   {activeArchStep === 0 && (
                     <div className="step-content">
                       <h4>STEP 1 — INGEST</h4>
-                      <p className="text-secondary mb-4">Upload 50,000 documents. Auto-chunk. Auto-embed.</p>
+                      <p className="text-secondary mb-4">
+                        Upload 50,000 documents. Auto-chunk. Auto-embed.
+                      </p>
                       <div className="svg-container">
-                        <svg viewBox="0 0 200 100" className="w-full max-w-[240px] mx-auto">
-                          <rect x="10" y="10" width="30" height="40" rx="4" fill="#f8fafc" stroke="#4f46e5" strokeWidth="1.5" />
-                          <rect x="50" y="15" width="30" height="40" rx="4" fill="#f8fafc" stroke="#4f46e5" strokeWidth="1.5" />
-                          <rect x="90" y="10" width="30" height="40" rx="4" fill="#f8fafc" stroke="#4f46e5" strokeWidth="1.5" />
-                          <path d="M 130 30 L 170 30" stroke="#10b981" strokeWidth="2" strokeDasharray="4 4" />
+                        <svg
+                          viewBox="0 0 200 100"
+                          className="w-full max-w-[240px] mx-auto"
+                        >
+                          <rect
+                            x="10"
+                            y="10"
+                            width="30"
+                            height="40"
+                            rx="4"
+                            fill="#f8fafc"
+                            stroke="#4f46e5"
+                            strokeWidth="1.5"
+                          />
+                          <rect
+                            x="50"
+                            y="15"
+                            width="30"
+                            height="40"
+                            rx="4"
+                            fill="#f8fafc"
+                            stroke="#4f46e5"
+                            strokeWidth="1.5"
+                          />
+                          <rect
+                            x="90"
+                            y="10"
+                            width="30"
+                            height="40"
+                            rx="4"
+                            fill="#f8fafc"
+                            stroke="#4f46e5"
+                            strokeWidth="1.5"
+                          />
+                          <path
+                            d="M 130 30 L 170 30"
+                            stroke="#10b981"
+                            strokeWidth="2"
+                            strokeDasharray="4 4"
+                          />
                           <circle cx="175" cy="30" r="10" fill="#10b981" />
                         </svg>
                       </div>
@@ -519,16 +849,65 @@ export default function LandingPage() {
                   {activeArchStep === 1 && (
                     <div className="step-content">
                       <h4>STEP 2 — ROUTE</h4>
-                      <p className="text-secondary mb-4">AI Gateway routes to the optimal model based on cost, latency, or quality specs.</p>
+                      <p className="text-secondary mb-4">
+                        AI Gateway routes to the optimal model based on cost,
+                        latency, or quality specs.
+                      </p>
                       <div className="svg-container">
-                        <svg viewBox="0 0 200 100" className="w-full max-w-[240px] mx-auto">
-                          <circle cx="30" cy="50" r="15" fill="#f8fafc" stroke="#4f46e5" strokeWidth="1.5" />
-                          <path d="M 45 50 L 100 20" stroke="#4f46e5" strokeWidth="2" />
-                          <path d="M 45 50 L 100 50" stroke="#4f46e5" strokeWidth="2" />
-                          <path d="M 45 50 L 100 80" stroke="#4f46e5" strokeWidth="2" />
-                          <rect x="105" y="10" width="60" height="20" rx="4" fill="#f8fafc" stroke="#cbd5e1" />
-                          <rect x="105" y="40" width="60" height="20" rx="4" fill="#10b981" stroke="#10b981" />
-                          <rect x="105" y="70" width="60" height="20" rx="4" fill="#f8fafc" stroke="#cbd5e1" />
+                        <svg
+                          viewBox="0 0 200 100"
+                          className="w-full max-w-[240px] mx-auto"
+                        >
+                          <circle
+                            cx="30"
+                            cy="50"
+                            r="15"
+                            fill="#f8fafc"
+                            stroke="#4f46e5"
+                            strokeWidth="1.5"
+                          />
+                          <path
+                            d="M 45 50 L 100 20"
+                            stroke="#4f46e5"
+                            strokeWidth="2"
+                          />
+                          <path
+                            d="M 45 50 L 100 50"
+                            stroke="#4f46e5"
+                            strokeWidth="2"
+                          />
+                          <path
+                            d="M 45 50 L 100 80"
+                            stroke="#4f46e5"
+                            strokeWidth="2"
+                          />
+                          <rect
+                            x="105"
+                            y="10"
+                            width="60"
+                            height="20"
+                            rx="4"
+                            fill="#f8fafc"
+                            stroke="#cbd5e1"
+                          />
+                          <rect
+                            x="105"
+                            y="40"
+                            width="60"
+                            height="20"
+                            rx="4"
+                            fill="#10b981"
+                            stroke="#10b981"
+                          />
+                          <rect
+                            x="105"
+                            y="70"
+                            width="60"
+                            height="20"
+                            rx="4"
+                            fill="#f8fafc"
+                            stroke="#cbd5e1"
+                          />
                         </svg>
                       </div>
                     </div>
@@ -536,12 +915,37 @@ export default function LandingPage() {
                   {activeArchStep === 2 && (
                     <div className="step-content">
                       <h4>STEP 3 — PROCESS</h4>
-                      <p className="text-secondary mb-4">Run any open model (Qwen3-72B, Llama-3-70B, Mistral-Large, DeepSeek-V3). Or bring your own weights.</p>
+                      <p className="text-secondary mb-4">
+                        Run any open model (Qwen3-72B, Llama-3-70B,
+                        Mistral-Large, DeepSeek-V3). Or bring your own weights.
+                      </p>
                       <div className="svg-container">
-                        <svg viewBox="0 0 200 100" className="w-full max-w-[240px] mx-auto">
-                          <circle cx="50" cy="50" r="25" fill="#f8fafc" stroke="#10b981" strokeWidth="2" />
-                          <circle cx="150" cy="50" r="25" fill="#f8fafc" stroke="#cbd5e1" strokeWidth="1" />
-                          <path d="M 75 50 L 125 50" stroke="#10b981" strokeWidth="2" strokeDasharray="4" />
+                        <svg
+                          viewBox="0 0 200 100"
+                          className="w-full max-w-[240px] mx-auto"
+                        >
+                          <circle
+                            cx="50"
+                            cy="50"
+                            r="25"
+                            fill="#f8fafc"
+                            stroke="#10b981"
+                            strokeWidth="2"
+                          />
+                          <circle
+                            cx="150"
+                            cy="50"
+                            r="25"
+                            fill="#f8fafc"
+                            stroke="#cbd5e1"
+                            strokeWidth="1"
+                          />
+                          <path
+                            d="M 75 50 L 125 50"
+                            stroke="#10b981"
+                            strokeWidth="2"
+                            strokeDasharray="4"
+                          />
                         </svg>
                       </div>
                     </div>
@@ -549,11 +953,30 @@ export default function LandingPage() {
                   {activeArchStep === 3 && (
                     <div className="step-content">
                       <h4>STEP 4 — RETRIEVE</h4>
-                      <p className="text-secondary mb-4">RAG retrieves context securely from your private database.</p>
+                      <p className="text-secondary mb-4">
+                        RAG retrieves context securely from your private
+                        database.
+                      </p>
                       <div className="svg-container">
-                        <svg viewBox="0 0 200 100" className="w-full max-w-[240px] mx-auto">
-                          <rect x="20" y="20" width="40" height="60" rx="6" fill="#f8fafc" stroke="#4f46e5" strokeWidth="1.5" />
-                          <path d="M 60 50 L 140 50" stroke="#10b981" strokeWidth="2.5" />
+                        <svg
+                          viewBox="0 0 200 100"
+                          className="w-full max-w-[240px] mx-auto"
+                        >
+                          <rect
+                            x="20"
+                            y="20"
+                            width="40"
+                            height="60"
+                            rx="6"
+                            fill="#f8fafc"
+                            stroke="#4f46e5"
+                            strokeWidth="1.5"
+                          />
+                          <path
+                            d="M 60 50 L 140 50"
+                            stroke="#10b981"
+                            strokeWidth="2.5"
+                          />
                           <circle cx="160" cy="50" r="18" fill="#10b981" />
                         </svg>
                       </div>
@@ -562,11 +985,29 @@ export default function LandingPage() {
                   {activeArchStep === 4 && (
                     <div className="step-content">
                       <h4>STEP 5 — DELIVER</h4>
-                      <p className="text-secondary mb-4">OpenAI-compatible response returned directly with full verifiable source attributions.</p>
+                      <p className="text-secondary mb-4">
+                        OpenAI-compatible response returned directly with full
+                        verifiable source attributions.
+                      </p>
                       <div className="svg-container">
-                        <svg viewBox="0 0 200 100" className="w-full max-w-[240px] mx-auto">
-                          <path d="M 20 50 L 140 50" stroke="#10b981" strokeWidth="2" />
-                          <rect x="145" y="35" width="45" height="30" rx="4" fill="#f8fafc" stroke="#10b981" />
+                        <svg
+                          viewBox="0 0 200 100"
+                          className="w-full max-w-[240px] mx-auto"
+                        >
+                          <path
+                            d="M 20 50 L 140 50"
+                            stroke="#10b981"
+                            strokeWidth="2"
+                          />
+                          <rect
+                            x="145"
+                            y="35"
+                            width="45"
+                            height="30"
+                            rx="4"
+                            fill="#f8fafc"
+                            stroke="#10b981"
+                          />
                         </svg>
                       </div>
                     </div>
@@ -583,7 +1024,10 @@ export default function LandingPage() {
             <div className="section-header text-left">
               <span className="tag-line tag-blue">BUSINESS OUTCOMES</span>
               <h2 className="title-scale">Why Harikson AI?</h2>
-              <p className="sub-scale">Enterprise infrastructure that answers your compliance and cost targets before you deploy.</p>
+              <p className="sub-scale">
+                Enterprise infrastructure that answers your compliance and cost
+                targets before you deploy.
+              </p>
             </div>
 
             <div className="features-grid-custom">
@@ -595,11 +1039,17 @@ export default function LandingPage() {
                   </div>
                   <h4>Go live in 10 minutes, not 10 weeks.</h4>
                 </div>
-                <p>Migrate from OpenAI with one line of code change. Swap the base_url parameters and keep your current prompts.</p>
+                <p>
+                  Migrate from OpenAI with one line of code change. Swap the
+                  base_url parameters and keep your current prompts.
+                </p>
                 <div className="mini-editor-box font-mono">
-                  <span className="keyword">base_url</span> = <span className="string">"https://api.harikson.ai/v1"</span>
+                  <span className="keyword">base_url</span> ={' '}
+                  <span className="string">"https://api.harikson.ai/v1"</span>
                 </div>
-                <a href="#developer" className="feat-link">Learn more <ArrowRight size={12} className="inline-arrow" /></a>
+                <a href="#developer" className="feat-link">
+                  Learn more <ArrowRight size={12} className="inline-arrow" />
+                </a>
               </div>
 
               {/* Card 2 */}
@@ -610,14 +1060,19 @@ export default function LandingPage() {
                   </div>
                   <h4>Your data never crosses a border.</h4>
                 </div>
-                <p>100% hosted in India. DPDP-compliant by default. Zero data residency risk.</p>
+                <p>
+                  100% hosted in India. DPDP-compliant by default. Zero data
+                  residency risk.
+                </p>
                 <div className="mini-tag-row">
                   <span className="mini-badge-pill">🇮🇳 Mumbai</span>
                   <span className="mini-badge-pill">🇮🇳 Delhi</span>
                   <span className="mini-badge-pill">🇮🇳 Bangalore</span>
                   <span className="mini-badge-pill">🇮🇳 Hyderabad</span>
                 </div>
-                <a href="#security" className="feat-link">Learn more <ArrowRight size={12} className="inline-arrow" /></a>
+                <a href="#security" className="feat-link">
+                  Learn more <ArrowRight size={12} className="inline-arrow" />
+                </a>
               </div>
 
               {/* Card 3 */}
@@ -628,12 +1083,16 @@ export default function LandingPage() {
                   </div>
                   <h4>Cut AI spend by 60%.</h4>
                 </div>
-                <p>Priced in INR. No dollar volatility. No hidden egress fees.</p>
+                <p>
+                  Priced in INR. No dollar volatility. No hidden egress fees.
+                </p>
                 <div className="mini-tag-row">
                   <span className="mini-badge-pill amber">₹0.001 / token</span>
                   <span className="mini-badge-pill amber">₹4,999 / mo Pro</span>
                 </div>
-                <a href="#pricing" className="feat-link">Learn more <ArrowRight size={12} className="inline-arrow" /></a>
+                <a href="#pricing" className="feat-link">
+                  Learn more <ArrowRight size={12} className="inline-arrow" />
+                </a>
               </div>
 
               {/* Card 4 */}
@@ -644,13 +1103,18 @@ export default function LandingPage() {
                   </div>
                   <h4>One platform. Hundreds of teams. Zero leakage.</h4>
                 </div>
-                <p>Row-level tenant isolation. Per-team billing. Custom models per workspace.</p>
+                <p>
+                  Row-level tenant isolation. Per-team billing. Custom models
+                  per workspace.
+                </p>
                 <div className="mini-tag-row">
                   <span className="mini-badge-pill pink">Multi-tenant</span>
                   <span className="mini-badge-pill pink">RBAC</span>
                   <span className="mini-badge-pill pink">SSO Logs</span>
                 </div>
-                <a href="#security" className="feat-link">Learn more <ArrowRight size={12} className="inline-arrow" /></a>
+                <a href="#security" className="feat-link">
+                  Learn more <ArrowRight size={12} className="inline-arrow" />
+                </a>
               </div>
 
               {/* Card 5 */}
@@ -661,13 +1125,18 @@ export default function LandingPage() {
                   </div>
                   <h4>Compliance that audits itself.</h4>
                 </div>
-                <p>DPDP-ready audit trails. Data principal rights. Automated compliance reports.</p>
+                <p>
+                  DPDP-ready audit trails. Data principal rights. Automated
+                  compliance reports.
+                </p>
                 <div className="mini-tag-row">
                   <span className="mini-badge-pill purple">SOC2 Prep</span>
                   <span className="mini-badge-pill purple">ISO 27001</span>
                   <span className="mini-badge-pill purple">DPDP 2023</span>
                 </div>
-                <a href="#security" className="feat-link">Learn more <ArrowRight size={12} className="inline-arrow" /></a>
+                <a href="#security" className="feat-link">
+                  Learn more <ArrowRight size={12} className="inline-arrow" />
+                </a>
               </div>
 
               {/* Card 6 */}
@@ -678,7 +1147,10 @@ export default function LandingPage() {
                   </div>
                   <h4>22 Indian languages. Native fluency.</h4>
                 </div>
-                <p>Hindi, Tamil, Kannada, Marathi, Telugu, Bengali. Not translated. Truly understood.</p>
+                <p>
+                  Hindi, Tamil, Kannada, Marathi, Telugu, Bengali. Not
+                  translated. Truly understood.
+                </p>
                 <div className="mini-tag-row language-pills">
                   <span className="mini-badge-pill cyan">हिंदी</span>
                   <span className="mini-badge-pill cyan">தமிழ்</span>
@@ -686,43 +1158,48 @@ export default function LandingPage() {
                   <span className="mini-badge-pill cyan">తెలుగు</span>
                   <span className="mini-badge-pill cyan">বাংলা</span>
                 </div>
-                <a href="#how-it-works" className="feat-link">Learn more <ArrowRight size={12} className="inline-arrow" /></a>
+                <a href="#how-it-works" className="feat-link">
+                  Learn more <ArrowRight size={12} className="inline-arrow" />
+                </a>
               </div>
             </div>
           </div>
         </section>
-
-
 
         {/* ─── PROMPT 8: PERFORMANCE BENCHMARKS ─── */}
         <section className="section-benchmarks" id="benchmarks">
           <div className="content-inner relative z-10">
             {/* Background design accents */}
             <div className="benchmarks-bg-glow" />
-            
+
             <div className="section-header text-center">
-              <span className="tag-line tag-purple">SPEED &amp; EFFICIENCY</span>
+              <span className="tag-line tag-purple">
+                SPEED &amp; EFFICIENCY
+              </span>
               <h2 className="title-scale">Performance Benchmarks</h2>
-              <p className="sub-scale">Faster response latency and reduced costs compared to overseas endpoints.</p>
+              <p className="sub-scale">
+                Faster response latency and reduced costs compared to overseas
+                endpoints.
+              </p>
             </div>
 
             {/* Filter Toggle */}
             <div className="benchmark-toggle-container">
               <div className="benchmark-tabs">
-                <button 
-                  className={`toggle-btn ${benchmarkFilter === 'latency' ? 'active' : ''}`} 
+                <button
+                  className={`toggle-btn ${benchmarkFilter === 'latency' ? 'active' : ''}`}
                   onClick={() => setBenchmarkFilter('latency')}
                 >
                   <span className="btn-icon">⚡</span> Latency Comparison
                 </button>
-                <button 
-                  className={`toggle-btn ${benchmarkFilter === 'cost' ? 'active' : ''}`} 
+                <button
+                  className={`toggle-btn ${benchmarkFilter === 'cost' ? 'active' : ''}`}
                   onClick={() => setBenchmarkFilter('cost')}
                 >
                   <span className="btn-icon">₹</span> Cost Comparison
                 </button>
-                <button 
-                  className={`toggle-btn ${benchmarkFilter === 'throughput' ? 'active' : ''}`} 
+                <button
+                  className={`toggle-btn ${benchmarkFilter === 'throughput' ? 'active' : ''}`}
                   onClick={() => setBenchmarkFilter('throughput')}
                 >
                   <span className="btn-icon">📊</span> Throughput &amp; Scale
@@ -735,20 +1212,29 @@ export default function LandingPage() {
                 <div className="benchmark-panel-grid">
                   <div className="chart-card">
                     <div className="chart-header">
-                      <span className="chart-title">TTFT (Time to First Token)</span>
-                      <span className="chart-subtitle">Measured in milliseconds — lower is better</span>
+                      <span className="chart-title">
+                        TTFT (Time to First Token)
+                      </span>
+                      <span className="chart-subtitle">
+                        Measured in milliseconds — lower is better
+                      </span>
                     </div>
-                    
+
                     <div className="bars-list">
                       {/* Harikson Mumbai */}
                       <div className="bar-item highlight-row">
                         <div className="bar-meta">
-                          <span className="bar-label font-bold text-gray-900">Harikson Mumbai</span>
+                          <span className="bar-label font-bold text-gray-900">
+                            Harikson Mumbai
+                          </span>
                           <span className="bar-badge">SOVEREIGN EDGE</span>
                         </div>
                         <div className="bar-track-wrapper">
                           <div className="bar-track">
-                            <div className="bar-fill gradient-fill" style={{ width: '16%' }}>
+                            <div
+                              className="bar-fill gradient-fill"
+                              style={{ width: '16%' }}
+                            >
                               <div className="bar-shimmer" />
                             </div>
                           </div>
@@ -759,11 +1245,16 @@ export default function LandingPage() {
                       {/* Azure India */}
                       <div className="bar-item">
                         <div className="bar-meta">
-                          <span className="bar-label text-gray-600">Azure India</span>
+                          <span className="bar-label text-gray-600">
+                            Azure India
+                          </span>
                         </div>
                         <div className="bar-track-wrapper">
                           <div className="bar-track">
-                            <div className="bar-fill standard-fill" style={{ width: '43%' }} />
+                            <div
+                              className="bar-fill standard-fill"
+                              style={{ width: '43%' }}
+                            />
                           </div>
                           <span className="bar-val">120ms</span>
                         </div>
@@ -772,11 +1263,16 @@ export default function LandingPage() {
                       {/* OpenAI US */}
                       <div className="bar-item">
                         <div className="bar-meta">
-                          <span className="bar-label text-gray-600">OpenAI US</span>
+                          <span className="bar-label text-gray-600">
+                            OpenAI US
+                          </span>
                         </div>
                         <div className="bar-track-wrapper">
                           <div className="bar-track">
-                            <div className="bar-fill standard-fill" style={{ width: '100%' }} />
+                            <div
+                              className="bar-fill standard-fill"
+                              style={{ width: '100%' }}
+                            />
                           </div>
                           <span className="bar-val">280ms</span>
                         </div>
@@ -785,20 +1281,30 @@ export default function LandingPage() {
                   </div>
 
                   <div className="benchmark-info-pane">
-                    <span className="badge-sovereign">100% Domestic Routing</span>
+                    <span className="badge-sovereign">
+                      100% Domestic Routing
+                    </span>
                     <h3>Zero Oceanic Latency</h3>
                     <p className="text-secondary leading-relaxed mt-4">
-                      Because your requests do not cross oceanic sub-sea fiber lines to US or European data centers, we achieve a baseline Time to First Token (TTFT) of under <strong>45ms</strong>. All regional language inference occurs directly within Tier-IV Indian facilities.
+                      Because your requests do not cross oceanic sub-sea fiber
+                      lines to US or European data centers, we achieve a
+                      baseline Time to First Token (TTFT) of under{' '}
+                      <strong>45ms</strong>. All regional language inference
+                      occurs directly within Tier-IV Indian facilities.
                     </p>
-                    
+
                     <div className="metric-callouts-grid">
                       <div className="metric-callout">
                         <span className="metric-number">2.7x</span>
-                        <span className="metric-label">Faster than Azure India</span>
+                        <span className="metric-label">
+                          Faster than Azure India
+                        </span>
                       </div>
                       <div className="metric-callout">
                         <span className="metric-number">6.2x</span>
-                        <span className="metric-label">Faster than OpenAI US</span>
+                        <span className="metric-label">
+                          Faster than OpenAI US
+                        </span>
                       </div>
                     </div>
                   </div>
@@ -811,10 +1317,14 @@ export default function LandingPage() {
                 <div className="benchmark-panel-grid">
                   <div className="chart-card overflow-hidden no-padding">
                     <div className="chart-header p-6 pb-4">
-                      <span className="chart-title">Pricing in Indian Rupees (INR)</span>
-                      <span className="chart-subtitle">Standardized cost comparison per 1 Million Tokens</span>
+                      <span className="chart-title">
+                        Pricing in Indian Rupees (INR)
+                      </span>
+                      <span className="chart-subtitle">
+                        Standardized cost comparison per 1 Million Tokens
+                      </span>
                     </div>
-                    
+
                     <div className="table-responsive">
                       <table className="cost-comparison-table">
                         <thead>
@@ -828,21 +1338,39 @@ export default function LandingPage() {
                         <tbody>
                           <tr className="highlight-table-row">
                             <td className="font-semibold">8B-class</td>
-                            <td className="highlight-cell">₹1,000 <span className="cell-per">/ 1M</span></td>
-                            <td>₹3,200 <span className="cell-per">/ 1M</span></td>
-                            <td>₹2,800 <span className="cell-per">/ 1M</span></td>
+                            <td className="highlight-cell">
+                              ₹1,000 <span className="cell-per">/ 1M</span>
+                            </td>
+                            <td>
+                              ₹3,200 <span className="cell-per">/ 1M</span>
+                            </td>
+                            <td>
+                              ₹2,800 <span className="cell-per">/ 1M</span>
+                            </td>
                           </tr>
                           <tr className="highlight-table-row">
                             <td className="font-semibold">70B-class</td>
-                            <td className="highlight-cell">₹4,500 <span className="cell-per">/ 1M</span></td>
-                            <td>₹12,000 <span className="cell-per">/ 1M</span></td>
-                            <td>₹10,500 <span className="cell-per">/ 1M</span></td>
+                            <td className="highlight-cell">
+                              ₹4,500 <span className="cell-per">/ 1M</span>
+                            </td>
+                            <td>
+                              ₹12,000 <span className="cell-per">/ 1M</span>
+                            </td>
+                            <td>
+                              ₹10,500 <span className="cell-per">/ 1M</span>
+                            </td>
                           </tr>
                           <tr className="highlight-table-row">
                             <td className="font-semibold">RAG Ingestion</td>
-                            <td className="highlight-cell">₹0.50 <span className="cell-per">/ query</span></td>
-                            <td>₹1.80 <span className="cell-per">/ query</span></td>
-                            <td>₹1.50 <span className="cell-per">/ query</span></td>
+                            <td className="highlight-cell">
+                              ₹0.50 <span className="cell-per">/ query</span>
+                            </td>
+                            <td>
+                              ₹1.80 <span className="cell-per">/ query</span>
+                            </td>
+                            <td>
+                              ₹1.50 <span className="cell-per">/ query</span>
+                            </td>
                           </tr>
                         </tbody>
                       </table>
@@ -850,20 +1378,30 @@ export default function LandingPage() {
                   </div>
 
                   <div className="benchmark-info-pane">
-                    <span className="badge-sovereign">Zero Forex Volatility</span>
+                    <span className="badge-sovereign">
+                      Zero Forex Volatility
+                    </span>
                     <h3>Save Up to 60% Natively</h3>
                     <p className="text-secondary leading-relaxed mt-4">
-                      Avoid cross-border transaction fees, foreign currency exposure, and US-centric premium markup. Harikson AI routes and bills natively in INR, allowing local enterprises to deploy scalable LLMs under predictable budgets.
+                      Avoid cross-border transaction fees, foreign currency
+                      exposure, and US-centric premium markup. Harikson AI
+                      routes and bills natively in INR, allowing local
+                      enterprises to deploy scalable LLMs under predictable
+                      budgets.
                     </p>
-                    
+
                     <div className="metric-callouts-grid">
                       <div className="metric-callout">
                         <span className="metric-number">₹0</span>
-                        <span className="metric-label">Forex conversion fees</span>
+                        <span className="metric-label">
+                          Forex conversion fees
+                        </span>
                       </div>
                       <div className="metric-callout">
                         <span className="metric-number">62%</span>
-                        <span className="metric-label">Average pricing savings</span>
+                        <span className="metric-label">
+                          Average pricing savings
+                        </span>
                       </div>
                     </div>
                   </div>
@@ -877,26 +1415,46 @@ export default function LandingPage() {
                   <div className="throughput-card">
                     <div className="throughput-icon">⚡</div>
                     <div className="throughput-val">2,400 T/s</div>
-                    <div className="throughput-title">Concurrent Token Throughput</div>
-                    <p className="throughput-desc">High-throughput custom inference engines built specifically for high-concurrency enterprise RAG pipelines.</p>
+                    <div className="throughput-title">
+                      Concurrent Token Throughput
+                    </div>
+                    <p className="throughput-desc">
+                      High-throughput custom inference engines built
+                      specifically for high-concurrency enterprise RAG
+                      pipelines.
+                    </p>
                   </div>
                   <div className="throughput-card">
                     <div className="throughput-icon">🖥️</div>
                     <div className="throughput-val">512 H100s</div>
-                    <div className="throughput-title">Dedicated Compute Clusters</div>
-                    <p className="throughput-desc">Private GPU capacity natively managed inside Indian availability zones with hardware SLA guarantees.</p>
+                    <div className="throughput-title">
+                      Dedicated Compute Clusters
+                    </div>
+                    <p className="throughput-desc">
+                      Private GPU capacity natively managed inside Indian
+                      availability zones with hardware SLA guarantees.
+                    </p>
                   </div>
                   <div className="throughput-card">
                     <div className="throughput-icon">⏳</div>
                     <div className="throughput-val">&lt; 30 Sec</div>
                     <div className="throughput-title">Auto-Cluster Scaling</div>
-                    <p className="throughput-desc">Instant provisioning of additional virtual nodes to meet high-volume user traffic demands without drops in performance.</p>
+                    <p className="throughput-desc">
+                      Instant provisioning of additional virtual nodes to meet
+                      high-volume user traffic demands without drops in
+                      performance.
+                    </p>
                   </div>
                   <div className="throughput-card">
                     <div className="throughput-icon">👥</div>
                     <div className="throughput-val">50,000+</div>
-                    <div className="throughput-title">Users Per GPU Cluster</div>
-                    <p className="throughput-desc">Highly optimized memory virtualization layer allowing massive concurrent user connections per cluster.</p>
+                    <div className="throughput-title">
+                      Users Per GPU Cluster
+                    </div>
+                    <p className="throughput-desc">
+                      Highly optimized memory virtualization layer allowing
+                      massive concurrent user connections per cluster.
+                    </p>
                   </div>
                 </div>
               </div>
@@ -920,9 +1478,20 @@ export default function LandingPage() {
                     <span className="story-badge-custom">LEGAL TECHNOLOGY</span>
                     <h4>LexAI Solutions: 50,000 precursor contract analysis</h4>
                     <p className="story-paragraph">
-                      <strong>Problem:</strong> LexAI could not pass confidential client agreements through US-based OpenAI endpoints without violating NDAs and data residency laws. Lawyers spent 40 minutes analyzing each precedent.<br /><br />
-                      <strong>Solution:</strong> Deployed a private Llama-3-70B instance inside Harikson's Mumbai VPC gateway with dedicated workspace schema isolation.<br /><br />
-                      <strong>Results:</strong> Contract analysis reduced to 8 seconds, achieving full DPDP compliance and saving over ₹12 Lakhs annually in API costs.
+                      <strong>Problem:</strong> LexAI could not pass
+                      confidential client agreements through US-based OpenAI
+                      endpoints without violating NDAs and data residency laws.
+                      Lawyers spent 40 minutes analyzing each precedent.
+                      <br />
+                      <br />
+                      <strong>Solution:</strong> Deployed a private Llama-3-70B
+                      instance inside Harikson's Mumbai VPC gateway with
+                      dedicated workspace schema isolation.
+                      <br />
+                      <br />
+                      <strong>Results:</strong> Contract analysis reduced to 8
+                      seconds, achieving full DPDP compliance and saving over
+                      ₹12 Lakhs annually in API costs.
                     </p>
                   </div>
                   <div className="story-stats-container">
@@ -945,12 +1514,25 @@ export default function LandingPage() {
               <div className="story-card-wrapper">
                 <div className="story-card-content">
                   <div className="story-text-container">
-                    <span className="story-badge-custom">BANKING &amp; FINANCE</span>
+                    <span className="story-badge-custom">
+                      BANKING &amp; FINANCE
+                    </span>
                     <h4>Leading NBFC: Regional customer dialer agents</h4>
                     <p className="story-paragraph">
-                      <strong>Problem:</strong> Standard models failed on Hinglish, regional dialects (Tamil, Kannada), and branch contexts. Security teams rejected foreign APIs due to data sovereignty audits.<br /><br />
-                      <strong>Solution:</strong> Fine-tuned a Qwen3-72B model on private customer history logs inside a secure local cloud environment.<br /><br />
-                      <strong>Results:</strong> Support resolution times dropped by 68% while regional language accuracy hit 94%. Deployed across 10 branches in under a week.
+                      <strong>Problem:</strong> Standard models failed on
+                      Hinglish, regional dialects (Tamil, Kannada), and branch
+                      contexts. Security teams rejected foreign APIs due to data
+                      sovereignty audits.
+                      <br />
+                      <br />
+                      <strong>Solution:</strong> Fine-tuned a Qwen3-72B model on
+                      private customer history logs inside a secure local cloud
+                      environment.
+                      <br />
+                      <br />
+                      <strong>Results:</strong> Support resolution times dropped
+                      by 68% while regional language accuracy hit 94%. Deployed
+                      across 10 branches in under a week.
                     </p>
                   </div>
                   <div className="story-stats-container">
@@ -977,19 +1559,38 @@ export default function LandingPage() {
           <div className="content-inner">
             <div className="section-header text-center">
               <span className="tag-line tag-blue">INR PRICING PLANS</span>
-              <h2 className="title-scale">Pricing That Respects Indian Budgets</h2>
-              <p className="sub-scale font-medium mt-1">No forex risk. Direct invoicing. Cancel anytime.</p>
-              
+              <h2 className="title-scale">
+                Pricing That Respects Indian Budgets
+              </h2>
+              <p className="sub-scale font-medium mt-1">
+                No forex risk. Direct invoicing. Cancel anytime.
+              </p>
+
               <div className="flex justify-center items-center gap-3 mt-6">
-                <span className={`text-xs ${billingPeriod === 'monthly' ? 'text-gray-800' : 'text-gray-400'}`}>Monthly Billing</span>
-                <button 
-                  className="w-12 h-6 bg-indigo-600 rounded-full p-0.5 transition-colors focus:outline-none relative" 
-                  onClick={() => setBillingPeriod(billingPeriod === 'monthly' ? 'annual' : 'monthly')}
+                <span
+                  className={`text-xs ${billingPeriod === 'monthly' ? 'text-gray-800' : 'text-gray-400'}`}
                 >
-                  <span className={`w-5 h-5 bg-white rounded-full block shadow-sm transform transition-transform ${billingPeriod === 'annual' ? 'translate-x-6' : 'translate-x-0'}`} />
+                  Monthly Billing
+                </span>
+                <button
+                  className="w-12 h-6 bg-indigo-600 rounded-full p-0.5 transition-colors focus:outline-none relative"
+                  onClick={() =>
+                    setBillingPeriod(
+                      billingPeriod === 'monthly' ? 'annual' : 'monthly'
+                    )
+                  }
+                >
+                  <span
+                    className={`w-5 h-5 bg-white rounded-full block shadow-sm transform transition-transform ${billingPeriod === 'annual' ? 'translate-x-6' : 'translate-x-0'}`}
+                  />
                 </button>
-                <span className={`text-xs ${billingPeriod === 'annual' ? 'text-gray-800' : 'text-gray-400'}`}>
-                  Annual Billing <span className="bg-emerald-500/20 text-emerald-600 px-2 py-0.5 rounded text-[10px] font-bold ml-1">2 Months Free</span>
+                <span
+                  className={`text-xs ${billingPeriod === 'annual' ? 'text-gray-800' : 'text-gray-400'}`}
+                >
+                  Annual Billing{' '}
+                  <span className="bg-emerald-500/20 text-emerald-600 px-2 py-0.5 rounded text-[10px] font-bold ml-1">
+                    2 Months Free
+                  </span>
                 </span>
               </div>
             </div>
@@ -998,17 +1599,35 @@ export default function LandingPage() {
               {/* Card 1: Starter */}
               <div className="price-card-custom">
                 <h3 className="plan-name">Starter</h3>
-                <div className="plan-price">₹0 <span className="period">/ month</span></div>
+                <div className="plan-price">
+                  ₹0 <span className="period">/ month</span>
+                </div>
                 <p className="plan-desc">100K tokens included free</p>
                 <ul className="plan-feats mt-6">
-                  <li><CheckCircle2 size={12} className="text-indigo-600" /> Qwen3-8B model access</li>
-                  <li><CheckCircle2 size={12} className="text-indigo-600" /> 1 isolated workspace</li>
-                  <li><CheckCircle2 size={12} className="text-indigo-600" /> Developer dashboard</li>
-                  <li><XCircle size={12} className="text-gray-450" /> Fine-tuning</li>
-                  <li><XCircle size={12} className="text-gray-455" /> Tenant isolation override</li>
+                  <li>
+                    <CheckCircle2 size={12} className="text-indigo-600" />{' '}
+                    Qwen3-8B model access
+                  </li>
+                  <li>
+                    <CheckCircle2 size={12} className="text-indigo-600" /> 1
+                    isolated workspace
+                  </li>
+                  <li>
+                    <CheckCircle2 size={12} className="text-indigo-600" />{' '}
+                    Developer dashboard
+                  </li>
+                  <li>
+                    <XCircle size={12} className="text-gray-450" /> Fine-tuning
+                  </li>
+                  <li>
+                    <XCircle size={12} className="text-gray-455" /> Tenant
+                    isolation override
+                  </li>
                 </ul>
                 <div className="mt-8">
-                  <Link href="/signup" passHref legacyBehavior><a className="btn-price">Start Free</a></Link>
+                  <Link href="/signup" passHref legacyBehavior>
+                    <a className="btn-price">Start Free</a>
+                  </Link>
                 </div>
               </div>
 
@@ -1017,18 +1636,36 @@ export default function LandingPage() {
                 <div className="badge-promo">MOST POPULAR</div>
                 <h3 className="plan-name">Professional</h3>
                 <div className="plan-price">
-                  {billingPeriod === 'annual' ? '₹4,166' : '₹4,999'} <span className="period">/ month</span>
+                  {billingPeriod === 'annual' ? '₹4,166' : '₹4,999'}{' '}
+                  <span className="period">/ month</span>
                 </div>
                 <p className="plan-desc">5M tokens included · ₹0.001 after</p>
                 <ul className="plan-feats mt-6">
-                  <li><CheckCircle2 size={12} className="text-indigo-600" /> All models (8B, 32B, 72B)</li>
-                  <li><CheckCircle2 size={12} className="text-indigo-600" /> Up to 10 isolated tenants</li>
-                  <li><CheckCircle2 size={12} className="text-indigo-600" /> Webhook logs &amp; analytics</li>
-                  <li><CheckCircle2 size={12} className="text-indigo-600" /> Basic RAG (10K documents)</li>
-                  <li><CheckCircle2 size={12} className="text-indigo-600" /> 99.9% Uptime SLA</li>
+                  <li>
+                    <CheckCircle2 size={12} className="text-indigo-600" /> All
+                    models (8B, 32B, 72B)
+                  </li>
+                  <li>
+                    <CheckCircle2 size={12} className="text-indigo-600" /> Up to
+                    10 isolated tenants
+                  </li>
+                  <li>
+                    <CheckCircle2 size={12} className="text-indigo-600" />{' '}
+                    Webhook logs &amp; analytics
+                  </li>
+                  <li>
+                    <CheckCircle2 size={12} className="text-indigo-600" /> Basic
+                    RAG (10K documents)
+                  </li>
+                  <li>
+                    <CheckCircle2 size={12} className="text-indigo-600" /> 99.9%
+                    Uptime SLA
+                  </li>
                 </ul>
                 <div className="mt-8">
-                  <Link href="/signup" passHref legacyBehavior><a className="btn-price primary-gradient">Start Pro</a></Link>
+                  <Link href="/signup" passHref legacyBehavior>
+                    <a className="btn-price primary-gradient">Start Pro</a>
+                  </Link>
                 </div>
               </div>
 
@@ -1036,42 +1673,83 @@ export default function LandingPage() {
               <div className="price-card-custom">
                 <h3 className="plan-name">Business</h3>
                 <div className="plan-price">
-                  {billingPeriod === 'annual' ? '₹20,833' : '₹24,999'} <span className="period">/ month</span>
+                  {billingPeriod === 'annual' ? '₹20,833' : '₹24,999'}{' '}
+                  <span className="period">/ month</span>
                 </div>
                 <p className="plan-desc">25M tokens · dedicated resources</p>
                 <ul className="plan-feats mt-6">
-                  <li><CheckCircle2 size={12} className="text-indigo-600" /> Everything in Pro</li>
-                  <li><CheckCircle2 size={12} className="text-indigo-600" /> Up to 50 isolated tenants</li>
-                  <li><CheckCircle2 size={12} className="text-indigo-600" /> Advanced RAG (50K docs)</li>
-                  <li><CheckCircle2 size={12} className="text-indigo-600" /> Fine-tuning engines</li>
-                  <li><CheckCircle2 size={12} className="text-indigo-600" /> 99.95% Uptime SLA</li>
+                  <li>
+                    <CheckCircle2 size={12} className="text-indigo-600" />{' '}
+                    Everything in Pro
+                  </li>
+                  <li>
+                    <CheckCircle2 size={12} className="text-indigo-600" /> Up to
+                    50 isolated tenants
+                  </li>
+                  <li>
+                    <CheckCircle2 size={12} className="text-indigo-600" />{' '}
+                    Advanced RAG (50K docs)
+                  </li>
+                  <li>
+                    <CheckCircle2 size={12} className="text-indigo-600" />{' '}
+                    Fine-tuning engines
+                  </li>
+                  <li>
+                    <CheckCircle2 size={12} className="text-indigo-600" />{' '}
+                    99.95% Uptime SLA
+                  </li>
                 </ul>
                 <div className="mt-8">
-                  <Link href="/signup" passHref legacyBehavior><a className="btn-price">Start Business</a></Link>
+                  <Link href="/signup" passHref legacyBehavior>
+                    <a className="btn-price">Start Business</a>
+                  </Link>
                 </div>
               </div>
 
               {/* Card 4: Enterprise */}
               <div className="price-card-custom">
                 <h3 className="plan-name">Enterprise</h3>
-                <div className="plan-price">Custom <span className="period">/ contact</span></div>
-                <p className="plan-desc">Unlimited scale · air-gapped options</p>
+                <div className="plan-price">
+                  Custom <span className="period">/ contact</span>
+                </div>
+                <p className="plan-desc">
+                  Unlimited scale · air-gapped options
+                </p>
                 <ul className="plan-feats mt-6">
-                  <li><CheckCircle2 size={12} className="text-indigo-600" /> Everything in Business</li>
-                  <li><CheckCircle2 size={12} className="text-indigo-600" /> Unlimited tokens &amp; tenants</li>
-                  <li><CheckCircle2 size={12} className="text-indigo-600" /> Air-gapped / local deployments</li>
-                  <li><CheckCircle2 size={12} className="text-indigo-600" /> Dedicated GPU resources</li>
-                  <li><CheckCircle2 size={12} className="text-indigo-600" /> 99.99% Uptime SLA</li>
+                  <li>
+                    <CheckCircle2 size={12} className="text-indigo-600" />{' '}
+                    Everything in Business
+                  </li>
+                  <li>
+                    <CheckCircle2 size={12} className="text-indigo-600" />{' '}
+                    Unlimited tokens &amp; tenants
+                  </li>
+                  <li>
+                    <CheckCircle2 size={12} className="text-indigo-600" />{' '}
+                    Air-gapped / local deployments
+                  </li>
+                  <li>
+                    <CheckCircle2 size={12} className="text-indigo-600" />{' '}
+                    Dedicated GPU resources
+                  </li>
+                  <li>
+                    <CheckCircle2 size={12} className="text-indigo-600" />{' '}
+                    99.99% Uptime SLA
+                  </li>
                 </ul>
                 <div className="mt-8">
-                  <a href="#founders-contact" className="btn-price">Talk to Sales</a>
+                  <a href="#founders-contact" className="btn-price">
+                    Talk to Sales
+                  </a>
                 </div>
               </div>
             </div>
 
             {/* Feature Comparison Table */}
             <div className="comparison-table-wrapper mt-12 text-left">
-              <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block mb-4">Detailed Plan Comparison</span>
+              <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block mb-4">
+                Detailed Plan Comparison
+              </span>
               <div className="table-box card-glass overflow-x-auto">
                 <table className="w-full text-xs text-left border-collapse">
                   <thead>
@@ -1132,25 +1810,85 @@ export default function LandingPage() {
             <div className="section-header text-center">
               <span className="tag-line tag-purple">FAQ</span>
               <h2 className="title-scale">Frequently Asked Questions</h2>
-              <p className="sub-scale">Specific answers about sovereign setups, compliance guidelines, and system tech.</p>
+              <p className="sub-scale">
+                Specific answers about sovereign setups, compliance guidelines,
+                and system tech.
+              </p>
             </div>
 
             <div className="faq-wrapper grid grid-cols-1 lg:grid-cols-4 gap-8 mt-8">
               <div className="faq-menu flex flex-col gap-2 text-left">
-                <button className={`faq-tab-btn ${faqCategory === 'sovereignty' ? 'active' : ''}`} onClick={() => { setFaqCategory('sovereignty'); setOpenFaq(null); }}>Data Sovereignty</button>
-                <button className={`faq-tab-btn ${faqCategory === 'compliance' ? 'active' : ''}`} onClick={() => { setFaqCategory('compliance'); setOpenFaq(null); }}>Compliance</button>
-                <button className={`faq-tab-btn ${faqCategory === 'security' ? 'active' : ''}`} onClick={() => { setFaqCategory('security'); setOpenFaq(null); }}>Security</button>
-                <button className={`faq-tab-btn ${faqCategory === 'technical' ? 'active' : ''}`} onClick={() => { setFaqCategory('technical'); setOpenFaq(null); }}>Technical Details</button>
-                <button className={`faq-tab-btn ${faqCategory === 'deployment' ? 'active' : ''}`} onClick={() => { setFaqCategory('deployment'); setOpenFaq(null); }}>Deployment</button>
-                <button className={`faq-tab-btn ${faqCategory === 'pricing' ? 'active' : ''}`} onClick={() => { setFaqCategory('pricing'); setOpenFaq(null); }}>Pricing</button>
+                <button
+                  className={`faq-tab-btn ${faqCategory === 'sovereignty' ? 'active' : ''}`}
+                  onClick={() => {
+                    setFaqCategory('sovereignty');
+                    setOpenFaq(null);
+                  }}
+                >
+                  Data Sovereignty
+                </button>
+                <button
+                  className={`faq-tab-btn ${faqCategory === 'compliance' ? 'active' : ''}`}
+                  onClick={() => {
+                    setFaqCategory('compliance');
+                    setOpenFaq(null);
+                  }}
+                >
+                  Compliance
+                </button>
+                <button
+                  className={`faq-tab-btn ${faqCategory === 'security' ? 'active' : ''}`}
+                  onClick={() => {
+                    setFaqCategory('security');
+                    setOpenFaq(null);
+                  }}
+                >
+                  Security
+                </button>
+                <button
+                  className={`faq-tab-btn ${faqCategory === 'technical' ? 'active' : ''}`}
+                  onClick={() => {
+                    setFaqCategory('technical');
+                    setOpenFaq(null);
+                  }}
+                >
+                  Technical Details
+                </button>
+                <button
+                  className={`faq-tab-btn ${faqCategory === 'deployment' ? 'active' : ''}`}
+                  onClick={() => {
+                    setFaqCategory('deployment');
+                    setOpenFaq(null);
+                  }}
+                >
+                  Deployment
+                </button>
+                <button
+                  className={`faq-tab-btn ${faqCategory === 'pricing' ? 'active' : ''}`}
+                  onClick={() => {
+                    setFaqCategory('pricing');
+                    setOpenFaq(null);
+                  }}
+                >
+                  Pricing
+                </button>
               </div>
 
               <div className="faq-list lg:col-span-3 text-left">
                 {faqData[faqCategory].map((faq, idx) => (
-                  <div key={idx} className="faq-item border-b border-gray-200 py-4">
-                    <button className="faq-question flex justify-between items-center w-full text-sm font-semibold py-2 focus:outline-none" onClick={() => setOpenFaq(openFaq === idx ? null : idx)}>
+                  <div
+                    key={idx}
+                    className="faq-item border-b border-gray-200 py-4"
+                  >
+                    <button
+                      className="faq-question flex justify-between items-center w-full text-sm font-semibold py-2 focus:outline-none"
+                      onClick={() => setOpenFaq(openFaq === idx ? null : idx)}
+                    >
                       <span>{faq.q}</span>
-                      <ChevronDown size={16} className={`transform transition-transform ${openFaq === idx ? 'rotate-180' : ''}`} />
+                      <ChevronDown
+                        size={16}
+                        className={`transform transition-transform ${openFaq === idx ? 'rotate-180' : ''}`}
+                      />
                     </button>
                     {openFaq === idx && (
                       <div className="faq-answer text-xs text-gray-600 mt-2 leading-relaxed animate-fade-in">
@@ -1169,13 +1907,38 @@ export default function LandingPage() {
           <div className="content-inner premium-cta-grid">
             <div className="cta-left">
               <h2>Ready to Build Enterprise AI?</h2>
-              <p>Deploy secure, compliant AI infrastructure in India with complete ownership of your data, models, and deployment.</p>
+              <p>
+                Deploy secure, compliant AI infrastructure in India with
+                complete ownership of your data, models, and deployment.
+              </p>
             </div>
             <div className="cta-right">
-              <Link href="/signup" passHref legacyBehavior><a className="btn-premium-primary">Start Free</a></Link>
-              <button className="btn-premium-secondary" onClick={() => alert('Architecture consultation request logged. We will contact you shortly.')}>Book Architecture Session</button>
-              <a href="mailto:sales@harikson.ai" className="btn-premium-link">Talk to Sales →</a>
-              <button className="btn-premium-outline" onClick={() => alert('Demo request logged. Enterprise sales will reach out within 2 hours.')}>Request Enterprise Demo</button>
+              <Link href="/signup" passHref legacyBehavior>
+                <a className="btn-premium-primary">Start Free</a>
+              </Link>
+              <button
+                className="btn-premium-secondary"
+                onClick={() =>
+                  alert(
+                    'Architecture consultation request logged. We will contact you shortly.'
+                  )
+                }
+              >
+                Book Architecture Session
+              </button>
+              <a href="mailto:sales@harikson.ai" className="btn-premium-link">
+                Talk to Sales →
+              </a>
+              <button
+                className="btn-premium-outline"
+                onClick={() =>
+                  alert(
+                    'Demo request logged. Enterprise sales will reach out within 2 hours.'
+                  )
+                }
+              >
+                Request Enterprise Demo
+              </button>
             </div>
           </div>
         </section>
@@ -1183,12 +1946,29 @@ export default function LandingPage() {
         {/* ─── SECTION 2: TRUST METRICS BAR ─── */}
         <section className="section-trust-metrics">
           <div className="content-inner trust-metrics-wrap">
-            <div className="trust-metric-item"><CheckCircle2 size={14} className="text-emerald-500" /> <span>99.99% SLA</span></div>
-            <div className="trust-metric-item">🇮🇳 <span>100% India Data Residency</span></div>
-            <div className="trust-metric-item"><Zap size={14} className="text-indigo-600" /> <span>OpenAI Compatible API</span></div>
-            <div className="trust-metric-item"><ShieldCheck size={14} className="text-emerald-500" /> <span>DPDP Ready</span></div>
-            <div className="trust-metric-item"><Lock size={14} className="text-indigo-600" /> <span>AES-256 Encryption</span></div>
-            <div className="trust-metric-item"><Activity size={14} className="text-indigo-600" /> <span>24×7 Enterprise Support</span></div>
+            <div className="trust-metric-item">
+              <CheckCircle2 size={14} className="text-emerald-500" />{' '}
+              <span>99.99% SLA</span>
+            </div>
+            <div className="trust-metric-item">
+              🇮🇳 <span>100% India Data Residency</span>
+            </div>
+            <div className="trust-metric-item">
+              <Zap size={14} className="text-indigo-600" />{' '}
+              <span>OpenAI Compatible API</span>
+            </div>
+            <div className="trust-metric-item">
+              <ShieldCheck size={14} className="text-emerald-500" />{' '}
+              <span>DPDP Ready</span>
+            </div>
+            <div className="trust-metric-item">
+              <Lock size={14} className="text-indigo-600" />{' '}
+              <span>AES-256 Encryption</span>
+            </div>
+            <div className="trust-metric-item">
+              <Activity size={14} className="text-indigo-600" />{' '}
+              <span>24×7 Enterprise Support</span>
+            </div>
           </div>
         </section>
 
@@ -1199,7 +1979,9 @@ export default function LandingPage() {
             <div className="footer-brand-col">
               <span className="footer-logo">⚡ Harikson AI</span>
               <p className="footer-desc mt-2">
-                India's sovereign enterprise AI infrastructure platform. Enforcing local data ownership, localized network latency, and strict DPDP Act compliance for critical infrastructure.
+                India's sovereign enterprise AI infrastructure platform.
+                Enforcing local data ownership, localized network latency, and
+                strict DPDP Act compliance for critical infrastructure.
               </p>
               <div className="brand-badges-grid mt-4">
                 <span className="brand-badge-pill">🇮🇳 Made in India</span>
@@ -1213,8 +1995,16 @@ export default function LandingPage() {
 
             {/* Column 2: Platform */}
             <div className="footer-link-col">
-              <span className="col-title" onClick={() => toggleFooterAccordion(0)}>Platform <ChevronDown size={14} className="mobile-only-chevron" /></span>
-              <div className={`col-links ${activeFooterAccordion === 0 ? 'mobile-open' : ''}`}>
+              <span
+                className="col-title"
+                onClick={() => toggleFooterAccordion(0)}
+              >
+                Platform{' '}
+                <ChevronDown size={14} className="mobile-only-chevron" />
+              </span>
+              <div
+                className={`col-links ${activeFooterAccordion === 0 ? 'mobile-open' : ''}`}
+              >
                 <a href="#scale">AI Gateway</a>
                 <a href="#how-it-works">Private LLM</a>
                 <a href="#how-it-works">AI Agents</a>
@@ -1232,8 +2022,16 @@ export default function LandingPage() {
 
             {/* Column 3: Solutions */}
             <div className="footer-link-col">
-              <span className="col-title" onClick={() => toggleFooterAccordion(1)}>Solutions <ChevronDown size={14} className="mobile-only-chevron" /></span>
-              <div className={`col-links ${activeFooterAccordion === 1 ? 'mobile-open' : ''}`}>
+              <span
+                className="col-title"
+                onClick={() => toggleFooterAccordion(1)}
+              >
+                Solutions{' '}
+                <ChevronDown size={14} className="mobile-only-chevron" />
+              </span>
+              <div
+                className={`col-links ${activeFooterAccordion === 1 ? 'mobile-open' : ''}`}
+              >
                 <a href="#scale">Government</a>
                 <a href="#scale">Banking</a>
                 <a href="#scale">Healthcare</a>
@@ -1250,8 +2048,16 @@ export default function LandingPage() {
 
             {/* Column 4: Developers */}
             <div className="footer-link-col">
-              <span className="col-title" onClick={() => toggleFooterAccordion(2)}>Developers <ChevronDown size={14} className="mobile-only-chevron" /></span>
-              <div className={`col-links ${activeFooterAccordion === 2 ? 'mobile-open' : ''}`}>
+              <span
+                className="col-title"
+                onClick={() => toggleFooterAccordion(2)}
+              >
+                Developers{' '}
+                <ChevronDown size={14} className="mobile-only-chevron" />
+              </span>
+              <div
+                className={`col-links ${activeFooterAccordion === 2 ? 'mobile-open' : ''}`}
+              >
                 <a href="#developer">Documentation</a>
                 <a href="#developer">Quick Start</a>
                 <a href="#developer">API Reference</a>
@@ -1264,7 +2070,13 @@ export default function LandingPage() {
                 <a href="#developer">Terraform</a>
                 <a href="#developer">Docker</a>
                 <a href="#developer">Kubernetes</a>
-                <a href="https://github.com" target="_blank" rel="noopener noreferrer">GitHub</a>
+                <a
+                  href="https://github.com"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  GitHub
+                </a>
                 <a href="#developer">Postman Collection</a>
                 <a href="#developer">Release Notes</a>
                 <a href="#developer">Status Page</a>
@@ -1273,8 +2085,16 @@ export default function LandingPage() {
 
             {/* Column 5: Security & Compliance */}
             <div className="footer-link-col">
-              <span className="col-title" onClick={() => toggleFooterAccordion(3)}>Security & Compliance <ChevronDown size={14} className="mobile-only-chevron" /></span>
-              <div className={`col-links ${activeFooterAccordion === 3 ? 'mobile-open' : ''}`}>
+              <span
+                className="col-title"
+                onClick={() => toggleFooterAccordion(3)}
+              >
+                Security & Compliance{' '}
+                <ChevronDown size={14} className="mobile-only-chevron" />
+              </span>
+              <div
+                className={`col-links ${activeFooterAccordion === 3 ? 'mobile-open' : ''}`}
+              >
                 <a href="#security">Security Overview</a>
                 <a href="#security">Trust Center</a>
                 <a href="#security">DPDP Compliance</a>
@@ -1293,8 +2113,16 @@ export default function LandingPage() {
 
             {/* Column 6: Company */}
             <div className="footer-link-col">
-              <span className="col-title" onClick={() => toggleFooterAccordion(4)}>Company <ChevronDown size={14} className="mobile-only-chevron" /></span>
-              <div className={`col-links ${activeFooterAccordion === 4 ? 'mobile-open' : ''}`}>
+              <span
+                className="col-title"
+                onClick={() => toggleFooterAccordion(4)}
+              >
+                Company{' '}
+                <ChevronDown size={14} className="mobile-only-chevron" />
+              </span>
+              <div
+                className={`col-links ${activeFooterAccordion === 4 ? 'mobile-open' : ''}`}
+              >
                 <a href="#founders-contact">About</a>
                 <a href="#scale">Customers</a>
                 <a href="#stories">Case Studies</a>
@@ -1316,23 +2144,56 @@ export default function LandingPage() {
             {/* Contact Card */}
             <div className="enterprise-contact-card">
               <h4>🏢 Harikson Enterprise Support</h4>
-              <p className="address mt-2">Level 5, Block B, Outer Ring Road, Tech Park, Bangalore, KA, India</p>
+              <p className="address mt-2">
+                Level 5, Block B, Outer Ring Road, Tech Park, Bangalore, KA,
+                India
+              </p>
               <div className="contact-details mt-4">
-                <div><span>Sales Email:</span> <a href="mailto:sales@harikson.ai">sales@harikson.ai</a></div>
-                <div><span>Support Email:</span> <a href="mailto:support@harikson.ai">support@harikson.ai</a></div>
-                <div><span>Phone:</span> <a href="tel:18003098890">1800-309-8890 (Toll-Free)</a></div>
-                <div><span>Avg SLA Response:</span> <span className="highlight-text">&lt; 2 Hours</span></div>
-                <div><span>Business Hours:</span> 24x7 Enterprise NOC Operations</div>
+                <div>
+                  <span>Sales Email:</span>{' '}
+                  <a href="mailto:sales@harikson.ai">sales@harikson.ai</a>
+                </div>
+                <div>
+                  <span>Support Email:</span>{' '}
+                  <a href="mailto:support@harikson.ai">support@harikson.ai</a>
+                </div>
+                <div>
+                  <span>Phone:</span>{' '}
+                  <a href="tel:18003098890">1800-309-8890 (Toll-Free)</a>
+                </div>
+                <div>
+                  <span>Avg SLA Response:</span>{' '}
+                  <span className="highlight-text">&lt; 2 Hours</span>
+                </div>
+                <div>
+                  <span>Business Hours:</span> 24x7 Enterprise NOC Operations
+                </div>
               </div>
             </div>
 
             {/* Newsletter */}
             <div className="newsletter-card">
               <h4>Stay Updated</h4>
-              <p className="subtitle mt-2">Receive product updates, release notes, security advisories, and enterprise AI insights.</p>
-              <form className="newsletter-form mt-4" onSubmit={(e) => { e.preventDefault(); alert('Subscribed corporate email successfully.'); }}>
-                <input type="email" placeholder="Enter corporate email address..." required className="newsletter-input" />
-                <button type="submit" className="newsletter-btn">Subscribe</button>
+              <p className="subtitle mt-2">
+                Receive product updates, release notes, security advisories, and
+                enterprise AI insights.
+              </p>
+              <form
+                className="newsletter-form mt-4"
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  alert('Subscribed corporate email successfully.');
+                }}
+              >
+                <input
+                  type="email"
+                  placeholder="Enter corporate email address..."
+                  required
+                  className="newsletter-input"
+                />
+                <button type="submit" className="newsletter-btn">
+                  Subscribe
+                </button>
               </form>
             </div>
           </div>
@@ -1344,15 +2205,49 @@ export default function LandingPage() {
               <div className="footer-bottom-left">
                 <div className="technical-status-pill">
                   <span className="status-dot pulsing" />
-                  <span className="status-text">All Systems Operational (99.99% Uptime)</span>
-                  <a href="#developer" className="status-link">Status Page</a>
+                  <span className="status-text">
+                    All Systems Operational (99.99% Uptime)
+                  </span>
+                  <a href="#developer" className="status-link">
+                    Status Page
+                  </a>
                 </div>
                 <div className="social-links-row mt-4">
-                  <a href="https://linkedin.com" target="_blank" rel="noopener noreferrer">LinkedIn</a>
-                  <a href="https://github.com" target="_blank" rel="noopener noreferrer">GitHub</a>
-                  <a href="https://x.com" target="_blank" rel="noopener noreferrer">X</a>
-                  <a href="https://youtube.com" target="_blank" rel="noopener noreferrer">YouTube</a>
-                  <a href="https://discord.com" target="_blank" rel="noopener noreferrer">Discord</a>
+                  <a
+                    href="https://linkedin.com"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    LinkedIn
+                  </a>
+                  <a
+                    href="https://github.com"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    GitHub
+                  </a>
+                  <a
+                    href="https://x.com"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    X
+                  </a>
+                  <a
+                    href="https://youtube.com"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    YouTube
+                  </a>
+                  <a
+                    href="https://discord.com"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    Discord
+                  </a>
                 </div>
               </div>
 
@@ -1371,27 +2266,36 @@ export default function LandingPage() {
             </div>
 
             <div className="footer-copyright-row mt-8 border-t border-gray-200/50 pt-6">
-              <div>© 2026 Harikson AI Technologies Pvt. Ltd. All Rights Reserved.</div>
-              <div className="origin-statement">Built with ❤️ in India. Made in India. Built for the World.</div>
+              <div>
+                © 2026 Harikson AI Technologies Pvt. Ltd. All Rights Reserved.
+              </div>
+              <div className="origin-statement">
+                Built with ❤️ in India. Made in India. Built for the World.
+              </div>
             </div>
           </div>
         </footer>
-
       </div>
 
       <style jsx global>{`
         /* ─── GLOBAL DESIGN SYSTEM STYLES (LIGHT MODE) ─── */
         body {
-          background-color: #FFFFFF;
-          color: #0F172A;
-          font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+          background-color: #ffffff;
+          color: #0f172a;
+          font-family:
+            'Inter',
+            -apple-system,
+            BlinkMacSystemFont,
+            'Segoe UI',
+            Roboto,
+            sans-serif;
           margin: 0;
           padding: 0;
           overflow-x: hidden;
         }
 
         .landing-container {
-          background-color: #FFFFFF;
+          background-color: #ffffff;
           min-height: 100vh;
         }
 
@@ -1466,16 +2370,32 @@ export default function LandingPage() {
           right: 0;
           height: 100vh;
           z-index: 1;
-          background: radial-gradient(circle at 20% 20%, rgba(79, 70, 229, 0.04) 0%, transparent 50%),
-                      radial-gradient(circle at 80% 50%, rgba(139, 92, 246, 0.02) 0%, transparent 60%);
+          background:
+            radial-gradient(
+              circle at 20% 20%,
+              rgba(79, 70, 229, 0.04) 0%,
+              transparent 50%
+            ),
+            radial-gradient(
+              circle at 80% 50%,
+              rgba(139, 92, 246, 0.02) 0%,
+              transparent 60%
+            );
           pointer-events: none;
           opacity: 0.85;
-          animation: morphMesh ${reducedMotion ? '0s' : '20s'} ease-in-out infinite alternate;
+          animation: morphMesh ${reducedMotion ? '0s' : '20s'} ease-in-out
+            infinite alternate;
         }
         @keyframes morphMesh {
-          0% { transform: scale(1) translate(0, 0); }
-          50% { transform: scale(1.03) translate(1%, 2%); }
-          100% { transform: scale(1) translate(-1%, -2%); }
+          0% {
+            transform: scale(1) translate(0, 0);
+          }
+          50% {
+            transform: scale(1.03) translate(1%, 2%);
+          }
+          100% {
+            transform: scale(1) translate(-1%, -2%);
+          }
         }
 
         /* Particle drift backdrop */
@@ -1498,9 +2418,17 @@ export default function LandingPage() {
           animation: floatParticle 20s linear infinite;
         }
         @keyframes floatParticle {
-          0% { transform: translateY(0) translateX(0); opacity: 0.1; }
-          50% { opacity: 0.5; }
-          100% { transform: translateY(-120px) translateX(40px); opacity: 0; }
+          0% {
+            transform: translateY(0) translateX(0);
+            opacity: 0.1;
+          }
+          50% {
+            opacity: 0.5;
+          }
+          100% {
+            transform: translateY(-120px) translateX(40px);
+            opacity: 0;
+          }
         }
 
         /* Subtle grid pattern overlay (Sleek Dotted Matrix) */
@@ -1514,7 +2442,11 @@ export default function LandingPage() {
           opacity: 0.45;
           pointer-events: none;
           background-size: 24px 24px;
-          background-image: radial-gradient(circle, #cbd5e1 1px, transparent 1px);
+          background-image: radial-gradient(
+            circle,
+            #cbd5e1 1px,
+            transparent 1px
+          );
         }
 
         /* Hero Layout */
@@ -1554,7 +2486,7 @@ export default function LandingPage() {
           color: #475569;
           padding: 6px 14px;
           border-radius: 9999px;
-          box-shadow: 0 1px 2px rgba(0,0,0,0.03);
+          box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
         }
 
         .hero-title {
@@ -1562,7 +2494,7 @@ export default function LandingPage() {
           font-weight: 800;
           line-height: 1.15;
           letter-spacing: -0.03em;
-          color: #0F172A;
+          color: #0f172a;
           margin-bottom: 20px;
         }
         .gradient-text {
@@ -1591,7 +2523,9 @@ export default function LandingPage() {
           border-radius: 8px;
           text-decoration: none;
           box-shadow: 0 4px 14px rgba(79, 70, 229, 0.25);
-          transition: transform 0.2s ease, box-shadow 0.2s ease;
+          transition:
+            transform 0.2s ease,
+            box-shadow 0.2s ease;
         }
         .btn-hero-primary:hover {
           transform: translateY(-1px);
@@ -1631,11 +2565,16 @@ export default function LandingPage() {
           box-shadow: 0 25px 50px rgba(0, 0, 0, 0.18);
           transform: rotateY(-6deg) rotateX(5deg);
           transition: transform 0.5s ease;
-          animation: floatMockup ${reducedMotion ? '0s' : '6s'} ease-in-out infinite alternate;
+          animation: floatMockup ${reducedMotion ? '0s' : '6s'} ease-in-out
+            infinite alternate;
         }
         @keyframes floatMockup {
-          0% { transform: rotateY(-6deg) rotateX(5deg) translateY(0); }
-          100% { transform: rotateY(-6deg) rotateX(5deg) translateY(-8px); }
+          0% {
+            transform: rotateY(-6deg) rotateX(5deg) translateY(0);
+          }
+          100% {
+            transform: rotateY(-6deg) rotateX(5deg) translateY(-8px);
+          }
         }
 
         .browser-title-bar {
@@ -1651,9 +2590,15 @@ export default function LandingPage() {
           height: 8px;
           border-radius: 50%;
         }
-        .mock-dot.red { background: #ef4444; }
-        .mock-dot.yellow { background: #f59e0b; }
-        .mock-dot.green { background: #10b981; }
+        .mock-dot.red {
+          background: #ef4444;
+        }
+        .mock-dot.yellow {
+          background: #f59e0b;
+        }
+        .mock-dot.green {
+          background: #10b981;
+        }
         .browser-url {
           font-size: 11px;
           color: #64748b;
@@ -1726,7 +2671,7 @@ export default function LandingPage() {
           gap: 12px;
           font-size: 11px;
           flex: 1;
-          overflow-y:auto;
+          overflow-y: auto;
         }
         .msg {
           padding: 8px 12px;
@@ -1791,7 +2736,9 @@ export default function LandingPage() {
           animation: blink 1s step-end infinite;
         }
         @keyframes blink {
-          50% { opacity: 0; }
+          50% {
+            opacity: 0;
+          }
         }
 
         /* Floating Badges */
@@ -1806,15 +2753,32 @@ export default function LandingPage() {
           color: #0f172a;
           z-index: 15;
           box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
-          animation: floatBadge ${reducedMotion ? '0s' : '4s'} ease-in-out infinite alternate;
+          animation: floatBadge ${reducedMotion ? '0s' : '4s'} ease-in-out
+            infinite alternate;
         }
         @keyframes floatBadge {
-          0% { transform: translateY(0); }
-          100% { transform: translateY(-5px); }
+          0% {
+            transform: translateY(0);
+          }
+          100% {
+            transform: translateY(-5px);
+          }
         }
-        .badge-dpdp { top: -20px; right: 20px; animation-delay: 0.5s; }
-        .badge-price { bottom: 40px; right: -20px; animation-delay: 1s; }
-        .badge-region { top: 60px; left: -40px; animation-delay: 1.5s; }
+        .badge-dpdp {
+          top: -20px;
+          right: 20px;
+          animation-delay: 0.5s;
+        }
+        .badge-price {
+          bottom: 40px;
+          right: -20px;
+          animation-delay: 1s;
+        }
+        .badge-region {
+          top: 60px;
+          left: -40px;
+          animation-delay: 1.5s;
+        }
 
         /* Infinite Scrolling Logos */
         .infinite-logo-wrap {
@@ -1838,8 +2802,12 @@ export default function LandingPage() {
           width: max-content;
         }
         @keyframes scrollLogas {
-          0% { transform: translate3d(0, 0, 0); }
-          100% { transform: translate3d(-50%, 0, 0); }
+          0% {
+            transform: translate3d(0, 0, 0);
+          }
+          100% {
+            transform: translate3d(-50%, 0, 0);
+          }
         }
         .logo-track span {
           font-weight: 800;
@@ -1855,7 +2823,7 @@ export default function LandingPage() {
 
         /* ─── ENTERPRISE TRUST SECTION ─── */
         .section-scale {
-          background-color: #F8FAFC;
+          background-color: #f8fafc;
           border-bottom: 1px solid #e2e8f0;
         }
         .title-scale {
@@ -1863,7 +2831,7 @@ export default function LandingPage() {
           font-weight: 700;
           letter-spacing: -0.02em;
           margin-bottom: 12px;
-          color: #0F172A;
+          color: #0f172a;
         }
         .text-center {
           text-align: center;
@@ -1934,9 +2902,18 @@ export default function LandingPage() {
           animation: pulseGreenAnim 2s infinite;
         }
         @keyframes pulseGreenAnim {
-          0% { transform: scale(1); opacity: 1; }
-          50% { transform: scale(1.6); opacity: 0.4; }
-          100% { transform: scale(1); opacity: 1; }
+          0% {
+            transform: scale(1);
+            opacity: 1;
+          }
+          50% {
+            transform: scale(1.6);
+            opacity: 0.4;
+          }
+          100% {
+            transform: scale(1);
+            opacity: 1;
+          }
         }
 
         .customer-logos-row {
@@ -1953,7 +2930,9 @@ export default function LandingPage() {
           text-transform: uppercase;
           cursor: help;
           position: relative;
-          transition: color 0.15s ease, transform 0.15s ease;
+          transition:
+            color 0.15s ease,
+            transform 0.15s ease;
         }
         .logo-item:hover {
           color: #4f46e5;
@@ -1975,7 +2954,7 @@ export default function LandingPage() {
           opacity: 0;
           pointer-events: none;
           transition: opacity 0.15s ease;
-          box-shadow: 0 10px 20px rgba(0,0,0,0.15);
+          box-shadow: 0 10px 20px rgba(0, 0, 0, 0.15);
         }
         .logo-item:hover[data-tooltip]::after {
           opacity: 1;
@@ -2015,8 +2994,14 @@ export default function LandingPage() {
           animation: dotPulse 2s infinite;
         }
         @keyframes dotPulse {
-          0% { transform: scale(1); opacity: 0.4; }
-          100% { transform: scale(2.2); opacity: 0; }
+          0% {
+            transform: scale(1);
+            opacity: 0.4;
+          }
+          100% {
+            transform: scale(2.2);
+            opacity: 0;
+          }
         }
         .map-popover {
           position: absolute;
@@ -2027,7 +3012,7 @@ export default function LandingPage() {
           font-size: 11px;
           color: #0f172a;
           text-align: left;
-          box-shadow: 0 10px 25px rgba(0,0,0,0.15);
+          box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
           z-index: 20;
           width: 140px;
           top: 10px;
@@ -2083,15 +3068,15 @@ export default function LandingPage() {
 
         /* ─── ARCHITECTURE SECTION ─── */
         .section-howitworks {
-          background-color: #FFFFFF;
+          background-color: #ffffff;
           border-bottom: 1px solid #e2e8f0;
-          color: #0F172A;
+          color: #0f172a;
         }
         .section-heading {
           font-size: 36px;
           font-weight: 700;
           letter-spacing: -0.02em;
-          color: #0F172A;
+          color: #0f172a;
           margin-bottom: 12px;
         }
         .arch-flow-grid {
@@ -2143,7 +3128,7 @@ export default function LandingPage() {
 
         /* ─── FEATURES SECTION (REDESIGNED) ─── */
         .section-features {
-          background-color: #F8FAFC;
+          background-color: #f8fafc;
           border-bottom: 1px solid #e2e8f0;
         }
         .features-grid-custom {
@@ -2159,22 +3144,55 @@ export default function LandingPage() {
           text-align: left;
           display: flex;
           flex-direction: column;
-          box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.02), 0 2px 4px -1px rgba(0, 0, 0, 0.01);
-          transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1),
-                      border-color 0.25s cubic-bezier(0.4, 0, 0.2, 1),
-                      box-shadow 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+          box-shadow:
+            0 4px 6px -1px rgba(0, 0, 0, 0.02),
+            0 2px 4px -1px rgba(0, 0, 0, 0.01);
+          transition:
+            transform 0.25s cubic-bezier(0.4, 0, 0.2, 1),
+            border-color 0.25s cubic-bezier(0.4, 0, 0.2, 1),
+            box-shadow 0.25s cubic-bezier(0.4, 0, 0.2, 1);
         }
         .feat-card:hover {
           transform: translateY(-5px);
         }
-        
+
         /* Colored Borders on hover */
-        .feat-card.border-glow-indigo:hover { border-color: #4f46e5; box-shadow: 0 20px 25px -5px rgba(79, 70, 229, 0.1), 0 10px 10px -5px rgba(79, 70, 229, 0.04); }
-        .feat-card.border-glow-emerald:hover { border-color: #10b981; box-shadow: 0 20px 25px -5px rgba(16, 185, 129, 0.1), 0 10px 10px -5px rgba(16, 185, 129, 0.04); }
-        .feat-card.border-glow-amber:hover { border-color: #d97706; box-shadow: 0 20px 25px -5px rgba(217, 119, 6, 0.1), 0 10px 10px -5px rgba(217, 119, 6, 0.04); }
-        .feat-card.border-glow-pink:hover { border-color: #db2777; box-shadow: 0 20px 25px -5px rgba(219, 39, 119, 0.1), 0 10px 10px -5px rgba(219, 39, 119, 0.04); }
-        .feat-card.border-glow-purple:hover { border-color: #7c3aed; box-shadow: 0 20px 25px -5px rgba(124, 58, 237, 0.1), 0 10px 10px -5px rgba(124, 58, 237, 0.04); }
-        .feat-card.border-glow-cyan:hover { border-color: #0891b2; box-shadow: 0 20px 25px -5px rgba(8, 145, 178, 0.15), 0 10px 10px -5px rgba(8, 145, 178, 0.04); }
+        .feat-card.border-glow-indigo:hover {
+          border-color: #4f46e5;
+          box-shadow:
+            0 20px 25px -5px rgba(79, 70, 229, 0.1),
+            0 10px 10px -5px rgba(79, 70, 229, 0.04);
+        }
+        .feat-card.border-glow-emerald:hover {
+          border-color: #10b981;
+          box-shadow:
+            0 20px 25px -5px rgba(16, 185, 129, 0.1),
+            0 10px 10px -5px rgba(16, 185, 129, 0.04);
+        }
+        .feat-card.border-glow-amber:hover {
+          border-color: #d97706;
+          box-shadow:
+            0 20px 25px -5px rgba(217, 119, 6, 0.1),
+            0 10px 10px -5px rgba(217, 119, 6, 0.04);
+        }
+        .feat-card.border-glow-pink:hover {
+          border-color: #db2777;
+          box-shadow:
+            0 20px 25px -5px rgba(219, 39, 119, 0.1),
+            0 10px 10px -5px rgba(219, 39, 119, 0.04);
+        }
+        .feat-card.border-glow-purple:hover {
+          border-color: #7c3aed;
+          box-shadow:
+            0 20px 25px -5px rgba(124, 58, 237, 0.1),
+            0 10px 10px -5px rgba(124, 58, 237, 0.04);
+        }
+        .feat-card.border-glow-cyan:hover {
+          border-color: #0891b2;
+          box-shadow:
+            0 20px 25px -5px rgba(8, 145, 178, 0.15),
+            0 10px 10px -5px rgba(8, 145, 178, 0.04);
+        }
 
         .feat-header-row {
           display: flex;
@@ -2195,7 +3213,7 @@ export default function LandingPage() {
         .feat-card:hover .feat-icon-wrap {
           transform: rotate(8deg) scale(1.05);
         }
-        
+
         .feat-card h4 {
           font-size: 17px;
           font-weight: 700;
@@ -2220,8 +3238,12 @@ export default function LandingPage() {
           color: #94a3b8;
           margin-bottom: 24px;
         }
-        .mini-editor-box .keyword { color: #f43f5e; }
-        .mini-editor-box .string { color: #10b981; }
+        .mini-editor-box .keyword {
+          color: #f43f5e;
+        }
+        .mini-editor-box .string {
+          color: #10b981;
+        }
 
         /* Stylized tag arrays */
         .mini-tag-row {
@@ -2241,10 +3263,26 @@ export default function LandingPage() {
           border-radius: 9999px;
         }
         /* Color themes for badges */
-        .mini-badge-pill.amber { background: rgba(245, 158, 11, 0.06); border-color: rgba(245, 158, 11, 0.15); color: #b45309; }
-        .mini-badge-pill.pink { background: rgba(236, 72, 153, 0.06); border-color: rgba(236, 72, 153, 0.15); color: #be185d; }
-        .mini-badge-pill.purple { background: rgba(139, 92, 246, 0.06); border-color: rgba(139, 92, 246, 0.15); color: #6d28d9; }
-        .mini-badge-pill.cyan { background: rgba(6, 182, 212, 0.06); border-color: rgba(6, 182, 212, 0.15); color: #0891b2; }
+        .mini-badge-pill.amber {
+          background: rgba(245, 158, 11, 0.06);
+          border-color: rgba(245, 158, 11, 0.15);
+          color: #b45309;
+        }
+        .mini-badge-pill.pink {
+          background: rgba(236, 72, 153, 0.06);
+          border-color: rgba(236, 72, 153, 0.15);
+          color: #be185d;
+        }
+        .mini-badge-pill.purple {
+          background: rgba(139, 92, 246, 0.06);
+          border-color: rgba(139, 92, 246, 0.15);
+          color: #6d28d9;
+        }
+        .mini-badge-pill.cyan {
+          background: rgba(6, 182, 212, 0.06);
+          border-color: rgba(6, 182, 212, 0.15);
+          color: #0891b2;
+        }
 
         .feat-link {
           font-size: 13px;
@@ -2263,11 +3301,9 @@ export default function LandingPage() {
           transform: translateX(4px);
         }
 
-
-
         /* ─── BENCHMARKS SECTION ─── */
         .section-benchmarks {
-          background-color: #FFFFFF;
+          background-color: #ffffff;
           border-bottom: 1px solid #e2e8f0;
           position: relative;
           overflow: hidden;
@@ -2276,7 +3312,11 @@ export default function LandingPage() {
           position: absolute;
           width: 500px;
           height: 500px;
-          background: radial-gradient(circle, rgba(99, 102, 241, 0.05) 0%, rgba(255, 255, 255, 0) 70%);
+          background: radial-gradient(
+            circle,
+            rgba(99, 102, 241, 0.05) 0%,
+            rgba(255, 255, 255, 0) 70%
+          );
           top: 10%;
           left: 5%;
           pointer-events: none;
@@ -2295,7 +3335,7 @@ export default function LandingPage() {
           padding: 6px;
           border-radius: 9999px;
           border: 1px solid #e2e8f0;
-          box-shadow: inset 0 2px 4px 0 rgba(0,0,0,0.02);
+          box-shadow: inset 0 2px 4px 0 rgba(0, 0, 0, 0.02);
         }
         .benchmark-tabs .toggle-btn {
           background: transparent;
@@ -2317,7 +3357,9 @@ export default function LandingPage() {
         .benchmark-tabs .toggle-btn.active {
           background: #ffffff;
           color: #4f46e5;
-          box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.08), 0 2px 4px -1px rgba(0, 0, 0, 0.04);
+          box-shadow:
+            0 4px 6px -1px rgba(0, 0, 0, 0.08),
+            0 2px 4px -1px rgba(0, 0, 0, 0.04);
         }
         .benchmark-tabs .toggle-btn .btn-icon {
           font-size: 14px;
@@ -2333,7 +3375,9 @@ export default function LandingPage() {
           border: 1px solid #e2e8f0;
           border-radius: 24px;
           padding: 32px;
-          box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.02), 0 10px 15px -3px rgba(0, 0, 0, 0.03);
+          box-shadow:
+            0 4px 6px -1px rgba(0, 0, 0, 0.02),
+            0 10px 15px -3px rgba(0, 0, 0, 0.03);
         }
         .chart-card.no-padding {
           padding: 0;
@@ -2403,7 +3447,12 @@ export default function LandingPage() {
           transition: width 1s cubic-bezier(0.4, 0, 0.2, 1);
         }
         .bar-fill.gradient-fill {
-          background: linear-gradient(90deg, #4f46e5 0%, #6366f1 50%, #818cf8 100%);
+          background: linear-gradient(
+            90deg,
+            #4f46e5 0%,
+            #6366f1 50%,
+            #818cf8 100%
+          );
           position: relative;
         }
         .bar-fill.standard-fill {
@@ -2424,8 +3473,12 @@ export default function LandingPage() {
           animation: shimmer 2s infinite;
         }
         @keyframes shimmer {
-          0% { transform: translateX(-100%); }
-          100% { transform: translateX(100%); }
+          0% {
+            transform: translateX(-100%);
+          }
+          100% {
+            transform: translateX(100%);
+          }
         }
         .bar-val {
           font-size: 13.5px;
@@ -2544,7 +3597,9 @@ export default function LandingPage() {
           padding: 32px;
           text-align: left;
           box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.02);
-          transition: transform 0.2s ease, border-color 0.2s ease;
+          transition:
+            transform 0.2s ease,
+            border-color 0.2s ease;
         }
         .throughput-card:hover {
           transform: translateY(-2px);
@@ -2576,7 +3631,7 @@ export default function LandingPage() {
 
         /* ─── STORIES SECTION ─── */
         .section-stories {
-          background-color: #F8FAFC;
+          background-color: #f8fafc;
           border-bottom: 1px solid #e2e8f0;
         }
         .stories-list-wrapper {
@@ -2590,14 +3645,21 @@ export default function LandingPage() {
           border: 1px solid #e2e8f0;
           border-radius: 20px;
           padding: 40px;
-          box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.02), 0 2px 4px -1px rgba(0, 0, 0, 0.01);
-          transition: transform 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease;
+          box-shadow:
+            0 4px 6px -1px rgba(0, 0, 0, 0.02),
+            0 2px 4px -1px rgba(0, 0, 0, 0.01);
+          transition:
+            transform 0.25s ease,
+            border-color 0.25s ease,
+            box-shadow 0.25s ease;
           text-align: left;
         }
         .story-card-wrapper:hover {
           transform: translateY(-4px);
           border-color: #cbd5e1;
-          box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.05), 0 10px 10px -5px rgba(0, 0, 0, 0.02);
+          box-shadow:
+            0 20px 25px -5px rgba(0, 0, 0, 0.05),
+            0 10px 10px -5px rgba(0, 0, 0, 0.02);
         }
         .story-card-content {
           display: grid;
@@ -2657,7 +3719,9 @@ export default function LandingPage() {
           flex-direction: column;
           justify-content: center;
           align-items: center;
-          transition: transform 0.2s ease, border-color 0.2s ease;
+          transition:
+            transform 0.2s ease,
+            border-color 0.2s ease;
         }
         .story-stat-card:hover {
           border-color: #cbd5e1;
@@ -2694,7 +3758,7 @@ export default function LandingPage() {
 
         /* ─── PRICING SECTION ─── */
         .section-pricing {
-          background-color: #FFFFFF;
+          background-color: #ffffff;
           border-bottom: 1px solid #e2e8f0;
         }
         .pricing-grid-custom {
@@ -2789,7 +3853,7 @@ export default function LandingPage() {
 
         /* ─── FAQ SECTION ─── */
         .section-faq {
-          background-color: #F8FAFC;
+          background-color: #f8fafc;
           border-bottom: 1px solid #e2e8f0;
         }
         .faq-wrapper {
@@ -2857,8 +3921,14 @@ export default function LandingPage() {
           animation: slideDownFaq 0.2s ease-out;
         }
         @keyframes slideDownFaq {
-          from { opacity: 0; transform: translateY(-4px); }
-          to { opacity: 1; transform: translateY(0); }
+          from {
+            opacity: 0;
+            transform: translateY(-4px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
         }
 
         /* ─── FOOTER ─── */
@@ -2903,7 +3973,9 @@ export default function LandingPage() {
           text-align: center;
           text-decoration: none;
           box-shadow: 0 4px 12px rgba(79, 70, 229, 0.2);
-          transition: transform 0.2s ease, opacity 0.2s ease;
+          transition:
+            transform 0.2s ease,
+            opacity 0.2s ease;
         }
         .btn-premium-primary:hover {
           transform: translateY(-1px);
@@ -2937,7 +4009,7 @@ export default function LandingPage() {
         .btn-premium-outline:hover {
           color: #0f172a;
           border-color: #94a3b8;
-          background: rgba(0,0,0,0.01);
+          background: rgba(0, 0, 0, 0.01);
         }
         .btn-premium-link {
           font-size: 13.5px;
@@ -3330,9 +4402,18 @@ export default function LandingPage() {
           }
         }
         @keyframes statusPulse {
-          0% { transform: scale(1); opacity: 1; }
-          50% { transform: scale(1.4); opacity: 0.4; }
-          100% { transform: scale(1); opacity: 1; }
+          0% {
+            transform: scale(1);
+            opacity: 1;
+          }
+          50% {
+            transform: scale(1.4);
+            opacity: 0.4;
+          }
+          100% {
+            transform: scale(1);
+            opacity: 1;
+          }
         }
       `}</style>
     </>

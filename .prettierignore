@@ -1,0 +1,12 @@
+node_modules/
+dist/
+.next/
+out/
+data/
+*.log
+artifacts/
+.tempmediaStorage/
+brain/
+k8s/
+**/*.yaml
+**/*.yml

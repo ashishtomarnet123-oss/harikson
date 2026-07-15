@@ -10,7 +10,7 @@ export default function WorkspaceSettings() {
 
   useEffect(() => {
     fetchWorkspace();
-    const token = (localStorage.getItem('hk_user') ? 'cookie_auth' : null);
+    const token = localStorage.getItem('hk_user') ? 'cookie_auth' : null;
     if (token) {
       try {
         const payload = JSON.parse(atob(token.split('.')[1]));
@@ -39,29 +39,30 @@ export default function WorkspaceSettings() {
     setAddingMember(true);
     setError(null);
     try {
-      const token = (localStorage.getItem('hk_user') ? 'cookie_auth' : null);
+      const token = localStorage.getItem('hk_user') ? 'cookie_auth' : null;
       if (!token) return;
-      const apiBase = localStorage.getItem('hk_api_base') || 'http://localhost:3008';
+      const apiBase =
+        localStorage.getItem('hk_api_base') || 'http://localhost:3008';
       const tenantSlug = localStorage.getItem('hk_tenant') || 'neuravolt';
       const res = await fetch(`${apiBase}/api/user/workspace/members`, {
-          credentials: 'include',
+        credentials: 'include',
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-                    'x-tenant-slug': tenantSlug
+          'x-tenant-slug': tenantSlug,
         },
         body: JSON.stringify({
           email: newEmail,
           name: newName,
           role: newRole,
-          password: newPassword
-        })
+          password: newPassword,
+        }),
       });
       const data = await res.json();
       if (res.ok) {
-        setWorkspace(prev => ({
+        setWorkspace((prev) => ({
           ...prev,
-          members: [data, ...prev.members]
+          members: [data, ...prev.members],
         }));
         setNewEmail('');
         setNewName('');
@@ -80,15 +81,16 @@ export default function WorkspaceSettings() {
 
   const fetchWorkspace = async () => {
     try {
-      const token = (localStorage.getItem('hk_user') ? 'cookie_auth' : null);
+      const token = localStorage.getItem('hk_user') ? 'cookie_auth' : null;
       if (!token) return;
-      const apiBase = localStorage.getItem('hk_api_base') || 'http://localhost:3008';
+      const apiBase =
+        localStorage.getItem('hk_api_base') || 'http://localhost:3008';
       const tenantSlug = localStorage.getItem('hk_tenant') || 'neuravolt';
       const res = await fetch(`${apiBase}/api/user/workspace`, {
-          credentials: 'include',
+        credentials: 'include',
         headers: {
-                    'x-tenant-slug': tenantSlug
-        }
+          'x-tenant-slug': tenantSlug,
+        },
       });
       if (res.ok) {
         const data = await res.json();
@@ -108,24 +110,30 @@ export default function WorkspaceSettings() {
     setUpdatingRole(true);
     setError(null);
     try {
-      const token = (localStorage.getItem('hk_user') ? 'cookie_auth' : null);
+      const token = localStorage.getItem('hk_user') ? 'cookie_auth' : null;
       if (!token) return;
-      const apiBase = localStorage.getItem('hk_api_base') || 'http://localhost:3008';
+      const apiBase =
+        localStorage.getItem('hk_api_base') || 'http://localhost:3008';
       const tenantSlug = localStorage.getItem('hk_tenant') || 'neuravolt';
-      const res = await fetch(`${apiBase}/api/user/workspace/members/${memberId}/role`, {
+      const res = await fetch(
+        `${apiBase}/api/user/workspace/members/${memberId}/role`,
+        {
           credentials: 'include',
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-                    'x-tenant-slug': tenantSlug
-        },
-        body: JSON.stringify({ role: newRole })
-      });
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-tenant-slug': tenantSlug,
+          },
+          body: JSON.stringify({ role: newRole }),
+        }
+      );
       const data = await res.json();
       if (res.ok) {
-        setWorkspace(prev => ({
+        setWorkspace((prev) => ({
           ...prev,
-          members: prev.members.map(m => m.id === memberId ? { ...m, role: newRole } : m)
+          members: prev.members.map((m) =>
+            m.id === memberId ? { ...m, role: newRole } : m
+          ),
         }));
         setEditingMemberId(null);
       } else {
@@ -139,28 +147,36 @@ export default function WorkspaceSettings() {
   };
 
   const handleDeleteMember = async (memberId, email) => {
-    if (!window.confirm(`Are you sure you want to remove ${email} from the workspace?`)) {
+    if (
+      !window.confirm(
+        `Are you sure you want to remove ${email} from the workspace?`
+      )
+    ) {
       return;
     }
     setUpdatingRole(true);
     setError(null);
     try {
-      const token = (localStorage.getItem('hk_user') ? 'cookie_auth' : null);
+      const token = localStorage.getItem('hk_user') ? 'cookie_auth' : null;
       if (!token) return;
-      const apiBase = localStorage.getItem('hk_api_base') || 'http://localhost:3008';
+      const apiBase =
+        localStorage.getItem('hk_api_base') || 'http://localhost:3008';
       const tenantSlug = localStorage.getItem('hk_tenant') || 'neuravolt';
-      const res = await fetch(`${apiBase}/api/user/workspace/members/${memberId}`, {
+      const res = await fetch(
+        `${apiBase}/api/user/workspace/members/${memberId}`,
+        {
           credentials: 'include',
-        method: 'DELETE',
-        headers: {
-                    'x-tenant-slug': tenantSlug
+          method: 'DELETE',
+          headers: {
+            'x-tenant-slug': tenantSlug,
+          },
         }
-      });
+      );
       const data = await res.json();
       if (res.ok) {
-        setWorkspace(prev => ({
+        setWorkspace((prev) => ({
           ...prev,
-          members: prev.members.filter(m => m.id !== memberId)
+          members: prev.members.filter((m) => m.id !== memberId),
         }));
       } else {
         throw new Error(data.error || 'Failed to remove member');
@@ -178,13 +194,17 @@ export default function WorkspaceSettings() {
     return 'settings-badge member';
   };
 
-  if (loading) return <div className="settings-loading">Loading workspace details...</div>;
+  if (loading)
+    return <div className="settings-loading">Loading workspace details...</div>;
 
   return (
     <>
       <div className="settings-page-header">
         <h1>Workspace</h1>
-        <p>Manage your Harikson instance, invite team members, and configure roles.</p>
+        <p>
+          Manage your Harikson instance, invite team members, and configure
+          roles.
+        </p>
       </div>
 
       {error && <div className="settings-alert error">{error}</div>}
@@ -194,42 +214,107 @@ export default function WorkspaceSettings() {
           <div className="settings-section">
             <h2>Instance Details</h2>
 
-            <div style={{ display: 'flex', alignItems: 'center', gap: '14px', marginBottom: '20px' }}>
-              <div style={{
-                width: '52px', height: '52px', flexShrink: 0,
-                background: 'var(--accent)', borderRadius: '10px',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                color: '#fff', fontSize: '22px', fontWeight: 'bold'
-              }}>
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '14px',
+                marginBottom: '20px',
+              }}
+            >
+              <div
+                style={{
+                  width: '52px',
+                  height: '52px',
+                  flexShrink: 0,
+                  background: 'var(--accent)',
+                  borderRadius: '10px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  color: '#fff',
+                  fontSize: '22px',
+                  fontWeight: 'bold',
+                }}
+              >
                 {workspace.name.charAt(0).toUpperCase()}
               </div>
               <div style={{ minWidth: 0 }}>
-                <div style={{ fontWeight: '600', fontSize: '15px', marginBottom: '2px' }}>{workspace.name}</div>
-                <div style={{ fontSize: '12px', color: 'var(--text-muted)', wordBreak: 'break-all' }}>Instance ID: {workspace.instanceId}</div>
+                <div
+                  style={{
+                    fontWeight: '600',
+                    fontSize: '15px',
+                    marginBottom: '2px',
+                  }}
+                >
+                  {workspace.name}
+                </div>
+                <div
+                  style={{
+                    fontSize: '12px',
+                    color: 'var(--text-muted)',
+                    wordBreak: 'break-all',
+                  }}
+                >
+                  Instance ID: {workspace.instanceId}
+                </div>
               </div>
             </div>
 
             <div className="settings-form">
               <div className="form-group">
                 <label>Workspace Name</label>
-                <input type="text" defaultValue={workspace.name} readOnly style={{ background: 'var(--bg-hover)', cursor: 'not-allowed' }} />
+                <input
+                  type="text"
+                  defaultValue={workspace.name}
+                  readOnly
+                  style={{
+                    background: 'var(--bg-hover)',
+                    cursor: 'not-allowed',
+                  }}
+                />
               </div>
 
               <div className="form-group">
                 <label>Workspace Slug URL</label>
-                <div className="settings-slug-row" style={{ display: 'flex', alignItems: 'center' }}>
-                  <span className="settings-slug-prefix" style={{ padding: '0 8px', color: 'var(--text-muted)' }}>harikson.ai/</span>
-                  <input type="text" defaultValue={workspace.slug} readOnly style={{ flex: 1, background: 'var(--bg-hover)', cursor: 'not-allowed' }} />
+                <div
+                  className="settings-slug-row"
+                  style={{ display: 'flex', alignItems: 'center' }}
+                >
+                  <span
+                    className="settings-slug-prefix"
+                    style={{ padding: '0 8px', color: 'var(--text-muted)' }}
+                  >
+                    harikson.ai/
+                  </span>
+                  <input
+                    type="text"
+                    defaultValue={workspace.slug}
+                    readOnly
+                    style={{
+                      flex: 1,
+                      background: 'var(--bg-hover)',
+                      cursor: 'not-allowed',
+                    }}
+                  />
                 </div>
               </div>
             </div>
           </div>
 
           <div className="settings-section">
-            <div className="settings-section-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
+            <div
+              className="settings-section-header"
+              style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                marginBottom: '15px',
+              }}
+            >
               <h2>Members &amp; Roles</h2>
               {!showAddForm && (
-                <button 
+                <button
                   onClick={() => setShowAddForm(true)}
                   style={{
                     background: 'var(--accent)',
@@ -239,7 +324,7 @@ export default function WorkspaceSettings() {
                     color: '#fff',
                     cursor: 'pointer',
                     fontSize: '13px',
-                    fontWeight: '500'
+                    fontWeight: '500',
                   }}
                 >
                   Add Member
@@ -248,24 +333,29 @@ export default function WorkspaceSettings() {
             </div>
 
             {showAddForm && (
-              <form onSubmit={handleAddMember} style={{
-                background: 'var(--bg-hover)',
-                border: '1px solid var(--border)',
-                borderRadius: '8px',
-                padding: '16px',
-                marginBottom: '16px',
-                display: 'flex',
-                flexDirection: 'column',
-                gap: '12px'
-              }}>
-                <div style={{ fontWeight: '600', fontSize: '14px' }}>Add New Member</div>
+              <form
+                onSubmit={handleAddMember}
+                style={{
+                  background: 'var(--bg-hover)',
+                  border: '1px solid var(--border)',
+                  borderRadius: '8px',
+                  padding: '16px',
+                  marginBottom: '16px',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '12px',
+                }}
+              >
+                <div style={{ fontWeight: '600', fontSize: '14px' }}>
+                  Add New Member
+                </div>
                 <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
-                  <input 
-                    type="text" 
-                    placeholder="Full Name" 
-                    value={newName} 
-                    onChange={e => setNewName(e.target.value)} 
-                    required 
+                  <input
+                    type="text"
+                    placeholder="Full Name"
+                    value={newName}
+                    onChange={(e) => setNewName(e.target.value)}
+                    required
                     style={{
                       flex: '1 1 200px',
                       background: 'var(--bg-card)',
@@ -273,15 +363,15 @@ export default function WorkspaceSettings() {
                       borderRadius: '6px',
                       padding: '8px 12px',
                       color: 'var(--text)',
-                      fontSize: '13.5px'
+                      fontSize: '13.5px',
                     }}
                   />
-                  <input 
-                    type="email" 
-                    placeholder="Email Address" 
-                    value={newEmail} 
-                    onChange={e => setNewEmail(e.target.value)} 
-                    required 
+                  <input
+                    type="email"
+                    placeholder="Email Address"
+                    value={newEmail}
+                    onChange={(e) => setNewEmail(e.target.value)}
+                    required
                     style={{
                       flex: '1 1 200px',
                       background: 'var(--bg-card)',
@@ -289,14 +379,14 @@ export default function WorkspaceSettings() {
                       borderRadius: '6px',
                       padding: '8px 12px',
                       color: 'var(--text)',
-                      fontSize: '13.5px'
+                      fontSize: '13.5px',
                     }}
                   />
                 </div>
                 <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
-                  <select 
-                    value={newRole} 
-                    onChange={e => setNewRole(e.target.value)}
+                  <select
+                    value={newRole}
+                    onChange={(e) => setNewRole(e.target.value)}
                     style={{
                       flex: '1 1 150px',
                       background: 'var(--bg-card)',
@@ -305,18 +395,18 @@ export default function WorkspaceSettings() {
                       padding: '8px 12px',
                       color: 'var(--text)',
                       fontSize: '13.5px',
-                      cursor: 'pointer'
+                      cursor: 'pointer',
                     }}
                   >
                     <option value="Member">Member</option>
                     <option value="Admin">Admin</option>
                     <option value="Owner">Owner</option>
                   </select>
-                  <input 
-                    type="password" 
-                    placeholder="Password (Default: Welcome123!)" 
-                    value={newPassword} 
-                    onChange={e => setNewPassword(e.target.value)} 
+                  <input
+                    type="password"
+                    placeholder="Password (Default: Welcome123!)"
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
                     style={{
                       flex: '1 1 200px',
                       background: 'var(--bg-card)',
@@ -324,13 +414,20 @@ export default function WorkspaceSettings() {
                       borderRadius: '6px',
                       padding: '8px 12px',
                       color: 'var(--text)',
-                      fontSize: '13.5px'
+                      fontSize: '13.5px',
                     }}
                   />
                 </div>
-                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '4px' }}>
-                  <button 
-                    type="button" 
+                <div
+                  style={{
+                    display: 'flex',
+                    justifyContent: 'flex-end',
+                    gap: '8px',
+                    marginTop: '4px',
+                  }}
+                >
+                  <button
+                    type="button"
                     onClick={() => setShowAddForm(false)}
                     style={{
                       background: 'none',
@@ -339,13 +436,13 @@ export default function WorkspaceSettings() {
                       padding: '6px 12px',
                       color: 'var(--text)',
                       cursor: 'pointer',
-                      fontSize: '13px'
+                      fontSize: '13px',
                     }}
                   >
                     Cancel
                   </button>
-                  <button 
-                    type="submit" 
+                  <button
+                    type="submit"
                     disabled={addingMember}
                     style={{
                       background: 'var(--accent)',
@@ -355,7 +452,7 @@ export default function WorkspaceSettings() {
                       color: '#fff',
                       cursor: addingMember ? 'not-allowed' : 'pointer',
                       fontSize: '13px',
-                      fontWeight: '500'
+                      fontWeight: '500',
                     }}
                   >
                     {addingMember ? 'Adding...' : 'Add Member'}
@@ -365,25 +462,70 @@ export default function WorkspaceSettings() {
             )}
 
             <div className="settings-flex-col">
-              {workspace.members.map(m => (
-                <div key={m.id} className="settings-member-row" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0', borderBottom: '1px solid var(--border)' }}>
-                  <div className="settings-member-info" style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                    <div className="settings-avatar" style={{
-                      width: '32px', height: '32px', borderRadius: '50%',
-                      background: 'var(--bg-hover)', display: 'flex',
-                      alignItems: 'center', justifyContent: 'center',
-                      fontWeight: 'bold', fontSize: '13px'
-                    }}>
+              {workspace.members.map((m) => (
+                <div
+                  key={m.id}
+                  className="settings-member-row"
+                  style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    padding: '8px 0',
+                    borderBottom: '1px solid var(--border)',
+                  }}
+                >
+                  <div
+                    className="settings-member-info"
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '10px',
+                    }}
+                  >
+                    <div
+                      className="settings-avatar"
+                      style={{
+                        width: '32px',
+                        height: '32px',
+                        borderRadius: '50%',
+                        background: 'var(--bg-hover)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        fontWeight: 'bold',
+                        fontSize: '13px',
+                      }}
+                    >
                       {m.avatar}
                     </div>
                     <div style={{ minWidth: 0 }}>
-                      <div className="settings-member-name" style={{ fontWeight: '500', fontSize: '13.5px' }}>{m.name}</div>
-                      <div className="settings-member-email" style={{ fontSize: '11.5px', color: 'var(--text-muted)' }}>{m.email}</div>
+                      <div
+                        className="settings-member-name"
+                        style={{ fontWeight: '500', fontSize: '13.5px' }}
+                      >
+                        {m.name}
+                      </div>
+                      <div
+                        className="settings-member-email"
+                        style={{
+                          fontSize: '11.5px',
+                          color: 'var(--text-muted)',
+                        }}
+                      >
+                        {m.email}
+                      </div>
                     </div>
                   </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexShrink: 0 }}>
+                  <div
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '10px',
+                      flexShrink: 0,
+                    }}
+                  >
                     {editingMemberId === m.id ? (
-                      <select 
+                      <select
                         defaultValue={m.role}
                         disabled={updatingRole}
                         onChange={(e) => handleRoleChange(m.id, e.target.value)}
@@ -396,7 +538,7 @@ export default function WorkspaceSettings() {
                           padding: '4px 8px',
                           fontSize: '13px',
                           outline: 'none',
-                          cursor: 'pointer'
+                          cursor: 'pointer',
                         }}
                         autoFocus
                       >
@@ -406,18 +548,34 @@ export default function WorkspaceSettings() {
                       </select>
                     ) : (
                       <>
-                        <span className={getRoleBadgeClass(m.role)}>{m.role}</span>
-                        <button 
+                        <span className={getRoleBadgeClass(m.role)}>
+                          {m.role}
+                        </span>
+                        <button
                           onClick={() => setEditingMemberId(m.id)}
-                          style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: '4px', display: 'flex' }}
+                          style={{
+                            background: 'none',
+                            border: 'none',
+                            cursor: 'pointer',
+                            color: 'var(--text-muted)',
+                            padding: '4px',
+                            display: 'flex',
+                          }}
                           title="Change Role"
                         >
                           <Settings size={15} />
                         </button>
                         {currentUserId !== m.id && (
-                          <button 
+                          <button
                             onClick={() => handleDeleteMember(m.id, m.email)}
-                            style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--accent-red, #ef4444)', padding: '4px', display: 'flex' }}
+                            style={{
+                              background: 'none',
+                              border: 'none',
+                              cursor: 'pointer',
+                              color: 'var(--accent-red, #ef4444)',
+                              padding: '4px',
+                              display: 'flex',
+                            }}
                             title="Remove Member"
                           >
                             <Trash2 size={15} />

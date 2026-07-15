@@ -104,8 +104,11 @@ if (startIndex !== -1 && endIndex !== -1) {
               </div>
             </form>
             <p className="input-hint">`;
-  
-  chatJs = chatJs.substring(0, startIndex) + newCode + chatJs.substring(endIndex + targetEnd.length);
+
+  chatJs =
+    chatJs.substring(0, startIndex) +
+    newCode +
+    chatJs.substring(endIndex + targetEnd.length);
 } else {
   console.error('Could not find start or end index for patch');
 }

@@ -6,7 +6,7 @@ let schema = fs.readFileSync(path, 'utf8');
 // Check if already modified
 if (!schema.includes('UserSettings')) {
   // Add fields to User
-  const relationAnchor = "  // Relations\n  instances     Instance[]";
+  const relationAnchor = '  // Relations\n  instances     Instance[]';
   const newFields = `  username      String?   @unique
   phone         String?
   jobTitle      String?

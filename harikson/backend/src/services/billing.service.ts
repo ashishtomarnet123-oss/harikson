@@ -1,16 +1,16 @@
-import { prisma } from "../config/database.js";
-import { DockerService } from "./docker.service.js";
-import Razorpay from "razorpay";
+import { prisma } from '../config/database.js';
+import { DockerService } from './docker.service.js';
+import Razorpay from 'razorpay';
 
 const PRICING: Record<string, { price: number; ram: string; cpu: number }> = {
-  STARTER: { price: 2499, ram: "512m", cpu: 0.5 },
-  PRO: { price: 4999, ram: "1024m", cpu: 1.0 },
-  BUSINESS: { price: 10999, ram: "2048m", cpu: 2.0 },
-  ENTERPRISE: { price: 0, ram: "4096m", cpu: 4.0 },
+  STARTER: { price: 2499, ram: '512m', cpu: 0.5 },
+  PRO: { price: 4999, ram: '1024m', cpu: 1.0 },
+  BUSINESS: { price: 10999, ram: '2048m', cpu: 2.0 },
+  ENTERPRISE: { price: 0, ram: '4096m', cpu: 4.0 },
 };
 
 export class BillingService {
-  private mode: string = "manual";
+  private mode: string = 'manual';
   private gateway: string | null = null;
 
   constructor() {
@@ -20,25 +20,25 @@ export class BillingService {
   async loadConfig() {
     try {
       const config = await prisma.systemSetting.findUnique({
-        where: { key: "billing_mode" },
+        where: { key: 'billing_mode' },
       });
       if (config && config.value && typeof config.value === 'object') {
         const val = config.value as any;
-        this.mode = val.mode || "manual";
+        this.mode = val.mode || 'manual';
         this.gateway = val.gateway || null;
       }
     } catch (e) {
-      console.warn("⚠️ Failed to load billing config from DB:", e);
+      console.warn('⚠️ Failed to load billing config from DB:', e);
     }
   }
 
   isAutoBilling(): boolean {
-    return this.mode !== "manual";
+    return this.mode !== 'manual';
   }
 
   async handleSignup(tenantData: any) {
     await this.loadConfig();
-    if (this.mode === "manual") {
+    if (this.mode === 'manual') {
       return this.createPendingTenant(tenantData);
     }
     return this.createTenantWithPayment(tenantData);
@@ -49,14 +49,14 @@ export class BillingService {
       data: {
         name: data.name,
         domain: `${data.name}.neuravolt.cloud`,
-        plan: data.plan || "STARTER",
-        agentType: data.agentType || "CHAT",
-        model: data.model || "qwen3-coder-8b",
-        billingMode: "manual",
-        approvalStatus: "pending",
-        requestedPlan: data.plan || "STARTER",
+        plan: data.plan || 'STARTER',
+        agentType: data.agentType || 'CHAT',
+        model: data.model || 'qwen3-coder-8b',
+        billingMode: 'manual',
+        approvalStatus: 'pending',
+        requestedPlan: data.plan || 'STARTER',
         requestedAt: new Date(),
-        status: "PENDING",
+        status: 'PENDING',
         email: data.email,
         phone: data.phone,
         whiteLabelSettings: data.whiteLabelSettings || {},
@@ -65,15 +65,15 @@ export class BillingService {
 
     // Notify admin
     await this.notifyAdmin({
-      type: "TENANT_APPROVAL_REQUEST",
+      type: 'TENANT_APPROVAL_REQUEST',
       tenantId: tenant.id,
       message: `New tenant "${tenant.name}" requests ${tenant.requestedPlan} plan`,
     });
 
     return {
       tenant,
-      message: "Request submitted. Admin will review shortly.",
-      nextStep: "WAIT_FOR_APPROVAL",
+      message: 'Request submitted. Admin will review shortly.',
+      nextStep: 'WAIT_FOR_APPROVAL',
     };
   }
 
@@ -82,14 +82,14 @@ export class BillingService {
       data: {
         name: data.name,
         domain: `${data.name}.neuravolt.cloud`,
-        plan: data.plan || "STARTER",
-        agentType: data.agentType || "CHAT",
-        model: data.model || "qwen3-coder-8b",
+        plan: data.plan || 'STARTER',
+        agentType: data.agentType || 'CHAT',
+        model: data.model || 'qwen3-coder-8b',
         billingMode: `auto_${this.gateway}`,
-        approvalStatus: "pending", // will get approved on payment
-        requestedPlan: data.plan || "STARTER",
+        approvalStatus: 'pending', // will get approved on payment
+        requestedPlan: data.plan || 'STARTER',
         requestedAt: new Date(),
-        status: "PENDING",
+        status: 'PENDING',
         email: data.email,
         phone: data.phone,
         whiteLabelSettings: data.whiteLabelSettings || {},
@@ -101,8 +101,8 @@ export class BillingService {
     return {
       tenant,
       paymentOrder: order,
-      message: "Please complete payment to activate your agent",
-      nextStep: "COMPLETE_PAYMENT",
+      message: 'Please complete payment to activate your agent',
+      nextStep: 'COMPLETE_PAYMENT',
     };
   }
 
@@ -110,18 +110,18 @@ export class BillingService {
     const planKey = tenant.requestedPlan as keyof typeof PRICING;
     const plan = PRICING[planKey] || PRICING.STARTER;
 
-    if (this.gateway === "razorpay") {
+    if (this.gateway === 'razorpay') {
       return this.createRazorpayOrder(tenant, plan);
-    } else if (this.gateway === "cashfree") {
+    } else if (this.gateway === 'cashfree') {
       return this.createCashfreeOrder(tenant, plan);
     }
 
-    throw new Error("Invalid gateway");
+    throw new Error('Invalid gateway');
   }
 
   private async createRazorpayOrder(tenant: any, plan: any) {
-    const keyId = process.env.RAZORPAY_KEY_ID || "rzp_test_mock";
-    const keySecret = process.env.RAZORPAY_KEY_SECRET || "mock_secret";
+    const keyId = process.env.RAZORPAY_KEY_ID || 'rzp_test_mock';
+    const keySecret = process.env.RAZORPAY_KEY_SECRET || 'mock_secret';
 
     const razorpay = new Razorpay({
       key_id: keyId,
@@ -130,7 +130,7 @@ export class BillingService {
 
     const order = await razorpay.orders.create({
       amount: plan.price * 100,
-      currency: "INR",
+      currency: 'INR',
       receipt: `tenant_${tenant.id}`,
       notes: {
         tenantId: tenant.id,
@@ -142,11 +142,11 @@ export class BillingService {
       data: {
         tenantId: tenant.id,
         amount: plan.price,
-        currency: "INR",
-        gateway: "razorpay",
+        currency: 'INR',
+        gateway: 'razorpay',
         gatewayOrderId: order.id,
         plan: tenant.requestedPlan,
-        period: "monthly",
+        period: 'monthly',
       },
     });
 
@@ -154,40 +154,40 @@ export class BillingService {
   }
 
   private async createCashfreeOrder(tenant: any, plan: any) {
-    const clientId = process.env.CASHFREE_CLIENT_ID || "cf_mock_client";
-    const clientSecret = process.env.CASHFREE_CLIENT_SECRET || "cf_mock_secret";
+    const clientId = process.env.CASHFREE_CLIENT_ID || 'cf_mock_client';
+    const clientSecret = process.env.CASHFREE_CLIENT_SECRET || 'cf_mock_secret';
 
-    const response = await fetch("https://api.cashfree.com/pg/orders", {
-      method: "POST",
+    const response = await fetch('https://api.cashfree.com/pg/orders', {
+      method: 'POST',
       headers: {
-        "Content-Type": "application/json",
-        "x-client-id": clientId,
-        "x-client-secret": clientSecret,
-        "x-api-version": "2022-09-01",
+        'Content-Type': 'application/json',
+        'x-client-id': clientId,
+        'x-client-secret': clientSecret,
+        'x-api-version': '2022-09-01',
       },
       body: JSON.stringify({
         order_id: `tenant_${tenant.id}_${Date.now()}`,
         order_amount: plan.price,
-        order_currency: "INR",
+        order_currency: 'INR',
         customer_details: {
           customer_id: tenant.id,
-          customer_email: tenant.email || "support@neuravolt.cloud",
-          customer_phone: tenant.phone || "9999999999",
+          customer_email: tenant.email || 'support@neuravolt.cloud',
+          customer_phone: tenant.phone || '9999999999',
         },
       }),
     });
 
-    const order = await response.json() as any;
+    const order = (await response.json()) as any;
 
     await prisma.invoice.create({
       data: {
         tenantId: tenant.id,
         amount: plan.price,
-        currency: "INR",
-        gateway: "cashfree",
+        currency: 'INR',
+        gateway: 'cashfree',
         gatewayOrderId: order.order_id || order.id || `mock_${Date.now()}`,
         plan: tenant.requestedPlan,
-        period: "monthly",
+        period: 'monthly',
       },
     });
 
@@ -196,10 +196,10 @@ export class BillingService {
 
   async approveAndDeploy(tenantId: string, adminId: string) {
     const tenant = await prisma.tenant.findUnique({
-      where: { id: tenantId }
+      where: { id: tenantId },
     });
 
-    if (!tenant) throw new Error("Tenant not found");
+    if (!tenant) throw new Error('Tenant not found');
 
     // Trigger deployment via DockerService
     const deployment = await DockerService.createTenantStack(
@@ -211,10 +211,10 @@ export class BillingService {
     const updatedTenant = await prisma.tenant.update({
       where: { id: tenantId },
       data: {
-        approvalStatus: "approved",
+        approvalStatus: 'approved',
         approvedBy: adminId,
         approvedAt: new Date(),
-        status: "RUNNING",
+        status: 'RUNNING',
         domain: deployment.domain,
         containerId: deployment.containerId,
         plan: tenant.requestedPlan, // Set active plan to requested plan
@@ -222,8 +222,8 @@ export class BillingService {
     });
 
     // Email user
-    await this.emailUser(tenant.email || "user@neuravolt.cloud", {
-      subject: "Your Harikson AI Agent is Ready!",
+    await this.emailUser(tenant.email || 'user@neuravolt.cloud', {
+      subject: 'Your Harikson AI Agent is Ready!',
       body: `Your agent is deployed at: https://${deployment.domain}`,
     });
 
@@ -232,15 +232,15 @@ export class BillingService {
 
   async switchBillingMode(mode: string, gateway?: string) {
     await prisma.systemSetting.upsert({
-      where: { key: "billing_mode" },
+      where: { key: 'billing_mode' },
       update: {
         value: { mode, gateway },
         updatedAt: new Date(),
       },
       create: {
-        key: "billing_mode",
+        key: 'billing_mode',
         value: { mode, gateway },
-        description: "Billing mode configuration",
+        description: 'Billing mode configuration',
       },
     });
 
@@ -252,18 +252,20 @@ export class BillingService {
 
   private async notifyAdmin(data: any) {
     const admins = await prisma.adminUser.findMany({
-      where: { role: { in: ["super", "ops"] } },
+      where: { role: { in: ['super', 'ops'] } },
     });
 
     for (const admin of admins) {
       await this.emailUser(admin.email, {
-        subject: "Harikson: New Tenant Approval Request",
+        subject: 'Harikson: New Tenant Approval Request',
         body: `${data.message}. Review admin dashboard.`,
       });
     }
   }
 
   async emailUser(email: string, data: any) {
-    console.log(`📧 [Harikson Email] Sent to ${email}: ${data.subject}\nBody: ${data.body}`);
+    console.log(
+      `📧 [Harikson Email] Sent to ${email}: ${data.subject}\nBody: ${data.body}`
+    );
   }
 }

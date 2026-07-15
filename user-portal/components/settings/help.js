@@ -5,24 +5,26 @@ const resources = [
   {
     icon: BookOpen,
     title: 'Documentation',
-    description: 'Read our comprehensive guides on how to use Harikson AI for your business.',
+    description:
+      'Read our comprehensive guides on how to use Harikson AI for your business.',
     label: 'View Docs',
-    href: '#'
+    href: '#',
   },
   {
     icon: MessageCircle,
     title: 'Contact Support',
     description: 'Need help? Reach out to our enterprise support team 24/7.',
     label: 'Email Support',
-    href: 'mailto:support@harikson.com'
+    href: 'mailto:support@harikson.com',
   },
   {
     icon: Bug,
     title: 'Report an Issue',
-    description: 'Found a bug? Let our engineering team know so we can fix it quickly.',
+    description:
+      'Found a bug? Let our engineering team know so we can fix it quickly.',
     label: 'Report Bug',
-    href: '#'
-  }
+    href: '#',
+  },
 ];
 
 export default function HelpCenter() {
@@ -45,7 +47,11 @@ export default function HelpCenter() {
                 </div>
                 <h3>{r.title}</h3>
                 <p>{r.description}</p>
-                <a href={r.href} className="back-link" style={{ color: 'var(--accent)', marginTop: 'auto' }}>
+                <a
+                  href={r.href}
+                  className="back-link"
+                  style={{ color: 'var(--accent)', marginTop: 'auto' }}
+                >
                   {r.label} <ExternalLink size={12} />
                 </a>
               </div>

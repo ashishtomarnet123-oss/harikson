@@ -1,6 +1,6 @@
-import docker from "../lib/docker.js";
-import path from "path";
-import net from "net";
+import docker from '../lib/docker.js';
+import path from 'path';
+import net from 'net';
 
 // Helper to find an open port starting from a given port
 async function findOpenPort(startPort: number): Promise<number> {
@@ -21,18 +21,24 @@ async function findOpenPort(startPort: number): Promise<number> {
 
 export class DockerService {
   private static isMockMode = false;
-  private static readonly baseImage = process.env.NODE_ENV === "development" ? "nginx:alpine" : "n8nio/n8n:latest";
-  private static readonly networkName = process.env.DOCKER_NETWORK || "internal";
+  private static readonly baseImage =
+    process.env.NODE_ENV === 'development'
+      ? 'nginx:alpine'
+      : 'n8nio/n8n:latest';
+  private static readonly networkName =
+    process.env.DOCKER_NETWORK || 'internal';
 
   static {
     // Check if Docker is available
     try {
       docker.ping((err) => {
         if (err) {
-          console.warn("⚠️ Docker daemon not reachable. Falling back to MOCK MODE for instance management.");
+          console.warn(
+            '⚠️ Docker daemon not reachable. Falling back to MOCK MODE for instance management.'
+          );
           DockerService.isMockMode = true;
         } else {
-          console.log("🐳 Docker daemon connected successfully.");
+          console.log('🐳 Docker daemon connected successfully.');
         }
       });
     } catch {
@@ -40,30 +46,39 @@ export class DockerService {
     }
   }
 
-  static async createInstance(name: string, plan: string, apps: string[]): Promise<{ containerId: string; domain: string }> {
+  static async createInstance(
+    name: string,
+    plan: string,
+    apps: string[]
+  ): Promise<{ containerId: string; domain: string }> {
     const domain = `${name}.neuravolt.cloud`;
-    
+
     if (this.isMockMode) {
-      console.log(`[Mock Docker] Spawning container for ${name} under plan ${plan} with apps: ${apps.join(", ")}`);
+      console.log(
+        `[Mock Docker] Spawning container for ${name} under plan ${plan} with apps: ${apps.join(', ')}`
+      );
       return {
         containerId: `mock_container_${Math.random().toString(36).substring(7)}`,
-        domain: apps.includes("openwebui") && process.env.NODE_ENV === "development" ? `localhost:5005` : domain,
+        domain:
+          apps.includes('openwebui') && process.env.NODE_ENV === 'development'
+            ? `localhost:5005`
+            : domain,
       };
     }
 
     try {
       // Determine base CPU and Memory limits
       let cpuCount = 0.5;
-      let memoryLimit = "512m";
-      if (plan === "PRO") {
+      let memoryLimit = '512m';
+      if (plan === 'PRO') {
         cpuCount = 1.0;
-        memoryLimit = "1024m";
-      } else if (plan === "BUSINESS" || plan === "HEAVY") {
+        memoryLimit = '1024m';
+      } else if (plan === 'BUSINESS' || plan === 'HEAVY') {
         cpuCount = 2.0;
-        memoryLimit = "2048m";
-      } else if (plan === "ENTERPRISE") {
+        memoryLimit = '2048m';
+      } else if (plan === 'ENTERPRISE') {
         cpuCount = 4.0;
-        memoryLimit = "4096m";
+        memoryLimit = '4096m';
       }
 
       // Convert memory limit string (e.g. 512m) to bytes for Docker API
@@ -71,29 +86,31 @@ export class DockerService {
 
       await this.ensureNetwork(this.networkName);
 
-      let mainContainerId = "";
+      let mainContainerId = '';
       let activeDomain = domain;
 
       // 1. Deploy n8n Container
-      if (apps.includes("n8n")) {
+      if (apps.includes('n8n')) {
         await this.ensureImage(this.baseImage);
         const containerName = `nv-instance-${name}`;
-        
+
         const existing = await docker.listContainers({
           all: true,
           filters: { name: [containerName] },
         });
-        const existingInfo = existing.find((containerInfo) => 
+        const existingInfo = existing.find((containerInfo) =>
           containerInfo.Names?.includes(`/${containerName}`)
         );
 
-        let containerId = "";
+        let containerId = '';
         if (existingInfo) {
           const existingContainer = docker.getContainer(existingInfo.Id);
-          if (existingInfo.State !== "running") {
+          if (existingInfo.State !== 'running') {
             await existingContainer.start();
           }
-          console.log(`🐳 Container ${containerName} already exists. Reusing it.`);
+          console.log(
+            `🐳 Container ${containerName} already exists. Reusing it.`
+          );
           containerId = existingInfo.Id;
         } else {
           const container = await docker.createContainer({
@@ -102,23 +119,22 @@ export class DockerService {
             Env: [
               `N8N_PORT=5678`,
               `WEBHOOK_URL=https://${domain}/`,
-              `N8N_ENFORCE_SETTINGS_FILE_PERMISSIONS=false`
+              `N8N_ENFORCE_SETTINGS_FILE_PERMISSIONS=false`,
             ],
             HostConfig: {
               NanoCpus: cpuCount * 1e9, // nanoCPUs
               Memory: memoryBytes,
-              RestartPolicy: { Name: "unless-stopped" },
+              RestartPolicy: { Name: 'unless-stopped' },
               NetworkMode: this.networkName, // Join the internal network
-              Binds: [
-                `nv-instance-${name}-data:/home/node/.n8n`
-              ]
+              Binds: [`nv-instance-${name}-data:/home/node/.n8n`],
             },
             Labels: {
-              "traefik.enable": "true",
+              'traefik.enable': 'true',
               [`traefik.http.routers.${name}.rule`]: `Host(\`${domain}\`)`,
-              [`traefik.http.routers.${name}.entrypoints`]: "websecure",
-              [`traefik.http.routers.${name}.tls.certresolver`]: "letsencrypt",
-              [`traefik.http.services.${name}.loadbalancer.server.port`]: "5678",
+              [`traefik.http.routers.${name}.entrypoints`]: 'websecure',
+              [`traefik.http.routers.${name}.tls.certresolver`]: 'letsencrypt',
+              [`traefik.http.services.${name}.loadbalancer.server.port`]:
+                '5678',
             },
           });
 
@@ -130,15 +146,15 @@ export class DockerService {
       }
 
       // 2. Deploy AI Agent Tenant Container Stack
-      if (apps.includes("openwebui")) {
+      if (apps.includes('openwebui')) {
         console.log(`🐳 Spawning AI Stack for tenant ${name}...`);
         const apiContainerName = `harikson-tenant-${name}-api`;
         const aiContainerName = `harikson-tenant-${name}-ai`;
 
         // 2.1 Spin up AI Core container (running Ollama)
-        const aiImage = "ollama/ollama:latest";
+        const aiImage = 'ollama/ollama:latest';
         await this.ensureImage(aiImage);
-        
+
         try {
           const aiContainer = await docker.createContainer({
             Image: aiImage,
@@ -146,7 +162,7 @@ export class DockerService {
             HostConfig: {
               NanoCpus: cpuCount * 1e9,
               Memory: memoryBytes,
-              RestartPolicy: { Name: "unless-stopped" },
+              RestartPolicy: { Name: 'unless-stopped' },
               NetworkMode: this.networkName,
               Binds: [`harikson-tenant-${name}-ai-data:/root/.ollama`],
             },
@@ -155,25 +171,32 @@ export class DockerService {
           console.log(`🐳 AI Core container ${aiContainerName} started.`);
         } catch (err: any) {
           if (err.statusCode === 409) {
-            console.log(`🐳 AI Core container ${aiContainerName} already exists. Reusing it.`);
+            console.log(
+              `🐳 AI Core container ${aiContainerName} already exists. Reusing it.`
+            );
             try {
               await docker.getContainer(aiContainerName).start();
-            } catch {}
+            } catch (err: any) {
+              console.warn(`Error starting container ${aiContainerName}:`, err.message);
+            }
           } else {
             throw err;
           }
         }
 
         // 2.2 Spin up Tenant API container
-        const apiImage = "node:18-alpine";
+        const apiImage = 'node:18-alpine';
         await this.ensureImage(apiImage);
 
         // Resolve absolute path to tenant-api folder
-        const tenantApiPath = path.resolve(process.cwd(), "../harikson/tenant-api");
+        const tenantApiPath = path.resolve(
+          process.cwd(),
+          '../harikson/tenant-api'
+        );
 
         // Find a free port on the host
         let hostPort = 5005;
-        if (process.env.NODE_ENV === "development") {
+        if (process.env.NODE_ENV === 'development') {
           hostPort = await findOpenPort(5005);
           activeDomain = `localhost:${hostPort}`;
         }
@@ -187,44 +210,53 @@ export class DockerService {
               `TENANT_NAME=${name}`,
               `AGENT_TYPE=CHAT`,
               `OLLAMA_HOST=http://${aiContainerName}:11434`,
-              `NODE_ENV=${process.env.NODE_ENV || "development"}`,
+              `NODE_ENV=${process.env.NODE_ENV || 'development'}`,
             ],
             HostConfig: {
               NanoCpus: cpuCount * 1e9,
               Memory: memoryBytes,
-              RestartPolicy: { Name: "unless-stopped" },
+              RestartPolicy: { Name: 'unless-stopped' },
               NetworkMode: this.networkName,
               Binds: [`${tenantApiPath}:/usr/src/app`],
               PortBindings: {
-                "5000/tcp": [{ HostPort: String(hostPort) }]
-              }
+                '5000/tcp': [{ HostPort: String(hostPort) }],
+              },
             },
-            WorkingDir: "/usr/src/app",
-            Cmd: ["npm", "run", "start"]
+            WorkingDir: '/usr/src/app',
+            Cmd: ['npm', 'run', 'start'],
           });
           await apiContainer.start();
-          console.log(`🐳 Tenant API container ${apiContainerName} started on host port ${hostPort}.`);
+          console.log(
+            `🐳 Tenant API container ${apiContainerName} started on host port ${hostPort}.`
+          );
           if (!mainContainerId) {
             mainContainerId = apiContainer.id;
           }
         } catch (err: any) {
           if (err.statusCode === 409) {
-            console.log(`🐳 Tenant API container ${apiContainerName} already exists. Reusing it.`);
+            console.log(
+              `🐳 Tenant API container ${apiContainerName} already exists. Reusing it.`
+            );
             try {
               const apiContainer = docker.getContainer(apiContainerName);
               await apiContainer.start();
-              
+
               // Inspect to see host port binding if already running
               const inspectInfo = await apiContainer.inspect();
-              const portBinding = inspectInfo.HostConfig.PortBindings?.["5000/tcp"]?.[0]?.HostPort;
+              const portBinding =
+                inspectInfo.HostConfig.PortBindings?.['5000/tcp']?.[0]
+                  ?.HostPort;
               if (portBinding) {
                 hostPort = parseInt(portBinding);
-                if (process.env.NODE_ENV === "development") {
+                if (process.env.NODE_ENV === 'development') {
                   activeDomain = `localhost:${hostPort}`;
                 }
               }
             } catch (inspectErr) {
-              console.warn("⚠️ Failed to start or inspect existing tenant API container:", inspectErr);
+              console.warn(
+                '⚠️ Failed to start or inspect existing tenant API container:',
+                inspectErr
+              );
             }
             if (!mainContainerId) {
               const existingApi = await docker.listContainers({
@@ -242,11 +274,13 @@ export class DockerService {
       }
 
       return {
-        containerId: mainContainerId || `mock_container_${Math.random().toString(36).substring(7)}`,
+        containerId:
+          mainContainerId ||
+          `mock_container_${Math.random().toString(36).substring(7)}`,
         domain: activeDomain,
       };
     } catch (error) {
-      console.error("❌ Failed to create Docker container:", error);
+      console.error('❌ Failed to create Docker container:', error);
       throw error;
     }
   }
@@ -282,13 +316,13 @@ export class DockerService {
 
     await docker.createNetwork({
       Name: networkName,
-      Driver: "bridge",
+      Driver: 'bridge',
     });
     console.log(`🐳 Docker network ${networkName} is ready.`);
   }
 
   static async stopInstance(containerId: string): Promise<void> {
-    if (this.isMockMode || containerId.startsWith("mock_")) {
+    if (this.isMockMode || containerId.startsWith('mock_')) {
       console.log(`[Mock Docker] Stopped container ${containerId}`);
       return;
     }
@@ -298,18 +332,24 @@ export class DockerService {
       await container.stop();
 
       if (info && info.Name) {
-        const containerName = info.Name.replace(/^\//, "");
-        if (containerName.startsWith("nv-instance-")) {
-          const name = containerName.replace("nv-instance-", "");
+        const containerName = info.Name.replace(/^\//, '');
+        if (containerName.startsWith('nv-instance-')) {
+          const name = containerName.replace('nv-instance-', '');
           try {
             await docker.getContainer(`harikson-tenant-${name}-api`).stop();
           } catch (err: any) {
-            console.warn(`Warning stopping associated tenant-${name}-api sidecar container:`, err.message);
+            console.warn(
+              `Warning stopping associated tenant-${name}-api sidecar container:`,
+              err.message
+            );
           }
           try {
             await docker.getContainer(`harikson-tenant-${name}-ai`).stop();
           } catch (err: any) {
-            console.warn(`Warning stopping associated tenant-${name}-ai sidecar container:`, err.message);
+            console.warn(
+              `Warning stopping associated tenant-${name}-ai sidecar container:`,
+              err.message
+            );
           }
         }
       }
@@ -320,7 +360,7 @@ export class DockerService {
   }
 
   static async startInstance(containerId: string): Promise<void> {
-    if (this.isMockMode || containerId.startsWith("mock_")) {
+    if (this.isMockMode || containerId.startsWith('mock_')) {
       console.log(`[Mock Docker] Started container ${containerId}`);
       return;
     }
@@ -330,18 +370,24 @@ export class DockerService {
       await container.start();
 
       if (info && info.Name) {
-        const containerName = info.Name.replace(/^\//, "");
-        if (containerName.startsWith("nv-instance-")) {
-          const name = containerName.replace("nv-instance-", "");
+        const containerName = info.Name.replace(/^\//, '');
+        if (containerName.startsWith('nv-instance-')) {
+          const name = containerName.replace('nv-instance-', '');
           try {
             await docker.getContainer(`harikson-tenant-${name}-api`).start();
           } catch (err: any) {
-            console.warn(`Warning starting associated tenant-${name}-api sidecar container:`, err.message);
+            console.warn(
+              `Warning starting associated tenant-${name}-api sidecar container:`,
+              err.message
+            );
           }
           try {
             await docker.getContainer(`harikson-tenant-${name}-ai`).start();
           } catch (err: any) {
-            console.warn(`Warning starting associated tenant-${name}-ai sidecar container:`, err.message);
+            console.warn(
+              `Warning starting associated tenant-${name}-ai sidecar container:`,
+              err.message
+            );
           }
         }
       }
@@ -352,7 +398,7 @@ export class DockerService {
   }
 
   static async restartInstance(containerId: string): Promise<void> {
-    if (this.isMockMode || containerId.startsWith("mock_")) {
+    if (this.isMockMode || containerId.startsWith('mock_')) {
       console.log(`[Mock Docker] Restarted container ${containerId}`);
       return;
     }
@@ -362,18 +408,24 @@ export class DockerService {
       await container.restart();
 
       if (info && info.Name) {
-        const containerName = info.Name.replace(/^\//, "");
-        if (containerName.startsWith("nv-instance-")) {
-          const name = containerName.replace("nv-instance-", "");
+        const containerName = info.Name.replace(/^\//, '');
+        if (containerName.startsWith('nv-instance-')) {
+          const name = containerName.replace('nv-instance-', '');
           try {
             await docker.getContainer(`harikson-tenant-${name}-api`).restart();
           } catch (err: any) {
-            console.warn(`Warning restarting associated tenant-${name}-api sidecar container:`, err.message);
+            console.warn(
+              `Warning restarting associated tenant-${name}-api sidecar container:`,
+              err.message
+            );
           }
           try {
             await docker.getContainer(`harikson-tenant-${name}-ai`).restart();
           } catch (err: any) {
-            console.warn(`Warning restarting associated tenant-${name}-ai sidecar container:`, err.message);
+            console.warn(
+              `Warning restarting associated tenant-${name}-ai sidecar container:`,
+              err.message
+            );
           }
         }
       }
@@ -384,7 +436,7 @@ export class DockerService {
   }
 
   static async deleteInstance(containerId: string): Promise<void> {
-    if (this.isMockMode || containerId.startsWith("mock_")) {
+    if (this.isMockMode || containerId.startsWith('mock_')) {
       console.log(`[Mock Docker] Deleted container ${containerId}`);
       return;
     }
@@ -394,23 +446,36 @@ export class DockerService {
       await container.remove({ force: true });
 
       if (info && info.Name) {
-        const containerName = info.Name.replace(/^\//, "");
-        if (containerName.startsWith("nv-instance-")) {
-          const name = containerName.replace("nv-instance-", "");
+        const containerName = info.Name.replace(/^\//, '');
+        if (containerName.startsWith('nv-instance-')) {
+          const name = containerName.replace('nv-instance-', '');
           try {
-            await docker.getContainer(`harikson-tenant-${name}-api`).remove({ force: true });
+            await docker
+              .getContainer(`harikson-tenant-${name}-api`)
+              .remove({ force: true });
           } catch (err: any) {
-            console.warn(`Warning removing associated tenant-${name}-api sidecar container:`, err.message);
+            console.warn(
+              `Warning removing associated tenant-${name}-api sidecar container:`,
+              err.message
+            );
           }
           try {
-            await docker.getContainer(`harikson-tenant-${name}-ai`).remove({ force: true });
+            await docker
+              .getContainer(`harikson-tenant-${name}-ai`)
+              .remove({ force: true });
           } catch (err: any) {
-            console.warn(`Warning removing associated tenant-${name}-ai sidecar container:`, err.message);
+            console.warn(
+              `Warning removing associated tenant-${name}-ai sidecar container:`,
+              err.message
+            );
           }
           try {
             await docker.getVolume(`harikson-tenant-${name}-ai-data`).remove();
           } catch (err: any) {
-            console.warn(`Warning removing associated tenant-${name}-ai-data volume:`, err.message);
+            console.warn(
+              `Warning removing associated tenant-${name}-ai-data volume:`,
+              err.message
+            );
           }
         }
       }
@@ -420,9 +485,15 @@ export class DockerService {
     }
   }
 
-  static async scaleInstance(containerId: string, cpuLimit: number, memoryLimit: string): Promise<void> {
-    if (this.isMockMode || containerId.startsWith("mock_")) {
-      console.log(`[Mock Docker] Scaled container ${containerId} to CPU: ${cpuLimit}, RAM: ${memoryLimit}`);
+  static async scaleInstance(
+    containerId: string,
+    cpuLimit: number,
+    memoryLimit: string
+  ): Promise<void> {
+    if (this.isMockMode || containerId.startsWith('mock_')) {
+      console.log(
+        `[Mock Docker] Scaled container ${containerId} to CPU: ${cpuLimit}, RAM: ${memoryLimit}`
+      );
       return;
     }
     try {
@@ -438,23 +509,29 @@ export class DockerService {
     }
   }
 
-  static async getMetrics(containerId: string): Promise<{ cpuUsage: number; memoryUsage: number; diskUsage: string }> {
-    if (this.isMockMode || !containerId || containerId.startsWith("mock_")) {
+  static async getMetrics(
+    containerId: string
+  ): Promise<{ cpuUsage: number; memoryUsage: number; diskUsage: string }> {
+    if (this.isMockMode || !containerId || containerId.startsWith('mock_')) {
       return {
         cpuUsage: +(Math.random() * 45 + 5).toFixed(2),
         memoryUsage: +(Math.random() * 300 + 150).toFixed(2),
-        diskUsage: "2.4 GB",
+        diskUsage: '2.4 GB',
       };
     }
     try {
       const container = docker.getContainer(containerId);
       const stats = await container.stats({ stream: false });
-      
+
       // Calculate cpu percent usage
       let cpuPercent = 0.0;
       if (stats.cpu_stats && stats.precpu_stats) {
-        const cpuDelta = stats.cpu_stats.cpu_usage.total_usage - stats.precpu_stats.cpu_usage.total_usage;
-        const systemDelta = stats.cpu_stats.system_cpu_usage - stats.precpu_stats.system_cpu_usage;
+        const cpuDelta =
+          stats.cpu_stats.cpu_usage.total_usage -
+          stats.precpu_stats.cpu_usage.total_usage;
+        const systemDelta =
+          stats.cpu_stats.system_cpu_usage -
+          stats.precpu_stats.system_cpu_usage;
         const numberCpus = stats.cpu_stats.online_cpus || 1;
         if (systemDelta > 0.0 && cpuDelta > 0.0) {
           cpuPercent = (cpuDelta / systemDelta) * numberCpus * 100.0;
@@ -470,27 +547,31 @@ export class DockerService {
       return {
         cpuUsage: +cpuPercent.toFixed(2),
         memoryUsage: +memoryMB.toFixed(2),
-        diskUsage: "1.2 GB",
+        diskUsage: '1.2 GB',
       };
     } catch {
       return {
         cpuUsage: 0,
         memoryUsage: 0,
-        diskUsage: "0 GB",
+        diskUsage: '0 GB',
       };
     }
   }
 
   static async getLogs(containerId: string): Promise<string> {
-    if (this.isMockMode || !containerId || containerId.startsWith("mock_")) {
+    if (this.isMockMode || !containerId || containerId.startsWith('mock_')) {
       return `[Mock Logs ${new Date().toISOString()}] Container initialized.\n[Mock Logs] Nginx listening on port 80.\n[Mock Logs] Traefik health check request received: 200 OK.`;
     }
     try {
       const container = docker.getContainer(containerId);
-      const logBuffer = await container.logs({ stdout: true, stderr: true, tail: 100 });
-      return logBuffer.toString("utf-8");
+      const logBuffer = await container.logs({
+        stdout: true,
+        stderr: true,
+        tail: 100,
+      });
+      return logBuffer.toString('utf-8');
     } catch {
-      return "Logs unavailable.";
+      return 'Logs unavailable.';
     }
   }
 
@@ -503,7 +584,10 @@ export class DockerService {
       await docker.getVolume(`nv-instance-${name}-data`).remove();
       console.log(`🐳 Volume nv-instance-${name}-data removed.`);
     } catch (error) {
-      console.warn(`⚠️ Failed to remove volume nv-instance-${name}-data:`, error);
+      console.warn(
+        `⚠️ Failed to remove volume nv-instance-${name}-data:`,
+        error
+      );
     }
   }
 }

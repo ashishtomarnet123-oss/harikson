@@ -3,10 +3,10 @@ global:
     auth:
       database: neuravolt
       username: neuravolt
-      password: "secure_postgres_password_2026"
+      password: 'secure_postgres_password_2026'
   redis:
     auth:
-      password: "secure_redis_password_2026"
+      password: 'secure_redis_password_2026'
 
 postgresql-ha:
   enabled: true
@@ -98,8 +98,8 @@ ingress:
   className: nginx
   annotations:
     cert-manager.io/cluster-issuer: letsencrypt-prod
-    nginx.ingress.kubernetes.io/ssl-redirect: "true"
-    nginx.ingress.kubernetes.io/proxy-body-size: "50m"
+    nginx.ingress.kubernetes.io/ssl-redirect: 'true'
+    nginx.ingress.kubernetes.io/proxy-body-size: '50m'
   hosts:
     - host: admin.neuravolt.cloud
       paths:
@@ -116,7 +116,7 @@ ingress:
         - path: /
           pathType: Prefix
           backend: adminApi
-    - host: "*.neuravolt.cloud"
+    - host: '*.neuravolt.cloud'
       paths:
         - path: /
           pathType: Prefix
@@ -127,4 +127,4 @@ ingress:
         - admin.neuravolt.cloud
         - api.neuravolt.cloud
         - admin-api.neuravolt.cloud
-        - "*.neuravolt.cloud"
+        - '*.neuravolt.cloud'

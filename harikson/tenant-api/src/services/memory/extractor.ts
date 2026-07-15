@@ -1,5 +1,5 @@
-import { OllamaClient } from "../../llm/ollama.js";
-import { MemoryStore } from "./store.js";
+import { OllamaClient } from '../../llm/ollama.js';
+import { MemoryStore } from './store.js';
 
 export class MemoryExtractor {
   static async extractAndSave(
@@ -23,8 +23,11 @@ or
       const response = await OllamaClient.generate(prompt, systemPrompt);
 
       let text = response.trim();
-      if (text.startsWith("```")) {
-        text = text.replace(/```[a-z]*\n?/gi, "").replace(/```/g, "").trim();
+      if (text.startsWith('```')) {
+        text = text
+          .replace(/```[a-z]*\n?/gi, '')
+          .replace(/```/g, '')
+          .trim();
       }
 
       const parsed = JSON.parse(text) as {
@@ -34,14 +37,24 @@ or
       };
 
       if (parsed.should_remember && parsed.fact && parsed.fact.trim()) {
-        console.log(`🧠 [Harikson Memory] Extracted fact: "${parsed.fact}" (Importance: ${parsed.importance})`);
+        console.log(
+          `🧠 [Harikson Memory] Extracted fact: "${parsed.fact}" (Importance: ${parsed.importance})`
+        );
         const embedding = await OllamaClient.embed(parsed.fact);
-        await MemoryStore.save(tenantId, userId, parsed.fact.trim(), parsed.importance, embedding);
+        await MemoryStore.save(
+          tenantId,
+          userId,
+          parsed.fact.trim(),
+          parsed.importance,
+          embedding
+        );
       } else {
-        console.log(`🧠 [Harikson Memory] Message not deemed worthy of permanent memory.`);
+        console.log(
+          `🧠 [Harikson Memory] Message not deemed worthy of permanent memory.`
+        );
       }
     } catch (error) {
-      console.error("❌ [Harikson Memory] Extraction failed:", error);
+      console.error('❌ [Harikson Memory] Extraction failed:', error);
     }
   }
 }

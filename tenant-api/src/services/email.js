@@ -13,7 +13,9 @@ async function checkEmailRateLimit(email) {
       await redis.expire(key, 3600); // 1 hour expiration
     }
     if (attempts > 3) {
-      console.warn(`[EMAIL RATE LIMIT EXCEEDED] Email "${email}" has requested too many emails in the last hour.`);
+      console.warn(
+        `[EMAIL RATE LIMIT EXCEEDED] Email "${email}" has requested too many emails in the last hour.`
+      );
       return false;
     }
     return true;
@@ -26,9 +28,12 @@ async function checkEmailRateLimit(email) {
 
 export const sendPasswordReset = async (to, resetUrl) => {
   if (!(await checkEmailRateLimit(to))) {
-    return { success: false, error: 'Rate limit exceeded. Max 3 emails per hour.' };
+    return {
+      success: false,
+      error: 'Rate limit exceeded. Max 3 emails per hour.',
+    };
   }
-  
+
   try {
     const { data, error } = await resend.emails.send({
       from: 'Harikson AI <noreply@neuravolt.cloud>',
@@ -47,11 +52,17 @@ export const sendPasswordReset = async (to, resetUrl) => {
           <hr style="border: 0; border-top: 1px solid #e2e8f0; margin: 20px 0;" />
           <p style="font-size: 12px; color: #94a3b8;">If you did not request a password reset, you can safely ignore this email.</p>
         </div>
-      `
+      `,
     });
     if (error) {
-      console.error('[EMAIL SEND ERROR - PASSWORD RESET]:', error.message || error);
-      return { success: false, error: error.message || 'Failed to send password reset email' };
+      console.error(
+        '[EMAIL SEND ERROR - PASSWORD RESET]:',
+        error.message || error
+      );
+      return {
+        success: false,
+        error: error.message || 'Failed to send password reset email',
+      };
     }
     return { success: true, data };
   } catch (err) {
@@ -62,7 +73,10 @@ export const sendPasswordReset = async (to, resetUrl) => {
 
 export const sendWelcomeEmail = async (to, name) => {
   if (!(await checkEmailRateLimit(to))) {
-    return { success: false, error: 'Rate limit exceeded. Max 3 emails per hour.' };
+    return {
+      success: false,
+      error: 'Rate limit exceeded. Max 3 emails per hour.',
+    };
   }
 
   try {
@@ -79,11 +93,14 @@ export const sendWelcomeEmail = async (to, name) => {
           <hr style="border: 0; border-top: 1px solid #e2e8f0; margin: 20px 0;" />
           <p style="font-size: 12px; color: #94a3b8;">Secured by Harikson · Enterprise AI Platform</p>
         </div>
-      `
+      `,
     });
     if (error) {
       console.error('[EMAIL SEND ERROR - WELCOME]:', error.message || error);
-      return { success: false, error: error.message || 'Failed to send welcome email' };
+      return {
+        success: false,
+        error: error.message || 'Failed to send welcome email',
+      };
     }
     return { success: true, data };
   } catch (err) {
@@ -94,7 +111,10 @@ export const sendWelcomeEmail = async (to, name) => {
 
 export const sendInvoiceReceipt = async (to, invoiceDetails) => {
   if (!(await checkEmailRateLimit(to))) {
-    return { success: false, error: 'Rate limit exceeded. Max 3 emails per hour.' };
+    return {
+      success: false,
+      error: 'Rate limit exceeded. Max 3 emails per hour.',
+    };
   }
 
   try {
@@ -117,11 +137,14 @@ export const sendInvoiceReceipt = async (to, invoiceDetails) => {
           <hr style="border: 0; border-top: 1px solid #e2e8f0; margin: 20px 0;" />
           <p style="font-size: 12px; color: #94a3b8;">Thank you for choosing Harikson AI!</p>
         </div>
-      `
+      `,
     });
     if (error) {
       console.error('[EMAIL SEND ERROR - INVOICE]:', error.message || error);
-      return { success: false, error: error.message || 'Failed to send invoice receipt' };
+      return {
+        success: false,
+        error: error.message || 'Failed to send invoice receipt',
+      };
     }
     return { success: true, data };
   } catch (err) {

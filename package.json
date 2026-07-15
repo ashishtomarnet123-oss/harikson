@@ -1,6 +1,23 @@
 {
+  "name": "harikson-root",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "format": "prettier --write ."
+  },
   "dependencies": {
     "chromium": "^3.0.3",
     "playwright-core": "^1.61.1"
+  },
+  "devDependencies": {
+    "@typescript-eslint/eslint-plugin": "^8.64.0",
+    "@typescript-eslint/parser": "^8.64.0",
+    "eslint": "^8.57.1",
+    "eslint-plugin-react": "^7.37.5",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "eslint-plugin-security": "^1.4.0",
+    "prettier": "^3.9.5"
   }
 }

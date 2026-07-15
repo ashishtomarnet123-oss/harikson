@@ -1,14 +1,14 @@
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000";
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
 
 export class ApiClient {
   private static getHeaders(): HeadersInit {
     const headers: HeadersInit = {
-      "Content-Type": "application/json",
+      'Content-Type': 'application/json',
     };
-    if (typeof window !== "undefined") {
-      const token = localStorage.getItem("nv_user_token");
+    if (typeof window !== 'undefined') {
+      const token = localStorage.getItem('nv_user_token');
       if (token) {
-        headers["Authorization"] = `Bearer ${token}`;
+        headers['Authorization'] = `Bearer ${token}`;
       }
     }
     return headers;
@@ -16,7 +16,7 @@ export class ApiClient {
 
   static async get<T>(path: string): Promise<T> {
     const res = await fetch(`${API_BASE_URL}${path}`, {
-      method: "GET",
+      method: 'GET',
       headers: this.getHeaders(),
     });
     if (!res.ok) {
@@ -28,7 +28,7 @@ export class ApiClient {
 
   static async post<T>(path: string, body?: any): Promise<T> {
     const res = await fetch(`${API_BASE_URL}${path}`, {
-      method: "POST",
+      method: 'POST',
       headers: this.getHeaders(),
       body: body ? JSON.stringify(body) : undefined,
     });
@@ -41,7 +41,7 @@ export class ApiClient {
 
   static async delete<T>(path: string): Promise<T> {
     const res = await fetch(`${API_BASE_URL}${path}`, {
-      method: "DELETE",
+      method: 'DELETE',
       headers: this.getHeaders(),
     });
     if (!res.ok) {

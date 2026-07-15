@@ -9,7 +9,8 @@ const targetEffect = `  useEffect(() => {
 chatJs = chatJs.replace(badCode, '');
 chatJs = chatJs.replace(
   targetEffect,
-  targetEffect + "\n    const savedInstructions = localStorage.getItem('harikson_custom_instructions');\n    if (savedInstructions) setCustomInstructions(savedInstructions);"
+  targetEffect +
+    "\n    const savedInstructions = localStorage.getItem('harikson_custom_instructions');\n    if (savedInstructions) setCustomInstructions(savedInstructions);"
 );
 
 fs.writeFileSync('user-portal/pages/chat.js', chatJs, 'utf8');

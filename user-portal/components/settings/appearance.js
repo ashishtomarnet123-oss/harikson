@@ -8,7 +8,7 @@ export default function AppearanceSettings() {
     sidebarState: 'expanded',
     fontSize: 'medium',
     accentColor: 'default',
-    animation: true
+    animation: true,
   });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -17,19 +17,22 @@ export default function AppearanceSettings() {
   useEffect(() => {
     const fetchSettings = async () => {
       try {
-        const token = (localStorage.getItem('hk_user') ? 'cookie_auth' : null);
+        const token = localStorage.getItem('hk_user') ? 'cookie_auth' : null;
         if (!token) return;
-        const apiBase = localStorage.getItem('hk_api_base') || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3008';
-      const tenantSlug = localStorage.getItem('hk_tenant') || 'neuravolt';
+        const apiBase =
+          localStorage.getItem('hk_api_base') ||
+          process.env.NEXT_PUBLIC_API_URL ||
+          'http://localhost:3008';
+        const tenantSlug = localStorage.getItem('hk_tenant') || 'neuravolt';
         const res = await fetch(`${apiBase}/api/user/settings`, {
           credentials: 'include',
           headers: {
-                    'x-tenant-slug': tenantSlug
-        }
+            'x-tenant-slug': tenantSlug,
+          },
         });
         if (res.ok) {
           const data = await res.json();
-          setSettings(prev => ({ ...prev, ...data }));
+          setSettings((prev) => ({ ...prev, ...data }));
         }
       } catch (err) {
         console.error('Failed to fetch settings', err);
@@ -42,7 +45,10 @@ export default function AppearanceSettings() {
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
-    setSettings(prev => ({ ...prev, [name]: type === 'checkbox' ? checked : value }));
+    setSettings((prev) => ({
+      ...prev,
+      [name]: type === 'checkbox' ? checked : value,
+    }));
   };
 
   const handleSave = async (e) => {
@@ -50,20 +56,26 @@ export default function AppearanceSettings() {
     setSaving(true);
     setMessage(null);
     try {
-      const token = (localStorage.getItem('hk_user') ? 'cookie_auth' : null);
-      const apiBase = localStorage.getItem('hk_api_base') || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3008';
+      const token = localStorage.getItem('hk_user') ? 'cookie_auth' : null;
+      const apiBase =
+        localStorage.getItem('hk_api_base') ||
+        process.env.NEXT_PUBLIC_API_URL ||
+        'http://localhost:3008';
       const tenantSlug = localStorage.getItem('hk_tenant') || 'neuravolt';
       const res = await fetch(`${apiBase}/api/user/settings`, {
-          credentials: 'include',
+        credentials: 'include',
         method: 'PUT',
         headers: {
-                    'x-tenant-slug': tenantSlug,
-          'Content-Type': 'application/json'
+          'x-tenant-slug': tenantSlug,
+          'Content-Type': 'application/json',
         },
-        body: JSON.stringify(settings)
+        body: JSON.stringify(settings),
       });
       if (res.ok) {
-        setMessage({ type: 'success', text: 'Appearance updated successfully.' });
+        setMessage({
+          type: 'success',
+          text: 'Appearance updated successfully.',
+        });
       } else {
         throw new Error('Failed to update settings');
       }
@@ -83,7 +95,9 @@ export default function AppearanceSettings() {
         <p>Customize the look and feel of Harikson AI.</p>
       </div>
 
-      {message && <div className={`settings-alert ${message.type}`}>{message.text}</div>}
+      {message && (
+        <div className={`settings-alert ${message.type}`}>{message.text}</div>
+      )}
 
       <form className="settings-form" onSubmit={handleSave}>
         <div className="settings-section">
@@ -104,14 +118,22 @@ export default function AppearanceSettings() {
           <div className="form-row">
             <div className="form-group">
               <label>Interface Density</label>
-              <select name="density" value={settings.density} onChange={handleChange}>
+              <select
+                name="density"
+                value={settings.density}
+                onChange={handleChange}
+              >
                 <option value="comfortable">Comfortable</option>
                 <option value="compact">Compact</option>
               </select>
             </div>
             <div className="form-group">
               <label>Default Sidebar State</label>
-              <select name="sidebarState" value={settings.sidebarState} onChange={handleChange}>
+              <select
+                name="sidebarState"
+                value={settings.sidebarState}
+                onChange={handleChange}
+              >
                 <option value="expanded">Expanded</option>
                 <option value="collapsed">Collapsed</option>
               </select>
@@ -121,7 +143,11 @@ export default function AppearanceSettings() {
           <div className="form-row">
             <div className="form-group">
               <label>Font Size</label>
-              <select name="fontSize" value={settings.fontSize} onChange={handleChange}>
+              <select
+                name="fontSize"
+                value={settings.fontSize}
+                onChange={handleChange}
+              >
                 <option value="small">Small</option>
                 <option value="medium">Medium</option>
                 <option value="large">Large</option>
@@ -129,7 +155,11 @@ export default function AppearanceSettings() {
             </div>
             <div className="form-group">
               <label>Accent Color</label>
-              <select name="accentColor" value={settings.accentColor} onChange={handleChange}>
+              <select
+                name="accentColor"
+                value={settings.accentColor}
+                onChange={handleChange}
+              >
                 <option value="default">Harikson Blue</option>
                 <option value="purple">Purple</option>
                 <option value="green">Green</option>
@@ -148,7 +178,9 @@ export default function AppearanceSettings() {
               checked={settings.animation}
               onChange={handleChange}
             />
-            <label htmlFor="animation-toggle">Enable Interface Animations</label>
+            <label htmlFor="animation-toggle">
+              Enable Interface Animations
+            </label>
           </div>
           <span className="help-text" style={{ paddingLeft: '26px' }}>
             Turn off to disable slide and fade transitions.
@@ -157,7 +189,13 @@ export default function AppearanceSettings() {
 
         <div className="settings-actions">
           <button type="submit" className="btn-primary" disabled={saving}>
-            {saving ? 'Saving...' : <><Save size={15} /> Save Changes</>}
+            {saving ? (
+              'Saving...'
+            ) : (
+              <>
+                <Save size={15} /> Save Changes
+              </>
+            )}
           </button>
         </div>
       </form>

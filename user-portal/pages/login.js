@@ -26,7 +26,10 @@ export default function LoginPage() {
         if (window.location.port) {
           setApiBase(`http://${hostname}:3008`);
         } else {
-          setApiBase(process.env.NEXT_PUBLIC_API_URL || `${window.location.protocol}//api.${hostname.split('.').slice(1).join('.')}`);
+          setApiBase(
+            process.env.NEXT_PUBLIC_API_URL ||
+              `${window.location.protocol}//api.${hostname.split('.').slice(1).join('.')}`
+          );
         }
         const parts = hostname.split('.');
         const isIP = !isNaN(parts[0]);
@@ -93,7 +96,9 @@ export default function LoginPage() {
 
           <form onSubmit={handleLogin} autoComplete="on">
             <div className="form-group">
-              <label className="form-label" htmlFor="email">Email address</label>
+              <label className="form-label" htmlFor="email">
+                Email address
+              </label>
               <input
                 id="email"
                 type="email"
@@ -106,7 +111,9 @@ export default function LoginPage() {
               />
             </div>
             <div className="form-group">
-              <label className="form-label" htmlFor="password">Password</label>
+              <label className="form-label" htmlFor="password">
+                Password
+              </label>
               <input
                 id="password"
                 type="password"
@@ -125,20 +132,36 @@ export default function LoginPage() {
             </button>
           </form>
 
-          {error && (
-            <div className="login-error">
-              ⚠ {error}
-            </div>
-          )}
+          {error && <div className="login-error">⚠ {error}</div>}
 
-          <p style={{ marginTop: '20px', fontSize: '12px', color: 'var(--text-muted)', textAlign: 'center' }}>
+          <p
+            style={{
+              marginTop: '20px',
+              fontSize: '12px',
+              color: 'var(--text-muted)',
+              textAlign: 'center',
+            }}
+          >
             Secured by Harikson · Enterprise AI Platform
           </p>
 
-          <p style={{ marginTop: '10px', fontSize: '13px', color: 'var(--text-secondary)', textAlign: 'center' }}>
+          <p
+            style={{
+              marginTop: '10px',
+              fontSize: '13px',
+              color: 'var(--text-secondary)',
+              textAlign: 'center',
+            }}
+          >
             Don&apos;t have an account?{' '}
             <Link href="/signup" passHref legacyBehavior>
-              <a style={{ color: 'var(--accent)', textDecoration: 'none', fontWeight: 500 }}>
+              <a
+                style={{
+                  color: 'var(--accent)',
+                  textDecoration: 'none',
+                  fontWeight: 500,
+                }}
+              >
                 Sign up
               </a>
             </Link>

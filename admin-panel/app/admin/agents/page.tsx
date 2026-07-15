@@ -1,6 +1,18 @@
 'use client';
 import React, { useState, useEffect } from 'react';
-import { Bot, Plus, X, Search, Activity, Edit2, Trash2, Cpu, Settings, ShieldAlert, BadgeCheck } from 'lucide-react';
+import {
+  Bot,
+  Plus,
+  X,
+  Search,
+  Activity,
+  Edit2,
+  Trash2,
+  Cpu,
+  Settings,
+  ShieldAlert,
+  BadgeCheck,
+} from 'lucide-react';
 import { getCookie } from 'cookies-next';
 
 interface Agent {
@@ -38,16 +50,17 @@ export default function AgentsManagement() {
     max_tokens: 2048,
     streaming_enabled: true,
     memory_enabled: true,
-    status: 'active'
+    status: 'active',
   });
   const [editingId, setEditingId] = useState<string | null>(null);
 
   const fetchAgents = async () => {
     setLoading(true);
-    const token = getCookie('admin_token') || localStorage.getItem('admin_token');
+    const token =
+      getCookie('admin_token') || localStorage.getItem('admin_token');
     try {
       const res = await fetch(`${apiBase}/admin/agents`, {
-        headers: { Authorization: `Bearer ${token}` }
+        headers: { Authorization: `Bearer ${token}` },
       });
       if (res.ok) {
         const data = await res.json();
@@ -65,7 +78,8 @@ export default function AgentsManagement() {
   }, [apiBase]);
 
   const handleSave = async () => {
-    const token = getCookie('admin_token') || localStorage.getItem('admin_token');
+    const token =
+      getCookie('admin_token') || localStorage.getItem('admin_token');
     const method = editingId ? 'PUT' : 'POST';
     const endpoint = editingId ? `/admin/agents/${editingId}` : '/admin/agents';
 
@@ -74,9 +88,9 @@ export default function AgentsManagement() {
         method,
         headers: {
           Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
         },
-        body: JSON.stringify(formData)
+        body: JSON.stringify(formData),
       });
 
       if (res.ok) {
@@ -93,11 +107,12 @@ export default function AgentsManagement() {
 
   const handleArchive = async (id: string) => {
     if (!window.confirm('Are you sure you want to archive this agent?')) return;
-    const token = getCookie('admin_token') || localStorage.getItem('admin_token');
+    const token =
+      getCookie('admin_token') || localStorage.getItem('admin_token');
     try {
       await fetch(`${apiBase}/admin/agents/${id}`, {
         method: 'DELETE',
-        headers: { Authorization: `Bearer ${token}` }
+        headers: { Authorization: `Bearer ${token}` },
       });
       fetchAgents();
     } catch (err) {
@@ -122,16 +137,17 @@ export default function AgentsManagement() {
       max_tokens: 2048,
       streaming_enabled: true,
       memory_enabled: true,
-      status: 'active'
+      status: 'active',
     });
     setEditingId(null);
     setIsDrawerOpen(true);
   };
 
   const filteredAgents = agents.filter(
-    a =>
+    (a) =>
       a.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (a.tenant_name && a.tenant_name.toLowerCase().includes(searchTerm.toLowerCase()))
+      (a.tenant_name &&
+        a.tenant_name.toLowerCase().includes(searchTerm.toLowerCase()))
   );
 
   return (
@@ -143,7 +159,8 @@ export default function AgentsManagement() {
             <Bot className="w-7 h-7 text-blue-600 shrink-0" /> AI Agent Fleet
           </h1>
           <p className="text-gray-500 mt-1.5 text-sm sm:text-base">
-            Manage, configure, and orchestrate specialized AI agents across all tenants.
+            Manage, configure, and orchestrate specialized AI agents across all
+            tenants.
           </p>
         </div>
         <button
@@ -165,7 +182,7 @@ export default function AgentsManagement() {
               type="text"
               placeholder="Search agents or tenants..."
               value={searchTerm}
-              onChange={e => setSearchTerm(e.target.value)}
+              onChange={(e) => setSearchTerm(e.target.value)}
               className="w-full border border-gray-200 rounded-xl pl-9 pr-4 py-1.5 text-sm text-gray-700 outline-none focus:border-blue-500 transition-colors bg-white"
             />
           </div>
@@ -176,33 +193,57 @@ export default function AgentsManagement() {
         </div>
 
         {loading ? (
-          <div className="p-16 text-center text-gray-400 font-medium">Loading AI agents...</div>
+          <div className="p-16 text-center text-gray-400 font-medium">
+            Loading AI agents...
+          </div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm text-left">
               <thead>
                 <tr className="border-b border-gray-100 bg-gray-50/25">
-                  <th className="px-5 py-3.5 text-xs font-bold text-gray-500 uppercase tracking-wider">Agent Name</th>
-                  <th className="px-5 py-3.5 text-xs font-bold text-gray-500 uppercase tracking-wider">Tenant / Scope</th>
-                  <th className="px-5 py-3.5 text-xs font-bold text-gray-500 uppercase tracking-wider">Model</th>
-                  <th className="px-5 py-3.5 text-xs font-bold text-gray-500 uppercase tracking-wider">Status</th>
-                  <th className="px-5 py-3.5 text-xs font-bold text-gray-500 uppercase tracking-wider">Usage Stats</th>
-                  <th className="px-5 py-3.5 text-xs font-bold text-gray-500 uppercase tracking-wider text-right">Actions</th>
+                  <th className="px-5 py-3.5 text-xs font-bold text-gray-500 uppercase tracking-wider">
+                    Agent Name
+                  </th>
+                  <th className="px-5 py-3.5 text-xs font-bold text-gray-500 uppercase tracking-wider">
+                    Tenant / Scope
+                  </th>
+                  <th className="px-5 py-3.5 text-xs font-bold text-gray-500 uppercase tracking-wider">
+                    Model
+                  </th>
+                  <th className="px-5 py-3.5 text-xs font-bold text-gray-500 uppercase tracking-wider">
+                    Status
+                  </th>
+                  <th className="px-5 py-3.5 text-xs font-bold text-gray-500 uppercase tracking-wider">
+                    Usage Stats
+                  </th>
+                  <th className="px-5 py-3.5 text-xs font-bold text-gray-500 uppercase tracking-wider text-right">
+                    Actions
+                  </th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
                 {filteredAgents.length === 0 ? (
                   <tr>
-                    <td colSpan={6} className="text-center py-16 text-gray-400 font-medium">
+                    <td
+                      colSpan={6}
+                      className="text-center py-16 text-gray-400 font-medium"
+                    >
                       No agents found. Click Create Agent to deploy one.
                     </td>
                   </tr>
                 ) : (
-                  filteredAgents.map(agent => (
-                    <tr key={agent.id} className="hover:bg-slate-50/50 transition-colors">
+                  filteredAgents.map((agent) => (
+                    <tr
+                      key={agent.id}
+                      className="hover:bg-slate-50/50 transition-colors"
+                    >
                       <td className="px-5 py-4">
-                        <div className="font-bold text-gray-900 text-base">{agent.name}</div>
-                        <div className="text-xs text-gray-500 mt-0.5 font-medium">{agent.category}</div>
+                        <div className="font-bold text-gray-900 text-base">
+                          {agent.name}
+                        </div>
+                        <div className="text-xs text-gray-500 mt-0.5 font-medium">
+                          {agent.category}
+                        </div>
                       </td>
                       <td className="px-5 py-4 text-gray-600 font-medium">
                         {agent.tenant_name || 'Global (Admin)'}
@@ -213,19 +254,25 @@ export default function AgentsManagement() {
                         </span>
                       </td>
                       <td className="px-5 py-4">
-                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold uppercase tracking-wider ${
-                          agent.status === 'active'
-                            ? 'bg-emerald-50 text-emerald-700 border border-emerald-100'
-                            : agent.status === 'disabled'
-                              ? 'bg-rose-50 text-rose-700 border border-rose-100'
-                              : 'bg-gray-50 text-gray-700 border border-gray-100'
-                        }`}>
+                        <span
+                          className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold uppercase tracking-wider ${
+                            agent.status === 'active'
+                              ? 'bg-emerald-50 text-emerald-700 border border-emerald-100'
+                              : agent.status === 'disabled'
+                                ? 'bg-rose-50 text-rose-700 border border-rose-100'
+                                : 'bg-gray-50 text-gray-700 border border-gray-100'
+                          }`}
+                        >
                           {agent.status}
                         </span>
                       </td>
                       <td className="px-5 py-4">
-                        <div className="text-gray-900 font-semibold text-xs">{agent.total_requests || 0} reqs</div>
-                        <div className="text-[10px] text-gray-500 mt-0.5 font-mono">{agent.total_tokens || 0} tokens</div>
+                        <div className="text-gray-900 font-semibold text-xs">
+                          {agent.total_requests || 0} reqs
+                        </div>
+                        <div className="text-[10px] text-gray-500 mt-0.5 font-mono">
+                          {agent.total_tokens || 0} tokens
+                        </div>
                       </td>
                       <td className="px-5 py-4 text-right">
                         <div className="flex items-center justify-end gap-2">
@@ -256,7 +303,10 @@ export default function AgentsManagement() {
       {/* Drawer Overlay & Panel */}
       {isDrawerOpen && (
         <div className="fixed inset-0 z-50 flex justify-end">
-          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm transition-opacity" onClick={() => setIsDrawerOpen(false)} />
+          <div
+            className="absolute inset-0 bg-black/40 backdrop-blur-sm transition-opacity"
+            onClick={() => setIsDrawerOpen(false)}
+          />
           <div className="relative w-full max-w-xl bg-white border-l border-gray-200 h-full overflow-y-auto flex flex-col shadow-2xl animate-in slide-in-from-right duration-200">
             {/* Drawer Header */}
             <div className="flex items-center justify-between p-6 border-b border-gray-100 sticky top-0 bg-white/90 backdrop-blur z-10">
@@ -265,7 +315,9 @@ export default function AgentsManagement() {
                   <Cpu className="w-5 h-5 text-blue-600" />
                   {editingId ? 'Configure Agent' : 'Create New Agent'}
                 </h2>
-                <p className="text-xs text-gray-500 mt-1">Define LLM engine, system prompt directives, and capabilities.</p>
+                <p className="text-xs text-gray-500 mt-1">
+                  Define LLM engine, system prompt directives, and capabilities.
+                </p>
               </div>
               <button
                 onClick={() => setIsDrawerOpen(false)}
@@ -284,20 +336,28 @@ export default function AgentsManagement() {
                 </h3>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
-                    <label className="text-xs font-bold text-gray-500 mb-1.5 block">Agent Name *</label>
+                    <label className="text-xs font-bold text-gray-500 mb-1.5 block">
+                      Agent Name *
+                    </label>
                     <input
                       type="text"
                       placeholder="e.g. Technical Writer"
                       value={formData.name}
-                      onChange={e => setFormData({ ...formData, name: e.target.value })}
+                      onChange={(e) =>
+                        setFormData({ ...formData, name: e.target.value })
+                      }
                       className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm text-gray-700 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
                     />
                   </div>
                   <div>
-                    <label className="text-xs font-bold text-gray-500 mb-1.5 block">Category</label>
+                    <label className="text-xs font-bold text-gray-500 mb-1.5 block">
+                      Category
+                    </label>
                     <select
                       value={formData.category}
-                      onChange={e => setFormData({ ...formData, category: e.target.value })}
+                      onChange={(e) =>
+                        setFormData({ ...formData, category: e.target.value })
+                      }
                       className="w-full border border-gray-200 bg-white rounded-xl px-3 py-2 text-sm text-gray-700 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
                     >
                       <option value="General">General</option>
@@ -309,12 +369,16 @@ export default function AgentsManagement() {
                   </div>
                 </div>
                 <div>
-                  <label className="text-xs font-bold text-gray-500 mb-1.5 block">Description</label>
+                  <label className="text-xs font-bold text-gray-500 mb-1.5 block">
+                    Description
+                  </label>
                   <input
                     type="text"
                     placeholder="Short summary of the agent's purpose..."
                     value={formData.description}
-                    onChange={e => setFormData({ ...formData, description: e.target.value })}
+                    onChange={(e) =>
+                      setFormData({ ...formData, description: e.target.value })
+                    }
                     className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm text-gray-700 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
                   />
                 </div>
@@ -323,51 +387,79 @@ export default function AgentsManagement() {
               {/* LLM & Prompt Parameters */}
               <div className="space-y-4 pt-2">
                 <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest border-b border-gray-100 pb-2 flex items-center gap-1.5">
-                  <Settings className="w-4 h-4 text-gray-400" /> Brain & Parameters
+                  <Settings className="w-4 h-4 text-gray-400" /> Brain &
+                  Parameters
                 </h3>
                 <div>
-                  <label className="text-xs font-bold text-gray-500 mb-1.5 block">LLM Engine</label>
+                  <label className="text-xs font-bold text-gray-500 mb-1.5 block">
+                    LLM Engine
+                  </label>
                   <select
                     value={formData.model}
-                    onChange={e => setFormData({ ...formData, model: e.target.value })}
+                    onChange={(e) =>
+                      setFormData({ ...formData, model: e.target.value })
+                    }
                     className="w-full border border-gray-200 bg-white rounded-xl px-3 py-2 text-sm text-gray-700 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
                   >
                     <option value="Qwen3-8B">Qwen3-8B (Fast & Cheap)</option>
                     <option value="Qwen3-14B">Qwen3-14B (Balanced)</option>
-                    <option value="Qwen3-32B">Qwen3-32B (Complex Reasoning)</option>
+                    <option value="Qwen3-32B">
+                      Qwen3-32B (Complex Reasoning)
+                    </option>
                   </select>
                 </div>
                 <div>
-                  <label className="text-xs font-bold text-gray-500 mb-1.5 block">System Prompt Persona</label>
+                  <label className="text-xs font-bold text-gray-500 mb-1.5 block">
+                    System Prompt Persona
+                  </label>
                   <textarea
                     rows={4}
                     placeholder="You are a helpful AI assistant..."
                     value={formData.system_prompt}
-                    onChange={e => setFormData({ ...formData, system_prompt: e.target.value })}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        system_prompt: e.target.value,
+                      })
+                    }
                     className="w-full border border-gray-200 rounded-xl p-3 text-sm text-gray-700 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 leading-relaxed"
                   />
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
-                    <label className="text-xs font-bold text-gray-500 mb-1.5 block">Temperature ({formData.temperature})</label>
+                    <label className="text-xs font-bold text-gray-500 mb-1.5 block">
+                      Temperature ({formData.temperature})
+                    </label>
                     <input
                       type="number"
                       min={0}
                       max={2}
                       step={0.1}
                       value={formData.temperature}
-                      onChange={e => setFormData({ ...formData, temperature: parseFloat(e.target.value) || 0.7 })}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          temperature: parseFloat(e.target.value) || 0.7,
+                        })
+                      }
                       className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm text-gray-700 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
                     />
                   </div>
                   <div>
-                    <label className="text-xs font-bold text-gray-500 mb-1.5 block">Max Tokens</label>
+                    <label className="text-xs font-bold text-gray-500 mb-1.5 block">
+                      Max Tokens
+                    </label>
                     <input
                       type="number"
                       min={1}
                       max={8192}
                       value={formData.max_tokens}
-                      onChange={e => setFormData({ ...formData, max_tokens: parseInt(e.target.value) || 2048 })}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          max_tokens: parseInt(e.target.value) || 2048,
+                        })
+                      }
                       className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm text-gray-700 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
                     />
                   </div>
@@ -377,30 +469,49 @@ export default function AgentsManagement() {
               {/* Capabilities */}
               <div className="space-y-4 pt-2">
                 <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest border-b border-gray-100 pb-2 flex items-center gap-1.5">
-                  <ShieldAlert className="w-4 h-4 text-gray-400" /> Capabilities & Status
+                  <ShieldAlert className="w-4 h-4 text-gray-400" /> Capabilities
+                  & Status
                 </h3>
                 <div className="space-y-3">
                   <label className="flex items-center justify-between p-3.5 bg-gray-50/50 rounded-xl border border-gray-100 cursor-pointer select-none">
                     <div>
-                      <div className="text-sm font-semibold text-gray-900">Session Memory</div>
-                      <div className="text-xs text-gray-500 mt-0.5">Agent remembers context across conversations</div>
+                      <div className="text-sm font-semibold text-gray-900">
+                        Session Memory
+                      </div>
+                      <div className="text-xs text-gray-500 mt-0.5">
+                        Agent remembers context across conversations
+                      </div>
                     </div>
                     <input
                       type="checkbox"
                       checked={formData.memory_enabled || false}
-                      onChange={e => setFormData({ ...formData, memory_enabled: e.target.checked })}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          memory_enabled: e.target.checked,
+                        })
+                      }
                       className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
                     />
                   </label>
                   <label className="flex items-center justify-between p-3.5 bg-gray-50/50 rounded-xl border border-gray-100 cursor-pointer select-none">
                     <div>
-                      <div className="text-sm font-semibold text-gray-900">Response Streaming</div>
-                      <div className="text-xs text-gray-500 mt-0.5">Stream tokens in real-time to the client</div>
+                      <div className="text-sm font-semibold text-gray-900">
+                        Response Streaming
+                      </div>
+                      <div className="text-xs text-gray-500 mt-0.5">
+                        Stream tokens in real-time to the client
+                      </div>
                     </div>
                     <input
                       type="checkbox"
                       checked={formData.streaming_enabled || false}
-                      onChange={e => setFormData({ ...formData, streaming_enabled: e.target.checked })}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          streaming_enabled: e.target.checked,
+                        })
+                      }
                       className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
                     />
                   </label>
@@ -408,12 +519,18 @@ export default function AgentsManagement() {
                   {editingId && (
                     <div className="flex items-center justify-between p-3.5 bg-gray-50/50 rounded-xl border border-gray-100">
                       <div>
-                        <div className="text-sm font-semibold text-gray-900">Agent Status</div>
-                        <div className="text-xs text-gray-500 mt-0.5">Disable to temporarily block invocations</div>
+                        <div className="text-sm font-semibold text-gray-900">
+                          Agent Status
+                        </div>
+                        <div className="text-xs text-gray-500 mt-0.5">
+                          Disable to temporarily block invocations
+                        </div>
                       </div>
                       <select
                         value={formData.status}
-                        onChange={e => setFormData({ ...formData, status: e.target.value })}
+                        onChange={(e) =>
+                          setFormData({ ...formData, status: e.target.value })
+                        }
                         className="border border-gray-200 bg-white rounded-lg px-2.5 py-1 text-xs text-gray-700 outline-none focus:border-blue-500 w-28"
                       >
                         <option value="active">Active</option>

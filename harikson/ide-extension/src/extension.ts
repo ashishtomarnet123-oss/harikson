@@ -1,27 +1,31 @@
-import * as vscode from "vscode";
-import { io, Socket } from "socket.io-client";
+import * as vscode from 'vscode';
+import { io, Socket } from 'socket.io-client';
 
 let socket: Socket | undefined;
 
 export function activate(context: vscode.ExtensionContext) {
-  console.log("⚡ [Neuravolt AI] VS Code Extension activated!");
+  console.log('⚡ [Neuravolt AI] VS Code Extension activated!');
 
-  const config = vscode.workspace.getConfiguration("neuravolt");
-  const agentUrl = config.get<string>("agentUrl") || "http://localhost:6000";
-  const apiKey = config.get<string>("apiKey") || "";
+  const config = vscode.workspace.getConfiguration('neuravolt');
+  const agentUrl = config.get<string>('agentUrl') || 'http://localhost:6000';
+  const apiKey = config.get<string>('apiKey') || '';
 
   // Connect to the isolated IDE Bridge Socket
   socket = io(agentUrl, {
     auth: { token: apiKey },
-    transports: ["websocket"],
+    transports: ['websocket'],
   });
 
-  socket.on("connect", () => {
-    vscode.window.showInformationMessage("🔌 [Neuravolt AI] Connected to coding bridge agent.");
+  socket.on('connect', () => {
+    vscode.window.showInformationMessage(
+      '🔌 [Neuravolt AI] Connected to coding bridge agent.'
+    );
   });
 
-  socket.on("disconnect", () => {
-    vscode.window.showWarningMessage("🔌 [Neuravolt AI] Disconnected from coding bridge.");
+  socket.on('disconnect', () => {
+    vscode.window.showWarningMessage(
+      '🔌 [Neuravolt AI] Disconnected from coding bridge.'
+    );
   });
 
   // 1. Register Inline Autocomplete Provider (Ghost Text)
@@ -30,43 +34,58 @@ export function activate(context: vscode.ExtensionContext) {
       if (!socket || !socket.connected) return undefined;
 
       const lineText = document.lineAt(position.line).text;
-      const prefix = document.getText(new vscode.Range(new vscode.Position(0, 0), position));
-      const suffix = document.getText(new vscode.Range(position, new vscode.Position(document.lineCount, 0)));
+      const prefix = document.getText(
+        new vscode.Range(new vscode.Position(0, 0), position)
+      );
+      const suffix = document.getText(
+        new vscode.Range(position, new vscode.Position(document.lineCount, 0))
+      );
 
       // Request suggestion from IDE bridge via promise wrapper
       try {
-        const suggestion = await new Promise<{ completion: string }>((resolve, reject) => {
-          socket!.emit("autocomplete", {
-            prefix,
-            suffix,
-            language: document.languageId,
-          }, (response: any) => {
-            if (response && response.completion) {
-              resolve(response);
-            } else {
-              reject();
-            }
-          });
+        const suggestion = await new Promise<{ completion: string }>(
+          (resolve, reject) => {
+            socket!.emit(
+              'autocomplete',
+              {
+                prefix,
+                suffix,
+                language: document.languageId,
+              },
+              (response: any) => {
+                if (response && response.completion) {
+                  resolve(response);
+                } else {
+                  reject();
+                }
+              }
+            );
 
-          // Timeout check
-          setTimeout(() => reject(), 250);
-        });
+            // Timeout check
+            setTimeout(() => reject(), 250);
+          }
+        );
 
-        const completionItem = new vscode.InlineCompletionItem(suggestion.completion);
+        const completionItem = new vscode.InlineCompletionItem(
+          suggestion.completion
+        );
         return [completionItem];
       } catch {
         return undefined;
       }
-    }
+    },
   };
 
   context.subscriptions.push(
-    vscode.languages.registerInlineCompletionItemProvider({ pattern: "**" }, provider)
+    vscode.languages.registerInlineCompletionItemProvider(
+      { pattern: '**' },
+      provider
+    )
   );
 
   // 2. Register Webview Chat view
   context.subscriptions.push(
-    vscode.window.registerWebviewViewProvider("neuravolt-chat-view", {
+    vscode.window.registerWebviewViewProvider('neuravolt-chat-view', {
       resolveWebviewView(webviewView) {
         webviewView.webview.options = { enableScripts: true };
         webviewView.webview.html = `
@@ -84,7 +103,7 @@ export function activate(context: vscode.ExtensionContext) {
           </body>
           </html>
         `;
-      }
+      },
     })
   );
 }

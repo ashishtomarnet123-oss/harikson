@@ -16,7 +16,7 @@ export class ChatProvider implements vscode.WebviewViewProvider {
     // Webview options
     webviewView.webview.options = {
       enableScripts: true,
-      localResourceRoots: [this._extensionUri]
+      localResourceRoots: [this._extensionUri],
     };
 
     // Render Webview HTML layout
@@ -36,14 +36,16 @@ export class ChatProvider implements vscode.WebviewViewProvider {
     if (!this._view) return;
 
     const config = vscode.workspace.getConfiguration('harikson');
-    const tenantUrl = config.get<string>('tenantUrl') || 'http://localhost:3000';
+    const tenantUrl =
+      config.get<string>('tenantUrl') || 'http://localhost:3000';
     const apiKey = config.get<string>('apiKey') || '';
     const model = config.get<string>('model') || 'harikson-plus';
 
     if (!apiKey) {
       this._view.webview.postMessage({
         type: 'addResponse',
-        value: '⚠️ Config Error: API Key missing. Set "harikson.apiKey" in VS Code settings.'
+        value:
+          '⚠️ Config Error: API Key missing. Set "harikson.apiKey" in VS Code settings.',
       });
       return;
     }
@@ -56,13 +58,16 @@ export class ChatProvider implements vscode.WebviewViewProvider {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${apiKey}`,
-          'X-Tenant-Url': tenantUrl
+          Authorization: `Bearer ${apiKey}`,
+          'X-Tenant-Url': tenantUrl,
         },
         body: JSON.stringify({
           message: message,
-          model: model === 'harikson-plus' ? 'harikson-chat-8b' : 'harikson-coder-14b'
-        })
+          model:
+            model === 'harikson-plus'
+              ? 'harikson-chat-8b'
+              : 'harikson-coder-14b',
+        }),
       });
 
       if (!response.ok) {
@@ -70,15 +75,15 @@ export class ChatProvider implements vscode.WebviewViewProvider {
         throw new Error(errText || `Server returned ${response.status}`);
       }
 
-      const data = await response.json() as any;
+      const data = (await response.json()) as any;
       this._view.webview.postMessage({
         type: 'addResponse',
-        value: data.response || 'Empty response received.'
+        value: data.response || 'Empty response received.',
       });
     } catch (err: any) {
       this._view.webview.postMessage({
         type: 'addResponse',
-        value: `❌ Fetch Error: ${err.message || err}`
+        value: `❌ Fetch Error: ${err.message || err}`,
       });
     }
   }

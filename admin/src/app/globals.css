@@ -25,14 +25,24 @@
 }
 
 body {
-  font-family: 'Outfit', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  font-family:
+    'Outfit',
+    -apple-system,
+    BlinkMacSystemFont,
+    'Segoe UI',
+    Roboto,
+    sans-serif;
   background-color: hsl(var(--background));
   color: hsl(var(--foreground));
   min-height: 100vh;
   overflow-x: hidden;
-  background-image: 
+  background-image:
     radial-gradient(at 0% 0%, hsla(263, 70%, 50%, 0.15) 0px, transparent 50%),
-    radial-gradient(at 100% 100%, hsla(217, 90%, 50%, 0.12) 0px, transparent 50%);
+    radial-gradient(
+      at 100% 100%,
+      hsla(217, 90%, 50%, 0.12) 0px,
+      transparent 50%
+    );
   background-attachment: fixed;
 }
 
@@ -93,7 +103,8 @@ body {
   letter-spacing: 0.05em;
 }
 
-.badge-active, .badge-running {
+.badge-active,
+.badge-running {
   background: rgba(16, 185, 129, 0.1);
   color: #10b981;
   border: 1px solid rgba(16, 185, 129, 0.2);
@@ -105,7 +116,8 @@ body {
   border: 1px solid rgba(245, 158, 11, 0.2);
 }
 
-.badge-suspended, .badge-stopped {
+.badge-suspended,
+.badge-stopped {
   background: rgba(239, 68, 68, 0.1);
   color: #ef4444;
   border: 1px solid rgba(239, 68, 68, 0.2);

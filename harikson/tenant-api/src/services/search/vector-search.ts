@@ -1,9 +1,9 @@
-import pg from "pg";
-import { pool } from "../../db/pool.js";
-import { OllamaClient } from "../../llm/ollama.js";
+import pg from 'pg';
+import { pool } from '../../db/pool.js';
+import { OllamaClient } from '../../llm/ollama.js';
 
 export interface SearchResult {
-  type: "code" | "memory";
+  type: 'code' | 'memory';
   content: string;
   source_path: string;
   similarity_score: number;
@@ -18,18 +18,24 @@ export interface SearchFilters {
 }
 
 export class VectorSearchService {
-  private static async executeQuery<T>(tenantId: string, callback: (client: pg.PoolClient) => Promise<T>): Promise<T> {
+  private static async executeQuery<T>(
+    tenantId: string,
+    callback: (client: pg.PoolClient) => Promise<T>
+  ): Promise<T> {
     const client = await pool.connect();
     try {
-      await client.query("SELECT set_tenant_context($1)", [tenantId]);
+      await client.query('SELECT set_tenant_context($1)', [tenantId]);
       const result = await callback(client);
-      await client.query("SELECT set_tenant_context(NULL)");
+      await client.query('SELECT set_tenant_context(NULL)');
       return result;
     } catch (err) {
       try {
-        await client.query("SELECT set_tenant_context(NULL)");
+        await client.query('SELECT set_tenant_context(NULL)');
       } catch (cleanupErr: any) {
-        console.warn("Warning clearing tenant context on query error in VectorSearchService:", cleanupErr.message);
+        console.warn(
+          'Warning clearing tenant context on query error in VectorSearchService:',
+          cleanupErr.message
+        );
       }
       throw err;
     } finally {
@@ -48,7 +54,7 @@ export class VectorSearchService {
     const queryEmbedding = await OllamaClient.embed(query);
     const queryEmbeddingTimeMs = Date.now() - embedStart;
 
-    const vectorStr = `[${queryEmbedding.join(",")}]`;
+    const vectorStr = `[${queryEmbedding.join(',')}]`;
     const results: SearchResult[] = [];
 
     const searchCode = !filters?.memory_only;
@@ -60,19 +66,19 @@ export class VectorSearchService {
     if (searchCode) {
       queries.push(
         this.executeQuery(tenantId, async (client) => {
-          let fileTypeFilter = "";
+          let fileTypeFilter = '';
           const params: any[] = [vectorStr, tenantId, topKCode];
           let paramIdx = 4;
 
           if (filters?.file_types && filters.file_types.length > 0) {
             const clauses = filters.file_types.map((ext) => {
-              const cleanExt = ext.startsWith(".") ? ext : `.${ext}`;
+              const cleanExt = ext.startsWith('.') ? ext : `.${ext}`;
               params.push(`%${cleanExt}`);
               const clause = `file_path LIKE $${paramIdx}`;
               paramIdx++;
               return clause;
             });
-            fileTypeFilter = `AND (${clauses.join(" OR ")})`;
+            fileTypeFilter = `AND (${clauses.join(' OR ')})`;
           }
 
           const sql = `
@@ -87,7 +93,7 @@ export class VectorSearchService {
           const res = await client.query(sql, params);
           res.rows.forEach((row) => {
             results.push({
-              type: "code",
+              type: 'code',
               content: row.content,
               source_path: row.file_path,
               similarity_score: row.score,
@@ -101,12 +107,12 @@ export class VectorSearchService {
     if (searchMemory) {
       queries.push(
         this.executeQuery(tenantId, async (client) => {
-          let userFilter = "";
+          let userFilter = '';
           const params: any[] = [vectorStr, tenantId, topKMemory];
 
           if (filters?.user_id) {
             params.push(filters.user_id);
-            userFilter = "AND user_id = $4";
+            userFilter = 'AND user_id = $4';
           }
 
           const sql = `
@@ -121,9 +127,9 @@ export class VectorSearchService {
           const res = await client.query(sql, params);
           res.rows.forEach((row) => {
             results.push({
-              type: "memory",
+              type: 'memory',
               content: row.content,
-              source_path: "memories_table",
+              source_path: 'memories_table',
               similarity_score: row.score,
             });
           });
@@ -137,7 +143,7 @@ export class VectorSearchService {
     // 2. Apply Keyword Boosting
     const keywords = query
       .toLowerCase()
-      .replace(/[^\w\s]/g, "")
+      .replace(/[^\w\s]/g, '')
       .split(/\s+/)
       .filter((word) => word.length >= 3);
 
@@ -151,7 +157,8 @@ export class VectorSearchService {
           }
         });
       }
-      const keywordBoost = keywords.length > 0 ? matchedCount / keywords.length : 0.0;
+      const keywordBoost =
+        keywords.length > 0 ? matchedCount / keywords.length : 0.0;
       const finalScore = res.similarity_score * 0.7 + keywordBoost * 0.3;
 
       return {
@@ -173,8 +180,8 @@ export class VectorSearchService {
   }
 
   private static mergeAdjacentChunks(results: SearchResult[]): SearchResult[] {
-    const codeResults = results.filter((r) => r.type === "code");
-    const memoryResults = results.filter((r) => r.type === "memory");
+    const codeResults = results.filter((r) => r.type === 'code');
+    const memoryResults = results.filter((r) => r.type === 'memory');
 
     // Group code chunks by source_path
     const groups = new Map<string, SearchResult[]>();
@@ -202,14 +209,18 @@ export class VectorSearchService {
         const currentNum = chunk.chunk_number ?? 0;
 
         if (currentNum === prevNum + 1) {
-          const combinedText = currentMerged.content + "\n...\n" + chunk.content;
+          const combinedText =
+            currentMerged.content + '\n...\n' + chunk.content;
           const wordCount = combinedText.split(/\s+/).length;
 
           // Cap merged contents at ~2000 tokens (words)
           if (wordCount <= 2000) {
             currentMerged.content = combinedText;
             currentMerged.chunk_number = currentNum;
-            currentMerged.similarity_score = Math.max(currentMerged.similarity_score, chunk.similarity_score);
+            currentMerged.similarity_score = Math.max(
+              currentMerged.similarity_score,
+              chunk.similarity_score
+            );
           } else {
             mergedCodeResults.push(currentMerged);
             currentMerged = { ...chunk };

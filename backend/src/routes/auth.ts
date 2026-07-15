@@ -1,10 +1,10 @@
-import { Router, Response } from "express";
-import { z } from "zod";
-import { prisma } from "../lib/prisma.js";
-import { AuthUtils } from "../lib/auth.js";
-import { authMiddleware, AuthenticatedRequest } from "../middleware/auth.js";
-import { validate } from "../middleware/validate.js";
-import { EmailService } from "../services/email.service.js";
+import { Router, Response } from 'express';
+import { z } from 'zod';
+import { prisma } from '../lib/prisma.js';
+import { AuthUtils } from '../lib/auth.js';
+import { authMiddleware, AuthenticatedRequest } from '../middleware/auth.js';
+import { validate } from '../middleware/validate.js';
+import { EmailService } from '../services/email.service.js';
 
 const router = Router();
 
@@ -14,10 +14,14 @@ const signupSchema = z.object({
     password: z.string().min(6),
     name: z.string().min(2),
     company: z.string().optional(),
-    plan: z.enum(["STARTER", "PRO", "BUSINESS", "ENTERPRISE"]).default("STARTER"),
-    aiPlan: z.enum(["STARTER", "PRO", "BUSINESS", "ENTERPRISE"]).default("STARTER"),
-    agentType: z.enum(["CHAT", "CODING", "HYBRID"]).default("CHAT"),
-    model: z.string().default("harikson-chat-8b"),
+    plan: z
+      .enum(['STARTER', 'PRO', 'BUSINESS', 'ENTERPRISE'])
+      .default('STARTER'),
+    aiPlan: z
+      .enum(['STARTER', 'PRO', 'BUSINESS', 'ENTERPRISE'])
+      .default('STARTER'),
+    agentType: z.enum(['CHAT', 'CODING', 'HYBRID']).default('CHAT'),
+    model: z.string().default('harikson-chat-8b'),
     n8nEnabled: z.boolean().default(true),
     aiEnabled: z.boolean().default(false),
   }),
@@ -31,21 +35,32 @@ const loginSchema = z.object({
 });
 
 // POST /auth/signup
-router.post("/signup", validate(signupSchema), async (req, res, next) => {
+router.post('/signup', validate(signupSchema), async (req, res, next) => {
   try {
-    const { email, password, name, company, plan, aiPlan, agentType, model, n8nEnabled, aiEnabled } = req.body;
+    const {
+      email,
+      password,
+      name,
+      company,
+      plan,
+      aiPlan,
+      agentType,
+      model,
+      n8nEnabled,
+      aiEnabled,
+    } = req.body;
 
     const existingUser = await prisma.user.findUnique({ where: { email } });
     if (existingUser) {
-      return res.status(400).json({ error: "Email is already registered" });
+      return res.status(400).json({ error: 'Email is already registered' });
     }
 
     const hashedPassword = AuthUtils.hashPassword(password);
-    
+
     // Check if it's the very first user; if so, default to ADMIN role to ease setup
     const userCount = await prisma.user.count();
-    const role = userCount === 0 ? "ADMIN" : "USER";
-    const status = role === "ADMIN" ? "ACTIVE" : "PENDING";
+    const role = userCount === 0 ? 'ADMIN' : 'USER';
+    const status = role === 'ADMIN' ? 'ACTIVE' : 'PENDING';
 
     const user = await prisma.user.create({
       data: {
@@ -68,11 +83,11 @@ router.post("/signup", validate(signupSchema), async (req, res, next) => {
     try {
       await EmailService.sendWelcomeEmail(email, name);
     } catch (err) {
-      console.warn("Could not dispatch welcome email:", err);
+      console.warn('Could not dispatch welcome email:', err);
     }
 
     res.status(201).json({
-      message: "Registration successful. Pending admin activation.",
+      message: 'Registration successful. Pending admin activation.',
       userId: user.id,
       role: user.role,
       status: user.status,
@@ -83,26 +98,30 @@ router.post("/signup", validate(signupSchema), async (req, res, next) => {
 });
 
 // POST /auth/login
-router.post("/login", validate(loginSchema), async (req, res, next) => {
+router.post('/login', validate(loginSchema), async (req, res, next) => {
   try {
     const { email, password } = req.body;
 
     const user = await prisma.user.findUnique({ where: { email } });
     if (!user || !user.password) {
-      return res.status(401).json({ error: "Invalid email or password" });
+      return res.status(401).json({ error: 'Invalid email or password' });
     }
 
-    if (user.status === "PENDING") {
-      return res.status(403).json({ error: "Your account is pending administrator approval." });
+    if (user.status === 'PENDING') {
+      return res
+        .status(403)
+        .json({ error: 'Your account is pending administrator approval.' });
     }
 
-    if (user.status === "SUSPENDED") {
-      return res.status(403).json({ error: "Your account has been suspended. Please contact support." });
+    if (user.status === 'SUSPENDED') {
+      return res.status(403).json({
+        error: 'Your account has been suspended. Please contact support.',
+      });
     }
 
     const isMatch = AuthUtils.comparePassword(password, user.password);
     if (!isMatch) {
-      return res.status(401).json({ error: "Invalid email or password" });
+      return res.status(401).json({ error: 'Invalid email or password' });
     }
 
     // Sign session token
@@ -136,33 +155,37 @@ router.post("/login", validate(loginSchema), async (req, res, next) => {
 });
 
 // GET /auth/me
-router.get("/me", authMiddleware, async (req: AuthenticatedRequest, res: Response, next) => {
-  try {
-    const user = await prisma.user.findUnique({
-      where: { id: req.user?.userId },
-      select: {
-        id: true,
-        email: true,
-        name: true,
-        company: true,
-        role: true,
-        plan: true,
-        aiPlan: true,
-        status: true,
-        createdAt: true,
-        n8nEnabled: true,
-        aiEnabled: true,
-      },
-    });
+router.get(
+  '/me',
+  authMiddleware,
+  async (req: AuthenticatedRequest, res: Response, next) => {
+    try {
+      const user = await prisma.user.findUnique({
+        where: { id: req.user?.userId },
+        select: {
+          id: true,
+          email: true,
+          name: true,
+          company: true,
+          role: true,
+          plan: true,
+          aiPlan: true,
+          status: true,
+          createdAt: true,
+          n8nEnabled: true,
+          aiEnabled: true,
+        },
+      });
 
-    if (!user) {
-      return res.status(404).json({ error: "User not found" });
+      if (!user) {
+        return res.status(404).json({ error: 'User not found' });
+      }
+
+      res.status(200).json(user);
+    } catch (error) {
+      next(error);
     }
-
-    res.status(200).json(user);
-  } catch (error) {
-    next(error);
   }
-});
+);
 
 export default router;

@@ -3,25 +3,30 @@ const fs = require('fs');
 let chatJs = fs.readFileSync('user-portal/pages/chat.js', 'utf8');
 
 // 1. Add states
-const statesAnchor = "const [systemPreset, setSystemPreset] = useState('general');";
+const statesAnchor =
+  "const [systemPreset, setSystemPreset] = useState('general');";
 if (!chatJs.includes('const [showProfileMenu')) {
   chatJs = chatJs.replace(
     statesAnchor,
-    statesAnchor + "\n  const [showProfileMenu, setShowProfileMenu] = useState(false);\n  const [showSettingsModal, setShowSettingsModal] = useState(false);\n  const [customInstructions, setCustomInstructions] = useState('');"
+    statesAnchor +
+      "\n  const [showProfileMenu, setShowProfileMenu] = useState(false);\n  const [showSettingsModal, setShowSettingsModal] = useState(false);\n  const [customInstructions, setCustomInstructions] = useState('');"
   );
 }
 
 // 2. Load custom instructions on mount
-const loadConfigAnchor = "/* ── Resolve config from localStorage on mount ── */";
+const loadConfigAnchor =
+  '/* ── Resolve config from localStorage on mount ── */';
 if (!chatJs.includes('harikson_custom_instructions')) {
   chatJs = chatJs.replace(
     loadConfigAnchor,
-    loadConfigAnchor + "\n    const savedInstructions = localStorage.getItem('harikson_custom_instructions');\n    if (savedInstructions) setCustomInstructions(savedInstructions);\n"
+    loadConfigAnchor +
+      "\n    const savedInstructions = localStorage.getItem('harikson_custom_instructions');\n    if (savedInstructions) setCustomInstructions(savedInstructions);\n"
   );
 }
 
 // 3. Append to system preset
-const presetAnchor = "{ role: 'system', content: presets[systemPreset] || presets.general },";
+const presetAnchor =
+  "{ role: 'system', content: presets[systemPreset] || presets.general },";
 if (!chatJs.includes('customInstructions ?')) {
   chatJs = chatJs.replace(
     presetAnchor,
@@ -30,7 +35,8 @@ if (!chatJs.includes('customInstructions ?')) {
 }
 
 // 4. Update the sidebar footer (replace the whole sidebar-footer)
-const sidebarFooterRegex = /<div className="sidebar-footer">[\s\S]*?<\/div>\n\s*<\/div>/;
+const sidebarFooterRegex =
+  /<div className="sidebar-footer">[\s\S]*?<\/div>\n\s*<\/div>/;
 const sidebarFooterStart = `<div className="sidebar-footer">`;
 const sidebarFooterEnd = `</div>\n          </aside>`;
 const startIndex = chatJs.indexOf(sidebarFooterStart);
@@ -92,8 +98,11 @@ if (startIndex !== -1 && endIndex !== -1) {
             </div>
           </div>
         )}`;
-        
-  chatJs = chatJs.substring(0, startIndex) + newFooter + chatJs.substring(endIndex + `</aside>`.length);
+
+  chatJs =
+    chatJs.substring(0, startIndex) +
+    newFooter +
+    chatJs.substring(endIndex + `</aside>`.length);
 }
 
 fs.writeFileSync('user-portal/pages/chat.js', chatJs, 'utf8');

@@ -1,10 +1,10 @@
 export class OllamaService {
   private static getBaseUrl(): string {
-    return process.env.OLLAMA_HOST || "http://localhost:11434";
+    return process.env.OLLAMA_HOST || 'http://localhost:11434';
   }
 
   private static mapModel(model: string): string {
-    if (process.env.NODE_ENV !== "development") {
+    if (process.env.NODE_ENV !== 'development') {
       const modelMapping: Record<string, string> = {
         // Legacy/Default Model mappings
         'qwen3-coder-4b': 'qwen2.5-coder:3b',
@@ -44,10 +44,10 @@ export class OllamaService {
     }
 
     const lower = model.toLowerCase();
-    if (lower.includes("coder") || lower.includes("code")) {
-      return "qwen2.5-coder:1.5b";
+    if (lower.includes('coder') || lower.includes('code')) {
+      return 'qwen2.5-coder:1.5b';
     }
-    return "qwen2.5:0.5b";
+    return 'qwen2.5:0.5b';
   }
 
   private static async ensureModel(model: string): Promise<void> {
@@ -61,19 +61,23 @@ export class OllamaService {
           (m) => m.name.startsWith(mapped) || mapped.startsWith(m.name)
         );
         if (exists) {
-          console.log(`🤖 Model ${mapped} (mapped from ${model}) is already pulled.`);
+          console.log(
+            `🤖 Model ${mapped} (mapped from ${model}) is already pulled.`
+          );
           return;
         }
       }
     } catch (e) {
-      console.warn("⚠️ Failed to check models list from Ollama:", e);
+      console.warn('⚠️ Failed to check models list from Ollama:', e);
     }
 
-    console.log(`🤖 Model ${mapped} (mapped from ${model}) not found locally. Pulling from Ollama registry...`);
+    console.log(
+      `🤖 Model ${mapped} (mapped from ${model}) not found locally. Pulling from Ollama registry...`
+    );
     try {
       const pullRes = await fetch(`${baseUrl}/api/pull`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name: mapped, stream: false }),
       });
       if (!pullRes.ok) {
@@ -87,9 +91,12 @@ export class OllamaService {
   }
 
   // Ask Ollama to generate text completions
-  static async generate(prompt: string, systemPrompt?: string): Promise<string> {
+  static async generate(
+    prompt: string,
+    systemPrompt?: string
+  ): Promise<string> {
     const baseUrl = this.getBaseUrl();
-    const rawModel = process.env.DEFAULT_MODEL || "qwen3-coder:8b";
+    const rawModel = process.env.DEFAULT_MODEL || 'qwen3-coder:8b';
     const model = this.mapModel(rawModel);
 
     try {
@@ -98,8 +105,8 @@ export class OllamaService {
 
       const url = `${baseUrl}/api/generate`;
       const res = await fetch(url, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           model,
           prompt,
@@ -112,18 +119,25 @@ export class OllamaService {
         throw new Error(`Ollama returned status ${res.status}`);
       }
 
-      const data = await res.json() as { response: string };
+      const data = (await res.json()) as { response: string };
       return data.response;
     } catch (error) {
-      console.warn("⚠️ Ollama runtime unreachable, running mock LLM generator fallback.", error);
+      console.warn(
+        '⚠️ Ollama runtime unreachable, running mock LLM generator fallback.',
+        error
+      );
       return this.mockGeneration(prompt);
     }
   }
 
   private static mockGeneration(prompt: string): string {
     const lowercasePrompt = prompt.toLowerCase();
-    
-    if (lowercasePrompt.includes("function") || lowercasePrompt.includes("class") || lowercasePrompt.includes("code")) {
+
+    if (
+      lowercasePrompt.includes('function') ||
+      lowercasePrompt.includes('class') ||
+      lowercasePrompt.includes('code')
+    ) {
       return `// Generated using Neuravolt AI Qwen3-Coder
 export function processRequest(data) {
   if (!data) {

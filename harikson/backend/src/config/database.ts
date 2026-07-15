@@ -1,4 +1,4 @@
-import { PrismaClient } from "../../node_modules/.prisma/harikson-client/index.js";
+import { PrismaClient } from '../../node_modules/.prisma/harikson-client/index.js';
 
 export const prisma = new PrismaClient({
   datasources: {

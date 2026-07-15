@@ -1,6 +1,6 @@
-import { Router, Request, Response } from "express";
-import { z } from "zod";
-import { ContextBuilder } from "../../services/context/context-builder.js";
+import { Router, Request, Response } from 'express';
+import { z } from 'zod';
+import { ContextBuilder } from '../../services/context/context-builder.js';
 
 const router = Router();
 
@@ -13,16 +13,28 @@ const buildContextSchema = z.object({
 });
 
 // POST /build - Assembles context-aware prompt
-router.post("/build", async (req: Request, res: Response) => {
+router.post('/build', async (req: Request, res: Response) => {
   try {
     const check = buildContextSchema.safeParse(req.body);
     if (!check.success) {
-      return res.status(400).json({ hariksonError: "Invalid payload parameters." });
+      return res
+        .status(400)
+        .json({ hariksonError: 'Invalid payload parameters.' });
     }
 
-    const { conversationId, userPrompt, workspacePath, currentFile, cursorPosition } = check.data;
-    const tenantId = (req.headers["x-tenant-id"] as string) || "00000000-0000-0000-0000-000000000000";
-    const userId = (req.headers["x-user-id"] as string) || "00000000-0000-0000-0000-000000000001";
+    const {
+      conversationId,
+      userPrompt,
+      workspacePath,
+      currentFile,
+      cursorPosition,
+    } = check.data;
+    const tenantId =
+      (req.headers['x-tenant-id'] as string) ||
+      '00000000-0000-0000-0000-000000000000';
+    const userId =
+      (req.headers['x-user-id'] as string) ||
+      '00000000-0000-0000-0000-000000000001';
 
     const result = await ContextBuilder.build(
       tenantId,

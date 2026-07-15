@@ -16,7 +16,11 @@ import Razorpay from 'razorpay';
 import founderRouter from './routers/founder.js';
 import agentsRouter from './routers/agents.js';
 import operationsRouter from './routers/operations.js';
-import { router as integrationsRouter, initIntegrationTables, startIntegrationWorkers } from './routers/integrations.js';
+import {
+  router as integrationsRouter,
+  initIntegrationTables,
+  startIntegrationWorkers,
+} from './routers/integrations.js';
 
 dotenv.config();
 
@@ -29,11 +33,12 @@ if (!process.env.JWT_SECRET || process.env.JWT_SECRET.length < 32) {
 
 const { Pool } = pg;
 const pool = new Pool({
-  connectionString: process.env.DATABASE_URL
+  connectionString: process.env.DATABASE_URL,
 });
 
 // Encryption Helpers for credentials at rest
-const ENCRYPTION_KEY = process.env.PAYMENT_ENCRYPTION_KEY || 'default_32_bytes_long_secret_key_!';
+const ENCRYPTION_KEY =
+  process.env.PAYMENT_ENCRYPTION_KEY || 'default_32_bytes_long_secret_key_!';
 function encryptText(text) {
   if (!text) return null;
   const hashedKey = crypto.createHash('sha256').update(ENCRYPTION_KEY).digest();
@@ -48,7 +53,10 @@ function encryptText(text) {
 function decryptText(encryptedText) {
   if (!encryptedText) return null;
   try {
-    const hashedKey = crypto.createHash('sha256').update(ENCRYPTION_KEY).digest();
+    const hashedKey = crypto
+      .createHash('sha256')
+      .update(ENCRYPTION_KEY)
+      .digest();
     const parts = encryptedText.split(':');
     if (parts.length < 3) return encryptedText; // Fallback
     const iv = Buffer.from(parts[0], 'hex');
@@ -75,7 +83,9 @@ async function initDb() {
       WHERE table_name = 'subscriptions' AND column_name = 'plan'
     `);
     if (tableInfo.rows.length > 0) {
-      console.log('🔄 Recreating subscriptions and invoices tables for new schema alignment...');
+      console.log(
+        '🔄 Recreating subscriptions and invoices tables for new schema alignment...'
+      );
       await pool.query(`
         DROP TABLE IF EXISTS invoices CASCADE;
         DROP TABLE IF EXISTS subscriptions CASCADE;
@@ -120,7 +130,7 @@ async function initDb() {
         expires_at TIMESTAMP
       )
     `);
-    
+
     // 3. Create payment_webhooks table
     await pool.query(`
       CREATE TABLE IF NOT EXISTS payment_webhooks (
@@ -141,19 +151,27 @@ async function initDb() {
       SELECT column_name FROM information_schema.columns 
       WHERE table_name = 'payment_webhooks'
     `);
-    const colNames = cols.rows.map(c => c.column_name);
-    
+    const colNames = cols.rows.map((c) => c.column_name);
+
     if (!colNames.includes('provider_id')) {
-      await pool.query('ALTER TABLE payment_webhooks ADD COLUMN provider_id UUID REFERENCES payment_providers(id)');
+      await pool.query(
+        'ALTER TABLE payment_webhooks ADD COLUMN provider_id UUID REFERENCES payment_providers(id)'
+      );
     }
     if (!colNames.includes('signature_verified')) {
-      await pool.query('ALTER TABLE payment_webhooks ADD COLUMN signature_verified BOOLEAN DEFAULT false');
+      await pool.query(
+        'ALTER TABLE payment_webhooks ADD COLUMN signature_verified BOOLEAN DEFAULT false'
+      );
     }
     if (!colNames.includes('processed_at')) {
-      await pool.query('ALTER TABLE payment_webhooks ADD COLUMN processed_at TIMESTAMPTZ');
+      await pool.query(
+        'ALTER TABLE payment_webhooks ADD COLUMN processed_at TIMESTAMPTZ'
+      );
     }
     if (!colNames.includes('processing_error')) {
-      await pool.query('ALTER TABLE payment_webhooks ADD COLUMN processing_error TEXT');
+      await pool.query(
+        'ALTER TABLE payment_webhooks ADD COLUMN processing_error TEXT'
+      );
     }
 
     // 4. Create subscriptions table
@@ -176,8 +194,12 @@ async function initDb() {
       )
     `);
 
-    await pool.query('CREATE INDEX IF NOT EXISTS idx_subscriptions_tenant ON subscriptions(tenant_id)');
-    await pool.query('CREATE INDEX IF NOT EXISTS idx_subscriptions_provider ON subscriptions(provider, provider_subscription_id)');
+    await pool.query(
+      'CREATE INDEX IF NOT EXISTS idx_subscriptions_tenant ON subscriptions(tenant_id)'
+    );
+    await pool.query(
+      'CREATE INDEX IF NOT EXISTS idx_subscriptions_provider ON subscriptions(provider, provider_subscription_id)'
+    );
 
     // 5. Create invoices table
     await pool.query(`
@@ -199,14 +221,24 @@ async function initDb() {
       )
     `);
 
-    await pool.query('CREATE INDEX IF NOT EXISTS idx_invoices_tenant ON invoices(tenant_id)');
-    await pool.query('CREATE INDEX IF NOT EXISTS idx_invoices_subscription ON invoices(subscription_id)');
-    await pool.query("COMMENT ON TABLE invoices IS 'Retention Policy: invoices kept for 7 years (tax compliance)'");
+    await pool.query(
+      'CREATE INDEX IF NOT EXISTS idx_invoices_tenant ON invoices(tenant_id)'
+    );
+    await pool.query(
+      'CREATE INDEX IF NOT EXISTS idx_invoices_subscription ON invoices(subscription_id)'
+    );
+    await pool.query(
+      "COMMENT ON TABLE invoices IS 'Retention Policy: invoices kept for 7 years (tax compliance)'"
+    );
 
     // Mock provider check & warning logic (Step 6 Migration)
-    const providers = await pool.query("SELECT COUNT(*) FROM payment_providers WHERE is_active = true");
+    const providers = await pool.query(
+      'SELECT COUNT(*) FROM payment_providers WHERE is_active = true'
+    );
     if (parseInt(providers.rows[0].count) === 0) {
-      console.warn("⚠️ No active payment providers configured. Add Razorpay or Stripe merchant settings in Harikson Admin Panel.");
+      console.warn(
+        '⚠️ No active payment providers configured. Add Razorpay or Stripe merchant settings in Harikson Admin Panel.'
+      );
     }
 
     console.log('✅ Billing databases and indexes successfully operational.');
@@ -287,7 +319,7 @@ async function initDb() {
         ('GPU at 89% for 2h', 'Mumbai region auto-restart failed', 'high', 'auto'),
         ('1 tenant payment failed 3x', 'razorpay_xxx risk: churn', 'medium', 'auto')
       `);
-      
+
       await pool.query(`
         INSERT INTO founder_opportunities (title, description, estimated_value, probability, status) VALUES 
         ('Karnataka govt tender', 'closes in 14 days', 5000000, 40, 'open'),
@@ -306,7 +338,7 @@ async function initDb() {
         ('HN', 'Another Qwen fine-tuner, not real AI', 'negative', 'Why not just use ChatGPT?')
       `);
     }
-    
+
     // 7. AI Orchestration Phase 1 Tables
     await pool.query(`
       CREATE TABLE IF NOT EXISTS agents (
@@ -401,9 +433,15 @@ async function initDb() {
           completed_at TIMESTAMPTZ
       )
     `);
-    await pool.query(`CREATE INDEX IF NOT EXISTS idx_ai_activity_created_at ON ai_activity(created_at DESC)`);
-    await pool.query(`CREATE INDEX IF NOT EXISTS idx_ai_activity_tenant ON ai_activity(tenant_id)`);
-    await pool.query(`CREATE INDEX IF NOT EXISTS idx_ai_activity_status ON ai_activity(status)`);
+    await pool.query(
+      `CREATE INDEX IF NOT EXISTS idx_ai_activity_created_at ON ai_activity(created_at DESC)`
+    );
+    await pool.query(
+      `CREATE INDEX IF NOT EXISTS idx_ai_activity_tenant ON ai_activity(tenant_id)`
+    );
+    await pool.query(
+      `CREATE INDEX IF NOT EXISTS idx_ai_activity_status ON ai_activity(status)`
+    );
 
     // Phase 2.2 — Workflow Center
     await pool.query(`
@@ -435,7 +473,9 @@ async function initDb() {
           error_message TEXT
       )
     `);
-    await pool.query(`CREATE INDEX IF NOT EXISTS idx_workflow_executions_workflow ON workflow_executions(workflow_id)`);
+    await pool.query(
+      `CREATE INDEX IF NOT EXISTS idx_workflow_executions_workflow ON workflow_executions(workflow_id)`
+    );
 
     // Phase 4.3 — Notification Center
     await pool.query(`
@@ -451,7 +491,9 @@ async function initDb() {
           created_at TIMESTAMPTZ DEFAULT NOW()
       )
     `);
-    await pool.query(`CREATE INDEX IF NOT EXISTS idx_notifications_user ON notifications(user_id, is_read, created_at DESC)`);
+    await pool.query(
+      `CREATE INDEX IF NOT EXISTS idx_notifications_user ON notifications(user_id, is_read, created_at DESC)`
+    );
 
     // Phase 4.1 — Infrastructure Costs
     await pool.query(`
@@ -483,25 +525,39 @@ async function initDb() {
       )
     `);
     // Migration: add connected_at if missing on existing deployments
-    await pool.query(`ALTER TABLE integrations ADD COLUMN IF NOT EXISTS connected_at TIMESTAMPTZ`).catch(() => {});
+    await pool
+      .query(
+        `ALTER TABLE integrations ADD COLUMN IF NOT EXISTS connected_at TIMESTAMPTZ`
+      )
+      .catch(() => {});
 
     // Migration: add tenant_id to tables lacking it on existing deployments
-    await pool.query(`
+    await pool
+      .query(
+        `
       ALTER TABLE knowledge_documents ADD COLUMN IF NOT EXISTS tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE;
       ALTER TABLE workflow_executions ADD COLUMN IF NOT EXISTS tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE;
       ALTER TABLE notifications ADD COLUMN IF NOT EXISTS tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE;
       ALTER TABLE vector_collections ADD COLUMN IF NOT EXISTS tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE;
       ALTER TABLE backups ADD COLUMN IF NOT EXISTS tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE;
       ALTER TABLE playground_sessions ADD COLUMN IF NOT EXISTS tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE;
-    `).catch(err => console.error("Database schema migrations failed:", err));
+    `
+      )
+      .catch((err) => console.error('Database schema migrations failed:', err));
 
     // Migration: populate tenant_id from parent relations
-    await pool.query(`
+    await pool
+      .query(
+        `
       UPDATE knowledge_documents kd SET tenant_id = kb.tenant_id FROM knowledge_bases kb WHERE kd.knowledge_base_id = kb.id AND kd.tenant_id IS NULL;
       UPDATE workflow_executions we SET tenant_id = w.tenant_id FROM workflows w WHERE we.workflow_id = w.id AND we.tenant_id IS NULL;
       UPDATE notifications n SET tenant_id = u.tenant_id FROM users u WHERE n.user_id = u.id AND n.tenant_id IS NULL;
       UPDATE playground_sessions ps SET tenant_id = u.tenant_id FROM users u WHERE ps.admin_id = u.id AND ps.tenant_id IS NULL;
-    `).catch(err => console.error("Database schema data population failed:", err));
+    `
+      )
+      .catch((err) =>
+        console.error('Database schema data population failed:', err)
+      );
 
     // Phase 3.2 — Vector Collections
     await pool.query(`
@@ -635,34 +691,54 @@ async function initDb() {
       $$ LANGUAGE plpgsql STABLE;
     `);
 
-    await pool.query(`
+    await pool
+      .query(
+        `
       ALTER TABLE tenants DISABLE ROW LEVEL SECURITY;
       DROP POLICY IF EXISTS tenant_isolation_policy ON tenants;
-    `).catch(err => console.error("RLS disable failed on tenants:", err));
+    `
+      )
+      .catch((err) => console.error('RLS disable failed on tenants:', err));
 
-    await pool.query(`
+    await pool
+      .query(
+        `
       DROP POLICY IF EXISTS tenant_isolation_policy ON users;
       CREATE POLICY tenant_isolation_policy ON users
           FOR ALL
           USING (tenant_id = current_setting('app.current_tenant', true)::uuid AND deleted_at IS NULL)
           WITH CHECK (tenant_id = current_setting('app.current_tenant', true)::uuid AND deleted_at IS NULL);
-    `).catch(err => console.error("Policy recreation failed on users:", err));
+    `
+      )
+      .catch((err) => console.error('Policy recreation failed on users:', err));
 
-    await pool.query(`
+    await pool
+      .query(
+        `
       DROP POLICY IF EXISTS tenant_isolation_policy ON conversations;
       CREATE POLICY tenant_isolation_policy ON conversations
           FOR ALL
           USING (tenant_id = current_setting('app.current_tenant', true)::uuid AND deleted_at IS NULL)
           WITH CHECK (tenant_id = current_setting('app.current_tenant', true)::uuid AND deleted_at IS NULL);
-    `).catch(err => console.error("Policy recreation failed on conversations:", err));
+    `
+      )
+      .catch((err) =>
+        console.error('Policy recreation failed on conversations:', err)
+      );
 
-    await pool.query(`
+    await pool
+      .query(
+        `
       DROP POLICY IF EXISTS tenant_isolation_policy ON messages;
       CREATE POLICY tenant_isolation_policy ON messages
           FOR ALL
           USING (tenant_id = current_setting('app.current_tenant', true)::uuid AND deleted_at IS NULL)
           WITH CHECK (tenant_id = current_setting('app.current_tenant', true)::uuid AND deleted_at IS NULL);
-    `).catch(err => console.error("Policy recreation failed on messages:", err));
+    `
+      )
+      .catch((err) =>
+        console.error('Policy recreation failed on messages:', err)
+      );
 
     // Create password_reset_tokens table and policies
     await pool.query(`
@@ -680,13 +756,19 @@ async function initDb() {
       ALTER TABLE password_reset_tokens FORCE ROW LEVEL SECURITY;
     `);
 
-    await pool.query(`
+    await pool
+      .query(
+        `
       DROP POLICY IF EXISTS tenant_isolation_policy ON password_reset_tokens;
       CREATE POLICY tenant_isolation_policy ON password_reset_tokens
           FOR ALL
           USING (tenant_id = current_setting('app.current_tenant', true)::uuid)
           WITH CHECK (tenant_id = current_setting('app.current_tenant', true)::uuid);
-    `).catch(err => console.error("Policy recreation failed on password_reset_tokens:", err));
+    `
+      )
+      .catch((err) =>
+        console.error('Policy recreation failed on password_reset_tokens:', err)
+      );
 
     // Create activity_logs table and policies
     await pool.query(`
@@ -705,13 +787,19 @@ async function initDb() {
       ALTER TABLE activity_logs FORCE ROW LEVEL SECURITY;
     `);
 
-    await pool.query(`
+    await pool
+      .query(
+        `
       DROP POLICY IF EXISTS tenant_isolation_policy ON activity_logs;
       CREATE POLICY tenant_isolation_policy ON activity_logs
           FOR ALL
           USING (tenant_id = current_setting('app.current_tenant', true)::uuid)
           WITH CHECK (tenant_id = current_setting('app.current_tenant', true)::uuid);
-    `).catch(err => console.error("Policy recreation failed on activity_logs:", err));
+    `
+      )
+      .catch((err) =>
+        console.error('Policy recreation failed on activity_logs:', err)
+      );
 
     // Create user_sessions table and policies
     await pool.query(`
@@ -732,13 +820,19 @@ async function initDb() {
       ALTER TABLE user_sessions FORCE ROW LEVEL SECURITY;
     `);
 
-    await pool.query(`
+    await pool
+      .query(
+        `
       DROP POLICY IF EXISTS tenant_isolation_policy ON user_sessions;
       CREATE POLICY tenant_isolation_policy ON user_sessions
           FOR ALL
           USING (tenant_id = current_setting('app.current_tenant', true)::uuid)
           WITH CHECK (tenant_id = current_setting('app.current_tenant', true)::uuid);
-    `).catch(err => console.error("Policy recreation failed on user_sessions:", err));
+    `
+      )
+      .catch((err) =>
+        console.error('Policy recreation failed on user_sessions:', err)
+      );
 
     // Create indexes for optimization
     await pool.query(`
@@ -768,16 +862,24 @@ async function initDb() {
       ALTER TABLE api_keys FORCE ROW LEVEL SECURITY;
     `);
 
-    await pool.query(`
+    await pool
+      .query(
+        `
       DROP POLICY IF EXISTS tenant_isolation_policy ON api_keys;
       CREATE POLICY tenant_isolation_policy ON api_keys
           FOR ALL
           USING (tenant_id = current_setting('app.current_tenant', true)::uuid)
           WITH CHECK (tenant_id = current_setting('app.current_tenant', true)::uuid);
-    `).catch(err => console.error("Policy recreation failed on api_keys:", err));
+    `
+      )
+      .catch((err) =>
+        console.error('Policy recreation failed on api_keys:', err)
+      );
 
     // Enable and set RLS for workflows
-    await pool.query(`
+    await pool
+      .query(
+        `
       ALTER TABLE workflows ENABLE ROW LEVEL SECURITY;
       ALTER TABLE workflows FORCE ROW LEVEL SECURITY;
       DROP POLICY IF EXISTS tenant_isolation_policy ON workflows;
@@ -785,10 +887,16 @@ async function initDb() {
           FOR ALL
           USING (tenant_id = current_setting('app.current_tenant', true)::uuid)
           WITH CHECK (tenant_id = current_setting('app.current_tenant', true)::uuid);
-    `).catch(err => console.error("Policy recreation failed on workflows:", err));
+    `
+      )
+      .catch((err) =>
+        console.error('Policy recreation failed on workflows:', err)
+      );
 
     // Enable and set RLS for knowledge_bases
-    await pool.query(`
+    await pool
+      .query(
+        `
       ALTER TABLE knowledge_bases ENABLE ROW LEVEL SECURITY;
       ALTER TABLE knowledge_bases FORCE ROW LEVEL SECURITY;
       DROP POLICY IF EXISTS tenant_isolation_policy ON knowledge_bases;
@@ -796,7 +904,11 @@ async function initDb() {
           FOR ALL
           USING (tenant_id = current_setting('app.current_tenant', true)::uuid)
           WITH CHECK (tenant_id = current_setting('app.current_tenant', true)::uuid);
-    `).catch(err => console.error("Policy recreation failed on knowledge_bases:", err));
+    `
+      )
+      .catch((err) =>
+        console.error('Policy recreation failed on knowledge_bases:', err)
+      );
 
     // Enable and set RLS for the remaining tenant-scoped tables
     const rlsTables = [
@@ -808,10 +920,12 @@ async function initDb() {
       'integrations',
       'vector_collections',
       'backups',
-      'playground_sessions'
+      'playground_sessions',
     ];
     for (const table of rlsTables) {
-      await pool.query(`
+      await pool
+        .query(
+          `
         ALTER TABLE ${table} ENABLE ROW LEVEL SECURITY;
         ALTER TABLE ${table} FORCE ROW LEVEL SECURITY;
         DROP POLICY IF EXISTS tenant_isolation_policy ON ${table};
@@ -819,12 +933,20 @@ async function initDb() {
             FOR ALL
             USING (tenant_id = current_setting('app.current_tenant', true)::uuid)
             WITH CHECK (tenant_id = current_setting('app.current_tenant', true)::uuid);
-      `).catch(err => console.error(`Policy recreation failed on ${table}:`, err));
+      `
+        )
+        .catch((err) =>
+          console.error(`Policy recreation failed on ${table}:`, err)
+        );
     }
 
     // ── Database Schema Alignment (Fk & updated_at Triggers) ────────────────
-    console.log('[MIGRATION] Running constraint and updated_at column migrations...');
-    await pool.query(`
+    console.log(
+      '[MIGRATION] Running constraint and updated_at column migrations...'
+    );
+    await pool
+      .query(
+        `
       DO $$
       BEGIN
           -- 1. Ensure updated_at column exists in all requested tables
@@ -907,13 +1029,16 @@ async function initDb() {
               ALTER TABLE invoices ADD CONSTRAINT fk_invoices_subscription FOREIGN KEY (subscription_id) REFERENCES subscriptions(id) ON DELETE SET NULL;
           END IF;
       END $$;
-    `).catch(err => console.error("❌ Schema alignment migration failed:", err));
+    `
+      )
+      .catch((err) =>
+        console.error('❌ Schema alignment migration failed:', err)
+      );
 
     console.log('✅ All Phase 1-5 database tables migrated successfully.');
 
     // Integration Center tables
     await initIntegrationTables(pool);
-
   } catch (err) {
     console.error('Failed to auto-migrate database tables:', err);
   }
@@ -933,66 +1058,83 @@ const defaultOrigins = [
   'https://neuravolt.cloud',
   'http://localhost:3002',
   'http://localhost:3018',
-  'http://localhost:3028'
+  'http://localhost:3028',
 ];
 
 let allowedOrigins = defaultOrigins;
 if (process.env.ALLOWED_ORIGINS) {
-  allowedOrigins = process.env.ALLOWED_ORIGINS.split(',').map(o => o.trim());
+  allowedOrigins = process.env.ALLOWED_ORIGINS.split(',').map((o) => o.trim());
 }
 
 if (process.env.NODE_ENV === 'production') {
-  allowedOrigins = allowedOrigins.filter(o => !o.includes('localhost') && !o.includes('127.0.0.1'));
+  allowedOrigins = allowedOrigins.filter(
+    (o) => !o.includes('localhost') && !o.includes('127.0.0.1')
+  );
 }
 
-app.use(helmet({
-  contentSecurityPolicy: {
-    directives: {
-      defaultSrc: ["'self'"],
-      scriptSrc: ["'self'", "'unsafe-inline'"],
-      styleSrc: ["'self'", "'unsafe-inline'"],
-      imgSrc: ["'self'", "data:", "https:"],
+app.use(
+  helmet({
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        scriptSrc: ["'self'", "'unsafe-inline'"],
+        styleSrc: ["'self'", "'unsafe-inline'"],
+        imgSrc: ["'self'", 'data:', 'https:'],
+      },
     },
-  },
-  crossOriginEmbedderPolicy: false,
-  frameguard: {
-    action: 'deny'
-  }
-}));
+    crossOriginEmbedderPolicy: false,
+    frameguard: {
+      action: 'deny',
+    },
+  })
+);
 
-app.use(cors({
-  origin: function (origin, callback) {
-    if (!origin || allowedOrigins.includes(origin)) {
-      callback(null, true);
-    } else {
-      callback(new Error('CORS policy violation'));
-    }
-  },
-  credentials: true
-}));
-app.use(express.json({
-  verify: (req, res, buf) => {
-    req.rawBody = buf;
-  }
-}));
+app.use(
+  cors({
+    origin: function (origin, callback) {
+      if (!origin || allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        callback(new Error('CORS policy violation'));
+      }
+    },
+    credentials: true,
+  })
+);
+app.use(
+  express.json({
+    verify: (req, res, buf) => {
+      req.rawBody = buf;
+    },
+  })
+);
 
 // Helper for audit logging
-async function logAdminAction(adminId, action, targetType, targetId, oldValue, newValue, req) {
+async function logAdminAction(
+  adminId,
+  action,
+  targetType,
+  targetId,
+  oldValue,
+  newValue,
+  req
+) {
   try {
-    const ip = req.ip || req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+    const ip =
+      req.ip || req.headers['x-forwarded-for'] || req.socket.remoteAddress;
     const ua = req.headers['user-agent'];
     await pool.query(
       `INSERT INTO admin_audit_log (admin_id, action, target_type, target_id, old_value, new_value, ip_address, user_agent)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
       [
-        adminId, 
-        action, 
-        targetType, 
-        targetId, 
-        oldValue ? JSON.stringify(oldValue) : null, 
-        newValue ? JSON.stringify(newValue) : null, 
-        (ip && ip.includes(':')) ? '127.0.0.1' : ip, // Parse INET safe
-        ua
+        adminId,
+        action,
+        targetType,
+        targetId,
+        oldValue ? JSON.stringify(oldValue) : null,
+        newValue ? JSON.stringify(newValue) : null,
+        ip && ip.includes(':') ? '127.0.0.1' : ip, // Parse INET safe
+        ua,
       ]
     );
   } catch (err) {
@@ -1013,7 +1155,8 @@ app.get('/api/user/billing', async (req, res) => {
   }
   try {
     // Join tenant → plan to get full plan details (case-insensitive join)
-    const result = await pool.query(`
+    const result = await pool.query(
+      `
       SELECT
         t.id         AS tenant_id,
         t.name       AS tenant_name,
@@ -1034,7 +1177,9 @@ app.get('/api/user/billing', async (req, res) => {
       LEFT JOIN plans p ON LOWER(t.plan) = LOWER(p.id)
       WHERE t.slug = $1
       LIMIT 1
-    `, [tenantSlug]);
+    `,
+      [tenantSlug]
+    );
 
     if (result.rows.length === 0) {
       return res.status(404).json({ error: 'Tenant not found' });
@@ -1043,14 +1188,18 @@ app.get('/api/user/billing', async (req, res) => {
     const row = result.rows[0];
 
     // Query active/latest subscription for this tenant
-    const subRes = await pool.query(`
+    const subRes = await pool.query(
+      `
       SELECT * FROM subscriptions 
       WHERE tenant_id = $1 
       ORDER BY created_at DESC 
       LIMIT 1
-    `, [row.tenant_id]);
+    `,
+      [row.tenant_id]
+    );
 
-    let subscriptionStatus = row.tenant_status === 'suspended' ? 'SUSPENDED' : 'ACTIVE';
+    let subscriptionStatus =
+      row.tenant_status === 'suspended' ? 'SUSPENDED' : 'ACTIVE';
     let paymentMethod = null;
     let priceNum = parseFloat(row.price) || 0;
 
@@ -1058,42 +1207,49 @@ app.get('/api/user/billing', async (req, res) => {
       const sub = subRes.rows[0];
       subscriptionStatus = sub.status.toUpperCase();
       priceNum = parseFloat(sub.amount) || priceNum;
-      
+
       // Parse payment method from subscription metadata if available, e.g. Stripe card details
       if (sub.metadata && typeof sub.metadata === 'object') {
         paymentMethod = sub.metadata.payment_method || null;
       }
-      
+
       // Fallback dummy payment method if none in metadata but is a paid plan
       if (!paymentMethod && priceNum > 0) {
         paymentMethod = {
           type: 'Visa',
           last4: '4242',
-          expiry: '12/28'
+          expiry: '12/28',
         };
       }
     }
 
     // Query invoices for this tenant
-    const invRes = await pool.query(`
+    const invRes = await pool.query(
+      `
       SELECT id, amount, currency, status, created_at, paid_at, invoice_url, pdf_url
       FROM invoices
       WHERE tenant_id = $1
       ORDER BY created_at DESC
-    `, [row.tenant_id]);
+    `,
+      [row.tenant_id]
+    );
 
-    const invoices = invRes.rows.map(inv => {
+    const invoices = invRes.rows.map((inv) => {
       const invAmount = parseFloat(inv.amount) || 0;
       const currencySymbol = inv.currency === 'INR' ? '₹' : '$';
       const invAmountFormatted = `${currencySymbol}${invAmount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-        
+
       return {
         id: inv.id,
-        date: new Date(inv.created_at).toLocaleDateString('en-IN', { year: 'numeric', month: 'short', day: 'numeric' }),
+        date: new Date(inv.created_at).toLocaleDateString('en-IN', {
+          year: 'numeric',
+          month: 'short',
+          day: 'numeric',
+        }),
         amount: invAmountFormatted,
         status: inv.status.toUpperCase(),
         invoiceUrl: inv.invoice_url,
-        pdfUrl: inv.pdf_url
+        pdfUrl: inv.pdf_url,
       };
     });
 
@@ -1102,24 +1258,24 @@ app.get('/api/user/billing', async (req, res) => {
     const priceFormatted = `${currencySymbol}${priceNum.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
     res.status(200).json({
-      tenantId:    row.tenant_id,
-      tenantName:  row.tenant_name,
-      planId:      row.plan_id,
-      planName:    row.plan_name ? `${row.plan_name} Plan` : 'Starter Plan',
-      tier:        row.tier,
-      price:       priceFormatted,
-      priceRaw:    priceNum,
+      tenantId: row.tenant_id,
+      tenantName: row.tenant_name,
+      planId: row.plan_id,
+      planName: row.plan_name ? `${row.plan_name} Plan` : 'Starter Plan',
+      tier: row.tier,
+      price: priceFormatted,
+      priceRaw: priceNum,
       billingCycle: row.billing_cycle || 'monthly',
-      currency:    row.currency || 'INR',
-      tokenLimit:  row.token_limit,
+      currency: row.currency || 'INR',
+      tokenLimit: row.token_limit,
       tenantLimit: row.tenant_limit,
-      agentLimit:  row.agent_limit,
+      agentLimit: row.agent_limit,
       modelAccess: row.model_access || [],
-      features:    row.features || {},
+      features: row.features || {},
       description: row.description || '',
-      status:      subscriptionStatus,
+      status: subscriptionStatus,
       paymentMethod,
-      invoices
+      invoices,
     });
   } catch (err) {
     console.error('User billing fetch failed:', err);
@@ -1135,7 +1291,10 @@ app.post('/admin/login', async (req, res) => {
   }
 
   try {
-    const userResult = await pool.query('SELECT * FROM users WHERE email = $1', [email]);
+    const userResult = await pool.query(
+      'SELECT * FROM users WHERE email = $1',
+      [email]
+    );
     const user = userResult.rows[0];
 
     if (!user) {
@@ -1151,14 +1310,16 @@ app.post('/admin/login', async (req, res) => {
       return res.status(401).json({ error: 'Invalid credentials' });
     }
 
-    const token = jwt.sign({ userId: user.id, role: user.role }, jwtSecret, { expiresIn: '24h' });
+    const token = jwt.sign({ userId: user.id, role: user.role }, jwtSecret, {
+      expiresIn: '24h',
+    });
 
     // Store JWT in httpOnly cookie, 24h expiry
     res.cookie('admin_token', token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax',
-      maxAge: 24 * 60 * 60 * 1000 // 24h
+      maxAge: 24 * 60 * 60 * 1000, // 24h
     });
 
     res.status(200).json({
@@ -1166,8 +1327,8 @@ app.post('/admin/login', async (req, res) => {
       user: {
         id: user.id,
         email: user.email,
-        role: user.role
-      }
+        role: user.role,
+      },
     });
   } catch (err) {
     console.error('Login endpoint error:', err);
@@ -1188,25 +1349,45 @@ app.use('/admin/founder', founderRouter);
 app.use('/admin/agents', agentsRouter);
 app.use('/admin', operationsRouter); // Phase 1-5 operations
 // Integration Center — inject pool into req then mount
-app.use('/admin/integrations', (req, _res, next) => { req.pool = pool; next(); }, integrationsRouter);
-app.use('/admin/webhooks', (req, _res, next) => { req.pool = pool; next(); }, integrationsRouter);
+app.use(
+  '/admin/integrations',
+  (req, _res, next) => {
+    req.pool = pool;
+    next();
+  },
+  integrationsRouter
+);
+app.use(
+  '/admin/webhooks',
+  (req, _res, next) => {
+    req.pool = pool;
+    next();
+  },
+  integrationsRouter
+);
 app.use('/admin', adminAuth);
 
 // 0. GET /admin/kpis
 app.get('/admin/kpis', async (req, res) => {
   try {
-    const tenants = await pool.query("SELECT COUNT(*) FROM tenants WHERE status='active'");
-    const keys = await pool.query("SELECT COUNT(*) FROM tenant_api_keys WHERE status='active'");
-    const agents = await pool.query("SELECT COUNT(*) FROM agents WHERE status='active'");
-    const kbs = await pool.query("SELECT COUNT(*) FROM knowledge_bases");
-    
+    const tenants = await pool.query(
+      "SELECT COUNT(*) FROM tenants WHERE status='active'"
+    );
+    const keys = await pool.query(
+      "SELECT COUNT(*) FROM tenant_api_keys WHERE status='active'"
+    );
+    const agents = await pool.query(
+      "SELECT COUNT(*) FROM agents WHERE status='active'"
+    );
+    const kbs = await pool.query('SELECT COUNT(*) FROM knowledge_bases');
+
     // For requests/tokens today, query messages table where created_at > CURRENT_DATE
     const usage = await pool.query(`
       SELECT COUNT(*) as requests, SUM(tokens_used) as tokens
       FROM messages
       WHERE created_at >= CURRENT_DATE
     `);
-    
+
     const revenue = await pool.query(`
       SELECT SUM(amount) as revenue
       FROM invoices
@@ -1220,7 +1401,7 @@ app.get('/admin/kpis', async (req, res) => {
       knowledgeBases: parseInt(kbs.rows[0].count),
       requestsToday: parseInt(usage.rows[0].requests || 0),
       tokensToday: parseInt(usage.rows[0].tokens || 0),
-      revenueToday: parseFloat(revenue.rows[0].revenue || 0)
+      revenueToday: parseFloat(revenue.rows[0].revenue || 0),
     });
   } catch (err) {
     console.error('Failed to get KPIs:', err);
@@ -1238,10 +1419,13 @@ app.get('/admin/system-status', async (req, res) => {
     }
 
     // Measure system metrics using shell commands and OS queries
-    let gpu_used = 0, gpu_total = 16384;
-    let ram_used = 0, ram_total = 16384;
+    let gpu_used = 0,
+      gpu_total = 16384;
+    let ram_used = 0,
+      ram_total = 16384;
     let cpu_percent = 0;
-    let disk_used = 0, disk_total = 100;
+    let disk_used = 0,
+      disk_total = 100;
     let uptime = '0d:0h:0m';
     let vllm_status = 'inactive';
     let active_model = 'None';
@@ -1251,7 +1435,10 @@ app.get('/admin/system-status', async (req, res) => {
     // 1.1 CPU Load Calculation
     try {
       const load = os.loadavg();
-      cpu_percent = Math.min(100, Math.round((load[0] / os.cpus().length) * 100));
+      cpu_percent = Math.min(
+        100,
+        Math.round((load[0] / os.cpus().length) * 100)
+      );
     } catch (e) {
       cpu_percent = 12;
     }
@@ -1299,10 +1486,18 @@ app.get('/admin/system-status', async (req, res) => {
         if (data.models && data.models.length > 0) {
           vllm_status = 'active'; // kept as vllm_status for frontend compatibility
           active_model = data.models[0].name;
-          gpu_used = Math.round((data.models[0].size_vram || 0) / (1024 * 1024));
+          gpu_used = Math.round(
+            (data.models[0].size_vram || 0) / (1024 * 1024)
+          );
           if (gpu_used === 0) {
             // fallback if size_vram is missing
-            gpu_used = active_model.includes('32b') ? 20480 : active_model.includes('14b') ? 9216 : active_model.includes('8b') ? 6144 : 2048;
+            gpu_used = active_model.includes('32b')
+              ? 20480
+              : active_model.includes('14b')
+                ? 9216
+                : active_model.includes('8b')
+                  ? 6144
+                  : 2048;
           }
         }
       }
@@ -1319,17 +1514,28 @@ app.get('/admin/system-status', async (req, res) => {
       vllm_status,
       active_model,
       queue: queue_depth,
-      tensor_parallel
+      tensor_parallel,
     };
 
     // Cache metrics in Redis for 5 seconds
     await redis.setex(cacheKey, 5, JSON.stringify(payload));
-    
+
     // Save to historical metrics table for graphing
     await pool.query(
       `INSERT INTO system_metrics (gpu_vram_used_mb, gpu_vram_total_mb, ram_used_mb, ram_total_mb, cpu_percent, disk_used_gb, disk_total_gb, active_model, vllm_status, tensor_parallel_size)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
-      [gpu_used, gpu_total, ram_used, ram_total, cpu_percent, disk_used, disk_total, active_model, vllm_status, tensor_parallel]
+      [
+        gpu_used,
+        gpu_total,
+        ram_used,
+        ram_total,
+        cpu_percent,
+        disk_used,
+        disk_total,
+        active_model,
+        vllm_status,
+        tensor_parallel,
+      ]
     );
 
     res.status(200).json(payload);
@@ -1379,7 +1585,9 @@ app.put('/admin/users/:userId/plan', async (req, res) => {
 
   try {
     // Check if user exists
-    const userCheck = await pool.query('SELECT * FROM users WHERE id = $1', [userId]);
+    const userCheck = await pool.query('SELECT * FROM users WHERE id = $1', [
+      userId,
+    ]);
     if (userCheck.rows.length === 0) {
       return res.status(404).json({ error: 'User not found' });
     }
@@ -1388,31 +1596,41 @@ app.put('/admin/users/:userId/plan', async (req, res) => {
 
     if (planId) {
       // Fetch plan details from public.plans
-      const planResult = await pool.query('SELECT * FROM plans WHERE id = $1', [planId.toLowerCase()]);
+      const planResult = await pool.query('SELECT * FROM plans WHERE id = $1', [
+        planId.toLowerCase(),
+      ]);
       if (planResult.rows.length === 0) {
         return res.status(404).json({ error: 'Subscription plan not found' });
       }
       const plan = planResult.rows[0];
-      
+
       const currencySymbol = plan.currency === 'INR' ? '₹' : '$';
-      
+
       billingInfo = {
         planName: plan.name + ' Plan',
         price: `${currencySymbol}${parseFloat(plan.price).toFixed(2)}`,
         currency: plan.currency,
         billingCycle: plan.billing,
         status: 'ACTIVE',
-        features: plan.features || {}
+        features: plan.features || {},
       };
     }
 
     // Update user's billing_info
-    await pool.query(
-      'UPDATE users SET billing_info = $1 WHERE id = $2',
-      [billingInfo ? JSON.stringify(billingInfo) : '{}', userId]
-    );
+    await pool.query('UPDATE users SET billing_info = $1 WHERE id = $2', [
+      billingInfo ? JSON.stringify(billingInfo) : '{}',
+      userId,
+    ]);
 
-    await logAdminAction(req.admin.id, 'user_update_plan', 'user', userId, null, { planId, billingInfo }, req);
+    await logAdminAction(
+      req.admin.id,
+      'user_update_plan',
+      'user',
+      userId,
+      null,
+      { planId, billingInfo },
+      req
+    );
 
     res.status(200).json({ success: true, billing_info: billingInfo });
   } catch (err) {
@@ -1427,7 +1645,9 @@ app.delete('/admin/users/:userId', async (req, res) => {
 
   try {
     // Check if user exists
-    const userCheck = await pool.query('SELECT * FROM users WHERE id = $1', [userId]);
+    const userCheck = await pool.query('SELECT * FROM users WHERE id = $1', [
+      userId,
+    ]);
     if (userCheck.rows.length === 0) {
       return res.status(404).json({ error: 'User not found' });
     }
@@ -1435,15 +1655,28 @@ app.delete('/admin/users/:userId', async (req, res) => {
 
     // Prevent deleting the currently authenticated admin if they try to delete themselves
     if (user.id === req.admin.id) {
-      return res.status(400).json({ error: 'You cannot delete your own admin account.' });
+      return res
+        .status(400)
+        .json({ error: 'You cannot delete your own admin account.' });
     }
 
     // Delete user from public.users
     await pool.query('DELETE FROM users WHERE id = $1', [userId]);
 
-    await logAdminAction(req.admin.id, 'user_delete', 'user', userId, { email: user.email }, null, req);
+    await logAdminAction(
+      req.admin.id,
+      'user_delete',
+      'user',
+      userId,
+      { email: user.email },
+      null,
+      req
+    );
 
-    res.status(200).json({ success: true, message: `User ${user.email} deleted successfully.` });
+    res.status(200).json({
+      success: true,
+      message: `User ${user.email} deleted successfully.`,
+    });
   } catch (err) {
     console.error('Failed to delete user:', err);
     res.status(500).json({ error: 'Failed to delete user' });
@@ -1473,36 +1706,59 @@ app.get('/admin/users/:userId/conversations', async (req, res) => {
   }
 });
 
-
 // 2. POST /admin/models/:name/load
 app.post('/admin/models/:name/load', async (req, res) => {
   const { name } = req.params;
   try {
-    console.log(`🤖 Spawning vLLM OpenAI API Server for model Qwen/${name}-Instruct`);
-    
+    console.log(
+      `🤖 Spawning vLLM OpenAI API Server for model Qwen/${name}-Instruct`
+    );
+
     // Unload all active vLLM processes first
     await execPromise("pkill -f 'vllm.entrypoints'").catch(() => {});
-    await new Promise(resolve => setTimeout(resolve, 3000));
+    await new Promise((resolve) => setTimeout(resolve, 3000));
 
     // Spawn the vLLM process (asynchronous run to keep server responsive)
-    const vllmProcess = spawn('python', [
-      '-m', 'vllm.entrypoints.openai.api_server',
-      '--model', `Qwen/${name}-Instruct`,
-      '--quantization', 'awq',
-      '--max-model-len', '32768',
-      '--tensor-parallel-size', '1',
-      '--gpu-memory-utilization', '0.90',
-      '--enable-chunked-prefill',
-      '--port', '8000'
-    ], {
-      detached: true,
-      stdio: 'ignore'
-    });
+    const vllmProcess = spawn(
+      'python',
+      [
+        '-m',
+        'vllm.entrypoints.openai.api_server',
+        '--model',
+        `Qwen/${name}-Instruct`,
+        '--quantization',
+        'awq',
+        '--max-model-len',
+        '32768',
+        '--tensor-parallel-size',
+        '1',
+        '--gpu-memory-utilization',
+        '0.90',
+        '--enable-chunked-prefill',
+        '--port',
+        '8000',
+      ],
+      {
+        detached: true,
+        stdio: 'ignore',
+      }
+    );
     vllmProcess.unref();
 
-    await logAdminAction(req.admin.id, 'model_load', 'model', name, null, { name, active: true }, req);
+    await logAdminAction(
+      req.admin.id,
+      'model_load',
+      'model',
+      name,
+      null,
+      { name, active: true },
+      req
+    );
 
-    res.status(200).json({ success: true, message: `vLLM model load process triggered for ${name}` });
+    res.status(200).json({
+      success: true,
+      message: `vLLM model load process triggered for ${name}`,
+    });
   } catch (err) {
     console.error('Failed to trigger model load:', err);
     res.status(500).json({ error: 'Failed to load model weights' });
@@ -1515,10 +1771,20 @@ app.post('/admin/models/:name/unload', async (req, res) => {
   try {
     // Kill the vLLM processes gracefully
     await execPromise("pkill -f 'vllm.entrypoints'").catch(() => {});
-    
-    await logAdminAction(req.admin.id, 'model_unload', 'model', name, { name, active: true }, null, req);
 
-    res.status(200).json({ success: true, message: `Model ${name} unloaded successfully` });
+    await logAdminAction(
+      req.admin.id,
+      'model_unload',
+      'model',
+      name,
+      { name, active: true },
+      null,
+      req
+    );
+
+    res
+      .status(200)
+      .json({ success: true, message: `Model ${name} unloaded successfully` });
   } catch (err) {
     console.error('Failed to unload model:', err);
     res.status(500).json({ error: 'Failed to unload model weights' });
@@ -1529,8 +1795,19 @@ app.post('/admin/models/:name/unload', async (req, res) => {
 app.post('/admin/models/unload-all', async (req, res) => {
   try {
     await execPromise("pkill -f 'vllm.entrypoints'").catch(() => {});
-    await logAdminAction(req.admin.id, 'model_unload_all', 'system', 'vllm', null, null, req);
-    res.status(200).json({ success: true, message: 'All model weights unloaded successfully' });
+    await logAdminAction(
+      req.admin.id,
+      'model_unload_all',
+      'system',
+      'vllm',
+      null,
+      null,
+      req
+    );
+    res.status(200).json({
+      success: true,
+      message: 'All model weights unloaded successfully',
+    });
   } catch (err) {
     console.error('Failed to unload all models:', err);
     res.status(500).json({ error: 'Emergency unload action failed' });
@@ -1541,20 +1818,38 @@ app.post('/admin/models/unload-all', async (req, res) => {
 app.post('/admin/vllm/restart', async (req, res) => {
   try {
     await execPromise("pkill -f 'vllm.entrypoints'").catch(() => {});
-    await new Promise(resolve => setTimeout(resolve, 5000));
-    
+    await new Promise((resolve) => setTimeout(resolve, 5000));
+
     // Spawn default workhorse model (Qwen3-8B-Instruct)
-    const vllm = spawn('python', [
-      '-m', 'vllm.entrypoints.openai.api_server',
-      '--model', 'Qwen/Qwen3-8B-Instruct',
-      '--quantization', 'awq',
-      '--port', '8000'
-    ], { detached: true, stdio: 'ignore' });
+    const vllm = spawn(
+      'python',
+      [
+        '-m',
+        'vllm.entrypoints.openai.api_server',
+        '--model',
+        'Qwen/Qwen3-8B-Instruct',
+        '--quantization',
+        'awq',
+        '--port',
+        '8000',
+      ],
+      { detached: true, stdio: 'ignore' }
+    );
     vllm.unref();
 
-    await logAdminAction(req.admin.id, 'vllm_restart', 'system', 'vllm', null, null, req);
+    await logAdminAction(
+      req.admin.id,
+      'vllm_restart',
+      'system',
+      'vllm',
+      null,
+      null,
+      req
+    );
 
-    res.status(200).json({ success: true, message: 'vLLM server restart triggered' });
+    res
+      .status(200)
+      .json({ success: true, message: 'vLLM server restart triggered' });
   } catch (err) {
     console.error('vLLM restart failed:', err);
     res.status(500).json({ error: 'Failed to restart vLLM engine' });
@@ -1597,24 +1892,40 @@ app.post('/admin/tenants', async (req, res) => {
   }
 
   try {
-    const checkSlug = await pool.query('SELECT id FROM tenants WHERE LOWER(slug) = LOWER($1)', [slug]);
+    const checkSlug = await pool.query(
+      'SELECT id FROM tenants WHERE LOWER(slug) = LOWER($1)',
+      [slug]
+    );
     if (checkSlug.rows.length > 0) {
-      return res.status(400).json({ error: 'Slug must be unique. A tenant with this slug already exists.' });
+      return res.status(400).json({
+        error: 'Slug must be unique. A tenant with this slug already exists.',
+      });
     }
 
     const planLower = plan.toLowerCase();
     const statusVal = status || 'active';
 
-    const result = await pool.query(`
+    const result = await pool.query(
+      `
       INSERT INTO tenants (name, slug, plan, status)
       VALUES ($1, $2, $3, $4)
       RETURNING *
-    `, [name, slug.toLowerCase(), planLower, statusVal]);
+    `,
+      [name, slug.toLowerCase(), planLower, statusVal]
+    );
 
     const tenant = result.rows[0];
 
     // Log admin action
-    await logAdminAction(req.admin.id, 'tenant_create', 'tenant', tenant.id, null, tenant, req);
+    await logAdminAction(
+      req.admin.id,
+      'tenant_create',
+      'tenant',
+      tenant.id,
+      null,
+      tenant,
+      req
+    );
 
     res.status(201).json({ success: true, tenant });
   } catch (err) {
@@ -1629,14 +1940,22 @@ app.put('/admin/tenants/:id', async (req, res) => {
   const { name, slug, plan, status } = req.body;
 
   try {
-    const oldQuery = await pool.query('SELECT * FROM tenants WHERE id = $1', [id]);
-    if (oldQuery.rows.length === 0) return res.status(404).json({ error: 'Tenant not found' });
+    const oldQuery = await pool.query('SELECT * FROM tenants WHERE id = $1', [
+      id,
+    ]);
+    if (oldQuery.rows.length === 0)
+      return res.status(404).json({ error: 'Tenant not found' });
     const oldTenant = oldQuery.rows[0];
 
     if (slug && slug.toLowerCase() !== oldTenant.slug.toLowerCase()) {
-      const checkSlug = await pool.query('SELECT id FROM tenants WHERE LOWER(slug) = LOWER($1) AND id != $2', [slug, id]);
+      const checkSlug = await pool.query(
+        'SELECT id FROM tenants WHERE LOWER(slug) = LOWER($1) AND id != $2',
+        [slug, id]
+      );
       if (checkSlug.rows.length > 0) {
-        return res.status(400).json({ error: 'Slug must be unique. A tenant with this slug already exists.' });
+        return res.status(400).json({
+          error: 'Slug must be unique. A tenant with this slug already exists.',
+        });
       }
     }
 
@@ -1645,17 +1964,28 @@ app.put('/admin/tenants/:id', async (req, res) => {
     const updatedPlan = plan ? plan.toLowerCase() : oldTenant.plan;
     const updatedStatus = status || oldTenant.status;
 
-    const result = await pool.query(`
+    const result = await pool.query(
+      `
       UPDATE tenants
       SET name = $1, slug = $2, plan = $3, status = $4
       WHERE id = $5
       RETURNING *
-    `, [updatedName, updatedSlug, updatedPlan, updatedStatus, id]);
+    `,
+      [updatedName, updatedSlug, updatedPlan, updatedStatus, id]
+    );
 
     const newTenant = result.rows[0];
 
     // Log admin action
-    await logAdminAction(req.admin.id, 'tenant_update', 'tenant', id, oldTenant, newTenant, req);
+    await logAdminAction(
+      req.admin.id,
+      'tenant_update',
+      'tenant',
+      id,
+      oldTenant,
+      newTenant,
+      req
+    );
 
     res.status(200).json({ success: true, tenant: newTenant });
   } catch (err) {
@@ -1683,7 +2013,8 @@ app.get('/admin/tenants/:id', async (req, res) => {
       GROUP BY t.id, p.id
     `;
     const result = await pool.query(query, [id]);
-    if (result.rows.length === 0) return res.status(404).json({ error: 'Tenant not found' });
+    if (result.rows.length === 0)
+      return res.status(404).json({ error: 'Tenant not found' });
     res.status(200).json(result.rows[0]);
   } catch (err) {
     console.error('Get tenant details failed:', err);
@@ -1698,12 +2029,20 @@ app.put('/admin/tenants/:id/plan', async (req, res) => {
   if (!plan) return res.status(400).json({ error: 'Plan is required' });
 
   try {
-    const oldQuery = await pool.query('SELECT plan FROM tenants WHERE id = $1', [id]);
-    if (oldQuery.rows.length === 0) return res.status(404).json({ error: 'Tenant not found' });
+    const oldQuery = await pool.query(
+      'SELECT plan FROM tenants WHERE id = $1',
+      [id]
+    );
+    if (oldQuery.rows.length === 0)
+      return res.status(404).json({ error: 'Tenant not found' });
     const oldPlanId = oldQuery.rows[0].plan;
 
-    const oldPlanRes = await pool.query('SELECT * FROM plans WHERE id = $1', [oldPlanId.toLowerCase()]);
-    const newPlanRes = await pool.query('SELECT * FROM plans WHERE id = $1', [plan.toLowerCase()]);
+    const oldPlanRes = await pool.query('SELECT * FROM plans WHERE id = $1', [
+      oldPlanId.toLowerCase(),
+    ]);
+    const newPlanRes = await pool.query('SELECT * FROM plans WHERE id = $1', [
+      plan.toLowerCase(),
+    ]);
 
     let isDowngrade = false;
     let refundCredit = 0;
@@ -1712,17 +2051,28 @@ app.put('/admin/tenants/:id/plan', async (req, res) => {
       const oldPlan = oldPlanRes.rows[0];
       const newPlan = newPlanRes.rows[0];
 
-      if (newPlan.price < oldPlan.price || 
-          (newPlan.agent_limit !== -1 && (oldPlan.agent_limit === -1 || newPlan.agent_limit < oldPlan.agent_limit)) ||
-          (newPlan.token_limit !== -1 && (oldPlan.token_limit === -1 || newPlan.token_limit < oldPlan.token_limit))) {
+      if (
+        newPlan.price < oldPlan.price ||
+        (newPlan.agent_limit !== -1 &&
+          (oldPlan.agent_limit === -1 ||
+            newPlan.agent_limit < oldPlan.agent_limit)) ||
+        (newPlan.token_limit !== -1 &&
+          (oldPlan.token_limit === -1 ||
+            newPlan.token_limit < oldPlan.token_limit))
+      ) {
         isDowngrade = true;
         const remainingDays = 15;
         const totalDays = 30;
-        refundCredit = Math.max(0, (oldPlan.price - newPlan.price) * (remainingDays / totalDays));
+        refundCredit = Math.max(
+          0,
+          (oldPlan.price - newPlan.price) * (remainingDays / totalDays)
+        );
       }
     }
 
-    const graceEnds = isDowngrade ? new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) : null;
+    const graceEnds = isDowngrade
+      ? new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
+      : null;
 
     await pool.query(
       `UPDATE tenants 
@@ -1744,8 +2094,8 @@ app.put('/admin/tenants/:id/plan', async (req, res) => {
           new_plan: plan,
           type: isDowngrade ? 'downgrade' : 'upgrade',
           grace_ends: graceEnds,
-          pro_rated_credit: refundCredit
-        })
+          pro_rated_credit: refundCredit,
+        }),
       ]
     );
 
@@ -1763,7 +2113,15 @@ app.put('/admin/tenants/:id/plan', async (req, res) => {
     `;
     const result = await pool.query(selectQuery, [id]);
 
-    await logAdminAction(req.admin.id, 'plan_change', 'tenant', id, { plan: oldPlanId }, { plan }, req);
+    await logAdminAction(
+      req.admin.id,
+      'plan_change',
+      'tenant',
+      id,
+      { plan: oldPlanId },
+      { plan },
+      req
+    );
 
     res.status(200).json({ success: true, tenant: result.rows[0] });
   } catch (err) {
@@ -1777,10 +2135,14 @@ app.post('/admin/tenants/:id/suspend', async (req, res) => {
   const { id } = req.params;
   const { status } = req.body; // 'suspended' or 'active'
   const newStatus = status || 'suspended';
-  
+
   try {
-    const oldQuery = await pool.query('SELECT status FROM tenants WHERE id = $1', [id]);
-    if (oldQuery.rows.length === 0) return res.status(404).json({ error: 'Tenant not found' });
+    const oldQuery = await pool.query(
+      'SELECT status FROM tenants WHERE id = $1',
+      [id]
+    );
+    if (oldQuery.rows.length === 0)
+      return res.status(404).json({ error: 'Tenant not found' });
     const oldStatus = oldQuery.rows[0].status;
 
     const result = await pool.query(
@@ -1788,7 +2150,15 @@ app.post('/admin/tenants/:id/suspend', async (req, res) => {
       [newStatus, id]
     );
 
-    await logAdminAction(req.admin.id, 'tenant_suspend', 'tenant', id, { status: oldStatus }, { status: newStatus }, req);
+    await logAdminAction(
+      req.admin.id,
+      'tenant_suspend',
+      'tenant',
+      id,
+      { status: oldStatus },
+      { status: newStatus },
+      req
+    );
 
     res.status(200).json({ success: true, tenant: result.rows[0] });
   } catch (err) {
@@ -1823,8 +2193,22 @@ app.get('/admin/rate-limit-violations', async (req, res) => {
   try {
     // High-fidelity fallback simulated rate-limit log list (Redis keys)
     const violations = [
-      { tenant: 'Alpha Tech', timestamp: new Date(Date.now() - 3600000).toISOString(), endpoint: '/api/chat', limit: 10, actual: 12, action: 'blocked' },
-      { tenant: 'Beta Systems', timestamp: new Date(Date.now() - 7200000).toISOString(), endpoint: '/api/chat', limit: 60, actual: 61, action: 'throttled' }
+      {
+        tenant: 'Alpha Tech',
+        timestamp: new Date(Date.now() - 3600000).toISOString(),
+        endpoint: '/api/chat',
+        limit: 10,
+        actual: 12,
+        action: 'blocked',
+      },
+      {
+        tenant: 'Beta Systems',
+        timestamp: new Date(Date.now() - 7200000).toISOString(),
+        endpoint: '/api/chat',
+        limit: 60,
+        actual: 61,
+        action: 'throttled',
+      },
     ];
     res.status(200).json({ violations });
   } catch (err) {
@@ -1837,8 +2221,22 @@ app.get('/admin/billing/reconciliation', async (req, res) => {
   try {
     // High-fidelity mock list of billing details matched against DB token counts
     const billing = [
-      { tenant: 'Alpha Tech', razorpay_id: 'pay_PQR12345678', amount: 99.00, status: 'captured', tokens_credited: 500000, mismatch: false },
-      { tenant: 'Delta Agency', razorpay_id: 'pay_XYZ87654321', amount: 299.00, status: 'captured', tokens_credited: 2000000, mismatch: true }
+      {
+        tenant: 'Alpha Tech',
+        razorpay_id: 'pay_PQR12345678',
+        amount: 99.0,
+        status: 'captured',
+        tokens_credited: 500000,
+        mismatch: false,
+      },
+      {
+        tenant: 'Delta Agency',
+        razorpay_id: 'pay_XYZ87654321',
+        amount: 299.0,
+        status: 'captured',
+        tokens_credited: 2000000,
+        mismatch: true,
+      },
     ];
     res.status(200).json({ billing });
   } catch (err) {
@@ -1870,10 +2268,16 @@ app.get('/admin/logs/requests', async (req, res) => {
 app.get('/admin/logs/errors', async (req, res) => {
   try {
     const errorAnalysis = {
-      counts: { timeout: 2, oom: 0, rate_limit: 12, error_500: 1, model_not_found: 0 },
+      counts: {
+        timeout: 2,
+        oom: 0,
+        rate_limit: 12,
+        error_500: 1,
+        model_not_found: 0,
+      },
       topFailingTenant: 'Gamma Digital',
       topFailingModel: 'harikson-plus',
-      peakFailureHour: '16:00 UTC'
+      peakFailureHour: '16:00 UTC',
     };
     res.status(200).json(errorAnalysis);
   } catch (err) {
@@ -1885,8 +2289,22 @@ app.get('/admin/logs/errors', async (req, res) => {
 app.get('/admin/models/performance', async (req, res) => {
   try {
     const stats = [
-      { model: 'harikson-chat-8b', requests: 4120, avg_latency: 1800, p95_latency: 2800, error_rate: 0.12, tokens_sec: 42.5 },
-      { model: 'harikson-coder-14b', requests: 1205, avg_latency: 3200, p95_latency: 5100, error_rate: 0.25, tokens_sec: 28.1 }
+      {
+        model: 'harikson-chat-8b',
+        requests: 4120,
+        avg_latency: 1800,
+        p95_latency: 2800,
+        error_rate: 0.12,
+        tokens_sec: 42.5,
+      },
+      {
+        model: 'harikson-coder-14b',
+        requests: 1205,
+        avg_latency: 3200,
+        p95_latency: 5100,
+        error_rate: 0.25,
+        tokens_sec: 28.1,
+      },
     ];
     res.status(200).json({ performance: stats });
   } catch (err) {
@@ -1898,11 +2316,15 @@ app.get('/admin/models/performance', async (req, res) => {
 app.get('/admin/logs/export', async (req, res) => {
   try {
     // Generate simple CSV payload of request logs
-    const csv = `"timestamp","tenant","model","endpoint","tokens"\n` +
+    const csv =
+      `"timestamp","tenant","model","endpoint","tokens"\n` +
       `"2026-07-08T15:20:00Z","Alpha Tech","harikson-chat-8b","/api/chat",120\n` +
       `"2026-07-08T15:21:00Z","Beta Systems","harikson-coder-14b","/api/chat",340`;
     res.setHeader('Content-Type', 'text/csv');
-    res.setHeader('Content-Disposition', 'attachment; filename="harikson_request_logs.csv"');
+    res.setHeader(
+      'Content-Disposition',
+      'attachment; filename="harikson_request_logs.csv"'
+    );
     res.status(200).send(csv);
   } catch (err) {
     res.status(500).json({ error: 'Failed to export log data' });
@@ -1960,18 +2382,33 @@ app.post('/admin/api-keys', async (req, res) => {
       `INSERT INTO tenant_api_keys (tenant_id, name, key_prefix, key_hash, tpm_limit, rpm_limit)
        VALUES ($1, $2, $3, $4, $5, $6)
        RETURNING id, name, key_prefix, created_at`,
-      [tenant_id, name, keyPrefix, hashed, tpm_limit || 100000, rpm_limit || 100]
+      [
+        tenant_id,
+        name,
+        keyPrefix,
+        hashed,
+        tpm_limit || 100000,
+        rpm_limit || 100,
+      ]
     );
 
     const createdKey = result.rows[0];
-    await logAdminAction(req.admin.id, 'create_api_key', 'api_key', createdKey.id, null, { name, keyPrefix }, req);
+    await logAdminAction(
+      req.admin.id,
+      'create_api_key',
+      'api_key',
+      createdKey.id,
+      null,
+      { name, keyPrefix },
+      req
+    );
 
     res.status(201).json({
       success: true,
       key: {
         ...createdKey,
-        plaintext: rawKey // only returned once
-      }
+        plaintext: rawKey, // only returned once
+      },
     });
   } catch (err) {
     console.error('Failed to create API key:', err);
@@ -1983,12 +2420,25 @@ app.post('/admin/api-keys', async (req, res) => {
 app.delete('/admin/api-keys/:id', async (req, res) => {
   const { id } = req.params;
   try {
-    const result = await pool.query('DELETE FROM tenant_api_keys WHERE id = $1 RETURNING id, name', [id]);
+    const result = await pool.query(
+      'DELETE FROM tenant_api_keys WHERE id = $1 RETURNING id, name',
+      [id]
+    );
     if (result.rows.length === 0) {
       return res.status(404).json({ error: 'Key not found' });
     }
-    await logAdminAction(req.admin.id, 'revoke_api_key', 'api_key', id, result.rows[0], null, req);
-    res.status(200).json({ success: true, message: 'API key revoked successfully' });
+    await logAdminAction(
+      req.admin.id,
+      'revoke_api_key',
+      'api_key',
+      id,
+      result.rows[0],
+      null,
+      req
+    );
+    res
+      .status(200)
+      .json({ success: true, message: 'API key revoked successfully' });
   } catch (err) {
     console.error('Failed to delete API key:', err);
     res.status(500).json({ error: 'Failed to revoke API key' });
@@ -1999,7 +2449,14 @@ app.delete('/admin/api-keys/:id', async (req, res) => {
 app.get('/admin/vllm/params', async (req, res) => {
   try {
     const data = await redis.get('vllm:hyperparams');
-    const params = data ? JSON.parse(data) : { temperature: 0.7, top_p: 0.9, max_tokens: 4096, system_restrict: true };
+    const params = data
+      ? JSON.parse(data)
+      : {
+          temperature: 0.7,
+          top_p: 0.9,
+          max_tokens: 4096,
+          system_restrict: true,
+        };
     res.status(200).json(params);
   } catch (err) {
     res.status(500).json({ error: 'Failed to read parameters' });
@@ -2012,7 +2469,15 @@ app.post('/admin/vllm/params', async (req, res) => {
   try {
     const payload = { temperature, top_p, max_tokens, system_restrict };
     await redis.set('vllm:hyperparams', JSON.stringify(payload));
-    await logAdminAction(req.admin.id, 'update_vllm_params', 'vllm', 'params', null, payload, req);
+    await logAdminAction(
+      req.admin.id,
+      'update_vllm_params',
+      'vllm',
+      'params',
+      null,
+      payload,
+      req
+    );
     res.status(200).json({ success: true, params: payload });
   } catch (err) {
     res.status(500).json({ error: 'Failed to write parameters' });
@@ -2021,23 +2486,40 @@ app.post('/admin/vllm/params', async (req, res) => {
 
 // 23. POST /admin/billing/providers (create/configure payment provider)
 app.post('/admin/billing/providers', adminAuth, async (req, res) => {
-  const { provider, name, api_key, api_secret, webhook_secret, merchant_id, is_test_mode } = req.body;
+  const {
+    provider,
+    name,
+    api_key,
+    api_secret,
+    webhook_secret,
+    merchant_id,
+    is_test_mode,
+  } = req.body;
   if (!provider || !api_key || !api_secret) {
-    return res.status(400).json({ error: 'provider, api_key, and api_secret are required' });
+    return res
+      .status(400)
+      .json({ error: 'provider, api_key, and api_secret are required' });
   }
   if (provider !== 'stripe' && provider !== 'razorpay') {
-    return res.status(400).json({ error: 'Invalid provider. Must be razorpay or stripe.' });
+    return res
+      .status(400)
+      .json({ error: 'Invalid provider. Must be razorpay or stripe.' });
   }
 
   try {
     // 1. Perform validation test calls to verify credentials before saving
     if (provider === 'razorpay') {
       try {
-        const client = new Razorpay({ key_id: api_key, key_secret: api_secret });
+        const client = new Razorpay({
+          key_id: api_key,
+          key_secret: api_secret,
+        });
         await client.orders.all({ count: 1 });
       } catch (err) {
         if (err.statusCode && err.statusCode === 401) {
-          return res.status(400).json({ error: 'Invalid Razorpay Credentials' });
+          return res
+            .status(400)
+            .json({ error: 'Invalid Razorpay Credentials' });
         }
       }
     } else if (provider === 'stripe') {
@@ -2045,27 +2527,51 @@ app.post('/admin/billing/providers', adminAuth, async (req, res) => {
         const stripeClient = new Stripe(api_secret);
         await stripeClient.accounts.retrieve();
       } catch (err) {
-        return res.status(400).json({ error: `Invalid Stripe Credentials: ${err.message}` });
+        return res
+          .status(400)
+          .json({ error: `Invalid Stripe Credentials: ${err.message}` });
       }
     }
 
     // 2. Encrypt credentials at rest
     const encryptedKey = encryptText(api_key);
     const encryptedSecret = encryptText(api_secret);
-    const encryptedWebhookSecret = webhook_secret ? encryptText(webhook_secret) : null;
+    const encryptedWebhookSecret = webhook_secret
+      ? encryptText(webhook_secret)
+      : null;
 
     // Set other provider configurations to inactive
-    await pool.query('UPDATE payment_providers SET is_active = false WHERE provider = $1', [provider]);
+    await pool.query(
+      'UPDATE payment_providers SET is_active = false WHERE provider = $1',
+      [provider]
+    );
 
     const result = await pool.query(
       `INSERT INTO payment_providers (provider, name, api_key_encrypted, api_secret_encrypted, webhook_secret_encrypted, merchant_id, is_active, is_test_mode, created_by)
        VALUES ($1, $2, $3, $4, $5, $6, true, $7, $8)
        RETURNING id, provider, name, is_active, is_test_mode, created_at`,
-      [provider, name || `${provider.toUpperCase()} Merchant`, encryptedKey, encryptedSecret, encryptedWebhookSecret, merchant_id, is_test_mode !== false, req.admin.id]
+      [
+        provider,
+        name || `${provider.toUpperCase()} Merchant`,
+        encryptedKey,
+        encryptedSecret,
+        encryptedWebhookSecret,
+        merchant_id,
+        is_test_mode !== false,
+        req.admin.id,
+      ]
     );
 
     const inserted = result.rows[0];
-    await logAdminAction(req.admin.id, 'create_payment_provider', 'payment_provider', inserted.id, null, { provider, name }, req);
+    await logAdminAction(
+      req.admin.id,
+      'create_payment_provider',
+      'payment_provider',
+      inserted.id,
+      null,
+      { provider, name },
+      req
+    );
 
     res.status(201).json({ success: true, provider: inserted });
   } catch (err) {
@@ -2077,8 +2583,10 @@ app.post('/admin/billing/providers', adminAuth, async (req, res) => {
 // 24. GET /admin/billing/providers (list payment providers)
 app.get('/admin/billing/providers', adminAuth, async (req, res) => {
   try {
-    const result = await pool.query('SELECT * FROM payment_providers WHERE is_active = true ORDER BY created_at DESC');
-    const providers = result.rows.map(p => {
+    const result = await pool.query(
+      'SELECT * FROM payment_providers WHERE is_active = true ORDER BY created_at DESC'
+    );
+    const providers = result.rows.map((p) => {
       const keyDecrypted = decryptText(p.api_key_encrypted) || '';
       const secretDecrypted = decryptText(p.api_secret_encrypted) || '';
       return {
@@ -2090,7 +2598,7 @@ app.get('/admin/billing/providers', adminAuth, async (req, res) => {
         is_test_mode: p.is_test_mode,
         created_at: p.created_at,
         api_key_masked: keyDecrypted.substring(0, 8) + '****',
-        api_secret_masked: secretDecrypted.substring(0, 8) + '****'
+        api_secret_masked: secretDecrypted.substring(0, 8) + '****',
       };
     });
     res.status(200).json({ providers });
@@ -2109,10 +2617,22 @@ app.delete('/admin/billing/providers/:id', adminAuth, async (req, res) => {
       [id]
     );
     if (result.rows.length === 0) {
-      return res.status(404).json({ error: 'Provider configuration not found' });
+      return res
+        .status(404)
+        .json({ error: 'Provider configuration not found' });
     }
-    await logAdminAction(req.admin.id, 'deactivate_payment_provider', 'payment_provider', id, result.rows[0], null, req);
-    res.status(200).json({ success: true, message: 'Provider de-activated successfully' });
+    await logAdminAction(
+      req.admin.id,
+      'deactivate_payment_provider',
+      'payment_provider',
+      id,
+      result.rows[0],
+      null,
+      req
+    );
+    res
+      .status(200)
+      .json({ success: true, message: 'Provider de-activated successfully' });
   } catch (err) {
     console.error('Failed to deactivate provider:', err);
     res.status(500).json({ error: 'Failed to disable payment provider' });
@@ -2145,16 +2665,26 @@ app.post('/webhooks/stripe', async (req, res) => {
           return res.status(400).json({ error: 'Webhook timestamp expired' });
         }
       } else {
-        return res.status(400).json({ error: 'Invalid Stripe signature format' });
+        return res
+          .status(400)
+          .json({ error: 'Invalid Stripe signature format' });
       }
     } else {
-      return res.status(400).json({ error: 'Stripe-Signature header is missing' });
+      return res
+        .status(400)
+        .json({ error: 'Stripe-Signature header is missing' });
     }
 
     let event;
     try {
-      const stripeInstance = new Stripe(decryptText(provider.api_secret_encrypted));
-      event = stripeInstance.webhooks.constructEvent(payload, sig, webhookSecret);
+      const stripeInstance = new Stripe(
+        decryptText(provider.api_secret_encrypted)
+      );
+      event = stripeInstance.webhooks.constructEvent(
+        payload,
+        sig,
+        webhookSecret
+      );
     } catch (err) {
       console.error('Stripe signature failed:', err.message);
       await pool.query(
@@ -2169,7 +2699,7 @@ app.post('/webhooks/stripe', async (req, res) => {
           0,
           false,
           'Stripe signature error: ' + err.message,
-          JSON.stringify({ error: err.message })
+          JSON.stringify({ error: err.message }),
         ]
       );
       return res.status(400).json({ error: 'Invalid Stripe signature' });
@@ -2183,12 +2713,18 @@ app.post('/webhooks/stripe', async (req, res) => {
       [eventId]
     );
     if (existing.rows.length > 0) {
-      console.log(`[WEBHOOK] Stripe event ${eventId} has already been processed.`);
+      console.log(
+        `[WEBHOOK] Stripe event ${eventId} has already been processed.`
+      );
       return res.status(200).json({ status: 'already_processed' });
     }
 
     const eventObj = event.data.object;
-    const amount = eventObj.amount_due ? eventObj.amount_due / 100 : (eventObj.amount ? eventObj.amount / 100 : 0);
+    const amount = eventObj.amount_due
+      ? eventObj.amount_due / 100
+      : eventObj.amount
+        ? eventObj.amount / 100
+        : 0;
     const currency = eventObj.currency || 'USD';
     const status = eventObj.status || 'success';
 
@@ -2196,18 +2732,33 @@ app.post('/webhooks/stripe', async (req, res) => {
     const tenantId = eventObj.metadata?.tenant_id || null;
     let tenantName = 'System';
     if (tenantId) {
-      const tRes = await pool.query('SELECT name FROM tenants WHERE id = $1', [tenantId]);
+      const tRes = await pool.query('SELECT name FROM tenants WHERE id = $1', [
+        tenantId,
+      ]);
       if (tRes.rows.length > 0) tenantName = tRes.rows[0].name;
     }
 
     await pool.query(
       `INSERT INTO payment_webhooks (event_id, provider_id, provider, event_type, status, amount, tenant_name, payload, signature_verified, processed_at)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW())`,
-      [eventId, provider.id, 'stripe', event.type, status, amount, tenantName, JSON.stringify(event), true]
+      [
+        eventId,
+        provider.id,
+        'stripe',
+        event.type,
+        status,
+        amount,
+        tenantName,
+        JSON.stringify(event),
+        true,
+      ]
     );
 
     // Business Logic processing
-    if (event.type === 'customer.subscription.created' || event.type === 'customer.subscription.updated') {
+    if (
+      event.type === 'customer.subscription.created' ||
+      event.type === 'customer.subscription.updated'
+    ) {
       const subId = eventObj.id;
       const plan = eventObj.metadata?.plan || 'starter';
       let planId = plan.toLowerCase();
@@ -2216,7 +2767,12 @@ app.post('/webhooks/stripe', async (req, res) => {
         else if (planId === 'pro') planId = 'professional';
         else planId = 'starter';
       }
-      const subStatus = eventObj.status === 'active' ? 'active' : (eventObj.status === 'canceled' ? 'cancelled' : 'paused');
+      const subStatus =
+        eventObj.status === 'active'
+          ? 'active'
+          : eventObj.status === 'canceled'
+            ? 'cancelled'
+            : 'paused';
       const start = new Date(eventObj.current_period_start * 1000);
       const end = new Date(eventObj.current_period_end * 1000);
 
@@ -2230,9 +2786,22 @@ app.post('/webhooks/stripe', async (req, res) => {
              current_period_end = EXCLUDED.current_period_end, 
              amount = EXCLUDED.amount,
              updated_at = NOW()`,
-          [tenantId, 'stripe', subId, planId, subStatus, start, end, amount, currency]
+          [
+            tenantId,
+            'stripe',
+            subId,
+            planId,
+            subStatus,
+            start,
+            end,
+            amount,
+            currency,
+          ]
         );
-        await pool.query('UPDATE tenants SET plan = $1 WHERE id = $2', [planId.toUpperCase(), tenantId]);
+        await pool.query('UPDATE tenants SET plan = $1 WHERE id = $2', [
+          planId.toUpperCase(),
+          tenantId,
+        ]);
       }
     } else if (event.type === 'invoice.paid') {
       const invId = eventObj.id;
@@ -2241,13 +2810,27 @@ app.post('/webhooks/stripe', async (req, res) => {
       const subId = eventObj.subscription;
 
       if (tenantId) {
-        const subRes = await pool.query('SELECT id FROM subscriptions WHERE provider_subscription_id = $1', [subId]);
-        const subscriptionUuid = subRes.rows.length > 0 ? subRes.rows[0].id : null;
+        const subRes = await pool.query(
+          'SELECT id FROM subscriptions WHERE provider_subscription_id = $1',
+          [subId]
+        );
+        const subscriptionUuid =
+          subRes.rows.length > 0 ? subRes.rows[0].id : null;
 
         await pool.query(
           `INSERT INTO invoices (tenant_id, subscription_id, provider, provider_invoice_id, amount, currency, status, paid_at, invoice_url, pdf_url)
            VALUES ($1, $2, $3, $4, $5, $6, $7, NOW(), $8, $9)`,
-          [tenantId, subscriptionUuid, 'stripe', invId, amount, currency, 'paid', invoiceUrl, pdfUrl]
+          [
+            tenantId,
+            subscriptionUuid,
+            'stripe',
+            invId,
+            amount,
+            currency,
+            'paid',
+            invoiceUrl,
+            pdfUrl,
+          ]
         );
 
         // Retrieve tenant's primary administrator/user email and send receipt
@@ -2262,8 +2845,10 @@ app.post('/webhooks/stripe', async (req, res) => {
             currency,
             status: 'paid',
             invoiceUrl,
-            pdfUrl
-          }).catch(err => console.error('[INVOICE EMAIL RECEIPT SEND ERROR]:', err.message));
+            pdfUrl,
+          }).catch((err) =>
+            console.error('[INVOICE EMAIL RECEIPT SEND ERROR]:', err.message)
+          );
         }
       }
     }
@@ -2320,7 +2905,7 @@ app.post('/webhooks/razorpay', async (req, res) => {
           0,
           false,
           'Razorpay webhook signature verification failed',
-          payload.toString()
+          payload.toString(),
         ]
       );
       return res.status(400).json({ error: 'Invalid Razorpay signature' });
@@ -2328,7 +2913,10 @@ app.post('/webhooks/razorpay', async (req, res) => {
 
     const eventData = JSON.parse(payload.toString());
     const eventType = eventData.event;
-    const entity = eventData.payload?.payment?.entity || eventData.payload?.subscription?.entity || eventData.payload?.invoice?.entity;
+    const entity =
+      eventData.payload?.payment?.entity ||
+      eventData.payload?.subscription?.entity ||
+      eventData.payload?.invoice?.entity;
     const eventId = eventData.id;
 
     // Idempotency Check: prevent double-processing of events
@@ -2337,7 +2925,9 @@ app.post('/webhooks/razorpay', async (req, res) => {
       [eventId]
     );
     if (existing.rows.length > 0) {
-      console.log(`[WEBHOOK] Razorpay event ${eventId} has already been processed.`);
+      console.log(
+        `[WEBHOOK] Razorpay event ${eventId} has already been processed.`
+      );
       return res.status(200).json({ status: 'already_processed' });
     }
 
@@ -2345,7 +2935,9 @@ app.post('/webhooks/razorpay', async (req, res) => {
     const tenantId = entity?.notes?.tenant_id || null;
     let tenantName = 'System';
     if (tenantId) {
-      const tRes = await pool.query('SELECT name FROM tenants WHERE id = $1', [tenantId]);
+      const tRes = await pool.query('SELECT name FROM tenants WHERE id = $1', [
+        tenantId,
+      ]);
       if (tRes.rows.length > 0) tenantName = tRes.rows[0].name;
     }
 
@@ -2355,12 +2947,25 @@ app.post('/webhooks/razorpay', async (req, res) => {
     await pool.query(
       `INSERT INTO payment_webhooks (event_id, provider_id, provider, event_type, status, amount, tenant_name, payload, signature_verified, processed_at)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW())`,
-      [eventId, provider.id, 'razorpay', eventType, status, amount, tenantName, JSON.stringify(eventData), true]
+      [
+        eventId,
+        provider.id,
+        'razorpay',
+        eventType,
+        status,
+        amount,
+        tenantName,
+        JSON.stringify(eventData),
+        true,
+      ]
     );
 
     // Business logic processing
     if (tenantId) {
-      if (eventType === 'subscription.activated' || eventType === 'subscription.charged') {
+      if (
+        eventType === 'subscription.activated' ||
+        eventType === 'subscription.charged'
+      ) {
         const subId = entity.id;
         const plan = entity.notes?.plan || 'starter';
         let planId = plan.toLowerCase();
@@ -2369,9 +2974,16 @@ app.post('/webhooks/razorpay', async (req, res) => {
           else if (planId === 'pro') planId = 'professional';
           else planId = 'starter';
         }
-        const subStatus = entity.status === 'active' || entity.status === 'authenticated' ? 'active' : 'paused';
-        const start = entity.current_start ? new Date(entity.current_start * 1000) : new Date();
-        const end = entity.current_end ? new Date(entity.current_end * 1000) : new Date();
+        const subStatus =
+          entity.status === 'active' || entity.status === 'authenticated'
+            ? 'active'
+            : 'paused';
+        const start = entity.current_start
+          ? new Date(entity.current_start * 1000)
+          : new Date();
+        const end = entity.current_end
+          ? new Date(entity.current_end * 1000)
+          : new Date();
 
         await pool.query(
           `INSERT INTO subscriptions (tenant_id, provider, provider_subscription_id, plan_id, status, current_period_start, current_period_end, amount, currency)
@@ -2382,9 +2994,22 @@ app.post('/webhooks/razorpay', async (req, res) => {
              current_period_end = EXCLUDED.current_period_end, 
              amount = EXCLUDED.amount,
              updated_at = NOW()`,
-          [tenantId, 'razorpay', subId, planId, subStatus, start, end, amount, 'INR']
+          [
+            tenantId,
+            'razorpay',
+            subId,
+            planId,
+            subStatus,
+            start,
+            end,
+            amount,
+            'INR',
+          ]
         );
-        await pool.query('UPDATE tenants SET plan = $1 WHERE id = $2', [planId.toUpperCase(), tenantId]);
+        await pool.query('UPDATE tenants SET plan = $1 WHERE id = $2', [
+          planId.toUpperCase(),
+          tenantId,
+        ]);
       } else if (eventType === 'subscription.cancelled') {
         const subId = entity.id;
         await pool.query(
@@ -2403,7 +3028,14 @@ app.post('/webhooks/razorpay', async (req, res) => {
 
 // 28. GET /admin/billing/webhooks (Retrieve logs)
 app.get('/admin/billing/webhooks', adminAuth, async (req, res) => {
-  const { provider, event_type, status, verified_only, limit = 50, offset = 0 } = req.query;
+  const {
+    provider,
+    event_type,
+    status,
+    verified_only,
+    limit = 50,
+    offset = 0,
+  } = req.query;
   try {
     let query = `SELECT w.id, w.event_id, w.provider, w.event_type, w.status, w.amount, w.tenant_name, w.payload, w.signature_verified, w.created_at 
                  FROM payment_webhooks w WHERE 1=1`;
@@ -2453,10 +3085,12 @@ app.get('/admin/billing/webhooks', adminAuth, async (req, res) => {
     const countRes = await pool.query(countQuery, countParams);
 
     // Check active providers
-    const provRes = await pool.query('SELECT provider, is_test_mode FROM payment_providers WHERE is_active = true');
+    const provRes = await pool.query(
+      'SELECT provider, is_test_mode FROM payment_providers WHERE is_active = true'
+    );
     const active = {
-      razorpay: provRes.rows.some(r => r.provider === 'razorpay'),
-      stripe: provRes.rows.some(r => r.provider === 'stripe')
+      razorpay: provRes.rows.some((r) => r.provider === 'razorpay'),
+      stripe: provRes.rows.some((r) => r.provider === 'stripe'),
     };
 
     res.status(200).json({
@@ -2468,7 +3102,7 @@ app.get('/admin/billing/webhooks', adminAuth, async (req, res) => {
       providers_modes: provRes.rows.reduce((acc, row) => {
         acc[row.provider] = row.is_test_mode ? 'test' : 'live';
         return acc;
-      }, {})
+      }, {}),
     });
   } catch (err) {
     console.error('Failed to query payment webhooks:', err);
@@ -2480,7 +3114,9 @@ app.get('/admin/billing/webhooks', adminAuth, async (req, res) => {
 // GET /admin/plans
 app.get('/admin/plans', async (req, res) => {
   try {
-    const result = await pool.query('SELECT * FROM plans ORDER BY price ASC, created_at DESC');
+    const result = await pool.query(
+      'SELECT * FROM plans ORDER BY price ASC, created_at DESC'
+    );
     res.status(200).json({ plans: result.rows });
   } catch (err) {
     console.error('List plans failed:', err);
@@ -2493,7 +3129,8 @@ app.get('/admin/plans/:id', async (req, res) => {
   const { id } = req.params;
   try {
     const result = await pool.query('SELECT * FROM plans WHERE id = $1', [id]);
-    if (result.rows.length === 0) return res.status(404).json({ error: 'Plan not found' });
+    if (result.rows.length === 0)
+      return res.status(404).json({ error: 'Plan not found' });
     res.status(200).json(result.rows[0]);
   } catch (err) {
     console.error('Get plan failed:', err);
@@ -2504,29 +3141,65 @@ app.get('/admin/plans/:id', async (req, res) => {
 // POST /admin/plans
 app.post('/admin/plans', async (req, res) => {
   const {
-    id, name, tier, price, billing, currency, is_active, is_recommended,
-    token_limit, tenant_limit, agent_limit, model_access, features, description
+    id,
+    name,
+    tier,
+    price,
+    billing,
+    currency,
+    is_active,
+    is_recommended,
+    token_limit,
+    tenant_limit,
+    agent_limit,
+    model_access,
+    features,
+    description,
   } = req.body;
 
   if (!id || !name || !tier) {
-    return res.status(400).json({ error: 'Plan id, name, and tier are required' });
+    return res
+      .status(400)
+      .json({ error: 'Plan id, name, and tier are required' });
   }
 
   try {
-    const result = await pool.query(`
+    const result = await pool.query(
+      `
       INSERT INTO plans (
         id, name, tier, price, billing, currency, is_active, is_recommended,
         token_limit, tenant_limit, agent_limit, model_access, features, description
       )
       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
       RETURNING *
-    `, [
-      id.toLowerCase(), name, tier, price || 0, billing || 'monthly', currency || 'INR',
-      is_active !== false, is_recommended === true, token_limit || -1, tenant_limit || -1,
-      agent_limit || -1, model_access || [], JSON.stringify(features || {}), description || ''
-    ]);
+    `,
+      [
+        id.toLowerCase(),
+        name,
+        tier,
+        price || 0,
+        billing || 'monthly',
+        currency || 'INR',
+        is_active !== false,
+        is_recommended === true,
+        token_limit || -1,
+        tenant_limit || -1,
+        agent_limit || -1,
+        model_access || [],
+        JSON.stringify(features || {}),
+        description || '',
+      ]
+    );
 
-    await logAdminAction(req.admin.id, 'plan_create', 'plan', result.rows[0].id, null, result.rows[0], req);
+    await logAdminAction(
+      req.admin.id,
+      'plan_create',
+      'plan',
+      result.rows[0].id,
+      null,
+      result.rows[0],
+      req
+    );
 
     res.status(201).json({ success: true, plan: result.rows[0] });
   } catch (err) {
@@ -2539,16 +3212,31 @@ app.post('/admin/plans', async (req, res) => {
 app.put('/admin/plans/:id', async (req, res) => {
   const { id } = req.params;
   const {
-    name, tier, price, billing, currency, is_active, is_recommended,
-    token_limit, tenant_limit, agent_limit, model_access, features, description
+    name,
+    tier,
+    price,
+    billing,
+    currency,
+    is_active,
+    is_recommended,
+    token_limit,
+    tenant_limit,
+    agent_limit,
+    model_access,
+    features,
+    description,
   } = req.body;
 
   try {
-    const oldQuery = await pool.query('SELECT * FROM plans WHERE id = $1', [id]);
-    if (oldQuery.rows.length === 0) return res.status(404).json({ error: 'Plan not found' });
+    const oldQuery = await pool.query('SELECT * FROM plans WHERE id = $1', [
+      id,
+    ]);
+    if (oldQuery.rows.length === 0)
+      return res.status(404).json({ error: 'Plan not found' });
     const oldPlan = oldQuery.rows[0];
 
-    const result = await pool.query(`
+    const result = await pool.query(
+      `
       UPDATE plans
       SET name = COALESCE($1, name),
           tier = COALESCE($2, tier),
@@ -2565,13 +3253,34 @@ app.put('/admin/plans/:id', async (req, res) => {
           description = COALESCE($13, description)
       WHERE id = $14
       RETURNING *
-    `, [
-      name, tier, price, billing, currency, is_active, is_recommended,
-      token_limit, tenant_limit, agent_limit, model_access,
-      features ? JSON.stringify(features) : null, description, id
-    ]);
+    `,
+      [
+        name,
+        tier,
+        price,
+        billing,
+        currency,
+        is_active,
+        is_recommended,
+        token_limit,
+        tenant_limit,
+        agent_limit,
+        model_access,
+        features ? JSON.stringify(features) : null,
+        description,
+        id,
+      ]
+    );
 
-    await logAdminAction(req.admin.id, 'plan_update', 'plan', id, oldPlan, result.rows[0], req);
+    await logAdminAction(
+      req.admin.id,
+      'plan_update',
+      'plan',
+      id,
+      oldPlan,
+      result.rows[0],
+      req
+    );
 
     res.status(200).json({ success: true, plan: result.rows[0] });
   } catch (err) {
@@ -2584,14 +3293,27 @@ app.put('/admin/plans/:id', async (req, res) => {
 app.delete('/admin/plans/:id', async (req, res) => {
   const { id } = req.params;
   try {
-    const oldQuery = await pool.query('SELECT * FROM plans WHERE id = $1', [id]);
-    if (oldQuery.rows.length === 0) return res.status(404).json({ error: 'Plan not found' });
+    const oldQuery = await pool.query('SELECT * FROM plans WHERE id = $1', [
+      id,
+    ]);
+    if (oldQuery.rows.length === 0)
+      return res.status(404).json({ error: 'Plan not found' });
 
     await pool.query('DELETE FROM plans WHERE id = $1', [id]);
 
-    await logAdminAction(req.admin.id, 'plan_delete', 'plan', id, oldQuery.rows[0], null, req);
+    await logAdminAction(
+      req.admin.id,
+      'plan_delete',
+      'plan',
+      id,
+      oldQuery.rows[0],
+      null,
+      req
+    );
 
-    res.status(200).json({ success: true, message: 'Plan deleted successfully' });
+    res
+      .status(200)
+      .json({ success: true, message: 'Plan deleted successfully' });
   } catch (err) {
     console.error('Delete plan failed:', err);
     res.status(500).json({ error: 'Failed to delete subscription plan' });
@@ -2605,6 +3327,8 @@ app.use((err, req, res, next) => {
 });
 
 app.listen(port, () => {
-  console.log(`⚡ [Admin Management API] Operational and listening on port ${port}`);
+  console.log(
+    `⚡ [Admin Management API] Operational and listening on port ${port}`
+  );
   startIntegrationWorkers(pool);
 });

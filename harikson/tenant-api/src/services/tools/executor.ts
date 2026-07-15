@@ -1,6 +1,6 @@
-import pg from "pg";
-import { pool } from "../../db/pool.js";
-import { ToolRegistry } from "./registry.js";
+import pg from 'pg';
+import { pool } from '../../db/pool.js';
+import { ToolRegistry } from './registry.js';
 
 export interface ToolCallResult {
   tool: string;
@@ -9,18 +9,24 @@ export interface ToolCallResult {
 }
 
 export class ToolExecutor {
-  private static async executeQuery<T>(tenantId: string, callback: (client: pg.PoolClient) => Promise<T>): Promise<T> {
+  private static async executeQuery<T>(
+    tenantId: string,
+    callback: (client: pg.PoolClient) => Promise<T>
+  ): Promise<T> {
     const client = await pool.connect();
     try {
-      await client.query("SELECT set_tenant_context($1)", [tenantId]);
+      await client.query('SELECT set_tenant_context($1)', [tenantId]);
       const result = await callback(client);
-      await client.query("SELECT set_tenant_context(NULL)");
+      await client.query('SELECT set_tenant_context(NULL)');
       return result;
     } catch (err) {
       try {
-        await client.query("SELECT set_tenant_context(NULL)");
+        await client.query('SELECT set_tenant_context(NULL)');
       } catch (cleanupErr: any) {
-        console.warn("Warning clearing tenant context on query error in ToolExecutor:", cleanupErr.message);
+        console.warn(
+          'Warning clearing tenant context on query error in ToolExecutor:',
+          cleanupErr.message
+        );
       }
       throw err;
     } finally {
@@ -30,7 +36,8 @@ export class ToolExecutor {
 
   // Parses XML tool call protocol tags from LLM responses
   static parseToolCalls(text: string): Array<{ name: string; params: any }> {
-    const toolCallRegex = /<tool_call\s+name="([^"]+)">([\s\S]*?)<\/tool_call>/g;
+    const toolCallRegex =
+      /<tool_call\s+name="([^"]+)">([\s\S]*?)<\/tool_call>/g;
     const paramRegex = /<param\s+name="([^"]+)">([\s\S]*?)<\/param>/g;
     const calls: Array<{ name: string; params: any }> = [];
 
@@ -51,9 +58,9 @@ export class ToolExecutor {
           params[paramName] = parseInt(paramValue, 10);
         } else if (/^\d*\.\d+$/.test(paramValue)) {
           params[paramName] = parseFloat(paramValue);
-        } else if (paramValue === "true") {
+        } else if (paramValue === 'true') {
           params[paramName] = true;
-        } else if (paramValue === "false") {
+        } else if (paramValue === 'false') {
           params[paramName] = false;
         } else {
           params[paramName] = paramValue;
@@ -81,36 +88,67 @@ export class ToolExecutor {
     if (!toolDef) {
       const elapsed = Date.now() - start;
       const errorMsg = `Tool "${name}" is not registered in Harikson framework.`;
-      
+
       // Log failure in DB
-      await this.logExecution(tenantId, conversationId, name, activeParams, errorMsg, "error", elapsed);
+      await this.logExecution(
+        tenantId,
+        conversationId,
+        name,
+        activeParams,
+        errorMsg,
+        'error',
+        elapsed
+      );
       return { tool: name, error: errorMsg };
     }
 
     try {
       // Validate required parameters
       for (const [paramName, paramSpec] of Object.entries(toolDef.parameters)) {
-        if (paramSpec.required && (activeParams[paramName] === undefined || activeParams[paramName] === null)) {
+        if (
+          paramSpec.required &&
+          (activeParams[paramName] === undefined ||
+            activeParams[paramName] === null)
+        ) {
           throw new Error(`Missing required parameter: "${paramName}"`);
         }
       }
 
-      console.log(`⚡ [Harikson Tool] Executing: ${name} (Params: ${JSON.stringify(activeParams)})`);
+      console.log(
+        `⚡ [Harikson Tool] Executing: ${name} (Params: ${JSON.stringify(activeParams)})`
+      );
       const result = await toolDef.handler(workspacePath, activeParams);
       const elapsed = Date.now() - start;
 
       // Sanitize result string
-      const sanitizedResult = typeof result === "object" ? JSON.stringify(result) : String(result);
+      const sanitizedResult =
+        typeof result === 'object' ? JSON.stringify(result) : String(result);
 
       // Log success in DB
-      await this.logExecution(tenantId, conversationId, name, activeParams, sanitizedResult, "success", elapsed);
+      await this.logExecution(
+        tenantId,
+        conversationId,
+        name,
+        activeParams,
+        sanitizedResult,
+        'success',
+        elapsed
+      );
       return { tool: name, result: sanitizedResult };
     } catch (err: any) {
       const elapsed = Date.now() - start;
-      const errorMsg = err.message || "Unknown tool execution error.";
+      const errorMsg = err.message || 'Unknown tool execution error.';
 
       // Log error in DB
-      await this.logExecution(tenantId, conversationId, name, activeParams, errorMsg, "error", elapsed);
+      await this.logExecution(
+        tenantId,
+        conversationId,
+        name,
+        activeParams,
+        errorMsg,
+        'error',
+        elapsed
+      );
       return { tool: name, error: errorMsg };
     }
   }
@@ -122,10 +160,16 @@ export class ToolExecutor {
     toolCalls: Array<{ name: string; params?: any }>
   ): Promise<ToolCallResult[]> {
     const results: ToolCallResult[] = [];
-    
+
     // Execute sequentially to avoid race conditions
     for (const call of toolCalls) {
-      const result = await this.executeSingle(tenantId, conversationId, workspacePath, call.name, call.params);
+      const result = await this.executeSingle(
+        tenantId,
+        conversationId,
+        workspacePath,
+        call.name,
+        call.params
+      );
       results.push(result);
     }
     return results;
@@ -137,7 +181,7 @@ export class ToolExecutor {
     toolName: string,
     params: any,
     result: string,
-    status: "success" | "error",
+    status: 'success' | 'error',
     elapsedTimeMs: number
   ): Promise<void> {
     try {
@@ -157,7 +201,7 @@ export class ToolExecutor {
         ]);
       });
     } catch (err) {
-      console.error("⚠️ [Harikson Tool] Failed to save execution log:", err);
+      console.error('⚠️ [Harikson Tool] Failed to save execution log:', err);
     }
   }
 }

@@ -2,7 +2,8 @@ const fs = require('fs');
 
 let css = fs.readFileSync('user-portal/styles/globals.css', 'utf8');
 
-const oldCSSRegex = /\.input-wrapper \{[\s\S]*?\.send-btn\.stop-btn:hover \{[\s\S]*?\}/;
+const oldCSSRegex =
+  /\.input-wrapper \{[\s\S]*?\.send-btn\.stop-btn:hover \{[\s\S]*?\}/;
 
 const newCSS = `.input-wrapper {
   display: flex;
@@ -153,7 +154,8 @@ const newCSS = `.input-wrapper {
 css = css.replace(oldCSSRegex, newCSS);
 
 // Also remove old compute-toggles-row class if it exists elsewhere
-const oldToggles = /\.compute-toggles-row \{[\s\S]*?\}\n\.compute-toggle \{[\s\S]*?\}\n\.compute-toggle:hover \{[\s\S]*?\}\n\.compute-toggle\.active \{[\s\S]*?\}/;
+const oldToggles =
+  /\.compute-toggles-row \{[\s\S]*?\}\n\.compute-toggle \{[\s\S]*?\}\n\.compute-toggle:hover \{[\s\S]*?\}\n\.compute-toggle\.active \{[\s\S]*?\}/;
 css = css.replace(oldToggles, '');
 
 fs.writeFileSync('user-portal/styles/globals.css', css, 'utf8');

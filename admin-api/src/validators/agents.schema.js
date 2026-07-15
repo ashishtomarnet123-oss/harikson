@@ -11,9 +11,9 @@ export const createAgentSchema = z.object({
   max_tokens: z.number().int().optional().nullable(),
   context_length: z.number().int().optional().nullable(),
   streaming_enabled: z.boolean().optional().nullable(),
-  memory_enabled: z.boolean().optional().nullable()
+  memory_enabled: z.boolean().optional().nullable(),
 });
 
 export const updateAgentSchema = createAgentSchema.extend({
-  status: z.enum(['active', 'archived', 'disabled']).optional()
+  status: z.enum(['active', 'archived', 'disabled']).optional(),
 });

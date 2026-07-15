@@ -3,11 +3,17 @@ const fs = require('fs');
 let chatJs = fs.readFileSync('user-portal/pages/chat.js', 'utf8');
 
 // 1. Add imports
-const importAnchor = "import { useState, useRef, useEffect, useCallback } from 'react';";
-if (!chatJs.includes('import { Mic, Paperclip, ArrowUp, Square, Globe, BrainCircuit }')) {
+const importAnchor =
+  "import { useState, useRef, useEffect, useCallback } from 'react';";
+if (
+  !chatJs.includes(
+    'import { Mic, Paperclip, ArrowUp, Square, Globe, BrainCircuit }'
+  )
+) {
   chatJs = chatJs.replace(
     importAnchor,
-    importAnchor + "\nimport { Mic, Paperclip, ArrowUp, Square, Globe, BrainCircuit } from 'lucide-react';"
+    importAnchor +
+      "\nimport { Mic, Paperclip, ArrowUp, Square, Globe, BrainCircuit } from 'lucide-react';"
   );
 }
 
@@ -114,7 +120,8 @@ if (startIndex !== -1 && endIndex !== -1) {
               </div>
             </form>
             `;
-  chatJs = chatJs.substring(0, startIndex) + newInputBar + chatJs.substring(endIndex);
+  chatJs =
+    chatJs.substring(0, startIndex) + newInputBar + chatJs.substring(endIndex);
 }
 
 fs.writeFileSync('user-portal/pages/chat.js', chatJs, 'utf8');

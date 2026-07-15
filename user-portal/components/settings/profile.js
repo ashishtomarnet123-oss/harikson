@@ -4,8 +4,15 @@ import { useRouter } from 'next/router';
 
 export default function ProfileSettings() {
   const [profile, setProfile] = useState({
-    name: '', username: '', email: '', phone: '',
-    company: '', jobTitle: '', department: '', country: '', bio: ''
+    name: '',
+    username: '',
+    email: '',
+    phone: '',
+    company: '',
+    jobTitle: '',
+    department: '',
+    country: '',
+    bio: '',
   });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -15,19 +22,25 @@ export default function ProfileSettings() {
   useEffect(() => {
     const fetchProfile = async () => {
       try {
-        const token = (localStorage.getItem('hk_user') ? 'cookie_auth' : null);
-        if (!token) { router.push('/login'); return; }
-        const apiBase = localStorage.getItem('hk_api_base') || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3008';
-      const tenantSlug = localStorage.getItem('hk_tenant') || 'neuravolt';
+        const token = localStorage.getItem('hk_user') ? 'cookie_auth' : null;
+        if (!token) {
+          router.push('/login');
+          return;
+        }
+        const apiBase =
+          localStorage.getItem('hk_api_base') ||
+          process.env.NEXT_PUBLIC_API_URL ||
+          'http://localhost:3008';
+        const tenantSlug = localStorage.getItem('hk_tenant') || 'neuravolt';
         const res = await fetch(`${apiBase}/api/user/profile`, {
           credentials: 'include',
           headers: {
-                    'x-tenant-slug': tenantSlug
-        }
+            'x-tenant-slug': tenantSlug,
+          },
         });
         if (res.ok) {
           const data = await res.json();
-          setProfile(prev => ({ ...prev, ...data }));
+          setProfile((prev) => ({ ...prev, ...data }));
         }
       } catch (err) {
         console.error('Failed to fetch profile', err);
@@ -40,7 +53,7 @@ export default function ProfileSettings() {
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setProfile(prev => ({ ...prev, [name]: value }));
+    setProfile((prev) => ({ ...prev, [name]: value }));
   };
 
   const handleSave = async (e) => {
@@ -48,17 +61,20 @@ export default function ProfileSettings() {
     setSaving(true);
     setMessage(null);
     try {
-      const token = (localStorage.getItem('hk_user') ? 'cookie_auth' : null);
-      const apiBase = localStorage.getItem('hk_api_base') || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3008';
+      const token = localStorage.getItem('hk_user') ? 'cookie_auth' : null;
+      const apiBase =
+        localStorage.getItem('hk_api_base') ||
+        process.env.NEXT_PUBLIC_API_URL ||
+        'http://localhost:3008';
       const tenantSlug = localStorage.getItem('hk_tenant') || 'neuravolt';
       const res = await fetch(`${apiBase}/api/user/profile`, {
-          credentials: 'include',
+        credentials: 'include',
         method: 'PUT',
         headers: {
-                    'x-tenant-slug': tenantSlug,
-          'Content-Type': 'application/json'
+          'x-tenant-slug': tenantSlug,
+          'Content-Type': 'application/json',
         },
-        body: JSON.stringify(profile)
+        body: JSON.stringify(profile),
       });
       if (res.ok) {
         setMessage({ type: 'success', text: 'Profile updated successfully.' });
@@ -72,7 +88,8 @@ export default function ProfileSettings() {
     }
   };
 
-  if (loading) return <div className="settings-loading">Loading profile...</div>;
+  if (loading)
+    return <div className="settings-loading">Loading profile...</div>;
 
   return (
     <>
@@ -81,7 +98,9 @@ export default function ProfileSettings() {
         <p>Manage your personal information and account details.</p>
       </div>
 
-      {message && <div className={`settings-alert ${message.type}`}>{message.text}</div>}
+      {message && (
+        <div className={`settings-alert ${message.type}`}>{message.text}</div>
+      )}
 
       <form className="settings-form" onSubmit={handleSave}>
         <div className="settings-section">
@@ -90,23 +109,49 @@ export default function ProfileSettings() {
           <div className="form-row">
             <div className="form-group">
               <label>Full Name</label>
-              <input type="text" name="name" value={profile.name || ''} onChange={handleChange} placeholder="John Doe" />
+              <input
+                type="text"
+                name="name"
+                value={profile.name || ''}
+                onChange={handleChange}
+                placeholder="John Doe"
+              />
             </div>
             <div className="form-group">
               <label>Username</label>
-              <input type="text" name="username" value={profile.username || ''} onChange={handleChange} placeholder="johndoe" />
+              <input
+                type="text"
+                name="username"
+                value={profile.username || ''}
+                onChange={handleChange}
+                placeholder="johndoe"
+              />
             </div>
           </div>
 
           <div className="form-row">
             <div className="form-group">
               <label>Email Address</label>
-              <input type="email" name="email" value={profile.email || ''} disabled className="disabled-input" />
-              <span className="help-text">Email cannot be changed directly.</span>
+              <input
+                type="email"
+                name="email"
+                value={profile.email || ''}
+                disabled
+                className="disabled-input"
+              />
+              <span className="help-text">
+                Email cannot be changed directly.
+              </span>
             </div>
             <div className="form-group">
               <label>Phone Number</label>
-              <input type="tel" name="phone" value={profile.phone || ''} onChange={handleChange} placeholder="+1 (555) 000-0000" />
+              <input
+                type="tel"
+                name="phone"
+                value={profile.phone || ''}
+                onChange={handleChange}
+                placeholder="+1 (555) 000-0000"
+              />
             </div>
           </div>
         </div>
@@ -117,22 +162,46 @@ export default function ProfileSettings() {
           <div className="form-row">
             <div className="form-group">
               <label>Company Name</label>
-              <input type="text" name="company" value={profile.company || ''} onChange={handleChange} placeholder="Acme Corp" />
+              <input
+                type="text"
+                name="company"
+                value={profile.company || ''}
+                onChange={handleChange}
+                placeholder="Acme Corp"
+              />
             </div>
             <div className="form-group">
               <label>Job Title</label>
-              <input type="text" name="jobTitle" value={profile.jobTitle || ''} onChange={handleChange} placeholder="Software Engineer" />
+              <input
+                type="text"
+                name="jobTitle"
+                value={profile.jobTitle || ''}
+                onChange={handleChange}
+                placeholder="Software Engineer"
+              />
             </div>
           </div>
 
           <div className="form-row">
             <div className="form-group">
               <label>Department</label>
-              <input type="text" name="department" value={profile.department || ''} onChange={handleChange} placeholder="Engineering" />
+              <input
+                type="text"
+                name="department"
+                value={profile.department || ''}
+                onChange={handleChange}
+                placeholder="Engineering"
+              />
             </div>
             <div className="form-group">
               <label>Country</label>
-              <input type="text" name="country" value={profile.country || ''} onChange={handleChange} placeholder="United States" />
+              <input
+                type="text"
+                name="country"
+                value={profile.country || ''}
+                onChange={handleChange}
+                placeholder="United States"
+              />
             </div>
           </div>
         </div>
@@ -153,7 +222,13 @@ export default function ProfileSettings() {
 
         <div className="settings-actions">
           <button type="submit" className="btn-primary" disabled={saving}>
-            {saving ? 'Saving...' : <><Save size={15} /> Save Changes</>}
+            {saving ? (
+              'Saving...'
+            ) : (
+              <>
+                <Save size={15} /> Save Changes
+              </>
+            )}
           </button>
         </div>
       </form>

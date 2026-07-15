@@ -54,18 +54,20 @@ export default function LoginPage() {
   return (
     <div className="min-h-screen bg-slate-50 flex items-center justify-center font-sans p-4">
       <div className="w-full max-w-md p-10 bg-white border border-slate-200 rounded-3xl shadow-2xl relative z-10">
-        
         {/* Logo and Header */}
         <div className="flex flex-col items-center mb-10">
           <div className="w-14 h-14 bg-white border-2 border-blue-100 rounded-2xl flex items-center justify-center mb-6 shadow-sm">
             <Cpu className="w-7 h-7 text-blue-600" />
           </div>
-          <h1 className="text-xl font-black text-slate-900 tracking-wide">HARIKSON CONTROL PLANE</h1>
-          <p className="text-[11px] text-slate-500 mt-2 uppercase font-bold tracking-widest">Administrator Authentication</p>
+          <h1 className="text-xl font-black text-slate-900 tracking-wide">
+            HARIKSON CONTROL PLANE
+          </h1>
+          <p className="text-[11px] text-slate-500 mt-2 uppercase font-bold tracking-widest">
+            Administrator Authentication
+          </p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-6">
-          
           {/* Email Input */}
           <div>
             <label className="block text-[11px] font-bold text-slate-600 uppercase tracking-widest mb-2">

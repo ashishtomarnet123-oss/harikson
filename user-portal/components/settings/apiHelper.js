@@ -4,7 +4,10 @@
  */
 
 export function getApiConfig() {
-  const apiBase = localStorage.getItem('hk_api_base') || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3008';
+  const apiBase =
+    localStorage.getItem('hk_api_base') ||
+    process.env.NEXT_PUBLIC_API_URL ||
+    'http://localhost:3008';
   const tenantSlug = localStorage.getItem('hk_tenant') || 'neuravolt';
   return { apiBase, tenantSlug };
 }
@@ -13,7 +16,7 @@ export function apiHeaders(extra = {}) {
   const { tenantSlug } = getApiConfig();
   return {
     'x-tenant-slug': tenantSlug,
-    ...extra
+    ...extra,
   };
 }
 
@@ -23,6 +26,6 @@ export async function apiFetch(path, options = {}) {
   return fetch(`${apiBase}${path}`, {
     headers: { ...apiHeaders(), ...headers },
     credentials: 'include',
-    ...rest
+    ...rest,
   });
 }

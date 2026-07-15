@@ -3,7 +3,7 @@ const fs = require('fs');
 const path = 'backend/src/routes/users.ts';
 let code = fs.readFileSync(path, 'utf8');
 
-const anchor = "router.use(authMiddleware);";
+const anchor = 'router.use(authMiddleware);';
 
 const newRoutes = `
 // --- USER PROFILE & SETTINGS ROUTES ---
@@ -83,7 +83,7 @@ router.put("/me/settings", async (req: AuthenticatedRequest, res: Response, next
 `;
 
 if (!code.includes('/users/me/profile')) {
-  code = code.replace(anchor, anchor + "\n" + newRoutes);
+  code = code.replace(anchor, anchor + '\n' + newRoutes);
   fs.writeFileSync(path, code, 'utf8');
   console.log('Routes added');
 } else {

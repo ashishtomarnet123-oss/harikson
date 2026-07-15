@@ -11,12 +11,12 @@ graph TD
     User([Developer User]) -->|VS Code Extension| API[Tenant API: Port 3000]
     Browser([Web Browser]) -->|User Portal| API
     Admin([Superadmin User]) -->|Admin Panel| AdminAPI[Admin API: Port 4000]
-    
+
     subgraph Shared VM Infrastructure
         API -->|Pool Connection & RLS| DB[(PostgreSQL: Port 5432)]
         API -->|Plan Rate Limits| Redis[(Redis: Port 6379)]
         API -->|Sequential Prompt Inference| Ollama[Ollama LLM Engine: Port 11434]
-        
+
         AdminAPI -->|Tenant Provisioning & Usage Stats| DB
     end
 ```
@@ -27,14 +27,14 @@ graph TD
 
 The codebase is organized into modular services:
 
-*   **`init.sql`**: Bootstraps the PostgreSQL database. Enables `uuid-ossp`, RLS policies, auto-updating triggers, and session helper functions.
-*   **`tenant-api/`**: The backend service handling chat generation, model catalogs, and auth scoped dynamically by tenant subdomain.
-*   **`admin-api/`**: Separate admin service handling tenant creation (with database provisioning transactions), usage analytics, and VM capacity tracking.
-*   **`user-portal/`**: Next.js user-facing web app. Includes the sandbox chat page (`user-portal/pages/chat.js`).
-*   **`admin-panel/`**: Next.js admin dashboard page (`admin-panel/pages/dashboard.js`) rendering VM alerts, capacity graphs, and tenant controllers.
-*   **`ide-extension/`**: VS Code extension files providing autocomplete triggers, sidebar consoles, diff panels, and status bar toggles.
-*   **`model-builder/`**: Local template Modelfiles (`harikson-plus` and `harikson-max`) defining prompts and parameters.
-*   **`scripts/`**: Shell scripts automating system checks, Docker updates, LLM pulls, test diagnostics, and VM deployments.
+- **`init.sql`**: Bootstraps the PostgreSQL database. Enables `uuid-ossp`, RLS policies, auto-updating triggers, and session helper functions.
+- **`tenant-api/`**: The backend service handling chat generation, model catalogs, and auth scoped dynamically by tenant subdomain.
+- **`admin-api/`**: Separate admin service handling tenant creation (with database provisioning transactions), usage analytics, and VM capacity tracking.
+- **`user-portal/`**: Next.js user-facing web app. Includes the sandbox chat page (`user-portal/pages/chat.js`).
+- **`admin-panel/`**: Next.js admin dashboard page (`admin-panel/pages/dashboard.js`) rendering VM alerts, capacity graphs, and tenant controllers.
+- **`ide-extension/`**: VS Code extension files providing autocomplete triggers, sidebar consoles, diff panels, and status bar toggles.
+- **`model-builder/`**: Local template Modelfiles (`harikson-plus` and `harikson-max`) defining prompts and parameters.
+- **`scripts/`**: Shell scripts automating system checks, Docker updates, LLM pulls, test diagnostics, and VM deployments.
 
 ## 📊 Database ER Diagram
 
@@ -147,28 +147,30 @@ Instead of running separate database containers per client, data privacy is enfo
     ```
 3.  **API Connection Lifecycle (Anti-Leak)**:
     To prevent connection pool session variable leaks, the Tenant API queries the database using a strict checkout lifecycle wrapper:
-    *   Acquire a client connection from the database pool.
-    *   Set the tenant session context: `SELECT set_tenant_context($1)`.
-    *   Execute the application query (data filtered by RLS).
-    *   **Reset the tenant context to `NULL`**: `SELECT set_tenant_context(NULL)`.
-    *   Release the client back to the pool.
-    *   *Note: Database connections are released during long-running Ollama LLM requests to prevent connection starvation.*
+    - Acquire a client connection from the database pool.
+    - Set the tenant session context: `SELECT set_tenant_context($1)`.
+    - Execute the application query (data filtered by RLS).
+    - **Reset the tenant context to `NULL`**: `SELECT set_tenant_context(NULL)`.
+    - Release the client back to the pool.
+    - _Note: Database connections are released during long-running Ollama LLM requests to prevent connection starvation._
 
 ---
 
 ## ⚡ Plan-Based Rate Limiting
 
 The API throttles chat requests on a sliding 60-second window stored in Redis. The limit adapts dynamically to the tenant's subscription plan:
-*   **Solo / Starter**: 10 requests per minute.
-*   **Team / Pro**: 60 requests per minute.
-*   **Business**: 300 requests per minute.
-*   **Enterprise**: Unlimited (0).
+
+- **Solo / Starter**: 10 requests per minute.
+- **Team / Pro**: 60 requests per minute.
+- **Business**: 300 requests per minute.
+- **Enterprise**: Unlimited (0).
 
 ---
 
 ## 🛠️ VS Code Extension Features
 
 The `ide-extension` provides AI assistance directly in the editor:
+
 1.  **Debounced Ghost Text Autocomplete**:
     Provides inline suggestions as you type. Employs a **300ms debounce** checking the cancellation token (`token.isCancellationRequested`) to discard queries if the user continues typing.
 2.  **Webview Sidebar Chat**:
@@ -185,15 +187,20 @@ The `ide-extension` provides AI assistance directly in the editor:
 We provide four command-line tools under `scripts/` to automate deployment and management:
 
 ### 1. Model Downloader (`scripts/download-models.sh`)
+
 Downloads base model weights and compiles branded models in Ollama:
+
 ```bash
 ./scripts/download-models.sh
 ```
-*   Pulls `qwen2.5:7b` (Plus) and `qwen2.5:14b` (Max).
-*   Registers custom system prompt behaviors and options.
+
+- Pulls `qwen2.5:7b` (Plus) and `qwen2.5:14b` (Max).
+- Registers custom system prompt behaviors and options.
 
 ### 2. Model Swap Manager (`scripts/model-manager.sh`)
+
 Ollama loads models dynamically. On a 16GB RAM VM, running both 7B and 14B models simultaneously causes out-of-memory errors. The model manager ensures only one model is loaded:
+
 ```bash
 # Load or switch active models (unloads the previous model first)
 ./scripts/model-manager.sh switch harikson-max
@@ -206,25 +213,31 @@ Ollama loads models dynamically. On a 16GB RAM VM, running both 7B and 14B model
 ```
 
 ### 4. Comprehensive Diagnostics Suite (`scripts/test.sh`)
+
 Verifies your platform health across 6 diagnostic layers:
+
 ```bash
 ./scripts/test.sh
 ```
-*   **Infra**: Verifies Docker daemon status and checks that all 9 containers are running.
-*   **Ollama**: Confirms port connections, checks model directories, and tests completions.
-*   **PostgreSQL**: Confirms logins and queries `pg_policies` to verify RLS configuration.
-*   **Tenant API**: Tests `/health`, `/api/models`, and sends a chat request to verify response text.
-*   **Frontend**: Confirms Next.js ports respond.
-*   **Stress Test**: Sends **10 concurrent requests** and measures response time.
+
+- **Infra**: Verifies Docker daemon status and checks that all 9 containers are running.
+- **Ollama**: Confirms port connections, checks model directories, and tests completions.
+- **PostgreSQL**: Confirms logins and queries `pg_policies` to verify RLS configuration.
+- **Tenant API**: Tests `/health`, `/api/models`, and sends a chat request to verify response text.
+- **Frontend**: Confirms Next.js ports respond.
+- **Stress Test**: Sends **10 concurrent requests** and measures response time.
 
 ### 5. Git Push & SSH VM Deployer (`scripts/deploy-to-vm.sh`)
+
 Deploys local code changes directly to your remote VM:
+
 ```bash
 ./scripts/deploy-to-vm.sh
 ```
-*   Stages and commits local code edits.
-*   Pushes code updates to your GitHub repository.
-*   Establishes an SSH connection to the Ace Cloud VM (`154.201.127.68`), pulls the fresh code, generates random environment secrets, runs migrations, triggers model downloads, and restarts containers.
+
+- Stages and commits local code edits.
+- Pushes code updates to your GitHub repository.
+- Establishes an SSH connection to the Ace Cloud VM (`154.201.127.68`), pulls the fresh code, generates random environment secrets, runs migrations, triggers model downloads, and restarts containers.
 
 ---
 
@@ -234,15 +247,18 @@ Deploys local code changes directly to your remote VM:
 > The **Prisma schema** ([schema.prisma](file:///Users/ashishpratapsinghtomar/Downloads/files/backend/prisma/schema.prisma)) is the **single source of truth** for the database schema. Raw SQL migrations (`init.sql` / `migration.sql`) are deprecated for manual table creation, but remain supported for PostgreSQL-specific setups (extensions, functions, triggers, and Row-Level Security policies).
 
 ### Generating SQL Migrations
+
 All database migrations should be generated and managed using Prisma Migrate:
+
 ```bash
 # Inside the backend/ directory
 npx prisma migrate dev --name <migration_name>
 ```
 
 ### Applying Migrations in Production
+
 During VM deployments and startup, migrations are automatically applied via:
+
 ```bash
 npx prisma migrate deploy
 ```
-

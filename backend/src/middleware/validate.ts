@@ -1,5 +1,5 @@
-import { Request, Response, NextFunction } from "express";
-import { AnyZodObject, ZodError } from "zod";
+import { Request, Response, NextFunction } from 'express';
+import { AnyZodObject, ZodError } from 'zod';
 
 export function validate(schema: AnyZodObject) {
   return async (req: Request, res: Response, next: NextFunction) => {
@@ -13,9 +13,9 @@ export function validate(schema: AnyZodObject) {
     } catch (error) {
       if (error instanceof ZodError) {
         return res.status(400).json({
-          error: "Validation failed",
+          error: 'Validation failed',
           details: error.errors.map((e) => ({
-            field: e.path.join("."),
+            field: e.path.join('.'),
             message: e.message,
           })),
         });

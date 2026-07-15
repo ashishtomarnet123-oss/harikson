@@ -1,7 +1,7 @@
 const fs = require('fs');
 let content = fs.readFileSync('user-portal/pages/chat.js', 'utf8');
 
-const anchor = "const router = useRouter();";
+const anchor = 'const router = useRouter();';
 
 const injection = `const router = useRouter();
 

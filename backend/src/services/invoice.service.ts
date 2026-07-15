@@ -1,13 +1,13 @@
-import { prisma } from "../lib/prisma.js";
-import { EmailService } from "./email.service.js";
+import { prisma } from '../lib/prisma.js';
+import { EmailService } from './email.service.js';
 
 export class InvoiceService {
   // Configured costs per plan tier
   private static planPricing: Record<string, number> = {
-    STARTER: 999.00,
-    PRO: 1999.00,
-    BUSINESS: 3999.00,
-    ENTERPRISE: 9999.00,
+    STARTER: 999.0,
+    PRO: 1999.0,
+    BUSINESS: 3999.0,
+    ENTERPRISE: 9999.0,
   };
 
   static async generateInvoice(userId: string): Promise<any> {
@@ -17,13 +17,14 @@ export class InvoiceService {
     });
 
     if (!user) {
-      throw new Error("User not found");
+      throw new Error('User not found');
     }
 
-    const planCost = this.planPricing[user.plan] || 999.00;
-    
+    const planCost = this.planPricing[user.plan] || 999.0;
+
     // Add additional costs for running instances if any (e.g. 200 per active container)
-    const instancesCost = user.instances.filter(i => i.status === "RUNNING").length * 200.00;
+    const instancesCost =
+      user.instances.filter((i) => i.status === 'RUNNING').length * 200.0;
     const totalAmount = planCost + instancesCost;
 
     const dueDate = new Date();
@@ -33,21 +34,34 @@ export class InvoiceService {
       data: {
         userId: user.id,
         amount: totalAmount,
-        currency: "INR",
-        status: "PENDING",
+        currency: 'INR',
+        status: 'PENDING',
         dueDate,
         items: [
-          { name: `${user.plan} Subscription Fee`, amount: planCost, period: "Monthly" },
-          { name: "Active Micro-Containers Add-on", amount: instancesCost, count: user.instances.length },
+          {
+            name: `${user.plan} Subscription Fee`,
+            amount: planCost,
+            period: 'Monthly',
+          },
+          {
+            name: 'Active Micro-Containers Add-on',
+            amount: instancesCost,
+            count: user.instances.length,
+          },
         ],
       },
     });
 
     // Fire credentials email or invoice email
     try {
-      await EmailService.sendInvoiceEmail(user.email, invoice.id, totalAmount, dueDate.toDateString());
+      await EmailService.sendInvoiceEmail(
+        user.email,
+        invoice.id,
+        totalAmount,
+        dueDate.toDateString()
+      );
     } catch (err) {
-      console.warn("Could not dispatch invoice email:", err);
+      console.warn('Could not dispatch invoice email:', err);
     }
 
     return invoice;

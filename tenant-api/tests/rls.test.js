@@ -4,7 +4,9 @@ import assert from 'assert';
 const { Pool } = pg;
 
 // Use the local port 5435 when running from the host machine, or fall back to standard DATABASE_URL
-const dbUrl = process.env.DATABASE_URL || 'postgresql://neuravolt:neuravolt_dev_pwd@localhost:5435/neuravolt';
+const dbUrl =
+  process.env.DATABASE_URL ||
+  'postgresql://neuravolt:neuravolt_dev_pwd@localhost:5435/neuravolt';
 
 console.log('🧪 Connecting to test database at:', dbUrl);
 
@@ -12,15 +14,18 @@ console.log('🧪 Connecting to test database at:', dbUrl);
 const adminPool = new Pool({
   connectionString: dbUrl,
   max: 5,
-  idleTimeoutMillis: 1000
+  idleTimeoutMillis: 1000,
 });
 
 // App pool (non-superuser role) for testing client queries and RLS policies
-const appRoleUrl = dbUrl.replace('neuravolt:neuravolt_dev_pwd', 'tenant_test_role:tenant_test_pwd');
+const appRoleUrl = dbUrl.replace(
+  'neuravolt:neuravolt_dev_pwd',
+  'tenant_test_role:tenant_test_pwd'
+);
 const testRolePool = new Pool({
   connectionString: appRoleUrl,
   max: 1, // Set to 1 to guarantee connection reuse for pollution tests
-  idleTimeoutMillis: 1000
+  idleTimeoutMillis: 1000,
 });
 
 // Implement local versions of the exact helpers we are testing to run them in isolation
@@ -30,11 +35,17 @@ async function connectWithValidation() {
   while (retries > 0) {
     client = await testRolePool.connect();
     try {
-      const valRes = await client.query("SELECT current_setting('app.current_tenant', true) AS tenant");
+      const valRes = await client.query(
+        "SELECT current_setting('app.current_tenant', true) AS tenant"
+      );
       const currentTenant = valRes.rows[0]?.tenant;
-      console.log(`   [connectWithValidation] current_setting('app.current_tenant') = "${currentTenant}"`);
+      console.log(
+        `   [connectWithValidation] current_setting('app.current_tenant') = "${currentTenant}"`
+      );
       if (currentTenant && currentTenant.trim() !== '') {
-        throw new Error(`Connection pollution detected: app.current_tenant is already set to "${currentTenant}"`);
+        throw new Error(
+          `Connection pollution detected: app.current_tenant is already set to "${currentTenant}"`
+        );
       }
       return client;
     } catch (err) {
@@ -56,18 +67,22 @@ async function executeTenantQuery(tenantId, callback) {
   const client = await connectWithValidation();
   let contextSet = false;
   try {
-    await client.query("SELECT set_config('app.current_tenant', $1, false)", [tenantId]);
+    await client.query("SELECT set_config('app.current_tenant', $1, false)", [
+      tenantId,
+    ]);
     contextSet = true;
-    
+
     // Assert tenant context is set correctly
-    await client.query("SELECT assert_tenant_context()");
+    await client.query('SELECT assert_tenant_context()');
 
     const result = await callback(client);
     return result;
   } finally {
     if (contextSet) {
       try {
-        await client.query("SELECT set_config('app.current_tenant', '', false)");
+        await client.query(
+          "SELECT set_config('app.current_tenant', '', false)"
+        );
         client.release();
       } catch (resetErr) {
         client.release(true);
@@ -107,19 +122,37 @@ async function runTests() {
 
       // Temporarily bypass RLS for setup by using superuser role without RLS context checks on insert
       await setupClient.query('SET row_security = off;');
-      
+
       // Clean up previous runs
-      await setupClient.query('DELETE FROM conversations WHERE tenant_id IN ($1, $2)', [tenantA, tenantB]);
-      await setupClient.query('DELETE FROM users WHERE id IN ($1, $2)', [userA, userB]);
-      await setupClient.query('DELETE FROM tenants WHERE id IN ($1, $2)', [tenantA, tenantB]);
+      await setupClient.query(
+        'DELETE FROM conversations WHERE tenant_id IN ($1, $2)',
+        [tenantA, tenantB]
+      );
+      await setupClient.query('DELETE FROM users WHERE id IN ($1, $2)', [
+        userA,
+        userB,
+      ]);
+      await setupClient.query('DELETE FROM tenants WHERE id IN ($1, $2)', [
+        tenantA,
+        tenantB,
+      ]);
 
       // Insert tenants
-      await setupClient.query("INSERT INTO tenants (id, name, slug, plan) VALUES ($1, 'Tenant A', 'tenant-a', 'starter'), ($2, 'Tenant B', 'tenant-b', 'starter')", [tenantA, tenantB]);
+      await setupClient.query(
+        "INSERT INTO tenants (id, name, slug, plan) VALUES ($1, 'Tenant A', 'tenant-a', 'starter'), ($2, 'Tenant B', 'tenant-b', 'starter')",
+        [tenantA, tenantB]
+      );
       // Insert users
-      await setupClient.query("INSERT INTO users (id, tenant_id, email, password_hash, role) VALUES ($1, $2, 'user-a@test.com', 'pwd', 'user'), ($3, $4, 'user-b@test.com', 'pwd', 'user')", [userA, tenantA, userB, tenantB]);
+      await setupClient.query(
+        "INSERT INTO users (id, tenant_id, email, password_hash, role) VALUES ($1, $2, 'user-a@test.com', 'pwd', 'user'), ($3, $4, 'user-b@test.com', 'pwd', 'user')",
+        [userA, tenantA, userB, tenantB]
+      );
       // Insert conversations
-      await setupClient.query("INSERT INTO conversations (tenant_id, user_id, title, model) VALUES ($1, $2, 'Conv Tenant A', 'model'), ($3, $4, 'Conv Tenant B', 'model')", [tenantA, userA, tenantB, userB]);
-      
+      await setupClient.query(
+        "INSERT INTO conversations (tenant_id, user_id, title, model) VALUES ($1, $2, 'Conv Tenant A', 'model'), ($3, $4, 'Conv Tenant B', 'model')",
+        [tenantA, userA, tenantB, userB]
+      );
+
       await setupClient.query('SET row_security = on;');
     } finally {
       setupClient.release();
@@ -128,11 +161,15 @@ async function runTests() {
     // Test 1: Context Persistence across multiple queries inside the callback
     console.log('\n🔹 Test 1: Context Persistence across multiple queries...');
     await executeTenantQuery(tenantA, async (client) => {
-      const res1 = await client.query("SELECT current_setting('app.current_tenant') AS tenant");
+      const res1 = await client.query(
+        "SELECT current_setting('app.current_tenant') AS tenant"
+      );
       assert.strictEqual(res1.rows[0].tenant, tenantA);
       console.log('   ✓ Query 1 returned correct tenant:', res1.rows[0].tenant);
 
-      const res2 = await client.query("SELECT current_setting('app.current_tenant') AS tenant");
+      const res2 = await client.query(
+        "SELECT current_setting('app.current_tenant') AS tenant"
+      );
       assert.strictEqual(res2.rows[0].tenant, tenantA);
       console.log('   ✓ Query 2 returned correct tenant:', res2.rows[0].tenant);
     });
@@ -158,15 +195,25 @@ async function runTests() {
     console.log('   ✓ Tenant B context only returned Tenant B conversations.');
 
     // Test 3: Assert Context raises exception if empty
-    console.log('\n🔹 Test 3: assert_tenant_context() raises error when empty...');
+    console.log(
+      '\n🔹 Test 3: assert_tenant_context() raises error when empty...'
+    );
     const assertClient = await testRolePool.connect();
     try {
-      await assertClient.query("SELECT set_config('app.current_tenant', '', false)");
-      await assertClient.query("SELECT assert_tenant_context()");
+      await assertClient.query(
+        "SELECT set_config('app.current_tenant', '', false)"
+      );
+      await assertClient.query('SELECT assert_tenant_context()');
       assert.fail('Should have thrown an exception');
     } catch (err) {
-      assert.ok(err.message.toLowerCase().includes('tenant context') && err.message.toLowerCase().includes('is not set'));
-      console.log('   ✓ Correctly rejected empty context with error:', err.message);
+      assert.ok(
+        err.message.toLowerCase().includes('tenant context') &&
+          err.message.toLowerCase().includes('is not set')
+      );
+      console.log(
+        '   ✓ Correctly rejected empty context with error:',
+        err.message
+      );
     } finally {
       assertClient.release();
     }
@@ -175,24 +222,36 @@ async function runTests() {
     console.log('\n🔹 Test 4: Connection Pollution Detection...');
     // Manually pollute a client and return it to the pool
     const pollutedClient = await testRolePool.connect();
-    await pollutedClient.query("SELECT set_config('app.current_tenant', $1, false)", [tenantA]);
+    await pollutedClient.query(
+      "SELECT set_config('app.current_tenant', $1, false)",
+      [tenantA]
+    );
     pollutedClient.release(); // Return to pool while polluted!
 
     try {
       await connectWithValidation();
-      assert.fail('Should have detected polluted connection and thrown an error');
+      assert.fail(
+        'Should have detected polluted connection and thrown an error'
+      );
     } catch (err) {
       assert.ok(err.message.includes('Connection pollution detected'));
-      console.log('   ✓ Connection pollution safety check succeeded:', err.message);
+      console.log(
+        '   ✓ Connection pollution safety check succeeded:',
+        err.message
+      );
     }
 
     // Test 5: Missing Context RLS checks on all tenant-scoped tables
-    console.log('\n🔹 Test 5: Missing Context RLS checks on all tenant-scoped tables...');
+    console.log(
+      '\n🔹 Test 5: Missing Context RLS checks on all tenant-scoped tables...'
+    );
     const rlsClient = await testRolePool.connect();
     try {
       // Explicitly clear tenant context
-      await rlsClient.query("SELECT set_config('app.current_tenant', '', false)");
-      
+      await rlsClient.query(
+        "SELECT set_config('app.current_tenant', '', false)"
+      );
+
       const tablesToCheck = [
         'agents',
         'knowledge_documents',
@@ -202,18 +261,24 @@ async function runTests() {
         'integrations',
         'vector_collections',
         'backups',
-        'playground_sessions'
+        'playground_sessions',
       ];
-      
+
       for (const table of tablesToCheck) {
         try {
           const res = await rlsClient.query(`SELECT * FROM ${table}`);
-          assert.strictEqual(res.rows.length, 0, `Table ${table} should return 0 rows when context is empty`);
+          assert.strictEqual(
+            res.rows.length,
+            0,
+            `Table ${table} should return 0 rows when context is empty`
+          );
           console.log(`   ✓ Table ${table} safely returned 0 rows.`);
         } catch (queryErr) {
           // If it throws an error (e.g. UUID cast error or assert context error), that is also safe
           // because it prevents data leakage.
-          console.log(`   ✓ Table ${table} safely aborted query with error: ${queryErr.message}`);
+          console.log(
+            `   ✓ Table ${table} safely aborted query with error: ${queryErr.message}`
+          );
         }
       }
     } finally {

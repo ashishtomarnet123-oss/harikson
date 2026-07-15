@@ -1,13 +1,17 @@
-import { Router, Request, Response } from "express";
-import { MemoryStore } from "../../services/memory/store.js";
+import { Router, Request, Response } from 'express';
+import { MemoryStore } from '../../services/memory/store.js';
 
 const router = Router();
 
 // GET / - List all memories under active tenant/user scope
-router.get("/", async (req: Request, res: Response) => {
+router.get('/', async (req: Request, res: Response) => {
   try {
-    const tenantId = (req.headers["x-tenant-id"] as string) || "00000000-0000-0000-0000-000000000000";
-    const userId = (req.headers["x-user-id"] as string) || "00000000-0000-0000-0000-000000000001";
+    const tenantId =
+      (req.headers['x-tenant-id'] as string) ||
+      '00000000-0000-0000-0000-000000000000';
+    const userId =
+      (req.headers['x-user-id'] as string) ||
+      '00000000-0000-0000-0000-000000000001';
 
     const memories = await MemoryStore.list(tenantId, userId);
 
@@ -26,24 +30,29 @@ router.get("/", async (req: Request, res: Response) => {
 });
 
 // DELETE /:id - Remove fact item from memory scope
-router.delete("/:id", async (req: Request, res: Response) => {
+router.delete('/:id', async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const tenantId = (req.headers["x-tenant-id"] as string) || "00000000-0000-0000-0000-000000000000";
-    const userId = (req.headers["x-user-id"] as string) || "00000000-0000-0000-0000-000000000001";
+    const tenantId =
+      (req.headers['x-tenant-id'] as string) ||
+      '00000000-0000-0000-0000-000000000000';
+    const userId =
+      (req.headers['x-user-id'] as string) ||
+      '00000000-0000-0000-0000-000000000001';
 
     const deleted = await MemoryStore.delete(tenantId, userId, id);
     if (!deleted) {
       return res.status(404).json({
         hariksonSuccess: false,
-        hariksonMessage: "Memory not found or access denied.",
+        hariksonMessage: 'Memory not found or access denied.',
       });
     }
 
     return res.status(200).json({
       hariksonSuccess: true,
       hariksonDeletedId: id,
-      hariksonMessage: "Memory deleted successfully from Harikson memory store.",
+      hariksonMessage:
+        'Memory deleted successfully from Harikson memory store.',
     });
   } catch (error: any) {
     return res.status(500).json({ hariksonError: error.message });

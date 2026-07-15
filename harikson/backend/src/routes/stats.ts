@@ -1,28 +1,39 @@
-import { Router, Response } from "express";
-import { prisma } from "../config/database.js";
-import { n8nAuthBridge, AuthenticatedAdminRequest } from "../middleware/n8n-auth-bridge.js";
+import { Router, Response } from 'express';
+import { prisma } from '../config/database.js';
+import {
+  n8nAuthBridge,
+  AuthenticatedAdminRequest,
+} from '../middleware/n8n-auth-bridge.js';
 
 const router = Router();
 
 router.use(n8nAuthBridge);
 
 // GET /stats - Aggregated control plane analytics
-router.get("/", async (req: AuthenticatedAdminRequest, res: Response) => {
+router.get('/', async (req: AuthenticatedAdminRequest, res: Response) => {
   try {
     const totalTenants = await prisma.tenant.count();
-    const activeTenants = await prisma.tenant.count({ where: { status: "RUNNING" } });
-    const stoppedTenants = await prisma.tenant.count({ where: { status: "STOPPED" } });
-    const pendingApprovals = await prisma.tenant.count({ where: { approvalStatus: "pending" } });
-    
+    const activeTenants = await prisma.tenant.count({
+      where: { status: 'RUNNING' },
+    });
+    const stoppedTenants = await prisma.tenant.count({
+      where: { status: 'STOPPED' },
+    });
+    const pendingApprovals = await prisma.tenant.count({
+      where: { approvalStatus: 'pending' },
+    });
+
     const invoiceSum = await prisma.invoice.aggregate({
       _sum: { amount: true },
-      where: { status: "paid" }
+      where: { status: 'paid' },
     });
-    
-    const totalRevenue = invoiceSum._sum.amount ? `INR ${invoiceSum._sum.amount.toFixed(2)}` : "INR 0.00";
+
+    const totalRevenue = invoiceSum._sum.amount
+      ? `INR ${invoiceSum._sum.amount.toFixed(2)}`
+      : 'INR 0.00';
 
     const tenants = await prisma.tenant.findMany({
-      select: { cpuLimit: true, memoryLimit: true }
+      select: { cpuLimit: true, memoryLimit: true },
     });
 
     let totalCpuAllocated = 0;
@@ -37,7 +48,7 @@ router.get("/", async (req: AuthenticatedAdminRequest, res: Response) => {
     }
 
     return res.status(200).json({
-      status: "healthy",
+      status: 'healthy',
       totalTenants,
       activeTenants,
       stoppedTenants,
@@ -52,7 +63,7 @@ router.get("/", async (req: AuthenticatedAdminRequest, res: Response) => {
         cpuCores: totalCpuAllocated,
         memoryMB: totalMemoryAllocatedMB,
       },
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
     });
   } catch (error: any) {
     return res.status(500).json({ error: error.message });

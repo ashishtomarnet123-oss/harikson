@@ -49,18 +49,31 @@ const codeBlockNew = `function CodeBlock({ language, code, onOpenArtifact }) {
   );
 }`;
 content = content.replace(codeBlockOld, codeBlockNew);
-content = content.replace('function renderMarkdown(text) {', 'function renderMarkdown(text, onOpenArtifact) {');
-content = content.replace('elements.push(<CodeBlock key={i} language={lang} code={codeLines.join(\'\\n\')} />);', 'elements.push(<CodeBlock key={i} language={lang} code={codeLines.join(\'\\n\')} onOpenArtifact={onOpenArtifact} />);');
-content = content.replaceAll('renderMarkdown(msg.text)', 'renderMarkdown(msg.text, setActiveArtifact)');
+content = content.replace(
+  'function renderMarkdown(text) {',
+  'function renderMarkdown(text, onOpenArtifact) {'
+);
+content = content.replace(
+  "elements.push(<CodeBlock key={i} language={lang} code={codeLines.join('\\n')} />);",
+  "elements.push(<CodeBlock key={i} language={lang} code={codeLines.join('\\n')} onOpenArtifact={onOpenArtifact} />);"
+);
+content = content.replaceAll(
+  'renderMarkdown(msg.text)',
+  'renderMarkdown(msg.text, setActiveArtifact)'
+);
 
 // 2. Add new states inside ChatPage
-const stateHooksRegex = /  const \[slashIndex, setSlashIndex\] = useState\(0\);/;
-content = content.replace(stateHooksRegex, `  const [slashIndex, setSlashIndex] = useState(0);
+const stateHooksRegex =
+  /  const \[slashIndex, setSlashIndex\] = useState\(0\);/;
+content = content.replace(
+  stateHooksRegex,
+  `  const [slashIndex, setSlashIndex] = useState(0);
   const [activeArtifact, setActiveArtifact] = useState(null);
   const [isRecording, setIsRecording] = useState(false);
   const [useDeepSearch, setUseDeepSearch] = useState(false);
   const [useReasoning, setUseReasoning] = useState(false);
-  const recognitionRef = useRef(null);`);
+  const recognitionRef = useRef(null);`
+);
 
 // 3. Add Voice API logic
 const voiceLogic = `  useEffect(() => {
@@ -87,15 +100,24 @@ const voiceLogic = `  useEffect(() => {
       setIsRecording(true);
     }
   };`;
-content = content.replace('/* ── Shared chat link load ── */', voiceLogic + '\\n\\n  /* ── Shared chat link load ── */');
+content = content.replace(
+  '/* ── Shared chat link load ── */',
+  voiceLogic + '\\n\\n  /* ── Shared chat link load ── */'
+);
 
 // 4. Update sendMessage payload to include toggles (though backend ignores them for now)
-content = content.replace('      const payload = { message: inputText, attachments: attachedFiles };', '      const payload = { message: inputText, attachments: attachedFiles, deepSearch: useDeepSearch, reasoning: useReasoning };');
+content = content.replace(
+  '      const payload = { message: inputText, attachments: attachedFiles };',
+  '      const payload = { message: inputText, attachments: attachedFiles, deepSearch: useDeepSearch, reasoning: useReasoning };'
+);
 
 // 5. Wrap main-area with workspace and add ArtifactPane conditionally
 const mainAreaStartRegex = /<main className="main-area">/;
-content = content.replace(mainAreaStartRegex, `<div className="workspace">
-        <main className={\`main-area \${activeArtifact ? 'with-artifact' : ''}\`}>`);
+content = content.replace(
+  mainAreaStartRegex,
+  `<div className="workspace">
+        <main className={\`main-area \${activeArtifact ? 'with-artifact' : ''}\`}>`
+);
 
 // 6. Inject ArtifactPane UI and Toggles / Mic
 // Replace </main> with ArtifactPane and closing workspace div
@@ -135,8 +157,11 @@ const artifactPaneHTML = `</main>
 content = content.replace(mainAreaEndRegex, artifactPaneHTML);
 
 // 7. Add Voice Mic button inside input-wrapper
-const inputWrapperStart = /<div className="input-wrapper" style={{ display: 'flex', alignItems: 'center', position: 'relative' }}>/;
-content = content.replace(inputWrapperStart, `<div className="input-wrapper" style={{ display: 'flex', alignItems: 'center', position: 'relative' }}>
+const inputWrapperStart =
+  /<div className="input-wrapper" style={{ display: 'flex', alignItems: 'center', position: 'relative' }}>/;
+content = content.replace(
+  inputWrapperStart,
+  `<div className="input-wrapper" style={{ display: 'flex', alignItems: 'center', position: 'relative' }}>
                 <button 
                   type="button" 
                   className={\`mic-btn \${isRecording ? 'mic-pulsing' : ''}\`} 
@@ -144,7 +169,8 @@ content = content.replace(inputWrapperStart, `<div className="input-wrapper" sty
                   title={isRecording ? 'Stop recording' : 'Dictate with voice'}
                 >
                   🎤
-                </button>`);
+                </button>`
+);
 
 // 8. Add Compute Toggles below textarea
 const formEndRegex = /<\/form>/;

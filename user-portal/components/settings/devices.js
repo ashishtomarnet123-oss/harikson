@@ -12,22 +12,26 @@ export default function DevicesSettings() {
     try {
       const date = new Date(dateStr);
       if (isNaN(date.getTime())) return dateStr;
-      
+
       const seconds = Math.floor((new Date() - date) / 1000);
       if (seconds < 10) return 'Active now';
       if (seconds < 60) return `${seconds}s ago`;
-      
+
       const minutes = Math.floor(seconds / 60);
       if (minutes < 60) return `${minutes}m ago`;
-      
+
       const hours = Math.floor(minutes / 60);
       if (hours < 24) return `${hours}h ago`;
-      
+
       const days = Math.floor(hours / 24);
       if (days === 1) return 'Yesterday';
       if (days < 7) return `${days}d ago`;
-      
-      return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+
+      return date.toLocaleDateString(undefined, {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric',
+      });
     } catch (e) {
       return dateStr;
     }
@@ -39,15 +43,16 @@ export default function DevicesSettings() {
 
   const fetchDevices = async () => {
     try {
-      const token = (localStorage.getItem('hk_user') ? 'cookie_auth' : null);
+      const token = localStorage.getItem('hk_user') ? 'cookie_auth' : null;
       if (!token) return;
-      const apiBase = localStorage.getItem('hk_api_base') || 'http://localhost:3008';
+      const apiBase =
+        localStorage.getItem('hk_api_base') || 'http://localhost:3008';
       const tenantSlug = localStorage.getItem('hk_tenant') || 'neuravolt';
       const res = await fetch(`${apiBase}/api/user/devices`, {
-          credentials: 'include',
+        credentials: 'include',
         headers: {
-                    'x-tenant-slug': tenantSlug
-        }
+          'x-tenant-slug': tenantSlug,
+        },
       });
       if (res.ok) {
         const data = await res.json();
@@ -66,16 +71,17 @@ export default function DevicesSettings() {
     if (!confirm('Are you sure you want to log out of this device?')) return;
 
     try {
-      const token = (localStorage.getItem('hk_user') ? 'cookie_auth' : null);
+      const token = localStorage.getItem('hk_user') ? 'cookie_auth' : null;
       if (!token) return;
-      const apiBase = localStorage.getItem('hk_api_base') || 'http://localhost:3008';
+      const apiBase =
+        localStorage.getItem('hk_api_base') || 'http://localhost:3008';
       const tenantSlug = localStorage.getItem('hk_tenant') || 'neuravolt';
       const res = await fetch(`${apiBase}/api/user/devices/${id}`, {
-          credentials: 'include',
+        credentials: 'include',
         method: 'DELETE',
         headers: {
-                    'x-tenant-slug': tenantSlug
-        }
+          'x-tenant-slug': tenantSlug,
+        },
       });
       if (res.ok) {
         const data = await res.json();
@@ -91,7 +97,8 @@ export default function DevicesSettings() {
 
   const isMobile = (os) => os.includes('iOS') || os.includes('Android');
 
-  if (loading) return <div className="settings-loading">Loading active sessions...</div>;
+  if (loading)
+    return <div className="settings-loading">Loading active sessions...</div>;
 
   return (
     <>
@@ -102,28 +109,75 @@ export default function DevicesSettings() {
 
       <div className="settings-section">
         <h2>Active Sessions</h2>
-        <p style={{ color: 'var(--text-secondary)', fontSize: '13.5px', marginBottom: '16px', lineHeight: '1.5' }}>
-          If you see a device you don't recognize, log it out and change your password immediately.
+        <p
+          style={{
+            color: 'var(--text-secondary)',
+            fontSize: '13.5px',
+            marginBottom: '16px',
+            lineHeight: '1.5',
+          }}
+        >
+          If you see a device you don't recognize, log it out and change your
+          password immediately.
         </p>
 
         {error && <div className="settings-alert error">{error}</div>}
 
         <div className="settings-flex-col">
-          {devices.map(d => (
-            <div key={d.id} className="settings-device-card" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <div className="settings-device-info" style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          {devices.map((d) => (
+            <div
+              key={d.id}
+              className="settings-device-card"
+              style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+              }}
+            >
+              <div
+                className="settings-device-info"
+                style={{ display: 'flex', alignItems: 'center', gap: '12px' }}
+              >
                 <div className="settings-device-icon">
-                  {isMobile(d.os) ? <Smartphone size={22} /> : <Monitor size={22} />}
+                  {isMobile(d.os) ? (
+                    <Smartphone size={22} />
+                  ) : (
+                    <Monitor size={22} />
+                  )}
                 </div>
                 <div style={{ minWidth: 0 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '3px', flexWrap: 'wrap' }}>
-                    <span style={{ fontWeight: '500', fontSize: '14px' }}>{d.name}</span>
-                    {d.current && <span className="settings-badge current">Current</span>}
+                  <div
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                      marginBottom: '3px',
+                      flexWrap: 'wrap',
+                    }}
+                  >
+                    <span style={{ fontWeight: '500', fontSize: '14px' }}>
+                      {d.name}
+                    </span>
+                    {d.current && (
+                      <span className="settings-badge current">Current</span>
+                    )}
                   </div>
-                  <div style={{ fontSize: '13px', color: 'var(--text-secondary)', wordBreak: 'break-word' }}>
+                  <div
+                    style={{
+                      fontSize: '13px',
+                      color: 'var(--text-secondary)',
+                      wordBreak: 'break-word',
+                    }}
+                  >
                     {d.browser} on {d.os} &middot; {d.ip}
                   </div>
-                  <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '3px' }}>
+                  <div
+                    style={{
+                      fontSize: '12px',
+                      color: 'var(--text-muted)',
+                      marginTop: '3px',
+                    }}
+                  >
                     Last active: {formatLastActive(d.lastActive)}
                   </div>
                 </div>
@@ -132,11 +186,18 @@ export default function DevicesSettings() {
                 <button
                   onClick={() => handleLogoutDevice(d.id)}
                   style={{
-                    background: 'none', border: '1px solid rgba(239,68,68,0.3)',
-                    cursor: 'pointer', color: '#dc2626',
-                    display: 'flex', alignItems: 'center', gap: '5px',
-                    fontSize: '13px', padding: '6px 10px', borderRadius: '7px',
-                    flexShrink: 0, transition: 'background 0.12s'
+                    background: 'none',
+                    border: '1px solid rgba(239,68,68,0.3)',
+                    cursor: 'pointer',
+                    color: '#dc2626',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '5px',
+                    fontSize: '13px',
+                    padding: '6px 10px',
+                    borderRadius: '7px',
+                    flexShrink: 0,
+                    transition: 'background 0.12s',
                   }}
                 >
                   <LogOut size={14} /> Logout

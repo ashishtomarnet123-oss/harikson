@@ -5,7 +5,7 @@ let schema = fs.readFileSync(path, 'utf8');
 
 if (!schema.includes('ApiKey')) {
   // Add fields to User
-  const relationAnchor = "  settings      UserSettings?";
+  const relationAnchor = '  settings      UserSettings?';
   const newFields = `
   twoFactorEnabled Boolean   @default(false)
   twoFactorSecret  String?

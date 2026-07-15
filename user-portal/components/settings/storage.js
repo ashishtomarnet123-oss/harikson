@@ -6,9 +6,19 @@ export default function StorageSettings() {
   const usedStorage = 24.5;
 
   const categories = [
-    { name: 'Documents (PDF, DOCX)', size: 12.3, color: '#3b82f6', icon: FileText },
+    {
+      name: 'Documents (PDF, DOCX)',
+      size: 12.3,
+      color: '#3b82f6',
+      icon: FileText,
+    },
     { name: 'Images & Media', size: 8.1, color: '#10b981', icon: ImageIcon },
-    { name: 'Vector Database Index', size: 4.1, color: '#8b5cf6', icon: Database }
+    {
+      name: 'Vector Database Index',
+      size: 4.1,
+      color: '#8b5cf6',
+      icon: Database,
+    },
   ];
 
   return (
@@ -25,7 +35,13 @@ export default function StorageSettings() {
           <div className="settings-storage-used">
             {usedStorage} GB <span>used of {totalStorage} GB</span>
           </div>
-          <div style={{ fontSize: '13.5px', color: 'var(--text-secondary)', flexShrink: 0 }}>
+          <div
+            style={{
+              fontSize: '13.5px',
+              color: 'var(--text-secondary)',
+              flexShrink: 0,
+            }}
+          >
             {Math.round((usedStorage / totalStorage) * 100)}% Used
           </div>
         </div>
@@ -35,7 +51,10 @@ export default function StorageSettings() {
             <div
               key={i}
               className="settings-storage-bar-segment"
-              style={{ width: `${(cat.size / totalStorage) * 100}%`, background: cat.color }}
+              style={{
+                width: `${(cat.size / totalStorage) * 100}%`,
+                background: cat.color,
+              }}
             />
           ))}
         </div>
@@ -45,19 +64,47 @@ export default function StorageSettings() {
             const Icon = cat.icon;
             return (
               <div key={i} className="settings-card settings-flex-row">
-                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', minWidth: 0 }}>
-                  <div style={{
-                    width: '36px', height: '36px', flexShrink: 0,
-                    borderRadius: '8px', background: `${cat.color}20`,
-                    color: cat.color, display: 'flex', alignItems: 'center', justifyContent: 'center'
-                  }}>
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '12px',
+                    minWidth: 0,
+                  }}
+                >
+                  <div
+                    style={{
+                      width: '36px',
+                      height: '36px',
+                      flexShrink: 0,
+                      borderRadius: '8px',
+                      background: `${cat.color}20`,
+                      color: cat.color,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                    }}
+                  >
                     <Icon size={18} />
                   </div>
-                  <div style={{ fontWeight: '500', fontSize: '13.5px', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  <div
+                    style={{
+                      fontWeight: '500',
+                      fontSize: '13.5px',
+                      minWidth: 0,
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      whiteSpace: 'nowrap',
+                    }}
+                  >
                     {cat.name}
                   </div>
                 </div>
-                <div style={{ fontWeight: '600', fontSize: '14px', flexShrink: 0 }}>{cat.size} GB</div>
+                <div
+                  style={{ fontWeight: '600', fontSize: '14px', flexShrink: 0 }}
+                >
+                  {cat.size} GB
+                </div>
               </div>
             );
           })}
@@ -77,7 +124,9 @@ export default function StorageSettings() {
             </select>
           </div>
           <div className="settings-actions" style={{ marginTop: '8px' }}>
-            <button type="button" className="btn-primary">Update Policy</button>
+            <button type="button" className="btn-primary">
+              Update Policy
+            </button>
           </div>
         </div>
       </div>

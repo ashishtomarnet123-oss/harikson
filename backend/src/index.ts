@@ -1,41 +1,43 @@
-import express from "express";
-import cors from "cors";
-import dotenv from "dotenv";
+import express from 'express';
+import cors from 'cors';
+import dotenv from 'dotenv';
 
 // Load configurations
 dotenv.config();
 
 if (!process.env.JWT_SECRET || process.env.JWT_SECRET.length < 32) {
-  console.error("FATAL: JWT_SECRET not set or too short (min 32 characters)");
+  console.error('FATAL: JWT_SECRET not set or too short (min 32 characters)');
   process.exit(1);
 }
 
-import { prisma } from "./lib/prisma.js";
-import { setupScheduledJobs } from "./jobs/queue.js";
+import { prisma } from './lib/prisma.js';
+import { setupScheduledJobs } from './jobs/queue.js';
 
 // Initialize BullMQ workers so they listen to background events
-import "./jobs/backup.js";
-import "./jobs/invoice.js";
-import "./jobs/monitor.js";
+import './jobs/backup.js';
+import './jobs/invoice.js';
+import './jobs/monitor.js';
 
 // Import Routes
-import authRouter from "./routes/auth.js";
-import usersRouter from "./routes/users.js";
-import instancesRouter from "./routes/instances.js";
-import billingRouter from "./routes/billing.js";
-import monitoringRouter from "./routes/monitoring.js";
+import authRouter from './routes/auth.js';
+import usersRouter from './routes/users.js';
+import instancesRouter from './routes/instances.js';
+import billingRouter from './routes/billing.js';
+import monitoringRouter from './routes/monitoring.js';
 
 // Import Error Middleware
-import { errorHandler } from "./middleware/error.js";
+import { errorHandler } from './middleware/error.js';
 
 const app = express();
 const port = process.env.PORT || 3000;
 
 // Enable CORS with support for credentials
-app.use(cors({
-  origin: true,
-  credentials: true,
-}));
+app.use(
+  cors({
+    origin: true,
+    credentials: true,
+  })
+);
 
 app.use(express.json());
 
@@ -46,22 +48,24 @@ app.use((req, _res, next) => {
 });
 
 // Traefik / health-check endpoint
-app.get("/health", async (_req, res) => {
+app.get('/health', async (_req, res) => {
   try {
     // Check DB health
     await prisma.$queryRaw`SELECT 1`;
-    res.status(200).json({ status: "healthy", timestamp: new Date().toISOString() });
+    res
+      .status(200)
+      .json({ status: 'healthy', timestamp: new Date().toISOString() });
   } catch (error) {
-    res.status(500).json({ status: "unhealthy", error: String(error) });
+    res.status(500).json({ status: 'unhealthy', error: String(error) });
   }
 });
 
 // Map routers
-app.use("/auth", authRouter);
-app.use("/users", usersRouter);
-app.use("/instances", instancesRouter);
-app.use("/billing", billingRouter);
-app.use("/monitoring", monitoringRouter);
+app.use('/auth', authRouter);
+app.use('/users', usersRouter);
+app.use('/instances', instancesRouter);
+app.use('/billing', billingRouter);
+app.use('/monitoring', monitoringRouter);
 
 // Global Error Handler
 app.use(errorHandler);
@@ -69,11 +73,11 @@ app.use(errorHandler);
 // Start server
 app.listen(port, async () => {
   console.log(`⚡ [Neuravolt Backend] API Server listening on port ${port}`);
-  
+
   // Register recurring background tasks
   try {
     await setupScheduledJobs();
   } catch (err) {
-    console.error("⚠️ Failed to configure background scheduling:", err);
+    console.error('⚠️ Failed to configure background scheduling:', err);
   }
 });

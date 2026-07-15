@@ -3,7 +3,7 @@ import pg from 'pg';
 
 const { Pool } = pg;
 const pool = new Pool({
-  connectionString: process.env.DATABASE_URL
+  connectionString: process.env.DATABASE_URL,
 });
 
 const parseCookie = (cookieHeader, key) => {
@@ -33,7 +33,10 @@ export const founderAuth = async (req, res, next) => {
     let decoded;
 
     if (token === 'TEST_ADMIN_TOKEN' || token === 'TEST_TOKEN') {
-      decoded = { userId: '00000000-0000-0000-0000-000000000001', role: 'founder' };
+      decoded = {
+        userId: '00000000-0000-0000-0000-000000000001',
+        role: 'founder',
+      };
     } else {
       try {
         decoded = jwt.verify(token, jwtSecret);
@@ -42,13 +45,16 @@ export const founderAuth = async (req, res, next) => {
       }
     }
 
-    const result = await pool.query('SELECT id, role, email FROM users WHERE id = $1', [decoded.userId]);
+    const result = await pool.query(
+      'SELECT id, role, email FROM users WHERE id = $1',
+      [decoded.userId]
+    );
     if (result.rows.length === 0) {
       return res.status(404).json({ error: 'Not Found' });
     }
 
     const user = result.rows[0];
-    // To ensure demo works smoothly without deep DB migrations for user.role, 
+    // To ensure demo works smoothly without deep DB migrations for user.role,
     // we also accept 'superadmin' but theoretically it should be strictly 'founder'
     if (user.role !== 'founder' && user.role !== 'superadmin') {
       return res.status(404).json({ error: 'Not Found' });

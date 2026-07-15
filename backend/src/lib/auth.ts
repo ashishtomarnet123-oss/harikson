@@ -1,18 +1,20 @@
-import jwt from "jsonwebtoken";
-import bcrypt from "bcryptjs";
-import fs from "fs";
-import path from "path";
+import jwt from 'jsonwebtoken';
+import bcrypt from 'bcryptjs';
+import fs from 'fs';
+import path from 'path';
 
 const getJwtSecret = (): string => {
   try {
-    const secretPath = process.env.JWT_SECRET_FILE || path.join(process.cwd(), "secrets", "jwt_secret");
+    const secretPath =
+      process.env.JWT_SECRET_FILE ||
+      path.join(process.cwd(), 'secrets', 'jwt_secret');
     if (fs.existsSync(secretPath)) {
-      return fs.readFileSync(secretPath, "utf-8").trim();
+      return fs.readFileSync(secretPath, 'utf-8').trim();
     }
   } catch (err: any) {
-    console.warn("Warning reading JWT secret file:", err.message);
+    console.warn('Warning reading JWT secret file:', err.message);
   }
-  return process.env.JWT_SECRET || "";
+  return process.env.JWT_SECRET || '';
 };
 
 export class AuthUtils {
@@ -26,12 +28,15 @@ export class AuthUtils {
   }
 
   static generateToken(payload: { userId: string; role: string }): string {
-    return jwt.sign(payload, getJwtSecret(), { expiresIn: "7d" });
+    return jwt.sign(payload, getJwtSecret(), { expiresIn: '7d' });
   }
 
   static verifyToken(token: string): { userId: string; role: string } | null {
     try {
-      return jwt.verify(token, getJwtSecret()) as { userId: string; role: string };
+      return jwt.verify(token, getJwtSecret()) as {
+        userId: string;
+        role: string;
+      };
     } catch {
       return null;
     }

@@ -3,11 +3,13 @@ const fs = require('fs');
 let chatJs = fs.readFileSync('user-portal/pages/chat.js', 'utf8');
 
 // 1. Add lucide imports
-const importAnchor = "import { useState, useRef, useEffect, useCallback } from 'react';";
+const importAnchor =
+  "import { useState, useRef, useEffect, useCallback } from 'react';";
 if (!chatJs.includes('lucide-react')) {
   chatJs = chatJs.replace(
     importAnchor,
-    importAnchor + "\nimport { Mic, Paperclip, ArrowUp, Square, Globe, BrainCircuit, Maximize2, TriangleAlert, Bot, Search, Image as ImageIcon } from 'lucide-react';"
+    importAnchor +
+      "\nimport { Mic, Paperclip, ArrowUp, Square, Globe, BrainCircuit, Maximize2, TriangleAlert, Bot, Search, Image as ImageIcon } from 'lucide-react';"
   );
 }
 
@@ -114,29 +116,39 @@ if (startIndex !== -1 && endIndex !== -1) {
               </div>
             </form>
             `;
-  chatJs = chatJs.substring(0, startIndex) + newInputBar + chatJs.substring(endIndex);
+  chatJs =
+    chatJs.substring(0, startIndex) + newInputBar + chatJs.substring(endIndex);
 }
 
 // 3. Replace loading text emojis
-chatJs = chatJs.replace("setLoadingStatus('🌐 Searching the web...');", "setLoadingStatus('Searching the web...');");
-chatJs = chatJs.replace("setLoadingStatus('🕷️ Crawling websites...');", "setLoadingStatus('Crawling websites...');");
+chatJs = chatJs.replace(
+  "setLoadingStatus('🌐 Searching the web...');",
+  "setLoadingStatus('Searching the web...');"
+);
+chatJs = chatJs.replace(
+  "setLoadingStatus('🕷️ Crawling websites...');",
+  "setLoadingStatus('Crawling websites...');"
+);
 
 // 4. Replace artifact title emoji
-chatJs = chatJs.replace("<span style={{color: '#ff7e67'}}>⛶</span>", "<Maximize2 size={16} color=\"#ff7e67\" style={{marginRight: '8px'}} />");
+chatJs = chatJs.replace(
+  "<span style={{color: '#ff7e67'}}>⛶</span>",
+  '<Maximize2 size={16} color="#ff7e67" style={{marginRight: \'8px\'}} />'
+);
 
 // 5. Replace CodeBlock canvas emoji
 chatJs = chatJs.replace(
-  "<button onClick={() => onOpenArtifact({ language, code })} title=\"Open in Canvas\">⛶ Canvas</button>",
+  '<button onClick={() => onOpenArtifact({ language, code })} title="Open in Canvas">⛶ Canvas</button>',
   "<button onClick={() => onOpenArtifact({ language, code })} title=\"Open in Canvas\" style={{display: 'flex', alignItems: 'center', gap: '4px'}}><Maximize2 size={12} /> Canvas</button>"
 );
 
 // 6. Replace Error banner emoji
-chatJs = chatJs.replace("<span>⚠</span>", "<TriangleAlert size={18} />");
+chatJs = chatJs.replace('<span>⚠</span>', '<TriangleAlert size={18} />');
 
 // 7. Replace slash commands emojis (if they exist)
-chatJs = chatJs.replace("icon: '🎨'", "icon: <ImageIcon size={18} />");
-chatJs = chatJs.replace("icon: '🧠'", "icon: <BrainCircuit size={18} />");
-chatJs = chatJs.replace("icon: '🌐'", "icon: <Globe size={18} />");
-chatJs = chatJs.replace("icon: '🤖'", "icon: <Bot size={18} />");
+chatJs = chatJs.replace("icon: '🎨'", 'icon: <ImageIcon size={18} />');
+chatJs = chatJs.replace("icon: '🧠'", 'icon: <BrainCircuit size={18} />');
+chatJs = chatJs.replace("icon: '🌐'", 'icon: <Globe size={18} />');
+chatJs = chatJs.replace("icon: '🤖'", 'icon: <Bot size={18} />');
 
 fs.writeFileSync('user-portal/pages/chat.js', chatJs, 'utf8');

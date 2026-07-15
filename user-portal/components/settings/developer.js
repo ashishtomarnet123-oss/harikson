@@ -12,15 +12,16 @@ export default function DeveloperSettings() {
 
   const fetchKeys = async () => {
     try {
-      const token = (localStorage.getItem('hk_user') ? 'cookie_auth' : null);
+      const token = localStorage.getItem('hk_user') ? 'cookie_auth' : null;
       if (!token) return;
-      const apiBase = localStorage.getItem('hk_api_base') || 'http://localhost:3008';
+      const apiBase =
+        localStorage.getItem('hk_api_base') || 'http://localhost:3008';
       const tenantSlug = localStorage.getItem('hk_tenant') || 'neuravolt';
       const res = await fetch(`${apiBase}/api/user/developer/keys`, {
-          credentials: 'include',
+        credentials: 'include',
         headers: {
-                    'x-tenant-slug': tenantSlug
-        }
+          'x-tenant-slug': tenantSlug,
+        },
       });
       if (res.ok) {
         const data = await res.json();
@@ -40,18 +41,19 @@ export default function DeveloperSettings() {
     if (!name || !name.trim()) return;
 
     try {
-      const token = (localStorage.getItem('hk_user') ? 'cookie_auth' : null);
+      const token = localStorage.getItem('hk_user') ? 'cookie_auth' : null;
       if (!token) return;
-      const apiBase = localStorage.getItem('hk_api_base') || 'http://localhost:3008';
+      const apiBase =
+        localStorage.getItem('hk_api_base') || 'http://localhost:3008';
       const tenantSlug = localStorage.getItem('hk_tenant') || 'neuravolt';
       const res = await fetch(`${apiBase}/api/user/developer/keys`, {
-          credentials: 'include',
+        credentials: 'include',
         method: 'POST',
         headers: {
-                    'x-tenant-slug': tenantSlug,
-          'Content-Type': 'application/json'
+          'x-tenant-slug': tenantSlug,
+          'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ name })
+        body: JSON.stringify({ name }),
       });
       if (res.ok) {
         const data = await res.json();
@@ -66,19 +68,25 @@ export default function DeveloperSettings() {
   };
 
   const handleRevokeKey = async (id) => {
-    if (!confirm('Are you sure you want to revoke this API Key? It will immediately stop working.')) return;
+    if (
+      !confirm(
+        'Are you sure you want to revoke this API Key? It will immediately stop working.'
+      )
+    )
+      return;
 
     try {
-      const token = (localStorage.getItem('hk_user') ? 'cookie_auth' : null);
+      const token = localStorage.getItem('hk_user') ? 'cookie_auth' : null;
       if (!token) return;
-      const apiBase = localStorage.getItem('hk_api_base') || 'http://localhost:3008';
+      const apiBase =
+        localStorage.getItem('hk_api_base') || 'http://localhost:3008';
       const tenantSlug = localStorage.getItem('hk_tenant') || 'neuravolt';
       const res = await fetch(`${apiBase}/api/user/developer/keys/${id}`, {
-          credentials: 'include',
+        credentials: 'include',
         method: 'DELETE',
         headers: {
-                    'x-tenant-slug': tenantSlug
-        }
+          'x-tenant-slug': tenantSlug,
+        },
       });
       if (res.ok) {
         const data = await res.json();
@@ -97,7 +105,10 @@ export default function DeveloperSettings() {
     alert('API Key copied to clipboard!');
   };
 
-  if (loading) return <div className="settings-loading">Loading developer resources...</div>;
+  if (loading)
+    return (
+      <div className="settings-loading">Loading developer resources...</div>
+    );
 
   return (
     <>
@@ -109,43 +120,105 @@ export default function DeveloperSettings() {
       <div className="settings-section">
         <div className="settings-section-header">
           <h2>Personal API Keys</h2>
-          <button className="btn-primary" onClick={handleCreateKey}><Plus size={15} /> New Key</button>
+          <button className="btn-primary" onClick={handleCreateKey}>
+            <Plus size={15} /> New Key
+          </button>
         </div>
 
-        <p style={{ color: 'var(--text-secondary)', fontSize: '13.5px', marginBottom: '16px', lineHeight: '1.5' }}>
-          Use these keys to authenticate API requests. Do not share them publicly.
+        <p
+          style={{
+            color: 'var(--text-secondary)',
+            fontSize: '13.5px',
+            marginBottom: '16px',
+            lineHeight: '1.5',
+          }}
+        >
+          Use these keys to authenticate API requests. Do not share them
+          publicly.
         </p>
 
         {error && <div className="settings-alert error">{error}</div>}
 
         {keys.length === 0 ? (
-          <p style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>No API keys created yet.</p>
+          <p style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>
+            No API keys created yet.
+          </p>
         ) : (
           <div className="settings-flex-col">
-            {keys.map(k => (
+            {keys.map((k) => (
               <div key={k.id} className="settings-card">
-                <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap' }}>
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'flex-start',
+                    justifyContent: 'space-between',
+                    gap: '12px',
+                    flexWrap: 'wrap',
+                  }}
+                >
                   <div style={{ minWidth: 0, flex: 1 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '7px', marginBottom: '6px' }}>
+                    <div
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '7px',
+                        marginBottom: '6px',
+                      }}
+                    >
                       <Key size={13} color="var(--text-muted)" />
-                      <span style={{ fontWeight: '500', fontSize: '14px' }}>{k.name}</span>
+                      <span style={{ fontWeight: '500', fontSize: '14px' }}>
+                        {k.name}
+                      </span>
                     </div>
-                    <div className="settings-api-key" style={{ wordBreak: 'break-all', fontFamily: 'monospace', fontSize: '12px' }}>{k.key}</div>
-                    <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '7px' }}>
+                    <div
+                      className="settings-api-key"
+                      style={{
+                        wordBreak: 'break-all',
+                        fontFamily: 'monospace',
+                        fontSize: '12px',
+                      }}
+                    >
+                      {k.key}
+                    </div>
+                    <div
+                      style={{
+                        fontSize: '12px',
+                        color: 'var(--text-muted)',
+                        marginTop: '7px',
+                      }}
+                    >
                       Created: {k.created} &middot; Last used: {k.lastUsed}
                     </div>
                   </div>
                   <div style={{ display: 'flex', gap: '6px', flexShrink: 0 }}>
                     <button
                       onClick={() => handleCopy(k.key)}
-                      style={{ background: 'none', border: '1px solid var(--border)', padding: '6px 8px', borderRadius: '7px', cursor: 'pointer', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center' }}
+                      style={{
+                        background: 'none',
+                        border: '1px solid var(--border)',
+                        padding: '6px 8px',
+                        borderRadius: '7px',
+                        cursor: 'pointer',
+                        color: 'var(--text-secondary)',
+                        display: 'flex',
+                        alignItems: 'center',
+                      }}
                       title="Copy key"
                     >
                       <Copy size={14} />
                     </button>
                     <button
                       onClick={() => handleRevokeKey(k.id)}
-                      style={{ background: 'none', border: '1px solid rgba(239,68,68,0.3)', padding: '6px 8px', borderRadius: '7px', cursor: 'pointer', color: '#dc2626', display: 'flex', alignItems: 'center' }}
+                      style={{
+                        background: 'none',
+                        border: '1px solid rgba(239,68,68,0.3)',
+                        padding: '6px 8px',
+                        borderRadius: '7px',
+                        cursor: 'pointer',
+                        color: '#dc2626',
+                        display: 'flex',
+                        alignItems: 'center',
+                      }}
                       title="Revoke key"
                     >
                       <Trash2 size={14} />

@@ -18,7 +18,10 @@ export default function SignupPage() {
 
   useEffect(() => {
     const user = localStorage.getItem('hk_user');
-    if (user) { router.replace('/chat'); return; }
+    if (user) {
+      router.replace('/chat');
+      return;
+    }
 
     if (typeof window !== 'undefined') {
       const hostname = window.location.hostname;
@@ -26,7 +29,10 @@ export default function SignupPage() {
         if (window.location.port) {
           setApiBase(`http://${hostname}:3008`);
         } else {
-          setApiBase(process.env.NEXT_PUBLIC_API_URL || `${window.location.protocol}//api.${hostname.split('.').slice(1).join('.')}`);
+          setApiBase(
+            process.env.NEXT_PUBLIC_API_URL ||
+              `${window.location.protocol}//api.${hostname.split('.').slice(1).join('.')}`
+          );
         }
         const parts = hostname.split('.');
         const isIP = !isNaN(parts[0]);
@@ -115,7 +121,9 @@ export default function SignupPage() {
 
           <form onSubmit={handleSignup} autoComplete="on">
             <div className="form-group">
-              <label className="form-label" htmlFor="name">Full name</label>
+              <label className="form-label" htmlFor="name">
+                Full name
+              </label>
               <input
                 id="name"
                 type="text"
@@ -128,7 +136,9 @@ export default function SignupPage() {
               />
             </div>
             <div className="form-group">
-              <label className="form-label" htmlFor="email">Email address</label>
+              <label className="form-label" htmlFor="email">
+                Email address
+              </label>
               <input
                 id="email"
                 type="email"
@@ -141,7 +151,9 @@ export default function SignupPage() {
               />
             </div>
             <div className="form-group">
-              <label className="form-label" htmlFor="password">Password</label>
+              <label className="form-label" htmlFor="password">
+                Password
+              </label>
               <input
                 id="password"
                 type="password"
@@ -155,7 +167,9 @@ export default function SignupPage() {
               />
             </div>
             <div className="form-group">
-              <label className="form-label" htmlFor="confirmPassword">Confirm password</label>
+              <label className="form-label" htmlFor="confirmPassword">
+                Confirm password
+              </label>
               <input
                 id="confirmPassword"
                 type="password"
@@ -178,28 +192,59 @@ export default function SignupPage() {
             <div className="login-error">
               <div style={{ fontWeight: 'bold' }}>⚠ {error}</div>
               {valDetails.length > 0 && (
-                <ul style={{ margin: '8px 0 0 16px', padding: 0, fontSize: '12px', textAlign: 'left' }}>
+                <ul
+                  style={{
+                    margin: '8px 0 0 16px',
+                    padding: 0,
+                    fontSize: '12px',
+                    textAlign: 'left',
+                  }}
+                >
                   {valDetails.map((detail, idx) => (
-                    <li key={idx} style={{ listStyleType: 'disc', marginTop: '4px' }}>{detail}</li>
+                    <li
+                      key={idx}
+                      style={{ listStyleType: 'disc', marginTop: '4px' }}
+                    >
+                      {detail}
+                    </li>
                   ))}
                 </ul>
               )}
             </div>
           )}
           {success && (
-            <div style={{
-              marginTop: '14px', padding: '10px 14px',
-              background: 'rgba(34,197,94,0.12)', border: '1px solid rgba(34,197,94,0.25)',
-              borderRadius: '6px', color: '#86efac', fontSize: '13px'
-            }}>
+            <div
+              style={{
+                marginTop: '14px',
+                padding: '10px 14px',
+                background: 'rgba(34,197,94,0.12)',
+                border: '1px solid rgba(34,197,94,0.25)',
+                borderRadius: '6px',
+                color: '#86efac',
+                fontSize: '13px',
+              }}
+            >
               ✓ {success}
             </div>
           )}
 
-          <p style={{ marginTop: '20px', fontSize: '13px', color: 'var(--text-secondary)', textAlign: 'center' }}>
+          <p
+            style={{
+              marginTop: '20px',
+              fontSize: '13px',
+              color: 'var(--text-secondary)',
+              textAlign: 'center',
+            }}
+          >
             Already have an account?{' '}
             <Link href="/login" passHref legacyBehavior>
-              <a style={{ color: 'var(--accent)', textDecoration: 'none', fontWeight: 500 }}>
+              <a
+                style={{
+                  color: 'var(--accent)',
+                  textDecoration: 'none',
+                  fontWeight: 500,
+                }}
+              >
                 Sign in
               </a>
             </Link>

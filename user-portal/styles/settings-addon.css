@@ -26,7 +26,9 @@
   max-height: 760px;
   border-radius: 16px;
   border: 1px solid var(--border);
-  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.18), 0 4px 16px rgba(0, 0, 0, 0.08);
+  box-shadow:
+    0 24px 60px rgba(0, 0, 0, 0.18),
+    0 4px 16px rgba(0, 0, 0, 0.08);
   overflow: hidden;
   position: relative;
   display: flex;
@@ -49,7 +51,9 @@
   align-items: center;
   justify-content: center;
   border-radius: 50%;
-  transition: background 0.15s, color 0.15s;
+  transition:
+    background 0.15s,
+    color 0.15s;
 }
 
 .settings-modal-close:hover {
@@ -58,13 +62,23 @@
 }
 
 @keyframes sm-fade-in {
-  from { opacity: 0; }
-  to { opacity: 1; }
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }
 
 @keyframes sm-slide-up {
-  from { opacity: 0; transform: translateY(16px) scale(0.97); }
-  to { opacity: 1; transform: translateY(0) scale(1); }
+  from {
+    opacity: 0;
+    transform: translateY(16px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
 }
 
 /* ── LAYOUT: SIDEBAR + CONTENT ── */
@@ -135,7 +149,9 @@
   font-size: 13.5px;
   border-radius: 8px;
   margin-bottom: 1px;
-  transition: background 0.12s, color 0.12s;
+  transition:
+    background 0.12s,
+    color 0.12s;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -182,7 +198,9 @@
   cursor: pointer;
   padding: 6px 4px;
   border-radius: 6px;
-  transition: color 0.12s, background 0.12s;
+  transition:
+    color 0.12s,
+    background 0.12s;
   font-family: inherit;
 }
 
@@ -291,13 +309,13 @@
 }
 
 /* All input types – comprehensive */
-.settings-form input[type="text"],
-.settings-form input[type="email"],
-.settings-form input[type="tel"],
-.settings-form input[type="password"],
-.settings-form input[type="number"],
-.settings-form input[type="url"],
-.settings-form input[type="date"],
+.settings-form input[type='text'],
+.settings-form input[type='email'],
+.settings-form input[type='tel'],
+.settings-form input[type='password'],
+.settings-form input[type='number'],
+.settings-form input[type='url'],
+.settings-form input[type='date'],
 .settings-form textarea,
 .settings-form select {
   width: 100%;
@@ -396,7 +414,9 @@
   align-items: center;
   gap: 6px;
   cursor: pointer;
-  transition: filter 0.12s, background 0.12s;
+  transition:
+    filter 0.12s,
+    background 0.12s;
   font-family: inherit;
   white-space: nowrap;
   flex-shrink: 0;
@@ -795,7 +815,7 @@
   margin-bottom: 6px;
 }
 
-.settings-checkbox-row input[type="checkbox"] {
+.settings-checkbox-row input[type='checkbox'] {
   width: 16px;
   height: 16px;
   cursor: pointer;
@@ -825,12 +845,14 @@
   display: flex;
   flex-direction: column;
   gap: 10px;
-  transition: border-color 0.12s, box-shadow 0.12s;
+  transition:
+    border-color 0.12s,
+    box-shadow 0.12s;
 }
 
 .settings-help-card:hover {
   border-color: var(--accent);
-  box-shadow: 0 0 0 3px var(--accent-dim, rgba(79,140,255,0.08));
+  box-shadow: 0 0 0 3px var(--accent-dim, rgba(79, 140, 255, 0.08));
 }
 
 .settings-help-card h3 {
@@ -1172,12 +1194,14 @@
   justify-content: center;
   box-shadow: 0 10px 40px rgba(79, 140, 255, 0.4);
   cursor: pointer;
-  transition: transform 0.2s, background 0.2s;
+  transition:
+    transform 0.2s,
+    background 0.2s;
 }
 
 .voice-icon-btn:hover {
   transform: scale(1.06);
-  background: #3B82F6;
+  background: #3b82f6;
 }
 
 .voice-transcript-box {
@@ -1199,7 +1223,9 @@
   font-size: 14.5px;
   font-weight: 600;
   cursor: pointer;
-  transition: background 0.15s, border-color 0.15s;
+  transition:
+    background 0.15s,
+    border-color 0.15s;
 }
 
 .voice-close-btn:hover {
@@ -1217,4 +1243,3 @@
     opacity: 0;
   }
 }
-

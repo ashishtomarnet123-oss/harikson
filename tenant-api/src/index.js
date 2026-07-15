@@ -17,8 +17,16 @@ dotenv.config();
 
 import { sendPasswordReset, sendWelcomeEmail } from './services/email.js';
 import { validate } from './middleware/validation.middleware.js';
-import { loginSchema, registerSchema, forgotPasswordSchema, resetPasswordSchema } from './validators/auth.schema.js';
-import { profileUpdateSchema, settingsUpdateSchema } from './validators/user.schema.js';
+import {
+  loginSchema,
+  registerSchema,
+  forgotPasswordSchema,
+  resetPasswordSchema,
+} from './validators/auth.schema.js';
+import {
+  profileUpdateSchema,
+  settingsUpdateSchema,
+} from './validators/user.schema.js';
 import { chatMessageSchema } from './validators/chat.schema.js';
 
 if (!process.env.JWT_SECRET || process.env.JWT_SECRET.length < 32) {
@@ -40,53 +48,59 @@ const defaultOrigins = [
   'https://neuravolt.cloud',
   'http://localhost:3002',
   'http://localhost:3018',
-  'http://localhost:3028'
+  'http://localhost:3028',
 ];
 
 let allowedOrigins = defaultOrigins;
 if (process.env.ALLOWED_ORIGINS) {
-  allowedOrigins = process.env.ALLOWED_ORIGINS.split(',').map(o => o.trim());
+  allowedOrigins = process.env.ALLOWED_ORIGINS.split(',').map((o) => o.trim());
 }
 
 if (process.env.NODE_ENV === 'production') {
-  allowedOrigins = allowedOrigins.filter(o => !o.includes('localhost') && !o.includes('127.0.0.1'));
+  allowedOrigins = allowedOrigins.filter(
+    (o) => !o.includes('localhost') && !o.includes('127.0.0.1')
+  );
 }
 
-app.use(helmet({
-  contentSecurityPolicy: {
-    directives: {
-      defaultSrc: ["'self'"],
-      scriptSrc: ["'self'", "'unsafe-inline'"],
-      styleSrc: ["'self'", "'unsafe-inline'"],
-      imgSrc: ["'self'", "data:", "https:"],
+app.use(
+  helmet({
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        scriptSrc: ["'self'", "'unsafe-inline'"],
+        styleSrc: ["'self'", "'unsafe-inline'"],
+        imgSrc: ["'self'", 'data:', 'https:'],
+      },
     },
-  },
-  crossOriginEmbedderPolicy: false,
-  frameguard: {
-    action: 'deny'
-  }
-}));
+    crossOriginEmbedderPolicy: false,
+    frameguard: {
+      action: 'deny',
+    },
+  })
+);
 
-app.use(cors({
-  origin: function (origin, callback) {
-    if (!origin || allowedOrigins.includes(origin)) {
-      callback(null, true);
-    } else {
-      callback(new Error('CORS policy violation'));
-    }
-  },
-  credentials: true,
-  exposedHeaders: ['x-conversation-id', 'X-Conversation-Id']
-}));
+app.use(
+  cors({
+    origin: function (origin, callback) {
+      if (!origin || allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        callback(new Error('CORS policy violation'));
+      }
+    },
+    credentials: true,
+    exposedHeaders: ['x-conversation-id', 'X-Conversation-Id'],
+  })
+);
 app.use(express.json());
 
 // PostgreSQL Pool Connection
 const pool = new Pool({
-  connectionString: process.env.DATABASE_URL
+  connectionString: process.env.DATABASE_URL,
 });
 
 const readPool = new Pool({
-  connectionString: process.env.DATABASE_READ_URL || process.env.DATABASE_URL
+  connectionString: process.env.DATABASE_READ_URL || process.env.DATABASE_URL,
 });
 
 // Extend users table to store profile, settings, keys, billing, devices and logs per user
@@ -197,16 +211,24 @@ async function initUserTables() {
     `);
 
     // Create policy for activity_logs
-    await pool.query(`
+    await pool
+      .query(
+        `
       DROP POLICY IF EXISTS tenant_isolation_policy ON activity_logs;
       CREATE POLICY tenant_isolation_policy ON activity_logs
           FOR ALL
           USING (tenant_id = current_setting('app.current_tenant', true)::uuid)
           WITH CHECK (tenant_id = current_setting('app.current_tenant', true)::uuid);
-    `).catch(err => console.error("Policy recreation failed on activity_logs:", err));
+    `
+      )
+      .catch((err) =>
+        console.error('Policy recreation failed on activity_logs:', err)
+      );
 
     // Migrate existing JSONB activity logs if users has rows and activity_logs table is empty
-    const checkLogs = await pool.query("SELECT COUNT(*)::int FROM activity_logs");
+    const checkLogs = await pool.query(
+      'SELECT COUNT(*)::int FROM activity_logs'
+    );
     if (checkLogs.rows[0].count === 0) {
       const hasColumn = await pool.query(`
         SELECT column_name 
@@ -214,8 +236,12 @@ async function initUserTables() {
         WHERE table_name='users' AND column_name='activity_logs'
       `);
       if (hasColumn.rows.length > 0) {
-        console.log("[MIGRATION] Migrating JSONB activity logs to activity_logs table...");
-        await pool.query(`
+        console.log(
+          '[MIGRATION] Migrating JSONB activity logs to activity_logs table...'
+        );
+        await pool
+          .query(
+            `
           INSERT INTO activity_logs (user_id, tenant_id, action, metadata, ip_address, user_agent, created_at)
           SELECT 
             u.id, 
@@ -231,7 +257,14 @@ async function initUserTables() {
           FROM users u,
           jsonb_array_elements(CASE WHEN jsonb_typeof(u.activity_logs) = 'array' THEN u.activity_logs ELSE '[]'::jsonb END) log
           ON CONFLICT DO NOTHING;
-        `).catch(err => console.warn("[MIGRATION WARNING] Failed to migrate JSONB activity logs:", err.message));
+        `
+          )
+          .catch((err) =>
+            console.warn(
+              '[MIGRATION WARNING] Failed to migrate JSONB activity logs:',
+              err.message
+            )
+          );
       }
     }
 
@@ -255,16 +288,24 @@ async function initUserTables() {
     `);
 
     // Create policy for user_sessions
-    await pool.query(`
+    await pool
+      .query(
+        `
       DROP POLICY IF EXISTS tenant_isolation_policy ON user_sessions;
       CREATE POLICY tenant_isolation_policy ON user_sessions
           FOR ALL
           USING (tenant_id = current_setting('app.current_tenant', true)::uuid)
           WITH CHECK (tenant_id = current_setting('app.current_tenant', true)::uuid);
-    `).catch(err => console.error("Policy recreation failed on user_sessions:", err));
+    `
+      )
+      .catch((err) =>
+        console.error('Policy recreation failed on user_sessions:', err)
+      );
 
     // Migrate existing JSONB connected_devices if user_sessions table is empty
-    const checkSessions = await pool.query("SELECT COUNT(*)::int FROM user_sessions");
+    const checkSessions = await pool.query(
+      'SELECT COUNT(*)::int FROM user_sessions'
+    );
     if (checkSessions.rows[0].count === 0) {
       const hasColumn = await pool.query(`
         SELECT column_name 
@@ -272,8 +313,12 @@ async function initUserTables() {
         WHERE table_name='users' AND column_name='connected_devices'
       `);
       if (hasColumn.rows.length > 0) {
-        console.log("[MIGRATION] Migrating JSONB connected_devices to user_sessions table...");
-        await pool.query(`
+        console.log(
+          '[MIGRATION] Migrating JSONB connected_devices to user_sessions table...'
+        );
+        await pool
+          .query(
+            `
           INSERT INTO user_sessions (user_id, tenant_id, device_name, ip_address, user_agent, created_at, expires_at, last_active_at)
           SELECT 
             u.id, 
@@ -293,7 +338,14 @@ async function initUserTables() {
           FROM users u,
           jsonb_array_elements(CASE WHEN jsonb_typeof(u.connected_devices) = 'array' THEN u.connected_devices ELSE '[]'::jsonb END) dev
           ON CONFLICT DO NOTHING;
-        `).catch(err => console.warn("[MIGRATION WARNING] Failed to migrate JSONB connected devices:", err.message));
+        `
+          )
+          .catch((err) =>
+            console.warn(
+              '[MIGRATION WARNING] Failed to migrate JSONB connected devices:',
+              err.message
+            )
+          );
       }
     }
 
@@ -315,16 +367,22 @@ async function initUserTables() {
     `);
 
     // Create policy for api_keys
-    await pool.query(`
+    await pool
+      .query(
+        `
       DROP POLICY IF EXISTS tenant_isolation_policy ON api_keys;
       CREATE POLICY tenant_isolation_policy ON api_keys
           FOR ALL
           USING (tenant_id = current_setting('app.current_tenant', true)::uuid)
           WITH CHECK (tenant_id = current_setting('app.current_tenant', true)::uuid);
-    `).catch(err => console.error("Policy recreation failed on api_keys:", err));
+    `
+      )
+      .catch((err) =>
+        console.error('Policy recreation failed on api_keys:', err)
+      );
 
     // Migrate existing JSONB developer_keys if api_keys table is empty
-    const checkApiKeys = await pool.query("SELECT COUNT(*)::int FROM api_keys");
+    const checkApiKeys = await pool.query('SELECT COUNT(*)::int FROM api_keys');
     if (checkApiKeys.rows[0].count === 0) {
       const hasColumn = await pool.query(`
         SELECT column_name 
@@ -332,8 +390,12 @@ async function initUserTables() {
         WHERE table_name='users' AND column_name='developer_keys'
       `);
       if (hasColumn.rows.length > 0) {
-        console.log("[MIGRATION] Migrating JSONB developer_keys to api_keys table...");
-        await pool.query(`
+        console.log(
+          '[MIGRATION] Migrating JSONB developer_keys to api_keys table...'
+        );
+        await pool
+          .query(
+            `
           INSERT INTO api_keys (user_id, tenant_id, name, key_hash, key_prefix, created_at, scopes)
           SELECT 
             u.id, 
@@ -346,7 +408,14 @@ async function initUserTables() {
           FROM users u,
           jsonb_array_elements(CASE WHEN jsonb_typeof(u.developer_keys) = 'array' THEN u.developer_keys ELSE '[]'::jsonb END) k
           ON CONFLICT DO NOTHING;
-        `).catch(err => console.warn("[MIGRATION WARNING] Failed to migrate JSONB developer keys:", err.message));
+        `
+          )
+          .catch((err) =>
+            console.warn(
+              '[MIGRATION WARNING] Failed to migrate JSONB developer keys:',
+              err.message
+            )
+          );
       }
     }
 
@@ -372,10 +441,16 @@ async function initUserTables() {
       WHERE table_name='users' AND column_name='settings'
     `);
     if (hasSettingsCol.rows.length > 0) {
-      const checkDocUserRows = await pool.query("SELECT COUNT(*)::int FROM knowledge_documents WHERE user_id IS NOT NULL");
+      const checkDocUserRows = await pool.query(
+        'SELECT COUNT(*)::int FROM knowledge_documents WHERE user_id IS NOT NULL'
+      );
       if (checkDocUserRows.rows[0].count === 0) {
-        console.log("[MIGRATION] Migrating users.settings->'rag_files' to knowledge_documents...");
-        await pool.query(`
+        console.log(
+          "[MIGRATION] Migrating users.settings->'rag_files' to knowledge_documents..."
+        );
+        await pool
+          .query(
+            `
           INSERT INTO knowledge_documents (id, tenant_id, user_id, filename, file_type, file_size_bytes, content, is_active, status)
           SELECT 
             COALESCE(
@@ -396,26 +471,55 @@ async function initUserTables() {
           FROM users u,
           jsonb_array_elements(CASE WHEN jsonb_typeof(u.settings->'rag_files') = 'array' THEN u.settings->'rag_files' ELSE '[]'::jsonb END) rag
           ON CONFLICT DO NOTHING;
-        `).catch(err => console.warn("[MIGRATION WARNING] Failed to migrate RAG files from users.settings:", err.message));
+        `
+          )
+          .catch((err) =>
+            console.warn(
+              '[MIGRATION WARNING] Failed to migrate RAG files from users.settings:',
+              err.message
+            )
+          );
 
-        await pool.query(`
+        await pool
+          .query(
+            `
           UPDATE users SET settings = settings - 'rag_files' WHERE settings ? 'rag_files';
-        `).catch(err => console.warn("[MIGRATION WARNING] Failed to clear RAG files from users.settings:", err.message));
+        `
+          )
+          .catch((err) =>
+            console.warn(
+              '[MIGRATION WARNING] Failed to clear RAG files from users.settings:',
+              err.message
+            )
+          );
       }
     }
 
     // 9. Drop duplicate JSONB columns from users table
-    console.log("[MIGRATION] Dropping duplicate JSONB columns from users table...");
-    await pool.query(`
+    console.log(
+      '[MIGRATION] Dropping duplicate JSONB columns from users table...'
+    );
+    await pool
+      .query(
+        `
       ALTER TABLE users DROP COLUMN IF EXISTS activity_logs;
       ALTER TABLE users DROP COLUMN IF EXISTS connected_devices;
       ALTER TABLE users DROP COLUMN IF EXISTS developer_keys;
-    `).catch(err => console.error("Failed to drop duplicate JSONB columns from users:", err.message));
+    `
+      )
+      .catch((err) =>
+        console.error(
+          'Failed to drop duplicate JSONB columns from users:',
+          err.message
+        )
+      );
 
     // 9.5 Create document_embeddings table with pgvector support
-    console.log("[MIGRATION] Enabling pgvector extension...");
+    console.log('[MIGRATION] Enabling pgvector extension...');
     await pool.query('CREATE EXTENSION IF NOT EXISTS vector;');
-    console.log("[MIGRATION] Creating document_embeddings table with pgvector...");
+    console.log(
+      '[MIGRATION] Creating document_embeddings table with pgvector...'
+    );
     await pool.query(`
       CREATE TABLE IF NOT EXISTS document_embeddings (
         id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -427,26 +531,57 @@ async function initUserTables() {
       );
     `);
 
-    await pool.query(`
+    await pool
+      .query(
+        `
       ALTER TABLE document_embeddings ENABLE ROW LEVEL SECURITY;
       ALTER TABLE document_embeddings FORCE ROW LEVEL SECURITY;
-    `).catch(err => console.warn("Warning enabling RLS on document_embeddings:", err.message));
+    `
+      )
+      .catch((err) =>
+        console.warn(
+          'Warning enabling RLS on document_embeddings:',
+          err.message
+        )
+      );
 
-    await pool.query(`
+    await pool
+      .query(
+        `
       DROP POLICY IF EXISTS tenant_isolation_policy ON document_embeddings;
       CREATE POLICY tenant_isolation_policy ON document_embeddings
           FOR ALL
           USING (tenant_id = NULLIF(current_setting('app.current_tenant', true), '')::uuid)
           WITH CHECK (tenant_id = NULLIF(current_setting('app.current_tenant', true), '')::uuid);
-    `).catch(err => console.error("Policy recreation failed on document_embeddings:", err.message));
+    `
+      )
+      .catch((err) =>
+        console.error(
+          'Policy recreation failed on document_embeddings:',
+          err.message
+        )
+      );
 
-    await pool.query(`
+    await pool
+      .query(
+        `
       CREATE INDEX IF NOT EXISTS document_embeddings_embedding_idx ON document_embeddings USING ivfflat (embedding vector_cosine_ops);
-    `).catch(err => console.error("Failed to create embedding index on document_embeddings:", err.message));
+    `
+      )
+      .catch((err) =>
+        console.error(
+          'Failed to create embedding index on document_embeddings:',
+          err.message
+        )
+      );
 
     // ── Database Schema Alignment (Fk & updated_at Triggers) ────────────────
-    console.log('[MIGRATION] Running constraint and updated_at column migrations...');
-    await pool.query(`
+    console.log(
+      '[MIGRATION] Running constraint and updated_at column migrations...'
+    );
+    await pool
+      .query(
+        `
       DO $$
       BEGIN
           -- 1. Ensure updated_at column exists in all requested tables
@@ -529,11 +664,15 @@ async function initUserTables() {
               ALTER TABLE invoices ADD CONSTRAINT fk_invoices_subscription FOREIGN KEY (subscription_id) REFERENCES subscriptions(id) ON DELETE SET NULL;
           END IF;
       END $$;
-    `).catch(err => console.error("❌ Schema alignment migration failed:", err));
+    `
+      )
+      .catch((err) =>
+        console.error('❌ Schema alignment migration failed:', err)
+      );
 
-    console.log("✅ Tenant users schema extension verified successfully.");
+    console.log('✅ Tenant users schema extension verified successfully.');
   } catch (err) {
-    console.error("❌ Failed to extend tenant users schema:", err);
+    console.error('❌ Failed to extend tenant users schema:', err);
   }
 }
 // GDPR Data Export Helper
@@ -541,57 +680,86 @@ async function exportGDPRData(tenantId) {
   try {
     const fs = require('fs');
     const path = require('path');
-    
+
     // Fetch all user and conversation rows bypassing RLS context (using master pool)
-    const users = await pool.query('SELECT * FROM users WHERE tenant_id = $1', [tenantId]);
-    const conversations = await pool.query('SELECT * FROM conversations WHERE tenant_id = $1', [tenantId]);
-    const messages = await pool.query('SELECT * FROM messages WHERE tenant_id = $1', [tenantId]);
-    const invoices = await pool.query('SELECT * FROM invoices WHERE tenant_id = $1', [tenantId]);
-    const tenant = await pool.query('SELECT * FROM tenants WHERE id = $1', [tenantId]);
-    
+    const users = await pool.query('SELECT * FROM users WHERE tenant_id = $1', [
+      tenantId,
+    ]);
+    const conversations = await pool.query(
+      'SELECT * FROM conversations WHERE tenant_id = $1',
+      [tenantId]
+    );
+    const messages = await pool.query(
+      'SELECT * FROM messages WHERE tenant_id = $1',
+      [tenantId]
+    );
+    const invoices = await pool.query(
+      'SELECT * FROM invoices WHERE tenant_id = $1',
+      [tenantId]
+    );
+    const tenant = await pool.query('SELECT * FROM tenants WHERE id = $1', [
+      tenantId,
+    ]);
+
     const payload = {
       exported_at: new Date().toISOString(),
       tenant: tenant.rows[0] || null,
       users: users.rows,
       conversations: conversations.rows,
       messages: messages.rows,
-      invoices: invoices.rows
+      invoices: invoices.rows,
     };
-    
+
     const exportDir = path.join(__dirname, 'backups', 'gdpr_exports');
     fs.mkdirSync(exportDir, { recursive: true });
-    const exportPath = path.join(exportDir, `tenant_gdpr_export_${tenantId}_${Date.now()}.json`);
+    const exportPath = path.join(
+      exportDir,
+      `tenant_gdpr_export_${tenantId}_${Date.now()}.json`
+    );
     fs.writeFileSync(exportPath, JSON.stringify(payload, null, 2));
-    console.log(`[GDPR] Exported tenant ${tenantId} data successfully to ${exportPath}`);
+    console.log(
+      `[GDPR] Exported tenant ${tenantId} data successfully to ${exportPath}`
+    );
   } catch (err) {
-    console.error(`[GDPR ERROR] Failed to export tenant data for ${tenantId}:`, err);
+    console.error(
+      `[GDPR ERROR] Failed to export tenant data for ${tenantId}:`,
+      err
+    );
   }
 }
 
 // Daily Clean-up Cron Job
 function startDailyCleanupCron() {
   const ONE_DAY = 24 * 60 * 60 * 1000;
-  
+
   async function runCleanup() {
-    console.log('[CRON] Running daily database cleanup & data retention rules...');
+    console.log(
+      '[CRON] Running daily database cleanup & data retention rules...'
+    );
     try {
       // 1. Delete activity logs older than 90 days
       const delLogs = await pool.query(
         `DELETE FROM activity_logs WHERE created_at < NOW() - INTERVAL '90 days'`
       );
-      console.log(`[CRON] Cleaned up ${delLogs.rowCount} activity logs older than 90 days.`);
-      
+      console.log(
+        `[CRON] Cleaned up ${delLogs.rowCount} activity logs older than 90 days.`
+      );
+
       // 2. Clean expired or revoked sessions daily (keep active ones)
       const delSessions = await pool.query(
         `DELETE FROM user_sessions WHERE expires_at < NOW() OR revoked_at IS NOT NULL`
       );
-      console.log(`[CRON] Cleaned up ${delSessions.rowCount} expired/revoked user sessions.`);
+      console.log(
+        `[CRON] Cleaned up ${delSessions.rowCount} expired/revoked user sessions.`
+      );
 
       // 3. Clean invoices older than 7 years (tax compliance retention)
       const delInvoices = await pool.query(
         `DELETE FROM invoices WHERE created_at < NOW() - INTERVAL '2555 days'`
       );
-      console.log(`[CRON] Hard deleted ${delInvoices.rowCount} invoices older than 7 years.`);
+      console.log(
+        `[CRON] Hard deleted ${delInvoices.rowCount} invoices older than 7 years.`
+      );
 
       // 4. Clean conversations based on plans: Starter (1yr), Pro (2yr), Enterprise (Unlimited or overrides)
       const activeTenants = await pool.query(
@@ -606,7 +774,9 @@ function startDailyCleanupCron() {
         if (plan === 'pro' || plan === 'professional') {
           days = 730; // Pro (2 years)
         } else if (plan === 'enterprise') {
-          days = overrides.conversations_days ? parseInt(overrides.conversations_days, 10) : null;
+          days = overrides.conversations_days
+            ? parseInt(overrides.conversations_days, 10)
+            : null;
         }
 
         if (days !== null) {
@@ -616,14 +786,19 @@ function startDailyCleanupCron() {
             [tId, days]
           );
           if (delConvsResult.rowCount > 0) {
-            console.log(`[CRON] Conversations retention: Hard deleted ${delConvsResult.rowCount} conversations older than ${days} days for tenant ${tId}`);
+            console.log(
+              `[CRON] Conversations retention: Hard deleted ${delConvsResult.rowCount} conversations older than ${days} days for tenant ${tId}`
+            );
           }
         }
       }
 
       // 5. Clean permanently soft-deleted records after retention period (default 30 days)
-      const retentionDays = parseInt(process.env.HARD_DELETE_AFTER_DAYS || '30', 10);
-      
+      const retentionDays = parseInt(
+        process.env.HARD_DELETE_AFTER_DAYS || '30',
+        10
+      );
+
       // GDPR Export soft-deleted tenants before hard deleting them
       const softDeletedTenantsToPurge = await pool.query(
         `SELECT id FROM tenants WHERE deleted_at < NOW() - $1 * INTERVAL '1 day'`,
@@ -637,25 +812,33 @@ function startDailyCleanupCron() {
         `DELETE FROM tenants WHERE deleted_at < NOW() - $1 * INTERVAL '1 day'`,
         [retentionDays]
       );
-      console.log(`[CRON] Hard deleted ${delTenants.rowCount} soft-deleted tenants older than ${retentionDays} days.`);
+      console.log(
+        `[CRON] Hard deleted ${delTenants.rowCount} soft-deleted tenants older than ${retentionDays} days.`
+      );
 
       const delUsers = await pool.query(
         `DELETE FROM users WHERE deleted_at < NOW() - $1 * INTERVAL '1 day'`,
         [retentionDays]
       );
-      console.log(`[CRON] Hard deleted ${delUsers.rowCount} soft-deleted users older than ${retentionDays} days.`);
+      console.log(
+        `[CRON] Hard deleted ${delUsers.rowCount} soft-deleted users older than ${retentionDays} days.`
+      );
 
       const delConvs = await pool.query(
         `DELETE FROM conversations WHERE deleted_at < NOW() - $1 * INTERVAL '1 day'`,
         [retentionDays]
       );
-      console.log(`[CRON] Hard deleted ${delConvs.rowCount} soft-deleted conversations older than ${retentionDays} days.`);
+      console.log(
+        `[CRON] Hard deleted ${delConvs.rowCount} soft-deleted conversations older than ${retentionDays} days.`
+      );
 
       const delMsgs = await pool.query(
         `DELETE FROM messages WHERE deleted_at < NOW() - $1 * INTERVAL '1 day'`,
         [retentionDays]
       );
-      console.log(`[CRON] Hard deleted ${delMsgs.rowCount} soft-deleted messages older than ${retentionDays} days.`);
+      console.log(
+        `[CRON] Hard deleted ${delMsgs.rowCount} soft-deleted messages older than ${retentionDays} days.`
+      );
       // 4. Check plan downgrade grace period violations
       const expiredGraceTenants = await pool.query(
         `SELECT id, plan, downgrade_grace_ends FROM tenants 
@@ -666,7 +849,10 @@ function startDailyCleanupCron() {
         const tenantId = tRow.id;
         const planId = tRow.plan.toLowerCase();
 
-        const planRes = await pool.query('SELECT agent_limit, features FROM plans WHERE id = $1', [planId]);
+        const planRes = await pool.query(
+          'SELECT agent_limit, features FROM plans WHERE id = $1',
+          [planId]
+        );
         if (planRes.rows.length > 0) {
           const plan = planRes.rows[0];
           const agentLimit = plan.agent_limit;
@@ -677,12 +863,16 @@ function startDailyCleanupCron() {
               [tenantId]
             );
             if (activeAgents.rows.length > agentLimit) {
-              const extraAgentIds = activeAgents.rows.slice(agentLimit).map(r => r.id);
+              const extraAgentIds = activeAgents.rows
+                .slice(agentLimit)
+                .map((r) => r.id);
               await pool.query(
                 `UPDATE agents SET status = 'disabled' WHERE id = ANY($1)`,
                 [extraAgentIds]
               );
-              console.log(`[CRON] Disabled ${extraAgentIds.length} extra agents for tenant ${tenantId}`);
+              console.log(
+                `[CRON] Disabled ${extraAgentIds.length} extra agents for tenant ${tenantId}`
+              );
             }
           }
 
@@ -692,18 +882,26 @@ function startDailyCleanupCron() {
             [
               tenantId,
               JSON.stringify({
-                message: 'Tenant has violated plan limits after grace period. Immediate action required.',
+                message:
+                  'Tenant has violated plan limits after grace period. Immediate action required.',
                 plan: planId,
-                grace_ends: tRow.downgrade_grace_ends
-              })
+                grace_ends: tRow.downgrade_grace_ends,
+              }),
             ]
           );
 
           const graceEnds = new Date(tRow.downgrade_grace_ends);
-          const autoSuspendTime = new Date(graceEnds.getTime() + 14 * 24 * 60 * 60 * 1000);
+          const autoSuspendTime = new Date(
+            graceEnds.getTime() + 14 * 24 * 60 * 60 * 1000
+          );
           if (new Date() > autoSuspendTime) {
-            await pool.query(`UPDATE tenants SET status = 'suspended' WHERE id = $1`, [tenantId]);
-            console.log(`[CRON] Auto-suspended tenant ${tenantId} due to unresolved plan limit violations for 14 days.`);
+            await pool.query(
+              `UPDATE tenants SET status = 'suspended' WHERE id = $1`,
+              [tenantId]
+            );
+            console.log(
+              `[CRON] Auto-suspended tenant ${tenantId} due to unresolved plan limit violations for 14 days.`
+            );
           }
         }
       }
@@ -711,17 +909,18 @@ function startDailyCleanupCron() {
       console.error('[CRON ERROR] Daily database cleanup failed:', err);
     }
   }
-  
+
   // Run once immediately on startup (with 5s delay)
-  setTimeout(() => { runCleanup().catch(console.error); }, 5000);
-  
+  setTimeout(() => {
+    runCleanup().catch(console.error);
+  }, 5000);
+
   // Schedule to run every 24 hours
   setInterval(() => {
     runCleanup().catch(console.error);
   }, ONE_DAY);
 }
 startDailyCleanupCron();
-
 
 // Redis Client
 const redis = new Redis(process.env.REDIS_URL || 'redis://localhost:6379');
@@ -739,10 +938,14 @@ async function connectWithValidation(useReplica = false) {
   while (retries > 0) {
     client = await targetPool.connect();
     try {
-      const valRes = await client.query("SELECT current_setting('app.current_tenant', true) AS tenant");
+      const valRes = await client.query(
+        "SELECT current_setting('app.current_tenant', true) AS tenant"
+      );
       const currentTenant = valRes.rows[0]?.tenant;
       if (currentTenant && currentTenant.trim() !== '') {
-        throw new Error(`Connection pollution detected: app.current_tenant is already set to "${currentTenant}"`);
+        throw new Error(
+          `Connection pollution detected: app.current_tenant is already set to "${currentTenant}"`
+        );
       }
       return client;
     } catch (err) {
@@ -757,7 +960,9 @@ async function connectWithValidation(useReplica = false) {
       throw err;
     }
   }
-  throw new Error('Failed to acquire a clean database connection after multiple retries.');
+  throw new Error(
+    'Failed to acquire a clean database connection after multiple retries.'
+  );
 }
 
 // Helper: Secure RLS query executor to prevent connection resource exhaustion and session state pollution
@@ -766,11 +971,13 @@ async function executeTenantQuery(tenantId, callback, useReplica = false) {
   let contextSet = false;
   try {
     // Set RLS context on the connection
-    await client.query("SELECT set_config('app.current_tenant', $1, false)", [tenantId]);
+    await client.query("SELECT set_config('app.current_tenant', $1, false)", [
+      tenantId,
+    ]);
     contextSet = true;
-    
+
     // Assert tenant context is set correctly
-    await client.query("SELECT assert_tenant_context()");
+    await client.query('SELECT assert_tenant_context()');
 
     // Run the queries
     const result = await callback(client);
@@ -781,10 +988,15 @@ async function executeTenantQuery(tenantId, callback, useReplica = false) {
     if (contextSet) {
       try {
         // Clear context to prevent leakage to subsequent checkouts of this connection
-        await client.query("SELECT set_config('app.current_tenant', '', false)");
+        await client.query(
+          "SELECT set_config('app.current_tenant', '', false)"
+        );
         client.release();
       } catch (resetErr) {
-        console.error('[DB FATAL] Failed to reset tenant context, destroying connection:', resetErr);
+        console.error(
+          '[DB FATAL] Failed to reset tenant context, destroying connection:',
+          resetErr
+        );
         // Mark connection as bad and discard it from pool
         client.release(true);
       }
@@ -799,65 +1011,110 @@ const tenantMiddleware = async (req, res, next) => {
   try {
     const host = req.headers.host || '';
     let slug = '';
-    
+
     // Check if host is an IP address (bypasses subdomain extraction)
     const isIP = host.match(/^(?:[0-9]{1,3}\.){3}[0-9]{1,3}/);
-    
+
     if (host.includes('.') && !isIP) {
       slug = host.split('.')[0];
     }
-    
+
     // Fallback to headers or query params for development / local testing or IP access
     if (!slug || slug === 'localhost' || slug === '127') {
       slug = req.headers['x-tenant-slug'] || req.query.tenant || 'alphatech';
     }
-    
+
     // Normalize tenant slug for unified single-tenant/demo deployment
     let querySlug = slug;
     if (['system', 'app', 'alphatech'].includes(slug.toLowerCase())) {
       querySlug = 'neuravolt';
     }
-    
+
     // Look up tenant by slug and fetch its active plan settings
-    const result = await pool.query(`
+    const result = await pool.query(
+      `
       SELECT t.id, t.name, t.slug, t.plan, t.status, t.created_at,
              p.name AS plan_name, p.price, p.billing, p.currency, p.is_active as plan_is_active,
              p.token_limit, p.tenant_limit, p.agent_limit, p.model_access, p.features, p.description as plan_description
       FROM tenants t
       LEFT JOIN plans p ON LOWER(t.plan) = LOWER(p.id)
       WHERE t.slug = $1 AND t.deleted_at IS NULL
-    `, [querySlug]);
+    `,
+      [querySlug]
+    );
     if (result.rows.length === 0) {
       return res.status(404).json({ error: 'Tenant not found' });
     }
-    
+
     const tenant = result.rows[0];
     if (tenant.status === 'suspended') {
       return res.status(403).json({ error: 'Tenant suspended' });
     }
-    
+
     // Parse dynamic limits or fall back to default specs
     if (tenant.token_limit === undefined || tenant.token_limit === null) {
       const planName = (tenant.plan || 'starter').toLowerCase();
       if (planName === 'starter') {
         tenant.token_limit = 100000;
         tenant.agent_limit = 2;
-        tenant.features = { api_access: true, webhook_logging: false, rag_documents: 500, audit_trail: false, priority_support: false, custom_models: false, dpdp_compliance: true, sla_hours: 72 };
+        tenant.features = {
+          api_access: true,
+          webhook_logging: false,
+          rag_documents: 500,
+          audit_trail: false,
+          priority_support: false,
+          custom_models: false,
+          dpdp_compliance: true,
+          sla_hours: 72,
+        };
         tenant.model_access = ['Harikson-3B'];
-      } else if (planName === 'professional' || planName === 'pro' || planName === 'team') {
+      } else if (
+        planName === 'professional' ||
+        planName === 'pro' ||
+        planName === 'team'
+      ) {
         tenant.token_limit = 5000000;
         tenant.agent_limit = 20;
-        tenant.features = { api_access: true, webhook_logging: true, rag_documents: 50000, audit_trail: true, priority_support: true, custom_models: false, dpdp_compliance: true, sla_hours: 12 };
-        tenant.model_access = ['Harikson-3B', 'Qwen3-8B', 'Qwen3-32B', 'Qwen3-72B'];
+        tenant.features = {
+          api_access: true,
+          webhook_logging: true,
+          rag_documents: 50000,
+          audit_trail: true,
+          priority_support: true,
+          custom_models: false,
+          dpdp_compliance: true,
+          sla_hours: 12,
+        };
+        tenant.model_access = [
+          'Harikson-3B',
+          'Qwen3-8B',
+          'Qwen3-32B',
+          'Qwen3-72B',
+        ];
       } else {
         // Enterprise or default
         tenant.token_limit = -1;
         tenant.agent_limit = -1;
-        tenant.features = { api_access: true, webhook_logging: true, rag_documents: -1, audit_trail: true, priority_support: true, custom_models: true, dpdp_compliance: true, sla_hours: 2 };
-        tenant.model_access = ['Harikson-3B', 'Qwen3-8B', 'Qwen3-32B', 'Qwen3-72B', 'Custom Fine-Tuned'];
+        tenant.features = {
+          api_access: true,
+          webhook_logging: true,
+          rag_documents: -1,
+          audit_trail: true,
+          priority_support: true,
+          custom_models: true,
+          dpdp_compliance: true,
+          sla_hours: 2,
+        };
+        tenant.model_access = [
+          'Harikson-3B',
+          'Qwen3-8B',
+          'Qwen3-32B',
+          'Qwen3-72B',
+          'Custom Fine-Tuned',
+        ];
       }
     }
-    
+
     req.tenant = tenant;
     next();
   } catch (err) {
@@ -870,7 +1127,7 @@ const tenantMiddleware = async (req, res, next) => {
 function parseCookies(cookieHeader) {
   const cookies = {};
   if (!cookieHeader) return cookies;
-  cookieHeader.split(';').forEach(cookie => {
+  cookieHeader.split(';').forEach((cookie) => {
     const parts = cookie.split('=');
     if (parts.length >= 2) {
       cookies[parts[0].trim()] = parts.slice(1).join('=').trim();
@@ -882,7 +1139,7 @@ function parseCookies(cookieHeader) {
 // Validate password criteria, including minimum length and character variation
 function validatePassword(password, email, name) {
   const errors = [];
-  
+
   if (password.length < 12) {
     errors.push('Password must be at least 12 characters long.');
   }
@@ -898,41 +1155,54 @@ function validatePassword(password, email, name) {
   if (!/[!@#$%^&*(),.?":{}|<>]/.test(password)) {
     errors.push('Password must contain at least one special character.');
   }
-  
+
   const lowerPwd = password.toLowerCase();
-  
+
   if (email) {
     const lowerEmail = email.toLowerCase();
     const emailPrefix = lowerEmail.split('@')[0];
     if (lowerPwd === lowerEmail || lowerPwd.includes(lowerEmail)) {
       errors.push('Password must not contain or match your email address.');
     }
-    if (emailPrefix.length >= 3 && (lowerPwd === emailPrefix || lowerPwd.includes(emailPrefix))) {
+    if (
+      emailPrefix.length >= 3 &&
+      (lowerPwd === emailPrefix || lowerPwd.includes(emailPrefix))
+    ) {
       errors.push('Password must not contain or match your email username.');
     }
   }
-  
+
   if (name) {
     const lowerName = name.toLowerCase();
-    if (lowerName.length >= 3 && (lowerPwd === lowerName || lowerPwd.includes(lowerName))) {
+    if (
+      lowerName.length >= 3 &&
+      (lowerPwd === lowerName || lowerPwd.includes(lowerName))
+    ) {
       errors.push('Password must not contain or match your name.');
     }
   }
-  
+
   return errors;
 }
 
 // Check against HaveIBeenPwned API range protocol
 async function isPasswordPwned(password) {
   try {
-    const sha1 = crypto.createHash('sha1').update(password).digest('hex').toUpperCase();
+    const sha1 = crypto
+      .createHash('sha1')
+      .update(password)
+      .digest('hex')
+      .toUpperCase();
     const prefix = sha1.slice(0, 5);
     const suffix = sha1.slice(5);
-    
-    const response = await axios.get(`https://api.pwnedpasswords.com/range/${prefix}`, {
-      timeout: 3000
-    });
-    
+
+    const response = await axios.get(
+      `https://api.pwnedpasswords.com/range/${prefix}`,
+      {
+        timeout: 3000,
+      }
+    );
+
     const lines = response.data.split('\n');
     for (const line of lines) {
       const [hashSuffix, count] = line.split(':');
@@ -950,10 +1220,16 @@ async function isPasswordPwned(password) {
 // Generic Sliding Window Rate Limiter using Redis Sorted Sets
 async function checkSlidingWindowLimit(key, limit, windowSeconds = 60) {
   if (limit === -1) {
-    return { allowed: true, limit, remaining: 99999, reset: Math.ceil(Date.now() / 1000) + windowSeconds, retryAfter: 0 };
+    return {
+      allowed: true,
+      limit,
+      remaining: 99999,
+      reset: Math.ceil(Date.now() / 1000) + windowSeconds,
+      retryAfter: 0,
+    };
   }
   const now = Date.now();
-  const clearBefore = now - (windowSeconds * 1000);
+  const clearBefore = now - windowSeconds * 1000;
   const member = `${now}-${Math.random()}`; // Ensure uniqueness inside ZSET
 
   try {
@@ -963,10 +1239,10 @@ async function checkSlidingWindowLimit(key, limit, windowSeconds = 60) {
     multi.zcard(key);
     multi.expire(key, windowSeconds + 10);
     const results = await multi.exec();
-    
+
     const count = results[2][1];
     const remaining = Math.max(0, limit - count);
-    const resetTime = Math.ceil((now + (windowSeconds * 1000)) / 1000);
+    const resetTime = Math.ceil((now + windowSeconds * 1000) / 1000);
     const retryAfter = count > limit ? windowSeconds : 0;
 
     return {
@@ -974,11 +1250,17 @@ async function checkSlidingWindowLimit(key, limit, windowSeconds = 60) {
       limit,
       remaining,
       reset: resetTime,
-      retryAfter
+      retryAfter,
     };
   } catch (err) {
     console.error(`[RATE LIMIT ERROR] Redis key ${key} failed:`, err.message);
-    return { allowed: true, limit, remaining: 1, reset: Math.ceil(Date.now() / 1000), retryAfter: 0 };
+    return {
+      allowed: true,
+      limit,
+      remaining: 1,
+      reset: Math.ceil(Date.now() / 1000),
+      retryAfter: 0,
+    };
   }
 }
 
@@ -986,12 +1268,18 @@ async function checkSlidingWindowLimit(key, limit, windowSeconds = 60) {
 const rateLimiterMiddleware = async (req, res, next) => {
   try {
     // 1. IP Determination
-    const rawIp = (req.headers['x-forwarded-for'] || req.socket?.remoteAddress || '').split(',')[0].trim() || '127.0.0.1';
+    const rawIp =
+      (req.headers['x-forwarded-for'] || req.socket?.remoteAddress || '')
+        .split(',')[0]
+        .trim() || '127.0.0.1';
     const ip = rawIp.replace(/^::ffff:/, '');
 
     const path = req.path || '';
     const isAuthEndpoint = path.startsWith('/api/auth');
-    const isChatEndpoint = path.startsWith('/api/conversations') || path.startsWith('/api/messages') || path.includes('/chat');
+    const isChatEndpoint =
+      path.startsWith('/api/conversations') ||
+      path.startsWith('/api/messages') ||
+      path.includes('/chat');
     const isApiEndpoint = path.startsWith('/api/') && !isAuthEndpoint;
 
     // A. IP Limit:
@@ -1008,7 +1296,10 @@ const rateLimiterMiddleware = async (req, res, next) => {
 
     if (!ipRes.allowed) {
       res.setHeader('Retry-After', ipRes.retryAfter);
-      return res.status(429).json({ error: 'Too Many Requests: IP rate limit exceeded', retryAfter: ipRes.retryAfter });
+      return res.status(429).json({
+        error: 'Too Many Requests: IP rate limit exceeded',
+        retryAfter: ipRes.retryAfter,
+      });
     }
 
     // Resolve context to determine API Key / User / Tenant limits
@@ -1032,7 +1323,10 @@ const rateLimiterMiddleware = async (req, res, next) => {
       if (token.startsWith('hk_live_') || token.startsWith('hk_test_')) {
         isApiKey = true;
         const keyHash = crypto.createHash('sha256').update(token).digest('hex');
-        const keyRes = await pool.query('SELECT * FROM api_keys WHERE key_hash = $1 AND revoked_at IS NULL AND (expires_at IS NULL OR expires_at > NOW())', [keyHash]);
+        const keyRes = await pool.query(
+          'SELECT * FROM api_keys WHERE key_hash = $1 AND revoked_at IS NULL AND (expires_at IS NULL OR expires_at > NOW())',
+          [keyHash]
+        );
         if (keyRes.rows.length > 0) {
           apiKeyId = keyRes.rows[0].id;
           tenantId = keyRes.rows[0].tenant_id;
@@ -1043,7 +1337,10 @@ const rateLimiterMiddleware = async (req, res, next) => {
           const decoded = jwt.verify(token, jwtSecret);
           userId = decoded.userId;
         } catch (err) {
-          console.warn('Warning verifying JWT token in request logging middleware:', err.message);
+          console.warn(
+            'Warning verifying JWT token in request logging middleware:',
+            err.message
+          );
         }
       }
     }
@@ -1055,7 +1352,10 @@ const rateLimiterMiddleware = async (req, res, next) => {
       if (['system', 'app', 'alphatech'].includes(tenantSlug.toLowerCase())) {
         querySlug = 'neuravolt';
       }
-      const tRes = await pool.query('SELECT id, plan FROM tenants WHERE slug = $1 AND deleted_at IS NULL', [querySlug]);
+      const tRes = await pool.query(
+        'SELECT id, plan FROM tenants WHERE slug = $1 AND deleted_at IS NULL',
+        [querySlug]
+      );
       if (tRes.rows.length > 0) {
         tenantId = tRes.rows[0].id;
         tenantPlan = tRes.rows[0].plan || 'starter';
@@ -1064,13 +1364,20 @@ const rateLimiterMiddleware = async (req, res, next) => {
 
     // B. Developer API Key Limit: 500 req/min per key
     if (isApiKey && apiKeyId) {
-      const keyLimitRes = await checkSlidingWindowLimit(`rl:key:${apiKeyId}`, 500, 60);
+      const keyLimitRes = await checkSlidingWindowLimit(
+        `rl:key:${apiKeyId}`,
+        500,
+        60
+      );
       res.setHeader('X-RateLimit-Limit', keyLimitRes.limit);
       res.setHeader('X-RateLimit-Remaining', keyLimitRes.remaining);
       res.setHeader('X-RateLimit-Reset', keyLimitRes.reset);
       if (!keyLimitRes.allowed) {
         res.setHeader('Retry-After', keyLimitRes.retryAfter);
-        return res.status(429).json({ error: 'Too Many Requests: API Key rate limit exceeded', retryAfter: keyLimitRes.retryAfter });
+        return res.status(429).json({
+          error: 'Too Many Requests: API Key rate limit exceeded',
+          retryAfter: keyLimitRes.retryAfter,
+        });
       }
     }
 
@@ -1084,13 +1391,20 @@ const rateLimiterMiddleware = async (req, res, next) => {
       }
 
       if (tenantLimit !== -1) {
-        const tenantLimitRes = await checkSlidingWindowLimit(`rl:tenant:${tenantId}`, tenantLimit, 60);
+        const tenantLimitRes = await checkSlidingWindowLimit(
+          `rl:tenant:${tenantId}`,
+          tenantLimit,
+          60
+        );
         res.setHeader('X-RateLimit-Limit', tenantLimitRes.limit);
         res.setHeader('X-RateLimit-Remaining', tenantLimitRes.remaining);
         res.setHeader('X-RateLimit-Reset', tenantLimitRes.reset);
         if (!tenantLimitRes.allowed) {
           res.setHeader('Retry-After', tenantLimitRes.retryAfter);
-          return res.status(429).json({ error: 'Too Many Requests: Tenant plan rate limit exceeded', retryAfter: tenantLimitRes.retryAfter });
+          return res.status(429).json({
+            error: 'Too Many Requests: Tenant plan rate limit exceeded',
+            retryAfter: tenantLimitRes.retryAfter,
+          });
         }
       }
     }
@@ -1099,13 +1413,20 @@ const rateLimiterMiddleware = async (req, res, next) => {
     if (userId) {
       const userLimit = isChatEndpoint ? 60 : 1000;
       const userLimitKey = `rl:user:${userId}:${isChatEndpoint ? 'chat' : 'api'}`;
-      const userLimitRes = await checkSlidingWindowLimit(userLimitKey, userLimit, 60);
+      const userLimitRes = await checkSlidingWindowLimit(
+        userLimitKey,
+        userLimit,
+        60
+      );
       res.setHeader('X-RateLimit-Limit', userLimitRes.limit);
       res.setHeader('X-RateLimit-Remaining', userLimitRes.remaining);
       res.setHeader('X-RateLimit-Reset', userLimitRes.reset);
       if (!userLimitRes.allowed) {
         res.setHeader('Retry-After', userLimitRes.retryAfter);
-        return res.status(429).json({ error: 'Too Many Requests: User rate limit exceeded', retryAfter: userLimitRes.retryAfter });
+        return res.status(429).json({
+          error: 'Too Many Requests: User rate limit exceeded',
+          retryAfter: userLimitRes.retryAfter,
+        });
       }
     }
   } catch (err) {
@@ -1120,7 +1441,7 @@ const authMiddleware = async (req, res, next) => {
   try {
     const cookies = req.cookies || parseCookies(req.headers.cookie);
     let token = cookies.hk_access_token;
-    
+
     // Fallback to Authorization header
     if (!token) {
       const authHeader = req.headers.authorization;
@@ -1128,9 +1449,12 @@ const authMiddleware = async (req, res, next) => {
         token = authHeader.split(' ')[1];
       }
     }
-    
+
     // INTERCEPT Developer API Keys (starting with hk_live_ or hk_test_)
-    if (token && (token.startsWith('hk_live_') || token.startsWith('hk_test_'))) {
+    if (
+      token &&
+      (token.startsWith('hk_live_') || token.startsWith('hk_test_'))
+    ) {
       const keyHash = crypto.createHash('sha256').update(token).digest('hex');
       // Look up key in DB
       const keyRes = await pool.query(
@@ -1139,36 +1463,62 @@ const authMiddleware = async (req, res, next) => {
         [keyHash]
       );
       if (keyRes.rows.length === 0) {
-        return res.status(401).json({ error: 'Access Denied: Invalid or revoked API Key' });
+        return res
+          .status(401)
+          .json({ error: 'Access Denied: Invalid or revoked API Key' });
       }
-      
+
       const keyRecord = keyRes.rows[0];
-      
+
       // Update last_used_at in the background (non-blocking)
-      pool.query('UPDATE api_keys SET last_used_at = NOW() WHERE id = $1', [keyRecord.id]).catch(err => {
-        console.warn('Warning updating last_used_at for api_key:', err.message);
-      });
-      
+      pool
+        .query('UPDATE api_keys SET last_used_at = NOW() WHERE id = $1', [
+          keyRecord.id,
+        ])
+        .catch((err) => {
+          console.warn(
+            'Warning updating last_used_at for api_key:',
+            err.message
+          );
+        });
+
       // Fetch user details to mock JWT session context
-      const userRes = await pool.query('SELECT * FROM users WHERE id = $1 AND deleted_at IS NULL', [keyRecord.user_id]);
+      const userRes = await pool.query(
+        'SELECT * FROM users WHERE id = $1 AND deleted_at IS NULL',
+        [keyRecord.user_id]
+      );
       if (userRes.rows.length === 0) {
-        return res.status(401).json({ error: 'Access Denied: User account is inactive or deleted' });
+        return res.status(401).json({
+          error: 'Access Denied: User account is inactive or deleted',
+        });
       }
-      
+
       const user = userRes.rows[0];
-      req.user = { id: user.id, email: user.email, role: user.role, name: user.name, isDeveloperKey: true, apiKeyId: keyRecord.id };
+      req.user = {
+        id: user.id,
+        email: user.email,
+        role: user.role,
+        name: user.name,
+        isDeveloperKey: true,
+        apiKeyId: keyRecord.id,
+      };
       req.tenant = { id: keyRecord.tenant_id };
       return next();
     }
 
-    console.log(`[AUTH DEBUG] ${req.method} ${req.url} - Token: "${token ? 'Present' : 'None'}" - Tenant Header: "${req.headers['x-tenant-slug']}"`);
-    
+    console.log(
+      `[AUTH DEBUG] ${req.method} ${req.url} - Token: "${token ? 'Present' : 'None'}" - Tenant Header: "${req.headers['x-tenant-slug']}"`
+    );
+
     let decoded;
     let tokenExpired = false;
-    
+
     // Support fallback tokens for isolated sandbox testing
     if (token === 'TEST_TOKEN' || token === 'TEST_ADMIN_TOKEN') {
-      decoded = { userId: '00000000-0000-0000-0000-000000000001', role: 'superadmin' };
+      decoded = {
+        userId: '00000000-0000-0000-0000-000000000001',
+        role: 'superadmin',
+      };
     } else if (token) {
       try {
         decoded = jwt.verify(token, jwtSecret);
@@ -1176,80 +1526,99 @@ const authMiddleware = async (req, res, next) => {
         if (err.name === 'TokenExpiredError') {
           tokenExpired = true;
         } else {
-          return res.status(401).json({ error: 'Access Denied: Invalid token' });
+          return res
+            .status(401)
+            .json({ error: 'Access Denied: Invalid token' });
         }
       }
     }
-    
+
     // Auto-refresh token rotation if access token is missing/expired but valid refresh cookie is present
     if (!decoded || tokenExpired) {
       const refreshToken = cookies.hk_refresh_token;
       if (!refreshToken) {
-        return res.status(401).json({ error: 'Access Denied: Session expired' });
+        return res
+          .status(401)
+          .json({ error: 'Access Denied: Session expired' });
       }
-      
-      const refreshTokenHash = crypto.createHash('sha256').update(refreshToken).digest('hex');
-      
+
+      const refreshTokenHash = crypto
+        .createHash('sha256')
+        .update(refreshToken)
+        .digest('hex');
+
       // Look up and validate refresh token
       const rtQuery = await pool.query(
         'SELECT * FROM refresh_tokens WHERE token = $1 AND revoked_at IS NULL AND expires_at > NOW() LIMIT 1',
         [refreshTokenHash]
       );
-      
+
       if (rtQuery.rows.length === 0) {
-        return res.status(401).json({ error: 'Access Denied: Session expired' });
+        return res
+          .status(401)
+          .json({ error: 'Access Denied: Session expired' });
       }
-      
+
       const rtRecord = rtQuery.rows[0];
-      
+
       // Revoke old refresh token (rotation!)
       await pool.query(
         'UPDATE refresh_tokens SET revoked_at = NOW() WHERE id = $1',
         [rtRecord.id]
       );
-      
+
       // Look up user
-      const userQuery = await pool.query(
-        'SELECT * FROM users WHERE id = $1',
-        [rtRecord.user_id]
-      );
-      
+      const userQuery = await pool.query('SELECT * FROM users WHERE id = $1', [
+        rtRecord.user_id,
+      ]);
+
       if (userQuery.rows.length === 0) {
         return res.status(401).json({ error: 'Access Denied: User not found' });
       }
-      
+
       const user = userQuery.rows[0];
-      
+
       // Issue new token pair
-      const newAccessToken = jwt.sign({ userId: user.id, role: user.role }, jwtSecret, { expiresIn: '15m' });
+      const newAccessToken = jwt.sign(
+        { userId: user.id, role: user.role },
+        jwtSecret,
+        { expiresIn: '15m' }
+      );
       const newRefreshToken = crypto.randomBytes(32).toString('hex');
-      const newRefreshTokenHash = crypto.createHash('sha256').update(newRefreshToken).digest('hex');
+      const newRefreshTokenHash = crypto
+        .createHash('sha256')
+        .update(newRefreshToken)
+        .digest('hex');
       const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000); // 30 days
-      
+
       await pool.query(
         `INSERT INTO refresh_tokens (token, user_id, tenant_id, expires_at)
          VALUES ($1, $2, $3, $4)`,
         [newRefreshTokenHash, user.id, rtRecord.tenant_id, expiresAt]
       );
-      
+
       const host = req.headers.host || '';
-      const domainSuffix = host.includes('neuravolt.cloud') ? '; Domain=.neuravolt.cloud' : '';
+      const domainSuffix = host.includes('neuravolt.cloud')
+        ? '; Domain=.neuravolt.cloud'
+        : '';
       const secureFlag = process.env.NODE_ENV === 'production' ? 'Secure;' : '';
-      
+
       res.setHeader('Set-Cookie', [
         `hk_access_token=${newAccessToken}; HttpOnly; ${secureFlag} SameSite=Strict; Path=/; Max-Age=${15 * 60}${domainSuffix}`,
-        `hk_refresh_token=${newRefreshToken}; HttpOnly; ${secureFlag} SameSite=Strict; Path=/; Max-Age=${30 * 24 * 60 * 60}${domainSuffix}`
+        `hk_refresh_token=${newRefreshToken}; HttpOnly; ${secureFlag} SameSite=Strict; Path=/; Max-Age=${30 * 24 * 60 * 60}${domainSuffix}`,
       ]);
-      
+
       decoded = { userId: user.id, role: user.role };
     }
-    
+
     // Verify user exists in the current tenant (RLS-enforced query)
     let user = await executeTenantQuery(req.tenant.id, async (client) => {
-      const result = await client.query('SELECT * FROM users WHERE id = $1', [decoded.userId]);
+      const result = await client.query('SELECT * FROM users WHERE id = $1', [
+        decoded.userId,
+      ]);
       return result.rows[0];
     });
-    
+
     // If testing via sandbox token and user isn't in this tenant yet, auto-provision user
     if (!user && (token === 'TEST_TOKEN' || token === 'TEST_ADMIN_TOKEN')) {
       user = await executeTenantQuery(req.tenant.id, async (client) => {
@@ -1258,16 +1627,24 @@ const authMiddleware = async (req, res, next) => {
            VALUES ($1, $2, $3, $4, $5)
            ON CONFLICT (id) DO UPDATE SET tenant_id = EXCLUDED.tenant_id
            RETURNING *`,
-          [decoded.userId, req.tenant.id, `sandbox@${req.tenant.slug}.harikson.ai`, 'mock_hash', 'user']
+          [
+            decoded.userId,
+            req.tenant.id,
+            `sandbox@${req.tenant.slug}.harikson.ai`,
+            'mock_hash',
+            'user',
+          ]
         );
         return insertResult.rows[0];
       });
     }
-    
+
     if (!user) {
-      return res.status(401).json({ error: 'Access Denied: Invalid user session for this tenant' });
+      return res
+        .status(401)
+        .json({ error: 'Access Denied: Invalid user session for this tenant' });
     }
-    
+
     req.user = user;
     next();
   } catch (err) {
@@ -1282,7 +1659,7 @@ app.use(rateLimiterMiddleware);
 app.get('/health', (req, res) => {
   res.status(200).json({
     status: 'healthy',
-    timestamp: new Date().toISOString()
+    timestamp: new Date().toISOString(),
   });
 });
 
@@ -1294,17 +1671,17 @@ app.get('/api/models', async (req, res) => {
   try {
     const response = await axios.get(`${ollamaHost}/api/tags`);
     const models = (response.data.models || [])
-      .map(m => m.name)
-      .filter(name => name.startsWith('harikson-') || name.includes('harikson'));
-      
+      .map((m) => m.name)
+      .filter(
+        (name) => name.startsWith('harikson-') || name.includes('harikson')
+      );
+
     res.status(200).json(models);
   } catch (err) {
     console.warn('Ollama offline, returning fallback model list');
-    res.status(200).json([
-      'harikson-chat-8b',
-      'harikson-coder-7b',
-      'harikson-coder-14b'
-    ]);
+    res
+      .status(200)
+      .json(['harikson-chat-8b', 'harikson-coder-7b', 'harikson-coder-14b']);
   }
 });
 
@@ -1316,7 +1693,7 @@ app.post('/api/models/switch', (req, res) => {
   }
   res.status(200).json({
     success: true,
-    message: `Successfully switched default workspace model to ${model}`
+    message: `Successfully switched default workspace model to ${model}`,
   });
 });
 
@@ -1548,7 +1925,10 @@ Before finalizing, verify:
 
 If any check fails, revise the relevant section before output.`;
 
-  if (model.toLowerCase().includes('max') || model.toLowerCase().includes('coder')) {
+  if (
+    model.toLowerCase().includes('max') ||
+    model.toLowerCase().includes('coder')
+  ) {
     return `You are Harikson Max, an elite software engineering AI built by Harikson AI.
 You are an expert in all programming languages, frameworks, databases, system design, DevOps, and cloud architecture.
 When asked to write code, always provide complete, production-ready, well-commented code.
@@ -1574,7 +1954,7 @@ async function searchWeb(query) {
     const searchUrl = `https://html.duckduckgo.com/html/?q=${encodeURIComponent(query)}`;
     const response = await axios.get(searchUrl, {
       headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)' },
-      timeout: 10000
+      timeout: 10000,
     });
     const $ = cheerio.load(response.data);
     const results = [];
@@ -1583,7 +1963,8 @@ async function searchWeb(query) {
       const title = $(el).find('.result__title').text().trim();
       const snippet = $(el).find('.result__snippet').text().trim();
       const link = $(el).find('.result__url').attr('href');
-      if (title && snippet) results.push(`Title: ${title}\nSnippet: ${snippet}\nURL: ${link}`);
+      if (title && snippet)
+        results.push(`Title: ${title}\nSnippet: ${snippet}\nURL: ${link}`);
     });
     return results.join('\n\n');
   } catch (err) {
@@ -1593,44 +1974,65 @@ async function searchWeb(query) {
 }
 
 // Helper: Crawl website for agent context
-async function crawlWebsite(url, maxDepth = 1, currentDepth = 0, visited = new Set()) {
-  if (visited.has(url) || currentDepth > maxDepth || visited.size >= 4) return '';
+async function crawlWebsite(
+  url,
+  maxDepth = 1,
+  currentDepth = 0,
+  visited = new Set()
+) {
+  if (visited.has(url) || currentDepth > maxDepth || visited.size >= 4)
+    return '';
   visited.add(url);
-  
+
   try {
     const response = await axios.get(url, { timeout: 8000 });
     const html = response.data;
     const $ = cheerio.load(html);
-    
+
     // Remove noise
     $('script, style, svg, img, nav, footer, iframe, noscript').remove();
-    
+
     const title = $('title').text().trim();
     const metaDesc = $('meta[name="description"]').attr('content') || '';
-    const h1 = $('h1').map((i, el) => $(el).text().trim()).get().join(' | ');
-    const h2 = $('h2').map((i, el) => $(el).text().trim()).get().join(' | ');
-    
+    const h1 = $('h1')
+      .map((i, el) => $(el).text().trim())
+      .get()
+      .join(' | ');
+    const h2 = $('h2')
+      .map((i, el) => $(el).text().trim())
+      .get()
+      .join(' | ');
+
     let textContent = $('body').text().replace(/\s+/g, ' ').trim();
     if (textContent.length > 3000) {
       textContent = textContent.substring(0, 3000) + '...';
     }
-    
+
     let result = `\n--- PAGE: ${url} ---\nTitle: ${title}\nMeta Description: ${metaDesc}\nH1: ${h1}\nH2: ${h2}\nContent:\n${textContent}\n`;
-    
+
     if (currentDepth < maxDepth) {
       const baseUrl = new URL(url).origin;
-      const links = $('a').map((i, el) => $(el).attr('href')).get()
-        .filter(href => href && (href.startsWith('/') || href.startsWith(baseUrl)))
-        .map(href => href.startsWith('/') ? baseUrl + href : href)
-        .filter(href => !href.includes('#') && !visited.has(href));
-        
+      const links = $('a')
+        .map((i, el) => $(el).attr('href'))
+        .get()
+        .filter(
+          (href) => href && (href.startsWith('/') || href.startsWith(baseUrl))
+        )
+        .map((href) => (href.startsWith('/') ? baseUrl + href : href))
+        .filter((href) => !href.includes('#') && !visited.has(href));
+
       const uniqueLinks = [...new Set(links)].slice(0, 2);
       for (const link of uniqueLinks) {
-        const subResult = await crawlWebsite(link, maxDepth, currentDepth + 1, visited);
+        const subResult = await crawlWebsite(
+          link,
+          maxDepth,
+          currentDepth + 1,
+          visited
+        );
         result += subResult;
       }
     }
-    
+
     return result;
   } catch (err) {
     console.warn(`Failed to crawl ${url}:`, err.message);
@@ -1646,7 +2048,7 @@ function chunkText(text, size = 800, overlap = 150) {
     const end = Math.min(start + size, text.length);
     chunks.push(text.substring(start, end));
     if (end === text.length) break;
-    start += (size - overlap);
+    start += size - overlap;
   }
   return chunks;
 }
@@ -1665,10 +2067,10 @@ async function getEmbedding(text, model = 'qwen2.5-coder:7b') {
   try {
     const response = await axios.post(`${ollamaHost}/api/embeddings`, {
       model: mappedModel,
-      prompt: text
+      prompt: text,
     });
     let embedding = response.data.embedding || [];
-    
+
     // Ensure length is exactly 1536 (pgvector target)
     if (embedding.length < 1536) {
       const pad = new Array(1536 - embedding.length).fill(0.0);
@@ -1678,7 +2080,10 @@ async function getEmbedding(text, model = 'qwen2.5-coder:7b') {
     }
     return embedding;
   } catch (error) {
-    console.warn('Ollama embeddings error in tenant-api, returning fallback mock vector.', error.message);
+    console.warn(
+      'Ollama embeddings error in tenant-api, returning fallback mock vector.',
+      error.message
+    );
     return generateMockEmbedding(text);
   }
 }
@@ -1698,12 +2103,18 @@ function generateMockEmbedding(text) {
 // Helper: build messages array for Ollama /api/chat (proper multi-turn memory)
 function buildMessages(history, userMessage, model, agentConfig = null) {
   const messages = [
-    { role: 'system', content: agentConfig && agentConfig.system_prompt ? agentConfig.system_prompt : getSystemPrompt(model) }
+    {
+      role: 'system',
+      content:
+        agentConfig && agentConfig.system_prompt
+          ? agentConfig.system_prompt
+          : getSystemPrompt(model),
+    },
   ];
   for (const msg of history) {
     messages.push({
       role: msg.role === 'user' ? 'user' : 'assistant',
-      content: msg.content
+      content: msg.content,
     });
   }
   messages.push({ role: 'user', content: userMessage });
@@ -1713,17 +2124,28 @@ function buildMessages(history, userMessage, model, agentConfig = null) {
 // Helper: context-aware fallback mock response
 function getMockResponse(history, userMessage, model) {
   const lowerMsg = userMessage.toLowerCase();
-  const historyText = history.map(m => m.content).join(' ').toLowerCase();
+  const historyText = history
+    .map((m) => m.content)
+    .join(' ')
+    .toLowerCase();
 
-  if (lowerMsg.includes('code') || lowerMsg.includes('generate') || lowerMsg.includes('example') || lowerMsg.includes('show')) {
-    if (historyText.includes('login') || historyText.includes('auth') || historyText.includes('password')) {
+  if (
+    lowerMsg.includes('code') ||
+    lowerMsg.includes('generate') ||
+    lowerMsg.includes('example') ||
+    lowerMsg.includes('show')
+  ) {
+    if (
+      historyText.includes('login') ||
+      historyText.includes('auth') ||
+      historyText.includes('password')
+    ) {
       return `Here is a complete login implementation based on our conversation:\n\`\`\`javascript\nasync function handleLogin(email, password) {\n  const response = await fetch('/api/auth/login', {\n    method: 'POST',\n    headers: { 'Content-Type': 'application/json' },\n    body: JSON.stringify({ email, password })\n  });\n  if (!response.ok) {\n    const err = await response.json();\n    throw new Error(err.message || 'Login failed');\n  }\n  const { token, user } = await response.json();\n  localStorage.setItem('token', token);\n  window.location.href = '/dashboard';\n  return user;\n}\n\`\`\``;
     }
     return `Here is a code example:\n\`\`\`javascript\nasync function processRequest(data) {\n  if (!data) throw new Error('Invalid input');\n  const result = await fetch('/api/process', {\n    method: 'POST',\n    headers: { 'Content-Type': 'application/json' },\n    body: JSON.stringify(data)\n  });\n  return result.json();\n}\n\`\`\``;
   }
   return `I understand your request about: "${userMessage}". The AI model is warming up — please try again in a moment for a full intelligent response.`;
 }
-
 
 // 4.5 GET /api/agents
 app.get('/api/agents', authMiddleware, async (req, res) => {
@@ -1743,402 +2165,556 @@ app.get('/api/agents', authMiddleware, async (req, res) => {
 });
 
 // 5. POST /api/chat
-app.post('/api/chat', authMiddleware, validate(chatMessageSchema), async (req, res) => {
-  const { message, model, conversationId, clientHistory, agent_id, deepSearch, reasoning } = req.body;
+app.post(
+  '/api/chat',
+  authMiddleware,
+  validate(chatMessageSchema),
+  async (req, res) => {
+    const {
+      message,
+      model,
+      conversationId,
+      clientHistory,
+      agent_id,
+      deepSearch,
+      reasoning,
+    } = req.body;
 
-  let selectedModel = model || 'harikson-plus';
-  let agentConfig = null;
+    let selectedModel = model || 'harikson-plus';
+    let agentConfig = null;
 
-  if (agent_id) {
-    try {
-      agentConfig = await executeTenantQuery(req.tenant.id, async (client) => {
-        const agentResult = await client.query(
-          "SELECT * FROM agents WHERE id = $1 AND status = 'active' AND (visibility = 'public' OR tenant_id = $2 OR tenant_id IS NULL)", 
-          [agent_id, req.tenant.id]
+    if (agent_id) {
+      try {
+        agentConfig = await executeTenantQuery(
+          req.tenant.id,
+          async (client) => {
+            const agentResult = await client.query(
+              "SELECT * FROM agents WHERE id = $1 AND status = 'active' AND (visibility = 'public' OR tenant_id = $2 OR tenant_id IS NULL)",
+              [agent_id, req.tenant.id]
+            );
+            return agentResult.rows[0];
+          }
         );
-        return agentResult.rows[0];
-      });
-      if (agentConfig) {
-        selectedModel = agentConfig.model || selectedModel;
+        if (agentConfig) {
+          selectedModel = agentConfig.model || selectedModel;
+        }
+      } catch (err) {
+        console.warn('Failed to fetch agent config:', err);
       }
-    } catch (err) {
-      console.warn("Failed to fetch agent config:", err);
     }
-  }
 
-  // Model Access check
-  if (req.tenant.model_access && req.tenant.model_access.length > 0) {
-    const allowed = req.tenant.model_access.map(m => m.toLowerCase());
-    const targetModel = selectedModel.toLowerCase();
-    const isAllowed = allowed.some(m => targetModel.includes(m) || m.includes(targetModel));
-    if (!isAllowed) {
-      return res.status(403).json({ error: `Your subscription plan (${req.tenant.plan}) does not have access to model: ${selectedModel}` });
-    }
-  }
-
-  // Token Limit check
-  if (req.tenant.token_limit && req.tenant.token_limit > 0) {
-    try {
-      const tokenRes = await pool.query(
-        'SELECT COALESCE(SUM(tokens_used), 0)::int as tokens_used FROM messages WHERE tenant_id = $1',
-        [req.tenant.id]
+    // Model Access check
+    if (req.tenant.model_access && req.tenant.model_access.length > 0) {
+      const allowed = req.tenant.model_access.map((m) => m.toLowerCase());
+      const targetModel = selectedModel.toLowerCase();
+      const isAllowed = allowed.some(
+        (m) => targetModel.includes(m) || m.includes(targetModel)
       );
-      const tokensUsed = tokenRes.rows[0].tokens_used;
-      const hardLimit = req.tenant.token_limit * 1.10;
-      const promptTokenEstimate = Math.ceil(message.length / 4);
-      const expectedGenerated = agentConfig ? parseInt(agentConfig.max_tokens) : 250;
-      const estimatedTokensNeeded = promptTokenEstimate + expectedGenerated;
-
-      if (tokensUsed >= hardLimit) {
-        return res.status(403).json({ 
-          error: `Monthly token limit exceeded. Your current usage is ${(tokensUsed).toLocaleString()} tokens (limit is ${(req.tenant.token_limit).toLocaleString()}). Please upgrade your subscription plan.` 
+      if (!isAllowed) {
+        return res.status(403).json({
+          error: `Your subscription plan (${req.tenant.plan}) does not have access to model: ${selectedModel}`,
         });
       }
-    } catch (err) {
-      console.warn('Failed to verify token limit:', err);
     }
-  }
 
-  // Rate limiting via Redis (loaded dynamically from database plan configuration)
-  let limit = 10;
-  if (req.tenant.features && typeof req.tenant.features.rpm_limit === 'number') {
-    limit = req.tenant.features.rpm_limit;
-  } else {
-    // Fallback based on plan name
-    const planName = (req.tenant.plan || 'starter').toLowerCase();
-    if (planName === 'starter' || planName === 'solo') {
-      limit = 10;
-    } else if (planName === 'professional' || planName === 'pro' || planName === 'team') {
-      limit = 60;
-    } else if (planName === 'business') {
-      limit = 300;
-    } else if (planName === 'enterprise') {
-      limit = 0; // unlimited
-    }
-  }
-
-  if (limit > 0) {
-    const key = `ratelimit:${req.tenant.id}:${req.user.id}`;
-    try {
-      const current = await redis.get(key);
-      if (current && parseInt(current) >= limit) {
-        return res.status(429).json({ error: 'Rate limit exceeded. Please upgrade your plan.' });
-      }
-      
-      const multi = redis.multi();
-      multi.incr(key);
-      multi.ttl(key);
-      const results = await multi.exec();
-      const ttl = results[1][1];
-      if (ttl === -1) {
-        await redis.expire(key, 60);
-      }
-    } catch (err) {
-      console.warn('Redis rate limit check failed, bypassing to ensure availability', err);
-    }
-  }
-
-  try {
-    let currentConvId = conversationId;
-    let history = [];
-
-    // Fetch conversation history (auto-scoped under RLS) or create a new conversation
-    if (currentConvId) {
-      history = await executeTenantQuery(req.tenant.id, async (client) => {
-        const msgResult = await client.query(
-          'SELECT role, content FROM messages WHERE conversation_id = $1 ORDER BY created_at ASC',
-          [currentConvId]
+    // Token Limit check
+    if (req.tenant.token_limit && req.tenant.token_limit > 0) {
+      try {
+        const tokenRes = await pool.query(
+          'SELECT COALESCE(SUM(tokens_used), 0)::int as tokens_used FROM messages WHERE tenant_id = $1',
+          [req.tenant.id]
         );
-        return msgResult.rows;
-      });
+        const tokensUsed = tokenRes.rows[0].tokens_used;
+        const hardLimit = req.tenant.token_limit * 1.1;
+        const promptTokenEstimate = Math.ceil(message.length / 4);
+        const expectedGenerated = agentConfig
+          ? parseInt(agentConfig.max_tokens)
+          : 250;
+        const estimatedTokensNeeded = promptTokenEstimate + expectedGenerated;
+
+        if (tokensUsed >= hardLimit) {
+          return res.status(403).json({
+            error: `Monthly token limit exceeded. Your current usage is ${tokensUsed.toLocaleString()} tokens (limit is ${req.tenant.token_limit.toLocaleString()}). Please upgrade your subscription plan.`,
+          });
+        }
+      } catch (err) {
+        console.warn('Failed to verify token limit:', err);
+      }
+    }
+
+    // Rate limiting via Redis (loaded dynamically from database plan configuration)
+    let limit = 10;
+    if (
+      req.tenant.features &&
+      typeof req.tenant.features.rpm_limit === 'number'
+    ) {
+      limit = req.tenant.features.rpm_limit;
     } else {
-      currentConvId = await executeTenantQuery(req.tenant.id, async (client) => {
-        const title = message.substring(0, 50);
-        const convResult = await client.query(
-          'INSERT INTO conversations (tenant_id, user_id, title, model) VALUES ($1, $2, $3, $4) RETURNING id',
-          [req.tenant.id, req.user.id, title, selectedModel]
-        );
-        return convResult.rows[0].id;
-      });
-    }
-
-    // Accept client-side history directly — this eliminates DB race condition entirely
-    // If frontend sends clientHistory, use it. Otherwise fall back to DB history.
-    const finalHistory = (clientHistory && clientHistory.length > 0) ? clientHistory : history;
-
-    // Check for URLs to crawl or Deep Search
-    const urlRegex = /(https?:\/\/[^\s]+)/g;
-    const urls = message.match(urlRegex) || [];
-    let crawledContext = '';
-    
-    if (urls.length > 0) {
-      // Crawl all found URLs
-      for (const url of urls) {
-        crawledContext += await crawlWebsite(url, 1) + '\n\n';
+      // Fallback based on plan name
+      const planName = (req.tenant.plan || 'starter').toLowerCase();
+      if (planName === 'starter' || planName === 'solo') {
+        limit = 10;
+      } else if (
+        planName === 'professional' ||
+        planName === 'pro' ||
+        planName === 'team'
+      ) {
+        limit = 60;
+      } else if (planName === 'business') {
+        limit = 300;
+      } else if (planName === 'enterprise') {
+        limit = 0; // unlimited
       }
     }
-    
-    if (deepSearch) {
-      const searchResults = await searchWeb(message);
-      crawledContext += `\n--- LIVE WEB SEARCH RESULTS ---\n${searchResults}\n`;
+
+    if (limit > 0) {
+      const key = `ratelimit:${req.tenant.id}:${req.user.id}`;
+      try {
+        const current = await redis.get(key);
+        if (current && parseInt(current) >= limit) {
+          return res
+            .status(429)
+            .json({ error: 'Rate limit exceeded. Please upgrade your plan.' });
+        }
+
+        const multi = redis.multi();
+        multi.incr(key);
+        multi.ttl(key);
+        const results = await multi.exec();
+        const ttl = results[1][1];
+        if (ttl === -1) {
+          await redis.expire(key, 60);
+        }
+      } catch (err) {
+        console.warn(
+          'Redis rate limit check failed, bypassing to ensure availability',
+          err
+        );
+      }
     }
 
-    // RAG: Query relevant document embeddings using pgvector cosine similarity
-    let ragContextText = '';
     try {
-      const queryEmbedding = await getEmbedding(message, selectedModel);
-      const embeddingString = `[${queryEmbedding.join(',')}]`;
-      const ragRows = await executeTenantQuery(req.tenant.id, async (client) => {
-        const res = await client.query(
-          `SELECT de.content, 1 - (de.embedding <=> $1::vector) AS similarity
+      let currentConvId = conversationId;
+      let history = [];
+
+      // Fetch conversation history (auto-scoped under RLS) or create a new conversation
+      if (currentConvId) {
+        history = await executeTenantQuery(req.tenant.id, async (client) => {
+          const msgResult = await client.query(
+            'SELECT role, content FROM messages WHERE conversation_id = $1 ORDER BY created_at ASC',
+            [currentConvId]
+          );
+          return msgResult.rows;
+        });
+      } else {
+        currentConvId = await executeTenantQuery(
+          req.tenant.id,
+          async (client) => {
+            const title = message.substring(0, 50);
+            const convResult = await client.query(
+              'INSERT INTO conversations (tenant_id, user_id, title, model) VALUES ($1, $2, $3, $4) RETURNING id',
+              [req.tenant.id, req.user.id, title, selectedModel]
+            );
+            return convResult.rows[0].id;
+          }
+        );
+      }
+
+      // Accept client-side history directly — this eliminates DB race condition entirely
+      // If frontend sends clientHistory, use it. Otherwise fall back to DB history.
+      const finalHistory =
+        clientHistory && clientHistory.length > 0 ? clientHistory : history;
+
+      // Check for URLs to crawl or Deep Search
+      const urlRegex = /(https?:\/\/[^\s]+)/g;
+      const urls = message.match(urlRegex) || [];
+      let crawledContext = '';
+
+      if (urls.length > 0) {
+        // Crawl all found URLs
+        for (const url of urls) {
+          crawledContext += (await crawlWebsite(url, 1)) + '\n\n';
+        }
+      }
+
+      if (deepSearch) {
+        const searchResults = await searchWeb(message);
+        crawledContext += `\n--- LIVE WEB SEARCH RESULTS ---\n${searchResults}\n`;
+      }
+
+      // RAG: Query relevant document embeddings using pgvector cosine similarity
+      let ragContextText = '';
+      try {
+        const queryEmbedding = await getEmbedding(message, selectedModel);
+        const embeddingString = `[${queryEmbedding.join(',')}]`;
+        const ragRows = await executeTenantQuery(
+          req.tenant.id,
+          async (client) => {
+            const res = await client.query(
+              `SELECT de.content, 1 - (de.embedding <=> $1::vector) AS similarity
            FROM document_embeddings de
            JOIN knowledge_documents kd ON de.knowledge_document_id = kd.id
            WHERE de.tenant_id = $2 AND kd.is_active = true
            ORDER BY de.embedding <=> $1::vector
            LIMIT 5`,
-          [embeddingString, req.tenant.id]
+              [embeddingString, req.tenant.id]
+            );
+            return res.rows;
+          },
+          true
         );
-        return res.rows;
-      }, true);
 
-      if (ragRows && ragRows.length > 0) {
-        ragContextText = ragRows
-          .filter(row => row.similarity > 0.35)
-          .map(row => row.content)
-          .join('\n\n');
-      }
-    } catch (err) {
-      console.warn('Warning retrieving RAG context from document_embeddings:', err.message);
-    }
-
-    // Build messages array with full conversation history for proper context
-    const messages = buildMessages(finalHistory, message, selectedModel, agentConfig);
-    
-    if (ragContextText) {
-      messages.splice(messages.length - 1, 0, {
-        role: 'system',
-        content: `KNOWLEDGE BASE CONTEXT (Extracted from uploaded documents):\n${ragContextText}\nUse this context to answer the user request accurately.`
-      });
-    }
-
-    if (crawledContext) {
-      messages.splice(messages.length - 1, 0, { 
-        role: 'system', 
-        content: `LIVE WEBSITE CONTEXT (Extracted from URL provided by user):\n${crawledContext}\nUse this context to fulfill the user's request accurately.`
-      });
-    }
-
-    const promptTokenEstimate = messages.reduce((acc, m) => acc + Math.ceil(m.content.length / 4), 0);
-    const chatStartTime = Date.now();
-
-    // Log activity start to admin panel
-    let activityId = null;
-    try {
-      const adminApiBase = process.env.ADMIN_API_URL || 'http://admin-api:4000';
-      const actResp = await axios.post(`${adminApiBase}/admin/activity`, {
-        tenant_id: req.tenant.id, user_id: req.user.id, agent_id: agentConfig?.id || null,
-        model: selectedModel, status: 'processing', tokens_in: 0, tokens_out: 0
-      }, { timeout: 2000 }).catch(err => {
-        console.warn('Warning calling admin activity endpoint:', err.message);
-        return null;
-      });
-      if (actResp?.data?.id) activityId = actResp.data.id;
-    } catch (error) {
-      console.warn('Warning logging activity to admin panel:', error.message);
-    }
-
-    // Set streaming headers
-    res.setHeader('Content-Type', 'text/plain; charset=utf-8');
-    res.setHeader('Transfer-Encoding', 'chunked');
-    res.setHeader('X-Conversation-Id', currentConvId);
-
-    try {
-      const response = await axios.post(`${ollamaHost}/api/chat`, {
-        model: selectedModel,
-        messages: messages,
-        stream: true,
-        keep_alive: -1,
-        options: {
-          num_thread: 7,
-          temperature: agentConfig ? parseFloat(agentConfig.temperature) : 0.7,
-          num_predict: agentConfig ? parseInt(agentConfig.max_tokens) : 2048,
-          top_p: agentConfig ? parseFloat(agentConfig.top_p) : 0.9
+        if (ragRows && ragRows.length > 0) {
+          ragContextText = ragRows
+            .filter((row) => row.similarity > 0.35)
+            .map((row) => row.content)
+            .join('\n\n');
         }
-      }, { 
-        responseType: 'stream',
-        timeout: 180000 
-      });
+      } catch (err) {
+        console.warn(
+          'Warning retrieving RAG context from document_embeddings:',
+          err.message
+        );
+      }
 
-      let fullResponseText = '';
-      let promptTokens = promptTokenEstimate;
-      let completionTokens = 0;
-      let streamExceeded = false;
-      let generatedTokensCount = 0;
-      let dbSaved = false;
+      // Build messages array with full conversation history for proper context
+      const messages = buildMessages(
+        finalHistory,
+        message,
+        selectedModel,
+        agentConfig
+      );
 
-      async function saveCompletedChat(inTokens, outTokens, textContent, wasTerminated = false) {
-        if (dbSaved) return;
-        dbSaved = true;
+      if (ragContextText) {
+        messages.splice(messages.length - 1, 0, {
+          role: 'system',
+          content: `KNOWLEDGE BASE CONTEXT (Extracted from uploaded documents):\n${ragContextText}\nUse this context to answer the user request accurately.`,
+        });
+      }
 
+      if (crawledContext) {
+        messages.splice(messages.length - 1, 0, {
+          role: 'system',
+          content: `LIVE WEBSITE CONTEXT (Extracted from URL provided by user):\n${crawledContext}\nUse this context to fulfill the user's request accurately.`,
+        });
+      }
+
+      const promptTokenEstimate = messages.reduce(
+        (acc, m) => acc + Math.ceil(m.content.length / 4),
+        0
+      );
+      const chatStartTime = Date.now();
+
+      // Log activity start to admin panel
+      let activityId = null;
+      try {
+        const adminApiBase =
+          process.env.ADMIN_API_URL || 'http://admin-api:4000';
+        const actResp = await axios
+          .post(
+            `${adminApiBase}/admin/activity`,
+            {
+              tenant_id: req.tenant.id,
+              user_id: req.user.id,
+              agent_id: agentConfig?.id || null,
+              model: selectedModel,
+              status: 'processing',
+              tokens_in: 0,
+              tokens_out: 0,
+            },
+            { timeout: 2000 }
+          )
+          .catch((err) => {
+            console.warn(
+              'Warning calling admin activity endpoint:',
+              err.message
+            );
+            return null;
+          });
+        if (actResp?.data?.id) activityId = actResp.data.id;
+      } catch (error) {
+        console.warn('Warning logging activity to admin panel:', error.message);
+      }
+
+      // Set streaming headers
+      res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+      res.setHeader('Transfer-Encoding', 'chunked');
+      res.setHeader('X-Conversation-Id', currentConvId);
+
+      try {
+        const response = await axios.post(
+          `${ollamaHost}/api/chat`,
+          {
+            model: selectedModel,
+            messages: messages,
+            stream: true,
+            keep_alive: -1,
+            options: {
+              num_thread: 7,
+              temperature: agentConfig
+                ? parseFloat(agentConfig.temperature)
+                : 0.7,
+              num_predict: agentConfig
+                ? parseInt(agentConfig.max_tokens)
+                : 2048,
+              top_p: agentConfig ? parseFloat(agentConfig.top_p) : 0.9,
+            },
+          },
+          {
+            responseType: 'stream',
+            timeout: 180000,
+          }
+        );
+
+        let fullResponseText = '';
+        let promptTokens = promptTokenEstimate;
+        let completionTokens = 0;
+        let streamExceeded = false;
+        let generatedTokensCount = 0;
+        let dbSaved = false;
+
+        async function saveCompletedChat(
+          inTokens,
+          outTokens,
+          textContent,
+          wasTerminated = false
+        ) {
+          if (dbSaved) return;
+          dbSaved = true;
+
+          try {
+            await executeTenantQuery(req.tenant.id, async (client) => {
+              await client.query(
+                'INSERT INTO messages (tenant_id, conversation_id, role, content, tokens_used) VALUES ($1, $2, $3, $4, $5)',
+                [req.tenant.id, currentConvId, 'user', message, inTokens]
+              );
+              await client.query(
+                'INSERT INTO messages (tenant_id, conversation_id, role, content, tokens_used) VALUES ($1, $2, $3, $4, $5)',
+                [
+                  req.tenant.id,
+                  currentConvId,
+                  'assistant',
+                  textContent,
+                  outTokens,
+                ]
+              );
+              await client.query(
+                'UPDATE conversations SET updated_at = NOW() WHERE id = $1',
+                [currentConvId]
+              );
+              if (agentConfig) {
+                await client.query(
+                  'UPDATE agents SET total_requests = total_requests + 1, total_tokens = total_tokens + $1, last_used_at = NOW() WHERE id = $2',
+                  [inTokens + outTokens, agentConfig.id]
+                );
+              }
+
+              const totalFinalUsage =
+                (typeof tokensUsed === 'number' ? tokensUsed : 0) +
+                inTokens +
+                outTokens;
+              if (
+                req.tenant.token_limit > 0 &&
+                totalFinalUsage > req.tenant.token_limit
+              ) {
+                await client.query(
+                  `INSERT INTO activity_logs (tenant_id, action, metadata)
+                 VALUES ($1, $2, $3)`,
+                  [
+                    req.tenant.id,
+                    'TOKEN_OVERAGE_FLAGGED',
+                    JSON.stringify({
+                      message: wasTerminated
+                        ? 'Tenant hit hard 10% token buffer cutoff and was stream-terminated'
+                        : 'Tenant exceeded token limit but completed within 10% buffer',
+                      token_limit: req.tenant.token_limit,
+                      tokens_used: totalFinalUsage,
+                      excess_tokens: totalFinalUsage - req.tenant.token_limit,
+                    }),
+                  ]
+                );
+              }
+            });
+          } catch (dbErr) {
+            console.error('Failed to save chat messages to DB:', dbErr);
+          }
+
+          const latency = Date.now() - chatStartTime;
+          if (activityId) {
+            axios
+              .post(
+                `${process.env.ADMIN_API_URL || 'http://admin-api:4000'}/admin/activity`,
+                {
+                  tenant_id: req.tenant.id,
+                  user_id: req.user.id,
+                  agent_id: agentConfig?.id || null,
+                  model: selectedModel,
+                  status: wasTerminated ? 'failed' : 'completed',
+                  tokens_in: inTokens,
+                  tokens_out: outTokens,
+                  latency_ms: latency,
+                }
+              )
+              .catch((err) => {
+                console.warn(
+                  'Warning updating admin activity status:',
+                  err.message
+                );
+              });
+          }
+        }
+
+        response.data.on('data', (chunk) => {
+          if (streamExceeded) return;
+          const lines = chunk.toString().split('\n').filter(Boolean);
+          for (const line of lines) {
+            if (streamExceeded) break;
+            try {
+              const parsed = JSON.parse(line);
+              if (parsed.message && parsed.message.content) {
+                const chunkTokens =
+                  Math.ceil(parsed.message.content.length / 4) || 1;
+                generatedTokensCount += chunkTokens;
+
+                const currentUsage =
+                  typeof tokensUsed === 'number' ? tokensUsed : 0;
+                if (
+                  req.tenant.token_limit > 0 &&
+                  currentUsage + promptTokens + generatedTokensCount >=
+                    req.tenant.token_limit * 1.1
+                ) {
+                  streamExceeded = true;
+                  res.write(
+                    '\n\n⚠️ [SYSTEM NOTICE]: Monthly token quota limit has been exceeded. Gracefully terminating generation stream. Please upgrade your subscription plan.'
+                  );
+                  response.data.destroy();
+                  res.end();
+
+                  completionTokens = generatedTokensCount;
+                  saveCompletedChat(
+                    promptTokens,
+                    completionTokens,
+                    fullResponseText,
+                    true
+                  );
+                  break;
+                }
+
+                fullResponseText += parsed.message.content;
+                res.write(parsed.message.content);
+              }
+              if (parsed.done) {
+                promptTokens = parsed.prompt_eval_count || promptTokens;
+                completionTokens =
+                  parsed.eval_count || Math.ceil(fullResponseText.length / 4);
+              }
+            } catch (e) {
+              console.warn('Warning parsing Ollama stream chunk:', e.message);
+            }
+          }
+        });
+
+        response.data.on('end', async () => {
+          await saveCompletedChat(
+            promptTokens,
+            completionTokens,
+            fullResponseText,
+            false
+          );
+          res.end();
+        });
+
+        response.data.on('error', (streamErr) => {
+          console.error('Ollama stream error:', streamErr);
+          if (!res.writableEnded) res.end();
+        });
+      } catch (ollamaErr) {
+        console.warn(
+          'Ollama /api/chat failed, using context-aware fallback:',
+          ollamaErr.message
+        );
+        const fallbackResponse = getMockResponse(
+          finalHistory,
+          message,
+          selectedModel
+        );
+        const completionTokens = Math.ceil(fallbackResponse.length / 4);
+
+        // Save fallback to DB first, then respond
         try {
           await executeTenantQuery(req.tenant.id, async (client) => {
             await client.query(
               'INSERT INTO messages (tenant_id, conversation_id, role, content, tokens_used) VALUES ($1, $2, $3, $4, $5)',
-              [req.tenant.id, currentConvId, 'user', message, inTokens]
+              [
+                req.tenant.id,
+                currentConvId,
+                'user',
+                message,
+                promptTokenEstimate,
+              ]
             );
             await client.query(
               'INSERT INTO messages (tenant_id, conversation_id, role, content, tokens_used) VALUES ($1, $2, $3, $4, $5)',
-              [req.tenant.id, currentConvId, 'assistant', textContent, outTokens]
+              [
+                req.tenant.id,
+                currentConvId,
+                'assistant',
+                fallbackResponse,
+                completionTokens,
+              ]
             );
             await client.query(
               'UPDATE conversations SET updated_at = NOW() WHERE id = $1',
               [currentConvId]
             );
-            if (agentConfig) {
-              await client.query(
-                'UPDATE agents SET total_requests = total_requests + 1, total_tokens = total_tokens + $1, last_used_at = NOW() WHERE id = $2',
-                [inTokens + outTokens, agentConfig.id]
-              );
-            }
-
-            const totalFinalUsage = (typeof tokensUsed === 'number' ? tokensUsed : 0) + inTokens + outTokens;
-            if (req.tenant.token_limit > 0 && totalFinalUsage > req.tenant.token_limit) {
-              await client.query(
-                `INSERT INTO activity_logs (tenant_id, action, metadata)
-                 VALUES ($1, $2, $3)`,
-                [
-                  req.tenant.id,
-                  'TOKEN_OVERAGE_FLAGGED',
-                  JSON.stringify({
-                    message: wasTerminated 
-                      ? 'Tenant hit hard 10% token buffer cutoff and was stream-terminated'
-                      : 'Tenant exceeded token limit but completed within 10% buffer',
-                    token_limit: req.tenant.token_limit,
-                    tokens_used: totalFinalUsage,
-                    excess_tokens: totalFinalUsage - req.tenant.token_limit
-                  })
-                ]
-              );
-            }
           });
         } catch (dbErr) {
-          console.error('Failed to save chat messages to DB:', dbErr);
+          console.error('Failed to save fallback messages to DB:', dbErr);
         }
-
-        const latency = Date.now() - chatStartTime;
-        if (activityId) {
-          axios.post(`${process.env.ADMIN_API_URL || 'http://admin-api:4000'}/admin/activity`, {
-            tenant_id: req.tenant.id, user_id: req.user.id, agent_id: agentConfig?.id || null,
-            model: selectedModel, status: wasTerminated ? 'failed' : 'completed',
-            tokens_in: inTokens, tokens_out: outTokens, latency_ms: latency
-          }).catch(err => {
-            console.warn('Warning updating admin activity status:', err.message);
-          });
-        }
-      }
-
-      response.data.on('data', (chunk) => {
-        if (streamExceeded) return;
-        const lines = chunk.toString().split('\n').filter(Boolean);
-        for (const line of lines) {
-          if (streamExceeded) break;
-          try {
-            const parsed = JSON.parse(line);
-            if (parsed.message && parsed.message.content) {
-              const chunkTokens = Math.ceil(parsed.message.content.length / 4) || 1;
-              generatedTokensCount += chunkTokens;
-
-              const currentUsage = (typeof tokensUsed === 'number' ? tokensUsed : 0);
-              if (req.tenant.token_limit > 0 && (currentUsage + promptTokens + generatedTokensCount) >= req.tenant.token_limit * 1.10) {
-                streamExceeded = true;
-                res.write('\n\n⚠️ [SYSTEM NOTICE]: Monthly token quota limit has been exceeded. Gracefully terminating generation stream. Please upgrade your subscription plan.');
-                response.data.destroy();
-                res.end();
-
-                completionTokens = generatedTokensCount;
-                saveCompletedChat(promptTokens, completionTokens, fullResponseText, true);
-                break;
-              }
-
-              fullResponseText += parsed.message.content;
-              res.write(parsed.message.content);
-            }
-            if (parsed.done) {
-              promptTokens = parsed.prompt_eval_count || promptTokens;
-              completionTokens = parsed.eval_count || Math.ceil(fullResponseText.length / 4);
-            }
-          } catch (e) {
-            console.warn('Warning parsing Ollama stream chunk:', e.message);
-          }
-        }
-      });
-
-      response.data.on('end', async () => {
-        await saveCompletedChat(promptTokens, completionTokens, fullResponseText, false);
+        res.write(fallbackResponse);
         res.end();
-      });
-
-      response.data.on('error', (streamErr) => {
-        console.error('Ollama stream error:', streamErr);
-        if (!res.writableEnded) res.end();
-      });
-
-    } catch (ollamaErr) {
-      console.warn('Ollama /api/chat failed, using context-aware fallback:', ollamaErr.message);
-      const fallbackResponse = getMockResponse(finalHistory, message, selectedModel);
-      const completionTokens = Math.ceil(fallbackResponse.length / 4);
-
-      // Save fallback to DB first, then respond
-      try {
-        await executeTenantQuery(req.tenant.id, async (client) => {
-          await client.query(
-            'INSERT INTO messages (tenant_id, conversation_id, role, content, tokens_used) VALUES ($1, $2, $3, $4, $5)',
-            [req.tenant.id, currentConvId, 'user', message, promptTokenEstimate]
-          );
-          await client.query(
-            'INSERT INTO messages (tenant_id, conversation_id, role, content, tokens_used) VALUES ($1, $2, $3, $4, $5)',
-            [req.tenant.id, currentConvId, 'assistant', fallbackResponse, completionTokens]
-          );
-          await client.query(
-            'UPDATE conversations SET updated_at = NOW() WHERE id = $1',
-            [currentConvId]
-          );
-        });
-      } catch (dbErr) {
-        console.error('Failed to save fallback messages to DB:', dbErr);
       }
-      res.write(fallbackResponse);
-      res.end();
-    }
-  } catch (err) {
-    console.error('Chat endpoint error:', err);
-    if (!res.headersSent) {
-      res.status(500).json({ error: 'Failed to process chat conversation' });
+    } catch (err) {
+      console.error('Chat endpoint error:', err);
+      if (!res.headersSent) {
+        res.status(500).json({ error: 'Failed to process chat conversation' });
+      }
     }
   }
-});
-
+);
 
 // 6. POST /api/auth/login
 app.post('/api/auth/login', validate(loginSchema), async (req, res) => {
   const { email, password } = req.body;
   try {
-    const userResult = await pool.query('SELECT * FROM users WHERE email = $1 AND tenant_id = $2 AND deleted_at IS NULL', [email, req.tenant.id]);
+    const userResult = await pool.query(
+      'SELECT * FROM users WHERE email = $1 AND tenant_id = $2 AND deleted_at IS NULL',
+      [email, req.tenant.id]
+    );
     const user = userResult.rows[0];
-    if (!user) return res.status(401).json({ error: 'Invalid email or password' });
+    if (!user)
+      return res.status(401).json({ error: 'Invalid email or password' });
 
     // Use standard bcrypt comparison
     let valid = false;
     if (user.password_hash) {
       valid = await bcrypt.compare(password, user.password_hash);
     }
-    if (!valid) return res.status(401).json({ error: 'Invalid email or password' });
+    if (!valid)
+      return res.status(401).json({ error: 'Invalid email or password' });
 
-    const accessToken = jwt.sign({ userId: user.id, role: user.role }, jwtSecret, { expiresIn: '15m' });
+    const accessToken = jwt.sign(
+      { userId: user.id, role: user.role },
+      jwtSecret,
+      { expiresIn: '15m' }
+    );
     const refreshToken = crypto.randomBytes(32).toString('hex');
-    const refreshTokenHash = crypto.createHash('sha256').update(refreshToken).digest('hex');
+    const refreshTokenHash = crypto
+      .createHash('sha256')
+      .update(refreshToken)
+      .digest('hex');
     const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000); // 30 days
-    
+
     await pool.query(
       `INSERT INTO refresh_tokens (token, user_id, tenant_id, expires_at)
        VALUES ($1, $2, $3, $4)`,
@@ -2146,18 +2722,23 @@ app.post('/api/auth/login', validate(loginSchema), async (req, res) => {
     );
 
     const host = req.headers.host || '';
-    const domainSuffix = host.includes('neuravolt.cloud') ? '; Domain=.neuravolt.cloud' : '';
+    const domainSuffix = host.includes('neuravolt.cloud')
+      ? '; Domain=.neuravolt.cloud'
+      : '';
     const secureFlag = process.env.NODE_ENV === 'production' ? 'Secure;' : '';
-    
+
     res.setHeader('Set-Cookie', [
       `hk_access_token=${accessToken}; HttpOnly; ${secureFlag} SameSite=Strict; Path=/; Max-Age=${15 * 60}${domainSuffix}`,
-      `hk_refresh_token=${refreshToken}; HttpOnly; ${secureFlag} SameSite=Strict; Path=/; Max-Age=${30 * 24 * 60 * 60}${domainSuffix}`
+      `hk_refresh_token=${refreshToken}; HttpOnly; ${secureFlag} SameSite=Strict; Path=/; Max-Age=${30 * 24 * 60 * 60}${domainSuffix}`,
     ]);
 
     // ── Record real login activity + device session ──────────────────────────
     try {
       const ua = req.headers['user-agent'] || 'Unknown Browser';
-      const rawIp = (req.headers['x-forwarded-for'] || req.socket?.remoteAddress || '').split(',')[0].trim() || '127.0.0.1';
+      const rawIp =
+        (req.headers['x-forwarded-for'] || req.socket?.remoteAddress || '')
+          .split(',')[0]
+          .trim() || '127.0.0.1';
       const ip = rawIp.replace(/^::ffff:/, '');
 
       await executeTenantQuery(req.tenant.id, async (client) => {
@@ -2171,13 +2752,17 @@ app.post('/api/auth/login', validate(loginSchema), async (req, res) => {
             'Logged in successfully',
             JSON.stringify({ level: 'info', color: '#059669' }),
             ip,
-            ua
+            ua,
           ]
         );
 
         // Upsert user session in new user_sessions table
-        const browserMatch = ua.match(/(Chrome|Firefox|Safari|Edge|Opera|Brave)[/\s]([\d.]+)/i);
-        const osMatch = ua.match(/(Windows NT|Mac OS X|Linux|Android|iOS|iPhone OS)[\s/]?([\d._]+)?/i);
+        const browserMatch = ua.match(
+          /(Chrome|Firefox|Safari|Edge|Opera|Brave)[/\s]([\d.]+)/i
+        );
+        const osMatch = ua.match(
+          /(Windows NT|Mac OS X|Linux|Android|iOS|iPhone OS)[\s/]?([\d._]+)?/i
+        );
         let osName = 'Unknown OS';
         if (osMatch) {
           if (osMatch[1] === 'Windows NT') osName = 'Windows';
@@ -2185,7 +2770,9 @@ app.post('/api/auth/login', validate(loginSchema), async (req, res) => {
           else osName = osMatch[1].replace('_', ' ');
         }
         const browserName = browserMatch ? browserMatch[1] : 'Unknown Browser';
-        const deviceName = osMatch ? (osMatch[1] === 'Mac OS X' ? 'Mac' : osName) + ' Device' : 'Unknown Device';
+        const deviceName = osMatch
+          ? (osMatch[1] === 'Mac OS X' ? 'Mac' : osName) + ' Device'
+          : 'Unknown Device';
 
         const existingSession = await client.query(
           `SELECT id FROM user_sessions 
@@ -2214,7 +2801,12 @@ app.post('/api/auth/login', validate(loginSchema), async (req, res) => {
 
     res.json({
       success: true,
-      user: { id: user.id, email: user.email, role: user.role, tenantSlug: req.tenant.slug }
+      user: {
+        id: user.id,
+        email: user.email,
+        role: user.role,
+        tenantSlug: req.tenant.slug,
+      },
     });
   } catch (err) {
     console.error('Login error:', err);
@@ -2227,24 +2819,37 @@ app.post('/api/auth/register', validate(registerSchema), async (req, res) => {
   const { name, email, password } = req.body;
   try {
     // Rate limit check
-    const ip = (req.headers['x-forwarded-for'] || req.socket.remoteAddress || '').split(',')[0].trim() || '127.0.0.1';
+    const ip =
+      (req.headers['x-forwarded-for'] || req.socket.remoteAddress || '')
+        .split(',')[0]
+        .trim() || '127.0.0.1';
     const key = `ratelimit:password:${ip}`;
     const attempts = await redis.incr(key);
     if (attempts === 1) {
       await redis.expire(key, 3600); // 1 hour TTL
     }
     if (attempts > 5) {
-      return res.status(429).json({ error: 'Too many password attempts. Rate limit exceeded. Try again in an hour.' });
+      return res.status(429).json({
+        error:
+          'Too many password attempts. Rate limit exceeded. Try again in an hour.',
+      });
     }
 
     const valErrors = validatePassword(password, email, name);
     if (valErrors.length > 0) {
-      return res.status(400).json({ error: 'Password validation failed', details: valErrors });
+      return res
+        .status(400)
+        .json({ error: 'Password validation failed', details: valErrors });
     }
 
     const compromised = await isPasswordPwned(password);
     if (compromised) {
-      return res.status(400).json({ error: 'Password validation failed', details: ['This password has been compromised in data breaches. Please choose a different one.'] });
+      return res.status(400).json({
+        error: 'Password validation failed',
+        details: [
+          'This password has been compromised in data breaches. Please choose a different one.',
+        ],
+      });
     }
     // Check if email already exists in this tenant
     const existing = await pool.query(
@@ -2252,7 +2857,9 @@ app.post('/api/auth/register', validate(registerSchema), async (req, res) => {
       [email, req.tenant.id]
     );
     if (existing.rows.length > 0) {
-      return res.status(409).json({ error: 'An account with this email already exists' });
+      return res
+        .status(409)
+        .json({ error: 'An account with this email already exists' });
     }
 
     const passwordHash = await bcrypt.hash(password, 10);
@@ -2266,13 +2873,22 @@ app.post('/api/auth/register', validate(registerSchema), async (req, res) => {
     });
 
     // Send welcome email in background (non-blocking)
-    sendWelcomeEmail(email, name).catch(err => console.error('[WELCOME EMAIL SEND ERROR]:', err.message));
+    sendWelcomeEmail(email, name).catch((err) =>
+      console.error('[WELCOME EMAIL SEND ERROR]:', err.message)
+    );
 
-    const accessToken = jwt.sign({ userId: newUser.id, role: newUser.role }, jwtSecret, { expiresIn: '15m' });
+    const accessToken = jwt.sign(
+      { userId: newUser.id, role: newUser.role },
+      jwtSecret,
+      { expiresIn: '15m' }
+    );
     const refreshToken = crypto.randomBytes(32).toString('hex');
-    const refreshTokenHash = crypto.createHash('sha256').update(refreshToken).digest('hex');
+    const refreshTokenHash = crypto
+      .createHash('sha256')
+      .update(refreshToken)
+      .digest('hex');
     const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000); // 30 days
-    
+
     await pool.query(
       `INSERT INTO refresh_tokens (token, user_id, tenant_id, expires_at)
        VALUES ($1, $2, $3, $4)`,
@@ -2280,17 +2896,25 @@ app.post('/api/auth/register', validate(registerSchema), async (req, res) => {
     );
 
     const host = req.headers.host || '';
-    const domainSuffix = host.includes('neuravolt.cloud') ? '; Domain=.neuravolt.cloud' : '';
+    const domainSuffix = host.includes('neuravolt.cloud')
+      ? '; Domain=.neuravolt.cloud'
+      : '';
     const secureFlag = process.env.NODE_ENV === 'production' ? 'Secure;' : '';
-    
+
     res.setHeader('Set-Cookie', [
       `hk_access_token=${accessToken}; HttpOnly; ${secureFlag} SameSite=Strict; Path=/; Max-Age=${15 * 60}${domainSuffix}`,
-      `hk_refresh_token=${refreshToken}; HttpOnly; ${secureFlag} SameSite=Strict; Path=/; Max-Age=${30 * 24 * 60 * 60}${domainSuffix}`
+      `hk_refresh_token=${refreshToken}; HttpOnly; ${secureFlag} SameSite=Strict; Path=/; Max-Age=${30 * 24 * 60 * 60}${domainSuffix}`,
     ]);
 
     res.status(201).json({
       success: true,
-      user: { id: newUser.id, email: newUser.email, role: newUser.role, name: name || email.split('@')[0], tenantSlug: req.tenant.slug }
+      user: {
+        id: newUser.id,
+        email: newUser.email,
+        role: newUser.role,
+        name: name || email.split('@')[0],
+        tenantSlug: req.tenant.slug,
+      },
     });
   } catch (err) {
     console.error('Register error:', err);
@@ -2299,47 +2923,61 @@ app.post('/api/auth/register', validate(registerSchema), async (req, res) => {
 });
 
 // 6c. POST /api/auth/forgot-password
-app.post('/api/auth/forgot-password', validate(forgotPasswordSchema), async (req, res) => {
-  const { email } = req.body;
-  try {
-    // Rate limit: 3 requests per email per day
-    const rateLimitKey = `ratelimit:forgotpwd:${req.tenant.id}:${email.toLowerCase()}`;
-    const attempts = await redis.incr(rateLimitKey);
-    if (attempts === 1) {
-      await redis.expire(rateLimitKey, 86400); // 24 hours (1 day)
-    }
-    if (attempts > 3) {
-      return res.status(429).json({ error: 'Too many password reset requests. Rate limit exceeded. Try again tomorrow.' });
-    }
+app.post(
+  '/api/auth/forgot-password',
+  validate(forgotPasswordSchema),
+  async (req, res) => {
+    const { email } = req.body;
+    try {
+      // Rate limit: 3 requests per email per day
+      const rateLimitKey = `ratelimit:forgotpwd:${req.tenant.id}:${email.toLowerCase()}`;
+      const attempts = await redis.incr(rateLimitKey);
+      if (attempts === 1) {
+        await redis.expire(rateLimitKey, 86400); // 24 hours (1 day)
+      }
+      if (attempts > 3) {
+        return res.status(429).json({
+          error:
+            'Too many password reset requests. Rate limit exceeded. Try again tomorrow.',
+        });
+      }
 
-    // Check if user exists in this tenant (using executeTenantQuery to respect RLS)
-    const user = await executeTenantQuery(req.tenant.id, async (client) => {
-      const result = await client.query('SELECT id, email, name FROM users WHERE email = $1', [email]);
-      return result.rows[0];
-    });
+      // Check if user exists in this tenant (using executeTenantQuery to respect RLS)
+      const user = await executeTenantQuery(req.tenant.id, async (client) => {
+        const result = await client.query(
+          'SELECT id, email, name FROM users WHERE email = $1',
+          [email]
+        );
+        return result.rows[0];
+      });
 
-    if (!user) {
-      // Return 200/success anyway to prevent username enumeration, but log it
-      console.log(`[FORGOT PASSWORD] Requested email "${email}" does not exist in tenant "${req.tenant.slug}"`);
-      return res.status(200).json({ message: 'If this email exists in our records, a reset link will be sent.' });
-    }
+      if (!user) {
+        // Return 200/success anyway to prevent username enumeration, but log it
+        console.log(
+          `[FORGOT PASSWORD] Requested email "${email}" does not exist in tenant "${req.tenant.slug}"`
+        );
+        return res.status(200).json({
+          message:
+            'If this email exists in our records, a reset link will be sent.',
+        });
+      }
 
-    const token = crypto.randomBytes(20).toString('hex');
-    const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
-    const expiresAt = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
+      const token = crypto.randomBytes(20).toString('hex');
+      const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
+      const expiresAt = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
 
-    await executeTenantQuery(req.tenant.id, async (client) => {
-      await client.query(
-        `INSERT INTO password_reset_tokens (tenant_id, user_id, token_hash, expires_at)
+      await executeTenantQuery(req.tenant.id, async (client) => {
+        await client.query(
+          `INSERT INTO password_reset_tokens (tenant_id, user_id, token_hash, expires_at)
          VALUES ($1, $2, $3, $4)`,
-        [req.tenant.id, user.id, tokenHash, expiresAt]
-      );
-    });
+          [req.tenant.id, user.id, tokenHash, expiresAt]
+        );
+      });
 
-    const resetLink = `http://${req.tenant.slug}.neuravolt.cloud/reset-password?token=${token}&email=${encodeURIComponent(email)}`;
-    
-    // Simulate sending email
-    const emailHtml = `
+      const resetLink = `http://${req.tenant.slug}.neuravolt.cloud/reset-password?token=${token}&email=${encodeURIComponent(email)}`;
+
+      // Simulate sending email
+      const emailHtml = `
       <div style="font-family: sans-serif; padding: 20px; color: #1e293b; max-width: 600px; margin: 0 auto; border: 1px solid #e2e8f0; border-radius: 8px;">
         <h2 style="color: #3b82f6; border-bottom: 2px solid #3b82f6; padding-bottom: 10px;">Password Reset Request</h2>
         <p>Hello ${user.name || 'User'},</p>
@@ -2355,8 +2993,8 @@ app.post('/api/auth/forgot-password', validate(forgotPasswordSchema), async (req
       </div>
     `;
 
-    // Log the simulated email details to console
-    console.log(`
+      // Log the simulated email details to console
+      console.log(`
 ============================================================
 📧 SIMULATED RESET EMAIL SENT TO: ${email}
 ============================================================
@@ -2364,111 +3002,154 @@ ${emailHtml}
 ============================================================
     `);
 
-    // Write to a local log file for proof/automated audit
-    try {
-      const emailLog = {
-        to: email,
-        sentAt: new Date().toISOString(),
-        tenantSlug: req.tenant.slug,
-        resetLink,
-        body: emailHtml
-      };
-      // Append to local log file
-      const fs = await import('fs/promises');
-      await fs.appendFile('/Users/ashishpratapsinghtomar/Downloads/files/tenant-api/sent_emails.log', JSON.stringify(emailLog) + '\n');
-    } catch (logErr) {
-      console.warn('[EMAIL LOG] Failed to log email locally:', logErr.message);
+      // Write to a local log file for proof/automated audit
+      try {
+        const emailLog = {
+          to: email,
+          sentAt: new Date().toISOString(),
+          tenantSlug: req.tenant.slug,
+          resetLink,
+          body: emailHtml,
+        };
+        // Append to local log file
+        const fs = await import('fs/promises');
+        await fs.appendFile(
+          '/Users/ashishpratapsinghtomar/Downloads/files/tenant-api/sent_emails.log',
+          JSON.stringify(emailLog) + '\n'
+        );
+      } catch (logErr) {
+        console.warn(
+          '[EMAIL LOG] Failed to log email locally:',
+          logErr.message
+        );
+      }
+
+      // Send password reset email in background (non-blocking)
+      sendPasswordReset(email, resetLink).catch((err) =>
+        console.error('[PASSWORD RESET EMAIL SEND ERROR]:', err.message)
+      );
+
+      res.status(200).json({
+        message:
+          'If this email exists in our records, a reset link will be sent.',
+      });
+    } catch (err) {
+      console.error('Forgot password error:', err);
+      res
+        .status(500)
+        .json({ error: 'Failed to process password reset request' });
     }
-
-    // Send password reset email in background (non-blocking)
-    sendPasswordReset(email, resetLink).catch(err => console.error('[PASSWORD RESET EMAIL SEND ERROR]:', err.message));
-
-    res.status(200).json({ message: 'If this email exists in our records, a reset link will be sent.' });
-  } catch (err) {
-    console.error('Forgot password error:', err);
-    res.status(500).json({ error: 'Failed to process password reset request' });
   }
-});
+);
 
 // 6d. POST /api/auth/reset-password
-app.post('/api/auth/reset-password', validate(resetPasswordSchema), async (req, res) => {
-  const { token, email, newPassword } = req.body;
-  try {
-    const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
+app.post(
+  '/api/auth/reset-password',
+  validate(resetPasswordSchema),
+  async (req, res) => {
+    const { token, email, newPassword } = req.body;
+    try {
+      const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
 
-    // Find and validate token (using executeTenantQuery to respect RLS)
-    const tokenRecord = await executeTenantQuery(req.tenant.id, async (client) => {
-      const result = await client.query(
-        `SELECT prt.*, u.id AS user_id, u.email, u.name
+      // Find and validate token (using executeTenantQuery to respect RLS)
+      const tokenRecord = await executeTenantQuery(
+        req.tenant.id,
+        async (client) => {
+          const result = await client.query(
+            `SELECT prt.*, u.id AS user_id, u.email, u.name
          FROM password_reset_tokens prt
          JOIN users u ON prt.user_id = u.id
          WHERE prt.token_hash = $1 AND u.email = $2 AND prt.used_at IS NULL AND prt.expires_at > NOW()
          LIMIT 1`,
-        [tokenHash, email]
+            [tokenHash, email]
+          );
+          return result.rows[0];
+        }
       );
-      return result.rows[0];
-    });
 
-    if (!tokenRecord) {
-      return res.status(400).json({ error: 'Invalid or expired password reset token' });
+      if (!tokenRecord) {
+        return res
+          .status(400)
+          .json({ error: 'Invalid or expired password reset token' });
+      }
+
+      // Run password validation rules
+      const valErrors = validatePassword(
+        newPassword,
+        tokenRecord.email,
+        tokenRecord.name
+      );
+      if (valErrors.length > 0) {
+        return res
+          .status(400)
+          .json({ error: 'Password validation failed', details: valErrors });
+      }
+
+      const compromised = await isPasswordPwned(newPassword);
+      if (compromised) {
+        return res.status(400).json({
+          error: 'Password validation failed',
+          details: [
+            'This password has been compromised in data breaches. Please choose a different one.',
+          ],
+        });
+      }
+
+      // Update password, mark token as used, revoke all user refresh tokens and clear active devices
+      const passwordHash = await bcrypt.hash(newPassword, 10);
+      await executeTenantQuery(req.tenant.id, async (client) => {
+        // 1. Update user password hash and clear connected devices (sessions invalidation!)
+        await client.query(
+          `UPDATE users SET password_hash = $1, connected_devices = '[]'::jsonb WHERE id = $2`,
+          [passwordHash, tokenRecord.user_id]
+        );
+
+        // 2. Mark reset token as used
+        await client.query(
+          `UPDATE password_reset_tokens SET used_at = NOW() WHERE id = $1`,
+          [tokenRecord.id]
+        );
+
+        // 3. Revoke all refresh tokens
+        await client.query(
+          `UPDATE refresh_tokens SET revoked_at = NOW() WHERE user_id = $1`,
+          [tokenRecord.user_id]
+        );
+      });
+
+      res.status(200).json({
+        message:
+          'Password has been reset successfully. All other active sessions have been logged out.',
+      });
+    } catch (err) {
+      console.error('Reset password error:', err);
+      res.status(500).json({ error: 'Failed to reset password' });
     }
-
-    // Run password validation rules
-    const valErrors = validatePassword(newPassword, tokenRecord.email, tokenRecord.name);
-    if (valErrors.length > 0) {
-      return res.status(400).json({ error: 'Password validation failed', details: valErrors });
-    }
-
-    const compromised = await isPasswordPwned(newPassword);
-    if (compromised) {
-      return res.status(400).json({ error: 'Password validation failed', details: ['This password has been compromised in data breaches. Please choose a different one.'] });
-    }
-
-    // Update password, mark token as used, revoke all user refresh tokens and clear active devices
-    const passwordHash = await bcrypt.hash(newPassword, 10);
-    await executeTenantQuery(req.tenant.id, async (client) => {
-      // 1. Update user password hash and clear connected devices (sessions invalidation!)
-      await client.query(
-        `UPDATE users SET password_hash = $1, connected_devices = '[]'::jsonb WHERE id = $2`,
-        [passwordHash, tokenRecord.user_id]
-      );
-
-      // 2. Mark reset token as used
-      await client.query(
-        `UPDATE password_reset_tokens SET used_at = NOW() WHERE id = $1`,
-        [tokenRecord.id]
-      );
-
-      // 3. Revoke all refresh tokens
-      await client.query(
-        `UPDATE refresh_tokens SET revoked_at = NOW() WHERE user_id = $1`,
-        [tokenRecord.user_id]
-      );
-    });
-
-    res.status(200).json({ message: 'Password has been reset successfully. All other active sessions have been logged out.' });
-  } catch (err) {
-    console.error('Reset password error:', err);
-    res.status(500).json({ error: 'Failed to reset password' });
   }
-});
+);
 
 // 6e. POST /api/auth/logout
 app.post('/api/auth/logout', async (req, res) => {
   try {
     const cookies = parseCookies(req.headers.cookie);
     const refreshToken = cookies.hk_refresh_token;
-    
+
     if (refreshToken) {
-      const refreshTokenHash = crypto.createHash('sha256').update(refreshToken).digest('hex');
+      const refreshTokenHash = crypto
+        .createHash('sha256')
+        .update(refreshToken)
+        .digest('hex');
       await pool.query(
-        "UPDATE refresh_tokens SET revoked_at = NOW() WHERE token = $1",
+        'UPDATE refresh_tokens SET revoked_at = NOW() WHERE token = $1',
         [refreshTokenHash]
       );
     }
 
     const ua = req.headers['user-agent'] || 'Unknown Browser';
-    const rawIp = (req.headers['x-forwarded-for'] || req.socket?.remoteAddress || '').split(',')[0].trim() || '127.0.0.1';
+    const rawIp =
+      (req.headers['x-forwarded-for'] || req.socket?.remoteAddress || '')
+        .split(',')[0]
+        .trim() || '127.0.0.1';
     const ip = rawIp.replace(/^::ffff:/, '');
 
     // Revoke matching active user session
@@ -2482,18 +3163,23 @@ app.post('/api/auth/logout', async (req, res) => {
           [decoded.userId, ip, ua]
         );
       } catch (err) {
-        console.warn('Warning during session revocation on logout:', err.message);
+        console.warn(
+          'Warning during session revocation on logout:',
+          err.message
+        );
       }
     }
-    
+
     const host = req.headers.host || '';
-    const domainSuffix = host.includes('neuravolt.cloud') ? '; Domain=.neuravolt.cloud' : '';
-    
+    const domainSuffix = host.includes('neuravolt.cloud')
+      ? '; Domain=.neuravolt.cloud'
+      : '';
+
     res.setHeader('Set-Cookie', [
       `hk_access_token=; HttpOnly; Path=/; Max-Age=0${domainSuffix}`,
-      `hk_refresh_token=; HttpOnly; Path=/; Max-Age=0${domainSuffix}`
+      `hk_refresh_token=; HttpOnly; Path=/; Max-Age=0${domainSuffix}`,
     ]);
-    
+
     res.status(200).json({ success: true, message: 'Logged out successfully' });
   } catch (err) {
     console.error('Logout error:', err);
@@ -2506,64 +3192,77 @@ app.post('/api/auth/refresh', async (req, res) => {
   try {
     const cookies = parseCookies(req.headers.cookie);
     const refreshToken = cookies.hk_refresh_token;
-    
+
     if (!refreshToken) {
       return res.status(401).json({ error: 'No refresh token provided' });
     }
-    
-    const refreshTokenHash = crypto.createHash('sha256').update(refreshToken).digest('hex');
+
+    const refreshTokenHash = crypto
+      .createHash('sha256')
+      .update(refreshToken)
+      .digest('hex');
     const rtQuery = await pool.query(
       'SELECT * FROM refresh_tokens WHERE token = $1 AND revoked_at IS NULL AND expires_at > NOW() LIMIT 1',
       [refreshTokenHash]
     );
-    
+
     if (rtQuery.rows.length === 0) {
-      return res.status(401).json({ error: 'Invalid or expired refresh token' });
+      return res
+        .status(401)
+        .json({ error: 'Invalid or expired refresh token' });
     }
-    
+
     const rtRecord = rtQuery.rows[0];
-    
+
     // Revoke old token
     await pool.query(
       'UPDATE refresh_tokens SET revoked_at = NOW() WHERE id = $1',
       [rtRecord.id]
     );
-    
-    const userQuery = await pool.query(
-      'SELECT * FROM users WHERE id = $1',
-      [rtRecord.user_id]
-    );
-    
+
+    const userQuery = await pool.query('SELECT * FROM users WHERE id = $1', [
+      rtRecord.user_id,
+    ]);
+
     if (userQuery.rows.length === 0) {
       return res.status(401).json({ error: 'User not found' });
     }
-    
+
     const user = userQuery.rows[0];
-    
+
     // Issue new pair
-    const newAccessToken = jwt.sign({ userId: user.id, role: user.role }, jwtSecret, { expiresIn: '15m' });
+    const newAccessToken = jwt.sign(
+      { userId: user.id, role: user.role },
+      jwtSecret,
+      { expiresIn: '15m' }
+    );
     const newRefreshToken = crypto.randomBytes(32).toString('hex');
-    const newRefreshTokenHash = crypto.createHash('sha256').update(newRefreshToken).digest('hex');
+    const newRefreshTokenHash = crypto
+      .createHash('sha256')
+      .update(newRefreshToken)
+      .digest('hex');
     const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000); // 30 days
-    
+
     await pool.query(
       `INSERT INTO refresh_tokens (token, user_id, tenant_id, expires_at)
        VALUES ($1, $2, $3, $4)`,
       [newRefreshTokenHash, user.id, rtRecord.tenant_id, expiresAt]
     );
-    
+
     const host = req.headers.host || '';
-    const domainSuffix = host.includes('neuravolt.cloud') ? '; Domain=.neuravolt.cloud' : '';
+    const domainSuffix = host.includes('neuravolt.cloud')
+      ? '; Domain=.neuravolt.cloud'
+      : '';
     const secureFlag = process.env.NODE_ENV === 'production' ? 'Secure;' : '';
-    
+
     res.setHeader('Set-Cookie', [
       `hk_access_token=${newAccessToken}; HttpOnly; ${secureFlag} SameSite=Strict; Path=/; Max-Age=${15 * 60}${domainSuffix}`,
-      `hk_refresh_token=${newRefreshToken}; HttpOnly; ${secureFlag} SameSite=Strict; Path=/; Max-Age=${30 * 24 * 60 * 60}${domainSuffix}`
+      `hk_refresh_token=${newRefreshToken}; HttpOnly; ${secureFlag} SameSite=Strict; Path=/; Max-Age=${30 * 24 * 60 * 60}${domainSuffix}`,
     ]);
-    
+
     res.status(200).json({
       success: true,
-      user: { id: user.id, email: user.email, role: user.role }
+      user: { id: user.id, email: user.email, role: user.role },
     });
   } catch (err) {
     console.error('Refresh error:', err);
@@ -2577,24 +3276,28 @@ app.get('/api/auth/me', authMiddleware, (req, res) => {
     id: req.user.id,
     email: req.user.email,
     role: req.user.role,
-    tenantSlug: req.tenant.slug
+    tenantSlug: req.tenant.slug,
   });
 });
 
 // 8. GET /api/conversations
 app.get('/api/conversations', authMiddleware, async (req, res) => {
   try {
-    const conversations = await executeTenantQuery(req.tenant.id, async (client) => {
-      const result = await client.query(
-        `SELECT id, title, model, created_at, updated_at
+    const conversations = await executeTenantQuery(
+      req.tenant.id,
+      async (client) => {
+        const result = await client.query(
+          `SELECT id, title, model, created_at, updated_at
          FROM conversations
          WHERE user_id = $1
          ORDER BY updated_at DESC
          LIMIT 100`,
-        [req.user.id]
-      );
-      return result.rows;
-    }, true);
+          [req.user.id]
+        );
+        return result.rows;
+      },
+      true
+    );
     res.json({ conversations });
   } catch (err) {
     console.error('List conversations error:', err);
@@ -2606,8 +3309,13 @@ app.get('/api/conversations', authMiddleware, async (req, res) => {
 app.delete('/api/conversations/:id', authMiddleware, async (req, res) => {
   try {
     await executeTenantQuery(req.tenant.id, async (client) => {
-      await client.query('DELETE FROM messages WHERE conversation_id = $1', [req.params.id]);
-      await client.query('DELETE FROM conversations WHERE id = $1 AND user_id = $2', [req.params.id, req.user.id]);
+      await client.query('DELETE FROM messages WHERE conversation_id = $1', [
+        req.params.id,
+      ]);
+      await client.query(
+        'DELETE FROM conversations WHERE id = $1 AND user_id = $2',
+        [req.params.id, req.user.id]
+      );
     });
     res.json({ success: true });
   } catch (err) {
@@ -2637,16 +3345,20 @@ app.patch('/api/conversations/:id', authMiddleware, async (req, res) => {
 // 11. GET /api/conversations/:id/messages
 app.get('/api/conversations/:id/messages', authMiddleware, async (req, res) => {
   try {
-    const messages = await executeTenantQuery(req.tenant.id, async (client) => {
-      const result = await client.query(
-        `SELECT id, role, content, tokens_used, created_at
+    const messages = await executeTenantQuery(
+      req.tenant.id,
+      async (client) => {
+        const result = await client.query(
+          `SELECT id, role, content, tokens_used, created_at
          FROM messages
          WHERE conversation_id = $1
          ORDER BY created_at ASC`,
-        [req.params.id]
-      );
-      return result.rows;
-    }, true);
+          [req.params.id]
+        );
+        return result.rows;
+      },
+      true
+    );
     res.json({ messages });
   } catch (err) {
     console.error('Get messages error:', err);
@@ -2675,31 +3387,58 @@ app.get('/api/user/profile', authMiddleware, async (req, res) => {
 });
 
 // PUT /api/user/profile - Update current user profile
-app.put('/api/user/profile', authMiddleware, validate(profileUpdateSchema), async (req, res) => {
-  try {
-    const { name, username, phone, company, jobTitle, department, country, bio } = req.body;
-    const user = await executeTenantQuery(req.tenant.id, async (client) => {
-      const result = await client.query(
-        `UPDATE users
+app.put(
+  '/api/user/profile',
+  authMiddleware,
+  validate(profileUpdateSchema),
+  async (req, res) => {
+    try {
+      const {
+        name,
+        username,
+        phone,
+        company,
+        jobTitle,
+        department,
+        country,
+        bio,
+      } = req.body;
+      const user = await executeTenantQuery(req.tenant.id, async (client) => {
+        const result = await client.query(
+          `UPDATE users
          SET name = $1, username = $2, phone = $3, company = $4, job_title = $5, department = $6, country = $7, bio = $8
          WHERE id = $9
          RETURNING name, username, email, phone, company, job_title as "jobTitle", department, country, bio`,
-        [name, username, phone, company, jobTitle, department, country, bio, req.user.id]
-      );
-      return result.rows[0];
-    });
-    res.json(user || {});
-  } catch (err) {
-    console.error('Update profile error:', err);
-    res.status(500).json({ error: 'Failed to update profile' });
+          [
+            name,
+            username,
+            phone,
+            company,
+            jobTitle,
+            department,
+            country,
+            bio,
+            req.user.id,
+          ]
+        );
+        return result.rows[0];
+      });
+      res.json(user || {});
+    } catch (err) {
+      console.error('Update profile error:', err);
+      res.status(500).json({ error: 'Failed to update profile' });
+    }
   }
-});
+);
 
 // GET /api/user/settings - Get settings
 app.get('/api/user/settings', authMiddleware, async (req, res) => {
   try {
     const settings = await executeTenantQuery(req.tenant.id, async (client) => {
-      const result = await client.query(`SELECT settings FROM users WHERE id = $1`, [req.user.id]);
+      const result = await client.query(
+        `SELECT settings FROM users WHERE id = $1`,
+        [req.user.id]
+      );
       return result.rows[0]?.settings || {};
     });
     res.json(settings);
@@ -2710,45 +3449,63 @@ app.get('/api/user/settings', authMiddleware, async (req, res) => {
 });
 
 // PUT /api/user/settings - Update settings
-app.put('/api/user/settings', authMiddleware, validate(settingsUpdateSchema), async (req, res) => {
-  try {
-    const settings = req.body;
-    const updated = await executeTenantQuery(req.tenant.id, async (client) => {
-      const result = await client.query(
-        `UPDATE users SET settings = $1 WHERE id = $2 RETURNING settings`,
-        [JSON.stringify(settings), req.user.id]
+app.put(
+  '/api/user/settings',
+  authMiddleware,
+  validate(settingsUpdateSchema),
+  async (req, res) => {
+    try {
+      const settings = req.body;
+      const updated = await executeTenantQuery(
+        req.tenant.id,
+        async (client) => {
+          const result = await client.query(
+            `UPDATE users SET settings = $1 WHERE id = $2 RETURNING settings`,
+            [JSON.stringify(settings), req.user.id]
+          );
+          return result.rows[0]?.settings || {};
+        }
       );
-      return result.rows[0]?.settings || {};
-    });
-    res.json(updated);
-  } catch (err) {
-    console.error('Update settings error:', err);
-    res.status(500).json({ error: 'Failed to update settings' });
+      res.json(updated);
+    } catch (err) {
+      console.error('Update settings error:', err);
+      res.status(500).json({ error: 'Failed to update settings' });
+    }
   }
-});
+);
 
 // GET /api/user/billing - Get billing plan & invoice history (real tenant plan data)
 app.get('/api/user/billing', authMiddleware, async (req, res) => {
   try {
     // Try user-specific billing_info override first (set when admin assigns plan)
-    const billingOverride = await executeTenantQuery(req.tenant.id, async (client) => {
-      const result = await client.query(`SELECT billing_info FROM users WHERE id = $1`, [req.user.id]);
-      return result.rows[0]?.billing_info;
-    });
+    const billingOverride = await executeTenantQuery(
+      req.tenant.id,
+      async (client) => {
+        const result = await client.query(
+          `SELECT billing_info FROM users WHERE id = $1`,
+          [req.user.id]
+        );
+        return result.rows[0]?.billing_info;
+      }
+    );
 
     if (billingOverride && Object.keys(billingOverride).length > 0) {
       return res.json(billingOverride);
     }
 
     // Query active/latest subscription for this tenant
-    const subRes = await pool.query(`
+    const subRes = await pool.query(
+      `
       SELECT * FROM subscriptions 
       WHERE tenant_id = $1 
       ORDER BY created_at DESC 
       LIMIT 1
-    `, [req.tenant.id]);
+    `,
+      [req.tenant.id]
+    );
 
-    let subscriptionStatus = req.tenant.status === 'suspended' ? 'SUSPENDED' : 'ACTIVE';
+    let subscriptionStatus =
+      req.tenant.status === 'suspended' ? 'SUSPENDED' : 'ACTIVE';
     let paymentMethod = null;
     let priceNum = parseFloat(req.tenant.price) || 0;
 
@@ -2756,47 +3513,55 @@ app.get('/api/user/billing', authMiddleware, async (req, res) => {
       const sub = subRes.rows[0];
       subscriptionStatus = sub.status.toUpperCase();
       priceNum = parseFloat(sub.amount) || priceNum;
-      
+
       // Parse payment method from subscription metadata if available
       if (sub.metadata && typeof sub.metadata === 'object') {
         paymentMethod = sub.metadata.payment_method || null;
       }
-      
+
       // Fallback dummy payment method if none in metadata but is a paid plan
       if (!paymentMethod && priceNum > 0) {
         paymentMethod = {
           type: 'Visa',
           last4: '4242',
-          expiry: '12/28'
+          expiry: '12/28',
         };
       }
     }
 
     // Query invoices for this tenant
-    const invRes = await pool.query(`
+    const invRes = await pool.query(
+      `
       SELECT id, amount, currency, status, created_at, paid_at, invoice_url, pdf_url
       FROM invoices
       WHERE tenant_id = $1
       ORDER BY created_at DESC
-    `, [req.tenant.id]);
+    `,
+      [req.tenant.id]
+    );
 
-    const invoices = invRes.rows.map(inv => {
+    const invoices = invRes.rows.map((inv) => {
       const invAmount = parseFloat(inv.amount) || 0;
       const currencySymbol = inv.currency === 'INR' ? '₹' : '$';
       const invAmountFormatted = `${currencySymbol}${invAmount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-        
+
       return {
         id: inv.id,
-        date: new Date(inv.created_at).toLocaleDateString('en-IN', { year: 'numeric', month: 'short', day: 'numeric' }),
+        date: new Date(inv.created_at).toLocaleDateString('en-IN', {
+          year: 'numeric',
+          month: 'short',
+          day: 'numeric',
+        }),
         amount: invAmountFormatted,
         status: inv.status.toUpperCase(),
         invoiceUrl: inv.invoice_url,
-        pdfUrl: inv.pdf_url
+        pdfUrl: inv.pdf_url,
       };
     });
 
     const planName = req.tenant.plan || 'starter';
-    const planDisplayName = planName.charAt(0).toUpperCase() + planName.slice(1) + ' Plan';
+    const planDisplayName =
+      planName.charAt(0).toUpperCase() + planName.slice(1) + ' Plan';
     const billingCycle = req.tenant.billing || 'monthly';
 
     // Format price as ₹X,XXX.XX or $X.XX
@@ -2807,7 +3572,9 @@ app.get('/api/user/billing', authMiddleware, async (req, res) => {
       tenantId: req.tenant.id,
       tenantName: req.tenant.name,
       planId: req.tenant.plan,
-      planName: req.tenant.plan_name ? `${req.tenant.plan_name} Plan` : planDisplayName,
+      planName: req.tenant.plan_name
+        ? `${req.tenant.plan_name} Plan`
+        : planDisplayName,
       price: priceFormatted,
       priceRaw: priceNum,
       currency: req.tenant.currency || 'INR',
@@ -2817,7 +3584,7 @@ app.get('/api/user/billing', authMiddleware, async (req, res) => {
       modelAccess: req.tenant.model_access || [],
       description: req.tenant.plan_description || '',
       paymentMethod,
-      invoices
+      invoices,
     });
   } catch (err) {
     console.error('Fetch billing error:', err);
@@ -2829,11 +3596,18 @@ app.get('/api/user/billing', authMiddleware, async (req, res) => {
 app.get('/api/user/devices', authMiddleware, async (req, res) => {
   try {
     const ua = req.headers['user-agent'] || 'Unknown Browser';
-    const rawIp = (req.headers['x-forwarded-for'] || req.socket?.remoteAddress || '').split(',')[0].trim() || '127.0.0.1';
+    const rawIp =
+      (req.headers['x-forwarded-for'] || req.socket?.remoteAddress || '')
+        .split(',')[0]
+        .trim() || '127.0.0.1';
     const ip = rawIp.replace(/^::ffff:/, '');
 
-    const browserMatch = ua.match(/(Chrome|Firefox|Safari|Edge|Opera|Brave)[/\s]([\d.]+)/i);
-    const osMatch = ua.match(/(Windows NT|Mac OS X|Linux|Android|iOS|iPhone OS)[\s/]?([\d._]+)?/i);
+    const browserMatch = ua.match(
+      /(Chrome|Firefox|Safari|Edge|Opera|Brave)[/\s]([\d.]+)/i
+    );
+    const osMatch = ua.match(
+      /(Windows NT|Mac OS X|Linux|Android|iOS|iPhone OS)[\s/]?([\d._]+)?/i
+    );
     let osName = 'Unknown OS';
     if (osMatch) {
       if (osMatch[1] === 'Windows NT') osName = 'Windows';
@@ -2841,7 +3615,9 @@ app.get('/api/user/devices', authMiddleware, async (req, res) => {
       else osName = osMatch[1].replace('_', ' ');
     }
     const browserName = browserMatch ? browserMatch[1] : 'Unknown Browser';
-    const deviceName = osMatch ? (osMatch[1] === 'Mac OS X' ? 'Mac' : osName) + ' Device' : 'Unknown Device';
+    const deviceName = osMatch
+      ? (osMatch[1] === 'Mac OS X' ? 'Mac' : osName) + ' Device'
+      : 'Unknown Device';
 
     const sessions = await executeTenantQuery(req.tenant.id, async (client) => {
       // First, upsert active session for current user/IP/UA if it doesn't exist
@@ -2877,10 +3653,14 @@ app.get('/api/user/devices', authMiddleware, async (req, res) => {
       return result.rows;
     });
 
-    const mapped = sessions.map(s => {
+    const mapped = sessions.map((s) => {
       const sUa = s.user_agent || '';
-      const browserMatch = sUa.match(/(Chrome|Firefox|Safari|Edge|Opera|Brave)[/\s]([\d.]+)/i);
-      const osMatch = sUa.match(/(Windows NT|Mac OS X|Linux|Android|iOS|iPhone OS)[\s/]?([\d._]+)?/i);
+      const browserMatch = sUa.match(
+        /(Chrome|Firefox|Safari|Edge|Opera|Brave)[/\s]([\d.]+)/i
+      );
+      const osMatch = sUa.match(
+        /(Windows NT|Mac OS X|Linux|Android|iOS|iPhone OS)[\s/]?([\d._]+)?/i
+      );
       let osName = 'Unknown OS';
       if (osMatch) {
         if (osMatch[1] === 'Windows NT') osName = 'Windows';
@@ -2895,8 +3675,10 @@ app.get('/api/user/devices', authMiddleware, async (req, res) => {
         ip: s.ip_address,
         browser: browserName,
         os: osName,
-        lastActive: s.last_active_at ? new Date(s.last_active_at).toISOString() : new Date().toISOString(),
-        current: isCurrent
+        lastActive: s.last_active_at
+          ? new Date(s.last_active_at).toISOString()
+          : new Date().toISOString(),
+        current: isCurrent,
       };
     });
     res.json(mapped);
@@ -2911,19 +3693,27 @@ app.delete('/api/user/devices/:id', authMiddleware, async (req, res) => {
   try {
     const { id } = req.params;
     const ua = req.headers['user-agent'] || 'Unknown Browser';
-    const rawIp = (req.headers['x-forwarded-for'] || req.socket?.remoteAddress || '').split(',')[0].trim() || '127.0.0.1';
+    const rawIp =
+      (req.headers['x-forwarded-for'] || req.socket?.remoteAddress || '')
+        .split(',')[0]
+        .trim() || '127.0.0.1';
     const ip = rawIp.replace(/^::ffff:/, '');
 
-    const currentSession = await executeTenantQuery(req.tenant.id, async (client) => {
-      const res = await client.query(
-        `SELECT id FROM user_sessions WHERE user_id = $1 AND ip_address = $2 AND user_agent = $3 AND revoked_at IS NULL AND expires_at > NOW() LIMIT 1`,
-        [req.user.id, ip, ua]
-      );
-      return res.rows[0];
-    });
+    const currentSession = await executeTenantQuery(
+      req.tenant.id,
+      async (client) => {
+        const res = await client.query(
+          `SELECT id FROM user_sessions WHERE user_id = $1 AND ip_address = $2 AND user_agent = $3 AND revoked_at IS NULL AND expires_at > NOW() LIMIT 1`,
+          [req.user.id, ip, ua]
+        );
+        return res.rows[0];
+      }
+    );
 
     if (currentSession && id === currentSession.id) {
-      return res.status(400).json({ error: 'Cannot terminate your current active session' });
+      return res
+        .status(400)
+        .json({ error: 'Cannot terminate your current active session' });
     }
 
     const updated = await executeTenantQuery(req.tenant.id, async (client) => {
@@ -2945,10 +3735,14 @@ app.delete('/api/user/devices/:id', authMiddleware, async (req, res) => {
       return result.rows;
     });
 
-    const mapped = updated.map(s => {
+    const mapped = updated.map((s) => {
       const sUa = s.user_agent || '';
-      const browserMatch = sUa.match(/(Chrome|Firefox|Safari|Edge|Opera|Brave)[/\s]([\d.]+)/i);
-      const osMatch = sUa.match(/(Windows NT|Mac OS X|Linux|Android|iOS|iPhone OS)[\s/]?([\d._]+)?/i);
+      const browserMatch = sUa.match(
+        /(Chrome|Firefox|Safari|Edge|Opera|Brave)[/\s]([\d.]+)/i
+      );
+      const osMatch = sUa.match(
+        /(Windows NT|Mac OS X|Linux|Android|iOS|iPhone OS)[\s/]?([\d._]+)?/i
+      );
       let osName = 'Unknown OS';
       if (osMatch) {
         if (osMatch[1] === 'Windows NT') osName = 'Windows';
@@ -2963,8 +3757,10 @@ app.delete('/api/user/devices/:id', authMiddleware, async (req, res) => {
         ip: s.ip_address,
         browser: browserName,
         os: osName,
-        lastActive: s.last_active_at ? new Date(s.last_active_at).toISOString() : new Date().toISOString(),
-        current: isCurrent
+        lastActive: s.last_active_at
+          ? new Date(s.last_active_at).toISOString()
+          : new Date().toISOString(),
+        current: isCurrent,
       };
     });
     res.json({ success: true, devices: mapped });
@@ -2981,16 +3777,22 @@ app.delete('/api/user/account/gdpr', authMiddleware, async (req, res) => {
       // Permanently delete user row (which cascades and deletes all related sessions, messages, etc.)
       await client.query('DELETE FROM users WHERE id = $1', [req.user.id]);
     });
-    
+
     // Invalidate active session cookies
     const host = req.headers.host || '';
-    const domainSuffix = host.includes('neuravolt.cloud') ? '; Domain=.neuravolt.cloud' : '';
+    const domainSuffix = host.includes('neuravolt.cloud')
+      ? '; Domain=.neuravolt.cloud'
+      : '';
     res.setHeader('Set-Cookie', [
       `hk_access_token=; HttpOnly; Path=/; Max-Age=0${domainSuffix}`,
-      `hk_refresh_token=; HttpOnly; Path=/; Max-Age=0${domainSuffix}`
+      `hk_refresh_token=; HttpOnly; Path=/; Max-Age=0${domainSuffix}`,
     ]);
-    
-    res.status(200).json({ success: true, message: 'Your account and all associated data have been permanently deleted.' });
+
+    res.status(200).json({
+      success: true,
+      message:
+        'Your account and all associated data have been permanently deleted.',
+    });
   } catch (err) {
     console.error('GDPR hard delete error:', err);
     res.status(500).json({ error: 'Failed to process hard delete request' });
@@ -3010,16 +3812,24 @@ app.get('/api/user/activity', authMiddleware, async (req, res) => {
         [req.user.id]
       );
       // Format to match old UI structure:
-      return result.rows.map(row => ({
+      return result.rows.map((row) => ({
         id: row.id,
         action: row.action,
         ip: row.ip,
         device: row.device,
-        date: row.date ? new Date(row.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) +
-              ' at ' + new Date(row.date).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })
-            : '',
+        date: row.date
+          ? new Date(row.date).toLocaleDateString('en-US', {
+              month: 'short',
+              day: 'numeric',
+            }) +
+            ' at ' +
+            new Date(row.date).toLocaleTimeString('en-US', {
+              hour: '2-digit',
+              minute: '2-digit',
+            })
+          : '',
         color: row.metadata?.color,
-        level: row.metadata?.level
+        level: row.metadata?.level,
       }));
     });
     // Return actual logs — empty array for users with no recorded activity
@@ -3033,28 +3843,39 @@ app.get('/api/user/activity', authMiddleware, async (req, res) => {
 // GET /api/user/workspace - Get workspace details & members
 app.get('/api/user/workspace', authMiddleware, async (req, res) => {
   try {
-    const workspace = await executeTenantQuery(req.tenant.id, async (client) => {
-      const uRes = await client.query(`SELECT company FROM users WHERE id = $1`, [req.user.id]);
-      const company = uRes.rows[0]?.company || 'Harikson AI (Production)';
-      
-      const mRes = await client.query(
-        `SELECT id, email, role, name FROM users WHERE tenant_id = $1 ORDER BY role DESC`,
-        [req.tenant.id]
-      );
-      
-      return {
-        instanceId: `ins_prd_${req.tenant.id.slice(0, 5)}`,
-        name: company,
-        slug: req.tenant.slug,
-        members: mRes.rows.map(m => ({
-          id: m.id,
-          name: m.name || m.email.split('@')[0],
-          email: m.email,
-          role: (m.role === 'admin' || m.role === 'superadmin') ? 'Admin' : m.role === 'owner' ? 'Owner' : 'Member',
-          avatar: (m.name || m.email).slice(0, 2).toUpperCase()
-        }))
-      };
-    });
+    const workspace = await executeTenantQuery(
+      req.tenant.id,
+      async (client) => {
+        const uRes = await client.query(
+          `SELECT company FROM users WHERE id = $1`,
+          [req.user.id]
+        );
+        const company = uRes.rows[0]?.company || 'Harikson AI (Production)';
+
+        const mRes = await client.query(
+          `SELECT id, email, role, name FROM users WHERE tenant_id = $1 ORDER BY role DESC`,
+          [req.tenant.id]
+        );
+
+        return {
+          instanceId: `ins_prd_${req.tenant.id.slice(0, 5)}`,
+          name: company,
+          slug: req.tenant.slug,
+          members: mRes.rows.map((m) => ({
+            id: m.id,
+            name: m.name || m.email.split('@')[0],
+            email: m.email,
+            role:
+              m.role === 'admin' || m.role === 'superadmin'
+                ? 'Admin'
+                : m.role === 'owner'
+                  ? 'Owner'
+                  : 'Member',
+            avatar: (m.name || m.email).slice(0, 2).toUpperCase(),
+          })),
+        };
+      }
+    );
     res.json(workspace);
   } catch (err) {
     console.error('Fetch workspace error:', err);
@@ -3063,84 +3884,105 @@ app.get('/api/user/workspace', authMiddleware, async (req, res) => {
 });
 
 // PUT /api/user/workspace/members/:memberId/role - Update workspace member role
-app.put('/api/user/workspace/members/:memberId/role', authMiddleware, async (req, res) => {
-  try {
-    const { memberId } = req.params;
-    const { role } = req.body; // e.g., 'Owner', 'Admin', 'Member'
-    
-    // Map UI role to database role string
-    let dbRole = 'user';
-    if (role === 'Admin') dbRole = 'admin';
-    if (role === 'Owner') dbRole = 'owner';
-    if (role === 'Member') dbRole = 'user';
+app.put(
+  '/api/user/workspace/members/:memberId/role',
+  authMiddleware,
+  async (req, res) => {
+    try {
+      const { memberId } = req.params;
+      const { role } = req.body; // e.g., 'Owner', 'Admin', 'Member'
 
-    // Verify current user is an admin or owner of the workspace to perform updates
-    if (req.user.role !== 'admin' && req.user.role !== 'owner' && req.user.role !== 'superadmin') {
-      return res.status(403).json({ error: 'Forbidden: Insufficient permissions' });
-    }
+      // Map UI role to database role string
+      let dbRole = 'user';
+      if (role === 'Admin') dbRole = 'admin';
+      if (role === 'Owner') dbRole = 'owner';
+      if (role === 'Member') dbRole = 'user';
 
-    const updated = await executeTenantQuery(req.tenant.id, async (client) => {
-      const result = await client.query(
-        `UPDATE users
+      // Verify current user is an admin or owner of the workspace to perform updates
+      if (
+        req.user.role !== 'admin' &&
+        req.user.role !== 'owner' &&
+        req.user.role !== 'superadmin'
+      ) {
+        return res
+          .status(403)
+          .json({ error: 'Forbidden: Insufficient permissions' });
+      }
+
+      const updated = await executeTenantQuery(
+        req.tenant.id,
+        async (client) => {
+          const result = await client.query(
+            `UPDATE users
          SET role = $1
          WHERE id = $2 AND tenant_id = $3
          RETURNING id, email, role`,
-        [dbRole, memberId, req.tenant.id]
-      );
-      
-      const updatedUser = result.rows[0];
-      if (updatedUser) {
-        // Record to activity timeline in settings of the editor
-        const eventId = crypto.randomUUID();
-        await client.query(
-          `UPDATE users
+            [dbRole, memberId, req.tenant.id]
+          );
+
+          const updatedUser = result.rows[0];
+          if (updatedUser) {
+            // Record to activity timeline in settings of the editor
+            const eventId = crypto.randomUUID();
+            await client.query(
+              `UPDATE users
            SET settings = jsonb_set(
              COALESCE(settings, '{}'::jsonb),
              '{activity_log}',
              COALESCE(settings->'activity_log', '[]'::jsonb) || $1::jsonb
            )
            WHERE id = $2`,
-          [
-            JSON.stringify({
-              id: eventId,
-              event: 'Security',
-              details: `Changed role of ${updatedUser.email} to ${role}`,
-              timestamp: new Date().toISOString()
-            }),
-            req.user.id
-          ]
-        );
+              [
+                JSON.stringify({
+                  id: eventId,
+                  event: 'Security',
+                  details: `Changed role of ${updatedUser.email} to ${role}`,
+                  timestamp: new Date().toISOString(),
+                }),
+                req.user.id,
+              ]
+            );
+          }
+          return updatedUser;
+        }
+      );
+
+      if (!updated) {
+        return res.status(404).json({ error: 'Workspace member not found' });
       }
-      return updatedUser;
-    });
 
-    if (!updated) {
-      return res.status(404).json({ error: 'Workspace member not found' });
+      res.json({
+        id: updated.id,
+        email: updated.email,
+        role: role,
+      });
+    } catch (err) {
+      console.error('Update member role error:', err);
+      res.status(500).json({ error: 'Failed to update member role' });
     }
-
-    res.json({
-      id: updated.id,
-      email: updated.email,
-      role: role
-    });
-  } catch (err) {
-    console.error('Update member role error:', err);
-    res.status(500).json({ error: 'Failed to update member role' });
   }
-});
+);
 
 // POST /api/user/workspace/members - Invite/Add a new member to the workspace
 app.post('/api/user/workspace/members', authMiddleware, async (req, res) => {
   try {
     const { email, name, role, password } = req.body;
-    
+
     if (!email || !name || !role) {
-      return res.status(400).json({ error: 'Email, name, and role are required' });
+      return res
+        .status(400)
+        .json({ error: 'Email, name, and role are required' });
     }
 
     // Verify current user is an admin or owner to perform additions
-    if (req.user.role !== 'admin' && req.user.role !== 'owner' && req.user.role !== 'superadmin') {
-      return res.status(403).json({ error: 'Forbidden: Insufficient permissions to add members' });
+    if (
+      req.user.role !== 'admin' &&
+      req.user.role !== 'owner' &&
+      req.user.role !== 'superadmin'
+    ) {
+      return res
+        .status(403)
+        .json({ error: 'Forbidden: Insufficient permissions to add members' });
     }
 
     // Map UI role to database role string
@@ -3152,145 +3994,185 @@ app.post('/api/user/workspace/members', authMiddleware, async (req, res) => {
     const defaultPwd = password || 'Welcome123!';
     const passwordHash = await bcrypt.hash(defaultPwd, 10);
 
-    const newMember = await executeTenantQuery(req.tenant.id, async (client) => {
-      // Check if email already exists in this tenant
-      const checkResult = await client.query(
-        'SELECT id FROM users WHERE email = $1 AND tenant_id = $2',
-        [email, req.tenant.id]
-      );
-      if (checkResult.rows.length > 0) {
-        throw new Error('User already exists in this workspace');
-      }
+    const newMember = await executeTenantQuery(
+      req.tenant.id,
+      async (client) => {
+        // Check if email already exists in this tenant
+        const checkResult = await client.query(
+          'SELECT id FROM users WHERE email = $1 AND tenant_id = $2',
+          [email, req.tenant.id]
+        );
+        if (checkResult.rows.length > 0) {
+          throw new Error('User already exists in this workspace');
+        }
 
-      const result = await client.query(
-        `INSERT INTO users (tenant_id, email, password_hash, role, name, username)
+        const result = await client.query(
+          `INSERT INTO users (tenant_id, email, password_hash, role, name, username)
          VALUES ($1, $2, $3, $4, $5, $6)
          RETURNING id, email, role, name`,
-        [req.tenant.id, email, passwordHash, dbRole, name, email.split('@')[0]]
-      );
-      
-      const createdUser = result.rows[0];
-      if (createdUser) {
-        // Record to activity timeline in settings of the editor
-        const eventId = crypto.randomUUID();
-        await client.query(
-          `UPDATE users
+          [
+            req.tenant.id,
+            email,
+            passwordHash,
+            dbRole,
+            name,
+            email.split('@')[0],
+          ]
+        );
+
+        const createdUser = result.rows[0];
+        if (createdUser) {
+          // Record to activity timeline in settings of the editor
+          const eventId = crypto.randomUUID();
+          await client.query(
+            `UPDATE users
            SET settings = jsonb_set(
              COALESCE(settings, '{}'::jsonb),
              '{activity_log}',
              COALESCE(settings->'activity_log', '[]'::jsonb) || $1::jsonb
            )
            WHERE id = $2`,
-          [
-            JSON.stringify({
-              id: eventId,
-              event: 'Security',
-              details: `Added new member ${email} as ${role}`,
-              timestamp: new Date().toISOString()
-            }),
-            req.user.id
-          ]
-        );
+            [
+              JSON.stringify({
+                id: eventId,
+                event: 'Security',
+                details: `Added new member ${email} as ${role}`,
+                timestamp: new Date().toISOString(),
+              }),
+              req.user.id,
+            ]
+          );
+        }
+        return createdUser;
       }
-      return createdUser;
-    });
+    );
 
     res.status(201).json({
       id: newMember.id,
       name: newMember.name,
       email: newMember.email,
       role: role,
-      avatar: newMember.name.slice(0, 2).toUpperCase()
+      avatar: newMember.name.slice(0, 2).toUpperCase(),
     });
-
   } catch (err) {
     console.error('Add workspace member error:', err);
-    res.status(400).json({ error: err.message || 'Failed to add workspace member' });
+    res
+      .status(400)
+      .json({ error: err.message || 'Failed to add workspace member' });
   }
 });
 
 // DELETE /api/user/workspace/members/:memberId - Remove a member from the workspace
-app.delete('/api/user/workspace/members/:memberId', authMiddleware, async (req, res) => {
-  try {
-    const { memberId } = req.params;
+app.delete(
+  '/api/user/workspace/members/:memberId',
+  authMiddleware,
+  async (req, res) => {
+    try {
+      const { memberId } = req.params;
 
-    // Verify current user is an admin or owner of the workspace to perform deletions
-    if (req.user.role !== 'admin' && req.user.role !== 'owner' && req.user.role !== 'superadmin') {
-      return res.status(403).json({ error: 'Forbidden: Insufficient permissions to remove members' });
-    }
+      // Verify current user is an admin or owner of the workspace to perform deletions
+      if (
+        req.user.role !== 'admin' &&
+        req.user.role !== 'owner' &&
+        req.user.role !== 'superadmin'
+      ) {
+        return res.status(403).json({
+          error: 'Forbidden: Insufficient permissions to remove members',
+        });
+      }
 
-    // A user cannot delete themselves
-    if (req.user.id === memberId) {
-      return res.status(400).json({ error: 'Bad Request: You cannot remove yourself from the workspace' });
-    }
+      // A user cannot delete themselves
+      if (req.user.id === memberId) {
+        return res.status(400).json({
+          error: 'Bad Request: You cannot remove yourself from the workspace',
+        });
+      }
 
-    const deleted = await executeTenantQuery(req.tenant.id, async (client) => {
-      // Fetch details first for logging
-      const mRes = await client.query('SELECT email FROM users WHERE id = $1 AND tenant_id = $2', [memberId, req.tenant.id]);
-      if (mRes.rows.length === 0) return null;
-      const targetEmail = mRes.rows[0].email;
+      const deleted = await executeTenantQuery(
+        req.tenant.id,
+        async (client) => {
+          // Fetch details first for logging
+          const mRes = await client.query(
+            'SELECT email FROM users WHERE id = $1 AND tenant_id = $2',
+            [memberId, req.tenant.id]
+          );
+          if (mRes.rows.length === 0) return null;
+          const targetEmail = mRes.rows[0].email;
 
-      // Delete user
-      await client.query(
-        'DELETE FROM users WHERE id = $1 AND tenant_id = $2',
-        [memberId, req.tenant.id]
-      );
+          // Delete user
+          await client.query(
+            'DELETE FROM users WHERE id = $1 AND tenant_id = $2',
+            [memberId, req.tenant.id]
+          );
 
-      // Record to activity timeline in settings of the editor
-      const eventId = crypto.randomUUID();
-      await client.query(
-        `UPDATE users
+          // Record to activity timeline in settings of the editor
+          const eventId = crypto.randomUUID();
+          await client.query(
+            `UPDATE users
          SET settings = jsonb_set(
            COALESCE(settings, '{}'::jsonb),
            '{activity_log}',
            COALESCE(settings->'activity_log', '[]'::jsonb) || $1::jsonb
          )
          WHERE id = $2`,
-        [
-          JSON.stringify({
-            id: eventId,
-            event: 'Security',
-            details: `Removed member ${targetEmail} from workspace`,
-            timestamp: new Date().toISOString()
-          }),
-          req.user.id
-        ]
+            [
+              JSON.stringify({
+                id: eventId,
+                event: 'Security',
+                details: `Removed member ${targetEmail} from workspace`,
+                timestamp: new Date().toISOString(),
+              }),
+              req.user.id,
+            ]
+          );
+          return targetEmail;
+        }
       );
-      return targetEmail;
-    });
 
-    if (!deleted) {
-      return res.status(404).json({ error: 'Workspace member not found' });
+      if (!deleted) {
+        return res.status(404).json({ error: 'Workspace member not found' });
+      }
+
+      res.json({
+        message: 'Workspace member removed successfully',
+        email: deleted,
+      });
+    } catch (err) {
+      console.error('Delete workspace member error:', err);
+      res.status(500).json({ error: 'Failed to remove workspace member' });
     }
-
-    res.json({ message: 'Workspace member removed successfully', email: deleted });
-  } catch (err) {
-    console.error('Delete workspace member error:', err);
-    res.status(500).json({ error: 'Failed to remove workspace member' });
   }
-});
+);
 
 // GET /api/keys & /api/user/developer/keys - List API Keys
 async function listApiKeys(req, res) {
   try {
-    const keys = await executeTenantQuery(req.tenant.id, async (client) => {
-      const result = await client.query(
-        `SELECT id, name, key_prefix as key, created_at as created, last_used_at as lastUsed, expires_at, revoked_at
+    const keys = await executeTenantQuery(
+      req.tenant.id,
+      async (client) => {
+        const result = await client.query(
+          `SELECT id, name, key_prefix as key, created_at as created, last_used_at as lastUsed, expires_at, revoked_at
          FROM api_keys
          WHERE user_id = $1 AND revoked_at IS NULL AND (expires_at IS NULL OR expires_at > NOW())
          ORDER BY created_at DESC`,
-        [req.user.id]
-      );
-      return result.rows.map(r => ({
-        id: r.id,
-        name: r.name,
-        key: r.key + '...',
-        created: r.created ? new Date(r.created).toISOString().split('T')[0] : '',
-        lastUsed: r.lastUsed ? new Date(r.lastUsed).toLocaleString() : 'Never',
-        expires_at: r.expires_at,
-        revoked_at: r.revoked_at
-      }));
-    }, true);
+          [req.user.id]
+        );
+        return result.rows.map((r) => ({
+          id: r.id,
+          name: r.name,
+          key: r.key + '...',
+          created: r.created
+            ? new Date(r.created).toISOString().split('T')[0]
+            : '',
+          lastUsed: r.lastUsed
+            ? new Date(r.lastUsed).toLocaleString()
+            : 'Never',
+          expires_at: r.expires_at,
+          revoked_at: r.revoked_at,
+        }));
+      },
+      true
+    );
     res.json(keys);
   } catch (err) {
     console.error('List API keys error:', err);
@@ -3311,13 +4193,23 @@ async function createApiKey(req, res) {
     const rawKey = 'hk_live_' + crypto.randomBytes(16).toString('hex');
     const keyPrefix = rawKey.substring(0, 12); // hk_live_abcd (12 chars)
     const keyHash = crypto.createHash('sha256').update(rawKey).digest('hex');
-    const keyScopes = Array.isArray(scopes) ? JSON.stringify(scopes) : JSON.stringify(['read', 'write']);
+    const keyScopes = Array.isArray(scopes)
+      ? JSON.stringify(scopes)
+      : JSON.stringify(['read', 'write']);
 
     await executeTenantQuery(req.tenant.id, async (client) => {
       await client.query(
         `INSERT INTO api_keys (user_id, tenant_id, name, key_hash, key_prefix, scopes, expires_at)
          VALUES ($1, $2, $3, $4, $5, $6, $7)`,
-        [req.user.id, req.tenant.id, name, keyHash, keyPrefix, keyScopes, expires_at || null]
+        [
+          req.user.id,
+          req.tenant.id,
+          name,
+          keyHash,
+          keyPrefix,
+          keyScopes,
+          expires_at || null,
+        ]
       );
     });
 
@@ -3330,20 +4222,22 @@ async function createApiKey(req, res) {
          ORDER BY created_at DESC`,
         [req.user.id]
       );
-      return result.rows.map(r => ({
+      return result.rows.map((r) => ({
         id: r.id,
         name: r.name,
         key: r.key + '...',
-        created: r.created ? new Date(r.created).toISOString().split('T')[0] : '',
+        created: r.created
+          ? new Date(r.created).toISOString().split('T')[0]
+          : '',
         lastUsed: r.lastUsed ? new Date(r.lastUsed).toLocaleString() : 'Never',
-        expires_at: r.expires_at
+        expires_at: r.expires_at,
       }));
     });
 
     res.json({
       success: true,
       key: rawKey, // Show raw full key ONCE on creation response
-      keys: keys
+      keys: keys,
     });
   } catch (err) {
     console.error('Create API key error:', err);
@@ -3374,13 +4268,15 @@ async function revokeApiKey(req, res) {
          ORDER BY created_at DESC`,
         [req.user.id]
       );
-      return result.rows.map(r => ({
+      return result.rows.map((r) => ({
         id: r.id,
         name: r.name,
         key: r.key + '...',
-        created: r.created ? new Date(r.created).toISOString().split('T')[0] : '',
+        created: r.created
+          ? new Date(r.created).toISOString().split('T')[0]
+          : '',
         lastUsed: r.lastUsed ? new Date(r.lastUsed).toLocaleString() : 'Never',
-        expires_at: r.expires_at
+        expires_at: r.expires_at,
       }));
     });
 
@@ -3447,17 +4343,25 @@ app.get('/api/user/usage', authMiddleware, async (req, res) => {
       return {
         daily: dailyResult.rows,
         totals: totalsResult.rows[0],
-        prev: prevTotalsResult.rows[0]
+        prev: prevTotalsResult.rows[0],
       };
     });
 
     const { daily, totals, prev } = usage;
-    const tokenChange = prev.total_tokens > 0
-      ? Math.round(((totals.total_tokens - prev.total_tokens) / prev.total_tokens) * 100)
-      : null;
-    const queryChange = prev.total_queries > 0
-      ? Math.round(((totals.total_queries - prev.total_queries) / prev.total_queries) * 100)
-      : null;
+    const tokenChange =
+      prev.total_tokens > 0
+        ? Math.round(
+            ((totals.total_tokens - prev.total_tokens) / prev.total_tokens) *
+              100
+          )
+        : null;
+    const queryChange =
+      prev.total_queries > 0
+        ? Math.round(
+            ((totals.total_queries - prev.total_queries) / prev.total_queries) *
+              100
+          )
+        : null;
 
     res.json({
       daily,
@@ -3465,7 +4369,7 @@ app.get('/api/user/usage', authMiddleware, async (req, res) => {
       totalQueries: totals.total_queries,
       tokenChange,
       queryChange,
-      days
+      days,
     });
   } catch (err) {
     console.error('Fetch usage error:', err);
@@ -3476,69 +4380,96 @@ app.get('/api/user/usage', authMiddleware, async (req, res) => {
 // ─── SECURITY ────────────────────────────────────────────────────────────────
 
 // POST /api/user/security/change-password
-app.post('/api/user/security/change-password', authMiddleware, async (req, res) => {
-  const { currentPassword, newPassword } = req.body;
-  if (!currentPassword || !newPassword) {
-    return res.status(400).json({ error: 'Both current and new password are required' });
-  }
-  try {
-    const ip = (req.headers['x-forwarded-for'] || req.socket.remoteAddress || '').split(',')[0].trim() || '127.0.0.1';
-    const key = `ratelimit:password:${ip}`;
-    const attempts = await redis.incr(key);
-    if (attempts === 1) {
-      await redis.expire(key, 3600); // 1 hour TTL
+app.post(
+  '/api/user/security/change-password',
+  authMiddleware,
+  async (req, res) => {
+    const { currentPassword, newPassword } = req.body;
+    if (!currentPassword || !newPassword) {
+      return res
+        .status(400)
+        .json({ error: 'Both current and new password are required' });
     }
-    if (attempts > 5) {
-      return res.status(429).json({ error: 'Too many password attempts. Rate limit exceeded. Try again in an hour.' });
-    }
+    try {
+      const ip =
+        (req.headers['x-forwarded-for'] || req.socket.remoteAddress || '')
+          .split(',')[0]
+          .trim() || '127.0.0.1';
+      const key = `ratelimit:password:${ip}`;
+      const attempts = await redis.incr(key);
+      if (attempts === 1) {
+        await redis.expire(key, 3600); // 1 hour TTL
+      }
+      if (attempts > 5) {
+        return res.status(429).json({
+          error:
+            'Too many password attempts. Rate limit exceeded. Try again in an hour.',
+        });
+      }
 
-    const user = req.user;
-    const valErrors = validatePassword(newPassword, user.email, user.name);
-    if (valErrors.length > 0) {
-      return res.status(400).json({ error: 'Password validation failed', details: valErrors });
-    }
+      const user = req.user;
+      const valErrors = validatePassword(newPassword, user.email, user.name);
+      if (valErrors.length > 0) {
+        return res
+          .status(400)
+          .json({ error: 'Password validation failed', details: valErrors });
+      }
 
-    const compromised = await isPasswordPwned(newPassword);
-    if (compromised) {
-      return res.status(400).json({ error: 'Password validation failed', details: ['This password has been compromised in data breaches. Please choose a different one.'] });
-    }
+      const compromised = await isPasswordPwned(newPassword);
+      if (compromised) {
+        return res.status(400).json({
+          error: 'Password validation failed',
+          details: [
+            'This password has been compromised in data breaches. Please choose a different one.',
+          ],
+        });
+      }
 
-    // Verify current password
-    if (!user.password_hash || !user.password_hash.startsWith('$')) {
-      return res.status(400).json({ error: 'Password change not supported for this account type' });
-    }
-    const valid = await bcrypt.compare(currentPassword, user.password_hash);
-    if (!valid) {
-      return res.status(401).json({ error: 'Current password is incorrect' });
-    }
+      // Verify current password
+      if (!user.password_hash || !user.password_hash.startsWith('$')) {
+        return res.status(400).json({
+          error: 'Password change not supported for this account type',
+        });
+      }
+      const valid = await bcrypt.compare(currentPassword, user.password_hash);
+      if (!valid) {
+        return res.status(401).json({ error: 'Current password is incorrect' });
+      }
 
-    const newHash = await bcrypt.hash(newPassword, 10);
-    await executeTenantQuery(req.tenant.id, async (client) => {
-      await client.query(`UPDATE users SET password_hash = $1 WHERE id = $2`, [newHash, user.id]);
+      const newHash = await bcrypt.hash(newPassword, 10);
+      await executeTenantQuery(req.tenant.id, async (client) => {
+        await client.query(
+          `UPDATE users SET password_hash = $1 WHERE id = $2`,
+          [newHash, user.id]
+        );
 
-      const ip = (req.headers['x-forwarded-for'] || req.socket?.remoteAddress || '').split(',')[0].trim() || '127.0.0.1';
-      const ua = req.headers['user-agent'] || 'Unknown';
-      
-      await client.query(
-        `INSERT INTO activity_logs (user_id, tenant_id, action, metadata, ip_address, user_agent)
+        const ip =
+          (req.headers['x-forwarded-for'] || req.socket?.remoteAddress || '')
+            .split(',')[0]
+            .trim() || '127.0.0.1';
+        const ua = req.headers['user-agent'] || 'Unknown';
+
+        await client.query(
+          `INSERT INTO activity_logs (user_id, tenant_id, action, metadata, ip_address, user_agent)
          VALUES ($1, $2, $3, $4, $5, $6)`,
-        [
-          user.id,
-          req.tenant.id,
-          'Password changed successfully',
-          JSON.stringify({ level: 'warn', color: '#d97706' }),
-          ip,
-          ua
-        ]
-      );
-    });
+          [
+            user.id,
+            req.tenant.id,
+            'Password changed successfully',
+            JSON.stringify({ level: 'warn', color: '#d97706' }),
+            ip,
+            ua,
+          ]
+        );
+      });
 
-    res.json({ success: true, message: 'Password updated successfully' });
-  } catch (err) {
-    console.error('Change password error:', err);
-    res.status(500).json({ error: 'Failed to change password' });
+      res.json({ success: true, message: 'Password updated successfully' });
+    } catch (err) {
+      console.error('Change password error:', err);
+      res.status(500).json({ error: 'Failed to change password' });
+    }
   }
-});
+);
 
 // ─── PROMPT PRESETS (server-side, per user) ───────────────────────────────────
 
@@ -3547,8 +4478,11 @@ app.get('/api/user/presets', authMiddleware, async (req, res) => {
   try {
     const presets = await executeTenantQuery(req.tenant.id, async (client) => {
       // Store presets in settings JSONB under the 'presets' key
-      const result = await client.query(`SELECT settings FROM users WHERE id = $1`, [req.user.id]);
-      return (result.rows[0]?.settings?.presets) || [];
+      const result = await client.query(
+        `SELECT settings FROM users WHERE id = $1`,
+        [req.user.id]
+      );
+      return result.rows[0]?.settings?.presets || [];
     });
     res.json(presets);
   } catch (err) {
@@ -3561,11 +4495,16 @@ app.get('/api/user/presets', authMiddleware, async (req, res) => {
 app.post('/api/user/presets', authMiddleware, async (req, res) => {
   const { name, description, systemPrompt } = req.body;
   if (!name || !systemPrompt) {
-    return res.status(400).json({ error: 'Name and system prompt are required' });
+    return res
+      .status(400)
+      .json({ error: 'Name and system prompt are required' });
   }
   try {
     const updated = await executeTenantQuery(req.tenant.id, async (client) => {
-      const result = await client.query(`SELECT settings FROM users WHERE id = $1`, [req.user.id]);
+      const result = await client.query(
+        `SELECT settings FROM users WHERE id = $1`,
+        [req.user.id]
+      );
       const settings = result.rows[0]?.settings || {};
       const presets = settings.presets || [];
       const newPreset = {
@@ -3573,14 +4512,14 @@ app.post('/api/user/presets', authMiddleware, async (req, res) => {
         name,
         description: description || '',
         systemPrompt,
-        created_at: new Date().toISOString()
+        created_at: new Date().toISOString(),
       };
       const updatedPresets = [...presets, newPreset];
       const updatedSettings = { ...settings, presets: updatedPresets };
-      await client.query(
-        `UPDATE users SET settings = $1 WHERE id = $2`,
-        [JSON.stringify(updatedSettings), req.user.id]
-      );
+      await client.query(`UPDATE users SET settings = $1 WHERE id = $2`, [
+        JSON.stringify(updatedSettings),
+        req.user.id,
+      ]);
       return updatedPresets;
     });
     res.status(201).json(updated);
@@ -3594,13 +4533,18 @@ app.post('/api/user/presets', authMiddleware, async (req, res) => {
 app.delete('/api/user/presets/:id', authMiddleware, async (req, res) => {
   try {
     const updated = await executeTenantQuery(req.tenant.id, async (client) => {
-      const result = await client.query(`SELECT settings FROM users WHERE id = $1`, [req.user.id]);
-      const settings = result.rows[0]?.settings || {};
-      const filtered = (settings.presets || []).filter(p => p.id !== req.params.id);
-      await client.query(
-        `UPDATE users SET settings = $1 WHERE id = $2`,
-        [JSON.stringify({ ...settings, presets: filtered }), req.user.id]
+      const result = await client.query(
+        `SELECT settings FROM users WHERE id = $1`,
+        [req.user.id]
       );
+      const settings = result.rows[0]?.settings || {};
+      const filtered = (settings.presets || []).filter(
+        (p) => p.id !== req.params.id
+      );
+      await client.query(`UPDATE users SET settings = $1 WHERE id = $2`, [
+        JSON.stringify({ ...settings, presets: filtered }),
+        req.user.id,
+      ]);
       return filtered;
     });
     res.json(updated);
@@ -3636,29 +4580,39 @@ app.get('/api/user/rag-files', authMiddleware, async (req, res) => {
 app.post('/api/user/rag-files', authMiddleware, async (req, res) => {
   const { name, size, text, isActive } = req.body;
   if (!name || !text) {
-    return res.status(400).json({ error: 'File name and text content are required' });
+    return res
+      .status(400)
+      .json({ error: 'File name and text content are required' });
   }
   try {
     const ragLimit = req.tenant.features?.rag_documents || 500;
     if (ragLimit !== -1) {
-      const currentRAGCount = await executeTenantQuery(req.tenant.id, async (client) => {
-        const res = await client.query(
-          `SELECT COUNT(*)::int as count 
+      const currentRAGCount = await executeTenantQuery(
+        req.tenant.id,
+        async (client) => {
+          const res = await client.query(
+            `SELECT COUNT(*)::int as count 
            FROM knowledge_documents 
            WHERE tenant_id = $1`,
-          [req.tenant.id]
-        );
-        return res.rows[0].count;
-      }, true);
+            [req.tenant.id]
+          );
+          return res.rows[0].count;
+        },
+        true
+      );
 
-      const graceQuery = await pool.query('SELECT downgrade_grace_ends FROM tenants WHERE id = $1', [req.tenant.id]);
+      const graceQuery = await pool.query(
+        'SELECT downgrade_grace_ends FROM tenants WHERE id = $1',
+        [req.tenant.id]
+      );
       const downgradeGraceEnds = graceQuery.rows[0]?.downgrade_grace_ends;
-      const isGraceExpired = downgradeGraceEnds && new Date() > new Date(downgradeGraceEnds);
+      const isGraceExpired =
+        downgradeGraceEnds && new Date() > new Date(downgradeGraceEnds);
 
       if (currentRAGCount >= ragLimit) {
         if (!downgradeGraceEnds || isGraceExpired) {
-          return res.status(403).json({ 
-            error: `RAG upload frozen: Document count (${currentRAGCount}) exceeds plan limit (${ragLimit}). Please upgrade your plan or resolve outstanding violations.` 
+          return res.status(403).json({
+            error: `RAG upload frozen: Document count (${currentRAGCount}) exceeds plan limit (${ragLimit}). Please upgrade your plan or resolve outstanding violations.`,
           });
         }
       }
@@ -3672,7 +4626,16 @@ app.post('/api/user/rag-files', authMiddleware, async (req, res) => {
       await client.query(
         `INSERT INTO knowledge_documents (id, tenant_id, user_id, filename, file_type, file_size_bytes, content, is_active, status)
          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'indexed')`,
-        [newId, req.tenant.id, req.user.id, name, fileType, size || 0, text, isActiveBool]
+        [
+          newId,
+          req.tenant.id,
+          req.user.id,
+          name,
+          fileType,
+          size || 0,
+          text,
+          isActiveBool,
+        ]
       );
     });
 
@@ -3694,7 +4657,7 @@ app.post('/api/user/rag-files', authMiddleware, async (req, res) => {
           [req.tenant.id, newId, item.chunk, embeddingString]
         );
       }
-      
+
       const result = await client.query(
         `SELECT id, filename as name, file_size_bytes as size, is_active as "isActive", created_at 
          FROM knowledge_documents 
@@ -3721,7 +4684,7 @@ app.patch('/api/user/rag-files/:id', authMiddleware, async (req, res) => {
          WHERE id = $1 AND user_id = $2 AND tenant_id = $3`,
         [req.params.id, req.user.id, req.tenant.id]
       );
-      
+
       const result = await client.query(
         `SELECT id, filename as name, file_size_bytes as size, is_active as "isActive", created_at 
          FROM knowledge_documents 
@@ -3747,7 +4710,7 @@ app.delete('/api/user/rag-files/:id', authMiddleware, async (req, res) => {
          WHERE id = $1 AND user_id = $2 AND tenant_id = $3`,
         [req.params.id, req.user.id, req.tenant.id]
       );
-      
+
       const result = await client.query(
         `SELECT id, filename as name, file_size_bytes as size, is_active as "isActive", created_at 
          FROM knowledge_documents 
@@ -3821,17 +4784,21 @@ app.get('/api/docs', (req, res) => {
 // Chat history endpoint
 app.get('/api/chat/history', authMiddleware, async (req, res) => {
   try {
-    const conversations = await executeTenantQuery(req.tenant.id, async (client) => {
-      const result = await client.query(
-        `SELECT id, title, model, created_at, updated_at
+    const conversations = await executeTenantQuery(
+      req.tenant.id,
+      async (client) => {
+        const result = await client.query(
+          `SELECT id, title, model, created_at, updated_at
          FROM conversations
          WHERE user_id = $1 AND deleted_at IS NULL
          ORDER BY updated_at DESC
          LIMIT 100`,
-        [req.user.id]
-      );
-      return result.rows;
-    }, true);
+          [req.user.id]
+        );
+        return result.rows;
+      },
+      true
+    );
     res.json({ conversations });
   } catch (err) {
     console.error('Chat history error:', err);
@@ -3846,16 +4813,20 @@ app.get('/api/billing', authMiddleware, async (req, res) => {
 
 app.get('/api/billing/invoices', authMiddleware, async (req, res) => {
   try {
-    const invoices = await executeTenantQuery(req.tenant.id, async (client) => {
-      const result = await client.query(
-        `SELECT id, amount, currency, status, created_at, paid_at, invoice_url, pdf_url
+    const invoices = await executeTenantQuery(
+      req.tenant.id,
+      async (client) => {
+        const result = await client.query(
+          `SELECT id, amount, currency, status, created_at, paid_at, invoice_url, pdf_url
          FROM invoices
          WHERE tenant_id = $1
          ORDER BY created_at DESC`,
-        [req.tenant.id]
-      );
-      return result.rows;
-    }, true);
+          [req.tenant.id]
+        );
+        return result.rows;
+      },
+      true
+    );
     res.json({ invoices });
   } catch (err) {
     console.error('Fetch billing invoices error:', err);
@@ -3871,7 +4842,9 @@ app.use((err, req, res, next) => {
   res.status(500).json({ error: 'Internal Server Error' });
 });
 
-initUserTables().catch(err => console.error("❌ Error initializing tables:", err));
+initUserTables().catch((err) =>
+  console.error('❌ Error initializing tables:', err)
+);
 
 app.listen(port, () => {
   console.log(`⚡ [Tenant API] Operational and listening on port ${port}`);

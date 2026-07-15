@@ -7,6 +7,7 @@ This guide explains how to migrate the entire Neuravolt system (including config
 ## Migration Architecture
 
 Since docker volumes, environment keys, and database records are not tracked in Git for security reasons, we use two helper scripts to package them:
+
 1. **`scripts/vps_backup.sh`**: Runs on the **old VPS**. Dumps the database, grabs configs, grabs secrets, and bundles all user docker storage volumes (`nv-instance-*-data`) into a single archive file `neuravolt_pack_[TIMESTAMP].tar.gz`.
 2. **`scripts/vps_restore.sh`**: Runs on the **new VPS**. Restores all environment variables, launches Postgres, imports the database, recreates client docker volumes, and boots the entire stack.
 
@@ -34,6 +35,7 @@ Since docker volumes, environment keys, and database records are not tracked in 
 ## Step 2: Download the Migration Pack to your Local Machine
 
 On your **local machine terminal** (not the VPS), download the generated pack from the old VPS:
+
 ```bash
 scp -i ~/Downloads/developer.pem ubuntu@45.194.2.244:/var/www/n8n_hosting/neuravolt_pack_*.tar.gz ~/Downloads/
 ```
@@ -59,6 +61,7 @@ scp -i ~/Downloads/developer.pem ubuntu@45.194.2.244:/var/www/n8n_hosting/neurav
 ## Step 4: Transfer the Migration Pack to the New VPS
 
 On your **local machine terminal**, upload the package file to the new VPS:
+
 ```bash
 scp -i <your_key.pem> ~/Downloads/neuravolt_pack_*.tar.gz ubuntu@<new_vps_ip>:/var/www/n8n_hosting/
 ```
@@ -78,11 +81,11 @@ scp -i <your_key.pem> ~/Downloads/neuravolt_pack_*.tar.gz ubuntu@<new_vps_ip>:/v
    ./scripts/vps_restore.sh neuravolt_pack_*.tar.gz
    ```
 3. The restore script will:
-   * Recreate `.env` and `secrets/` folders.
-   * Launch and import the Postgres database schema and user records.
-   * Dynamically rebuild all client n8n docker volumes.
-   * Boot up all Neuravolt service containers.
-   * Clean up temporary files.
+   - Recreate `.env` and `secrets/` folders.
+   - Launch and import the Postgres database schema and user records.
+   - Dynamically rebuild all client n8n docker volumes.
+   - Boot up all Neuravolt service containers.
+   - Clean up temporary files.
 
 4. Verify all containers are running successfully:
    ```bash

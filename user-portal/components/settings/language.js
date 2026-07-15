@@ -4,7 +4,7 @@ import { Save } from 'lucide-react';
 export default function LanguageSettings() {
   const [profile, setProfile] = useState({
     language: 'en',
-    timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone
+    timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
   });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -13,22 +13,25 @@ export default function LanguageSettings() {
   useEffect(() => {
     const fetchProfile = async () => {
       try {
-        const token = (localStorage.getItem('hk_user') ? 'cookie_auth' : null);
+        const token = localStorage.getItem('hk_user') ? 'cookie_auth' : null;
         if (!token) return;
-        const apiBase = localStorage.getItem('hk_api_base') || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3008';
-      const tenantSlug = localStorage.getItem('hk_tenant') || 'neuravolt';
+        const apiBase =
+          localStorage.getItem('hk_api_base') ||
+          process.env.NEXT_PUBLIC_API_URL ||
+          'http://localhost:3008';
+        const tenantSlug = localStorage.getItem('hk_tenant') || 'neuravolt';
         const res = await fetch(`${apiBase}/api/user/profile`, {
           credentials: 'include',
           headers: {
-                    'x-tenant-slug': tenantSlug
-        }
+            'x-tenant-slug': tenantSlug,
+          },
         });
         if (res.ok) {
           const data = await res.json();
-          setProfile(prev => ({
+          setProfile((prev) => ({
             ...prev,
             language: data.language || 'en',
-            timeZone: data.timeZone || prev.timeZone
+            timeZone: data.timeZone || prev.timeZone,
           }));
         }
       } catch (err) {
@@ -42,7 +45,7 @@ export default function LanguageSettings() {
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setProfile(prev => ({ ...prev, [name]: value }));
+    setProfile((prev) => ({ ...prev, [name]: value }));
   };
 
   const handleSave = async (e) => {
@@ -50,20 +53,26 @@ export default function LanguageSettings() {
     setSaving(true);
     setMessage(null);
     try {
-      const token = (localStorage.getItem('hk_user') ? 'cookie_auth' : null);
-      const apiBase = localStorage.getItem('hk_api_base') || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3008';
+      const token = localStorage.getItem('hk_user') ? 'cookie_auth' : null;
+      const apiBase =
+        localStorage.getItem('hk_api_base') ||
+        process.env.NEXT_PUBLIC_API_URL ||
+        'http://localhost:3008';
       const tenantSlug = localStorage.getItem('hk_tenant') || 'neuravolt';
       const res = await fetch(`${apiBase}/api/user/profile`, {
-          credentials: 'include',
+        credentials: 'include',
         method: 'PUT',
         headers: {
-                    'x-tenant-slug': tenantSlug,
-          'Content-Type': 'application/json'
+          'x-tenant-slug': tenantSlug,
+          'Content-Type': 'application/json',
         },
-        body: JSON.stringify(profile)
+        body: JSON.stringify(profile),
       });
       if (res.ok) {
-        setMessage({ type: 'success', text: 'Language preferences updated successfully.' });
+        setMessage({
+          type: 'success',
+          text: 'Language preferences updated successfully.',
+        });
       } else {
         throw new Error('Failed to update language');
       }
@@ -83,7 +92,9 @@ export default function LanguageSettings() {
         <p>Customize your language, date formats, and regional settings.</p>
       </div>
 
-      {message && <div className={`settings-alert ${message.type}`}>{message.text}</div>}
+      {message && (
+        <div className={`settings-alert ${message.type}`}>{message.text}</div>
+      )}
 
       <form className="settings-form" onSubmit={handleSave}>
         <div className="settings-section">
@@ -91,7 +102,11 @@ export default function LanguageSettings() {
 
           <div className="form-group">
             <label>Interface Language</label>
-            <select name="language" value={profile.language} onChange={handleChange}>
+            <select
+              name="language"
+              value={profile.language}
+              onChange={handleChange}
+            >
               <option value="en">English (US)</option>
               <option value="en-gb">English (UK)</option>
               <option value="es">Spanish</option>
@@ -99,7 +114,9 @@ export default function LanguageSettings() {
               <option value="de">German</option>
               <option value="hi">Hindi</option>
             </select>
-            <span className="help-text">This controls the language used across the Harikson AI interface.</span>
+            <span className="help-text">
+              This controls the language used across the Harikson AI interface.
+            </span>
           </div>
 
           <div className="form-group">
@@ -112,14 +129,21 @@ export default function LanguageSettings() {
               placeholder="e.g. America/New_York"
             />
             <span className="help-text">
-              Determines how dates and times are displayed in the Activity Timeline and billing history.
+              Determines how dates and times are displayed in the Activity
+              Timeline and billing history.
             </span>
           </div>
         </div>
 
         <div className="settings-actions">
           <button type="submit" className="btn-primary" disabled={saving}>
-            {saving ? 'Saving...' : <><Save size={15} /> Save Changes</>}
+            {saving ? (
+              'Saving...'
+            ) : (
+              <>
+                <Save size={15} /> Save Changes
+              </>
+            )}
           </button>
         </div>
       </form>

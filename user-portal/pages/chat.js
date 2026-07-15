@@ -1,7 +1,33 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/router';
 import Head from 'next/head';
-import { Mic, Paperclip, ArrowUp, Square, Globe, BrainCircuit, Maximize2, TriangleAlert, Bot, Search, Image as ImageIcon, Copy, Check, Zap, Plus, Edit3, X, LogOut, Link, Rocket, ShieldCheck, FolderUp, Folder, Bug, FileText } from 'lucide-react';
+import {
+  Mic,
+  Paperclip,
+  ArrowUp,
+  Square,
+  Globe,
+  BrainCircuit,
+  Maximize2,
+  TriangleAlert,
+  Bot,
+  Search,
+  Image as ImageIcon,
+  Copy,
+  Check,
+  Zap,
+  Plus,
+  Edit3,
+  X,
+  LogOut,
+  Link,
+  Rocket,
+  ShieldCheck,
+  FolderUp,
+  Folder,
+  Bug,
+  FileText,
+} from 'lucide-react';
 import SettingsModal from '../components/SettingsModal';
 
 /* ────────────────────────────────────────────────────────────
@@ -22,14 +48,33 @@ function CodeBlock({ language, code, onOpenArtifact }) {
         <span className="code-lang">{language || 'code'}</span>
         <div className="artifact-actions">
           {onOpenArtifact && (
-            <button onClick={() => onOpenArtifact({ language, code })} title="Open in Canvas" style={{display: 'flex', alignItems: 'center', gap: '4px'}}><Maximize2 size={12} /> Canvas</button>
+            <button
+              onClick={() => onOpenArtifact({ language, code })}
+              title="Open in Canvas"
+              style={{ display: 'flex', alignItems: 'center', gap: '4px' }}
+            >
+              <Maximize2 size={12} /> Canvas
+            </button>
           )}
-          <button className={`copy-btn${copied ? ' copied' : ''}`} onClick={copy}>
-            {copied ? <><Check size={14} /> Copied</> : <><Copy size={14} /> Copy</>}
+          <button
+            className={`copy-btn${copied ? ' copied' : ''}`}
+            onClick={copy}
+          >
+            {copied ? (
+              <>
+                <Check size={14} /> Copied
+              </>
+            ) : (
+              <>
+                <Copy size={14} /> Copy
+              </>
+            )}
           </button>
         </div>
       </div>
-      <pre><code className="block-code">{code}</code></pre>
+      <pre>
+        <code className="block-code">{code}</code>
+      </pre>
     </div>
   );
 }
@@ -51,15 +96,34 @@ function renderMarkdown(text, onOpenArtifact) {
         codeLines.push(lines[i]);
         i++;
       }
-      elements.push(<CodeBlock key={i} language={lang} code={codeLines.join('\n')} onOpenArtifact={onOpenArtifact} />);
+      elements.push(
+        <CodeBlock
+          key={i}
+          language={lang}
+          code={codeLines.join('\n')}
+          onOpenArtifact={onOpenArtifact}
+        />
+      );
       i++;
       continue;
     }
 
     // Headings
-    if (line.startsWith('### ')) { elements.push(<h3 key={i}>{renderInline(line.slice(4))}</h3>); i++; continue; }
-    if (line.startsWith('## '))  { elements.push(<h2 key={i}>{renderInline(line.slice(3))}</h2>); i++; continue; }
-    if (line.startsWith('# '))   { elements.push(<h1 key={i}>{renderInline(line.slice(2))}</h1>); i++; continue; }
+    if (line.startsWith('### ')) {
+      elements.push(<h3 key={i}>{renderInline(line.slice(4))}</h3>);
+      i++;
+      continue;
+    }
+    if (line.startsWith('## ')) {
+      elements.push(<h2 key={i}>{renderInline(line.slice(3))}</h2>);
+      i++;
+      continue;
+    }
+    if (line.startsWith('# ')) {
+      elements.push(<h1 key={i}>{renderInline(line.slice(2))}</h1>);
+      i++;
+      continue;
+    }
 
     // Unordered list
     if (line.match(/^[\*\-] /)) {
@@ -76,7 +140,9 @@ function renderMarkdown(text, onOpenArtifact) {
     if (line.match(/^\d+\. /)) {
       const items = [];
       while (i < lines.length && lines[i].match(/^\d+\. /)) {
-        items.push(<li key={i}>{renderInline(lines[i].replace(/^\d+\. /, ''))}</li>);
+        items.push(
+          <li key={i}>{renderInline(lines[i].replace(/^\d+\. /, ''))}</li>
+        );
         i++;
       }
       elements.push(<ol key={`ol-${i}`}>{items}</ol>);
@@ -84,10 +150,26 @@ function renderMarkdown(text, onOpenArtifact) {
     }
 
     // Horizontal rule
-    if (line.match(/^---+$/)) { elements.push(<hr key={i} style={{ border: 'none', borderTop: '1px solid var(--border)', margin: '12px 0' }} />); i++; continue; }
+    if (line.match(/^---+$/)) {
+      elements.push(
+        <hr
+          key={i}
+          style={{
+            border: 'none',
+            borderTop: '1px solid var(--border)',
+            margin: '12px 0',
+          }}
+        />
+      );
+      i++;
+      continue;
+    }
 
     // Empty line
-    if (!line.trim()) { i++; continue; }
+    if (!line.trim()) {
+      i++;
+      continue;
+    }
 
     // Paragraph
     elements.push(<p key={i}>{renderInline(line)}</p>);
@@ -113,12 +195,35 @@ function renderInline(text) {
   });
 }
 
-
 const SLASH_COMMANDS = [
-  { id: 'code', icon: '</>', title: 'Write Code', desc: 'Generate a code snippet or component', prompt: 'Write the code for a ' },
-  { id: 'summarize', icon: <FileText size={18} />, title: 'Summarize', desc: 'Summarize text or meeting notes', prompt: 'Summarize the following: \n' },
-  { id: 'debug', icon: <Bug size={18} />, title: 'Debug', desc: 'Find bugs in my code', prompt: 'Debug this code and explain the fixes: \n' },
-  { id: 'explain', icon: <BrainCircuit size={18} />, title: 'Explain', desc: 'Explain a complex concept simply', prompt: 'Explain this concept to me as if I were a beginner: ' },
+  {
+    id: 'code',
+    icon: '</>',
+    title: 'Write Code',
+    desc: 'Generate a code snippet or component',
+    prompt: 'Write the code for a ',
+  },
+  {
+    id: 'summarize',
+    icon: <FileText size={18} />,
+    title: 'Summarize',
+    desc: 'Summarize text or meeting notes',
+    prompt: 'Summarize the following: \n',
+  },
+  {
+    id: 'debug',
+    icon: <Bug size={18} />,
+    title: 'Debug',
+    desc: 'Find bugs in my code',
+    prompt: 'Debug this code and explain the fixes: \n',
+  },
+  {
+    id: 'explain',
+    icon: <BrainCircuit size={18} />,
+    title: 'Explain',
+    desc: 'Explain a complex concept simply',
+    prompt: 'Explain this concept to me as if I were a beginner: ',
+  },
 ];
 
 let pdfjsPromise = null;
@@ -134,9 +239,11 @@ const loadPdfJs = () => {
       return;
     }
     const script = document.createElement('script');
-    script.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
+    script.src =
+      'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
     script.onload = () => {
-      window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+      window.pdfjsLib.GlobalWorkerOptions.workerSrc =
+        'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
       resolve(window.pdfjsLib);
     };
     script.onerror = (err) => {
@@ -156,7 +263,7 @@ const extractTextFromPdf = async (arrayBuffer) => {
   for (let i = 1; i <= pdf.numPages; i++) {
     const page = await pdf.getPage(i);
     const textContent = await page.getTextContent();
-    const pageText = textContent.items.map(item => item.str).join(' ');
+    const pageText = textContent.items.map((item) => item.str).join(' ');
     fullText += `--- Page ${i} ---\n${pageText}\n\n`;
   }
   if (!fullText.trim()) {
@@ -178,7 +285,8 @@ const loadTesseract = () => {
       return;
     }
     const script = document.createElement('script');
-    script.src = 'https://cdn.jsdelivr.net/npm/tesseract.js@5.0.5/dist/tesseract.min.js';
+    script.src =
+      'https://cdn.jsdelivr.net/npm/tesseract.js@5.0.5/dist/tesseract.min.js';
     script.onload = () => {
       resolve(window.Tesseract);
     };
@@ -426,15 +534,16 @@ Before generating output, verify:
    Main Chat Page
    ──────────────────────────────────────────────────────────── */
 
-
 export default function ChatPage() {
   const [globalError, setGlobalError] = useState('');
   useEffect(() => {
     window.onerror = (msg, src, line, col, err) => {
-      setGlobalError(msg + " at " + line + ":" + col + "\n" + (err ? err.stack : ''));
+      setGlobalError(
+        msg + ' at ' + line + ':' + col + '\n' + (err ? err.stack : '')
+      );
     };
     window.addEventListener('unhandledrejection', (event) => {
-      setGlobalError("Unhandled Promise Rejection: " + event.reason);
+      setGlobalError('Unhandled Promise Rejection: ' + event.reason);
     });
   }, []);
   const router = useRouter();
@@ -446,19 +555,23 @@ export default function ChatPage() {
     } else {
       try {
         if (!recognitionRef.current) {
-          const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-          if (!SpeechRecognition) throw new Error("Speech recognition not supported");
-          
+          const SpeechRecognition =
+            window.SpeechRecognition || window.webkitSpeechRecognition;
+          if (!SpeechRecognition)
+            throw new Error('Speech recognition not supported');
+
           recognitionRef.current = new SpeechRecognition();
           recognitionRef.current.continuous = false;
           recognitionRef.current.interimResults = false;
           recognitionRef.current.onresult = (event) => {
             const transcript = event.results[0][0].transcript;
-            setInputText(prev => prev ? prev + ' ' + transcript : transcript);
+            setInputText((prev) =>
+              prev ? prev + ' ' + transcript : transcript
+            );
             setIsRecording(false);
           };
           recognitionRef.current.onerror = (e) => {
-            console.error("Mic error:", e);
+            console.error('Mic error:', e);
             setIsRecording(false);
           };
           recognitionRef.current.onend = () => setIsRecording(false);
@@ -466,8 +579,10 @@ export default function ChatPage() {
         recognitionRef.current.start();
         setIsRecording(true);
       } catch (err) {
-        console.error("Speech API Error:", err);
-        alert("Voice dictation is not available in this browser or requires HTTPS.");
+        console.error('Speech API Error:', err);
+        alert(
+          'Voice dictation is not available in this browser or requires HTTPS.'
+        );
         setIsRecording(false);
       }
     }
@@ -475,27 +590,34 @@ export default function ChatPage() {
 
   const speakText = (text) => {
     if (typeof window === 'undefined' || !window.speechSynthesis) return;
-    
+
     // Clean text of markdown, icons, emojis, etc.
     const cleanText = text
       .replace(/[#*`⚠️🔒💡]/g, '')
       .replace(/\(.*?\)/g, '')
       .trim();
-      
+
     if (!cleanText) return;
-    
+
     const utterance = new SpeechSynthesisUtterance(cleanText);
     const voices = window.speechSynthesis.getVoices();
-    const naturalVoice = voices.find(v => v.lang.startsWith('en') && (v.name.includes('Google') || v.name.includes('Natural') || v.name.includes('Samantha'))) || voices[0];
+    const naturalVoice =
+      voices.find(
+        (v) =>
+          v.lang.startsWith('en') &&
+          (v.name.includes('Google') ||
+            v.name.includes('Natural') ||
+            v.name.includes('Samantha'))
+      ) || voices[0];
     if (naturalVoice) utterance.voice = naturalVoice;
-    
+
     utterance.onstart = () => {
       isSpeakingRef.current = true;
     };
     utterance.onend = () => {
       isSpeakingRef.current = false;
     };
-    
+
     window.speechSynthesis.speak(utterance);
   };
 
@@ -503,13 +625,14 @@ export default function ChatPage() {
     setIsVoiceMode(true);
     setError(null);
     if (typeof window === 'undefined') return;
-    
+
     window.speechSynthesis?.cancel();
 
     try {
-      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+      const SpeechRecognition =
+        window.SpeechRecognition || window.webkitSpeechRecognition;
       if (!SpeechRecognition) {
-        alert("Speech recognition not supported in this browser.");
+        alert('Speech recognition not supported in this browser.');
         setIsVoiceMode(false);
         return;
       }
@@ -518,7 +641,7 @@ export default function ChatPage() {
       recognition.continuous = true;
       recognition.interimResults = true;
       recognition.lang = 'en-US';
-      
+
       let silenceTimer = null;
 
       recognition.onresult = (event) => {
@@ -540,9 +663,9 @@ export default function ChatPage() {
         const currentText = (finalTranscript || interimTranscript).trim();
         if (currentText) {
           setVoiceTranscript(currentText);
-          
+
           if (silenceTimer) clearTimeout(silenceTimer);
-          
+
           silenceTimer = setTimeout(() => {
             sendVoiceMessage(currentText);
             setVoiceTranscript('');
@@ -552,7 +675,7 @@ export default function ChatPage() {
       };
 
       recognition.onerror = (e) => {
-        console.error("Voice mode error:", e);
+        console.error('Voice mode error:', e);
       };
 
       recognition.onend = () => {
@@ -560,7 +683,7 @@ export default function ChatPage() {
           try {
             recognition.start();
           } catch (err) {
-            console.warn("Failed to restart voice recognition:", err.message);
+            console.warn('Failed to restart voice recognition:', err.message);
           }
         }
       };
@@ -568,7 +691,7 @@ export default function ChatPage() {
       voiceRecognitionRef.current = recognition;
       recognition.start();
     } catch (err) {
-      console.error("Failed to start voice recognition:", err);
+      console.error('Failed to start voice recognition:', err);
       setIsVoiceMode(false);
     }
   };
@@ -602,7 +725,6 @@ export default function ChatPage() {
     }, 50);
   };
 
-
   // Auth & config
   const [token, setToken] = useState(null);
   const [user, setUser] = useState(null);
@@ -628,7 +750,9 @@ export default function ChatPage() {
   const [customInstructions, setCustomInstructions] = useState('');
   const [attachedFiles, setAttachedFiles] = useState([]);
   const [pinnedChats, setPinnedChats] = useState([]);
-  const hasProcessingFiles = attachedFiles.some(f => f.status === 'processing');
+  const hasProcessingFiles = attachedFiles.some(
+    (f) => f.status === 'processing'
+  );
   const [showSlashMenu, setShowSlashMenu] = useState(false);
   const [slashIndex, setSlashIndex] = useState(0);
   const [activeArtifact, setActiveArtifact] = useState(null);
@@ -678,18 +802,31 @@ export default function ChatPage() {
 
   const exportAsMarkdown = () => {
     if (messages.length === 0) return;
-    const mdContent = messages.map(m => {
-      const sender = m.sender === 'user' ? '### User' : `### Assistant (${m.model || 'AI'})`;
-      return `${sender}\n\n${m.text}\n\n---\n`;
-    }).join('\n');
-    triggerDownload(mdContent, `chat_${activeConvId || 'new'}.md`, 'text/markdown');
+    const mdContent = messages
+      .map((m) => {
+        const sender =
+          m.sender === 'user'
+            ? '### User'
+            : `### Assistant (${m.model || 'AI'})`;
+        return `${sender}\n\n${m.text}\n\n---\n`;
+      })
+      .join('\n');
+    triggerDownload(
+      mdContent,
+      `chat_${activeConvId || 'new'}.md`,
+      'text/markdown'
+    );
     setShowExportMenu(false);
   };
 
   const exportAsJSON = () => {
     if (messages.length === 0) return;
     const jsonContent = JSON.stringify(messages, null, 2);
-    triggerDownload(jsonContent, `chat_${activeConvId || 'new'}.json`, 'application/json');
+    triggerDownload(
+      jsonContent,
+      `chat_${activeConvId || 'new'}.json`,
+      'application/json'
+    );
     setShowExportMenu(false);
   };
 
@@ -697,32 +834,36 @@ export default function ChatPage() {
     if (messages.length === 0) return;
     const printWindow = window.open('', '_blank');
     if (!printWindow) return;
-    
-    const contentHtml = messages.map(m => `
+
+    const contentHtml = messages
+      .map(
+        (m) => `
       <div style="margin-bottom: 24px; padding-bottom: 16px; border-bottom: 1px solid #eee; font-family: sans-serif;">
         <div style="font-weight: bold; font-size: 11px; text-transform: uppercase; color: #4F8CFF; margin-bottom: 6px;">
           ${m.sender === 'user' ? 'User' : `Assistant (${m.model || 'AI'})`}
         </div>
         <div style="font-size: 14px; line-height: 1.5; color: #333; white-space: pre-wrap;">${m.text}</div>
       </div>
-    `).join('');
-    
+    `
+      )
+      .join('');
+
     printWindow.document.write(
       '<html><head><title>Chat Transcript</title></head>' +
-      '<body style="max-width: 800px; margin: 40px auto; padding: 0 20px; font-family: sans-serif;">' +
-      '<h1 style="font-size: 24px; margin-bottom: 30px; text-align: center;">Harikson AI Chat Transcript</h1>' +
-      contentHtml +
-      '<script>window.onload = function() { window.print(); window.close(); }</script>' +
-      '</body></html>'
+        '<body style="max-width: 800px; margin: 40px auto; padding: 0 20px; font-family: sans-serif;">' +
+        '<h1 style="font-size: 24px; margin-bottom: 30px; text-align: center;">Harikson AI Chat Transcript</h1>' +
+        contentHtml +
+        '<script>window.onload = function() { window.print(); window.close(); }</script>' +
+        '</body></html>'
     );
     printWindow.document.close();
     setShowExportMenu(false);
   };
 
-
-
   useEffect(() => {
-    const savedPins = JSON.parse(localStorage.getItem('hk_pinned_chats') || '[]');
+    const savedPins = JSON.parse(
+      localStorage.getItem('hk_pinned_chats') || '[]'
+    );
     setPinnedChats(savedPins);
   }, []);
 
@@ -730,7 +871,7 @@ export default function ChatPage() {
     e.stopPropagation();
     let newPins;
     if (pinnedChats.includes(id)) {
-      newPins = pinnedChats.filter(p => p !== id);
+      newPins = pinnedChats.filter((p) => p !== id);
     } else {
       newPins = [...pinnedChats, id];
     }
@@ -750,22 +891,27 @@ export default function ChatPage() {
 
   /* ── Resolve config from localStorage on mount ── */
 
-
   useEffect(() => {
-    const savedInstructions = localStorage.getItem('harikson_custom_instructions');
+    const savedInstructions = localStorage.getItem(
+      'harikson_custom_instructions'
+    );
     if (savedInstructions) setCustomInstructions(savedInstructions);
     let savedUser = null;
     try {
       savedUser = JSON.parse(localStorage.getItem('hk_user') || 'null');
     } catch (e) {
-      console.error("Failed to parse user from localStorage", e);
+      console.error('Failed to parse user from localStorage', e);
       localStorage.removeItem('hk_token');
       localStorage.removeItem('hk_user');
       router.replace('/login');
       return;
     }
-    if (!savedUser) { router.replace('/login'); return; }
-    const savedBase = localStorage.getItem('hk_api_base') || 'http://localhost:3008';
+    if (!savedUser) {
+      router.replace('/login');
+      return;
+    }
+    const savedBase =
+      localStorage.getItem('hk_api_base') || 'http://localhost:3008';
     const savedTenant = localStorage.getItem('hk_tenant') || 'system';
     setToken('cookie_auth');
     setUser(savedUser);
@@ -798,7 +944,7 @@ export default function ChatPage() {
         loadConversation(urlConvId);
       }
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token, router.isReady, router.query.conversation, activeConvId]);
 
   /* ── Auto scroll on new messages ── */
@@ -810,20 +956,30 @@ export default function ChatPage() {
   useEffect(() => {
     if (textareaRef.current) {
       textareaRef.current.style.height = 'auto';
-      textareaRef.current.style.height = Math.min(textareaRef.current.scrollHeight, 180) + 'px';
+      textareaRef.current.style.height =
+        Math.min(textareaRef.current.scrollHeight, 180) + 'px';
     }
   }, [inputText]);
 
-  const authHeaders = useCallback(() => ({
-    'Content-Type': 'application/json',
-    'x-tenant-slug': tenantSlug,
-  }), [tenantSlug]);
+  const authHeaders = useCallback(
+    () => ({
+      'Content-Type': 'application/json',
+      'x-tenant-slug': tenantSlug,
+    }),
+    [tenantSlug]
+  );
 
   /* ── Fetch conversation list ── */
   const fetchConversations = async () => {
     try {
-      const res = await fetch(`${apiBase}/api/conversations`, { headers: authHeaders(), credentials: 'include' });
-      if (res.status === 401) { handleLogout(); return; }
+      const res = await fetch(`${apiBase}/api/conversations`, {
+        headers: authHeaders(),
+        credentials: 'include',
+      });
+      if (res.status === 401) {
+        handleLogout();
+        return;
+      }
       const data = await res.json();
       setConversations(data.conversations || []);
     } catch (err) {
@@ -836,9 +992,14 @@ export default function ChatPage() {
     setActiveConvId(convId);
     setError(null);
     setMessages([]);
-    router.replace(`/chat?conversation=${convId}`, undefined, { shallow: true });
+    router.replace(`/chat?conversation=${convId}`, undefined, {
+      shallow: true,
+    });
     try {
-      const res = await fetch(`${apiBase}/api/conversations/${convId}/messages`, { headers: authHeaders(), credentials: 'include' });
+      const res = await fetch(
+        `${apiBase}/api/conversations/${convId}/messages`,
+        { headers: authHeaders(), credentials: 'include' }
+      );
       const data = await res.json();
       const loaded = (data.messages || []).map((m) => ({
         id: m.id,
@@ -878,23 +1039,24 @@ export default function ChatPage() {
     }, 50);
   };
 
-
   const processFile = (file) => {
     const fileId = Math.random().toString(36).substring(7);
-    
+
     // Add placeholder with status 'processing'
-    setAttachedFiles(prev => [
+    setAttachedFiles((prev) => [
       ...prev,
-      { id: fileId, name: file.name, status: 'processing', content: '' }
+      { id: fileId, name: file.name, status: 'processing', content: '' },
     ]);
 
     const updateFileContent = (content, status = 'ready', error = null) => {
-      setAttachedFiles(prev => prev.map(f => {
-        if (f.id === fileId) {
-          return { ...f, content, status, error };
-        }
-        return f;
-      }));
+      setAttachedFiles((prev) =>
+        prev.map((f) => {
+          if (f.id === fileId) {
+            return { ...f, content, status, error };
+          }
+          return f;
+        })
+      );
     };
 
     if (file.type === 'application/pdf' || file.name.endsWith('.pdf')) {
@@ -934,12 +1096,11 @@ export default function ChatPage() {
 
   const handleFileUpload = (e) => {
     const files = Array.from(e.target.files || []);
-    files.forEach(file => processFile(file));
+    files.forEach((file) => processFile(file));
   };
 
-
   const removeAttachedFile = (idx) => {
-    setAttachedFiles(prev => prev.filter((_, i) => i !== idx));
+    setAttachedFiles((prev) => prev.filter((_, i) => i !== idx));
   };
 
   const handleSuggestionClick = (suggestionText) => {
@@ -956,7 +1117,7 @@ export default function ChatPage() {
       return;
     }
     const shareUrl = `${window.location.origin}/chat?conversation=${activeConvId}`;
-    
+
     const fallbackCopy = (text) => {
       const textArea = document.createElement('textarea');
       textArea.value = text;
@@ -983,13 +1144,16 @@ export default function ChatPage() {
     };
 
     if (navigator.clipboard && navigator.clipboard.writeText) {
-      navigator.clipboard.writeText(shareUrl).then(() => {
-        setToast('Share link copied to clipboard!');
-        setTimeout(() => setToast(null), 2500);
-      }).catch(err => {
-        console.error('Clipboard write failed, using fallback:', err);
-        fallbackCopy(shareUrl);
-      });
+      navigator.clipboard
+        .writeText(shareUrl)
+        .then(() => {
+          setToast('Share link copied to clipboard!');
+          setTimeout(() => setToast(null), 2500);
+        })
+        .catch((err) => {
+          console.error('Clipboard write failed, using fallback:', err);
+          fallbackCopy(shareUrl);
+        });
     } else {
       fallbackCopy(shareUrl);
     }
@@ -1009,7 +1173,7 @@ export default function ChatPage() {
     e.preventDefault();
     setIsDragging(false);
     const files = Array.from(e.dataTransfer.files || []);
-    files.forEach(file => processFile(file));
+    files.forEach((file) => processFile(file));
   };
 
   const stopGeneration = (e) => {
@@ -1027,14 +1191,21 @@ export default function ChatPage() {
   /* ── Send message ── */
   const sendMessage = async (e) => {
     if (e) e.preventDefault();
-    const readyAttachments = attachedFiles.filter(f => f.status !== 'error' && f.status !== 'processing');
-    if ((!inputText.trim() && readyAttachments.length === 0) || loading || hasProcessingFiles) return;
+    const readyAttachments = attachedFiles.filter(
+      (f) => f.status !== 'error' && f.status !== 'processing'
+    );
+    if (
+      (!inputText.trim() && readyAttachments.length === 0) ||
+      loading ||
+      hasProcessingFiles
+    )
+      return;
 
     const userText = inputText.trim();
     setInputText('');
     setError(null);
     setLoading(true);
-    
+
     // Determine loading status based on toggles and URLs
     if (useDeepSearch) {
       setLoadingStatus('Searching the web...');
@@ -1049,10 +1220,13 @@ export default function ChatPage() {
 
     // Map system prompts presets
     const presets = {
-      coder: "You are a senior developer. Write code in clean, modular blocks with TypeScript typings and proper error catches. Brand everything as 'Harikson'. Do not expose any open-source model names.",
-      reviewer: "You are a code auditor. Find logic flows, edge cases, and performance leaks in the code. Brand everything as 'Harikson'.",
+      coder:
+        "You are a senior developer. Write code in clean, modular blocks with TypeScript typings and proper error catches. Brand everything as 'Harikson'. Do not expose any open-source model names.",
+      reviewer:
+        "You are a code auditor. Find logic flows, edge cases, and performance leaks in the code. Brand everything as 'Harikson'.",
       dba: "You are a senior Postgres DBA. Focus on database schemas, transaction locks, and query index performance. Brand everything as 'Harikson'.",
-      general: "You are a helpful, privacy-first enterprise AI assistant branded as 'Harikson'."
+      general:
+        "You are a helpful, privacy-first enterprise AI assistant branded as 'Harikson'.",
     };
 
     const fileInstructions = `
@@ -1285,7 +1459,7 @@ If any check fails, revise the relevant section before output.`;
     let selectedPresetContent = presets[systemPreset] || presets.general;
     if (systemPreset.startsWith('custom_')) {
       const customId = systemPreset.substring(7);
-      const customPreset = customPresets.find(p => p.id === customId);
+      const customPreset = customPresets.find((p) => p.id === customId);
       if (customPreset) {
         selectedPresetContent = customPreset.systemPrompt;
       }
@@ -1293,13 +1467,22 @@ If any check fails, revise the relevant section before output.`;
 
     // Build client-side history to send to backend (ChatGPT approach — no DB race condition)
     const clientHistory = [
-      { role: 'system', content: isVoiceMode ? voiceInstructions : (selectedPresetContent + fileInstructions + (customInstructions ? '\n\nCustom Instructions:\n' + customInstructions : '')) },
+      {
+        role: 'system',
+        content: isVoiceMode
+          ? voiceInstructions
+          : selectedPresetContent +
+            fileInstructions +
+            (customInstructions
+              ? '\n\nCustom Instructions:\n' + customInstructions
+              : ''),
+      },
       ...messages
-        .filter(m => m.text && m.text.trim())
-        .map(m => ({
+        .filter((m) => m.text && m.text.trim())
+        .map((m) => ({
           role: m.sender === 'user' ? 'user' : 'assistant',
-          content: m.text
-        }))
+          content: m.text,
+        })),
     ];
 
     // Handle persistent RAG Drive files
@@ -1309,9 +1492,15 @@ If any check fails, revise the relevant section before output.`;
       if (driveStored) {
         try {
           const driveFiles = JSON.parse(driveStored);
-          const activeFiles = driveFiles.filter(f => f.isActive);
+          const activeFiles = driveFiles.filter((f) => f.isActive);
           if (activeFiles.length > 0) {
-            driveContext = activeFiles.map(f => `<uploaded_file name="${f.name}">\n${f.text}\n</uploaded_file>`).join('\n\n') + '\n\n';
+            driveContext =
+              activeFiles
+                .map(
+                  (f) =>
+                    `<uploaded_file name="${f.name}">\n${f.text}\n</uploaded_file>`
+                )
+                .join('\n\n') + '\n\n';
           }
         } catch (e) {
           console.error(e);
@@ -1322,7 +1511,12 @@ If any check fails, revise the relevant section before output.`;
     // Handle document/file attachment injection
     let finalMessage = userText;
     if (readyAttachments.length > 0) {
-      const attachments = readyAttachments.map(f => `<uploaded_file name="${f.name}">\n${f.content}\n</uploaded_file>`).join('\n\n');
+      const attachments = readyAttachments
+        .map(
+          (f) =>
+            `<uploaded_file name="${f.name}">\n${f.content}\n</uploaded_file>`
+        )
+        .join('\n\n');
       finalMessage = `${attachments}\n\n${userText}`;
     }
 
@@ -1354,11 +1548,18 @@ If any check fails, revise the relevant section before output.`;
         throw new Error(err.error || `Server error ${res.status}`);
       }
 
-      const convId = res.headers.get('x-conversation-id') || res.headers.get('X-Conversation-Id');
+      const convId =
+        res.headers.get('x-conversation-id') ||
+        res.headers.get('X-Conversation-Id');
       if (convId && !activeConvId) {
         setActiveConvId(convId);
         setConversations((prev) => [
-          { id: convId, title: userText.substring(0, 50), model, updated_at: new Date().toISOString() },
+          {
+            id: convId,
+            title: userText.substring(0, 50),
+            model,
+            updated_at: new Date().toISOString(),
+          },
           ...prev.filter((c) => c.id !== convId),
         ]);
       }
@@ -1414,7 +1615,9 @@ If any check fails, revise the relevant section before output.`;
       }
       console.error('Chat error:', err);
       setError(err.message || 'Failed to send message. Please try again.');
-      setMessages((prev) => prev.filter((m) => !(m.sender === 'bot' && m.text === '')));
+      setMessages((prev) =>
+        prev.filter((m) => !(m.sender === 'bot' && m.text === ''))
+      );
     } finally {
       setLoading(false);
       abortControllerRef.current = null;
@@ -1445,7 +1648,10 @@ If any check fails, revise the relevant section before output.`;
     setRenameValue(conv.title);
   };
   const commitRename = async (convId) => {
-    if (!renameValue.trim()) { setRenamingId(null); return; }
+    if (!renameValue.trim()) {
+      setRenamingId(null);
+      return;
+    }
     try {
       await fetch(`${apiBase}/api/conversations/${convId}`, {
         method: 'PATCH',
@@ -1454,7 +1660,9 @@ If any check fails, revise the relevant section before output.`;
         body: JSON.stringify({ title: renameValue.trim() }),
       });
       setConversations((prev) =>
-        prev.map((c) => c.id === convId ? { ...c, title: renameValue.trim() } : c)
+        prev.map((c) =>
+          c.id === convId ? { ...c, title: renameValue.trim() } : c
+        )
       );
     } catch (err) {
       console.error('Rename failed', err);
@@ -1465,7 +1673,10 @@ If any check fails, revise the relevant section before output.`;
   /* ── Logout ── */
   const handleLogout = async () => {
     try {
-      const apiBase = localStorage.getItem('hk_api_base') || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3008';
+      const apiBase =
+        localStorage.getItem('hk_api_base') ||
+        process.env.NEXT_PUBLIC_API_URL ||
+        'http://localhost:3008';
       const token = localStorage.getItem('hk_token');
       const tenantSlug = localStorage.getItem('hk_tenant') || 'neuravolt';
       await fetch(`${apiBase}/api/auth/logout`, {
@@ -1490,12 +1701,14 @@ If any check fails, revise the relevant section before output.`;
     if (showSlashMenu) {
       if (e.key === 'ArrowDown') {
         e.preventDefault();
-        setSlashIndex(prev => (prev + 1) % SLASH_COMMANDS.length);
+        setSlashIndex((prev) => (prev + 1) % SLASH_COMMANDS.length);
         return;
       }
       if (e.key === 'ArrowUp') {
         e.preventDefault();
-        setSlashIndex(prev => (prev - 1 + SLASH_COMMANDS.length) % SLASH_COMMANDS.length);
+        setSlashIndex(
+          (prev) => (prev - 1 + SLASH_COMMANDS.length) % SLASH_COMMANDS.length
+        );
         return;
       }
       if (e.key === 'Enter') {
@@ -1517,7 +1730,7 @@ If any check fails, revise the relevant section before output.`;
   const handleInputChange = (e) => {
     const val = e.target.value;
     setInputText(val);
-    
+
     if (val === '/' || val.endsWith(' /')) {
       setShowSlashMenu(true);
       setSlashIndex(0);
@@ -1528,7 +1741,7 @@ If any check fails, revise the relevant section before output.`;
 
   const applySlashCommand = (cmd) => {
     const parts = inputText.split('/');
-    parts.pop(); 
+    parts.pop();
     setInputText(parts.join('/') + cmd.prompt);
     setShowSlashMenu(false);
     textareaRef.current?.focus();
@@ -1540,8 +1753,20 @@ If any check fails, revise the relevant section before output.`;
 
   return (
     <>
-            {globalError && (
-        <div style={{ position: 'fixed', top: 0, left: 0, width: '100%', background: 'red', color: 'white', zIndex: 9999, padding: '20px', whiteSpace: 'pre-wrap' }}>
+      {globalError && (
+        <div
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            width: '100%',
+            background: 'red',
+            color: 'white',
+            zIndex: 9999,
+            padding: '20px',
+            whiteSpace: 'pre-wrap',
+          }}
+        >
           <h1>CLIENT SIDE CRASH!</h1>
           {globalError}
         </div>
@@ -1551,7 +1776,7 @@ If any check fails, revise the relevant section before output.`;
         <meta name="description" content="Harikson AI Chat Interface" />
       </Head>
 
-      <div 
+      <div
         className="chat-root"
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
@@ -1561,7 +1786,9 @@ If any check fails, revise the relevant section before output.`;
         <aside className="sidebar">
           {/* Logo */}
           <div className="sidebar-header">
-            <div className="sidebar-logo-icon"><Zap size={20} color="var(--accent)" /></div>
+            <div className="sidebar-logo-icon">
+              <Zap size={20} color="var(--accent)" />
+            </div>
             <div className="sidebar-logo-text">Harikson AI</div>
           </div>
 
@@ -1574,7 +1801,13 @@ If any check fails, revise the relevant section before output.`;
           {/* Conversation List */}
           <div className="conv-list">
             {conversations.length === 0 && (
-              <div style={{ padding: '12px 16px', color: 'var(--text-muted)', fontSize: '12.5px' }}>
+              <div
+                style={{
+                  padding: '12px 16px',
+                  color: 'var(--text-muted)',
+                  fontSize: '12.5px',
+                }}
+              >
                 No conversations yet. Start chatting!
               </div>
             )}
@@ -1609,12 +1842,16 @@ If any check fails, revise the relevant section before output.`;
                     className="conv-action-btn"
                     title="Rename"
                     onClick={(e) => startRename(conv, e)}
-                  ><Edit3 size={14} /></button>
+                  >
+                    <Edit3 size={14} />
+                  </button>
                   <button
                     className="conv-action-btn danger"
                     title="Delete"
                     onClick={(e) => deleteConversation(conv.id, e)}
-                  ><X size={14} /></button>
+                  >
+                    <X size={14} />
+                  </button>
                 </div>
               </div>
             ))}
@@ -1622,17 +1859,35 @@ If any check fails, revise the relevant section before output.`;
 
           {/* User Info / Logout */}
           <div className="sidebar-footer">
-            <div 
-              className="user-info" 
+            <div
+              className="user-info"
               onClick={() => setShowSettingsModal(true)}
-              style={{ cursor: 'pointer', transition: 'background 0.2s', padding: '8px', borderRadius: 'var(--radius-md)' }}
-              onMouseOver={(e) => e.currentTarget.style.background = 'var(--bg-hover)'}
-              onMouseOut={(e) => e.currentTarget.style.background = 'transparent'}
+              style={{
+                cursor: 'pointer',
+                transition: 'background 0.2s',
+                padding: '8px',
+                borderRadius: 'var(--radius-md)',
+              }}
+              onMouseOver={(e) =>
+                (e.currentTarget.style.background = 'var(--bg-hover)')
+              }
+              onMouseOut={(e) =>
+                (e.currentTarget.style.background = 'transparent')
+              }
             >
               <div className="user-avatar">{userInitial}</div>
-              <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
-                <span className="user-email" style={{ fontSize: '13px', fontWeight: '500' }}>{user?.name || user?.email?.split('@')[0] || 'User'}</span>
-                <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Manage Account</span>
+              <div
+                style={{ flex: 1, display: 'flex', flexDirection: 'column' }}
+              >
+                <span
+                  className="user-email"
+                  style={{ fontSize: '13px', fontWeight: '500' }}
+                >
+                  {user?.name || user?.email?.split('@')[0] || 'User'}
+                </span>
+                <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+                  Manage Account
+                </span>
               </div>
             </div>
           </div>
@@ -1640,383 +1895,576 @@ If any check fails, revise the relevant section before output.`;
 
         {/* ─── Main area ───────────────────────────────────── */}
         <div className="workspace">
-        <main className={`main-area ${activeArtifact ? 'with-artifact' : ''}`}>
-          {/* Top bar */}
-          <div className="topbar">
-            <span className="topbar-title">
-              {activeConvId
-                ? conversations.find((c) => c.id === activeConvId)?.title || 'Conversation'
-                : 'New Conversation'}
-            </span>
-            <div className="topbar-actions" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-
-              {/* Export Menu Dropdown */}
-              <div style={{ position: 'relative' }}>
-                <button 
-                  className="share-btn" 
-                  onClick={() => setShowExportMenu(!showExportMenu)} 
-                  title="Export conversation"
-                >
-                  <span style={{marginRight: "6px"}}><FolderUp size={14} /></span> Export
-                </button>
-                {showExportMenu && (
-                  <div style={{
-                    position: 'absolute',
-                    right: 0,
-                    top: '100%',
-                    marginTop: '6px',
-                    background: 'var(--surface)',
-                    border: '1px solid var(--border)',
-                    borderRadius: '8px',
-                    boxShadow: '0 4px 16px rgba(0,0,0,0.15)',
-                    zIndex: 999,
-                    display: 'flex',
-                    flexDirection: 'column',
-                    minWidth: '130px',
-                    overflow: 'hidden'
-                  }}>
-                    <button 
-                      onClick={exportAsMarkdown} 
-                      style={{ padding: '8px 12px', fontSize: '11.5px', textAlign: 'left', background: 'transparent', border: 'none', color: 'var(--text)', cursor: 'pointer', transition: 'background 0.2s' }}
-                      onMouseOver={(e) => e.currentTarget.style.background = 'var(--bg-hover)'}
-                      onMouseOut={(e) => e.currentTarget.style.background = 'transparent'}
-                    >
-                      Markdown (.md)
-                    </button>
-                    <button 
-                      onClick={exportAsJSON} 
-                      style={{ padding: '8px 12px', fontSize: '11.5px', textAlign: 'left', background: 'transparent', border: 'none', color: 'var(--text)', cursor: 'pointer', transition: 'background 0.2s' }}
-                      onMouseOver={(e) => e.currentTarget.style.background = 'var(--bg-hover)'}
-                      onMouseOut={(e) => e.currentTarget.style.background = 'transparent'}
-                    >
-                      JSON (.json)
-                    </button>
-                    <button 
-                      onClick={exportAsPDF} 
-                      style={{ padding: '8px 12px', fontSize: '11.5px', textAlign: 'left', background: 'transparent', border: 'none', color: 'var(--text)', cursor: 'pointer', transition: 'background 0.2s' }}
-                      onMouseOver={(e) => e.currentTarget.style.background = 'var(--bg-hover)'}
-                      onMouseOut={(e) => e.currentTarget.style.background = 'transparent'}
-                    >
-                      Print PDF
-                    </button>
-                  </div>
-                )}
-              </div>
-
-              <button className="share-btn" onClick={handleShareChat} title="Share conversation link">
-                <span style={{marginRight: "6px"}}><Link size={14} /></span> Share
-              </button>
-              
-              <select
-                className="model-select"
-                value={systemPreset}
-                onChange={(e) => setSystemPreset(e.target.value)}
+          <main
+            className={`main-area ${activeArtifact ? 'with-artifact' : ''}`}
+          >
+            {/* Top bar */}
+            <div className="topbar">
+              <span className="topbar-title">
+                {activeConvId
+                  ? conversations.find((c) => c.id === activeConvId)?.title ||
+                    'Conversation'
+                  : 'New Conversation'}
+              </span>
+              <div
+                className="topbar-actions"
+                style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
               >
-                <option value="general">General Agent</option>
-                <option value="coder">Senior Coder</option>
-                <option value="reviewer">Code Reviewer</option>
-                <option value="dba">Database DBA</option>
-                {customPresets.map(preset => (
-                  <option key={preset.id} value={`custom_${preset.id}`}>{preset.name}</option>
-                ))}
-              </select>
-              <select
-                className="model-select"
-                value={model}
-                onChange={(e) => setModel(e.target.value)}
-              >
-                <option value="harikson-plus">Harikson Plus · 8B</option>
-                <option value="harikson-max">Harikson Max · 14B</option>
-              </select>
-            </div>
-          </div>
-
-          {/* Messages */}
-          <div className="messages-area">
-            {messages.length === 0 && !loading && (
-              <div className="messages-empty">
-                <div className="messages-empty-icon"><Zap size={40} color="var(--accent)" /></div>
-                <h2>Harikson AI</h2>
-                <p>Your enterprise AI coding assistant. Ask anything about your codebase, architecture, or software.</p>
-                
-                <div className="prompt-suggestions-grid">
-                  <div className="suggestion-card" onClick={() => handleSuggestionClick("Create a private LLM deployment template with Harikson.")}>
-                    <div className="suggestion-icon"><Rocket size={24} color="var(--accent)" /></div>
-                    <div className="suggestion-text">
-                      <strong>Deploy Private LLM</strong>
-                      <span>Create a sovereign deployment template</span>
-                    </div>
-                  </div>
-                  <div className="suggestion-card" onClick={() => handleSuggestionClick("Auditing my code for DPDP compliance rules.")}>
-                    <div className="suggestion-icon"><ShieldCheck size={24} color="var(--accent)" /></div>
-                    <div className="suggestion-text">
-                      <strong>DPDP Audit</strong>
-                      <span>Check code compliance on Indian soil</span>
-                    </div>
-                  </div>
-                  <div className="suggestion-card" onClick={() => handleSuggestionClick("Optimize this query for active tenant indexes.")}>
-                    <div className="suggestion-icon"><Zap size={24} color="var(--accent)" /></div>
-                    <div className="suggestion-text">
-                      <strong>Optimize SQL Index</strong>
-                      <span>DBA schema indexing assistant</span>
-                    </div>
-                  </div>
-                  <div className="suggestion-card" onClick={() => handleSuggestionClick("Write a robust RAG data pipeline configuration.")}>
-                    <div className="suggestion-icon"><Folder size={24} color="var(--accent)" /></div>
-                    <div className="suggestion-text">
-                      <strong>RAG Data Pipeline</strong>
-                      <span>Inject documents for vector search</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {messages.map((msg, idx) =>
-              msg.sender === 'user' ? (
-                <div key={idx} className="message-row user">
-                  <div className="message-bubble-user">{msg.text}</div>
-                </div>
-              ) : (
-                <div key={idx} className="message-row assistant">
-                  <div className="message-bubble-assistant">
-                    <div className="assistant-avatar"><Zap size={16} color="white" /></div>
-                    <div className="assistant-content">
-                      {renderMarkdown(msg.text, setActiveArtifact)}
-                    </div>
-                  </div>
-                </div>
-              )
-            )}
-
-            {/* Thinking indicator */}
-            {loading && (
-              <div className="thinking-row" style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                <div className="thinking-avatar"><Zap size={16} color="white" /></div>
-                <div className="thinking-dots">
-                  <div className="thinking-dot" />
-                  <div className="thinking-dot" />
-                  <div className="thinking-dot" />
-                </div>
-                {loadingStatus && (
-                  <span style={{ fontSize: '13px', color: 'var(--text-secondary)', fontStyle: 'italic' }}>
-                    {loadingStatus}
-                  </span>
-                )}
-              </div>
-            )}
-
-            {/* Error */}
-            {error && (
-              <div className="error-banner">
-                <TriangleAlert size={18} />
-                <span>{error}</span>
-              </div>
-            )}
-
-            <div ref={chatEndRef} />
-          </div>
-
-          {/* Input bar */}
-          <div className="input-bar">
-            {attachedFiles.length > 0 && (
-              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '8px', padding: '0 12px' }}>
-                {attachedFiles.map((file, i) => (
-                  <div key={i} className={`attached-file-pill ${file.status || 'ready'}`} style={
-                    file.status === 'error' ? { borderColor: 'rgba(239, 68, 68, 0.4)', background: 'rgba(239, 68, 68, 0.05)', color: '#dc2626' } :
-                    file.status === 'processing' ? { borderColor: 'rgba(79, 140, 255, 0.4)', background: 'rgba(79, 140, 255, 0.05)' } : {}
-                  }>
-                    {file.status === 'processing' ? (
-                      <div className="settings-spinner" style={{
-                        width: '12px',
-                        height: '12px',
-                        border: '2px solid rgba(79, 140, 255, 0.2)',
-                        borderTop: '2px solid var(--accent)',
-                        borderRadius: '50%',
-                        animation: 'spin 1s linear infinite'
-                      }} />
-                    ) : (
-                      <Paperclip size={12} />
-                    )}
-                    <span style={{ fontSize: '11.5px' }}>
-                      {file.name} 
-                      {file.status === 'processing' && ' (extracting...)'}
-                      {file.status === 'error' && ' (failed)'}
-                    </span>
-                    <button type="button" onClick={() => removeAttachedFile(i)} style={
-                      file.status === 'error' ? { color: '#dc2626' } : {}
-                    }><X size={14} /></button>
-                  </div>
-                ))}
-              </div>
-            )}
-            <form onSubmit={sendMessage}>
-              <div className="input-wrapper">
-                {showSlashMenu && (
-                  <div className="slash-command-popup">
-                    {SLASH_COMMANDS.map((cmd, idx) => (
-                      <div 
-                        key={cmd.id} 
-                        className={`slash-command-item ${idx === slashIndex ? 'selected' : ''}`}
-                        onClick={() => applySlashCommand(cmd)}
-                        onMouseEnter={() => setSlashIndex(idx)}
-                      >
-                        <div className="slash-command-icon">{cmd.icon}</div>
-                        <div className="slash-command-details">
-                          <span className="slash-command-title">{cmd.title}</span>
-                          <span className="slash-command-desc">{cmd.desc}</span>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-                <textarea
-                  ref={textareaRef}
-                  className="chat-textarea"
-                  rows={1}
-                  value={inputText}
-                  onChange={handleInputChange}
-                  onKeyDown={handleKeyDown}
-                  placeholder="Message Harikson…"
-                  disabled={loading}
-                />
-                <div className="input-toolbar">
-                  <div className="input-toolbar-left">
-                    <button 
-                      type="button" 
-                      onClick={toggleVoiceMode}
+                {/* Export Menu Dropdown */}
+                <div style={{ position: 'relative' }}>
+                  <button
+                    className="share-btn"
+                    onClick={() => setShowExportMenu(!showExportMenu)}
+                    title="Export conversation"
+                  >
+                    <span style={{ marginRight: '6px' }}>
+                      <FolderUp size={14} />
+                    </span>{' '}
+                    Export
+                  </button>
+                  {showExportMenu && (
+                    <div
                       style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        width: '32px',
-                        height: '32px',
+                        position: 'absolute',
+                        right: 0,
+                        top: '100%',
+                        marginTop: '6px',
+                        background: 'var(--surface)',
+                        border: '1px solid var(--border)',
                         borderRadius: '8px',
-                        background: 'transparent',
-                        border: '2px solid var(--accent, #0070f3)',
-                        color: 'var(--text-secondary, #4b5563)',
-                        cursor: 'pointer',
-                        transition: 'background 0.2s, border-color 0.2s',
+                        boxShadow: '0 4px 16px rgba(0,0,0,0.15)',
+                        zIndex: 999,
+                        display: 'flex',
+                        flexDirection: 'column',
+                        minWidth: '130px',
+                        overflow: 'hidden',
                       }}
-                      title="Voice Mode Assistant"
                     >
-                      <Mic size={18} />
-                    </button>
-                    <input
-                      type="file"
-                      id="file-upload"
-                      multiple
-                      style={{ display: 'none' }}
-                      onChange={handleFileUpload}
-                    />
-                    <label htmlFor="file-upload" className="toolbar-btn" title="Attach Files">
-                      <Paperclip size={18} />
-                    </label>
-                    <div className="toolbar-divider" />
-                    <button type="button" className={`compute-toggle ${useDeepSearch ? 'active' : ''}`} onClick={() => setUseDeepSearch(!useDeepSearch)}>
-                      <Globe size={14} /> Search
-                    </button>
-                    <button type="button" className={`compute-toggle ${useReasoning ? 'active' : ''}`} onClick={() => setUseReasoning(!useReasoning)}>
-                      <BrainCircuit size={14} /> Reason
-                    </button>
+                      <button
+                        onClick={exportAsMarkdown}
+                        style={{
+                          padding: '8px 12px',
+                          fontSize: '11.5px',
+                          textAlign: 'left',
+                          background: 'transparent',
+                          border: 'none',
+                          color: 'var(--text)',
+                          cursor: 'pointer',
+                          transition: 'background 0.2s',
+                        }}
+                        onMouseOver={(e) =>
+                          (e.currentTarget.style.background = 'var(--bg-hover)')
+                        }
+                        onMouseOut={(e) =>
+                          (e.currentTarget.style.background = 'transparent')
+                        }
+                      >
+                        Markdown (.md)
+                      </button>
+                      <button
+                        onClick={exportAsJSON}
+                        style={{
+                          padding: '8px 12px',
+                          fontSize: '11.5px',
+                          textAlign: 'left',
+                          background: 'transparent',
+                          border: 'none',
+                          color: 'var(--text)',
+                          cursor: 'pointer',
+                          transition: 'background 0.2s',
+                        }}
+                        onMouseOver={(e) =>
+                          (e.currentTarget.style.background = 'var(--bg-hover)')
+                        }
+                        onMouseOut={(e) =>
+                          (e.currentTarget.style.background = 'transparent')
+                        }
+                      >
+                        JSON (.json)
+                      </button>
+                      <button
+                        onClick={exportAsPDF}
+                        style={{
+                          padding: '8px 12px',
+                          fontSize: '11.5px',
+                          textAlign: 'left',
+                          background: 'transparent',
+                          border: 'none',
+                          color: 'var(--text)',
+                          cursor: 'pointer',
+                          transition: 'background 0.2s',
+                        }}
+                        onMouseOver={(e) =>
+                          (e.currentTarget.style.background = 'var(--bg-hover)')
+                        }
+                        onMouseOut={(e) =>
+                          (e.currentTarget.style.background = 'transparent')
+                        }
+                      >
+                        Print PDF
+                      </button>
+                    </div>
+                  )}
+                </div>
+
+                <button
+                  className="share-btn"
+                  onClick={handleShareChat}
+                  title="Share conversation link"
+                >
+                  <span style={{ marginRight: '6px' }}>
+                    <Link size={14} />
+                  </span>{' '}
+                  Share
+                </button>
+
+                <select
+                  className="model-select"
+                  value={systemPreset}
+                  onChange={(e) => setSystemPreset(e.target.value)}
+                >
+                  <option value="general">General Agent</option>
+                  <option value="coder">Senior Coder</option>
+                  <option value="reviewer">Code Reviewer</option>
+                  <option value="dba">Database DBA</option>
+                  {customPresets.map((preset) => (
+                    <option key={preset.id} value={`custom_${preset.id}`}>
+                      {preset.name}
+                    </option>
+                  ))}
+                </select>
+                <select
+                  className="model-select"
+                  value={model}
+                  onChange={(e) => setModel(e.target.value)}
+                >
+                  <option value="harikson-plus">Harikson Plus · 8B</option>
+                  <option value="harikson-max">Harikson Max · 14B</option>
+                </select>
+              </div>
+            </div>
+
+            {/* Messages */}
+            <div className="messages-area">
+              {messages.length === 0 && !loading && (
+                <div className="messages-empty">
+                  <div className="messages-empty-icon">
+                    <Zap size={40} color="var(--accent)" />
                   </div>
-                  <div className="input-toolbar-right">
-                    {loading ? (
+                  <h2>Harikson AI</h2>
+                  <p>
+                    Your enterprise AI coding assistant. Ask anything about your
+                    codebase, architecture, or software.
+                  </p>
+
+                  <div className="prompt-suggestions-grid">
+                    <div
+                      className="suggestion-card"
+                      onClick={() =>
+                        handleSuggestionClick(
+                          'Create a private LLM deployment template with Harikson.'
+                        )
+                      }
+                    >
+                      <div className="suggestion-icon">
+                        <Rocket size={24} color="var(--accent)" />
+                      </div>
+                      <div className="suggestion-text">
+                        <strong>Deploy Private LLM</strong>
+                        <span>Create a sovereign deployment template</span>
+                      </div>
+                    </div>
+                    <div
+                      className="suggestion-card"
+                      onClick={() =>
+                        handleSuggestionClick(
+                          'Auditing my code for DPDP compliance rules.'
+                        )
+                      }
+                    >
+                      <div className="suggestion-icon">
+                        <ShieldCheck size={24} color="var(--accent)" />
+                      </div>
+                      <div className="suggestion-text">
+                        <strong>DPDP Audit</strong>
+                        <span>Check code compliance on Indian soil</span>
+                      </div>
+                    </div>
+                    <div
+                      className="suggestion-card"
+                      onClick={() =>
+                        handleSuggestionClick(
+                          'Optimize this query for active tenant indexes.'
+                        )
+                      }
+                    >
+                      <div className="suggestion-icon">
+                        <Zap size={24} color="var(--accent)" />
+                      </div>
+                      <div className="suggestion-text">
+                        <strong>Optimize SQL Index</strong>
+                        <span>DBA schema indexing assistant</span>
+                      </div>
+                    </div>
+                    <div
+                      className="suggestion-card"
+                      onClick={() =>
+                        handleSuggestionClick(
+                          'Write a robust RAG data pipeline configuration.'
+                        )
+                      }
+                    >
+                      <div className="suggestion-icon">
+                        <Folder size={24} color="var(--accent)" />
+                      </div>
+                      <div className="suggestion-text">
+                        <strong>RAG Data Pipeline</strong>
+                        <span>Inject documents for vector search</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {messages.map((msg, idx) =>
+                msg.sender === 'user' ? (
+                  <div key={idx} className="message-row user">
+                    <div className="message-bubble-user">{msg.text}</div>
+                  </div>
+                ) : (
+                  <div key={idx} className="message-row assistant">
+                    <div className="message-bubble-assistant">
+                      <div className="assistant-avatar">
+                        <Zap size={16} color="white" />
+                      </div>
+                      <div className="assistant-content">
+                        {renderMarkdown(msg.text, setActiveArtifact)}
+                      </div>
+                    </div>
+                  </div>
+                )
+              )}
+
+              {/* Thinking indicator */}
+              {loading && (
+                <div
+                  className="thinking-row"
+                  style={{ display: 'flex', alignItems: 'center', gap: '12px' }}
+                >
+                  <div className="thinking-avatar">
+                    <Zap size={16} color="white" />
+                  </div>
+                  <div className="thinking-dots">
+                    <div className="thinking-dot" />
+                    <div className="thinking-dot" />
+                    <div className="thinking-dot" />
+                  </div>
+                  {loadingStatus && (
+                    <span
+                      style={{
+                        fontSize: '13px',
+                        color: 'var(--text-secondary)',
+                        fontStyle: 'italic',
+                      }}
+                    >
+                      {loadingStatus}
+                    </span>
+                  )}
+                </div>
+              )}
+
+              {/* Error */}
+              {error && (
+                <div className="error-banner">
+                  <TriangleAlert size={18} />
+                  <span>{error}</span>
+                </div>
+              )}
+
+              <div ref={chatEndRef} />
+            </div>
+
+            {/* Input bar */}
+            <div className="input-bar">
+              {attachedFiles.length > 0 && (
+                <div
+                  style={{
+                    display: 'flex',
+                    gap: '8px',
+                    flexWrap: 'wrap',
+                    marginBottom: '8px',
+                    padding: '0 12px',
+                  }}
+                >
+                  {attachedFiles.map((file, i) => (
+                    <div
+                      key={i}
+                      className={`attached-file-pill ${file.status || 'ready'}`}
+                      style={
+                        file.status === 'error'
+                          ? {
+                              borderColor: 'rgba(239, 68, 68, 0.4)',
+                              background: 'rgba(239, 68, 68, 0.05)',
+                              color: '#dc2626',
+                            }
+                          : file.status === 'processing'
+                            ? {
+                                borderColor: 'rgba(79, 140, 255, 0.4)',
+                                background: 'rgba(79, 140, 255, 0.05)',
+                              }
+                            : {}
+                      }
+                    >
+                      {file.status === 'processing' ? (
+                        <div
+                          className="settings-spinner"
+                          style={{
+                            width: '12px',
+                            height: '12px',
+                            border: '2px solid rgba(79, 140, 255, 0.2)',
+                            borderTop: '2px solid var(--accent)',
+                            borderRadius: '50%',
+                            animation: 'spin 1s linear infinite',
+                          }}
+                        />
+                      ) : (
+                        <Paperclip size={12} />
+                      )}
+                      <span style={{ fontSize: '11.5px' }}>
+                        {file.name}
+                        {file.status === 'processing' && ' (extracting...)'}
+                        {file.status === 'error' && ' (failed)'}
+                      </span>
                       <button
                         type="button"
-                        className="send-btn stop-btn"
-                        onClick={stopGeneration}
-                        title="Stop generation"
+                        onClick={() => removeAttachedFile(i)}
+                        style={
+                          file.status === 'error' ? { color: '#dc2626' } : {}
+                        }
                       >
-                        <Square fill="currentColor" size={14} />
+                        <X size={14} />
                       </button>
-                    ) : (
+                    </div>
+                  ))}
+                </div>
+              )}
+              <form onSubmit={sendMessage}>
+                <div className="input-wrapper">
+                  {showSlashMenu && (
+                    <div className="slash-command-popup">
+                      {SLASH_COMMANDS.map((cmd, idx) => (
+                        <div
+                          key={cmd.id}
+                          className={`slash-command-item ${idx === slashIndex ? 'selected' : ''}`}
+                          onClick={() => applySlashCommand(cmd)}
+                          onMouseEnter={() => setSlashIndex(idx)}
+                        >
+                          <div className="slash-command-icon">{cmd.icon}</div>
+                          <div className="slash-command-details">
+                            <span className="slash-command-title">
+                              {cmd.title}
+                            </span>
+                            <span className="slash-command-desc">
+                              {cmd.desc}
+                            </span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  <textarea
+                    ref={textareaRef}
+                    className="chat-textarea"
+                    rows={1}
+                    value={inputText}
+                    onChange={handleInputChange}
+                    onKeyDown={handleKeyDown}
+                    placeholder="Message Harikson…"
+                    disabled={loading}
+                  />
+                  <div className="input-toolbar">
+                    <div className="input-toolbar-left">
                       <button
-                        type="submit"
-                        className="send-btn"
-                        disabled={(!inputText.trim() && attachedFiles.length === 0) || hasProcessingFiles}
-                        title="Send (Enter)"
+                        type="button"
+                        onClick={toggleVoiceMode}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          width: '32px',
+                          height: '32px',
+                          borderRadius: '8px',
+                          background: 'transparent',
+                          border: '2px solid var(--accent, #0070f3)',
+                          color: 'var(--text-secondary, #4b5563)',
+                          cursor: 'pointer',
+                          transition: 'background 0.2s, border-color 0.2s',
+                        }}
+                        title="Voice Mode Assistant"
                       >
-                        <ArrowUp size={18} />
+                        <Mic size={18} />
                       </button>
-                    )}
+                      <input
+                        type="file"
+                        id="file-upload"
+                        multiple
+                        style={{ display: 'none' }}
+                        onChange={handleFileUpload}
+                      />
+                      <label
+                        htmlFor="file-upload"
+                        className="toolbar-btn"
+                        title="Attach Files"
+                      >
+                        <Paperclip size={18} />
+                      </label>
+                      <div className="toolbar-divider" />
+                      <button
+                        type="button"
+                        className={`compute-toggle ${useDeepSearch ? 'active' : ''}`}
+                        onClick={() => setUseDeepSearch(!useDeepSearch)}
+                      >
+                        <Globe size={14} /> Search
+                      </button>
+                      <button
+                        type="button"
+                        className={`compute-toggle ${useReasoning ? 'active' : ''}`}
+                        onClick={() => setUseReasoning(!useReasoning)}
+                      >
+                        <BrainCircuit size={14} /> Reason
+                      </button>
+                    </div>
+                    <div className="input-toolbar-right">
+                      {loading ? (
+                        <button
+                          type="button"
+                          className="send-btn stop-btn"
+                          onClick={stopGeneration}
+                          title="Stop generation"
+                        >
+                          <Square fill="currentColor" size={14} />
+                        </button>
+                      ) : (
+                        <button
+                          type="submit"
+                          className="send-btn"
+                          disabled={
+                            (!inputText.trim() && attachedFiles.length === 0) ||
+                            hasProcessingFiles
+                          }
+                          title="Send (Enter)"
+                        >
+                          <ArrowUp size={18} />
+                        </button>
+                      )}
+                    </div>
                   </div>
                 </div>
-              </div>
-            </form>
-            <p className="input-hint">Press Enter to send · Shift+Enter for new line · Attach code files</p>
-          </div>
-        </main>
-        
-        {/* ─── Artifact Pane ───────────────────────────────────── */}
-        {activeArtifact && (
-          <aside className="artifact-pane">
-            <div className="artifact-header">
-              <div className="artifact-title">
-                <Maximize2 size={16} color="#ff7e67" style={{marginRight: '8px'}} /> {activeArtifact.language === 'html' ? 'index.html' : 'snippet.' + (activeArtifact.language || 'txt')}
-              </div>
-              <div className="artifact-actions">
-                <button onClick={() => { navigator.clipboard.writeText(activeArtifact.code); }}><Copy size={14} /></button>
-                <button onClick={() => setActiveArtifact(null)}><X size={14} /></button>
-              </div>
+              </form>
+              <p className="input-hint">
+                Press Enter to send · Shift+Enter for new line · Attach code
+                files
+              </p>
             </div>
-            
-            {(activeArtifact.language === 'html' || activeArtifact.language === 'svg') ? (
-              <div className="artifact-content">
-                <iframe 
-                  className="artifact-iframe" 
-                  srcDoc={activeArtifact.code}
-                  title="Preview"
-                  sandbox="allow-scripts"
-                />
+          </main>
+
+          {/* ─── Artifact Pane ───────────────────────────────────── */}
+          {activeArtifact && (
+            <aside className="artifact-pane">
+              <div className="artifact-header">
+                <div className="artifact-title">
+                  <Maximize2
+                    size={16}
+                    color="#ff7e67"
+                    style={{ marginRight: '8px' }}
+                  />{' '}
+                  {activeArtifact.language === 'html'
+                    ? 'index.html'
+                    : 'snippet.' + (activeArtifact.language || 'txt')}
+                </div>
+                <div className="artifact-actions">
+                  <button
+                    onClick={() => {
+                      navigator.clipboard.writeText(activeArtifact.code);
+                    }}
+                  >
+                    <Copy size={14} />
+                  </button>
+                  <button onClick={() => setActiveArtifact(null)}>
+                    <X size={14} />
+                  </button>
+                </div>
               </div>
-            ) : (
-              <div className="artifact-content">
-                <div className="artifact-code">{activeArtifact.code}</div>
-              </div>
-            )}
-          </aside>
-        )}
-      </div>
+
+              {activeArtifact.language === 'html' ||
+              activeArtifact.language === 'svg' ? (
+                <div className="artifact-content">
+                  <iframe
+                    className="artifact-iframe"
+                    srcDoc={activeArtifact.code}
+                    title="Preview"
+                    sandbox="allow-scripts"
+                  />
+                </div>
+              ) : (
+                <div className="artifact-content">
+                  <div className="artifact-code">{activeArtifact.code}</div>
+                </div>
+              )}
+            </aside>
+          )}
+        </div>
 
         {isDragging && (
           <div className="drag-drop-overlay">
-            <div className="drag-drop-icon"><FolderUp size={48} color="var(--accent)" /></div>
+            <div className="drag-drop-icon">
+              <FolderUp size={48} color="var(--accent)" />
+            </div>
             <span>Drop your files to attach to Harikson</span>
           </div>
         )}
 
-        {toast && (
-          <div className="toast-msg">{toast}</div>
-        )}
-        
+        {toast && <div className="toast-msg">{toast}</div>}
+
         {isVoiceMode && (
           <div className="voice-overlay">
             <div className="voice-container">
               <div className="voice-status">
-                {loading ? 'Thinking...' : isSpeakingRef.current ? 'Speaking...' : 'Listening...'}
+                {loading
+                  ? 'Thinking...'
+                  : isSpeakingRef.current
+                    ? 'Speaking...'
+                    : 'Listening...'}
               </div>
               <div className="voice-visualizer">
                 <div className="voice-wave" />
                 <div className="voice-wave" />
                 <div className="voice-wave" />
-                <button type="button" className="voice-icon-btn" onClick={stopVoiceMode}>
+                <button
+                  type="button"
+                  className="voice-icon-btn"
+                  onClick={stopVoiceMode}
+                >
                   <Mic size={36} />
                 </button>
               </div>
               <div className="voice-transcript-box">
                 {voiceTranscript || 'Say something...'}
               </div>
-              <button type="button" className="voice-close-btn" onClick={stopVoiceMode}>
+              <button
+                type="button"
+                className="voice-close-btn"
+                onClick={stopVoiceMode}
+              >
                 End Session
               </button>
             </div>
           </div>
         )}
-        
-        <SettingsModal 
-          isOpen={showSettingsModal} 
-          onClose={() => setShowSettingsModal(false)} 
+
+        <SettingsModal
+          isOpen={showSettingsModal}
+          onClose={() => setShowSettingsModal(false)}
           initialTab="profile"
           handleLogout={handleLogout}
         />

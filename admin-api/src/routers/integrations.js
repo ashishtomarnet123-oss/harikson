@@ -7,7 +7,6 @@
 import express from 'express';
 import crypto from 'crypto';
 
-
 const router = express.Router();
 
 const PROVIDERS = [
@@ -132,7 +131,10 @@ const PROVIDERS = [
     auth_url: 'https://auth.atlassian.com/authorize',
     token_url: 'https://auth.atlassian.com/oauth/token',
     revoke_url: null,
-    default_scopes: ['read:confluence-content.all', 'read:confluence-space.summary'],
+    default_scopes: [
+      'read:confluence-content.all',
+      'read:confluence-space.summary',
+    ],
     webhook_support: false,
     plan_required: 'enterprise',
   },
@@ -228,11 +230,31 @@ async function initIntegrationTables(pool) {
   `);
 
   // Indexes for performance
-  await pool.query(`CREATE INDEX IF NOT EXISTS idx_integration_connections_tenant ON integration_connections(tenant_id)`).catch(() => {});
-  await pool.query(`CREATE INDEX IF NOT EXISTS idx_integration_connections_status ON integration_connections(tenant_id, status)`).catch(() => {});
-  await pool.query(`CREATE INDEX IF NOT EXISTS idx_sync_jobs_connection ON integration_sync_jobs(connection_id)`).catch(() => {});
-  await pool.query(`CREATE INDEX IF NOT EXISTS idx_sync_jobs_status ON integration_sync_jobs(status)`).catch(() => {});
-  await pool.query(`CREATE INDEX IF NOT EXISTS idx_activity_logs_tenant_provider ON integration_activity_logs(tenant_id, provider_id)`).catch(() => {});
+  await pool
+    .query(
+      `CREATE INDEX IF NOT EXISTS idx_integration_connections_tenant ON integration_connections(tenant_id)`
+    )
+    .catch(() => {});
+  await pool
+    .query(
+      `CREATE INDEX IF NOT EXISTS idx_integration_connections_status ON integration_connections(tenant_id, status)`
+    )
+    .catch(() => {});
+  await pool
+    .query(
+      `CREATE INDEX IF NOT EXISTS idx_sync_jobs_connection ON integration_sync_jobs(connection_id)`
+    )
+    .catch(() => {});
+  await pool
+    .query(
+      `CREATE INDEX IF NOT EXISTS idx_sync_jobs_status ON integration_sync_jobs(status)`
+    )
+    .catch(() => {});
+  await pool
+    .query(
+      `CREATE INDEX IF NOT EXISTS idx_activity_logs_tenant_provider ON integration_activity_logs(tenant_id, provider_id)`
+    )
+    .catch(() => {});
 
   console.log('[Integration Center] Tables initialized.');
 }
@@ -245,7 +267,14 @@ function getTenantId(req) {
   return req.tenantId || '00000000-0000-0000-0000-000000000000';
 }
 
-async function logActivity(pool, tenantId, providerId, level, message, metadata = {}) {
+async function logActivity(
+  pool,
+  tenantId,
+  providerId,
+  level,
+  message,
+  metadata = {}
+) {
   try {
     await pool.query(
       `INSERT INTO integration_activity_logs (tenant_id, provider_id, level, message, metadata)
@@ -332,7 +361,10 @@ function simulateSyncJob(pool, jobId, tenantId, providerId, connectionId) {
         );
 
         await logActivity(
-          pool, tenantId, providerId, 'success',
+          pool,
+          tenantId,
+          providerId,
+          'success',
           `Sync completed: ${totalItems} items indexed`,
           { items_synced: totalItems, duration_ms: totalItems * 150 }
         );
@@ -367,7 +399,9 @@ router.get('/providers', async (req, res) => {
     const connectionMap = {};
     for (const c of connections) connectionMap[c.provider_id] = c;
 
-    const providers = PROVIDERS.map(p => buildProviderResponse(p, connectionMap[p.id] || null));
+    const providers = PROVIDERS.map((p) =>
+      buildProviderResponse(p, connectionMap[p.id] || null)
+    );
 
     res.json({ success: true, data: providers });
   } catch (e) {
@@ -393,7 +427,13 @@ router.get('/status', async (req, res) => {
       [tenantId]
     );
 
-    const byStatus = { disconnected: 0, connecting: 0, connected: 0, syncing: 0, error: 0 };
+    const byStatus = {
+      disconnected: 0,
+      connecting: 0,
+      connected: 0,
+      syncing: 0,
+      error: 0,
+    };
     for (const r of rows) byStatus[r.status] = r.count;
 
     const connected = byStatus.connected + byStatus.syncing;
@@ -401,7 +441,10 @@ router.get('/status', async (req, res) => {
     const total = PROVIDERS.length;
     const available = total - connected;
 
-    res.json({ success: true, data: { total, connected, available, errors, by_status: byStatus } });
+    res.json({
+      success: true,
+      data: { total, connected, available, errors, by_status: byStatus },
+    });
   } catch (e) {
     res.status(500).json({ success: false, error: e.message });
   }
@@ -416,7 +459,7 @@ router.post('/:provider/connect', async (req, res) => {
   const pool = req.pool;
   const tenantId = getTenantId(req);
   const { provider } = req.params;
-  const providerConfig = PROVIDERS.find(p => p.id === provider);
+  const providerConfig = PROVIDERS.find((p) => p.id === provider);
 
   if (!providerConfig) {
     return res.status(404).json({ success: false, error: 'Unknown provider' });
@@ -426,18 +469,29 @@ router.post('/:provider/connect', async (req, res) => {
     // Check if already connected
     const existing = await getConnection(pool, tenantId, provider);
     if (existing && existing.status === 'connected') {
-      return res.status(409).json({ success: false, error: 'Integration already connected' });
+      return res
+        .status(409)
+        .json({ success: false, error: 'Integration already connected' });
     }
 
     if (providerConfig.oauth_type === 'credentials') {
       // PostgreSQL: validate credentials in body
       const { host, port, database, username, password } = req.body;
       if (!host || !database || !username || !password) {
-        return res.status(400).json({ success: false, error: 'host, database, username, password are required' });
+        return res.status(400).json({
+          success: false,
+          error: 'host, database, username, password are required',
+        });
       }
 
       // Store (in production: encrypt password)
-      const settings = { host, port: port || 5432, database, username, password_hint: `${password[0]}***` };
+      const settings = {
+        host,
+        port: port || 5432,
+        database,
+        username,
+        password_hint: `${password[0]}***`,
+      };
 
       if (existing) {
         await pool.query(
@@ -456,13 +510,25 @@ router.post('/:provider/connect', async (req, res) => {
         );
       }
 
-      await logActivity(pool, tenantId, provider, 'success', 'PostgreSQL database connected', { host, database });
-      return res.json({ success: true, status: 'connected', message: 'Database connected successfully' });
+      await logActivity(
+        pool,
+        tenantId,
+        provider,
+        'success',
+        'PostgreSQL database connected',
+        { host, database }
+      );
+      return res.json({
+        success: true,
+        status: 'connected',
+        message: 'Database connected successfully',
+      });
     }
 
     // OAuth providers: check if env credentials exist
     const clientId = process.env[`${provider.toUpperCase()}_CLIENT_ID`];
-    const redirectUri = process.env[`${provider.toUpperCase()}_REDIRECT_URI`] ||
+    const redirectUri =
+      process.env[`${provider.toUpperCase()}_REDIRECT_URI`] ||
       `${process.env.ADMIN_PANEL_URL || 'http://localhost:4000'}/admin/integrations/${provider}/callback`;
 
     if (clientId && providerConfig.auth_url) {
@@ -495,7 +561,12 @@ router.post('/:provider/connect', async (req, res) => {
         );
       }
 
-      return res.json({ success: true, status: 'connecting', authorization_url: authUrl, expires_in: 300 });
+      return res.json({
+        success: true,
+        status: 'connecting',
+        authorization_url: authUrl,
+        expires_in: 300,
+      });
     }
 
     // Simulated connect (no credentials configured — demo mode)
@@ -515,9 +586,18 @@ router.post('/:provider/connect', async (req, res) => {
       );
     }
 
-    await logActivity(pool, tenantId, provider, 'success', `${providerConfig.name} connected successfully (demo mode)`);
-    return res.json({ success: true, status: 'connected', message: `${providerConfig.name} connected` });
-
+    await logActivity(
+      pool,
+      tenantId,
+      provider,
+      'success',
+      `${providerConfig.name} connected successfully (demo mode)`
+    );
+    return res.json({
+      success: true,
+      status: 'connected',
+      message: `${providerConfig.name} connected`,
+    });
   } catch (e) {
     console.error(`[POST /integrations/${provider}/connect]`, e);
     res.status(500).json({ success: false, error: e.message });
@@ -534,11 +614,15 @@ router.get('/:provider/callback', async (req, res) => {
   const { code, state, error: oauthError } = req.query;
 
   if (oauthError) {
-    return res.redirect(`/admin/integrations?provider=${provider}&status=error&reason=${oauthError}`);
+    return res.redirect(
+      `/admin/integrations?provider=${provider}&status=error&reason=${oauthError}`
+    );
   }
 
   if (!code || !state) {
-    return res.redirect(`/admin/integrations?provider=${provider}&status=error&reason=missing_params`);
+    return res.redirect(
+      `/admin/integrations?provider=${provider}&status=error&reason=missing_params`
+    );
   }
 
   try {
@@ -548,25 +632,37 @@ router.get('/:provider/callback', async (req, res) => {
     );
 
     if (!rows.length) {
-      return res.redirect(`/admin/integrations?provider=${provider}&status=error&reason=invalid_state`);
+      return res.redirect(
+        `/admin/integrations?provider=${provider}&status=error&reason=invalid_state`
+      );
     }
 
     const oauthState = rows[0];
     // Consume state
     await pool.query(`DELETE FROM oauth_states WHERE id = $1`, [oauthState.id]);
 
-    const providerConfig = PROVIDERS.find(p => p.id === provider);
+    const providerConfig = PROVIDERS.find((p) => p.id === provider);
     const clientId = process.env[`${provider.toUpperCase()}_CLIENT_ID`];
     const clientSecret = process.env[`${provider.toUpperCase()}_CLIENT_SECRET`];
-    const redirectUri = process.env[`${provider.toUpperCase()}_REDIRECT_URI`] ||
+    const redirectUri =
+      process.env[`${provider.toUpperCase()}_REDIRECT_URI`] ||
       `${process.env.ADMIN_PANEL_URL || 'http://localhost:4000'}/admin/integrations/${provider}/callback`;
 
     if (clientId && clientSecret && providerConfig.token_url) {
       // Exchange code for token
       const tokenResp = await fetch(providerConfig.token_url, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded', Accept: 'application/json' },
-        body: new URLSearchParams({ client_id: clientId, client_secret: clientSecret, code, redirect_uri: redirectUri, grant_type: 'authorization_code' }),
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+          Accept: 'application/json',
+        },
+        body: new URLSearchParams({
+          client_id: clientId,
+          client_secret: clientSecret,
+          code,
+          redirect_uri: redirectUri,
+          grant_type: 'authorization_code',
+        }),
       });
 
       if (tokenResp.ok) {
@@ -590,18 +686,30 @@ router.get('/:provider/callback', async (req, res) => {
           [
             oauthState.tenant_id,
             provider,
-            JSON.stringify({ token_hint: tokenHint, expires_at: expiresAt, scope: tokenData.scope }),
+            JSON.stringify({
+              token_hint: tokenHint,
+              expires_at: expiresAt,
+              scope: tokenData.scope,
+            }),
           ]
         );
 
-        await logActivity(pool, oauthState.tenant_id, provider, 'success', `OAuth successful — ${providerConfig.name} connected`);
+        await logActivity(
+          pool,
+          oauthState.tenant_id,
+          provider,
+          'success',
+          `OAuth successful — ${providerConfig.name} connected`
+        );
       } else {
         await pool.query(
           `UPDATE integration_connections SET status='error', last_error='Token exchange failed', error_type='auth_failed'
            WHERE tenant_id=$1 AND provider_id=$2`,
           [oauthState.tenant_id, provider]
         );
-        return res.redirect(`/admin/integrations?provider=${provider}&status=error&reason=token_exchange_failed`);
+        return res.redirect(
+          `/admin/integrations?provider=${provider}&status=error&reason=token_exchange_failed`
+        );
       }
     } else {
       // Simulated (demo mode)
@@ -614,12 +722,15 @@ router.get('/:provider/callback', async (req, res) => {
       );
     }
 
-    const redirectAfter = oauthState.redirect_after || `/admin/integrations?provider=${provider}&status=connected`;
+    const redirectAfter =
+      oauthState.redirect_after ||
+      `/admin/integrations?provider=${provider}&status=connected`;
     return res.redirect(redirectAfter);
-
   } catch (e) {
     console.error(`[GET /integrations/${provider}/callback]`, e);
-    return res.redirect(`/admin/integrations?provider=${provider}&status=error&reason=server_error`);
+    return res.redirect(
+      `/admin/integrations?provider=${provider}&status=error&reason=server_error`
+    );
   }
 });
 
@@ -635,7 +746,9 @@ router.post('/:provider/disconnect', async (req, res) => {
   try {
     const connection = await getConnection(pool, tenantId, provider);
     if (!connection) {
-      return res.status(404).json({ success: false, error: 'Integration not connected' });
+      return res
+        .status(404)
+        .json({ success: false, error: 'Integration not connected' });
     }
 
     // Cancel any running sync jobs
@@ -659,11 +772,19 @@ router.post('/:provider/disconnect', async (req, res) => {
       [connection.id]
     );
 
-    await logActivity(pool, tenantId, provider, 'info', `${PROVIDERS.find(p => p.id === provider)?.name || provider} disconnected`, {});
+    await logActivity(
+      pool,
+      tenantId,
+      provider,
+      'info',
+      `${PROVIDERS.find((p) => p.id === provider)?.name || provider} disconnected`,
+      {}
+    );
 
     res.json({
       success: true,
-      message: 'Integration disconnected. Data will be purged in 30 days per data retention policy.',
+      message:
+        'Integration disconnected. Data will be purged in 30 days per data retention policy.',
       disconnected_at: new Date().toISOString(),
     });
   } catch (e) {
@@ -684,11 +805,15 @@ router.post('/:provider/sync', async (req, res) => {
   try {
     const connection = await getConnection(pool, tenantId, provider);
     if (!connection || connection.status === 'disconnected') {
-      return res.status(400).json({ success: false, error: 'Integration not connected' });
+      return res
+        .status(400)
+        .json({ success: false, error: 'Integration not connected' });
     }
 
     if (connection.status === 'syncing') {
-      return res.status(409).json({ success: false, error: 'Sync already in progress' });
+      return res
+        .status(409)
+        .json({ success: false, error: 'Sync already in progress' });
     }
 
     const totalItems = Math.floor(Math.random() * 200) + 50;
@@ -698,7 +823,13 @@ router.post('/:provider/sync', async (req, res) => {
          (connection_id, tenant_id, provider_id, job_type, status, total_items, started_at)
        VALUES ($1, $2, $3, $4, 'running', $5, NOW())
        RETURNING id`,
-      [connection.id, tenantId, provider, req.body.sync_type || 'full_sync', totalItems]
+      [
+        connection.id,
+        tenantId,
+        provider,
+        req.body.sync_type || 'full_sync',
+        totalItems,
+      ]
     );
 
     const jobId = rows[0].id;
@@ -708,7 +839,14 @@ router.post('/:provider/sync', async (req, res) => {
       [connection.id]
     );
 
-    await logActivity(pool, tenantId, provider, 'info', `Sync started (${totalItems} items queued)`, { job_id: jobId });
+    await logActivity(
+      pool,
+      tenantId,
+      provider,
+      'info',
+      `Sync started (${totalItems} items queued)`,
+      { job_id: jobId }
+    );
 
     // Start simulated sync
     simulateSyncJob(pool, jobId, tenantId, provider, connection.id);
@@ -740,12 +878,14 @@ router.get('/:provider/sync/:jobId', async (req, res) => {
       [jobId]
     );
 
-    if (!rows.length) return res.status(404).json({ success: false, error: 'Job not found' });
+    if (!rows.length)
+      return res.status(404).json({ success: false, error: 'Job not found' });
 
     const job = rows[0];
-    const percentage = job.total_items > 0
-      ? Math.round((job.processed_items / job.total_items) * 100)
-      : 0;
+    const percentage =
+      job.total_items > 0
+        ? Math.round((job.processed_items / job.total_items) * 100)
+        : 0;
 
     res.json({
       success: true,
@@ -782,7 +922,9 @@ router.patch('/:provider/settings', async (req, res) => {
   try {
     const connection = await getConnection(pool, tenantId, provider);
     if (!connection) {
-      return res.status(404).json({ success: false, error: 'Integration not found' });
+      return res
+        .status(404)
+        .json({ success: false, error: 'Integration not found' });
     }
 
     const currentSettings = connection.settings || {};
@@ -793,7 +935,14 @@ router.patch('/:provider/settings', async (req, res) => {
       [JSON.stringify(newSettings), connection.id]
     );
 
-    await logActivity(pool, tenantId, provider, 'info', 'Integration settings updated', { keys: Object.keys(req.body) });
+    await logActivity(
+      pool,
+      tenantId,
+      provider,
+      'info',
+      'Integration settings updated',
+      { keys: Object.keys(req.body) }
+    );
 
     res.json({ success: true, settings: newSettings });
   } catch (e) {
@@ -844,13 +993,17 @@ router.post('/webhooks/:provider', async (req, res) => {
   const payload = JSON.stringify(req.body);
 
   try {
-    const webhookSecret = process.env[`${provider.toUpperCase()}_WEBHOOK_SECRET`];
+    const webhookSecret =
+      process.env[`${provider.toUpperCase()}_WEBHOOK_SECRET`];
     if (webhookSecret) {
       if (provider === 'github') {
         const sig = req.headers['x-hub-signature-256'];
         if (sig) {
           const expected = `sha256=${crypto.createHmac('sha256', webhookSecret).update(payload).digest('hex')}`;
-          signatureValid = crypto.timingSafeEqual(Buffer.from(sig), Buffer.from(expected));
+          signatureValid = crypto.timingSafeEqual(
+            Buffer.from(sig),
+            Buffer.from(expected)
+          );
         }
       } else if (provider === 'slack') {
         const sig = req.headers['x-slack-signature'];
@@ -858,7 +1011,10 @@ router.post('/webhooks/:provider', async (req, res) => {
         if (sig && ts && Math.abs(Date.now() / 1000 - parseInt(ts)) <= 300) {
           const baseString = `v0:${ts}:${payload}`;
           const expected = `v0=${crypto.createHmac('sha256', webhookSecret).update(baseString).digest('hex')}`;
-          signatureValid = crypto.timingSafeEqual(Buffer.from(sig), Buffer.from(expected));
+          signatureValid = crypto.timingSafeEqual(
+            Buffer.from(sig),
+            Buffer.from(expected)
+          );
         }
       } else {
         signatureValid = true; // Other providers: accept if secret not configured
@@ -867,8 +1023,15 @@ router.post('/webhooks/:provider', async (req, res) => {
       signatureValid = true; // No secret configured: accept (dev mode)
     }
 
-    const eventId = req.headers['x-github-delivery'] || req.headers['x-event-id'] || crypto.randomUUID();
-    const eventType = req.headers['x-github-event'] || req.headers['x-event-type'] || req.body?.type || 'unknown';
+    const eventId =
+      req.headers['x-github-delivery'] ||
+      req.headers['x-event-id'] ||
+      crypto.randomUUID();
+    const eventType =
+      req.headers['x-github-event'] ||
+      req.headers['x-event-type'] ||
+      req.body?.type ||
+      'unknown';
     const idempotencyKey = `${provider}:${eventId}`;
 
     await pool.query(
@@ -879,7 +1042,9 @@ router.post('/webhooks/:provider', async (req, res) => {
       [provider, eventId, eventType, signatureValid, req.body, idempotencyKey]
     );
 
-    console.log(`[Webhook] ${provider} ${eventType} received (valid: ${signatureValid})`);
+    console.log(
+      `[Webhook] ${provider} ${eventType} received (valid: ${signatureValid})`
+    );
   } catch (e) {
     console.error(`[Webhook Error - ${provider}]`, e.message);
   }
@@ -890,40 +1055,49 @@ router.post('/webhooks/:provider', async (req, res) => {
 // ─────────────────────────────────────────────────────────────────────
 function startIntegrationWorkers(pool) {
   // Purge expired OAuth states every 5 minutes
-  setInterval(async () => {
-    try {
-      const r = await pool.query(`DELETE FROM oauth_states WHERE expires_at < NOW()`);
-      if (r.rowCount > 0) console.log(`[Worker] Purged ${r.rowCount} expired OAuth states`);
-    } catch (e) {
-      console.error('[Worker: OAuth state cleanup]', e.message);
-    }
-  }, 5 * 60 * 1000);
+  setInterval(
+    async () => {
+      try {
+        const r = await pool.query(
+          `DELETE FROM oauth_states WHERE expires_at < NOW()`
+        );
+        if (r.rowCount > 0)
+          console.log(`[Worker] Purged ${r.rowCount} expired OAuth states`);
+      } catch (e) {
+        console.error('[Worker: OAuth state cleanup]', e.message);
+      }
+    },
+    5 * 60 * 1000
+  );
 
   // Auto-recover stuck syncing jobs (jobs stuck > 15 min)
-  setInterval(async () => {
-    try {
-      const { rows } = await pool.query(
-        `SELECT id, connection_id FROM integration_sync_jobs
+  setInterval(
+    async () => {
+      try {
+        const { rows } = await pool.query(
+          `SELECT id, connection_id FROM integration_sync_jobs
          WHERE status='running' AND started_at < NOW() - INTERVAL '15 minutes'`
-      );
-      for (const job of rows) {
-        await pool.query(
-          `UPDATE integration_sync_jobs SET status='failed', error_message='Timed out after 15 minutes', updated_at=NOW() WHERE id=$1`,
-          [job.id]
         );
-        await pool.query(
-          `UPDATE integration_connections SET status='error', last_error='Sync timed out', error_type='sync_timeout', updated_at=NOW() WHERE id=$1`,
-          [job.connection_id]
-        );
+        for (const job of rows) {
+          await pool.query(
+            `UPDATE integration_sync_jobs SET status='failed', error_message='Timed out after 15 minutes', updated_at=NOW() WHERE id=$1`,
+            [job.id]
+          );
+          await pool.query(
+            `UPDATE integration_connections SET status='error', last_error='Sync timed out', error_type='sync_timeout', updated_at=NOW() WHERE id=$1`,
+            [job.connection_id]
+          );
+        }
+        if (rows.length > 0)
+          console.log(`[Worker] Recovered ${rows.length} stuck sync jobs`);
+      } catch (e) {
+        console.error('[Worker: stuck sync recovery]', e.message);
       }
-      if (rows.length > 0) console.log(`[Worker] Recovered ${rows.length} stuck sync jobs`);
-    } catch (e) {
-      console.error('[Worker: stuck sync recovery]', e.message);
-    }
-  }, 5 * 60 * 1000);
+    },
+    5 * 60 * 1000
+  );
 
   console.log('[Integration Center] Background workers started.');
 }
 
 export { router, initIntegrationTables, startIntegrationWorkers, PROVIDERS };
-

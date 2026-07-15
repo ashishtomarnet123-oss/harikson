@@ -18,9 +18,12 @@ class MetricsStore {
   }
 
   getPrometheusFormat(): string {
-    const averageQuality = this.qualityScoreCount > 0 ? this.qualityScoreSum / this.qualityScoreCount : 1.0;
+    const averageQuality =
+      this.qualityScoreCount > 0
+        ? this.qualityScoreSum / this.qualityScoreCount
+        : 1.0;
 
-    let out = "";
+    let out = '';
     out += `# HELP harikson_token_usage_total Total tokens used by Harikson LLM calls\n`;
     out += `# TYPE harikson_token_usage_total counter\n`;
     out += `harikson_token_usage_total ${this.tokensUsed}\n\n`;

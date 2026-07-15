@@ -27,10 +27,17 @@ async function searchWeb(query) {
 }
 
 // Helper: Crawl website for agent context`;
-content = content.replace('// Helper: Crawl website for agent context', searchWebFn);
+content = content.replace(
+  '// Helper: Crawl website for agent context',
+  searchWebFn
+);
 
-const extractRegex = /const { message, model, conversationId, clientHistory, agent_id } = req.body;/;
-content = content.replace(extractRegex, `const { message, model, conversationId, clientHistory, agent_id, deepSearch, reasoning } = req.body;`);
+const extractRegex =
+  /const { message, model, conversationId, clientHistory, agent_id } = req.body;/;
+content = content.replace(
+  extractRegex,
+  `const { message, model, conversationId, clientHistory, agent_id, deepSearch, reasoning } = req.body;`
+);
 
 const logicOld = `    // Check for URLs to crawl
     const urlRegex = /(https?:\\/\\/[^\\s]+)/g;

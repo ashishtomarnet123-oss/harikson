@@ -12,7 +12,10 @@ const errorBoundary = `export default function ChatPage() {
     });
   }, []);`;
 
-content = content.replace('export default function ChatPage() {', errorBoundary);
+content = content.replace(
+  'export default function ChatPage() {',
+  errorBoundary
+);
 
 const errorDisplay = `      {globalError && (
         <div style={{ position: 'fixed', top: 0, left: 0, width: '100%', background: 'red', color: 'white', zIndex: 9999, padding: '20px', whiteSpace: 'pre-wrap' }}>

@@ -2,7 +2,10 @@ const fs = require('fs');
 let content = fs.readFileSync('user-portal/pages/chat.js', 'utf8');
 
 // 1. Add loadingStatus to state
-content = content.replace("const [loading, setLoading] = useState(false);", "const [loading, setLoading] = useState(false);\n  const [loadingStatus, setLoadingStatus] = useState('');");
+content = content.replace(
+  'const [loading, setLoading] = useState(false);',
+  "const [loading, setLoading] = useState(false);\n  const [loadingStatus, setLoadingStatus] = useState('');"
+);
 
 // 2. Set loadingStatus in sendMessage
 const sendMsgStart = `    setLoading(true);
@@ -52,7 +55,6 @@ const catchPatch = `    } catch (err) {
       setLoadingStatus('');
     }`;
 content = content.replace(catchBlock, catchPatch);
-
 
 // 4. Render loadingStatus in the thinking UI
 const thinkingUI = `{/* Thinking indicator */}

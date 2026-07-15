@@ -37,7 +37,11 @@ const SLASH_COMMANDS = [
   { id: 'explain', icon: '🧠', title: 'Explain', desc: 'Explain a complex concept simply', prompt: 'Explain this concept to me as if I were a beginner: ' },
 ];
 `;
-content = content.replace('/* ────────────────────────────────────────────────────────────\n   Main Chat Page', slashDefs + '\n/* ────────────────────────────────────────────────────────────\n   Main Chat Page');
+content = content.replace(
+  '/* ────────────────────────────────────────────────────────────\n   Main Chat Page',
+  slashDefs +
+    '\n/* ────────────────────────────────────────────────────────────\n   Main Chat Page'
+);
 
 // 3. Replace handleKeyDown logic
 const handleKeyDownOld = `  const handleKeyDown = (e) => {
@@ -98,8 +102,10 @@ const handleKeyDownNew = `  const handleKeyDown = (e) => {
 `;
 content = content.replace(handleKeyDownOld, handleKeyDownNew);
 // Fix the onChange handler in textarea
-content = content.replace('onChange={(e) => setInputText(e.target.value)}', 'onChange={handleInputChange}');
-
+content = content.replace(
+  'onChange={(e) => setInputText(e.target.value)}',
+  'onChange={handleInputChange}'
+);
 
 // 4. Update Sidebar UI
 const sidebarOld = `          {/* Conversation List */}
@@ -335,8 +341,11 @@ const slashUi = `            <form onSubmit={sendMessage}>
                   </div>
                 )}
 `;
-content = content.replace(`            <form onSubmit={sendMessage}>
-              <div className="input-wrapper" style={{ display: 'flex', alignItems: 'center' }}>`, slashUi);
+content = content.replace(
+  `            <form onSubmit={sendMessage}>
+              <div className="input-wrapper" style={{ display: 'flex', alignItems: 'center' }}>`,
+  slashUi
+);
 
 fs.writeFileSync('user-portal/pages/chat.js', content, 'utf8');
 console.log('Successfully patched user-portal/pages/chat.js');

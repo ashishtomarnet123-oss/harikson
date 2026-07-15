@@ -1,6 +1,23 @@
 import React, { useState, useEffect } from 'react';
-import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
-import { Cpu, MessageSquare, TrendingUp, TrendingDown, Calendar, Zap, BarChart3, Clock } from 'lucide-react';
+import {
+  AreaChart,
+  Area,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+} from 'recharts';
+import {
+  Cpu,
+  MessageSquare,
+  TrendingUp,
+  TrendingDown,
+  Calendar,
+  Zap,
+  BarChart3,
+  Clock,
+} from 'lucide-react';
 
 export default function UsageSettings() {
   const [mounted, setMounted] = useState(false);
@@ -10,20 +27,25 @@ export default function UsageSettings() {
   const [timeRange, setTimeRange] = useState(7); // 7, 30, 90 days
   const [chartType, setChartType] = useState('tokens'); // 'tokens', 'queries', 'both'
 
-  useEffect(() => { setMounted(true); }, []);
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const fetchUsage = async (days) => {
     setLoading(true);
     try {
-      const token = (localStorage.getItem('hk_user') ? 'cookie_auth' : null);
+      const token = localStorage.getItem('hk_user') ? 'cookie_auth' : null;
       if (!token) return;
-      const apiBase = localStorage.getItem('hk_api_base') || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3008';
+      const apiBase =
+        localStorage.getItem('hk_api_base') ||
+        process.env.NEXT_PUBLIC_API_URL ||
+        'http://localhost:3008';
       const tenantSlug = localStorage.getItem('hk_tenant') || 'neuravolt';
       const res = await fetch(`${apiBase}/api/user/usage?days=${days}`, {
-          credentials: 'include',
+        credentials: 'include',
         headers: {
-                    'x-tenant-slug': tenantSlug
-        }
+          'x-tenant-slug': tenantSlug,
+        },
       });
       if (res.ok) {
         setUsage(await res.json());
@@ -46,8 +68,14 @@ export default function UsageSettings() {
     const abs = Math.abs(pct);
     const isPositive = pct >= 0;
     return (
-      <span className={`usage-change-badge ${isPositive ? 'positive' : 'negative'}`}>
-        {isPositive ? <TrendingUp size={12} style={{ marginRight: '4px' }} /> : <TrendingDown size={12} style={{ marginRight: '4px' }} />}
+      <span
+        className={`usage-change-badge ${isPositive ? 'positive' : 'negative'}`}
+      >
+        {isPositive ? (
+          <TrendingUp size={12} style={{ marginRight: '4px' }} />
+        ) : (
+          <TrendingDown size={12} style={{ marginRight: '4px' }} />
+        )}
         <span>{abs}% from last period</span>
       </span>
     );
@@ -59,16 +87,26 @@ export default function UsageSettings() {
     return String(n);
   };
 
-  if (loading && !usage) return <div className="settings-loading">Loading usage analytics...</div>;
+  if (loading && !usage)
+    return <div className="settings-loading">Loading usage analytics...</div>;
 
   const daily = usage?.daily || [];
-  const peakTokens = daily.length > 0 ? Math.max(...daily.map(d => d.tokens)) : 0;
-  const peakQueries = daily.length > 0 ? Math.max(...daily.map(d => d.queries)) : 0;
-  const peakTokensDay = daily.find(d => d.tokens === peakTokens)?.day || 'N/A';
-  const peakQueriesDay = daily.find(d => d.queries === peakQueries)?.day || 'N/A';
-  const avgTokens = daily.length > 0 ? Math.round(usage.totalTokens / daily.length) : 0;
-  const avgQueries = daily.length > 0 ? (usage.totalQueries / daily.length).toFixed(1) : 0;
-  const tokensPerQuery = usage?.totalQueries > 0 ? Math.round(usage.totalTokens / usage.totalQueries) : 0;
+  const peakTokens =
+    daily.length > 0 ? Math.max(...daily.map((d) => d.tokens)) : 0;
+  const peakQueries =
+    daily.length > 0 ? Math.max(...daily.map((d) => d.queries)) : 0;
+  const peakTokensDay =
+    daily.find((d) => d.tokens === peakTokens)?.day || 'N/A';
+  const peakQueriesDay =
+    daily.find((d) => d.queries === peakQueries)?.day || 'N/A';
+  const avgTokens =
+    daily.length > 0 ? Math.round(usage.totalTokens / daily.length) : 0;
+  const avgQueries =
+    daily.length > 0 ? (usage.totalQueries / daily.length).toFixed(1) : 0;
+  const tokensPerQuery =
+    usage?.totalQueries > 0
+      ? Math.round(usage.totalTokens / usage.totalQueries)
+      : 0;
 
   return (
     <>
@@ -312,20 +350,43 @@ export default function UsageSettings() {
         <div className="usage-header-row">
           <div className="usage-title-area">
             <h1>Usage &amp; Analytics</h1>
-            <p>Monitor your token consumption and active query volume over time.</p>
+            <p>
+              Monitor your token consumption and active query volume over time.
+            </p>
           </div>
-          
+
           <div className="pill-selector">
-            <button className={`pill-button ${timeRange === 7 ? 'active' : ''}`} onClick={() => setTimeRange(7)}>7 Days</button>
-            <button className={`pill-button ${timeRange === 30 ? 'active' : ''}`} onClick={() => setTimeRange(30)}>30 Days</button>
-            <button className={`pill-button ${timeRange === 90 ? 'active' : ''}`} onClick={() => setTimeRange(90)}>90 Days</button>
+            <button
+              className={`pill-button ${timeRange === 7 ? 'active' : ''}`}
+              onClick={() => setTimeRange(7)}
+            >
+              7 Days
+            </button>
+            <button
+              className={`pill-button ${timeRange === 30 ? 'active' : ''}`}
+              onClick={() => setTimeRange(30)}
+            >
+              30 Days
+            </button>
+            <button
+              className={`pill-button ${timeRange === 90 ? 'active' : ''}`}
+              onClick={() => setTimeRange(90)}
+            >
+              90 Days
+            </button>
           </div>
         </div>
 
         {error && <div className="settings-alert error">{error}</div>}
 
         {loading && (
-          <div style={{ padding: '60px', textAlign: 'center', color: 'var(--text-muted)' }}>
+          <div
+            style={{
+              padding: '60px',
+              textAlign: 'center',
+              color: 'var(--text-muted)',
+            }}
+          >
             Refreshing analytics data...
           </div>
         )}
@@ -336,13 +397,23 @@ export default function UsageSettings() {
               <div className="metric-card-premium tokens">
                 <div className="metric-card-header">
                   <span className="metric-card-title">Total Tokens Used</span>
-                  <div className="metric-icon-bg"><Cpu size={16} /></div>
+                  <div className="metric-icon-bg">
+                    <Cpu size={16} />
+                  </div>
                 </div>
                 <div>
-                  <div className="metric-card-value">{formatNumber(usage.totalTokens)}</div>
+                  <div className="metric-card-value">
+                    {formatNumber(usage.totalTokens)}
+                  </div>
                   <div style={{ marginTop: '4px' }}>
-                    {usage.tokenChange !== null ? formatChange(usage.tokenChange) : (
-                      <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>No comparison data available</span>
+                    {usage.tokenChange !== null ? (
+                      formatChange(usage.tokenChange)
+                    ) : (
+                      <span
+                        style={{ fontSize: '11px', color: 'var(--text-muted)' }}
+                      >
+                        No comparison data available
+                      </span>
                     )}
                   </div>
                 </div>
@@ -351,13 +422,21 @@ export default function UsageSettings() {
               <div className="metric-card-premium queries">
                 <div className="metric-card-header">
                   <span className="metric-card-title">Total Queries</span>
-                  <div className="metric-icon-bg"><MessageSquare size={16} /></div>
+                  <div className="metric-icon-bg">
+                    <MessageSquare size={16} />
+                  </div>
                 </div>
                 <div>
                   <div className="metric-card-value">{usage.totalQueries}</div>
                   <div style={{ marginTop: '4px' }}>
-                    {usage.queryChange !== null ? formatChange(usage.queryChange) : (
-                      <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>No comparison data available</span>
+                    {usage.queryChange !== null ? (
+                      formatChange(usage.queryChange)
+                    ) : (
+                      <span
+                        style={{ fontSize: '11px', color: 'var(--text-muted)' }}
+                      >
+                        No comparison data available
+                      </span>
                     )}
                   </div>
                 </div>
@@ -370,85 +449,180 @@ export default function UsageSettings() {
                   <BarChart3 size={16} style={{ color: 'var(--accent)' }} />
                   <span>Consumption Timeline</span>
                 </h2>
-                
+
                 <div className="chart-type-tabs">
-                  <button className={`chart-tab ${chartType === 'tokens' ? 'active' : ''}`} onClick={() => setChartType('tokens')}>Tokens</button>
-                  <button className={`chart-tab ${chartType === 'queries' ? 'active' : ''}`} onClick={() => setChartType('queries')}>Queries</button>
-                  <button className={`chart-tab ${chartType === 'both' ? 'active' : ''}`} onClick={() => setChartType('both')}>Dual view</button>
+                  <button
+                    className={`chart-tab ${chartType === 'tokens' ? 'active' : ''}`}
+                    onClick={() => setChartType('tokens')}
+                  >
+                    Tokens
+                  </button>
+                  <button
+                    className={`chart-tab ${chartType === 'queries' ? 'active' : ''}`}
+                    onClick={() => setChartType('queries')}
+                  >
+                    Queries
+                  </button>
+                  <button
+                    className={`chart-tab ${chartType === 'both' ? 'active' : ''}`}
+                    onClick={() => setChartType('both')}
+                  >
+                    Dual view
+                  </button>
                 </div>
               </div>
 
               {daily.length === 0 ? (
-                <div style={{ height: '240px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)', fontSize: '13px' }}>
+                <div
+                  style={{
+                    height: '240px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    color: 'var(--text-muted)',
+                    fontSize: '13px',
+                  }}
+                >
                   No usage data yet. Start a conversation to generate metrics.
                 </div>
               ) : (
                 <div style={{ height: '260px', width: '100%' }}>
                   {mounted && (
                     <ResponsiveContainer width="100%" height="100%">
-                      <AreaChart data={daily} margin={{ top: 8, right: 8, left: -20, bottom: 0 }}>
+                      <AreaChart
+                        data={daily}
+                        margin={{ top: 8, right: 8, left: -20, bottom: 0 }}
+                      >
                         <defs>
-                          <linearGradient id="colorTokensRedesign" x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="5%" stopColor="#4f8cff" stopOpacity={0.3} />
-                            <stop offset="95%" stopColor="#4f8cff" stopOpacity={0} />
+                          <linearGradient
+                            id="colorTokensRedesign"
+                            x1="0"
+                            y1="0"
+                            x2="0"
+                            y2="1"
+                          >
+                            <stop
+                              offset="5%"
+                              stopColor="#4f8cff"
+                              stopOpacity={0.3}
+                            />
+                            <stop
+                              offset="95%"
+                              stopColor="#4f8cff"
+                              stopOpacity={0}
+                            />
                           </linearGradient>
-                          <linearGradient id="colorQueriesRedesign" x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="5%" stopColor="#10b981" stopOpacity={0.3} />
-                            <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
+                          <linearGradient
+                            id="colorQueriesRedesign"
+                            x1="0"
+                            y1="0"
+                            x2="0"
+                            y2="1"
+                          >
+                            <stop
+                              offset="5%"
+                              stopColor="#10b981"
+                              stopOpacity={0.3}
+                            />
+                            <stop
+                              offset="95%"
+                              stopColor="#10b981"
+                              stopOpacity={0}
+                            />
                           </linearGradient>
                         </defs>
-                        <XAxis dataKey="day" stroke="var(--text-muted)" fontSize={11} tickLine={false} axisLine={false} />
-                        
+                        <XAxis
+                          dataKey="day"
+                          stroke="var(--text-muted)"
+                          fontSize={11}
+                          tickLine={false}
+                          axisLine={false}
+                        />
+
                         {chartType === 'tokens' && (
-                          <YAxis stroke="var(--text-muted)" fontSize={11} tickLine={false} axisLine={false} tickFormatter={(v) => v >= 1000 ? `${(v/1000).toFixed(0)}k` : v} />
+                          <YAxis
+                            stroke="var(--text-muted)"
+                            fontSize={11}
+                            tickLine={false}
+                            axisLine={false}
+                            tickFormatter={(v) =>
+                              v >= 1000 ? `${(v / 1000).toFixed(0)}k` : v
+                            }
+                          />
                         )}
                         {chartType === 'queries' && (
-                          <YAxis stroke="var(--text-muted)" fontSize={11} tickLine={false} axisLine={false} />
+                          <YAxis
+                            stroke="var(--text-muted)"
+                            fontSize={11}
+                            tickLine={false}
+                            axisLine={false}
+                          />
                         )}
                         {chartType === 'both' && (
                           <>
-                            <YAxis yAxisId="left" stroke="var(--text-muted)" fontSize={11} tickLine={false} axisLine={false} tickFormatter={(v) => v >= 1000 ? `${(v/1000).toFixed(0)}k` : v} />
-                            <YAxis yAxisId="right" orientation="right" stroke="var(--text-muted)" fontSize={11} tickLine={false} axisLine={false} />
+                            <YAxis
+                              yAxisId="left"
+                              stroke="var(--text-muted)"
+                              fontSize={11}
+                              tickLine={false}
+                              axisLine={false}
+                              tickFormatter={(v) =>
+                                v >= 1000 ? `${(v / 1000).toFixed(0)}k` : v
+                              }
+                            />
+                            <YAxis
+                              yAxisId="right"
+                              orientation="right"
+                              stroke="var(--text-muted)"
+                              fontSize={11}
+                              tickLine={false}
+                              axisLine={false}
+                            />
                           </>
                         )}
 
-                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border)" />
-                        
+                        <CartesianGrid
+                          strokeDasharray="3 3"
+                          vertical={false}
+                          stroke="var(--border)"
+                        />
+
                         <Tooltip
-                          contentStyle={{ 
-                            background: 'var(--bg-glass, rgba(255,255,255,0.95))', 
-                            border: '1px solid var(--border)', 
-                            borderRadius: '10px', 
-                            color: 'var(--text-primary)', 
+                          contentStyle={{
+                            background:
+                              'var(--bg-glass, rgba(255,255,255,0.95))',
+                            border: '1px solid var(--border)',
+                            borderRadius: '10px',
+                            color: 'var(--text-primary)',
                             fontSize: '12.5px',
                             boxShadow: '0 4px 12px rgba(0,0,0,0.06)',
-                            backdropFilter: 'blur(4px)'
+                            backdropFilter: 'blur(4px)',
                           }}
                           itemStyle={{ padding: '2px 0' }}
                         />
 
                         {chartType !== 'queries' && (
-                          <Area 
+                          <Area
                             yAxisId={chartType === 'both' ? 'left' : undefined}
-                            type="monotone" 
+                            type="monotone"
                             name="Tokens"
-                            dataKey="tokens" 
-                            stroke="#4f8cff" 
-                            strokeWidth={2.5} 
-                            fillOpacity={1} 
-                            fill="url(#colorTokensRedesign)" 
+                            dataKey="tokens"
+                            stroke="#4f8cff"
+                            strokeWidth={2.5}
+                            fillOpacity={1}
+                            fill="url(#colorTokensRedesign)"
                           />
                         )}
                         {chartType !== 'tokens' && (
-                          <Area 
+                          <Area
                             yAxisId={chartType === 'both' ? 'right' : undefined}
-                            type="monotone" 
+                            type="monotone"
                             name="Queries"
-                            dataKey="queries" 
-                            stroke="#10b981" 
-                            strokeWidth={2.5} 
-                            fillOpacity={1} 
-                            fill="url(#colorQueriesRedesign)" 
+                            dataKey="queries"
+                            stroke="#10b981"
+                            strokeWidth={2.5}
+                            fillOpacity={1}
+                            fill="url(#colorQueriesRedesign)"
                           />
                         )}
                       </AreaChart>
@@ -460,28 +634,40 @@ export default function UsageSettings() {
               {daily.length > 0 && (
                 <div className="highlights-row">
                   <div className="highlight-item">
-                    <div style={{ color: 'var(--accent)', display: 'flex' }}><Clock size={16} /></div>
+                    <div style={{ color: 'var(--accent)', display: 'flex' }}>
+                      <Clock size={16} />
+                    </div>
                     <div>
                       <div className="highlight-label">Daily Avg (Tokens)</div>
-                      <div className="highlight-value">{formatNumber(avgTokens)}</div>
-                    </div>
-                  </div>
-
-                  <div className="highlight-item">
-                    <div style={{ color: '#10b981', display: 'flex' }}><Zap size={16} /></div>
-                    <div>
-                      <div className="highlight-label">Peak Activity Day</div>
                       <div className="highlight-value">
-                        {chartType === 'queries' ? `${peakQueriesDay} (${peakQueries} q)` : `${peakTokensDay} (${formatNumber(peakTokens)} t)`}
+                        {formatNumber(avgTokens)}
                       </div>
                     </div>
                   </div>
 
                   <div className="highlight-item">
-                    <div style={{ color: '#a855f7', display: 'flex' }}><Calendar size={16} /></div>
+                    <div style={{ color: '#10b981', display: 'flex' }}>
+                      <Zap size={16} />
+                    </div>
+                    <div>
+                      <div className="highlight-label">Peak Activity Day</div>
+                      <div className="highlight-value">
+                        {chartType === 'queries'
+                          ? `${peakQueriesDay} (${peakQueries} q)`
+                          : `${peakTokensDay} (${formatNumber(peakTokens)} t)`}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="highlight-item">
+                    <div style={{ color: '#a855f7', display: 'flex' }}>
+                      <Calendar size={16} />
+                    </div>
                     <div>
                       <div className="highlight-label">Avg Tokens / Query</div>
-                      <div className="highlight-value">{formatNumber(tokensPerQuery)}</div>
+                      <div className="highlight-value">
+                        {formatNumber(tokensPerQuery)}
+                      </div>
                     </div>
                   </div>
                 </div>

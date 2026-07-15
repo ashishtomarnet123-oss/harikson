@@ -1,28 +1,31 @@
-import { OllamaService } from "../services/ollama.service.js";
+import { OllamaService } from '../services/ollama.service.js';
 
 export class OllamaClient {
-  static async generate(prompt: string, systemPrompt?: string): Promise<string> {
+  static async generate(
+    prompt: string,
+    systemPrompt?: string
+  ): Promise<string> {
     return OllamaService.generate(prompt, systemPrompt);
   }
 
   static async embed(text: string): Promise<number[]> {
-    const baseUrl = process.env.OLLAMA_HOST || "http://localhost:11434";
-    const rawModel = process.env.DEFAULT_MODEL || "qwen3-coder:8b";
-    
+    const baseUrl = process.env.OLLAMA_HOST || 'http://localhost:11434';
+    const rawModel = process.env.DEFAULT_MODEL || 'qwen3-coder:8b';
+
     // Perform standard fallback model mapping
     const lower = rawModel.toLowerCase();
-    let mappedModel = "qwen2.5:0.5b";
-    if (lower.includes("coder") || lower.includes("code")) {
-      mappedModel = "qwen2.5-coder:1.5b";
+    let mappedModel = 'qwen2.5:0.5b';
+    if (lower.includes('coder') || lower.includes('code')) {
+      mappedModel = 'qwen2.5-coder:1.5b';
     }
-    if (process.env.NODE_ENV !== "development") {
-      mappedModel = "qwen2.5-coder:7b";
+    if (process.env.NODE_ENV !== 'development') {
+      mappedModel = 'qwen2.5-coder:7b';
     }
 
     try {
       const res = await fetch(`${baseUrl}/api/embeddings`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           model: mappedModel,
           prompt: text,
@@ -33,7 +36,7 @@ export class OllamaClient {
         throw new Error(`Ollama embeddings returned status ${res.status}`);
       }
 
-      const data = await res.json() as { embedding: number[] };
+      const data = (await res.json()) as { embedding: number[] };
       let embedding = data.embedding || [];
 
       // Ensure length is exactly 1536 (pgvector target)
@@ -45,7 +48,10 @@ export class OllamaClient {
       }
       return embedding;
     } catch (error) {
-      console.warn("⚠️ Ollama embeddings error, returning fallback mock vector.", error);
+      console.warn(
+        '⚠️ Ollama embeddings error, returning fallback mock vector.',
+        error
+      );
       return this.generateMockEmbedding(text);
     }
   }

@@ -13,7 +13,7 @@ services:
     container_name: harikson-postgres
     restart: unless-stopped
     ports:
-      - "5433:5432"
+      - '5433:5432'
     networks:
       - harikson-internal
       - harikson-proxy
@@ -30,7 +30,7 @@ services:
     restart: unless-stopped
     command: redis-server --appendonly yes
     ports:
-      - "6380:6379"
+      - '6380:6379'
     networks:
       - harikson-internal
       - harikson-proxy

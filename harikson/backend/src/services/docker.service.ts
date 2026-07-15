@@ -1,18 +1,22 @@
-import docker from "../lib/docker.js";
+import docker from '../lib/docker.js';
 
 export class DockerService {
   private static isMockMode = false;
-  private static readonly networkName = "harikson-proxy";
-  private static readonly internalNetworkName = "harikson-internal";
+  private static readonly networkName = 'harikson-proxy';
+  private static readonly internalNetworkName = 'harikson-internal';
 
   static {
     try {
       docker.ping((err) => {
         if (err) {
-          console.warn("⚠️ [Harikson Docker] Daemon not reachable. Running in Mock Mode.");
+          console.warn(
+            '⚠️ [Harikson Docker] Daemon not reachable. Running in Mock Mode.'
+          );
           DockerService.isMockMode = true;
         } else {
-          console.log("🐳 [Harikson Docker] Connected to Docker daemon successfully.");
+          console.log(
+            '🐳 [Harikson Docker] Connected to Docker daemon successfully.'
+          );
         }
       });
     } catch {
@@ -20,11 +24,17 @@ export class DockerService {
     }
   }
 
-  static async createTenantStack(name: string, plan: string, agentType: string): Promise<{ containerId: string; domain: string }> {
+  static async createTenantStack(
+    name: string,
+    plan: string,
+    agentType: string
+  ): Promise<{ containerId: string; domain: string }> {
     const domain = `${name}.neuravolt.cloud`;
-    
+
     if (this.isMockMode) {
-      console.log(`[Mock Docker] Creating tenant stack for ${name} [Plan: ${plan}, Type: ${agentType}]`);
+      console.log(
+        `[Mock Docker] Creating tenant stack for ${name} [Plan: ${plan}, Type: ${agentType}]`
+      );
       return {
         containerId: `mock_stack_${Math.random().toString(36).substring(7)}`,
         domain,
@@ -34,17 +44,17 @@ export class DockerService {
     try {
       // Determine limits based on plan
       let cpuCount = 0.5;
-      let memoryLimit = "512m"; // default starter
-      
-      if (plan === "PRO") {
+      let memoryLimit = '512m'; // default starter
+
+      if (plan === 'PRO') {
         cpuCount = 1.0;
-        memoryLimit = "1024m";
-      } else if (plan === "BUSINESS") {
+        memoryLimit = '1024m';
+      } else if (plan === 'BUSINESS') {
         cpuCount = 2.0;
-        memoryLimit = "2048m";
-      } else if (plan === "ENTERPRISE") {
+        memoryLimit = '2048m';
+      } else if (plan === 'ENTERPRISE') {
         cpuCount = 4.0;
-        memoryLimit = "4096m";
+        memoryLimit = '4096m';
       }
 
       const memoryBytes = parseInt(memoryLimit) * 1024 * 1024;
@@ -57,16 +67,16 @@ export class DockerService {
       await this.ensureNetwork(this.internalNetworkName);
 
       // 2. Spin up AI Core container (running Ollama / ChromaDB mock)
-      const aiImage = "ollama/ollama:latest";
+      const aiImage = 'ollama/ollama:latest';
       await this.ensureImage(aiImage);
-      
+
       const aiContainer = await docker.createContainer({
         Image: aiImage,
         name: aiContainerName,
         HostConfig: {
           NanoCpus: cpuCount * 1e9,
           Memory: memoryBytes,
-          RestartPolicy: { Name: "unless-stopped" },
+          RestartPolicy: { Name: 'unless-stopped' },
           NetworkMode: this.internalNetworkName,
           Binds: [`harikson-tenant-${name}-ai-data:/root/.ollama`],
         },
@@ -74,24 +84,24 @@ export class DockerService {
       await aiContainer.start();
 
       // 3. Spin up IDE Bridge container (Socket.io)
-      const ideImage = "node:18-alpine";
+      const ideImage = 'node:18-alpine';
       await this.ensureImage(ideImage);
       const ideContainer = await docker.createContainer({
         Image: ideImage,
         name: ideContainerName,
-        Cmd: ["node", "-e", "console.log('IDE Bridge running...')"], // mock start script
+        Cmd: ['node', '-e', "console.log('IDE Bridge running...')"], // mock start script
         HostConfig: {
           Memory: memoryBytes / 2,
-          RestartPolicy: { Name: "unless-stopped" },
+          RestartPolicy: { Name: 'unless-stopped' },
           NetworkMode: this.internalNetworkName,
         },
       });
       await ideContainer.start();
 
       // 4. Spin up Tenant API / Next.js Dashboard container
-      const apiImage = "node:18-alpine";
+      const apiImage = 'node:18-alpine';
       await this.ensureImage(apiImage);
-      
+
       const apiContainer = await docker.createContainer({
         Image: apiImage,
         name: apiContainerName,
@@ -104,32 +114,42 @@ export class DockerService {
         HostConfig: {
           NanoCpus: cpuCount * 1e9,
           Memory: memoryBytes,
-          RestartPolicy: { Name: "unless-stopped" },
+          RestartPolicy: { Name: 'unless-stopped' },
           NetworkMode: this.networkName,
         },
         Labels: {
-          "traefik.enable": "true",
+          'traefik.enable': 'true',
           [`traefik.http.routers.tenant-${name}.rule`]: `Host(\`${domain}\`)`,
-          [`traefik.http.routers.tenant-${name}.entrypoints`]: "websecure",
-          [`traefik.http.routers.tenant-${name}.tls.certresolver`]: "letsencrypt",
-          [`traefik.http.services.tenant-${name}.loadbalancer.server.port`]: "5000",
+          [`traefik.http.routers.tenant-${name}.entrypoints`]: 'websecure',
+          [`traefik.http.routers.tenant-${name}.tls.certresolver`]:
+            'letsencrypt',
+          [`traefik.http.services.tenant-${name}.loadbalancer.server.port`]:
+            '5000',
         },
       });
       await apiContainer.start();
 
-      console.log(`🐳 [Harikson Docker] Created isolated Tenant Stack for ${name} successfully.`);
+      console.log(
+        `🐳 [Harikson Docker] Created isolated Tenant Stack for ${name} successfully.`
+      );
       return {
         containerId: apiContainer.id, // we map index to the master API container ID
         domain,
       };
     } catch (error) {
-      console.error("❌ [Harikson Docker] Failed to deploy tenant stack:", error);
+      console.error(
+        '❌ [Harikson Docker] Failed to deploy tenant stack:',
+        error
+      );
       throw error;
     }
   }
 
-  static async destroyTenantStack(name: string, containerId: string): Promise<void> {
-    if (this.isMockMode || containerId.startsWith("mock_")) {
+  static async destroyTenantStack(
+    name: string,
+    containerId: string
+  ): Promise<void> {
+    if (this.isMockMode || containerId.startsWith('mock_')) {
       console.log(`[Mock Docker] Deleting tenant stack for ${name}`);
       return;
     }
@@ -152,69 +172,104 @@ export class DockerService {
       try {
         await docker.getVolume(`harikson-tenant-${name}-ai-data`).remove();
       } catch (err: any) {
-        console.warn(`Warning removing associated tenant-${name}-ai-data volume:`, err.message);
+        console.warn(
+          `Warning removing associated tenant-${name}-ai-data volume:`,
+          err.message
+        );
       }
       console.log(`🐳 [Harikson Docker] Destroyed tenant stack for ${name}.`);
     } catch (error) {
-      console.error(`❌ [Harikson Docker] Failed to clean tenant stack for ${name}:`, error);
+      console.error(
+        `❌ [Harikson Docker] Failed to clean tenant stack for ${name}:`,
+        error
+      );
     }
   }
 
   static async stopTenantStack(name: string): Promise<void> {
     if (this.isMockMode) return;
-    const containers = [`harikson-tenant-${name}-api`, `harikson-tenant-${name}-ai`, `harikson-tenant-${name}-ide`];
+    const containers = [
+      `harikson-tenant-${name}-api`,
+      `harikson-tenant-${name}-ai`,
+      `harikson-tenant-${name}-ide`,
+    ];
     for (const cName of containers) {
       try {
         await docker.getContainer(cName).stop();
       } catch (err: any) {
-        console.warn(`Warning stopping associated tenant container ${cName}:`, err.message);
+        console.warn(
+          `Warning stopping associated tenant container ${cName}:`,
+          err.message
+        );
       }
     }
   }
 
   static async startTenantStack(name: string): Promise<void> {
     if (this.isMockMode) return;
-    const containers = [`harikson-tenant-${name}-api`, `harikson-tenant-${name}-ai`, `harikson-tenant-${name}-ide`];
+    const containers = [
+      `harikson-tenant-${name}-api`,
+      `harikson-tenant-${name}-ai`,
+      `harikson-tenant-${name}-ide`,
+    ];
     for (const cName of containers) {
       try {
         await docker.getContainer(cName).start();
       } catch (err: any) {
-        console.warn(`Warning starting associated tenant container ${cName}:`, err.message);
+        console.warn(
+          `Warning starting associated tenant container ${cName}:`,
+          err.message
+        );
       }
     }
   }
 
   static async restartTenantStack(name: string): Promise<void> {
     if (this.isMockMode) return;
-    const containers = [`harikson-tenant-${name}-api`, `harikson-tenant-${name}-ai`, `harikson-tenant-${name}-ide`];
+    const containers = [
+      `harikson-tenant-${name}-api`,
+      `harikson-tenant-${name}-ai`,
+      `harikson-tenant-${name}-ide`,
+    ];
     for (const cName of containers) {
       try {
         await docker.getContainer(cName).restart();
       } catch (err: any) {
-        console.warn(`Warning restarting associated tenant container ${cName}:`, err.message);
+        console.warn(
+          `Warning restarting associated tenant container ${cName}:`,
+          err.message
+        );
       }
     }
   }
 
-  static async getTenantMetrics(name: string, containerId: string): Promise<{ cpuUsage: number; memoryUsage: number; diskUsage: string }> {
-    if (this.isMockMode || !containerId || containerId.startsWith("mock_")) {
+  static async getTenantMetrics(
+    name: string,
+    containerId: string
+  ): Promise<{ cpuUsage: number; memoryUsage: number; diskUsage: string }> {
+    if (this.isMockMode || !containerId || containerId.startsWith('mock_')) {
       return {
         cpuUsage: +(Math.random() * 25 + 5).toFixed(2),
         memoryUsage: +(Math.random() * 200 + 80).toFixed(2),
-        diskUsage: "1.2 GB",
+        diskUsage: '1.2 GB',
       };
     }
 
     try {
       const container = docker.getContainer(`harikson-tenant-${name}-api`);
       const stats = await container.stats({ stream: false });
-      
+
       let cpuPercent = 0.0;
       if (stats.cpu_stats && stats.precpu_stats) {
-        const cpuDelta = stats.cpu_stats.cpu_usage.total_usage - stats.precpu_stats.cpu_usage.total_usage;
-        const systemDelta = stats.cpu_stats.system_cpu_usage - stats.precpu_stats.system_cpu_usage;
+        const cpuDelta =
+          stats.cpu_stats.cpu_usage.total_usage -
+          stats.precpu_stats.cpu_usage.total_usage;
+        const systemDelta =
+          stats.cpu_stats.system_cpu_usage -
+          stats.precpu_stats.system_cpu_usage;
         if (systemDelta > 0 && cpuDelta > 0) {
-          cpuPercent = (cpuDelta / systemDelta) * (stats.cpu_stats.online_cpus || 1) * 100;
+          cpuPercent =
+            (cpuDelta / systemDelta) * (stats.cpu_stats.online_cpus || 1) * 100;
         }
       }
 
@@ -226,10 +281,10 @@ export class DockerService {
       return {
         cpuUsage: +cpuPercent.toFixed(2),
         memoryUsage: +memoryMB.toFixed(2),
-        diskUsage: "850 MB",
+        diskUsage: '850 MB',
       };
     } catch {
-      return { cpuUsage: 0, memoryUsage: 0, diskUsage: "0 GB" };
+      return { cpuUsage: 0, memoryUsage: 0, diskUsage: '0 GB' };
     }
   }
 
@@ -260,7 +315,7 @@ export class DockerService {
 
     await docker.createNetwork({
       Name: networkName,
-      Driver: "bridge",
+      Driver: 'bridge',
     });
   }
 }
