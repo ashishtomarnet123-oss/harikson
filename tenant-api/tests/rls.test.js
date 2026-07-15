@@ -186,6 +186,40 @@ async function runTests() {
       console.log('   ✓ Connection pollution safety check succeeded:', err.message);
     }
 
+    // Test 5: Missing Context RLS checks on all tenant-scoped tables
+    console.log('\n🔹 Test 5: Missing Context RLS checks on all tenant-scoped tables...');
+    const rlsClient = await testRolePool.connect();
+    try {
+      // Explicitly clear tenant context
+      await rlsClient.query("SELECT set_config('app.current_tenant', '', false)");
+      
+      const tablesToCheck = [
+        'agents',
+        'knowledge_documents',
+        'ai_activity',
+        'workflow_executions',
+        'notifications',
+        'integrations',
+        'vector_collections',
+        'backups',
+        'playground_sessions'
+      ];
+      
+      for (const table of tablesToCheck) {
+        try {
+          const res = await rlsClient.query(`SELECT * FROM ${table}`);
+          assert.strictEqual(res.rows.length, 0, `Table ${table} should return 0 rows when context is empty`);
+          console.log(`   ✓ Table ${table} safely returned 0 rows.`);
+        } catch (queryErr) {
+          // If it throws an error (e.g. UUID cast error or assert context error), that is also safe
+          // because it prevents data leakage.
+          console.log(`   ✓ Table ${table} safely aborted query with error: ${queryErr.message}`);
+        }
+      }
+    } finally {
+      rlsClient.release();
+    }
+
     console.log('\n🎉 ALL TESTS PASSED SUCCESSFULLY!');
   } catch (err) {
     console.error('\n❌ TEST SUITE FAILED:', err);

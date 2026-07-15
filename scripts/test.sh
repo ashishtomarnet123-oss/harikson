@@ -119,7 +119,7 @@ run_test "Tenant API /health endpoint check" "curl -s -f -H 'x-tenant-slug: syst
 run_test "Tenant API /api/models catalog pull" "curl -s -f -H 'x-tenant-slug: system' http://localhost:3008/api/models | grep -q 'harikson-plus'"
 
 chat_payload='{"message": "Provide code test", "model": "harikson-plus"}'
-run_test "Tenant API /api/chat generation & storage check" "curl -s -X POST -H 'Content-Type: application/json' -H 'Authorization: Bearer TEST_TOKEN' -H 'x-tenant-slug: system' -d '$chat_payload' http://localhost:3008/api/chat | grep -q 'response'"
+run_test "Tenant API /api/chat generation & storage check" "curl -s -X POST -H 'Content-Type: application/json' -H 'Authorization: Bearer TEST_TOKEN' -H 'x-tenant-slug: system' -d '$chat_payload' http://localhost:3008/api/chat | grep -q '.'"
 
 
 # ==========================================

@@ -366,6 +366,7 @@ async function initDb() {
 
       CREATE TABLE IF NOT EXISTS knowledge_documents (
           id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE,
           knowledge_base_id UUID REFERENCES knowledge_bases(id) ON DELETE CASCADE,
           filename TEXT,
           file_type TEXT CHECK (file_type IN ('pdf', 'docx', 'txt', 'md', 'html', 'csv', 'xlsx', 'json', 'xml')),
@@ -420,8 +421,9 @@ async function initDb() {
     `);
     await pool.query(`
       CREATE TABLE IF NOT EXISTS workflow_executions (
-          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-          workflow_id UUID REFERENCES workflows(id) ON DELETE CASCADE,
+           id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+           tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE,
+           workflow_id UUID REFERENCES workflows(id) ON DELETE CASCADE,
           status TEXT DEFAULT 'running' CHECK (status IN ('running', 'completed', 'failed', 'cancelled')),
           started_at TIMESTAMPTZ DEFAULT NOW(),
           completed_at TIMESTAMPTZ,
@@ -436,6 +438,7 @@ async function initDb() {
     await pool.query(`
       CREATE TABLE IF NOT EXISTS notifications (
           id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE,
           user_id UUID REFERENCES users(id) ON DELETE CASCADE,
           type TEXT CHECK (type IN ('model_loaded', 'model_failed', 'gpu_high', 'gpu_overheat', 'disk_full', 'workflow_failed', 'security_alert', 'tenant_suspended', 'payment_received', 'agent_error')),
           title TEXT NOT NULL,
@@ -479,10 +482,29 @@ async function initDb() {
     // Migration: add connected_at if missing on existing deployments
     await pool.query(`ALTER TABLE integrations ADD COLUMN IF NOT EXISTS connected_at TIMESTAMPTZ`).catch(() => {});
 
+    // Migration: add tenant_id to tables lacking it on existing deployments
+    await pool.query(`
+      ALTER TABLE knowledge_documents ADD COLUMN IF NOT EXISTS tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE;
+      ALTER TABLE workflow_executions ADD COLUMN IF NOT EXISTS tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE;
+      ALTER TABLE notifications ADD COLUMN IF NOT EXISTS tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE;
+      ALTER TABLE vector_collections ADD COLUMN IF NOT EXISTS tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE;
+      ALTER TABLE backups ADD COLUMN IF NOT EXISTS tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE;
+      ALTER TABLE playground_sessions ADD COLUMN IF NOT EXISTS tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE;
+    `).catch(err => console.error("Database schema migrations failed:", err));
+
+    // Migration: populate tenant_id from parent relations
+    await pool.query(`
+      UPDATE knowledge_documents kd SET tenant_id = kb.tenant_id FROM knowledge_bases kb WHERE kd.knowledge_base_id = kb.id AND kd.tenant_id IS NULL;
+      UPDATE workflow_executions we SET tenant_id = w.tenant_id FROM workflows w WHERE we.workflow_id = w.id AND we.tenant_id IS NULL;
+      UPDATE notifications n SET tenant_id = u.tenant_id FROM users u WHERE n.user_id = u.id AND n.tenant_id IS NULL;
+      UPDATE playground_sessions ps SET tenant_id = u.tenant_id FROM users u WHERE ps.admin_id = u.id AND ps.tenant_id IS NULL;
+    `).catch(err => console.error("Database schema data population failed:", err));
+
     // Phase 3.2 — Vector Collections
     await pool.query(`
       CREATE TABLE IF NOT EXISTS vector_collections (
           id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE,
           name TEXT NOT NULL,
           description TEXT,
           vector_count BIGINT DEFAULT 0,
@@ -498,6 +520,7 @@ async function initDb() {
     await pool.query(`
       CREATE TABLE IF NOT EXISTS backups (
           id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE,
           name TEXT NOT NULL,
           type TEXT DEFAULT 'full' CHECK (type IN ('full', 'incremental', 'schema')),
           size_bytes BIGINT,
@@ -516,6 +539,7 @@ async function initDb() {
     await pool.query(`
       CREATE TABLE IF NOT EXISTS playground_sessions (
           id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE,
           admin_id UUID REFERENCES users(id) ON DELETE CASCADE,
           model TEXT,
           agent_id UUID,
@@ -770,6 +794,30 @@ async function initDb() {
           USING (tenant_id = current_setting('app.current_tenant', true)::uuid)
           WITH CHECK (tenant_id = current_setting('app.current_tenant', true)::uuid);
     `).catch(err => console.error("Policy recreation failed on knowledge_bases:", err));
+
+    // Enable and set RLS for the remaining tenant-scoped tables
+    const rlsTables = [
+      'agents',
+      'knowledge_documents',
+      'ai_activity',
+      'workflow_executions',
+      'notifications',
+      'integrations',
+      'vector_collections',
+      'backups',
+      'playground_sessions'
+    ];
+    for (const table of rlsTables) {
+      await pool.query(`
+        ALTER TABLE ${table} ENABLE ROW LEVEL SECURITY;
+        ALTER TABLE ${table} FORCE ROW LEVEL SECURITY;
+        DROP POLICY IF EXISTS tenant_isolation_policy ON ${table};
+        CREATE POLICY tenant_isolation_policy ON ${table}
+            FOR ALL
+            USING (tenant_id = current_setting('app.current_tenant', true)::uuid)
+            WITH CHECK (tenant_id = current_setting('app.current_tenant', true)::uuid);
+      `).catch(err => console.error(`Policy recreation failed on ${table}:`, err));
+    }
 
     // ── Database Schema Alignment (Fk & updated_at Triggers) ────────────────
     console.log('[MIGRATION] Running constraint and updated_at column migrations...');
