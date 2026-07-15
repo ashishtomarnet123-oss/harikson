@@ -93,8 +93,9 @@ router.get('/activity/stream', async (req, res) => {
         FROM ai_activity a LEFT JOIN tenants t ON a.tenant_id = t.id
         ORDER BY a.created_at DESC LIMIT 25
       `);
-      res.write(`data: ${JSON.stringify({ activity: result.rows, ts: Date.now() })}\n\n`);
-    } catch {}
+    } catch (err) {
+      console.error('Error in sendData SSE callback:', err);
+    }
   };
 
   await sendData();
@@ -176,7 +177,9 @@ router.post('/knowledge/:id/documents', async (req, res) => {
            storage_bytes = storage_bytes + $2, index_status='completed', last_sync_at=NOW() WHERE id=$3`,
           [chunks, file_size_bytes || 0, req.params.id]
         );
-      } catch {}
+      } catch (err) {
+        console.error('Error in background document indexing simulation:', err);
+      }
     });
     res.json(doc.rows[0]);
   } catch (err) {
@@ -222,8 +225,9 @@ router.post('/playground/chat', async (req, res) => {
         try {
           const parsed = JSON.parse(line);
           if (parsed.message?.content) { fullText += parsed.message.content; res.write(parsed.message.content); }
-          if (parsed.done) tokensOut = parsed.eval_count || Math.ceil(fullText.length / 4);
-        } catch {}
+        } catch (e) {
+          console.warn('Warning parsing playground Ollama stream chunk:', e.message);
+        }
       });
     });
     response.data.on('end', async () => {
@@ -235,7 +239,9 @@ router.post('/playground/chat', async (req, res) => {
           `INSERT INTO playground_sessions (admin_id, model, agent_id, system_prompt, messages, tokens_in, tokens_out, latency_ms) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
           [adminId, selectedModel, agent_id || null, system_prompt, JSON.stringify([{ role: 'user', content: user_message }, { role: 'assistant', content: fullText }]), tokensIn, tokensOut, latency]
         );
-      } catch {}
+      } catch (err) {
+        console.warn('Warning saving playground session to DB:', err.message);
+      }
       res.setHeader('X-Tokens-In', tokensIn);
       res.setHeader('X-Tokens-Out', tokensOut);
       res.setHeader('X-Latency-Ms', latency);
@@ -368,8 +374,9 @@ async function seedWorkflows() {
         ('GPU Alert Handler', 'When GPU > 90%, routes traffic to 8B model, alerts admin', 'event', 'active', 3, 66.67)
       `);
       console.log('✅ Seeded default workflows');
-    }
-  } catch {}
+  } catch (err) {
+    console.error('Error seeding default workflows:', err);
+  }
 }
 seedWorkflows();
 
@@ -441,8 +448,9 @@ router.get('/gpu', async (req, res) => {
       processes = pOut.trim().split('\n').filter(Boolean).map(l => {
         const p = l.split(',').map(s => s.trim());
         return { gpu_uuid: p[0], pid: p[1], name: p[2], memory_mb: parseInt(p[3]) || 0 };
-      });
-    } catch {}
+    } catch (err) {
+      console.warn('Warning querying GPU processes:', err.message);
+    }
     res.json({ gpus, processes });
   } catch (err) {
     res.json({ gpus: [], error: err.message });

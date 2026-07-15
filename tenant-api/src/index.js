@@ -1109,7 +1109,9 @@ const authMiddleware = async (req, res, next) => {
       const keyRecord = keyRes.rows[0];
       
       // Update last_used_at in the background (non-blocking)
-      pool.query('UPDATE api_keys SET last_used_at = NOW() WHERE id = $1', [keyRecord.id]).catch(() => {});
+      pool.query('UPDATE api_keys SET last_used_at = NOW() WHERE id = $1', [keyRecord.id]).catch(err => {
+        console.warn('Warning updating last_used_at for api_key:', err.message);
+      });
       
       // Fetch user details to mock JWT session context
       const userRes = await pool.query('SELECT * FROM users WHERE id = $1 AND deleted_at IS NULL', [keyRecord.user_id]);
@@ -1811,9 +1813,14 @@ app.post('/api/chat', authMiddleware, async (req, res) => {
       const actResp = await axios.post(`${adminApiBase}/admin/activity`, {
         tenant_id: req.tenant.id, user_id: req.user.id, agent_id: agentConfig?.id || null,
         model: selectedModel, status: 'processing', tokens_in: 0, tokens_out: 0
-      }, { timeout: 2000 }).catch(() => null);
+      }, { timeout: 2000 }).catch(err => {
+        console.warn('Warning calling admin activity endpoint:', err.message);
+        return null;
+      });
       if (actResp?.data?.id) activityId = actResp.data.id;
-    } catch {}
+    } catch (error) {
+      console.warn('Warning logging activity to admin panel:', error.message);
+    }
 
     // Set streaming headers
     res.setHeader('Content-Type', 'text/plain; charset=utf-8');
@@ -1899,7 +1906,9 @@ app.post('/api/chat', authMiddleware, async (req, res) => {
             tenant_id: req.tenant.id, user_id: req.user.id, agent_id: agentConfig?.id || null,
             model: selectedModel, status: wasTerminated ? 'failed' : 'completed',
             tokens_in: inTokens, tokens_out: outTokens, latency_ms: latency
-          }).catch(() => {});
+          }).catch(err => {
+            console.warn('Warning updating admin activity status:', err.message);
+          });
         }
       }
 
@@ -1933,7 +1942,9 @@ app.post('/api/chat', authMiddleware, async (req, res) => {
               promptTokens = parsed.prompt_eval_count || promptTokens;
               completionTokens = parsed.eval_count || Math.ceil(fullResponseText.length / 4);
             }
-          } catch (e) {}
+          } catch (e) {
+            console.warn('Warning parsing Ollama stream chunk:', e.message);
+          }
         }
       });
 
@@ -2359,7 +2370,9 @@ app.post('/api/auth/logout', async (req, res) => {
            WHERE user_id = $1 AND ip_address = $2 AND user_agent = $3 AND revoked_at IS NULL`,
           [decoded.userId, ip, ua]
         );
-      } catch {}
+      } catch (err) {
+        console.warn('Warning during session revocation on logout:', err.message);
+      }
     }
     
     const host = req.headers.host || '';

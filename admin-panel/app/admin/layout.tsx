@@ -121,16 +121,18 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const resultLinks: Record<string, string> = { tenant: '/admin/tenants', agent: '/admin/agents', knowledge_base: '/admin/knowledge', workflow: '/admin/workflows' };
 
   useEffect(() => {
+    let fCount = 0;
+    let timer: NodeJS.Timeout | null = null;
+
     const handleKeyDown = (e: KeyboardEvent) => {
       // Cmd+K or Ctrl+K for search
       if ((e.metaKey || e.ctrlKey) && e.key === 'k') { e.preventDefault(); setShowSearch(s => !s); }
       // Escape to close
       if (e.key === 'Escape') { setShowSearch(false); setShowNotifs(false); }
       // Shift+F+F for founder
-      let fCount = 0, timer: NodeJS.Timeout;
       if (e.shiftKey && e.key.toLowerCase() === 'f') {
         fCount++;
-        clearTimeout(timer);
+        if (timer) clearTimeout(timer);
         if (fCount >= 2) { fCount = 0; router.push('/admin/founder'); }
         else { timer = setTimeout(() => { fCount = 0; }, 500); }
       }
