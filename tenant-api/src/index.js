@@ -99,9 +99,6 @@ async function initUserTables() {
       ALTER TABLE users ADD COLUMN IF NOT EXISTS bio TEXT;
       ALTER TABLE users ADD COLUMN IF NOT EXISTS settings JSONB DEFAULT '{}'::jsonb;
       ALTER TABLE users ADD COLUMN IF NOT EXISTS billing_info JSONB DEFAULT '{}'::jsonb;
-      ALTER TABLE users ADD COLUMN IF NOT EXISTS developer_keys JSONB DEFAULT '[]'::jsonb;
-      ALTER TABLE users ADD COLUMN IF NOT EXISTS connected_devices JSONB DEFAULT '[]'::jsonb;
-      ALTER TABLE users ADD COLUMN IF NOT EXISTS activity_logs JSONB DEFAULT '[]'::jsonb;
     `);
 
     // Create refresh_tokens table if not exists
@@ -207,24 +204,31 @@ async function initUserTables() {
     // Migrate existing JSONB activity logs if users has rows and activity_logs table is empty
     const checkLogs = await pool.query("SELECT COUNT(*)::int FROM activity_logs");
     if (checkLogs.rows[0].count === 0) {
-      console.log("[MIGRATION] Migrating JSONB activity logs to activity_logs table...");
-      await pool.query(`
-        INSERT INTO activity_logs (user_id, tenant_id, action, metadata, ip_address, user_agent, created_at)
-        SELECT 
-          u.id, 
-          u.tenant_id, 
-          COALESCE(log->>'action', 'Action'), 
-          log, 
-          log->>'ip', 
-          log->>'device',
-          CASE 
-            WHEN log->>'id' ~ '^[0-9]+$' THEN to_timestamp((log->>'id')::bigint / 1000)
-            ELSE COALESCE(u.created_at, NOW())
-          END
-        FROM users u,
-        jsonb_array_elements(CASE WHEN jsonb_typeof(u.activity_logs) = 'array' THEN u.activity_logs ELSE '[]'::jsonb END) log
-        ON CONFLICT DO NOTHING;
-      `).catch(err => console.warn("[MIGRATION WARNING] Failed to migrate JSONB activity logs:", err.message));
+      const hasColumn = await pool.query(`
+        SELECT column_name 
+        FROM information_schema.columns 
+        WHERE table_name='users' AND column_name='activity_logs'
+      `);
+      if (hasColumn.rows.length > 0) {
+        console.log("[MIGRATION] Migrating JSONB activity logs to activity_logs table...");
+        await pool.query(`
+          INSERT INTO activity_logs (user_id, tenant_id, action, metadata, ip_address, user_agent, created_at)
+          SELECT 
+            u.id, 
+            u.tenant_id, 
+            COALESCE(log->>'action', 'Action'), 
+            log, 
+            log->>'ip', 
+            log->>'device',
+            CASE 
+              WHEN log->>'id' ~ '^[0-9]+$' THEN to_timestamp((log->>'id')::bigint / 1000)
+              ELSE COALESCE(u.created_at, NOW())
+            END
+          FROM users u,
+          jsonb_array_elements(CASE WHEN jsonb_typeof(u.activity_logs) = 'array' THEN u.activity_logs ELSE '[]'::jsonb END) log
+          ON CONFLICT DO NOTHING;
+        `).catch(err => console.warn("[MIGRATION WARNING] Failed to migrate JSONB activity logs:", err.message));
+      }
     }
 
     // 6. Create user_sessions table if not exists
@@ -258,28 +262,35 @@ async function initUserTables() {
     // Migrate existing JSONB connected_devices if user_sessions table is empty
     const checkSessions = await pool.query("SELECT COUNT(*)::int FROM user_sessions");
     if (checkSessions.rows[0].count === 0) {
-      console.log("[MIGRATION] Migrating JSONB connected_devices to user_sessions table...");
-      await pool.query(`
-        INSERT INTO user_sessions (user_id, tenant_id, device_name, ip_address, user_agent, created_at, expires_at, last_active_at)
-        SELECT 
-          u.id, 
-          u.tenant_id, 
-          COALESCE(dev->>'name', dev->>'browser' || ' Device', 'Unknown Device'), 
-          dev->>'ip', 
-          dev->>'browser' || ' / ' || COALESCE(dev->>'os', 'Unknown OS'), 
-          CASE 
-            WHEN dev->>'lastActive' IS NOT NULL THEN (dev->>'lastActive')::timestamptz
-            ELSE COALESCE(u.created_at, NOW())
-          END,
-          COALESCE(u.created_at, NOW()) + INTERVAL '30 days',
-          CASE 
-            WHEN dev->>'lastActive' IS NOT NULL THEN (dev->>'lastActive')::timestamptz
-            ELSE COALESCE(u.created_at, NOW())
-          END
-        FROM users u,
-        jsonb_array_elements(CASE WHEN jsonb_typeof(u.connected_devices) = 'array' THEN u.connected_devices ELSE '[]'::jsonb END) dev
-        ON CONFLICT DO NOTHING;
-      `).catch(err => console.warn("[MIGRATION WARNING] Failed to migrate JSONB connected devices:", err.message));
+      const hasColumn = await pool.query(`
+        SELECT column_name 
+        FROM information_schema.columns 
+        WHERE table_name='users' AND column_name='connected_devices'
+      `);
+      if (hasColumn.rows.length > 0) {
+        console.log("[MIGRATION] Migrating JSONB connected_devices to user_sessions table...");
+        await pool.query(`
+          INSERT INTO user_sessions (user_id, tenant_id, device_name, ip_address, user_agent, created_at, expires_at, last_active_at)
+          SELECT 
+            u.id, 
+            u.tenant_id, 
+            COALESCE(dev->>'name', dev->>'browser' || ' Device', 'Unknown Device'), 
+            dev->>'ip', 
+            dev->>'browser' || ' / ' || COALESCE(dev->>'os', 'Unknown OS'), 
+            CASE 
+              WHEN dev->>'lastActive' IS NOT NULL THEN (dev->>'lastActive')::timestamptz
+              ELSE COALESCE(u.created_at, NOW())
+            END,
+            COALESCE(u.created_at, NOW()) + INTERVAL '30 days',
+            CASE 
+              WHEN dev->>'lastActive' IS NOT NULL THEN (dev->>'lastActive')::timestamptz
+              ELSE COALESCE(u.created_at, NOW())
+            END
+          FROM users u,
+          jsonb_array_elements(CASE WHEN jsonb_typeof(u.connected_devices) = 'array' THEN u.connected_devices ELSE '[]'::jsonb END) dev
+          ON CONFLICT DO NOTHING;
+        `).catch(err => console.warn("[MIGRATION WARNING] Failed to migrate JSONB connected devices:", err.message));
+      }
     }
 
     // Create api_keys table if not exists
@@ -308,6 +319,33 @@ async function initUserTables() {
           WITH CHECK (tenant_id = current_setting('app.current_tenant', true)::uuid);
     `).catch(err => console.error("Policy recreation failed on api_keys:", err));
 
+    // Migrate existing JSONB developer_keys if api_keys table is empty
+    const checkApiKeys = await pool.query("SELECT COUNT(*)::int FROM api_keys");
+    if (checkApiKeys.rows[0].count === 0) {
+      const hasColumn = await pool.query(`
+        SELECT column_name 
+        FROM information_schema.columns 
+        WHERE table_name='users' AND column_name='developer_keys'
+      `);
+      if (hasColumn.rows.length > 0) {
+        console.log("[MIGRATION] Migrating JSONB developer_keys to api_keys table...");
+        await pool.query(`
+          INSERT INTO api_keys (user_id, tenant_id, name, key_hash, key_prefix, created_at, scopes)
+          SELECT 
+            u.id, 
+            u.tenant_id, 
+            COALESCE(k->>'name', 'API Key'),
+            COALESCE(k->>'key_hash', encode(sha256(coalesce(k->>'key', '')::bytea), 'hex')),
+            COALESCE(k->>'key_prefix', LEFT(coalesce(k->>'key', ''), 12)),
+            COALESCE((k->>'created')::timestamptz, NOW()),
+            '["read", "write"]'::jsonb
+          FROM users u,
+          jsonb_array_elements(CASE WHEN jsonb_typeof(u.developer_keys) = 'array' THEN u.developer_keys ELSE '[]'::jsonb END) k
+          ON CONFLICT DO NOTHING;
+        `).catch(err => console.warn("[MIGRATION WARNING] Failed to migrate JSONB developer keys:", err.message));
+      }
+    }
+
     // 7. Add Indexes for optimization
     await pool.query(`
       CREATE INDEX IF NOT EXISTS idx_activity_logs_user_created ON activity_logs (user_id, created_at);
@@ -316,6 +354,59 @@ async function initUserTables() {
       CREATE INDEX IF NOT EXISTS idx_user_sessions_user_expires ON user_sessions (user_id, expires_at);
       CREATE INDEX IF NOT EXISTS idx_user_sessions_revoked ON user_sessions (revoked_at);
     `);
+
+    // 8. RAG drive files migration to knowledge_documents table
+    await pool.query(`
+      ALTER TABLE knowledge_documents ADD COLUMN IF NOT EXISTS user_id UUID REFERENCES users(id) ON DELETE CASCADE;
+      ALTER TABLE knowledge_documents ADD COLUMN IF NOT EXISTS content TEXT;
+      ALTER TABLE knowledge_documents ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT true;
+    `);
+
+    const hasSettingsCol = await pool.query(`
+      SELECT column_name 
+      FROM information_schema.columns 
+      WHERE table_name='users' AND column_name='settings'
+    `);
+    if (hasSettingsCol.rows.length > 0) {
+      const checkDocUserRows = await pool.query("SELECT COUNT(*)::int FROM knowledge_documents WHERE user_id IS NOT NULL");
+      if (checkDocUserRows.rows[0].count === 0) {
+        console.log("[MIGRATION] Migrating users.settings->'rag_files' to knowledge_documents...");
+        await pool.query(`
+          INSERT INTO knowledge_documents (id, tenant_id, user_id, filename, file_type, file_size_bytes, content, is_active, status)
+          SELECT 
+            COALESCE(
+              CASE 
+                WHEN (rag->>'id') ~ '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$' THEN (rag->>'id')::uuid
+                ELSE gen_random_uuid()
+              END,
+              gen_random_uuid()
+            ) as id,
+            u.tenant_id,
+            u.id as user_id,
+            COALESCE(rag->>'name', 'unnamed.txt') as filename,
+            COALESCE(rag->>'file_type', split_part(coalesce(rag->>'name', 'unnamed.txt'), '.', 2)),
+            COALESCE((rag->>'size')::int, 0) as file_size_bytes,
+            COALESCE(rag->>'text', '') as content,
+            COALESCE((rag->>'isActive')::boolean, true) as is_active,
+            'indexed' as status
+          FROM users u,
+          jsonb_array_elements(CASE WHEN jsonb_typeof(u.settings->'rag_files') = 'array' THEN u.settings->'rag_files' ELSE '[]'::jsonb END) rag
+          ON CONFLICT DO NOTHING;
+        `).catch(err => console.warn("[MIGRATION WARNING] Failed to migrate RAG files from users.settings:", err.message));
+
+        await pool.query(`
+          UPDATE users SET settings = settings - 'rag_files' WHERE settings ? 'rag_files';
+        `).catch(err => console.warn("[MIGRATION WARNING] Failed to clear RAG files from users.settings:", err.message));
+      }
+    }
+
+    // 9. Drop duplicate JSONB columns from users table
+    console.log("[MIGRATION] Dropping duplicate JSONB columns from users table...");
+    await pool.query(`
+      ALTER TABLE users DROP COLUMN IF EXISTS activity_logs;
+      ALTER TABLE users DROP COLUMN IF EXISTS connected_devices;
+      ALTER TABLE users DROP COLUMN IF EXISTS developer_keys;
+    `).catch(err => console.error("Failed to drop duplicate JSONB columns from users:", err.message));
 
     // ── Database Schema Alignment (Fk & updated_at Triggers) ────────────────
     console.log('[MIGRATION] Running constraint and updated_at column migrations...');
