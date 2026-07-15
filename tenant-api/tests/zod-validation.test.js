@@ -41,11 +41,11 @@ async function runTests() {
       console.log('   ✓ Rejected correctly with 400 and password error details.');
     }
 
-    // Test 3: chat validation with missing message
-    console.log('\n🔹 Test 3: Testing POST /api/chat with missing message parameter...');
+    // Test 3: validation with missing email
+    console.log('\n🔹 Test 3: Testing POST /api/auth/register with missing email...');
     try {
-      await axios.post(`${baseUrl}/api/chat`, {
-        model: 'harikson-plus'
+      await axios.post(`${baseUrl}/api/auth/register`, {
+        password: 'validpassword123'
       });
       assert.fail('Should have failed with 400 Bad Request');
     } catch (err) {
@@ -53,8 +53,8 @@ async function runTests() {
       assert.strictEqual(err.response.status, 400);
       assert.strictEqual(err.response.data.error, 'Validation failed');
       const details = err.response.data.details;
-      assert.ok(details.some(d => d.path.includes('message')), 'Error details must report message issue');
-      console.log('   ✓ Rejected correctly with 400 and message validation details.');
+      assert.ok(details.some(d => d.path.includes('email')), 'Error details must report email issue');
+      console.log('   ✓ Rejected correctly with 400 and email validation details.');
     }
 
     console.log('\n🎉 ALL ZOD INPUT VALIDATION TESTS PASSED SUCCESSFULLY!');
