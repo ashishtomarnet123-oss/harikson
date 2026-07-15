@@ -58,7 +58,7 @@ services:
 
   # 3. PostgreSQL Database
   postgres:
-    image: pgvector/pgvector:15-pgvector
+    image: pgvector/pgvector:pg15
     container_name: harikson-postgres
     restart: unless-stopped
     ports:
