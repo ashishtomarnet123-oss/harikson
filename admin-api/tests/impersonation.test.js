@@ -1,6 +1,9 @@
 import axios from 'axios';
 import assert from 'assert';
 import jwt from 'jsonwebtoken';
+import dotenv from 'dotenv';
+
+dotenv.config();
 
 const apiBase = process.env.API_BASE || 'http://localhost:4000';
 const jwtSecret = process.env.JWT_SECRET || 'fallback_secret_must_be_at_least_32_bytes';
