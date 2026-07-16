@@ -56,6 +56,7 @@ CREATE TABLE messages (
     content TEXT NOT NULL,
     tokens_used INTEGER NOT NULL DEFAULT 0,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     deleted_at TIMESTAMP WITH TIME ZONE,
     CONSTRAINT check_message_role CHECK (role IN ('user', 'assistant', 'system'))
 );
@@ -115,14 +116,14 @@ CREATE TABLE invoices (
     CONSTRAINT unique_provider_invoice UNIQUE (provider, provider_invoice_id)
 );
 
--- Trigger to auto-update conversations.updated_at
+-- Trigger to auto-update updated_at columns
 CREATE OR REPLACE FUNCTION update_updated_at_column()
 RETURNS TRIGGER AS $$
 BEGIN
-    NEW.updated_at = CURRENT_TIMESTAMP;
-    RETURN NEW;
+  NEW.updated_at = NOW();
+  RETURN NEW;
 END;
-$$ LANGUAGE plpgsql;
+$$ language 'plpgsql';
 
 CREATE TRIGGER update_conversations_updated_at
     BEFORE UPDATE ON conversations
@@ -146,6 +147,36 @@ CREATE TRIGGER update_subscriptions_updated_at
 
 CREATE TRIGGER update_invoices_updated_at
     BEFORE UPDATE ON invoices
+    FOR EACH ROW
+    EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TRIGGER update_messages_updated_at
+    BEFORE UPDATE ON messages
+    FOR EACH ROW
+    EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TRIGGER update_agents_updated_at
+    BEFORE UPDATE ON agents
+    FOR EACH ROW
+    EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TRIGGER update_workflows_updated_at
+    BEFORE UPDATE ON workflows
+    FOR EACH ROW
+    EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TRIGGER update_knowledge_bases_updated_at
+    BEFORE UPDATE ON knowledge_bases
+    FOR EACH ROW
+    EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TRIGGER update_api_keys_updated_at
+    BEFORE UPDATE ON api_keys
+    FOR EACH ROW
+    EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TRIGGER update_user_sessions_updated_at
+    BEFORE UPDATE ON user_sessions
     FOR EACH ROW
     EXECUTE FUNCTION update_updated_at_column();
 

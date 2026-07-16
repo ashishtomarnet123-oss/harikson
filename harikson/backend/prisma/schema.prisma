@@ -91,6 +91,7 @@ model Message {
   content        String
   tokensUsed     Int          @default(0) @map("tokens_used")
   createdAt      DateTime     @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt      DateTime     @default(now()) @map("updated_at") @db.Timestamptz
   deletedAt      DateTime?    @map("deleted_at") @db.Timestamptz
 
   @@map("messages")
@@ -204,6 +205,7 @@ model UserSession {
   expiresAt    DateTime  @map("expires_at") @db.Timestamptz
   revokedAt    DateTime? @map("revoked_at") @db.Timestamptz
   lastActiveAt DateTime  @default(now()) @map("last_active_at") @db.Timestamptz
+  updatedAt    DateTime  @default(now()) @map("updated_at") @db.Timestamptz
 
   @@map("user_sessions")
 }
@@ -222,6 +224,7 @@ model ApiKey {
   lastUsedAt DateTime? @map("last_used_at") @db.Timestamptz
   revokedAt  DateTime? @map("revoked_at") @db.Timestamptz
   expiresAt  DateTime? @map("expires_at") @db.Timestamptz
+  updatedAt  DateTime  @default(now()) @map("updated_at") @db.Timestamptz
 
   @@map("api_keys")
 }
@@ -280,6 +283,7 @@ model KnowledgeBase {
   lastSyncAt      DateTime? @map("last_sync_at") @db.Timestamptz
   indexStatus     String?   @default("pending") @map("index_status")
   createdAt       DateTime? @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt       DateTime  @default(now()) @map("updated_at") @db.Timestamptz
 
   documents KnowledgeDocument[]
 
@@ -342,6 +346,7 @@ model Workflow {
   avgDurationMs   Int?      @map("avg_duration_ms")
   successRate     Decimal?  @default(100) @map("success_rate") @db.Decimal(5, 2)
   createdAt       DateTime? @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt       DateTime  @default(now()) @map("updated_at") @db.Timestamptz
 
   executions WorkflowExecution[]
 
