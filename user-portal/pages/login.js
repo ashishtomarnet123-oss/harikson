@@ -11,6 +11,9 @@ export default function LoginPage() {
   const [error, setError] = useState('');
   const [apiBase, setApiBase] = useState('http://localhost:3008');
   const [tenantSlug, setTenantSlug] = useState('system');
+  const [requires2FA, setRequires2FA] = useState(false);
+  const [totpCode, setTotpCode] = useState('');
+  const [userId, setUserId] = useState('');
 
   useEffect(() => {
     // Check if already logged in
@@ -59,6 +62,43 @@ export default function LoginPage() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Login failed');
+      
+      if (data.requires2FA) {
+        setRequires2FA(true);
+        setUserId(data.userId);
+        setLoading(false);
+        return;
+      }
+
+      localStorage.removeItem('hk_token');
+      localStorage.setItem('hk_user', JSON.stringify(data.user));
+      localStorage.setItem('hk_tenant', tenantSlug);
+      localStorage.setItem('hk_api_base', apiBase);
+      router.replace('/chat');
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handle2FAVerify = async (e) => {
+    e.preventDefault();
+    setError('');
+    setLoading(true);
+    try {
+      const res = await fetch(`${apiBase}/api/auth/login/2fa`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-tenant-slug': tenantSlug,
+        },
+        credentials: 'include',
+        body: JSON.stringify({ userId, code: totpCode }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Verification failed');
+
       localStorage.removeItem('hk_token');
       localStorage.setItem('hk_user', JSON.stringify(data.user));
       localStorage.setItem('hk_tenant', tenantSlug);
@@ -91,46 +131,86 @@ export default function LoginPage() {
             <div className="login-logo-text">Harikson AI</div>
           </div>
 
-          <h1 className="login-title">Welcome back</h1>
-          <p className="login-subtitle">Sign in to your Harikson workspace</p>
+          <h1 className="login-title">{requires2FA ? 'Two-Factor Verification' : 'Welcome back'}</h1>
+          <p className="login-subtitle">
+            {requires2FA ? 'Enter your 6-digit authenticator code or backup code' : 'Sign in to your Harikson workspace'}
+          </p>
 
-          <form onSubmit={handleLogin} autoComplete="on">
-            <div className="form-group">
-              <label className="form-label" htmlFor="email">
-                Email address
-              </label>
-              <input
-                id="email"
-                type="email"
-                className="form-input"
-                placeholder="you@company.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                autoComplete="email"
-                required
-              />
-            </div>
-            <div className="form-group">
-              <label className="form-label" htmlFor="password">
-                Password
-              </label>
-              <input
-                id="password"
-                type="password"
-                className="form-input"
-                placeholder="••••••••"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                autoComplete="current-password"
-                required
-              />
-            </div>
+          {requires2FA ? (
+            <form onSubmit={handle2FAVerify}>
+              <div className="form-group">
+                <label className="form-label" htmlFor="totpCode">
+                  Verification Code
+                </label>
+                <input
+                  id="totpCode"
+                  type="text"
+                  className="form-input"
+                  placeholder="Enter code"
+                  value={totpCode}
+                  onChange={(e) => setTotpCode(e.target.value)}
+                  required
+                  autoFocus
+                />
+              </div>
 
-            <button type="submit" className="btn-primary" disabled={loading}>
-              {loading && <span className="login-spinner" />}
-              {loading ? 'Signing in…' : 'Sign in'}
-            </button>
-          </form>
+              <button type="submit" className="btn-primary" disabled={loading}>
+                {loading && <span className="login-spinner" />}
+                {loading ? 'Verifying…' : 'Verify'}
+              </button>
+
+              <button
+                type="button"
+                className="btn-secondary"
+                style={{ width: '100%', marginTop: '10px', background: 'transparent', border: '1px solid var(--border)' }}
+                onClick={() => {
+                  setRequires2FA(false);
+                  setTotpCode('');
+                  setUserId('');
+                }}
+              >
+                Back to Login
+              </button>
+            </form>
+          ) : (
+            <form onSubmit={handleLogin} autoComplete="on">
+              <div className="form-group">
+                <label className="form-label" htmlFor="email">
+                  Email address
+                </label>
+                <input
+                  id="email"
+                  type="email"
+                  className="form-input"
+                  placeholder="you@company.com"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  autoComplete="email"
+                  required
+                />
+              </div>
+              <div className="form-group">
+                <label className="form-label" htmlFor="password">
+                  Password
+                </label>
+                <input
+                  id="password"
+                  type="password"
+                  className="form-input"
+                  placeholder="••••••••"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  autoComplete="current-password"
+                  required
+                />
+              </div>
+
+              <button type="submit" className="btn-primary" disabled={loading}>
+                {loading && <span className="login-spinner" />}
+                {loading ? 'Signing in…' : 'Sign in'}
+              </button>
+            </form>
+          )}
 
           {error && <div className="login-error">⚠ {error}</div>}
 

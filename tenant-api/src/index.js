@@ -12,7 +12,10 @@ import crypto from 'crypto';
 import * as cheerio from 'cheerio';
 import fs from 'fs';
 import path from 'path';
+import speakeasy from 'speakeasy';
+import QRCode from 'qrcode';
 import { fileURLToPath } from 'url';
+
 
 dotenv.config();
 
@@ -2785,6 +2788,14 @@ app.post('/api/auth/login', validate(loginSchema), async (req, res) => {
     if (!valid)
       return res.status(401).json({ error: 'Invalid email or password' });
 
+    if (user.two_factor_enabled) {
+      return res.json({
+        success: false,
+        requires2FA: true,
+        userId: user.id,
+      });
+    }
+
     const accessToken = jwt.sign(
       { userId: user.id, role: user.role },
       jwtSecret,
@@ -2893,6 +2904,170 @@ app.post('/api/auth/login', validate(loginSchema), async (req, res) => {
   } catch (err) {
     logger.error('Login error:', err);
     res.status(500).json({ error: 'Login failed' });
+  }
+});
+
+// 6a. POST /api/auth/login/2fa
+app.post('/api/auth/login/2fa', async (req, res) => {
+  const { userId, code } = req.body;
+  if (!userId || !code) {
+    return res.status(400).json({ error: 'User ID and verification code are required' });
+  }
+
+  try {
+    const userResult = await pool.query('SELECT * FROM users WHERE id = $1 AND deleted_at IS NULL', [userId]);
+    const user = userResult.rows[0];
+    if (!user || !user.two_factor_enabled) {
+      return res.status(400).json({ error: '2FA is not enabled for this user' });
+    }
+
+    // Check TOTP code or backup code
+    let verified = false;
+    let backupCodeMatchedIndex = -1;
+
+    // 1. Try TOTP code verification
+    if (user.two_factor_secret) {
+      const decryptedSecret = decryptSecret(user.two_factor_secret);
+      verified = speakeasy.totp.verify({
+        secret: decryptedSecret,
+        encoding: 'base32',
+        token: code,
+        window: 1
+      });
+    }
+
+    // 2. Try backup codes verification
+    if (!verified && user.two_factor_backup_codes && user.two_factor_backup_codes.length > 0) {
+      for (let i = 0; i < user.two_factor_backup_codes.length; i++) {
+        const match = await bcrypt.compare(code, user.two_factor_backup_codes[i]);
+        if (match) {
+          backupCodeMatchedIndex = i;
+          verified = true;
+          break;
+        }
+      }
+    }
+
+    if (!verified) {
+      return res.status(400).json({ error: 'Invalid verification code or backup code' });
+    }
+
+    // If backup code was used, remove it from the database (single-use)
+    if (backupCodeMatchedIndex !== -1) {
+      const updatedBackupCodes = [...user.two_factor_backup_codes];
+      updatedBackupCodes.splice(backupCodeMatchedIndex, 1);
+      await pool.query(
+        'UPDATE users SET two_factor_backup_codes = $1 WHERE id = $2',
+        [updatedBackupCodes, user.id]
+      );
+    }
+
+    // Issue tokens
+    const accessToken = jwt.sign(
+      { userId: user.id, role: user.role },
+      jwtSecret,
+      { expiresIn: '15m' }
+    );
+    const refreshToken = crypto.randomBytes(32).toString('hex');
+    const refreshTokenHash = crypto
+      .createHash('sha256')
+      .update(refreshToken)
+      .digest('hex');
+    const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000); // 30 days
+
+    await pool.query(
+      `INSERT INTO refresh_tokens (token, user_id, tenant_id, expires_at)
+       VALUES ($1, $2, $3, $4)`,
+      [refreshTokenHash, user.id, req.tenant.id, expiresAt]
+    );
+
+    const host = req.headers.host || '';
+    const domainSuffix = host.includes('neuravolt.cloud')
+      ? '; Domain=.neuravolt.cloud'
+      : '';
+    const secureFlag = process.env.NODE_ENV === 'production' ? 'Secure;' : '';
+
+    res.setHeader('Set-Cookie', [
+      `hk_access_token=${accessToken}; HttpOnly; ${secureFlag} SameSite=Strict; Path=/; Max-Age=${15 * 60}${domainSuffix}`,
+      `hk_refresh_token=${refreshToken}; HttpOnly; ${secureFlag} SameSite=Strict; Path=/; Max-Age=${30 * 24 * 60 * 60}${domainSuffix}`,
+    ]);
+
+    // Record real login activity + device session
+    try {
+      const ua = req.headers['user-agent'] || 'Unknown Browser';
+      const rawIp =
+        (req.headers['x-forwarded-for'] || req.socket?.remoteAddress || '')
+          .split(',')[0]
+          .trim() || '127.0.0.1';
+      const ip = rawIp.replace(/^::ffff:/, '');
+
+      await executeTenantQuery(req.tenant.id, async (client) => {
+        await client.query(
+          `INSERT INTO activity_logs (user_id, tenant_id, action, metadata, ip_address, user_agent)
+           VALUES ($1, $2, $3, $4, $5, $6)`,
+          [
+            user.id,
+            req.tenant.id,
+            'Logged in successfully (2FA)',
+            JSON.stringify({ level: 'info', color: '#059669' }),
+            ip,
+            ua,
+          ]
+        );
+
+        const browserMatch = ua.match(
+          /(Chrome|Firefox|Safari|Edge|Opera|Brave)[/\s]([\d.]+)/i
+        );
+        const osMatch = ua.match(
+          /(Windows NT|Mac OS X|Linux|Android|iOS|iPhone OS)[\s/]?([\d._]+)?/i
+        );
+        let osName = 'Unknown OS';
+        if (osMatch) {
+          if (osMatch[1] === 'Windows NT') osName = 'Windows';
+          else if (osMatch[1] === 'iPhone OS') osName = 'iOS';
+          else osName = osMatch[1].replace('_', ' ');
+        }
+        const browserName = browserMatch ? browserMatch[1] : 'Unknown Browser';
+        const deviceName = osMatch
+          ? (osMatch[1] === 'Mac OS X' ? 'Mac' : osName) + ' Device'
+          : 'Unknown Device';
+
+        const existingSession = await client.query(
+          `SELECT id FROM user_sessions 
+           WHERE user_id = $1 AND ip_address = $2 AND user_agent = $3 AND revoked_at IS NULL AND expires_at > NOW()
+           LIMIT 1`,
+          [user.id, ip, ua]
+        );
+
+        if (existingSession.rows.length > 0) {
+          await client.query(
+            `UPDATE user_sessions SET last_active_at = NOW() WHERE id = $1`,
+            [existingSession.rows[0].id]
+          );
+        } else {
+          await client.query(
+            `INSERT INTO user_sessions (user_id, tenant_id, device_name, ip_address, user_agent, expires_at)
+             VALUES ($1, $2, $3, $4, $5, NOW() + INTERVAL '30 days')`,
+             [user.id, req.tenant.id, deviceName, ip, ua]
+          );
+        }
+      });
+    } catch (trackErr) {
+      logger.warn('Failed to record login activity (2FA):', trackErr.message);
+    }
+
+    res.json({
+      success: true,
+      user: {
+        id: user.id,
+        email: user.email,
+        role: user.role,
+        tenantSlug: req.tenant.slug,
+      },
+    });
+  } catch (err) {
+    logger.error('2FA Login error:', err);
+    res.status(500).json({ error: '2FA Login failed' });
   }
 });
 
@@ -3472,7 +3647,7 @@ app.get('/api/user/profile', authMiddleware, async (req, res) => {
   try {
     const user = await executeTenantQuery(req.tenant.id, async (client) => {
       const result = await client.query(
-        `SELECT name, username, email, phone, company, job_title as "jobTitle", department, country, bio
+        `SELECT name, username, email, phone, company, job_title as "jobTitle", department, country, bio, two_factor_enabled as "twoFactorEnabled"
          FROM users WHERE id = $1`,
         [req.user.id]
       );
@@ -4473,6 +4648,152 @@ app.get('/api/user/usage', authMiddleware, async (req, res) => {
   } catch (err) {
     logger.error('Fetch usage error:', err);
     res.status(500).json({ error: 'Failed to fetch usage analytics' });
+  }
+});
+
+// AES-256-GCM Encryption / Decryption helpers for 2FA Secrets
+const getEncryptionKey = () => {
+  const secret = process.env.JWT_SECRET || 'fallback_secret_must_be_at_least_32_bytes';
+  return crypto.createHash('sha256').update(secret).digest();
+};
+
+function encryptSecret(text) {
+  const iv = crypto.randomBytes(12);
+  const key = getEncryptionKey();
+  const cipher = crypto.createCipheriv('aes-256-gcm', key, iv);
+  let encrypted = cipher.update(text, 'utf8', 'hex');
+  encrypted += cipher.final('hex');
+  const tag = cipher.getAuthTag().toString('hex');
+  return `${iv.toString('hex')}:${encrypted}:${tag}`;
+}
+
+function decryptSecret(encryptedText) {
+  if (!encryptedText) return null;
+  const parts = encryptedText.split(':');
+  if (parts.length !== 3) {
+    throw new Error('Invalid encrypted format');
+  }
+  const iv = Buffer.from(parts[0], 'hex');
+  const encrypted = parts[1];
+  const tag = Buffer.from(parts[2], 'hex');
+  const key = getEncryptionKey();
+  const decipher = crypto.createDecipheriv('aes-256-gcm', key, iv);
+  decipher.setAuthTag(tag);
+  let decrypted = decipher.update(encrypted, 'hex', 'utf8');
+  decrypted += decipher.final('utf8');
+  return decrypted;
+}
+
+// 2FA Setup
+app.post('/api/user/2fa/setup', authMiddleware, async (req, res) => {
+  try {
+    const userResult = await pool.query('SELECT email FROM users WHERE id = $1', [req.user.id]);
+    const user = userResult.rows[0];
+    if (!user) return res.status(404).json({ error: 'User not found' });
+
+    const secret = speakeasy.generateSecret({
+      name: `Harikson:${user.email}`
+    });
+    
+    const encryptedSecret = encryptSecret(secret.base32);
+    await pool.query(
+      'UPDATE users SET two_factor_secret = $1, two_factor_enabled = false WHERE id = $2',
+      [encryptedSecret, req.user.id]
+    );
+
+    const qrCodeUrl = await QRCode.toDataURL(secret.otpauth_url);
+
+    res.json({
+      success: true,
+      secret: secret.base32,
+      qrCodeUrl,
+      otpauthUrl: secret.otpauth_url
+    });
+  } catch (err) {
+    logger.error(err, 'Failed to setup 2FA');
+    res.status(500).json({ error: 'Failed to generate 2FA secret' });
+  }
+});
+
+// 2FA Verify (First time verification and enable)
+app.post('/api/user/2fa/verify', authMiddleware, async (req, res) => {
+  const { code } = req.body;
+  if (!code) {
+    return res.status(400).json({ error: 'Verification code is required' });
+  }
+  try {
+    const userResult = await pool.query('SELECT * FROM users WHERE id = $1', [req.user.id]);
+    const user = userResult.rows[0];
+    if (!user || !user.two_factor_secret) {
+      return res.status(400).json({ error: '2FA has not been setup' });
+    }
+
+    const decryptedSecret = decryptSecret(user.two_factor_secret);
+    const verified = speakeasy.totp.verify({
+      secret: decryptedSecret,
+      encoding: 'base32',
+      token: code,
+      window: 1
+    });
+
+    if (!verified) {
+      return res.status(400).json({ error: 'Invalid verification code' });
+    }
+
+    // Generate 10 backup codes (alphanumeric, 10 characters)
+    const backupCodes = [];
+    const hashedBackupCodes = [];
+    for (let i = 0; i < 10; i++) {
+      const plainCode = crypto.randomBytes(5).toString('hex');
+      backupCodes.push(plainCode);
+      const hashed = await bcrypt.hash(plainCode, 10);
+      hashedBackupCodes.push(hashed);
+    }
+
+    await pool.query(
+      'UPDATE users SET two_factor_enabled = true, two_factor_backup_codes = $1 WHERE id = $2',
+      [hashedBackupCodes, req.user.id]
+    );
+
+    res.json({
+      success: true,
+      backupCodes
+    });
+  } catch (err) {
+    logger.error(err, 'Failed to verify 2FA');
+    res.status(500).json({ error: 'Failed to verify 2FA code' });
+  }
+});
+
+// 2FA Disable
+app.post('/api/user/2fa/disable', authMiddleware, async (req, res) => {
+  const { password } = req.body;
+  if (!password) {
+    return res.status(400).json({ error: 'Password confirmation is required' });
+  }
+  try {
+    const userResult = await pool.query('SELECT * FROM users WHERE id = $1', [req.user.id]);
+    const user = userResult.rows[0];
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    const valid = await bcrypt.compare(password, user.password_hash);
+    if (!valid) {
+      return res.status(400).json({ error: 'Invalid password confirmation' });
+    }
+
+    await pool.query(
+      'UPDATE users SET two_factor_enabled = false, two_factor_secret = NULL, two_factor_backup_codes = \'{}\' WHERE id = $1',
+      [req.user.id]
+    );
+
+    res.json({
+      success: true
+    });
+  } catch (err) {
+    logger.error(err, 'Failed to disable 2FA');
+    res.status(500).json({ error: 'Failed to disable 2FA' });
   }
 });
 

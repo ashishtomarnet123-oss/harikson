@@ -30,6 +30,9 @@ CREATE TABLE users (
     email VARCHAR(255) NOT NULL,
     password_hash VARCHAR(255) NOT NULL,
     role VARCHAR(50) NOT NULL DEFAULT 'user',
+    two_factor_secret TEXT,
+    two_factor_enabled BOOLEAN DEFAULT FALSE,
+    two_factor_backup_codes TEXT[] DEFAULT '{}',
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT unique_tenant_email UNIQUE (tenant_id, email)

@@ -336,3 +336,8 @@ CREATE INDEX IF NOT EXISTS idx_knowledge_bases_tenant ON knowledge_bases(tenant_
 CREATE INDEX IF NOT EXISTS idx_knowledge_documents_kb ON knowledge_documents(knowledge_base_id);
 CREATE INDEX IF NOT EXISTS idx_ai_activity_tenant_created ON ai_activity(tenant_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_vector_collections_tenant ON vector_collections(tenant_id);
+
+-- Migration: Add 2FA columns to users table
+ALTER TABLE users ADD COLUMN IF NOT EXISTS two_factor_secret TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS two_factor_enabled BOOLEAN DEFAULT FALSE;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS two_factor_backup_codes TEXT[] DEFAULT '{}';
