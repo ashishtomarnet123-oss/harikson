@@ -4800,6 +4800,178 @@ app.post('/api/user/2fa/disable', authMiddleware, async (req, res) => {
   }
 });
 
+// ─── WORKFLOWS ───────────────────────────────────────────────────────────────
+
+// GET /api/workflows
+app.get('/api/workflows', authMiddleware, async (req, res) => {
+  try {
+    const result = await executeTenantQuery(req.tenant.id, async (client) => {
+      return await client.query(
+        'SELECT * FROM workflows WHERE tenant_id = $1 ORDER BY created_at DESC',
+        [req.tenant.id]
+      );
+    });
+    res.json(result.rows);
+  } catch (err) {
+    logger.error('Fetch workflows error:', err);
+    res.status(500).json({ error: 'Failed to fetch workflows' });
+  }
+});
+
+// POST /api/workflows
+app.post('/api/workflows', authMiddleware, async (req, res) => {
+  const { name, description, trigger_type, steps, status } = req.body;
+  if (!name) {
+    return res.status(400).json({ error: 'Name is required' });
+  }
+
+  const resolvedTriggerType = trigger_type || 'manual';
+  const triggerTypes = ['manual', 'scheduled', 'webhook', 'event'];
+  if (!triggerTypes.includes(resolvedTriggerType)) {
+    return res.status(400).json({ error: `Invalid trigger_type. Must be one of ${triggerTypes.join(', ')}` });
+  }
+
+  const resolvedStatus = status || 'active';
+  const statuses = ['active', 'disabled', 'archived'];
+  if (!statuses.includes(resolvedStatus)) {
+    return res.status(400).json({ error: `Invalid status. Must be one of ${statuses.join(', ')}` });
+  }
+
+  try {
+    // Check plan limits
+    const limit = req.tenant.agent_limit || 2;
+    if (limit !== -1) {
+      const countRes = await executeTenantQuery(req.tenant.id, async (client) => {
+        const result = await client.query('SELECT COUNT(*) FROM workflows WHERE tenant_id = $1', [req.tenant.id]);
+        return parseInt(result.rows[0].count);
+      });
+      if (countRes >= limit) {
+        return res.status(403).json({
+          error: `Workflow limit exceeded: Current count (${countRes}) meets or exceeds plan limit (${limit}). Please upgrade your subscription plan.`
+        });
+      }
+    }
+
+    const newWorkflow = await executeTenantQuery(req.tenant.id, async (client) => {
+      const result = await client.query(
+        `INSERT INTO workflows (tenant_id, name, description, trigger_type, steps, status)
+         VALUES ($1, $2, $3, $4, $5, $6)
+         RETURNING *`,
+        [
+          req.tenant.id,
+          name,
+          description || '',
+          resolvedTriggerType,
+          JSON.stringify(steps || []),
+          resolvedStatus
+        ]
+      );
+      return result.rows[0];
+    });
+
+    res.status(201).json(newWorkflow);
+  } catch (err) {
+    logger.error('Create workflow error:', err);
+    res.status(500).json({ error: 'Failed to create workflow' });
+  }
+});
+
+// PUT /api/workflows/:id
+app.put('/api/workflows/:id', authMiddleware, async (req, res) => {
+  const { id } = req.params;
+  const { name, description, trigger_type, steps, status } = req.body;
+
+  try {
+    // Check if workflow exists and belongs to the tenant
+    const existingRes = await executeTenantQuery(req.tenant.id, async (client) => {
+      return await client.query('SELECT * FROM workflows WHERE id = $1 AND tenant_id = $2', [id, req.tenant.id]);
+    });
+    if (existingRes.rows.length === 0) {
+      return res.status(404).json({ error: 'Workflow not found' });
+    }
+
+    const workflow = existingRes.rows[0];
+
+    const newName = name !== undefined ? name : workflow.name;
+    const newDesc = description !== undefined ? description : workflow.description;
+    const newTrigger = trigger_type !== undefined ? trigger_type : workflow.trigger_type;
+    const newSteps = steps !== undefined ? JSON.stringify(steps) : JSON.stringify(workflow.steps);
+    const newStatus = status !== undefined ? status : workflow.status;
+
+    if (trigger_type && !['manual', 'scheduled', 'webhook', 'event'].includes(trigger_type)) {
+      return res.status(400).json({ error: 'Invalid trigger_type' });
+    }
+    if (status && !['active', 'disabled', 'archived'].includes(status)) {
+      return res.status(400).json({ error: 'Invalid status' });
+    }
+
+    const updatedWorkflow = await executeTenantQuery(req.tenant.id, async (client) => {
+      const result = await client.query(
+        `UPDATE workflows 
+         SET name = $1, description = $2, trigger_type = $3, steps = $4, status = $5, updated_at = NOW()
+         WHERE id = $6 AND tenant_id = $7
+         RETURNING *`,
+        [newName, newDesc, newTrigger, newSteps, newStatus, id, req.tenant.id]
+      );
+      return result.rows[0];
+    });
+
+    res.json(updatedWorkflow);
+  } catch (err) {
+    logger.error('Update workflow error:', err);
+    res.status(500).json({ error: 'Failed to update workflow' });
+  }
+});
+
+// DELETE /api/workflows/:id
+app.delete('/api/workflows/:id', authMiddleware, async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    const result = await executeTenantQuery(req.tenant.id, async (client) => {
+      return await client.query(
+        'DELETE FROM workflows WHERE id = $1 AND tenant_id = $2 RETURNING *',
+        [id, req.tenant.id]
+      );
+    });
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Workflow not found' });
+    }
+
+    res.json({ success: true, message: 'Workflow deleted successfully' });
+  } catch (err) {
+    logger.error('Delete workflow error:', err);
+    res.status(500).json({ error: 'Failed to delete workflow' });
+  }
+});
+
+// GET /api/workflows/:id/executions
+app.get('/api/workflows/:id/executions', authMiddleware, async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    const wfRes = await executeTenantQuery(req.tenant.id, async (client) => {
+      return await client.query('SELECT id FROM workflows WHERE id = $1 AND tenant_id = $2', [id, req.tenant.id]);
+    });
+    if (wfRes.rows.length === 0) {
+      return res.status(404).json({ error: 'Workflow not found' });
+    }
+
+    const executions = await executeTenantQuery(req.tenant.id, async (client) => {
+      return await client.query(
+        'SELECT * FROM workflow_executions WHERE workflow_id = $1 AND tenant_id = $2 ORDER BY started_at DESC LIMIT 100',
+        [id, req.tenant.id]
+      );
+    });
+
+    res.json(executions.rows);
+  } catch (err) {
+    logger.error('Fetch executions error:', err);
+    res.status(500).json({ error: 'Failed to fetch workflow executions' });
+  }
+});
+
 // ─── SECURITY ────────────────────────────────────────────────────────────────
 
 // POST /api/user/security/change-password

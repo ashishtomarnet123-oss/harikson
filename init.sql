@@ -380,6 +380,14 @@ CREATE POLICY tenant_isolation_policy ON ai_activity
     USING (tenant_id = current_setting('app.current_tenant', true)::uuid)
     WITH CHECK (tenant_id = current_setting('app.current_tenant', true)::uuid);
 
+ALTER TABLE workflows ENABLE ROW LEVEL SECURITY;
+ALTER TABLE workflows FORCE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS tenant_isolation_policy ON workflows;
+CREATE POLICY tenant_isolation_policy ON workflows
+    FOR ALL
+    USING (tenant_id = current_setting('app.current_tenant', true)::uuid)
+    WITH CHECK (tenant_id = current_setting('app.current_tenant', true)::uuid);
+
 ALTER TABLE workflow_executions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE workflow_executions FORCE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS tenant_isolation_policy ON workflow_executions;

@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/router';
 import Head from 'next/head';
+import NextLink from 'next/link';
 import {
   Mic,
   Paperclip,
@@ -1843,6 +1844,23 @@ If any check fails, revise the relevant section before output.`;
             <Plus size={16} />
             <span>New conversation</span>
           </button>
+
+          <NextLink href="/workflows" passHref legacyBehavior>
+            <a className="new-chat-btn" style={{
+              marginTop: '10px',
+              background: 'transparent',
+              border: '1px solid var(--border)',
+              color: 'var(--text-secondary)',
+              textDecoration: 'none',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '8px'
+            }}>
+              <Zap size={16} />
+              <span>Workflow Builder</span>
+            </a>
+          </NextLink>
 
           {/* Conversation List */}
           <div className="conv-list">

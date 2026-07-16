@@ -341,3 +341,12 @@ CREATE INDEX IF NOT EXISTS idx_vector_collections_tenant ON vector_collections(t
 ALTER TABLE users ADD COLUMN IF NOT EXISTS two_factor_secret TEXT;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS two_factor_enabled BOOLEAN DEFAULT FALSE;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS two_factor_backup_codes TEXT[] DEFAULT '{}';
+
+-- Migration: Enable workflows RLS
+ALTER TABLE workflows ENABLE ROW LEVEL SECURITY;
+ALTER TABLE workflows FORCE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS tenant_isolation_policy ON workflows;
+CREATE POLICY tenant_isolation_policy ON workflows
+    FOR ALL
+    USING (tenant_id = current_setting('app.current_tenant', true)::uuid)
+    WITH CHECK (tenant_id = current_setting('app.current_tenant', true)::uuid);
