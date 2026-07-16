@@ -17,6 +17,7 @@ import QRCode from 'qrcode';
 import { fileURLToPath } from 'url';
 import multer from 'multer';
 import { runMigrations } from './utils/migrate.js';
+import { AsyncLocalStorage } from 'async_hooks';
 
 
 dotenv.config();
@@ -46,6 +47,79 @@ const app = express();
 const port = process.env.PORT || 3000;
 const jwtSecret = process.env.JWT_SECRET;
 const ollamaHost = process.env.OLLAMA_HOST || 'http://localhost:11434';
+
+// Redis Client (Moved to top for consistency middleware access)
+const redis = new Redis(process.env.REDIS_URL || 'redis://localhost:6379');
+
+// Request Context Storage
+const requestContext = new AsyncLocalStorage();
+
+// 1. Context initialization middleware
+app.use((req, res, next) => {
+  requestContext.run({ req }, () => {
+    next();
+  });
+});
+
+// 2. Read-Your-Writes consistency tracking middleware
+app.use(async (req, res, next) => {
+  req.usePrimaryDb = false;
+
+  // Track if subsequent request within 2 seconds of a write
+  const lastWrite = req.headers['x-last-write'];
+  if (lastWrite) {
+    const diff = Date.now() - parseInt(lastWrite, 10);
+    if (diff >= 0 && diff < 2000) {
+      req.usePrimaryDb = true;
+    }
+  }
+
+  // Check Redis session stickiness if token is present
+  let token = null;
+  const cookies = parseCookies(req.headers.cookie);
+  if (cookies && cookies.hk_access_token) {
+    token = cookies.hk_access_token;
+  }
+  const authHeader = req.headers.authorization;
+  if (!token && authHeader && authHeader.startsWith('Bearer ')) {
+    token = authHeader.split(' ')[1];
+  }
+
+  if (token && token !== 'TEST_TOKEN' && token !== 'TEST_ADMIN_TOKEN') {
+    try {
+      const decoded = jwt.verify(token, jwtSecret);
+      if (decoded && decoded.userId) {
+        req.userId = decoded.userId;
+        const stickyKey = `primary_stickiness:${req.headers['x-tenant-slug'] || 'system'}:${decoded.userId}`;
+        const isSticky = await redis.get(stickyKey);
+        if (isSticky) {
+          req.usePrimaryDb = true;
+        }
+      }
+    } catch (err) {
+      // Ignored
+    }
+  }
+
+  // Hook response to set X-Write-Timestamp on successful writes
+  const isWriteMethod = ['POST', 'PUT', 'DELETE', 'PATCH'].includes(req.method);
+  if (isWriteMethod) {
+    const originalSend = res.send;
+    res.send = function (...args) {
+      if (res.statusCode >= 200 && res.statusCode < 300) {
+        const nowStr = Date.now().toString();
+        res.setHeader('X-Write-Timestamp', nowStr);
+        if (req.userId) {
+          const stickyKey = `primary_stickiness:${req.headers['x-tenant-slug'] || 'system'}:${req.userId}`;
+          redis.set(stickyKey, 'true', 'EX', 2).catch(err => logger.error('Redis stickiness set error:', err));
+        }
+      }
+      return originalSend.apply(this, args);
+    };
+  }
+
+  next();
+});
 
 // Express Setup
 const defaultOrigins = [
@@ -95,7 +169,7 @@ app.use(
       }
     },
     credentials: true,
-    exposedHeaders: ['x-conversation-id', 'X-Conversation-Id'],
+    exposedHeaders: ['x-conversation-id', 'X-Conversation-Id', 'X-Write-Timestamp', 'x-write-timestamp'],
   })
 );
 app.use(express.json());
@@ -983,8 +1057,28 @@ function startDailyCleanupCron() {
 }
 startDailyCleanupCron();
 
-// Redis Client
-const redis = new Redis(process.env.REDIS_URL || 'redis://localhost:6379');
+// Replication Lag Monitoring
+async function checkReplicationLag() {
+  try {
+    const res = await readPool.query(`
+      SELECT 
+        CASE 
+          WHEN pg_is_in_recovery() THEN 
+            COALESCE(EXTRACT(EPOCH FROM (now() - pg_last_xact_replay_timestamp())), 0)
+          ELSE 0 
+        END AS lag_seconds
+    `);
+    const lag = parseFloat(res.rows[0]?.lag_seconds || '0');
+    if (lag > 5) {
+      logger.error(`🚨 [ALERT] Replication lag is too high: ${lag} seconds!`);
+    }
+  } catch (err) {
+    if (!err.message.includes('pg_last_xact_replay_timestamp') && !err.message.includes('pg_is_in_recovery')) {
+      logger.error('Failed to check replication lag:', err);
+    }
+  }
+}
+setInterval(checkReplicationLag, 5000);
 
 // DB connection error logging
 pool.on('error', (err) => {
@@ -995,7 +1089,26 @@ pool.on('error', (err) => {
 async function connectWithValidation(useReplica = false) {
   let client;
   let retries = 3;
-  const targetPool = useReplica ? readPool : pool;
+
+  const store = requestContext.getStore();
+  const req = store?.req;
+
+  let shouldReadFromReplica = useReplica;
+  if (req && req.method === 'GET') {
+    const isCriticalPath = 
+      req.path.startsWith('/api/auth') || 
+      req.path.startsWith('/api/billing') || 
+      req.path.startsWith('/api/subscription') || 
+      req.path.startsWith('/api/invoices') ||
+      req.path.startsWith('/api/user/security') ||
+      req.path.startsWith('/api/user/2fa');
+
+    if (!isCriticalPath && !req.usePrimaryDb) {
+      shouldReadFromReplica = true;
+    }
+  }
+
+  const targetPool = shouldReadFromReplica ? readPool : pool;
   while (retries > 0) {
     client = await targetPool.connect();
     try {
