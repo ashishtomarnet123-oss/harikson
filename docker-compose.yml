@@ -109,6 +109,25 @@ services:
         max-size: '10m'
         max-file: '3'
 
+  # 4.5. Orchestrator Service (Container Management API)
+  orchestrator:
+    build:
+      context: ./orchestrator
+    container_name: harikson-orchestrator
+    restart: unless-stopped
+    environment:
+      - PORT=5001
+      - NODE_ENV=production
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - .:/usr/src/app
+    networks:
+      - harikson-network
+    deploy:
+      resources:
+        limits:
+          memory: 512m
+
   # 5. Tenant API (Control Plane Backend & Shared Gateway)
   tenant-api:
     build:

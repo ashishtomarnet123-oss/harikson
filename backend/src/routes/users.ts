@@ -214,7 +214,6 @@ router.patch(
             userId: user.id,
             name: safeName,
             domain: containerInfo.domain,
-            containerId: containerInfo.containerId,
             status: 'RUNNING',
             cpuLimit:
               user.plan === 'BUSINESS' ? 2.0 : user.plan === 'PRO' ? 1.0 : 0.5,
@@ -237,8 +236,8 @@ router.patch(
         });
       } else {
         // If stopped, boot it up
-        if (instance.containerId) {
-          await DockerService.startInstance(instance.containerId);
+        if (instance.name) {
+          await DockerService.startInstance(instance.name);
           await prisma.instance.update({
             where: { id: instance.id },
             data: { status: 'RUNNING' },
@@ -290,8 +289,8 @@ router.patch(
 
       // Suspend customer instance workload
       for (const instance of user.instances) {
-        if (instance.containerId) {
-          await DockerService.stopInstance(instance.containerId);
+        if (instance.name) {
+          await DockerService.stopInstance(instance.name);
           await prisma.instance.update({
             where: { id: instance.id },
             data: { status: 'STOPPED' },
@@ -331,8 +330,8 @@ router.patch(
 
       // Boot up workload again
       for (const instance of user.instances) {
-        if (instance.containerId) {
-          await DockerService.startInstance(instance.containerId);
+        if (instance.name) {
+          await DockerService.startInstance(instance.name);
           await prisma.instance.update({
             where: { id: instance.id },
             data: { status: 'RUNNING' },
@@ -367,23 +366,15 @@ router.delete(
 
       // Destroy all client containers & data volumes on host
       for (const instance of user.instances) {
-        if (instance.containerId) {
+        if (instance.name) {
           try {
-            await DockerService.deleteInstance(instance.containerId);
+            await DockerService.deleteInstance(instance.name);
           } catch (err) {
             console.warn(
-              `Failed to destroy container ${instance.containerId}:`,
+              `Failed to destroy container for ${instance.name}:`,
               err
             );
           }
-        }
-        try {
-          await DockerService.deleteVolume(instance.name);
-        } catch (err) {
-          console.warn(
-            `Failed to remove volume for instance ${instance.name}:`,
-            err
-          );
         }
       }
 

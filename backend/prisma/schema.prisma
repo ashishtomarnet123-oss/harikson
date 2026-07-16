@@ -72,7 +72,6 @@ model Instance {
   
   name          String   // rahul, agency, etc.
   domain        String   // rahul.neuravolt.cloud
-  containerId   String?  // Docker container ID
   status        InstanceStatus @default(PENDING)
   
   // Resources

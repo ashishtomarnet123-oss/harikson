@@ -86,13 +86,13 @@ router.get(
         where: { userId: req.user?.userId },
       });
 
-      if (!userInstance || !userInstance.containerId) {
+      if (!userInstance || !userInstance.name) {
         return res
           .status(200)
           .json({ cpuUsage: 0.0, memoryUsage: 0.0, diskUsage: '0 GB' });
       }
 
-      const metrics = await DockerService.getMetrics(userInstance.containerId);
+      const metrics = await DockerService.getMetrics(userInstance.name);
       res.status(200).json(metrics);
     } catch (error) {
       next(error);
@@ -100,14 +100,14 @@ router.get(
   }
 );
 
-// GET /monitoring/logs/:containerId - Stream logs from docker. Admin only
+// GET /monitoring/logs/:name - Stream logs from docker. Admin only
 router.get(
-  '/logs/:containerId',
+  '/logs/:name',
   adminMiddleware,
   async (req: AuthenticatedRequest, res: Response, next) => {
     try {
-      const { containerId } = req.params;
-      const logs = await DockerService.getLogs(containerId);
+      const { name } = req.params;
+      const logs = await DockerService.getLogs(name);
       res.status(200).json({ logs });
     } catch (error) {
       next(error);

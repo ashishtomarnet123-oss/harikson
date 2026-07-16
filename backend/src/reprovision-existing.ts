@@ -28,7 +28,6 @@ async function reprovision() {
         where: { id: inst.id },
         data: {
           domain: containerInfo.domain,
-          containerId: containerInfo.containerId,
         },
       });
       console.log(

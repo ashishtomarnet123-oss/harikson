@@ -59,7 +59,6 @@ async function verifyDeployment() {
 
     console.log('✅ DockerService.createInstance resolved successfully!');
     console.log('Domain returned:', containerInfo.domain);
-    console.log('Container ID returned:', containerInfo.containerId);
 
     // Save instance to DB
     const instance = await prisma.instance.create({
@@ -68,7 +67,6 @@ async function verifyDeployment() {
         userId: user.id,
         name: safeName,
         domain: containerInfo.domain,
-        containerId: containerInfo.containerId,
         status: 'RUNNING',
         cpuLimit: 1.0,
         memoryLimit: '1024m',
@@ -108,12 +106,12 @@ async function verifyDeployment() {
 
     // Test stopping the instance
     console.log('\n4. Testing lifecycle stopInstance...');
-    await DockerService.stopInstance(instance.containerId!);
+    await DockerService.stopInstance(instance.name);
     console.log('✅ stopInstance resolved!');
 
     // Cleanup
     console.log('\n5. Cleaning up resources...');
-    await DockerService.deleteInstance(instance.containerId!);
+    await DockerService.deleteInstance(instance.name);
     console.log('✅ deleted containers and cleanup complete.');
 
     // Clean up DB records

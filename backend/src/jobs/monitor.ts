@@ -10,7 +10,7 @@ export const monitorWorker = new Worker(
 
     if (job.name === 'health-check') {
       const instances = await prisma.instance.findMany({
-        where: { NOT: { containerId: null } },
+        where: { status: 'RUNNING' },
       });
 
       console.log(
@@ -18,10 +18,10 @@ export const monitorWorker = new Worker(
       );
 
       for (const instance of instances) {
-        if (!instance.containerId) continue;
+        if (!instance.name) continue;
 
         try {
-          const metrics = await DockerService.getMetrics(instance.containerId);
+          const metrics = await DockerService.getMetrics(instance.name);
 
           // Cache stats in DB
           await prisma.instance.update({
@@ -47,7 +47,7 @@ export const monitorWorker = new Worker(
           }
         } catch (err) {
           console.error(
-            `❌ [Monitor Worker] Failed to grab metrics for container ${instance.containerId}:`,
+            `❌ [Monitor Worker] Failed to grab metrics for container ${instance.name}:`,
             err
           );
         }

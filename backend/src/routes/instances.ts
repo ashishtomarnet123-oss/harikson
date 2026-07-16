@@ -84,7 +84,6 @@ router.post(
           userId,
           name: safeName,
           domain: containerInfo.domain,
-          containerId: containerInfo.containerId,
           status: 'RUNNING',
           cpuLimit: cpu,
           memoryLimit: memory,
@@ -117,9 +116,9 @@ router.patch(
         return res.status(404).json({ error: 'Instance not found' });
       }
 
-      if (instance.containerId) {
+      if (instance.name) {
         await DockerService.scaleInstance(
-          instance.containerId,
+          instance.name,
           cpuLimit,
           memoryLimit
         );
@@ -167,22 +166,22 @@ router.post(
         return res.status(404).json({ error: 'Instance not found.' });
       }
 
-      if (instance.containerId) {
+      if (instance.name) {
         try {
-          await DockerService.restartInstance(instance.containerId);
+          await DockerService.restartInstance(instance.name);
         } catch (error: any) {
           if (
             error.statusCode === 404 ||
             error.message?.includes('no such container')
           ) {
             console.log(
-              `Container ${instance.containerId} not found. Re-provisioning...`
+              `Container ${instance.name} not found. Re-provisioning...`
             );
             const user = await prisma.user.findUnique({
               where: { id: instance.userId },
             });
             const plan = user?.plan || 'BASIC';
-            const containerInfo = await DockerService.createInstance(
+            await DockerService.createInstance(
               instance.name,
               plan,
               instance.apps as string[]
@@ -191,7 +190,6 @@ router.post(
             await prisma.instance.update({
               where: { id },
               data: {
-                containerId: containerInfo.containerId,
                 status: 'RUNNING',
               },
             });
@@ -231,9 +229,9 @@ router.post(
         return res.status(404).json({ error: 'Instance not found.' });
       }
 
-      if (instance.containerId) {
+      if (instance.name) {
         try {
-          await DockerService.stopInstance(instance.containerId);
+          await DockerService.stopInstance(instance.name);
         } catch (error: any) {
           if (
             error.statusCode === 404 ||
@@ -277,22 +275,22 @@ router.post(
         return res.status(404).json({ error: 'Instance not found.' });
       }
 
-      if (instance.containerId) {
+      if (instance.name) {
         try {
-          await DockerService.startInstance(instance.containerId);
+          await DockerService.startInstance(instance.name);
         } catch (error: any) {
           if (
             error.statusCode === 404 ||
             error.message?.includes('no such container')
           ) {
             console.log(
-              `Container ${instance.containerId} not found. Re-provisioning...`
+              `Container ${instance.name} not found. Re-provisioning...`
             );
             const user = await prisma.user.findUnique({
               where: { id: instance.userId },
             });
             const plan = user?.plan || 'BASIC';
-            const containerInfo = await DockerService.createInstance(
+            await DockerService.createInstance(
               instance.name,
               plan,
               instance.apps as string[]
@@ -301,7 +299,6 @@ router.post(
             await prisma.instance.update({
               where: { id },
               data: {
-                containerId: containerInfo.containerId,
                 status: 'RUNNING',
               },
             });
