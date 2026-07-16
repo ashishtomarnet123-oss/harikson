@@ -34,7 +34,7 @@ router.post('/execute', async (req: Request, res: Response) => {
       tenantId,
       conversationId,
       workspacePath,
-      toolCalls
+      toolCalls as any
     );
 
     return res.status(200).json({
