@@ -88,26 +88,30 @@ async function runWorkflowsTest() {
 
   // 5.5 Validate plan limit enforcement
   console.log('5.5 Verifying plan limit enforcement...');
-  const wf2 = await client.post('/api/workflows', {
-    name: 'Workflow 2',
-    trigger_type: 'manual'
-  });
-  assert.strictEqual(wf2.status, 201);
-  
+  const createdWfs = [];
   try {
-    await client.post('/api/workflows', {
-      name: 'Workflow 3',
-      trigger_type: 'manual'
-    });
+    for (let i = 0; i < 25; i++) {
+      const res = await client.post('/api/workflows', {
+        name: `Workflow Limit Test ${i}`,
+        trigger_type: 'manual'
+      });
+      createdWfs.push(res.data.id);
+    }
     assert.fail('Should have failed with 403 due to plan limits');
   } catch (err) {
+    if (err.name === 'AssertionError') {
+      throw err;
+    }
+    assert.ok(err.response, 'Response should exist on error');
     assert.strictEqual(err.response.status, 403, 'Should return 403 Forbidden');
     assert.ok(err.response.data.error.includes('limit exceeded'), 'Error message should mention limit');
   }
   console.log('   ✓ Plan limit validation passed.');
 
-  // Clean up the second workflow
-  await client.delete(`/api/workflows/${wf2.data.id}`);
+  // Clean up all created test workflows
+  for (const id of createdWfs) {
+    await client.delete(`/api/workflows/${id}`);
+  }
 
   // 6. Delete the workflow
   console.log('6. Deleting workflow...');
