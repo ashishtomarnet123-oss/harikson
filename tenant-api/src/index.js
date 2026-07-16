@@ -2656,6 +2656,14 @@ app.post(
       res.setHeader('Transfer-Encoding', 'chunked');
       res.setHeader('X-Conversation-Id', currentConvId);
 
+      const abortController = new AbortController();
+      req.on('close', () => {
+        if (!res.writableEnded) {
+          abortController.abort();
+          res.end();
+        }
+      });
+
       try {
         const response = await axios.post(
           `${ollamaHost}/api/chat`,
@@ -2677,7 +2685,8 @@ app.post(
           },
           {
             responseType: 'stream',
-            timeout: 180000,
+            timeout: 30000,
+            signal: abortController.signal,
           }
         );
 
@@ -2734,7 +2743,7 @@ app.post(
               ) {
                 await client.query(
                   `INSERT INTO activity_logs (tenant_id, action, metadata)
-                 VALUES ($1, $2, $3)`,
+                   VALUES ($1, $2, $3)`,
                   [
                     req.tenant.id,
                     'TOKEN_OVERAGE_FLAGGED',
@@ -2779,70 +2788,78 @@ app.post(
           }
         }
 
-        response.data.on('data', (chunk) => {
-          if (streamExceeded) return;
-          const lines = chunk.toString().split('\n').filter(Boolean);
-          for (const line of lines) {
+        try {
+          for await (const chunk of response.data) {
+            if (res.writableEnded) break;
             if (streamExceeded) break;
-            try {
-              const parsed = JSON.parse(line);
-              if (parsed.message && parsed.message.content) {
-                const chunkTokens =
-                  Math.ceil(parsed.message.content.length / 4) || 1;
-                generatedTokensCount += chunkTokens;
 
-                const currentUsage =
-                  typeof tokensUsed === 'number' ? tokensUsed : 0;
-                if (
-                  req.tenant.token_limit > 0 &&
-                  currentUsage + promptTokens + generatedTokensCount >=
-                    req.tenant.token_limit * 1.1
-                ) {
-                  streamExceeded = true;
-                  res.write(
-                    '\n\n⚠️ [SYSTEM NOTICE]: Monthly token quota limit has been exceeded. Gracefully terminating generation stream. Please upgrade your subscription plan.'
-                  );
-                  response.data.destroy();
-                  res.end();
+            const lines = chunk.toString().split('\n').filter(Boolean);
+            for (const line of lines) {
+              if (streamExceeded) break;
+              try {
+                const parsed = JSON.parse(line);
+                if (parsed.message && parsed.message.content) {
+                  const chunkTokens =
+                    Math.ceil(parsed.message.content.length / 4) || 1;
+                  generatedTokensCount += chunkTokens;
 
-                  completionTokens = generatedTokensCount;
-                  saveCompletedChat(
-                    promptTokens,
-                    completionTokens,
-                    fullResponseText,
-                    true
-                  );
-                  break;
+                  const currentUsage =
+                    typeof tokensUsed === 'number' ? tokensUsed : 0;
+                  if (
+                    req.tenant.token_limit > 0 &&
+                    currentUsage + promptTokens + generatedTokensCount >=
+                      req.tenant.token_limit * 1.1
+                  ) {
+                    streamExceeded = true;
+                    res.write(
+                      '\n\n⚠️ [SYSTEM NOTICE]: Monthly token quota limit has been exceeded. Gracefully terminating generation stream. Please upgrade your subscription plan.'
+                    );
+                    response.data.destroy();
+                    break;
+                  }
+
+                  fullResponseText += parsed.message.content;
+                  res.write(parsed.message.content);
                 }
-
-                fullResponseText += parsed.message.content;
-                res.write(parsed.message.content);
+                if (parsed.done) {
+                  promptTokens = parsed.prompt_eval_count || promptTokens;
+                  completionTokens =
+                    parsed.eval_count || Math.ceil(fullResponseText.length / 4);
+                }
+              } catch (e) {
+                logger.warn('Warning parsing Ollama stream chunk:', e.message);
               }
-              if (parsed.done) {
-                promptTokens = parsed.prompt_eval_count || promptTokens;
-                completionTokens =
-                  parsed.eval_count || Math.ceil(fullResponseText.length / 4);
-              }
-            } catch (e) {
-              logger.warn('Warning parsing Ollama stream chunk:', e.message);
             }
           }
-        });
 
-        response.data.on('end', async () => {
-          await saveCompletedChat(
-            promptTokens,
-            completionTokens,
-            fullResponseText,
-            false
-          );
-          res.end();
-        });
-
-        response.data.on('error', (streamErr) => {
-          logger.error('Ollama stream error:', streamErr);
-          if (!res.writableEnded) res.end();
-        });
+          if (!streamExceeded) {
+            await saveCompletedChat(
+              promptTokens,
+              completionTokens || Math.ceil(fullResponseText.length / 4),
+              fullResponseText,
+              false
+            );
+          }
+        } catch (streamErr) {
+          logger.error({ conversationId: currentConvId, error: streamErr.message }, 'Ollama stream error');
+          if (fullResponseText.length > 0) {
+            await saveCompletedChat(
+              promptTokens,
+              Math.ceil(fullResponseText.length / 4) || 1,
+              fullResponseText,
+              true
+            ).catch(err => logger.error('Failed to save partial response:', err));
+          }
+          if (!res.headersSent) {
+            res.status(500).json({ error: 'Stream interrupted' });
+          } else {
+            res.write(`\n[ERROR: Stream interrupted]`);
+          }
+        } finally {
+          if (!res.writableEnded) {
+            res.end();
+          }
+        }
       } catch (ollamaErr) {
         logger.warn(
           'Ollama /api/chat failed, using context-aware fallback:',
