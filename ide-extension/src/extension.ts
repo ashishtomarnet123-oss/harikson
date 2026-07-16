@@ -81,7 +81,7 @@ export function activate(context: vscode.ExtensionContext) {
         async (progress) => {
           try {
             const prompt = `Review the following code and suggest performance enhancements, bug fixes, and security optimizations. Provide the reviewed code with corrections:\n\n${selectedText}`;
-            const response = await fetch(`${tenantUrl}/api/chat`, {
+            const response = await fetch(`${tenantUrl}/api/v1/chat`, {
               method: 'POST',
               headers: {
                 'Content-Type': 'application/json',

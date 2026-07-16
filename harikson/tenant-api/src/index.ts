@@ -89,6 +89,23 @@ app.use((req, res, next) => {
   });
 });
 
+app.use((req, res, next) => {
+  if (req.url.startsWith('/api/v1/')) {
+    req.url = req.url.replace('/api/v1/', '/api/');
+  } else if (req.url.startsWith('/v1/')) {
+    req.url = req.url.replace('/v1/', '/');
+  } else if (
+    req.url.startsWith('/api/') ||
+    ['/chat', '/documents', '/memories', '/workspace', '/search', '/context', '/tools'].some((p) =>
+      req.url.startsWith(p)
+    )
+  ) {
+    res.setHeader('Deprecation', 'true');
+    res.setHeader('Sunset', new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toUTCString());
+  }
+  next();
+});
+
 // 2. Read-Your-Writes consistency tracking middleware
 app.use(async (req, res, next) => {
   req.usePrimaryDb = false;

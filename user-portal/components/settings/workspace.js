@@ -44,7 +44,7 @@ export default function WorkspaceSettings() {
       const apiBase =
         localStorage.getItem('hk_api_base') || 'http://localhost:3008';
       const tenantSlug = localStorage.getItem('hk_tenant') || 'neuravolt';
-      const res = await fetch(`${apiBase}/api/user/workspace/members`, {
+      const res = await fetch(`${apiBase}/api/v1/user/workspace/members`, {
         credentials: 'include',
         method: 'POST',
         headers: {
@@ -86,7 +86,7 @@ export default function WorkspaceSettings() {
       const apiBase =
         localStorage.getItem('hk_api_base') || 'http://localhost:3008';
       const tenantSlug = localStorage.getItem('hk_tenant') || 'neuravolt';
-      const res = await fetch(`${apiBase}/api/user/workspace`, {
+      const res = await fetch(`${apiBase}/api/v1/user/workspace`, {
         credentials: 'include',
         headers: {
           'x-tenant-slug': tenantSlug,
@@ -116,7 +116,7 @@ export default function WorkspaceSettings() {
         localStorage.getItem('hk_api_base') || 'http://localhost:3008';
       const tenantSlug = localStorage.getItem('hk_tenant') || 'neuravolt';
       const res = await fetch(
-        `${apiBase}/api/user/workspace/members/${memberId}/role`,
+        `${apiBase}/api/v1/user/workspace/members/${memberId}/role`,
         {
           credentials: 'include',
           method: 'PUT',
@@ -163,7 +163,7 @@ export default function WorkspaceSettings() {
         localStorage.getItem('hk_api_base') || 'http://localhost:3008';
       const tenantSlug = localStorage.getItem('hk_tenant') || 'neuravolt';
       const res = await fetch(
-        `${apiBase}/api/user/workspace/members/${memberId}`,
+        `${apiBase}/api/v1/user/workspace/members/${memberId}`,
         {
           credentials: 'include',
           method: 'DELETE',

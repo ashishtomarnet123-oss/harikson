@@ -17,7 +17,7 @@ export default function DeveloperSettings() {
       const apiBase =
         localStorage.getItem('hk_api_base') || 'http://localhost:3008';
       const tenantSlug = localStorage.getItem('hk_tenant') || 'neuravolt';
-      const res = await fetch(`${apiBase}/api/user/developer/keys`, {
+      const res = await fetch(`${apiBase}/api/v1/user/developer/keys`, {
         credentials: 'include',
         headers: {
           'x-tenant-slug': tenantSlug,
@@ -46,7 +46,7 @@ export default function DeveloperSettings() {
       const apiBase =
         localStorage.getItem('hk_api_base') || 'http://localhost:3008';
       const tenantSlug = localStorage.getItem('hk_tenant') || 'neuravolt';
-      const res = await fetch(`${apiBase}/api/user/developer/keys`, {
+      const res = await fetch(`${apiBase}/api/v1/user/developer/keys`, {
         credentials: 'include',
         method: 'POST',
         headers: {
@@ -81,7 +81,7 @@ export default function DeveloperSettings() {
       const apiBase =
         localStorage.getItem('hk_api_base') || 'http://localhost:3008';
       const tenantSlug = localStorage.getItem('hk_tenant') || 'neuravolt';
-      const res = await fetch(`${apiBase}/api/user/developer/keys/${id}`, {
+      const res = await fetch(`${apiBase}/api/v1/user/developer/keys/${id}`, {
         credentials: 'include',
         method: 'DELETE',
         headers: {

@@ -48,7 +48,7 @@ export default function Playground() {
     const startTime = Date.now();
 
     try {
-      const res = await fetch(`${apiBase}/admin/playground/chat`, {
+      const res = await fetch(`${apiBase}/v1/admin/playground/chat`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

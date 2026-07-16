@@ -54,7 +54,7 @@ export class ChatProvider implements vscode.WebviewViewProvider {
     this._view.webview.postMessage({ type: 'showThinking' });
 
     try {
-      const response = await fetch(`${tenantUrl}/api/chat`, {
+      const response = await fetch(`${tenantUrl}/api/v1/chat`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

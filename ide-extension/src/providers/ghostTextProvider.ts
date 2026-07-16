@@ -45,7 +45,7 @@ Current line: ${currentLine}
 Provide ONLY the code suggestions to insert next. Do NOT include markdown tags like \`\`\` or explanations.`;
 
     try {
-      const response = await fetch(`${tenantUrl}/api/chat`, {
+      const response = await fetch(`${tenantUrl}/api/v1/chat`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

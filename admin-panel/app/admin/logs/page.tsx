@@ -63,7 +63,7 @@ export default function LogsDiagnostics() {
       'TEST_ADMIN_TOKEN';
     try {
       // 1. Fetch requests
-      const res1 = await fetch(`${apiBase}/admin/logs/requests`, {
+      const res1 = await fetch(`${apiBase}/v1/admin/logs/requests`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (res1.ok) {
@@ -72,7 +72,7 @@ export default function LogsDiagnostics() {
       }
 
       // 2. Fetch error analysis
-      const res2 = await fetch(`${apiBase}/admin/logs/errors`, {
+      const res2 = await fetch(`${apiBase}/v1/admin/logs/errors`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (res2.ok) {
@@ -81,7 +81,7 @@ export default function LogsDiagnostics() {
       }
 
       // 3. Fetch performance compare
-      const res3 = await fetch(`${apiBase}/admin/models/performance`, {
+      const res3 = await fetch(`${apiBase}/v1/admin/models/performance`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (res3.ok) {
@@ -148,7 +148,7 @@ export default function LogsDiagnostics() {
       localStorage.getItem('admin_token') ||
       'TEST_ADMIN_TOKEN';
     try {
-      const res = await fetch(`${apiBase}/admin/logs/export`, {
+      const res = await fetch(`${apiBase}/v1/admin/logs/export`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (!res.ok) throw new Error('Export failed');

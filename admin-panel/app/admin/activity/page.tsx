@@ -55,7 +55,7 @@ export default function ActivityCenter() {
       getCookie('admin_token') || localStorage.getItem('admin_token');
     try {
       const params = filterStatus ? `?status=${filterStatus}` : '';
-      const res = await fetch(`${apiBase}/admin/activity${params}`, {
+      const res = await fetch(`${apiBase}/v1/admin/activity${params}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (res.ok) {

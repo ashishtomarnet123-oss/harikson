@@ -59,7 +59,7 @@ export default function AgentsManagement() {
     const token =
       getCookie('admin_token') || localStorage.getItem('admin_token');
     try {
-      const res = await fetch(`${apiBase}/admin/agents`, {
+      const res = await fetch(`${apiBase}/v1/admin/agents`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (res.ok) {
@@ -81,7 +81,7 @@ export default function AgentsManagement() {
     const token =
       getCookie('admin_token') || localStorage.getItem('admin_token');
     const method = editingId ? 'PUT' : 'POST';
-    const endpoint = editingId ? `/admin/agents/${editingId}` : '/admin/agents';
+    const endpoint = editingId ? `/v1/admin/agents/${editingId}` : '/v1/admin/agents';
 
     try {
       const res = await fetch(`${apiBase}${endpoint}`, {
@@ -110,7 +110,7 @@ export default function AgentsManagement() {
     const token =
       getCookie('admin_token') || localStorage.getItem('admin_token');
     try {
-      await fetch(`${apiBase}/admin/agents/${id}`, {
+      await fetch(`${apiBase}/v1/v1/admin/agents/${id}`, {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${token}` },
       });

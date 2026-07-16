@@ -64,7 +64,7 @@ export default function BillingProvidersPage() {
       localStorage.getItem('admin_token') ||
       'TEST_ADMIN_TOKEN';
     try {
-      const res = await fetch(`${apiBase}/admin/billing/providers`, {
+      const res = await fetch(`${apiBase}/v1/admin/billing/providers`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (res.ok) {
@@ -104,7 +104,7 @@ export default function BillingProvidersPage() {
       'TEST_ADMIN_TOKEN';
 
     try {
-      const res = await fetch(`${apiBase}/admin/billing/providers`, {
+      const res = await fetch(`${apiBase}/v1/admin/billing/providers`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -155,7 +155,7 @@ export default function BillingProvidersPage() {
       'TEST_ADMIN_TOKEN';
 
     try {
-      const res = await fetch(`${apiBase}/admin/billing/providers/${id}`, {
+      const res = await fetch(`${apiBase}/v1/admin/billing/providers/${id}`, {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${token}` },
       });

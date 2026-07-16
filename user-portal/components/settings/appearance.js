@@ -24,7 +24,7 @@ export default function AppearanceSettings() {
           process.env.NEXT_PUBLIC_API_URL ||
           'http://localhost:3008';
         const tenantSlug = localStorage.getItem('hk_tenant') || 'neuravolt';
-        const res = await fetch(`${apiBase}/api/user/settings`, {
+        const res = await fetch(`${apiBase}/api/v1/user/settings`, {
           credentials: 'include',
           headers: {
             'x-tenant-slug': tenantSlug,
@@ -62,7 +62,7 @@ export default function AppearanceSettings() {
         process.env.NEXT_PUBLIC_API_URL ||
         'http://localhost:3008';
       const tenantSlug = localStorage.getItem('hk_tenant') || 'neuravolt';
-      const res = await fetch(`${apiBase}/api/user/settings`, {
+      const res = await fetch(`${apiBase}/api/v1/user/settings`, {
         credentials: 'include',
         method: 'PUT',
         headers: {

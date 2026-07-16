@@ -85,7 +85,7 @@ export default function SystemMonitor() {
       localStorage.getItem('admin_token') ||
       'TEST_ADMIN_TOKEN';
     try {
-      const res = await fetch(`${apiBase}/admin/kpis`, {
+      const res = await fetch(`${apiBase}/v1/admin/kpis`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (res.ok) {
@@ -105,7 +105,7 @@ export default function SystemMonitor() {
       localStorage.getItem('admin_token') ||
       'TEST_ADMIN_TOKEN';
     try {
-      const res = await fetch(`${apiBase}/admin/system-status`, {
+      const res = await fetch(`${apiBase}/v1/admin/system-status`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -150,7 +150,7 @@ export default function SystemMonitor() {
       localStorage.getItem('admin_token') ||
       'TEST_ADMIN_TOKEN';
     try {
-      const res = await fetch(`${apiBase}/admin/models/${endpoint}`, {
+      const res = await fetch(`${apiBase}/v1/admin/models/${endpoint}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -206,13 +206,13 @@ export default function SystemMonitor() {
       'TEST_ADMIN_TOKEN';
     try {
       // 1. Unload all
-      await fetch(`${apiBase}/admin/models/unload-all`, {
+      await fetch(`${apiBase}/v1/admin/models/unload-all`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${token}` },
       });
       await new Promise((resolve) => setTimeout(resolve, 2000));
       // 2. Load 8B
-      await fetch(`${apiBase}/admin/models/8b/load`, {
+      await fetch(`${apiBase}/v1/admin/models/8b/load`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${token}` },
       });

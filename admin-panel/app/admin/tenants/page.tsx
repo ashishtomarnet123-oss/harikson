@@ -767,22 +767,22 @@ export default function TenantPlanManager() {
         resKeys,
         resWebhooks,
       ] = await Promise.allSettled([
-        fetch(`${apiBase}/admin/plans`, {
+        fetch(`${apiBase}/v1/admin/plans`, {
           headers: { Authorization: `Bearer ${token}` },
         }),
-        fetch(`${apiBase}/admin/tenants?page=1&limit=50`, {
+        fetch(`${apiBase}/v1/admin/tenants?page=1&limit=50`, {
           headers: { Authorization: `Bearer ${token}` },
         }),
-        fetch(`${apiBase}/admin/rate-limit-violations`, {
+        fetch(`${apiBase}/v1/admin/rate-limit-violations`, {
           headers: { Authorization: `Bearer ${token}` },
         }),
-        fetch(`${apiBase}/admin/billing/reconciliation`, {
+        fetch(`${apiBase}/v1/admin/billing/reconciliation`, {
           headers: { Authorization: `Bearer ${token}` },
         }),
-        fetch(`${apiBase}/admin/api-keys`, {
+        fetch(`${apiBase}/v1/admin/api-keys`, {
           headers: { Authorization: `Bearer ${token}` },
         }),
-        fetch(`${apiBase}/admin/billing/webhooks`, {
+        fetch(`${apiBase}/v1/admin/billing/webhooks`, {
           headers: { Authorization: `Bearer ${token}` },
         }),
       ]);
@@ -1040,7 +1040,7 @@ export default function TenantPlanManager() {
       localStorage.getItem('admin_token') ||
       'TEST_ADMIN_TOKEN';
     try {
-      const res = await fetch(`${apiBase}/admin/tenants/${id}/plan`, {
+      const res = await fetch(`${apiBase}/v1/admin/tenants/${id}/plan`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -1070,7 +1070,7 @@ export default function TenantPlanManager() {
       localStorage.getItem('admin_token') ||
       'TEST_ADMIN_TOKEN';
     try {
-      const res = await fetch(`${apiBase}/admin/tenants/${id}/suspend`, {
+      const res = await fetch(`${apiBase}/v1/admin/tenants/${id}/suspend`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -1103,7 +1103,7 @@ export default function TenantPlanManager() {
       localStorage.getItem('admin_token') ||
       'TEST_ADMIN_TOKEN';
     try {
-      const res = await fetch(`${apiBase}/admin/tenants`, {
+      const res = await fetch(`${apiBase}/v1/admin/tenants`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -1150,7 +1150,7 @@ export default function TenantPlanManager() {
       'TEST_ADMIN_TOKEN';
     try {
       const res = await fetch(
-        `${apiBase}/admin/tenants/${editingTenantDetails.id}`,
+        `${apiBase}/v1/admin/tenants/${editingTenantDetails.id}`,
         {
           method: 'PUT',
           headers: {
@@ -1192,7 +1192,7 @@ export default function TenantPlanManager() {
       localStorage.getItem('admin_token') ||
       'TEST_ADMIN_TOKEN';
     try {
-      const res = await fetch(`${apiBase}/admin/plans/${id}`, {
+      const res = await fetch(`${apiBase}/v1/admin/plans/${id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -1223,7 +1223,7 @@ export default function TenantPlanManager() {
       localStorage.getItem('admin_token') ||
       'TEST_ADMIN_TOKEN';
     try {
-      const res = await fetch(`${apiBase}/admin/plans/${id}`, {
+      const res = await fetch(`${apiBase}/v1/admin/plans/${id}`, {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -1249,7 +1249,7 @@ export default function TenantPlanManager() {
         plans.map((p) => {
           const checkRecommended = p.id === id;
           if (p.isRecommended !== checkRecommended) {
-            return fetch(`${apiBase}/admin/plans/${p.id}`, {
+            return fetch(`${apiBase}/v1/admin/plans/${p.id}`, {
               method: 'PUT',
               headers: {
                 'Content-Type': 'application/json',
@@ -1279,7 +1279,7 @@ export default function TenantPlanManager() {
       return acc;
     }, {});
     try {
-      const res = await fetch(`${apiBase}/admin/plans/${updated.id}`, {
+      const res = await fetch(`${apiBase}/v1/admin/plans/${updated.id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -1325,7 +1325,7 @@ export default function TenantPlanManager() {
       return acc;
     }, {});
     try {
-      const res = await fetch(`${apiBase}/admin/plans`, {
+      const res = await fetch(`${apiBase}/v1/admin/plans`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -1372,7 +1372,7 @@ export default function TenantPlanManager() {
       localStorage.getItem('admin_token') ||
       'TEST_ADMIN_TOKEN';
     try {
-      const res = await fetch(`${apiBase}/admin/api-keys`, {
+      const res = await fetch(`${apiBase}/v1/admin/api-keys`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -1409,7 +1409,7 @@ export default function TenantPlanManager() {
       localStorage.getItem('admin_token') ||
       'TEST_ADMIN_TOKEN';
     try {
-      const res = await fetch(`${apiBase}/admin/api-keys/${id}`, {
+      const res = await fetch(`${apiBase}/v1/admin/api-keys/${id}`, {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${token}` },
       });

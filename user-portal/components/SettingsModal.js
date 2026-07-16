@@ -51,7 +51,7 @@ function PromptLibrarySettings() {
       const token = getToken();
       if (!token) return;
       try {
-        const res = await fetch(`${getApiBase()}/api/user/presets`, {
+        const res = await fetch(`${getApiBase()}/api/v1/user/presets`, {
           headers: { 'x-tenant-slug': getTenant() },
           credentials: 'include',
         });
@@ -70,7 +70,7 @@ function PromptLibrarySettings() {
     if (!name.trim() || !systemPrompt.trim()) return;
     setSaving(true);
     try {
-      const res = await fetch(`${getApiBase()}/api/user/presets`, {
+      const res = await fetch(`${getApiBase()}/api/v1/user/presets`, {
         method: 'POST',
         headers: {
           'x-tenant-slug': getTenant(),
@@ -96,7 +96,7 @@ function PromptLibrarySettings() {
 
   const handleDelete = async (id) => {
     try {
-      const res = await fetch(`${getApiBase()}/api/user/presets/${id}`, {
+      const res = await fetch(`${getApiBase()}/api/v1/user/presets/${id}`, {
         method: 'DELETE',
         headers: { 'x-tenant-slug': getTenant() },
         credentials: 'include',
@@ -252,7 +252,7 @@ function RagDriveSettings() {
       const token = getToken();
       if (!token) return;
       try {
-        const res = await fetch(`${getApiBase()}/api/user/rag-files`, {
+        const res = await fetch(`${getApiBase()}/api/v1/user/rag-files`, {
           headers: { 'x-tenant-slug': getTenant() },
           credentials: 'include',
         });
@@ -311,7 +311,7 @@ function RagDriveSettings() {
       if (!text.trim()) text = `[Empty file content or unparseable format]`;
 
       // Save to server
-      const res = await fetch(`${getApiBase()}/api/user/rag-files`, {
+      const res = await fetch(`${getApiBase()}/api/v1/user/rag-files`, {
         method: 'POST',
         headers: {
           'x-tenant-slug': getTenant(),
@@ -342,7 +342,7 @@ function RagDriveSettings() {
 
   const toggleFile = async (id) => {
     try {
-      const res = await fetch(`${getApiBase()}/api/user/rag-files/${id}`, {
+      const res = await fetch(`${getApiBase()}/api/v1/user/rag-files/${id}`, {
         method: 'PATCH',
         headers: { 'x-tenant-slug': getTenant() },
         credentials: 'include',
@@ -355,7 +355,7 @@ function RagDriveSettings() {
 
   const handleDelete = async (id) => {
     try {
-      const res = await fetch(`${getApiBase()}/api/user/rag-files/${id}`, {
+      const res = await fetch(`${getApiBase()}/api/v1/user/rag-files/${id}`, {
         method: 'DELETE',
         headers: { 'x-tenant-slug': getTenant() },
         credentials: 'include',

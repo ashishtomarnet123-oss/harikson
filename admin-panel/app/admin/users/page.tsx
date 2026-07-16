@@ -64,7 +64,7 @@ export default function UsersPage() {
       return;
     }
     try {
-      const res = await fetch(`${apiBase}/admin/users`, {
+      const res = await fetch(`${apiBase}/v1/admin/users`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (res.status === 401 || res.status === 403) {
@@ -93,7 +93,7 @@ export default function UsersPage() {
       getCookie('admin_token') || localStorage.getItem('admin_token');
     if (!token) return;
     try {
-      const res = await fetch(`${apiBase}/admin/plans`, {
+      const res = await fetch(`${apiBase}/v1/admin/plans`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (res.ok) {
@@ -113,7 +113,7 @@ export default function UsersPage() {
     if (!token) return;
     try {
       const res = await fetch(
-        `${apiBase}/admin/users/${selectedUser.id}/plan`,
+        `${apiBase}/v1/admin/users/${selectedUser.id}/plan`,
         {
           method: 'PUT',
           headers: {
@@ -164,7 +164,7 @@ export default function UsersPage() {
         getCookie('admin_token') || localStorage.getItem('admin_token');
       try {
         const res = await fetch(
-          `${apiBase}/admin/users/${selectedUser.id}/conversations`,
+          `${apiBase}/v1/admin/users/${selectedUser.id}/conversations`,
           {
             headers: { Authorization: `Bearer ${token}` },
           }
@@ -226,7 +226,7 @@ export default function UsersPage() {
       getCookie('admin_token') || localStorage.getItem('admin_token');
     if (!token) return;
     try {
-      const res = await fetch(`${apiBase}/admin/users/${userId}`, {
+      const res = await fetch(`${apiBase}/v1/admin/users/${userId}`, {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${token}` },
       });

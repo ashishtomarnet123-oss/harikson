@@ -33,7 +33,7 @@ const menuSections = [
     items: [
       { name: 'Dashboard', path: '/admin/dashboard', icon: LayoutDashboard },
       { name: 'Live Activity', path: '/admin/activity', icon: Activity },
-      { name: 'AI Agents', path: '/admin/agents', icon: Bot },
+      { name: 'AI Agents', path: '/v1/admin/agents', icon: Bot },
       { name: 'Knowledge', path: '/admin/knowledge', icon: Database },
       { name: 'Playground', path: '/admin/playground', icon: FlaskConical },
     ],
@@ -127,7 +127,7 @@ export default function AdminLayout({
     const token =
       getCookie('admin_token') || localStorage.getItem('admin_token');
     try {
-      const res = await fetch(`${apiBase}/admin/notifications`, {
+      const res = await fetch(`${apiBase}/v1/admin/notifications`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (res.ok) {
@@ -151,7 +151,7 @@ export default function AdminLayout({
   const markRead = async (id: string) => {
     const token =
       getCookie('admin_token') || localStorage.getItem('admin_token');
-    await fetch(`${apiBase}/admin/notifications/${id}/read`, {
+    await fetch(`${apiBase}/v1/admin/notifications/${id}/read`, {
       method: 'PATCH',
       headers: { Authorization: `Bearer ${token}` },
     }).catch((err) => {
@@ -171,7 +171,7 @@ export default function AdminLayout({
       getCookie('admin_token') || localStorage.getItem('admin_token');
     try {
       const res = await fetch(
-        `${apiBase}/admin/search?q=${encodeURIComponent(q)}`,
+        `${apiBase}/v1/admin/search?q=${encodeURIComponent(q)}`,
         { headers: { Authorization: `Bearer ${token}` } }
       );
       if (res.ok) {
@@ -191,7 +191,7 @@ export default function AdminLayout({
   };
   const resultLinks: Record<string, string> = {
     tenant: '/admin/tenants',
-    agent: '/admin/agents',
+    agent: '/v1/admin/agents',
     knowledge_base: '/admin/knowledge',
     workflow: '/admin/workflows',
   };
@@ -411,7 +411,7 @@ export default function AdminLayout({
                       const token =
                         getCookie('admin_token') ||
                         localStorage.getItem('admin_token');
-                      await fetch(`${apiBase}/admin/notifications/read-all`, {
+                      await fetch(`${apiBase}/v1/admin/notifications/read-all`, {
                         method: 'PATCH',
                         headers: { Authorization: `Bearer ${token}` },
                       }).catch(() => {});
@@ -537,7 +537,7 @@ export default function AdminLayout({
                 <div className="grid grid-cols-2 gap-1">
                   {[
                     ['Dashboard', '/admin/dashboard'],
-                    ['Agents', '/admin/agents'],
+                    ['Agents', '/v1/admin/agents'],
                     ['Activity', '/admin/activity'],
                     ['Playground', '/admin/playground'],
                   ].map(([name, path]) => (

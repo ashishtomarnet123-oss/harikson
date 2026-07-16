@@ -30,7 +30,7 @@ export default function SecuritySettings() {
   useEffect(() => {
     const fetch2FAStatus = async () => {
       try {
-        const res = await fetch(`${apiBase}/api/user/profile`, {
+        const res = await fetch(`${apiBase}/api/v1/user/profile`, {
           credentials: 'include',
           headers: {
             'x-tenant-slug': tenantSlug,
@@ -73,7 +73,7 @@ export default function SecuritySettings() {
 
     setSaving(true);
     try {
-      const res = await fetch(`${apiBase}/api/user/security/change-password`, {
+      const res = await fetch(`${apiBase}/api/v1/user/security/change-password`, {
         credentials: 'include',
         method: 'POST',
         headers: {
@@ -102,7 +102,7 @@ export default function SecuritySettings() {
   const handleStartSetup = async () => {
     setMessage(null);
     try {
-      const res = await fetch(`${apiBase}/api/user/2fa/setup`, {
+      const res = await fetch(`${apiBase}/api/v1/user/2fa/setup`, {
         method: 'POST',
         credentials: 'include',
         headers: {
@@ -129,7 +129,7 @@ export default function SecuritySettings() {
       return setMessage({ type: 'error', text: 'Please enter verification code.' });
     }
     try {
-      const res = await fetch(`${apiBase}/api/user/2fa/verify`, {
+      const res = await fetch(`${apiBase}/api/v1/user/2fa/verify`, {
         method: 'POST',
         credentials: 'include',
         headers: {
@@ -159,7 +159,7 @@ export default function SecuritySettings() {
       return setMessage({ type: 'error', text: 'Please enter your password to confirm.' });
     }
     try {
-      const res = await fetch(`${apiBase}/api/user/2fa/disable`, {
+      const res = await fetch(`${apiBase}/api/v1/user/2fa/disable`, {
         method: 'POST',
         credentials: 'include',
         headers: {

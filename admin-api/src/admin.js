@@ -1149,6 +1149,16 @@ app.use(
   })
 );
 
+app.use((req, res, next) => {
+  if (req.url.startsWith('/v1/admin/')) {
+    req.url = req.url.replace('/v1/admin/', '/admin/');
+  } else if (req.url.startsWith('/admin/')) {
+    res.setHeader('Deprecation', 'true');
+    res.setHeader('Sunset', new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toUTCString());
+  }
+  next();
+});
+
 // Custom request logger middleware with PII query redaction
 app.use((req, res, next) => {
   const query = { ...req.query };

@@ -76,7 +76,7 @@ export default function BillingSettings() {
         process.env.NEXT_PUBLIC_API_URL ||
         'http://localhost:3008';
 
-      const res = await fetch(`${apiBase}/api/user/billing`, {
+      const res = await fetch(`${apiBase}/api/v1/user/billing`, {
         credentials: 'include',
         headers: {
           'x-tenant-slug': tenantSlug,

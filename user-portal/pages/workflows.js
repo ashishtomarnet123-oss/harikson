@@ -103,8 +103,8 @@ export default function WorkflowsPage() {
     setError('');
     try {
       const url = isNew 
-        ? `${apiBase}/api/workflows` 
-        : `${apiBase}/api/workflows/${editingWorkflow.id}`;
+        ? `${apiBase}/api/v1/workflows` 
+        : `${apiBase}/api/v1/workflows/${editingWorkflow.id}`;
       const method = isNew ? 'POST' : 'PUT';
 
       const res = await fetch(url, {
@@ -140,7 +140,7 @@ export default function WorkflowsPage() {
   const handleDelete = async (id) => {
     if (!confirm('Are you sure you want to delete this workflow?')) return;
     try {
-      const res = await fetch(`${apiBase}/api/workflows/${id}`, {
+      const res = await fetch(`${apiBase}/api/v1/workflows/${id}`, {
         method: 'DELETE',
         credentials: 'include',
         headers: {
@@ -162,7 +162,7 @@ export default function WorkflowsPage() {
     setLoadingHistory(true);
     setExecutions([]);
     try {
-      const res = await fetch(`${apiBase}/api/workflows/${wf.id}/executions`, {
+      const res = await fetch(`${apiBase}/api/v1/workflows/${wf.id}/executions`, {
         credentials: 'include',
         headers: {
           'x-tenant-slug': tenantSlug,

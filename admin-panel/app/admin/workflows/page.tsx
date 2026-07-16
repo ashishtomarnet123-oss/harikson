@@ -65,7 +65,7 @@ export default function WorkflowsPage() {
 
   const fetchWorkflows = async () => {
     try {
-      const res = await fetch(`${apiBase}/admin/workflows`, {
+      const res = await fetch(`${apiBase}/v1/admin/workflows`, {
         headers: headers(),
       });
       if (res.ok) {
@@ -84,7 +84,7 @@ export default function WorkflowsPage() {
 
   const fetchExecutions = async (id: string) => {
     try {
-      const res = await fetch(`${apiBase}/admin/workflows/${id}/executions`, {
+      const res = await fetch(`${apiBase}/v1/admin/workflows/${id}/executions`, {
         headers: headers(),
       });
       if (res.ok) setExecutions(await res.json());
@@ -106,7 +106,7 @@ export default function WorkflowsPage() {
 
   const createWorkflow = async () => {
     if (!form.name) return;
-    await fetch(`${apiBase}/admin/workflows`, {
+    await fetch(`${apiBase}/v1/admin/workflows`, {
       method: 'POST',
       headers: headers(),
       body: JSON.stringify(form),
@@ -118,7 +118,7 @@ export default function WorkflowsPage() {
 
   const runWorkflow = async (id: string) => {
     setRunning(id);
-    await fetch(`${apiBase}/admin/workflows/${id}/run`, {
+    await fetch(`${apiBase}/v1/admin/workflows/${id}/run`, {
       method: 'POST',
       headers: headers(),
     });

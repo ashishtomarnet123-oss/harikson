@@ -40,7 +40,7 @@ export default function AuditLogs() {
       localStorage.getItem('admin_token') ||
       'TEST_ADMIN_TOKEN';
     try {
-      const res = await fetch(`${apiBase}/admin/audit-log`, {
+      const res = await fetch(`${apiBase}/v1/admin/audit-log`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (res.ok) {

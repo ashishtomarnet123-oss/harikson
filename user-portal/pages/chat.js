@@ -934,7 +934,7 @@ export default function ChatPage() {
 
     const fetchFreshProfile = async () => {
       try {
-        const res = await fetch(`${savedBase}/api/user/profile`, {
+        const res = await fetch(`${savedBase}/api/v1/user/profile`, {
           credentials: 'include',
           headers: {
             'x-tenant-slug': savedTenant,
@@ -1004,7 +1004,7 @@ export default function ChatPage() {
   /* ── Fetch conversation list ── */
   const fetchConversations = async () => {
     try {
-      const res = await fetch(`${apiBase}/api/conversations`, {
+      const res = await fetch(`${apiBase}/api/v1/conversations`, {
         headers: authHeaders(),
         credentials: 'include',
       });
@@ -1029,7 +1029,7 @@ export default function ChatPage() {
     });
     try {
       const res = await fetch(
-        `${apiBase}/api/conversations/${convId}/messages`,
+        `${apiBase}/api/v1/conversations/${convId}/messages`,
         { headers: authHeaders(), credentials: 'include' }
       );
       const data = await res.json();
@@ -1562,7 +1562,7 @@ If any check fails, revise the relevant section before output.`;
     abortControllerRef.current = controller;
 
     try {
-      const res = await fetch(`${apiBase}/api/chat`, {
+      const res = await fetch(`${apiBase}/api/v1/chat`, {
         method: 'POST',
         headers: authHeaders(),
         credentials: 'include',
@@ -1661,7 +1661,7 @@ If any check fails, revise the relevant section before output.`;
     e.stopPropagation();
     if (!confirm('Delete this conversation?')) return;
     try {
-      await fetch(`${apiBase}/api/conversations/${convId}`, {
+      await fetch(`${apiBase}/api/v1/conversations/${convId}`, {
         method: 'DELETE',
         headers: authHeaders(),
         credentials: 'include',
@@ -1685,7 +1685,7 @@ If any check fails, revise the relevant section before output.`;
       return;
     }
     try {
-      await fetch(`${apiBase}/api/conversations/${convId}`, {
+      await fetch(`${apiBase}/api/v1/conversations/${convId}`, {
         method: 'PATCH',
         headers: authHeaders(),
         credentials: 'include',
@@ -1711,7 +1711,7 @@ If any check fails, revise the relevant section before output.`;
         'http://localhost:3008';
       const token = localStorage.getItem('hk_token');
       const tenantSlug = localStorage.getItem('hk_tenant') || 'neuravolt';
-      await fetch(`${apiBase}/api/auth/logout`, {
+      await fetch(`${apiBase}/api/v1/auth/logout`, {
         method: 'POST',
         headers: {
           'x-tenant-slug': tenantSlug,

@@ -76,7 +76,7 @@ export default function KnowledgePage() {
   const fetchKbs = async () => {
     setLoading(true);
     try {
-      const res = await fetch(`${apiBase}/admin/knowledge`, {
+      const res = await fetch(`${apiBase}/v1/admin/knowledge`, {
         headers: { Authorization: `Bearer ${token()}` },
       });
       if (res.ok) {
@@ -97,7 +97,7 @@ export default function KnowledgePage() {
 
   const fetchDocs = async (kbId: string) => {
     try {
-      const res = await fetch(`${apiBase}/admin/knowledge/${kbId}/documents`, {
+      const res = await fetch(`${apiBase}/v1/admin/knowledge/${kbId}/documents`, {
         headers: { Authorization: `Bearer ${token()}` },
       });
       if (res.ok) setDocs(await res.json());
@@ -116,7 +116,7 @@ export default function KnowledgePage() {
 
   const createKb = async () => {
     if (!newName) return;
-    await fetch(`${apiBase}/admin/knowledge`, {
+    await fetch(`${apiBase}/v1/admin/knowledge`, {
       method: 'POST',
       headers: headers(),
       body: JSON.stringify({ name: newName, description: newDesc }),
@@ -129,7 +129,7 @@ export default function KnowledgePage() {
 
   const deleteKb = async (id: string) => {
     if (!confirm('Delete this knowledge base and all its documents?')) return;
-    await fetch(`${apiBase}/admin/knowledge/${id}`, {
+    await fetch(`${apiBase}/v1/admin/knowledge/${id}`, {
       method: 'DELETE',
       headers: { Authorization: `Bearer ${token()}` },
     });
@@ -141,7 +141,7 @@ export default function KnowledgePage() {
     if (!selectedKb || !e.target.files?.length) return;
     const file = e.target.files[0];
     const ext = file.name.split('.').pop()?.toLowerCase() || 'txt';
-    await fetch(`${apiBase}/admin/knowledge/${selectedKb.id}/documents`, {
+    await fetch(`${apiBase}/v1/admin/knowledge/${selectedKb.id}/documents`, {
       method: 'POST',
       headers: headers(),
       body: JSON.stringify({

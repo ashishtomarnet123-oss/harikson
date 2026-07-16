@@ -49,7 +49,7 @@ export default function FounderDashboard() {
           ? '/api-proxy'
           : '/api-proxy';
 
-      const res = await fetch(`${apiBase}/admin/founder/sync`, {
+      const res = await fetch(`${apiBase}/v1/admin/founder/sync`, {
         headers: { Authorization: `Bearer ${token}` },
       });
 
@@ -100,7 +100,7 @@ export default function FounderDashboard() {
     const apiBase = '/api-proxy';
 
     try {
-      await fetch(`${apiBase}/admin/founder/oh-shit`, {
+      await fetch(`${apiBase}/v1/admin/founder/oh-shit`, {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${token}`,

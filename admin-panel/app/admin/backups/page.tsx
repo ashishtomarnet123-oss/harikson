@@ -92,7 +92,7 @@ export default function BackupsPage() {
   const fetchBackups = async () => {
     setLoading(true);
     try {
-      const res = await fetch(`${apiBase}/admin/backups`, {
+      const res = await fetch(`${apiBase}/v1/admin/backups`, {
         headers: { Authorization: `Bearer ${token()}` },
       });
       if (res.ok) {
@@ -120,7 +120,7 @@ export default function BackupsPage() {
     setTriggering(true);
     const name = `${type}_${new Date().toISOString().slice(0, 10)}_${Date.now().toString().slice(-4)}`;
     try {
-      await fetch(`${apiBase}/admin/backups`, {
+      await fetch(`${apiBase}/v1/admin/backups`, {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${token()}`,
@@ -142,7 +142,7 @@ export default function BackupsPage() {
   const verifyBackup = async (id: string) => {
     setVerifying(id);
     try {
-      await fetch(`${apiBase}/admin/backups/${id}/verify`, {
+      await fetch(`${apiBase}/v1/admin/backups/${id}/verify`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${token()}` },
       });

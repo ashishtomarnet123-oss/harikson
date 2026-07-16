@@ -32,7 +32,7 @@ export default function LoginPage() {
           ? `http://${window.location.hostname}:3008`
           : (process.env.NEXT_PUBLIC_API_URL || `${window.location.protocol}//api.${window.location.hostname.split('.').slice(1).join('.')}`);
 
-        fetch(`${resolvedApiBase}/api/user/profile`, {
+        fetch(`${resolvedApiBase}/api/v1/user/profile`, {
           headers: {
             'x-tenant-slug': tenant,
             'Authorization': `Bearer ${impersonateToken}`
@@ -95,7 +95,7 @@ export default function LoginPage() {
     setError('');
     setLoading(true);
     try {
-      const res = await fetch(`${apiBase}/api/auth/login`, {
+      const res = await fetch(`${apiBase}/api/v1/auth/login`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -131,7 +131,7 @@ export default function LoginPage() {
     setError('');
     setLoading(true);
     try {
-      const res = await fetch(`${apiBase}/api/auth/login/2fa`, {
+      const res = await fetch(`${apiBase}/api/v1/auth/login/2fa`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

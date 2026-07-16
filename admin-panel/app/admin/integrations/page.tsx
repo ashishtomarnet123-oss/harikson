@@ -747,10 +747,10 @@ export default function IntegrationCenterPage() {
       else setRefreshing(true);
       try {
         const [provRes, sumRes] = await Promise.all([
-          fetch(`${apiBase}/admin/integrations/providers`, {
+          fetch(`${apiBase}/v1/admin/integrations/providers`, {
             headers: { Authorization: `Bearer ${token()}` },
           }),
-          fetch(`${apiBase}/admin/integrations/status`, {
+          fetch(`${apiBase}/v1/admin/integrations/status`, {
             headers: { Authorization: `Bearer ${token()}` },
           }),
         ]);
@@ -785,7 +785,7 @@ export default function IntegrationCenterPage() {
       const poll = async () => {
         try {
           const res = await fetch(
-            `${apiBase}/admin/integrations/${providerId}/sync/${jobId}`,
+            `${apiBase}/v1/admin/integrations/${providerId}/sync/${jobId}`,
             {
               headers: { Authorization: `Bearer ${token()}` },
             }
@@ -837,7 +837,7 @@ export default function IntegrationCenterPage() {
 
     try {
       const res = await fetch(
-        `${apiBase}/admin/integrations/${provider.id}/connect`,
+        `${apiBase}/v1/admin/integrations/${provider.id}/connect`,
         {
           method: 'POST',
           headers: {
@@ -871,7 +871,7 @@ export default function IntegrationCenterPage() {
     setPgLoading(true);
     try {
       const res = await fetch(
-        `${apiBase}/admin/integrations/postgres/connect`,
+        `${apiBase}/v1/admin/integrations/postgres/connect`,
         {
           method: 'POST',
           headers: {
@@ -905,7 +905,7 @@ export default function IntegrationCenterPage() {
       return;
     try {
       const res = await fetch(
-        `${apiBase}/admin/integrations/${provider.id}/disconnect`,
+        `${apiBase}/v1/admin/integrations/${provider.id}/disconnect`,
         {
           method: 'POST',
           headers: { Authorization: `Bearer ${token()}` },
@@ -926,7 +926,7 @@ export default function IntegrationCenterPage() {
   const handleSync = async (provider: Provider) => {
     try {
       const res = await fetch(
-        `${apiBase}/admin/integrations/${provider.id}/sync`,
+        `${apiBase}/v1/admin/integrations/${provider.id}/sync`,
         {
           method: 'POST',
           headers: {
@@ -956,7 +956,7 @@ export default function IntegrationCenterPage() {
   ) => {
     try {
       const res = await fetch(
-        `${apiBase}/admin/integrations/${provider.id}/settings`,
+        `${apiBase}/v1/admin/integrations/${provider.id}/settings`,
         {
           method: 'PATCH',
           headers: {
@@ -981,7 +981,7 @@ export default function IntegrationCenterPage() {
   const handleViewLogs = async (provider: Provider) => {
     try {
       const res = await fetch(
-        `${apiBase}/admin/integrations/${provider.id}/logs?limit=30`,
+        `${apiBase}/v1/admin/integrations/${provider.id}/logs?limit=30`,
         {
           headers: { Authorization: `Bearer ${token()}` },
         }

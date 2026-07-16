@@ -20,7 +20,7 @@ export default function LanguageSettings() {
           process.env.NEXT_PUBLIC_API_URL ||
           'http://localhost:3008';
         const tenantSlug = localStorage.getItem('hk_tenant') || 'neuravolt';
-        const res = await fetch(`${apiBase}/api/user/profile`, {
+        const res = await fetch(`${apiBase}/api/v1/user/profile`, {
           credentials: 'include',
           headers: {
             'x-tenant-slug': tenantSlug,
@@ -59,7 +59,7 @@ export default function LanguageSettings() {
         process.env.NEXT_PUBLIC_API_URL ||
         'http://localhost:3008';
       const tenantSlug = localStorage.getItem('hk_tenant') || 'neuravolt';
-      const res = await fetch(`${apiBase}/api/user/profile`, {
+      const res = await fetch(`${apiBase}/api/v1/user/profile`, {
         credentials: 'include',
         method: 'PUT',
         headers: {
