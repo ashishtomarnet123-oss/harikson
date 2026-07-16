@@ -77,21 +77,7 @@ function decryptText(encryptedText) {
 // Self-healing database migrations on startup
 async function initDb() {
   try {
-    // Check if subscriptions has old schema (e.g. plan column instead of plan_id)
-    const tableInfo = await pool.query(`
-      SELECT column_name 
-      FROM information_schema.columns 
-      WHERE table_name = 'subscriptions' AND column_name = 'plan'
-    `);
-    if (tableInfo.rows.length > 0) {
-      logger.info(
-        '🔄 Recreating subscriptions and invoices tables for new schema alignment...'
-      );
-      await pool.query(`
-        DROP TABLE IF EXISTS invoices CASCADE;
-        DROP TABLE IF EXISTS subscriptions CASCADE;
-      `);
-    }
+    // Schema is checked and initialized idempotently
 
     // 1. Create payment_providers table
     await pool.query(`

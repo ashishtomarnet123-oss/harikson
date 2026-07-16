@@ -16,6 +16,7 @@ import speakeasy from 'speakeasy';
 import QRCode from 'qrcode';
 import { fileURLToPath } from 'url';
 import multer from 'multer';
+import { runMigrations } from './utils/migrate.js';
 
 
 dotenv.config();
@@ -129,6 +130,7 @@ const readPool = new Pool({
 // Extend users table to store profile, settings, keys, billing, devices and logs per user
 async function initUserTables() {
   try {
+    await runMigrations(pool);
     await pool.query(`
       ALTER TABLE users ADD COLUMN IF NOT EXISTS name VARCHAR(255);
       ALTER TABLE users ADD COLUMN IF NOT EXISTS username VARCHAR(255);

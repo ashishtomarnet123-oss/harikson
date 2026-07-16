@@ -107,9 +107,6 @@ ALTER TABLE subscriptions DROP CONSTRAINT IF EXISTS subscriptions_plan_fkey;
 ALTER TABLE subscriptions DROP CONSTRAINT IF EXISTS subscriptions_plan_check;
 ALTER TABLE subscriptions DROP CONSTRAINT IF EXISTS unique_provider_subscription_id;
 
-DROP TABLE IF EXISTS invoices;
-DROP TABLE IF EXISTS subscriptions;
-
 -- Plans Table IF NOT EXISTS
 CREATE TABLE IF NOT EXISTS plans (
     id VARCHAR(50) PRIMARY KEY,
