@@ -1590,6 +1590,9 @@ const authMiddleware = async (req, res, next) => {
     } else if (token) {
       try {
         decoded = jwt.verify(token, jwtSecret);
+        if (decoded && decoded.type === 'impersonation') {
+          decoded.userId = decoded.targetUserId;
+        }
       } catch (err) {
         if (err.name === 'TokenExpiredError') {
           tokenExpired = true;

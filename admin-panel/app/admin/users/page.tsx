@@ -193,6 +193,27 @@ export default function UsersPage() {
     );
   };
 
+  const handleImpersonateUser = async (userId: string) => {
+    try {
+      const token = getCookie('admin_token') || localStorage.getItem('admin_token');
+      if (!token) return;
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000'}/admin/users/${userId}/impersonate`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to impersonate');
+      
+      const userPortalUrl = `http://localhost:3028/login?impersonate_token=${data.token}&tenant=${data.user.tenantSlug}`;
+      window.open(userPortalUrl, '_blank');
+    } catch (err: any) {
+      alert(err.message);
+    }
+  };
+
   const handleDeleteUser = async (userId: string, email: string) => {
     if (
       !confirm(
@@ -874,6 +895,12 @@ export default function UsersPage() {
                   }`}
                 >
                   {selectedUser.is_suspended ? 'Activate User' : 'Suspend User'}
+                </button>
+                <button
+                  onClick={() => handleImpersonateUser(selectedUser.id)}
+                  className="flex-1 py-2 rounded-xl text-xs font-bold uppercase tracking-wider transition-all duration-200 shadow-sm bg-amber-600 hover:bg-amber-700 text-white"
+                >
+                  Impersonate
                 </button>
                 <button
                   onClick={() =>

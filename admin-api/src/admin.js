@@ -25,7 +25,7 @@ import {
 
 dotenv.config();
 
-import { sendInvoiceReceipt } from './services/email.js';
+import { sendInvoiceReceipt, sendImpersonationAlert } from './services/email.js';
 
 if (!process.env.JWT_SECRET || process.env.JWT_SECRET.length < 32) {
   logger.error('FATAL: JWT_SECRET not set or too short (min 32 characters)');
@@ -1598,6 +1598,98 @@ app.get('/admin/system-status', async (req, res) => {
     res.status(500).json({ error: 'Failed to retrieve system status metrics' });
   }
 });
+
+// POST /admin/users/:userId/impersonate - Superadmin impersonation of a tenant user
+app.post('/admin/users/:userId/impersonate', adminAuth, async (req, res) => {
+  if (req.admin.role !== 'superadmin') {
+    return res.status(403).json({ error: 'Access Denied: Only superadmins can impersonate users' });
+  }
+
+  const { userId } = req.params;
+
+  try {
+    // Rate limit check: max 10 impersonations per hour per admin
+    const rateLimitKey = `ratelimit:impersonate:${req.admin.id}`;
+    const count = await redis.incr(rateLimitKey);
+    if (count === 1) {
+      await redis.expire(rateLimitKey, 3600);
+    }
+    if (count > 10) {
+      return res.status(429).json({ error: 'Rate limit exceeded: Max 10 impersonations per hour.' });
+    }
+
+    // Get the target user
+    const userRes = await pool.query(
+      'SELECT id, email, role, tenant_id FROM users WHERE id = $1 AND deleted_at IS NULL',
+      [userId]
+    );
+    const user = userRes.rows[0];
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    // Get the tenant slug
+    const tenantRes = await pool.query(
+      'SELECT slug FROM tenants WHERE id = $1',
+      [user.tenant_id]
+    );
+    const tenant = tenantRes.rows[0];
+    const tenantSlug = tenant ? tenant.slug : 'system';
+
+    // Generate a short-lived impersonation token (5 minutes)
+    const impersonationToken = jwt.sign(
+      { adminId: req.admin.id, targetUserId: user.id, type: 'impersonation' },
+      jwtSecret,
+      { expiresIn: '5m' }
+    );
+
+    // Log the impersonation event to activity_logs
+    const ip = (req.headers['x-forwarded-for'] || req.socket?.remoteAddress || '').split(',')[0].trim() || '127.0.0.1';
+    const ua = req.headers['user-agent'] || 'Unknown Browser';
+    await pool.query(
+      `INSERT INTO activity_logs (user_id, tenant_id, action, metadata, ip_address, user_agent)
+       VALUES ($1, $2, $3, $4, $5, $6)`,
+      [
+        user.id,
+        user.tenant_id,
+        'Admin Impersonation Triggered',
+        JSON.stringify({ 
+          level: 'warning', 
+          color: '#ea580c', 
+          adminId: req.admin.id, 
+          adminEmail: req.admin.email,
+          targetUserId: user.id,
+          targetEmail: user.email,
+          timestamp: new Date().toISOString()
+        }),
+        ip,
+        ua
+      ]
+    );
+
+    // Notify the target user via email
+    try {
+      await sendImpersonationAlert(user.email);
+    } catch (emailErr) {
+      logger.warn('Failed to send impersonation email alert:', emailErr.message);
+    }
+
+    res.json({
+      success: true,
+      token: impersonationToken,
+      user: {
+        id: user.id,
+        email: user.email,
+        role: user.role,
+        tenantSlug,
+      }
+    });
+  } catch (err) {
+    logger.error('Impersonation error:', err);
+    res.status(500).json({ error: 'Failed to process impersonation request' });
+  }
+});
+
 // 1.6 GET /admin/users
 app.get('/admin/users', async (req, res) => {
   try {

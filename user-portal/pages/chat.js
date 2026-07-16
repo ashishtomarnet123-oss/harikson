@@ -548,6 +548,19 @@ export default function ChatPage() {
   }, []);
   const router = useRouter();
 
+  const handleStopImpersonating = () => {
+    const host = window.location.host;
+    const domainSuffix = host.includes('neuravolt.cloud')
+      ? '; Domain=.neuravolt.cloud'
+      : '';
+    document.cookie = `hk_access_token=; Path=/; Max-Age=0${domainSuffix}`;
+    document.cookie = `hk_refresh_token=; Path=/; Max-Age=0${domainSuffix}`;
+    localStorage.removeItem('hk_user');
+    localStorage.removeItem('is_impersonating');
+    localStorage.removeItem('impersonating_user_email');
+    window.location.href = 'http://localhost:3018/admin/users';
+  };
+
   // Voice dictation initialization
   const toggleRecording = () => {
     if (isRecording) {
@@ -1753,6 +1766,39 @@ If any check fails, revise the relevant section before output.`;
 
   return (
     <>
+      {typeof window !== 'undefined' && localStorage.getItem('is_impersonating') === 'true' && (
+        <div style={{
+          background: '#ea580c',
+          color: 'white',
+          padding: '10px 20px',
+          textAlign: 'center',
+          fontWeight: 'bold',
+          fontSize: '14px',
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          gap: '15px',
+          zIndex: 99999,
+          position: 'relative'
+        }}>
+          <span>You are impersonating {localStorage.getItem('impersonating_user_email')}</span>
+          <button
+            onClick={handleStopImpersonating}
+            style={{
+              background: 'white',
+              color: '#ea580c',
+              border: 'none',
+              padding: '4px 12px',
+              borderRadius: '4px',
+              cursor: 'pointer',
+              fontWeight: 'bold',
+              fontSize: '12px'
+            }}
+          >
+            Stop
+          </button>
+        </div>
+      )}
       {globalError && (
         <div
           style={{
