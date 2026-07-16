@@ -140,6 +140,24 @@ async function initDb() {
     `);
     const colNames = cols.rows.map((c) => c.column_name);
 
+    // Ensure unique constraint exists
+    const constraintCheck = await pool.query(`
+      SELECT conname 
+      FROM pg_constraint 
+      WHERE conname = 'unique_event_provider'
+    `);
+    if (constraintCheck.rows.length === 0) {
+      await pool.query(`
+        DELETE FROM payment_webhooks a 
+        USING payment_webhooks b 
+        WHERE a.id < b.id AND a.event_id = b.event_id AND a.provider = b.provider;
+      `);
+      await pool.query(`
+        ALTER TABLE payment_webhooks 
+        ADD CONSTRAINT unique_event_provider UNIQUE (event_id, provider)
+      `);
+    }
+
     if (!colNames.includes('provider_id')) {
       await pool.query(
         'ALTER TABLE payment_webhooks ADD COLUMN provider_id UUID REFERENCES payment_providers(id)'
