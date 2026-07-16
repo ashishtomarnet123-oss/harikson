@@ -3652,7 +3652,7 @@ app.get('/api/user/profile', authMiddleware, async (req, res) => {
   try {
     const user = await executeTenantQuery(req.tenant.id, async (client) => {
       const result = await client.query(
-        `SELECT name, username, email, phone, company, job_title as "jobTitle", department, country, bio, avatar_url as "avatarUrl", two_factor_enabled as "twoFactorEnabled"
+        `SELECT id, name, username, email, phone, company, job_title as "jobTitle", department, country, bio, avatar_url as "avatarUrl", two_factor_enabled as "twoFactorEnabled"
          FROM users WHERE id = $1`,
         [req.user.id]
       );

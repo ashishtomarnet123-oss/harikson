@@ -47,11 +47,8 @@ async function runAvatarTest() {
   console.log('2. Fetching profile info...');
   const profileRes = await client.get('/api/user/profile');
   const userId = profileRes.data.email.split('@')[0]; // Wait, we can get user ID from response, but user profile doesn't return ID.
-  // We can decode the cookie or just read user session.
-  // Wait! Let's get user sessions to find the exact userId!
-  const devicesRes = await client.get('/api/user/devices');
-  const actualUserId = devicesRes.data[0]?.userId;
-  assert.ok(actualUserId, 'User ID should be resolved from active session devices');
+  const actualUserId = profileRes.data.id;
+  assert.ok(actualUserId, 'User ID should be resolved from profile info');
   console.log(`   ✓ Resolved User ID: ${actualUserId}`);
 
   // 3. Create a 1x1 pixel mock PNG image
