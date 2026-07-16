@@ -80,6 +80,7 @@ router.post(
 
       const instance = await prisma.instance.create({
         data: {
+          tenantId: user.tenantId || req.user?.tenantId || '00000000-0000-0000-0000-000000000000',
           userId,
           name: safeName,
           domain: containerInfo.domain,

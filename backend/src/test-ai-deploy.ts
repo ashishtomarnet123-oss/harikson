@@ -9,6 +9,16 @@ async function verifyDeployment() {
   const name = 'aiuser';
 
   try {
+    // Create a mock tenant
+    const tenant = await prisma.tenant.create({
+      data: {
+        name: 'AI Test Tenant',
+        slug: `ai-test-${Date.now()}`,
+        plan: 'PRO',
+        status: 'active'
+      }
+    });
+
     // 1. Create a mock user in database with aiEnabled=true
     console.log('1. Creating test user in database...');
     const user = await prisma.user.create({
@@ -24,6 +34,7 @@ async function verifyDeployment() {
         n8nEnabled: false,
         agentType: 'CHAT',
         model: 'harikson-chat-8b',
+        tenantId: tenant.id,
       },
     });
 
@@ -53,6 +64,7 @@ async function verifyDeployment() {
     // Save instance to DB
     const instance = await prisma.instance.create({
       data: {
+        tenantId: tenant.id,
         userId: user.id,
         name: safeName,
         domain: containerInfo.domain,
@@ -107,6 +119,7 @@ async function verifyDeployment() {
     // Clean up DB records
     await prisma.instance.delete({ where: { id: instance.id } });
     await prisma.user.delete({ where: { id: user.id } });
+    await prisma.tenant.delete({ where: { id: tenant.id } });
     console.log('✅ Deleted database records.');
 
     console.log(

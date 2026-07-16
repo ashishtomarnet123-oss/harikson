@@ -49,6 +49,8 @@ model User {
   instances     Instance[]
   invoices      Invoice[]
   sessions      Session[]
+  tenantId      String?   @map("tenant_id") @db.Uuid
+  tenant        Tenant?   @relation(fields: [tenantId], references: [id], onDelete: SetNull)
   
   @@map("users")
 }
@@ -91,6 +93,9 @@ model Instance {
   diskUsage     String?
   lastBackup    DateTime?
   
+  tenantId      String   @map("tenant_id") @db.Uuid
+  tenant        Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
   // Relations
   documents     Document[]
   fineTuning    FineTuneJob[]
@@ -100,6 +105,7 @@ model Instance {
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
   
+  @@index([tenantId])
   @@map("instances")
 }
 
@@ -113,7 +119,10 @@ model Document {
   url        String?
   status     String    // PROCESSING, INDEXED, ERROR
   createdAt  DateTime  @default(now())
+  tenantId   String    @map("tenant_id") @db.Uuid
+  tenant     Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
+  @@index([tenantId])
   @@map("documents")
 }
 
@@ -127,7 +136,10 @@ model FineTuneJob {
   metrics    Json?     // Loss curve checkpoints
   createdAt  DateTime  @default(now())
   completedAt DateTime?
+  tenantId   String    @map("tenant_id") @db.Uuid
+  tenant     Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
+  @@index([tenantId])
   @@map("fine_tune_jobs")
 }
 
@@ -140,7 +152,10 @@ model CapturedLead {
   name       String?
   metadata   Json?     // Custom fields captured during chat
   createdAt  DateTime  @default(now())
+  tenantId   String    @map("tenant_id") @db.Uuid
+  tenant     Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
+  @@index([tenantId])
   @@map("captured_leads")
 }
 
@@ -155,7 +170,10 @@ model ValidationLog {
   status     String    // APPROVED, REVIEW, DISCARDED
   reason     String?
   createdAt  DateTime  @default(now())
+  tenantId   String    @map("tenant_id") @db.Uuid
+  tenant     Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
+  @@index([tenantId])
   @@map("validation_logs")
 }
 
@@ -286,4 +304,24 @@ model DeviceSession {
   createdAt   DateTime @default(now())
 
   @@map("device_sessions")
+}
+
+model Tenant {
+  id        String     @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  name      String
+  slug      String     @unique
+  plan      String
+  status    String     @default("active")
+  createdAt DateTime   @default(now()) @map("created_at")
+  updatedAt DateTime   @default(now()) @updatedAt @map("updated_at")
+
+  // Relations
+  users          User[]
+  instances      Instance[]
+  documents      Document[]
+  fineTuneJobs   FineTuneJob[]
+  capturedLeads  CapturedLead[]
+  validationLogs ValidationLog[]
+
+  @@map("tenants")
 }

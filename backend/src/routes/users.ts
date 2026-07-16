@@ -210,6 +210,7 @@ router.patch(
 
         instance = await prisma.instance.create({
           data: {
+            tenantId: user.tenantId || (req as any).user?.tenantId || '00000000-0000-0000-0000-000000000000',
             userId: user.id,
             name: safeName,
             domain: containerInfo.domain,
