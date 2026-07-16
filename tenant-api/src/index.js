@@ -1217,6 +1217,16 @@ async function isPasswordPwned(password) {
   }
 }
 
+/**
+ * Rate Limiting Redis Key Naming Conventions:
+ * - IP-based endpoint limits (auth vs public): rl:ip:${ip}:${type}
+ * - Tenant-level rate limit: rl:tenant:${tenantId}
+ * - User-level rate limit: ratelimit:${tenantId}:${userId}
+ * - Registration attempts rate limit: ratelimit:register:${ip}
+ * - Login attempts rate limit: ratelimit:login:${ip}
+ * - Password Reset attempts rate limit: ratelimit:password-reset:${ip}
+ * - Developer API Key rate limit: ratelimit:apikey:${keyHash}
+ */
 // Generic Sliding Window Rate Limiter using Redis Sorted Sets
 async function checkSlidingWindowLimit(key, limit, windowSeconds = 60) {
   if (limit === -1) {
@@ -1308,6 +1318,7 @@ const rateLimiterMiddleware = async (req, res, next) => {
     let tenantPlan = 'starter';
     let isApiKey = false;
     let apiKeyId = null;
+    let keyHash = null;
 
     let token = null;
     const cookies = parseCookies(req.headers.cookie);
@@ -1322,7 +1333,7 @@ const rateLimiterMiddleware = async (req, res, next) => {
     if (token) {
       if (token.startsWith('hk_live_') || token.startsWith('hk_test_')) {
         isApiKey = true;
-        const keyHash = crypto.createHash('sha256').update(token).digest('hex');
+        keyHash = crypto.createHash('sha256').update(token).digest('hex');
         const keyRes = await pool.query(
           'SELECT * FROM api_keys WHERE key_hash = $1 AND revoked_at IS NULL AND (expires_at IS NULL OR expires_at > NOW())',
           [keyHash]
@@ -1362,10 +1373,10 @@ const rateLimiterMiddleware = async (req, res, next) => {
       }
     }
 
-    // B. Developer API Key Limit: 500 req/min per key
-    if (isApiKey && apiKeyId) {
+    // B. Developer API Key Limit: 500 req/min per key (using the unified key: ratelimit:apikey:${keyHash})
+    if (isApiKey && keyHash) {
       const keyLimitRes = await checkSlidingWindowLimit(
-        `rl:key:${apiKeyId}`,
+        `ratelimit:apikey:${keyHash}`,
         500,
         60
       );
@@ -2687,6 +2698,23 @@ app.post(
 app.post('/api/auth/login', validate(loginSchema), async (req, res) => {
   const { email, password } = req.body;
   try {
+    // Rate limit check (using the unified key: ratelimit:login:${ip})
+    const ip =
+      (req.headers['x-forwarded-for'] || req.socket.remoteAddress || '')
+        .split(',')[0]
+        .trim() || '127.0.0.1';
+    const key = `ratelimit:login:${ip}`;
+    const attempts = await redis.incr(key);
+    if (attempts === 1) {
+      await redis.expire(key, 3600); // 1 hour TTL
+    }
+    if (attempts > 5) {
+      return res.status(429).json({
+        error:
+          'Too many login attempts. Rate limit exceeded. Try again in an hour.',
+      });
+    }
+
     const userResult = await pool.query(
       'SELECT * FROM users WHERE email = $1 AND tenant_id = $2 AND deleted_at IS NULL',
       [email, req.tenant.id]
@@ -2818,12 +2846,12 @@ app.post('/api/auth/login', validate(loginSchema), async (req, res) => {
 app.post('/api/auth/register', validate(registerSchema), async (req, res) => {
   const { name, email, password } = req.body;
   try {
-    // Rate limit check
+    // Rate limit check (using the unified key: ratelimit:register:${ip})
     const ip =
       (req.headers['x-forwarded-for'] || req.socket.remoteAddress || '')
         .split(',')[0]
         .trim() || '127.0.0.1';
-    const key = `ratelimit:password:${ip}`;
+    const key = `ratelimit:register:${ip}`;
     const attempts = await redis.incr(key);
     if (attempts === 1) {
       await redis.expire(key, 3600); // 1 hour TTL
@@ -2831,7 +2859,7 @@ app.post('/api/auth/register', validate(registerSchema), async (req, res) => {
     if (attempts > 5) {
       return res.status(429).json({
         error:
-          'Too many password attempts. Rate limit exceeded. Try again in an hour.',
+          'Too many registration attempts. Rate limit exceeded. Try again in an hour.',
       });
     }
 
@@ -3047,8 +3075,25 @@ app.post(
   '/api/auth/reset-password',
   validate(resetPasswordSchema),
   async (req, res) => {
-    const { token, email, newPassword } = req.body;
     try {
+      // Rate limit check (using the unified key: ratelimit:password-reset:${ip})
+      const ip =
+        (req.headers['x-forwarded-for'] || req.socket.remoteAddress || '')
+          .split(',')[0]
+          .trim() || '127.0.0.1';
+      const key = `ratelimit:password-reset:${ip}`;
+      const attempts = await redis.incr(key);
+      if (attempts === 1) {
+        await redis.expire(key, 3600); // 1 hour TTL
+      }
+      if (attempts > 5) {
+        return res.status(429).json({
+          error:
+            'Too many password reset attempts. Rate limit exceeded. Try again in an hour.',
+        });
+      }
+
+      const { token, email, newPassword } = req.body;
       const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
 
       // Find and validate token (using executeTenantQuery to respect RLS)
