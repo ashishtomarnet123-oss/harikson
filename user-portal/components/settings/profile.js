@@ -88,6 +88,80 @@ export default function ProfileSettings() {
     }
   };
 
+  const handleAvatarChange = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    if (file.size > 5 * 1024 * 1024) {
+      alert("Image must be smaller than 5MB");
+      return;
+    }
+    if (file.type !== 'image/jpeg' && file.type !== 'image/png') {
+      alert("Only JPEG and PNG formats are allowed");
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        canvas.width = 256;
+        canvas.height = 256;
+        const ctx = canvas.getContext('2d');
+
+        const size = Math.min(img.width, img.height);
+        const xOffset = (img.width - size) / 2;
+        const yOffset = (img.height - size) / 2;
+
+        ctx.drawImage(img, xOffset, yOffset, size, size, 0, 0, 256, 256);
+
+        canvas.toBlob((blob) => {
+          uploadAvatar(blob);
+        }, 'image/jpeg', 0.9);
+      };
+      img.src = event.target.result;
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const uploadAvatar = async (blob) => {
+    try {
+      const formData = new FormData();
+      formData.append('avatar', blob, 'avatar.jpg');
+
+      const apiBase =
+        localStorage.getItem('hk_api_base') ||
+        process.env.NEXT_PUBLIC_API_URL ||
+        'http://localhost:3008';
+      const tenantSlug = localStorage.getItem('hk_tenant') || 'neuravolt';
+
+      const res = await fetch(`${apiBase}/api/user/avatar`, {
+        credentials: 'include',
+        method: 'POST',
+        headers: {
+          'x-tenant-slug': tenantSlug,
+        },
+        body: formData,
+      });
+
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || 'Failed to upload avatar');
+      }
+
+      const data = await res.json();
+      setProfile((prev) => ({ ...prev, avatarUrl: data.avatarUrl }));
+      setMessage({ type: 'success', text: 'Avatar uploaded successfully.' });
+    } catch (err) {
+      setMessage({ type: 'error', text: err.message });
+    }
+  };
+
+  const nameInitials = profile.name
+    ? profile.name.slice(0, 2).toUpperCase()
+    : (profile.email || 'U').slice(0, 2).toUpperCase();
+
   if (loading)
     return <div className="settings-loading">Loading profile...</div>;
 
@@ -105,6 +179,59 @@ export default function ProfileSettings() {
       <form className="settings-form" onSubmit={handleSave}>
         <div className="settings-section">
           <h2>Personal Information</h2>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '20px', marginBottom: '30px' }}>
+            <div style={{
+              width: '80px',
+              height: '80px',
+              borderRadius: '50%',
+              background: '#3b82f6',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontSize: '24px',
+              fontWeight: 'bold',
+              color: 'white',
+              overflow: 'hidden',
+              border: '2px solid #334155',
+              position: 'relative'
+            }}>
+              {profile.avatarUrl ? (
+                <img
+                  src={profile.avatarUrl}
+                  alt="Profile Avatar"
+                  style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                />
+              ) : (
+                nameInitials
+              )}
+            </div>
+            <div>
+              <label style={{
+                display: 'inline-block',
+                padding: '8px 16px',
+                background: '#1e293b',
+                border: '1px solid #334155',
+                borderRadius: '6px',
+                color: 'white',
+                fontSize: '13px',
+                fontWeight: 'bold',
+                cursor: 'pointer',
+                transition: 'background 0.2s'
+              }}>
+                Change Photo
+                <input
+                  type="file"
+                  accept="image/png, image/jpeg"
+                  onChange={handleAvatarChange}
+                  style={{ display: 'none' }}
+                />
+              </label>
+              <p style={{ margin: '6px 0 0 0', fontSize: '11px', color: '#94a3b8' }}>
+                Accepts PNG or JPG up to 5MB. Automatically cropped to 256x256.
+              </p>
+            </div>
+          </div>
 
           <div className="form-row">
             <div className="form-group">

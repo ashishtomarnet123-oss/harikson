@@ -931,6 +931,24 @@ export default function ChatPage() {
     setUser(savedUser);
     setApiBase(savedBase);
     setTenantSlug(savedTenant);
+
+    const fetchFreshProfile = async () => {
+      try {
+        const res = await fetch(`${savedBase}/api/user/profile`, {
+          credentials: 'include',
+          headers: {
+            'x-tenant-slug': savedTenant,
+          },
+        });
+        if (res.ok) {
+          const data = await res.json();
+          setUser((prev) => ({ ...prev, ...data }));
+        }
+      } catch (err) {
+        console.error('Failed to fetch fresh profile:', err);
+      }
+    };
+    fetchFreshProfile();
   }, [router]);
 
   /* ── Load conversations once token is ready ── */
@@ -1939,7 +1957,30 @@ If any check fails, revise the relevant section before output.`;
                 (e.currentTarget.style.background = 'transparent')
               }
             >
-              <div className="user-avatar">{userInitial}</div>
+              <div className="user-avatar" style={{
+                width: '32px',
+                height: '32px',
+                borderRadius: '50%',
+                background: 'var(--accent)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: '14px',
+                fontWeight: 'bold',
+                color: 'white',
+                overflow: 'hidden',
+                position: 'relative'
+              }}>
+                {user?.avatarUrl ? (
+                  <img
+                    src={user.avatarUrl}
+                    alt="User Avatar"
+                    style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                  />
+                ) : (
+                  userInitial
+                )}
+              </div>
               <div
                 style={{ flex: 1, display: 'flex', flexDirection: 'column' }}
               >

@@ -129,7 +129,7 @@ services:
       - harikson-network
     labels:
       - 'traefik.enable=true'
-      - 'traefik.http.routers.tenant-api.rule=Host(`api.neuravolt.cloud`)'
+      - 'traefik.http.routers.tenant-api.rule=Host(`api.neuravolt.cloud`) || Host(`cdn.neuravolt.cloud`)'
       - 'traefik.http.routers.tenant-api.entrypoints=websecure'
       - 'traefik.http.routers.tenant-api.tls.certresolver=letsencrypt'
       - 'traefik.http.services.tenant-api.loadbalancer.server.port=3000'

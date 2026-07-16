@@ -15,6 +15,7 @@ import path from 'path';
 import speakeasy from 'speakeasy';
 import QRCode from 'qrcode';
 import { fileURLToPath } from 'url';
+import multer from 'multer';
 
 
 dotenv.config();
@@ -73,7 +74,7 @@ app.use(
         defaultSrc: ["'self'"],
         scriptSrc: ["'self'", "'unsafe-inline'"],
         styleSrc: ["'self'", "'unsafe-inline'"],
-        imgSrc: ["'self'", 'data:', 'https:'],
+        imgSrc: ["'self'", 'data:', 'https:', 'https://cdn.neuravolt.cloud', 'cdn.neuravolt.cloud'],
       },
     },
     crossOriginEmbedderPolicy: false,
@@ -139,6 +140,7 @@ async function initUserTables() {
       ALTER TABLE users ADD COLUMN IF NOT EXISTS bio TEXT;
       ALTER TABLE users ADD COLUMN IF NOT EXISTS settings JSONB DEFAULT '{}'::jsonb;
       ALTER TABLE users ADD COLUMN IF NOT EXISTS billing_info JSONB DEFAULT '{}'::jsonb;
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_url TEXT;
     `);
 
     // Create refresh_tokens table if not exists
@@ -3650,7 +3652,7 @@ app.get('/api/user/profile', authMiddleware, async (req, res) => {
   try {
     const user = await executeTenantQuery(req.tenant.id, async (client) => {
       const result = await client.query(
-        `SELECT name, username, email, phone, company, job_title as "jobTitle", department, country, bio, two_factor_enabled as "twoFactorEnabled"
+        `SELECT name, username, email, phone, company, job_title as "jobTitle", department, country, bio, avatar_url as "avatarUrl", two_factor_enabled as "twoFactorEnabled"
          FROM users WHERE id = $1`,
         [req.user.id]
       );
@@ -3685,7 +3687,7 @@ app.put(
           `UPDATE users
          SET name = $1, username = $2, phone = $3, company = $4, job_title = $5, department = $6, country = $7, bio = $8
          WHERE id = $9
-         RETURNING name, username, email, phone, company, job_title as "jobTitle", department, country, bio`,
+         RETURNING name, username, email, phone, company, job_title as "jobTitle", department, country, bio, avatar_url as "avatarUrl"`,
           [
             name,
             username,
@@ -4969,6 +4971,71 @@ app.get('/api/workflows/:id/executions', authMiddleware, async (req, res) => {
   } catch (err) {
     logger.error('Fetch executions error:', err);
     res.status(500).json({ error: 'Failed to fetch workflow executions' });
+  }
+});
+
+// ─── AVATAR UPLOADS & CDN ───────────────────────────────────────────────────
+
+const avatarUpload = multer({
+  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB
+  fileFilter: (req, file, cb) => {
+    if (file.mimetype === 'image/jpeg' || file.mimetype === 'image/png') {
+      cb(null, true);
+    } else {
+      cb(new Error('Only JPEG and PNG images are allowed'));
+    }
+  }
+}).single('avatar');
+
+// POST /api/user/avatar
+app.post('/api/user/avatar', authMiddleware, (req, res) => {
+  avatarUpload(req, res, async (err) => {
+    if (err) {
+      return res.status(400).json({ error: err.message });
+    }
+    if (!req.file) {
+      return res.status(400).json({ error: 'No file uploaded' });
+    }
+
+    try {
+      const base64Image = req.file.buffer.toString('base64');
+      const dataUri = `data:${req.file.mimetype};base64,${base64Image}`;
+
+      await executeTenantQuery(req.tenant.id, async (client) => {
+        await client.query('UPDATE users SET avatar_url = $1 WHERE id = $2', [dataUri, req.user.id]);
+      });
+
+      res.json({
+        success: true,
+        avatarUrl: `https://cdn.neuravolt.cloud/avatars/${req.user.id}.jpg`
+      });
+    } catch (dbErr) {
+      logger.error('Failed to save avatar:', dbErr);
+      res.status(500).json({ error: 'Failed to save avatar' });
+    }
+  });
+});
+
+// GET /avatars/:userId.jpg (CDN route)
+app.get('/avatars/:userId.jpg', async (req, res) => {
+  const { userId } = req.params;
+  try {
+    const result = await pool.query('SELECT avatar_url FROM users WHERE id = $1', [userId]);
+    const user = result.rows[0];
+    if (!user || !user.avatar_url) {
+      return res.status(404).send('Not Found');
+    }
+    const base64Data = user.avatar_url.replace(/^data:image\/\w+;base64,/, "");
+    const imgBuffer = Buffer.from(base64Data, 'base64');
+    res.writeHead(200, {
+      'Content-Type': 'image/jpeg',
+      'Content-Length': imgBuffer.length,
+      'Cache-Control': 'public, max-age=86400'
+    });
+    res.end(imgBuffer);
+  } catch (err) {
+    logger.error('Serve avatar error:', err);
+    res.status(500).send('Internal Server Error');
   }
 });
 

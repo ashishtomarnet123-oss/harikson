@@ -33,6 +33,7 @@ CREATE TABLE users (
     two_factor_secret TEXT,
     two_factor_enabled BOOLEAN DEFAULT FALSE,
     two_factor_backup_codes TEXT[] DEFAULT '{}',
+    avatar_url TEXT,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT unique_tenant_email UNIQUE (tenant_id, email)

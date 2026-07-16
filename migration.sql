@@ -350,3 +350,6 @@ CREATE POLICY tenant_isolation_policy ON workflows
     FOR ALL
     USING (tenant_id = current_setting('app.current_tenant', true)::uuid)
     WITH CHECK (tenant_id = current_setting('app.current_tenant', true)::uuid);
+
+-- Migration: Add avatar_url column to users table
+ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_url TEXT;
