@@ -2590,6 +2590,7 @@ export default function TenantPlanManager() {
                     <th className="py-3 px-4">Tenant</th>
                     <th className="py-3 px-4">Amount</th>
                     <th className="py-3 px-4">Signature</th>
+                    <th className="py-3 px-4">Status</th>
                     <th className="py-3 px-4 text-right">Inspect</th>
                   </tr>
                 </thead>
@@ -2597,7 +2598,7 @@ export default function TenantPlanManager() {
                   {webhooks.length === 0 && (
                     <tr>
                       <td
-                        colSpan={6}
+                        colSpan={7}
                         className="py-10 text-center text-gray-500 italic"
                       >
                         No webhooks captured.
@@ -2634,6 +2635,19 @@ export default function TenantPlanManager() {
                         ) : (
                           <span className="text-red-400 font-bold">Failed</span>
                         )}
+                      </td>
+                      <td className="py-3 px-4">
+                        <span
+                          className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${
+                            wh.status === 'success' || wh.status === 'active' || wh.status === 'processed'
+                              ? 'bg-green-950/30 text-green-400 border border-green-800/50'
+                              : wh.status === 'failed'
+                              ? 'bg-red-950/30 text-red-400 border border-red-800/50'
+                              : 'bg-yellow-950/30 text-yellow-400 border border-yellow-800/50'
+                          }`}
+                        >
+                          {wh.status || 'unknown'}
+                        </span>
                       </td>
                       <td className="py-3 px-4 text-right">
                         <button

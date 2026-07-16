@@ -2838,19 +2838,6 @@ app.post('/webhooks/stripe', async (req, res) => {
     }
 
     const eventId = event.id;
-
-    // Idempotency Check: prevent double-processing of events
-    const existing = await pool.query(
-      "SELECT id FROM payment_webhooks WHERE event_id = $1 AND provider = 'stripe' AND processed_at IS NOT NULL",
-      [eventId]
-    );
-    if (existing.rows.length > 0) {
-      logger.info(
-        `[WEBHOOK] Stripe event ${eventId} has already been processed.`
-      );
-      return res.status(200).json({ status: 'already_processed' });
-    }
-
     const eventObj = event.data.object;
     const amount = eventObj.amount_due
       ? eventObj.amount_due / 100
@@ -2870,122 +2857,145 @@ app.post('/webhooks/stripe', async (req, res) => {
       if (tRes.rows.length > 0) tenantName = tRes.rows[0].name;
     }
 
-    await pool.query(
-      `INSERT INTO payment_webhooks (event_id, provider_id, provider, event_type, status, amount, tenant_name, payload, signature_verified, processed_at)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW())`,
-      [
-        eventId,
-        provider.id,
-        'stripe',
-        event.type,
-        status,
-        amount,
-        tenantName,
-        JSON.stringify(event),
-        true,
-      ]
-    );
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
 
-    // Business Logic processing
-    if (
-      event.type === 'customer.subscription.created' ||
-      event.type === 'customer.subscription.updated'
-    ) {
-      const subId = eventObj.id;
-      const plan = eventObj.metadata?.plan || 'starter';
-      let planId = plan.toLowerCase();
-      if (!['starter', 'professional', 'enterprise'].includes(planId)) {
-        if (planId === 'developer' || planId === 'solo') planId = 'starter';
-        else if (planId === 'pro') planId = 'professional';
-        else planId = 'starter';
+      // Idempotency: Insert with DO NOTHING and RETURNING
+      const insertRes = await client.query(
+        `INSERT INTO payment_webhooks (event_id, provider_id, provider, event_type, status, amount, tenant_name, payload, signature_verified, processed_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW())
+         ON CONFLICT (event_id, provider) DO NOTHING
+         RETURNING id`,
+        [
+          eventId,
+          provider.id,
+          'stripe',
+          event.type,
+          status,
+          amount,
+          tenantName,
+          JSON.stringify(event),
+          true,
+        ]
+      );
+
+      if (insertRes.rows.length === 0) {
+        await client.query('COMMIT');
+        logger.info(
+          `[WEBHOOK] Stripe event ${eventId} has already been processed.`
+        );
+        return res.status(200).json({ status: 'already_processed' });
       }
-      const subStatus =
-        eventObj.status === 'active'
-          ? 'active'
-          : eventObj.status === 'canceled'
-            ? 'cancelled'
-            : 'paused';
-      const start = new Date(eventObj.current_period_start * 1000);
-      const end = new Date(eventObj.current_period_end * 1000);
 
-      if (tenantId) {
-        await pool.query(
-          `INSERT INTO subscriptions (tenant_id, provider, provider_subscription_id, plan_id, status, current_period_start, current_period_end, amount, currency)
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-           ON CONFLICT (provider, provider_subscription_id) DO UPDATE SET 
-             status = EXCLUDED.status, 
-             current_period_start = EXCLUDED.current_period_start, 
-             current_period_end = EXCLUDED.current_period_end, 
-             amount = EXCLUDED.amount,
-             updated_at = NOW()`,
-          [
-            tenantId,
-            'stripe',
-            subId,
-            planId,
-            subStatus,
-            start,
-            end,
-            amount,
-            currency,
-          ]
-        );
-        await pool.query('UPDATE tenants SET plan = $1 WHERE id = $2', [
-          planId.toUpperCase(),
-          tenantId,
-        ]);
-      }
-    } else if (event.type === 'invoice.paid') {
-      const invId = eventObj.id;
-      const invoiceUrl = eventObj.hosted_invoice_url;
-      const pdfUrl = eventObj.invoice_pdf;
-      const subId = eventObj.subscription;
+      // Business Logic processing within transaction
+      if (
+        event.type === 'customer.subscription.created' ||
+        event.type === 'customer.subscription.updated'
+      ) {
+        const subId = eventObj.id;
+        const plan = eventObj.metadata?.plan || 'starter';
+        let planId = plan.toLowerCase();
+        if (!['starter', 'professional', 'enterprise'].includes(planId)) {
+          if (planId === 'developer' || planId === 'solo') planId = 'starter';
+          else if (planId === 'pro') planId = 'professional';
+          else planId = 'starter';
+        }
+        const subStatus =
+          eventObj.status === 'active'
+            ? 'active'
+            : eventObj.status === 'canceled'
+              ? 'cancelled'
+              : 'paused';
+        const start = new Date(eventObj.current_period_start * 1000);
+        const end = new Date(eventObj.current_period_end * 1000);
 
-      if (tenantId) {
-        const subRes = await pool.query(
-          'SELECT id FROM subscriptions WHERE provider_subscription_id = $1',
-          [subId]
-        );
-        const subscriptionUuid =
-          subRes.rows.length > 0 ? subRes.rows[0].id : null;
-
-        await pool.query(
-          `INSERT INTO invoices (tenant_id, subscription_id, provider, provider_invoice_id, amount, currency, status, paid_at, invoice_url, pdf_url)
-           VALUES ($1, $2, $3, $4, $5, $6, $7, NOW(), $8, $9)`,
-          [
-            tenantId,
-            subscriptionUuid,
-            'stripe',
-            invId,
-            amount,
-            currency,
-            'paid',
-            invoiceUrl,
-            pdfUrl,
-          ]
-        );
-
-        // Retrieve tenant's primary administrator/user email and send receipt
-        const userRes = await pool.query(
-          `SELECT email, name FROM users WHERE tenant_id = $1 ORDER BY role = 'admin' DESC, created_at ASC LIMIT 1`,
-          [tenantId]
-        );
-        if (userRes.rows.length > 0) {
-          const userEmail = userRes.rows[0].email;
-          sendInvoiceReceipt(userEmail, {
-            amount,
-            currency,
-            status: 'paid',
-            invoiceUrl,
-            pdfUrl,
-          }).catch((err) =>
-            logger.error('[INVOICE EMAIL RECEIPT SEND ERROR]:', err.message)
+        if (tenantId) {
+          await client.query(
+            `INSERT INTO subscriptions (tenant_id, provider, provider_subscription_id, plan_id, status, current_period_start, current_period_end, amount, currency)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+             ON CONFLICT (provider, provider_subscription_id) DO UPDATE SET 
+               status = EXCLUDED.status, 
+               current_period_start = EXCLUDED.current_period_start, 
+               current_period_end = EXCLUDED.current_period_end, 
+               amount = EXCLUDED.amount,
+               updated_at = NOW()`,
+            [
+              tenantId,
+              'stripe',
+              subId,
+              planId,
+              subStatus,
+              start,
+              end,
+              amount,
+              currency,
+            ]
           );
+          await client.query('UPDATE tenants SET plan = $1 WHERE id = $2', [
+            planId.toUpperCase(),
+            tenantId,
+          ]);
+        }
+      } else if (event.type === 'invoice.paid') {
+        const invId = eventObj.id;
+        const invoiceUrl = eventObj.hosted_invoice_url;
+        const pdfUrl = eventObj.invoice_pdf;
+        const subId = eventObj.subscription;
+
+        if (tenantId) {
+          const subRes = await client.query(
+            'SELECT id FROM subscriptions WHERE provider_subscription_id = $1',
+            [subId]
+          );
+          const subscriptionUuid =
+            subRes.rows.length > 0 ? subRes.rows[0].id : null;
+
+          await client.query(
+            `INSERT INTO invoices (tenant_id, subscription_id, provider, provider_invoice_id, amount, currency, status, paid_at, invoice_url, pdf_url)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, NOW(), $8, $9)
+             ON CONFLICT (provider, provider_invoice_id) DO NOTHING`,
+            [
+              tenantId,
+              subscriptionUuid,
+              'stripe',
+              invId,
+              amount,
+              currency,
+              'paid',
+              invoiceUrl,
+              pdfUrl,
+            ]
+          );
+
+          // Retrieve tenant's primary administrator/user email and send receipt
+          const userRes = await client.query(
+            `SELECT email, name FROM users WHERE tenant_id = $1 ORDER BY role = 'admin' DESC, created_at ASC LIMIT 1`,
+            [tenantId]
+          );
+          if (userRes.rows.length > 0) {
+            const userEmail = userRes.rows[0].email;
+            sendInvoiceReceipt(userEmail, {
+              amount,
+              currency,
+              status: 'paid',
+              invoiceUrl,
+              pdfUrl,
+            }).catch((err) =>
+              logger.error('[INVOICE EMAIL RECEIPT SEND ERROR]:', err.message)
+            );
+          }
         }
       }
-    }
 
-    res.status(200).json({ status: 'processed' });
+      await client.query('COMMIT');
+      res.status(200).json({ status: 'processed' });
+    } catch (txErr) {
+      await client.query('ROLLBACK');
+      throw txErr;
+    } finally {
+      client.release();
+    }
   } catch (err) {
     logger.error('Stripe webhook handling failed:', err);
     res.status(500).json({ error: 'Internal webhook failure' });
@@ -3051,18 +3061,6 @@ app.post('/webhooks/razorpay', async (req, res) => {
       eventData.payload?.invoice?.entity;
     const eventId = eventData.id;
 
-    // Idempotency Check: prevent double-processing of events
-    const existing = await pool.query(
-      "SELECT id FROM payment_webhooks WHERE event_id = $1 AND provider = 'razorpay' AND processed_at IS NOT NULL",
-      [eventId]
-    );
-    if (existing.rows.length > 0) {
-      logger.info(
-        `[WEBHOOK] Razorpay event ${eventId} has already been processed.`
-      );
-      return res.status(200).json({ status: 'already_processed' });
-    }
-
     // Extract tenant_id from notes
     const tenantId = entity?.notes?.tenant_id || null;
     let tenantName = 'System';
@@ -3076,82 +3074,104 @@ app.post('/webhooks/razorpay', async (req, res) => {
     const amount = entity?.amount ? entity.amount / 100 : 0;
     const status = entity?.status || 'processed';
 
-    await pool.query(
-      `INSERT INTO payment_webhooks (event_id, provider_id, provider, event_type, status, amount, tenant_name, payload, signature_verified, processed_at)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW())`,
-      [
-        eventId,
-        provider.id,
-        'razorpay',
-        eventType,
-        status,
-        amount,
-        tenantName,
-        JSON.stringify(eventData),
-        true,
-      ]
-    );
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
 
-    // Business logic processing
-    if (tenantId) {
-      if (
-        eventType === 'subscription.activated' ||
-        eventType === 'subscription.charged'
-      ) {
-        const subId = entity.id;
-        const plan = entity.notes?.plan || 'starter';
-        let planId = plan.toLowerCase();
-        if (!['starter', 'professional', 'enterprise'].includes(planId)) {
-          if (planId === 'developer' || planId === 'solo') planId = 'starter';
-          else if (planId === 'pro') planId = 'professional';
-          else planId = 'starter';
-        }
-        const subStatus =
-          entity.status === 'active' || entity.status === 'authenticated'
-            ? 'active'
-            : 'paused';
-        const start = entity.current_start
-          ? new Date(entity.current_start * 1000)
-          : new Date();
-        const end = entity.current_end
-          ? new Date(entity.current_end * 1000)
-          : new Date();
+      // Idempotency: Insert with DO NOTHING and RETURNING
+      const insertRes = await client.query(
+        `INSERT INTO payment_webhooks (event_id, provider_id, provider, event_type, status, amount, tenant_name, payload, signature_verified, processed_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW())
+         ON CONFLICT (event_id, provider) DO NOTHING
+         RETURNING id`,
+        [
+          eventId,
+          provider.id,
+          'razorpay',
+          eventType,
+          status,
+          amount,
+          tenantName,
+          JSON.stringify(eventData),
+          true,
+        ]
+      );
 
-        await pool.query(
-          `INSERT INTO subscriptions (tenant_id, provider, provider_subscription_id, plan_id, status, current_period_start, current_period_end, amount, currency)
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-           ON CONFLICT (provider, provider_subscription_id) DO UPDATE SET 
-             status = EXCLUDED.status, 
-             current_period_start = EXCLUDED.current_period_start, 
-             current_period_end = EXCLUDED.current_period_end, 
-             amount = EXCLUDED.amount,
-             updated_at = NOW()`,
-          [
-            tenantId,
-            'razorpay',
-            subId,
-            planId,
-            subStatus,
-            start,
-            end,
-            amount,
-            'INR',
-          ]
+      if (insertRes.rows.length === 0) {
+        await client.query('COMMIT');
+        logger.info(
+          `[WEBHOOK] Razorpay event ${eventId} has already been processed.`
         );
-        await pool.query('UPDATE tenants SET plan = $1 WHERE id = $2', [
-          planId.toUpperCase(),
-          tenantId,
-        ]);
-      } else if (eventType === 'subscription.cancelled') {
-        const subId = entity.id;
-        await pool.query(
-          "UPDATE subscriptions SET status = 'cancelled', updated_at = NOW() WHERE provider_subscription_id = $1",
-          [subId]
-        );
+        return res.status(200).json({ status: 'already_processed' });
       }
-    }
 
-    res.status(200).json({ status: 'processed' });
+      // Business logic processing within transaction
+      if (tenantId) {
+        if (
+          eventType === 'subscription.activated' ||
+          eventType === 'subscription.charged'
+        ) {
+          const subId = entity.id;
+          const plan = entity.notes?.plan || 'starter';
+          let planId = plan.toLowerCase();
+          if (!['starter', 'professional', 'enterprise'].includes(planId)) {
+            if (planId === 'developer' || planId === 'solo') planId = 'starter';
+            else if (planId === 'pro') planId = 'professional';
+            else planId = 'starter';
+          }
+          const subStatus =
+            entity.status === 'active' || entity.status === 'authenticated'
+              ? 'active'
+              : 'paused';
+          const start = entity.current_start
+            ? new Date(entity.current_start * 1000)
+            : new Date();
+          const end = entity.current_end
+            ? new Date(entity.current_end * 1000)
+            : new Date();
+
+          await client.query(
+            `INSERT INTO subscriptions (tenant_id, provider, provider_subscription_id, plan_id, status, current_period_start, current_period_end, amount, currency)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+             ON CONFLICT (provider, provider_subscription_id) DO UPDATE SET 
+               status = EXCLUDED.status, 
+               current_period_start = EXCLUDED.current_period_start, 
+               current_period_end = EXCLUDED.current_period_end, 
+               amount = EXCLUDED.amount,
+               updated_at = NOW()`,
+            [
+              tenantId,
+              'razorpay',
+              subId,
+              planId,
+              subStatus,
+              start,
+              end,
+              amount,
+              'INR',
+            ]
+          );
+          await client.query('UPDATE tenants SET plan = $1 WHERE id = $2', [
+            planId.toUpperCase(),
+            tenantId,
+          ]);
+        } else if (eventType === 'subscription.cancelled') {
+          const subId = entity.id;
+          await client.query(
+            "UPDATE subscriptions SET status = 'cancelled', updated_at = NOW() WHERE provider_subscription_id = $1",
+            [subId]
+          );
+        }
+      }
+
+      await client.query('COMMIT');
+      res.status(200).json({ status: 'processed' });
+    } catch (txErr) {
+      await client.query('ROLLBACK');
+      throw txErr;
+    } finally {
+      client.release();
+    }
   } catch (err) {
     logger.error('Razorpay webhook processing error:', err);
     res.status(500).json({ error: 'Internal webhook error' });
