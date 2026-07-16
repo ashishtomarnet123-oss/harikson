@@ -327,3 +327,12 @@ CREATE POLICY tenant_isolation_policy ON playground_sessions
     FOR ALL
     USING (tenant_id = current_setting('app.current_tenant', true)::uuid)
     WITH CHECK (tenant_id = current_setting('app.current_tenant', true)::uuid);
+
+-- Migration: Add Performance Indexes
+CREATE INDEX IF NOT EXISTS idx_workflows_tenant ON workflows(tenant_id);
+CREATE INDEX IF NOT EXISTS idx_agents_tenant ON agents(tenant_id);
+CREATE INDEX IF NOT EXISTS idx_integrations_tenant ON integrations(tenant_id);
+CREATE INDEX IF NOT EXISTS idx_knowledge_bases_tenant ON knowledge_bases(tenant_id);
+CREATE INDEX IF NOT EXISTS idx_knowledge_documents_kb ON knowledge_documents(knowledge_base_id);
+CREATE INDEX IF NOT EXISTS idx_ai_activity_tenant_created ON ai_activity(tenant_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_vector_collections_tenant ON vector_collections(tenant_id);
