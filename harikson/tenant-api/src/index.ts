@@ -5575,7 +5575,7 @@ initUserTables().catch((err) =>
   logger.error(err, '❌ Error initializing tables')
 );
 
-app.listen(port, () => {
+const server = app.listen(port, () => {
   logger.info(`⚡ [Tenant API] Operational and listening on port ${port}`);
   HariksonScheduler.startAll(
     '00000000-0000-0000-0000-000000000000',
@@ -5583,3 +5583,30 @@ app.listen(port, () => {
     '00000000-0000-0000-0000-000000000001'
   );
 });
+
+const gracefulShutdown = (signal: string) => {
+  logger.info(`${signal} received. Starting graceful shutdown...`);
+  server.close(async () => {
+    logger.info('HTTP server closed. Closing connection pools...');
+    try {
+      HariksonScheduler.stopAll();
+      await pool.end();
+      await readPool.end();
+      await redis.quit();
+      logger.info('Connections closed. Exiting.');
+      process.exit(0);
+    } catch (err) {
+      logger.error('Error during graceful shutdown:', err);
+      process.exit(1);
+    }
+  });
+
+  // Force exit after 10s
+  setTimeout(() => {
+    logger.error('Forced shutdown after timeout');
+    process.exit(1);
+  }, 10000);
+};
+
+process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+process.on('SIGINT', () => gracefulShutdown('SIGINT'));

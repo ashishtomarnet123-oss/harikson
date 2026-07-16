@@ -3496,9 +3496,34 @@ app.use((err, req, res, next) => {
   res.status(500).json({ error: 'Internal Server Error' });
 });
 
-app.listen(port, () => {
+const server = app.listen(port, () => {
   logger.info(
     `⚡ [Admin Management API] Operational and listening on port ${port}`
   );
   startIntegrationWorkers(pool);
 });
+
+const gracefulShutdown = (signal) => {
+  logger.info(`${signal} received. Starting graceful shutdown...`);
+  server.close(async () => {
+    logger.info('HTTP server closed. Closing connection pools...');
+    try {
+      await pool.end();
+      await redis.quit();
+      logger.info('Connections closed. Exiting.');
+      process.exit(0);
+    } catch (err) {
+      logger.error('Error during graceful shutdown:', err);
+      process.exit(1);
+    }
+  });
+
+  // Force exit after 10s
+  setTimeout(() => {
+    logger.error('Forced shutdown after timeout');
+    process.exit(1);
+  }, 10000);
+};
+
+process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+process.on('SIGINT', () => gracefulShutdown('SIGINT'));
