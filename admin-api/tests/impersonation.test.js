@@ -20,7 +20,7 @@ async function runImpersonationTest() {
 
   // Get users list to pick a target
   const usersRes = await superadminClient.get('/admin/users');
-  const targetUser = usersRes.data[0];
+  const targetUser = usersRes.data.users[0];
   assert.ok(targetUser, 'Should have at least one user in the database to target');
   console.log(`   ✓ Selected target user for impersonation: ${targetUser.email} (ID: ${targetUser.id})`);
 
