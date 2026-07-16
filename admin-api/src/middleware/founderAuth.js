@@ -1,3 +1,4 @@
+import logger from '../utils/logger.js';
 import jwt from 'jsonwebtoken';
 import pg from 'pg';
 
@@ -63,7 +64,7 @@ export const founderAuth = async (req, res, next) => {
     req.founder = { id: user.id, role: user.role, email: user.email };
     next();
   } catch (err) {
-    console.error('Founder Auth Middleware error:', err);
+    logger.error('Founder Auth Middleware error:', err);
     return res.status(404).json({ error: 'Not Found' });
   }
 };

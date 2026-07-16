@@ -1,3 +1,4 @@
+import logger from './utils/logger.js';
 import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
@@ -30,7 +31,7 @@ import {
 import { chatMessageSchema } from './validators/chat.schema.js';
 
 if (!process.env.JWT_SECRET || process.env.JWT_SECRET.length < 32) {
-  console.error('FATAL: JWT_SECRET not set or too short (min 32 characters)');
+  logger.error('FATAL: JWT_SECRET not set or too short (min 32 characters)');
   process.exit(1);
 }
 
@@ -93,6 +94,24 @@ app.use(
   })
 );
 app.use(express.json());
+
+// Custom request logger middleware with PII query redaction
+app.use((req, res, next) => {
+  const query = { ...req.query };
+  const sensitiveKeys = ['password', 'token', 'refreshToken', 'apiKey', 'key', 'secret', 'email', 'phone'];
+  for (const k of sensitiveKeys) {
+    if (k in query) {
+      query[k] = '[REDACTED]';
+    }
+  }
+  logger.info({
+    msg: `Incoming Request: ${req.method} ${req.path}`,
+    method: req.method,
+    path: req.path,
+    query
+  });
+  next();
+});
 
 // PostgreSQL Pool Connection
 const pool = new Pool({
@@ -222,7 +241,7 @@ async function initUserTables() {
     `
       )
       .catch((err) =>
-        console.error('Policy recreation failed on activity_logs:', err)
+        logger.error('Policy recreation failed on activity_logs:', err)
       );
 
     // Migrate existing JSONB activity logs if users has rows and activity_logs table is empty
@@ -236,7 +255,7 @@ async function initUserTables() {
         WHERE table_name='users' AND column_name='activity_logs'
       `);
       if (hasColumn.rows.length > 0) {
-        console.log(
+        logger.info(
           '[MIGRATION] Migrating JSONB activity logs to activity_logs table...'
         );
         await pool
@@ -260,7 +279,7 @@ async function initUserTables() {
         `
           )
           .catch((err) =>
-            console.warn(
+            logger.warn(
               '[MIGRATION WARNING] Failed to migrate JSONB activity logs:',
               err.message
             )
@@ -299,7 +318,7 @@ async function initUserTables() {
     `
       )
       .catch((err) =>
-        console.error('Policy recreation failed on user_sessions:', err)
+        logger.error('Policy recreation failed on user_sessions:', err)
       );
 
     // Migrate existing JSONB connected_devices if user_sessions table is empty
@@ -313,7 +332,7 @@ async function initUserTables() {
         WHERE table_name='users' AND column_name='connected_devices'
       `);
       if (hasColumn.rows.length > 0) {
-        console.log(
+        logger.info(
           '[MIGRATION] Migrating JSONB connected_devices to user_sessions table...'
         );
         await pool
@@ -341,7 +360,7 @@ async function initUserTables() {
         `
           )
           .catch((err) =>
-            console.warn(
+            logger.warn(
               '[MIGRATION WARNING] Failed to migrate JSONB connected devices:',
               err.message
             )
@@ -378,7 +397,7 @@ async function initUserTables() {
     `
       )
       .catch((err) =>
-        console.error('Policy recreation failed on api_keys:', err)
+        logger.error('Policy recreation failed on api_keys:', err)
       );
 
     // Migrate existing JSONB developer_keys if api_keys table is empty
@@ -390,7 +409,7 @@ async function initUserTables() {
         WHERE table_name='users' AND column_name='developer_keys'
       `);
       if (hasColumn.rows.length > 0) {
-        console.log(
+        logger.info(
           '[MIGRATION] Migrating JSONB developer_keys to api_keys table...'
         );
         await pool
@@ -411,7 +430,7 @@ async function initUserTables() {
         `
           )
           .catch((err) =>
-            console.warn(
+            logger.warn(
               '[MIGRATION WARNING] Failed to migrate JSONB developer keys:',
               err.message
             )
@@ -445,7 +464,7 @@ async function initUserTables() {
         'SELECT COUNT(*)::int FROM knowledge_documents WHERE user_id IS NOT NULL'
       );
       if (checkDocUserRows.rows[0].count === 0) {
-        console.log(
+        logger.info(
           "[MIGRATION] Migrating users.settings->'rag_files' to knowledge_documents..."
         );
         await pool
@@ -474,7 +493,7 @@ async function initUserTables() {
         `
           )
           .catch((err) =>
-            console.warn(
+            logger.warn(
               '[MIGRATION WARNING] Failed to migrate RAG files from users.settings:',
               err.message
             )
@@ -487,7 +506,7 @@ async function initUserTables() {
         `
           )
           .catch((err) =>
-            console.warn(
+            logger.warn(
               '[MIGRATION WARNING] Failed to clear RAG files from users.settings:',
               err.message
             )
@@ -496,7 +515,7 @@ async function initUserTables() {
     }
 
     // 9. Drop duplicate JSONB columns from users table
-    console.log(
+    logger.info(
       '[MIGRATION] Dropping duplicate JSONB columns from users table...'
     );
     await pool
@@ -508,16 +527,16 @@ async function initUserTables() {
     `
       )
       .catch((err) =>
-        console.error(
+        logger.error(
           'Failed to drop duplicate JSONB columns from users:',
           err.message
         )
       );
 
     // 9.5 Create document_embeddings table with pgvector support
-    console.log('[MIGRATION] Enabling pgvector extension...');
+    logger.info('[MIGRATION] Enabling pgvector extension...');
     await pool.query('CREATE EXTENSION IF NOT EXISTS vector;');
-    console.log(
+    logger.info(
       '[MIGRATION] Creating document_embeddings table with pgvector...'
     );
     await pool.query(`
@@ -539,7 +558,7 @@ async function initUserTables() {
     `
       )
       .catch((err) =>
-        console.warn(
+        logger.warn(
           'Warning enabling RLS on document_embeddings:',
           err.message
         )
@@ -556,7 +575,7 @@ async function initUserTables() {
     `
       )
       .catch((err) =>
-        console.error(
+        logger.error(
           'Policy recreation failed on document_embeddings:',
           err.message
         )
@@ -569,14 +588,14 @@ async function initUserTables() {
     `
       )
       .catch((err) =>
-        console.error(
+        logger.error(
           'Failed to create embedding index on document_embeddings:',
           err.message
         )
       );
 
     // ── Database Schema Alignment (Fk & updated_at Triggers) ────────────────
-    console.log(
+    logger.info(
       '[MIGRATION] Running constraint and updated_at column migrations...'
     );
     await pool
@@ -702,12 +721,12 @@ async function initUserTables() {
     `
       )
       .catch((err) =>
-        console.error('❌ Schema alignment migration failed:', err)
+        logger.error('❌ Schema alignment migration failed:', err)
       );
 
-    console.log('✅ Tenant users schema extension verified successfully.');
+    logger.info('✅ Tenant users schema extension verified successfully.');
   } catch (err) {
-    console.error('❌ Failed to extend tenant users schema:', err);
+    logger.error('❌ Failed to extend tenant users schema:', err);
   }
 }
 // GDPR Data Export Helper
@@ -752,11 +771,11 @@ async function exportGDPRData(tenantId) {
       `tenant_gdpr_export_${tenantId}_${Date.now()}.json`
     );
     fs.writeFileSync(exportPath, JSON.stringify(payload, null, 2));
-    console.log(
+    logger.info(
       `[GDPR] Exported tenant ${tenantId} data successfully to ${exportPath}`
     );
   } catch (err) {
-    console.error(
+    logger.error(
       `[GDPR ERROR] Failed to export tenant data for ${tenantId}:`,
       err
     );
@@ -768,7 +787,7 @@ function startDailyCleanupCron() {
   const ONE_DAY = 24 * 60 * 60 * 1000;
 
   async function runCleanup() {
-    console.log(
+    logger.info(
       '[CRON] Running daily database cleanup & data retention rules...'
     );
     try {
@@ -776,7 +795,7 @@ function startDailyCleanupCron() {
       const delLogs = await pool.query(
         `DELETE FROM activity_logs WHERE created_at < NOW() - INTERVAL '90 days'`
       );
-      console.log(
+      logger.info(
         `[CRON] Cleaned up ${delLogs.rowCount} activity logs older than 90 days.`
       );
 
@@ -784,7 +803,7 @@ function startDailyCleanupCron() {
       const delSessions = await pool.query(
         `DELETE FROM user_sessions WHERE expires_at < NOW() OR revoked_at IS NOT NULL`
       );
-      console.log(
+      logger.info(
         `[CRON] Cleaned up ${delSessions.rowCount} expired/revoked user sessions.`
       );
 
@@ -792,7 +811,7 @@ function startDailyCleanupCron() {
       const delInvoices = await pool.query(
         `DELETE FROM invoices WHERE created_at < NOW() - INTERVAL '2555 days'`
       );
-      console.log(
+      logger.info(
         `[CRON] Hard deleted ${delInvoices.rowCount} invoices older than 7 years.`
       );
 
@@ -821,7 +840,7 @@ function startDailyCleanupCron() {
             [tId, days]
           );
           if (delConvsResult.rowCount > 0) {
-            console.log(
+            logger.info(
               `[CRON] Conversations retention: Hard deleted ${delConvsResult.rowCount} conversations older than ${days} days for tenant ${tId}`
             );
           }
@@ -847,7 +866,7 @@ function startDailyCleanupCron() {
         `DELETE FROM tenants WHERE deleted_at < NOW() - $1 * INTERVAL '1 day'`,
         [retentionDays]
       );
-      console.log(
+      logger.info(
         `[CRON] Hard deleted ${delTenants.rowCount} soft-deleted tenants older than ${retentionDays} days.`
       );
 
@@ -855,7 +874,7 @@ function startDailyCleanupCron() {
         `DELETE FROM users WHERE deleted_at < NOW() - $1 * INTERVAL '1 day'`,
         [retentionDays]
       );
-      console.log(
+      logger.info(
         `[CRON] Hard deleted ${delUsers.rowCount} soft-deleted users older than ${retentionDays} days.`
       );
 
@@ -863,7 +882,7 @@ function startDailyCleanupCron() {
         `DELETE FROM conversations WHERE deleted_at < NOW() - $1 * INTERVAL '1 day'`,
         [retentionDays]
       );
-      console.log(
+      logger.info(
         `[CRON] Hard deleted ${delConvs.rowCount} soft-deleted conversations older than ${retentionDays} days.`
       );
 
@@ -871,7 +890,7 @@ function startDailyCleanupCron() {
         `DELETE FROM messages WHERE deleted_at < NOW() - $1 * INTERVAL '1 day'`,
         [retentionDays]
       );
-      console.log(
+      logger.info(
         `[CRON] Hard deleted ${delMsgs.rowCount} soft-deleted messages older than ${retentionDays} days.`
       );
       // 4. Check plan downgrade grace period violations
@@ -905,7 +924,7 @@ function startDailyCleanupCron() {
                 `UPDATE agents SET status = 'disabled' WHERE id = ANY($1)`,
                 [extraAgentIds]
               );
-              console.log(
+              logger.info(
                 `[CRON] Disabled ${extraAgentIds.length} extra agents for tenant ${tenantId}`
               );
             }
@@ -934,25 +953,25 @@ function startDailyCleanupCron() {
               `UPDATE tenants SET status = 'suspended' WHERE id = $1`,
               [tenantId]
             );
-            console.log(
+            logger.info(
               `[CRON] Auto-suspended tenant ${tenantId} due to unresolved plan limit violations for 14 days.`
             );
           }
         }
       }
     } catch (err) {
-      console.error('[CRON ERROR] Daily database cleanup failed:', err);
+      logger.error('[CRON ERROR] Daily database cleanup failed:', err);
     }
   }
 
   // Run once immediately on startup (with 5s delay)
   setTimeout(() => {
-    runCleanup().catch(console.error);
+    runCleanup().catch((err) => logger.error(err));
   }, 5000);
 
   // Schedule to run every 24 hours
   setInterval(() => {
-    runCleanup().catch(console.error);
+    runCleanup().catch((err) => logger.error(err));
   }, ONE_DAY);
 }
 startDailyCleanupCron();
@@ -962,7 +981,7 @@ const redis = new Redis(process.env.REDIS_URL || 'redis://localhost:6379');
 
 // DB connection error logging
 pool.on('error', (err) => {
-  console.error('Unexpected error on inactive database client', err);
+  logger.error('Unexpected error on inactive database client', err);
 });
 
 // Helper: Acquire a verified clean connection from the pool
@@ -1028,7 +1047,7 @@ async function executeTenantQuery(tenantId, callback, useReplica = false) {
         );
         client.release();
       } catch (resetErr) {
-        console.error(
+        logger.error(
           '[DB FATAL] Failed to reset tenant context, destroying connection:',
           resetErr
         );
@@ -1153,7 +1172,7 @@ const tenantMiddleware = async (req, res, next) => {
     req.tenant = tenant;
     next();
   } catch (err) {
-    console.error('Tenant middleware error:', err);
+    logger.error('Tenant middleware error:', err);
     res.status(500).json({ error: 'Internal Server Error' });
   }
 };
@@ -1247,7 +1266,7 @@ async function isPasswordPwned(password) {
     }
     return false;
   } catch (err) {
-    console.warn('HaveIBeenPwned check failed, falling open:', err.message);
+    logger.warn('HaveIBeenPwned check failed, falling open:', err.message);
     return false;
   }
 }
@@ -1298,7 +1317,7 @@ async function checkSlidingWindowLimit(key, limit, windowSeconds = 60) {
       retryAfter,
     };
   } catch (err) {
-    console.error(`[RATE LIMIT ERROR] Redis key ${key} failed:`, err.message);
+    logger.error(`[RATE LIMIT ERROR] Redis key ${key} failed:`, err.message);
     return {
       allowed: true,
       limit,
@@ -1383,7 +1402,7 @@ const rateLimiterMiddleware = async (req, res, next) => {
           const decoded = jwt.verify(token, jwtSecret);
           userId = decoded.userId;
         } catch (err) {
-          console.warn(
+          logger.warn(
             'Warning verifying JWT token in request logging middleware:',
             err.message
           );
@@ -1476,7 +1495,7 @@ const rateLimiterMiddleware = async (req, res, next) => {
       }
     }
   } catch (err) {
-    console.error('[RATE LIMIT MIDDLEWARE ERROR]:', err);
+    logger.error('[RATE LIMIT MIDDLEWARE ERROR]:', err);
   }
 
   next();
@@ -1522,7 +1541,7 @@ const authMiddleware = async (req, res, next) => {
           keyRecord.id,
         ])
         .catch((err) => {
-          console.warn(
+          logger.warn(
             'Warning updating last_used_at for api_key:',
             err.message
           );
@@ -1552,7 +1571,7 @@ const authMiddleware = async (req, res, next) => {
       return next();
     }
 
-    console.log(
+    logger.info(
       `[AUTH DEBUG] ${req.method} ${req.url} - Token: "${token ? 'Present' : 'None'}" - Tenant Header: "${req.headers['x-tenant-slug']}"`
     );
 
@@ -1694,7 +1713,7 @@ const authMiddleware = async (req, res, next) => {
     req.user = user;
     next();
   } catch (err) {
-    console.error('Auth middleware error:', err);
+    logger.error('Auth middleware error:', err);
     res.status(401).json({ error: 'Access Denied: Invalid or expired token' });
   }
 };
@@ -1724,7 +1743,7 @@ app.get('/api/models', async (req, res) => {
 
     res.status(200).json(models);
   } catch (err) {
-    console.warn('Ollama offline, returning fallback model list');
+    logger.warn('Ollama offline, returning fallback model list');
     res
       .status(200)
       .json(['harikson-chat-8b', 'harikson-coder-7b', 'harikson-coder-14b']);
@@ -2014,7 +2033,7 @@ async function searchWeb(query) {
     });
     return results.join('\n\n');
   } catch (err) {
-    console.error('Failed to search web:', err.message);
+    logger.error('Failed to search web:', err.message);
     return 'Web search failed.';
   }
 }
@@ -2081,7 +2100,7 @@ async function crawlWebsite(
 
     return result;
   } catch (err) {
-    console.warn(`Failed to crawl ${url}:`, err.message);
+    logger.warn(`Failed to crawl ${url}:`, err.message);
     return `\n--- PAGE: ${url} ---\nFailed to fetch content: ${err.message}\n`;
   }
 }
@@ -2126,7 +2145,7 @@ async function getEmbedding(text, model = 'qwen2.5-coder:7b') {
     }
     return embedding;
   } catch (error) {
-    console.warn(
+    logger.warn(
       'Ollama embeddings error in tenant-api, returning fallback mock vector.',
       error.message
     );
@@ -2205,7 +2224,7 @@ app.get('/api/agents', authMiddleware, async (req, res) => {
     });
     res.json(agents);
   } catch (err) {
-    console.error('Failed to fetch agents:', err);
+    logger.error('Failed to fetch agents:', err);
     res.status(500).json({ error: 'Failed to fetch agents' });
   }
 });
@@ -2245,7 +2264,7 @@ app.post(
           selectedModel = agentConfig.model || selectedModel;
         }
       } catch (err) {
-        console.warn('Failed to fetch agent config:', err);
+        logger.warn('Failed to fetch agent config:', err);
       }
     }
 
@@ -2284,7 +2303,7 @@ app.post(
           });
         }
       } catch (err) {
-        console.warn('Failed to verify token limit:', err);
+        logger.warn('Failed to verify token limit:', err);
       }
     }
 
@@ -2332,7 +2351,7 @@ app.post(
           await redis.expire(key, 60);
         }
       } catch (err) {
-        console.warn(
+        logger.warn(
           'Redis rate limit check failed, bypassing to ensure availability',
           err
         );
@@ -2417,7 +2436,7 @@ app.post(
             .join('\n\n');
         }
       } catch (err) {
-        console.warn(
+        logger.warn(
           'Warning retrieving RAG context from document_embeddings:',
           err.message
         );
@@ -2471,7 +2490,7 @@ app.post(
             { timeout: 2000 }
           )
           .catch((err) => {
-            console.warn(
+            logger.warn(
               'Warning calling admin activity endpoint:',
               err.message
             );
@@ -2479,7 +2498,7 @@ app.post(
           });
         if (actResp?.data?.id) activityId = actResp.data.id;
       } catch (error) {
-        console.warn('Warning logging activity to admin panel:', error.message);
+        logger.warn('Warning logging activity to admin panel:', error.message);
       }
 
       // Set streaming headers
@@ -2582,7 +2601,7 @@ app.post(
               }
             });
           } catch (dbErr) {
-            console.error('Failed to save chat messages to DB:', dbErr);
+            logger.error('Failed to save chat messages to DB:', dbErr);
           }
 
           const latency = Date.now() - chatStartTime;
@@ -2602,7 +2621,7 @@ app.post(
                 }
               )
               .catch((err) => {
-                console.warn(
+                logger.warn(
                   'Warning updating admin activity status:',
                   err.message
                 );
@@ -2655,7 +2674,7 @@ app.post(
                   parsed.eval_count || Math.ceil(fullResponseText.length / 4);
               }
             } catch (e) {
-              console.warn('Warning parsing Ollama stream chunk:', e.message);
+              logger.warn('Warning parsing Ollama stream chunk:', e.message);
             }
           }
         });
@@ -2671,11 +2690,11 @@ app.post(
         });
 
         response.data.on('error', (streamErr) => {
-          console.error('Ollama stream error:', streamErr);
+          logger.error('Ollama stream error:', streamErr);
           if (!res.writableEnded) res.end();
         });
       } catch (ollamaErr) {
-        console.warn(
+        logger.warn(
           'Ollama /api/chat failed, using context-aware fallback:',
           ollamaErr.message
         );
@@ -2715,13 +2734,13 @@ app.post(
             );
           });
         } catch (dbErr) {
-          console.error('Failed to save fallback messages to DB:', dbErr);
+          logger.error('Failed to save fallback messages to DB:', dbErr);
         }
         res.write(fallbackResponse);
         res.end();
       }
     } catch (err) {
-      console.error('Chat endpoint error:', err);
+      logger.error('Chat endpoint error:', err);
       if (!res.headersSent) {
         res.status(500).json({ error: 'Failed to process chat conversation' });
       }
@@ -2858,7 +2877,7 @@ app.post('/api/auth/login', validate(loginSchema), async (req, res) => {
         }
       });
     } catch (trackErr) {
-      console.warn('Failed to record login activity:', trackErr.message);
+      logger.warn('Failed to record login activity:', trackErr.message);
     }
     // ─────────────────────────────────────────────────────────────────────────
 
@@ -2872,7 +2891,7 @@ app.post('/api/auth/login', validate(loginSchema), async (req, res) => {
       },
     });
   } catch (err) {
-    console.error('Login error:', err);
+    logger.error('Login error:', err);
     res.status(500).json({ error: 'Login failed' });
   }
 });
@@ -2937,7 +2956,7 @@ app.post('/api/auth/register', validate(registerSchema), async (req, res) => {
 
     // Send welcome email in background (non-blocking)
     sendWelcomeEmail(email, name).catch((err) =>
-      console.error('[WELCOME EMAIL SEND ERROR]:', err.message)
+      logger.error('[WELCOME EMAIL SEND ERROR]:', err.message)
     );
 
     const accessToken = jwt.sign(
@@ -2980,7 +2999,7 @@ app.post('/api/auth/register', validate(registerSchema), async (req, res) => {
       },
     });
   } catch (err) {
-    console.error('Register error:', err);
+    logger.error('Register error:', err);
     res.status(500).json({ error: 'Registration failed' });
   }
 });
@@ -3016,7 +3035,7 @@ app.post(
 
       if (!user) {
         // Return 200/success anyway to prevent username enumeration, but log it
-        console.log(
+        logger.info(
           `[FORGOT PASSWORD] Requested email "${email}" does not exist in tenant "${req.tenant.slug}"`
         );
         return res.status(200).json({
@@ -3057,7 +3076,7 @@ app.post(
     `;
 
       // Log the simulated email details to console
-      console.log(`
+      logger.info(`
 ============================================================
 📧 SIMULATED RESET EMAIL SENT TO: ${email}
 ============================================================
@@ -3081,7 +3100,7 @@ ${emailHtml}
           JSON.stringify(emailLog) + '\n'
         );
       } catch (logErr) {
-        console.warn(
+        logger.warn(
           '[EMAIL LOG] Failed to log email locally:',
           logErr.message
         );
@@ -3089,7 +3108,7 @@ ${emailHtml}
 
       // Send password reset email in background (non-blocking)
       sendPasswordReset(email, resetLink).catch((err) =>
-        console.error('[PASSWORD RESET EMAIL SEND ERROR]:', err.message)
+        logger.error('[PASSWORD RESET EMAIL SEND ERROR]:', err.message)
       );
 
       res.status(200).json({
@@ -3097,7 +3116,7 @@ ${emailHtml}
           'If this email exists in our records, a reset link will be sent.',
       });
     } catch (err) {
-      console.error('Forgot password error:', err);
+      logger.error('Forgot password error:', err);
       res
         .status(500)
         .json({ error: 'Failed to process password reset request' });
@@ -3202,7 +3221,7 @@ app.post(
           'Password has been reset successfully. All other active sessions have been logged out.',
       });
     } catch (err) {
-      console.error('Reset password error:', err);
+      logger.error('Reset password error:', err);
       res.status(500).json({ error: 'Failed to reset password' });
     }
   }
@@ -3243,7 +3262,7 @@ app.post('/api/auth/logout', async (req, res) => {
           [decoded.userId, ip, ua]
         );
       } catch (err) {
-        console.warn(
+        logger.warn(
           'Warning during session revocation on logout:',
           err.message
         );
@@ -3262,7 +3281,7 @@ app.post('/api/auth/logout', async (req, res) => {
 
     res.status(200).json({ success: true, message: 'Logged out successfully' });
   } catch (err) {
-    console.error('Logout error:', err);
+    logger.error('Logout error:', err);
     res.status(500).json({ error: 'Logout failed' });
   }
 });
@@ -3345,7 +3364,7 @@ app.post('/api/auth/refresh', async (req, res) => {
       user: { id: user.id, email: user.email, role: user.role },
     });
   } catch (err) {
-    console.error('Refresh error:', err);
+    logger.error('Refresh error:', err);
     res.status(500).json({ error: 'Token refresh failed' });
   }
 });
@@ -3380,7 +3399,7 @@ app.get('/api/conversations', authMiddleware, async (req, res) => {
     );
     res.json({ conversations });
   } catch (err) {
-    console.error('List conversations error:', err);
+    logger.error('List conversations error:', err);
     res.status(500).json({ error: 'Failed to fetch conversations' });
   }
 });
@@ -3399,7 +3418,7 @@ app.delete('/api/conversations/:id', authMiddleware, async (req, res) => {
     });
     res.json({ success: true });
   } catch (err) {
-    console.error('Delete conversation error:', err);
+    logger.error('Delete conversation error:', err);
     res.status(500).json({ error: 'Failed to delete conversation' });
   }
 });
@@ -3417,7 +3436,7 @@ app.patch('/api/conversations/:id', authMiddleware, async (req, res) => {
     });
     res.json({ success: true });
   } catch (err) {
-    console.error('Rename conversation error:', err);
+    logger.error('Rename conversation error:', err);
     res.status(500).json({ error: 'Failed to rename conversation' });
   }
 });
@@ -3441,7 +3460,7 @@ app.get('/api/conversations/:id/messages', authMiddleware, async (req, res) => {
     );
     res.json({ messages });
   } catch (err) {
-    console.error('Get messages error:', err);
+    logger.error('Get messages error:', err);
     res.status(500).json({ error: 'Failed to fetch messages' });
   }
 });
@@ -3461,7 +3480,7 @@ app.get('/api/user/profile', authMiddleware, async (req, res) => {
     });
     res.json(user || {});
   } catch (err) {
-    console.error('Fetch profile error:', err);
+    logger.error('Fetch profile error:', err);
     res.status(500).json({ error: 'Failed to fetch profile' });
   }
 });
@@ -3505,7 +3524,7 @@ app.put(
       });
       res.json(user || {});
     } catch (err) {
-      console.error('Update profile error:', err);
+      logger.error('Update profile error:', err);
       res.status(500).json({ error: 'Failed to update profile' });
     }
   }
@@ -3523,7 +3542,7 @@ app.get('/api/user/settings', authMiddleware, async (req, res) => {
     });
     res.json(settings);
   } catch (err) {
-    console.error('Fetch settings error:', err);
+    logger.error('Fetch settings error:', err);
     res.status(500).json({ error: 'Failed to fetch settings' });
   }
 });
@@ -3548,7 +3567,7 @@ app.put(
       );
       res.json(updated);
     } catch (err) {
-      console.error('Update settings error:', err);
+      logger.error('Update settings error:', err);
       res.status(500).json({ error: 'Failed to update settings' });
     }
   }
@@ -3667,7 +3686,7 @@ app.get('/api/user/billing', authMiddleware, async (req, res) => {
       invoices,
     });
   } catch (err) {
-    console.error('Fetch billing error:', err);
+    logger.error('Fetch billing error:', err);
     res.status(500).json({ error: 'Failed to fetch billing info' });
   }
 });
@@ -3763,7 +3782,7 @@ app.get('/api/user/devices', authMiddleware, async (req, res) => {
     });
     res.json(mapped);
   } catch (err) {
-    console.error('Fetch devices error:', err);
+    logger.error('Fetch devices error:', err);
     res.status(500).json({ error: 'Failed to fetch connected devices' });
   }
 });
@@ -3845,7 +3864,7 @@ app.delete('/api/user/devices/:id', authMiddleware, async (req, res) => {
     });
     res.json({ success: true, devices: mapped });
   } catch (err) {
-    console.error('Delete device error:', err);
+    logger.error('Delete device error:', err);
     res.status(500).json({ error: 'Failed to terminate device session' });
   }
 });
@@ -3874,7 +3893,7 @@ app.delete('/api/user/account/gdpr', authMiddleware, async (req, res) => {
         'Your account and all associated data have been permanently deleted.',
     });
   } catch (err) {
-    console.error('GDPR hard delete error:', err);
+    logger.error('GDPR hard delete error:', err);
     res.status(500).json({ error: 'Failed to process hard delete request' });
   }
 });
@@ -3915,7 +3934,7 @@ app.get('/api/user/activity', authMiddleware, async (req, res) => {
     // Return actual logs — empty array for users with no recorded activity
     res.json(logs);
   } catch (err) {
-    console.error('Fetch activity error:', err);
+    logger.error('Fetch activity error:', err);
     res.status(500).json({ error: 'Failed to fetch activity logs' });
   }
 });
@@ -3958,7 +3977,7 @@ app.get('/api/user/workspace', authMiddleware, async (req, res) => {
     );
     res.json(workspace);
   } catch (err) {
-    console.error('Fetch workspace error:', err);
+    logger.error('Fetch workspace error:', err);
     res.status(500).json({ error: 'Failed to fetch workspace settings' });
   }
 });
@@ -4037,7 +4056,7 @@ app.put(
         role: role,
       });
     } catch (err) {
-      console.error('Update member role error:', err);
+      logger.error('Update member role error:', err);
       res.status(500).json({ error: 'Failed to update member role' });
     }
   }
@@ -4135,7 +4154,7 @@ app.post('/api/user/workspace/members', authMiddleware, async (req, res) => {
       avatar: newMember.name.slice(0, 2).toUpperCase(),
     });
   } catch (err) {
-    console.error('Add workspace member error:', err);
+    logger.error('Add workspace member error:', err);
     res
       .status(400)
       .json({ error: err.message || 'Failed to add workspace member' });
@@ -4218,7 +4237,7 @@ app.delete(
         email: deleted,
       });
     } catch (err) {
-      console.error('Delete workspace member error:', err);
+      logger.error('Delete workspace member error:', err);
       res.status(500).json({ error: 'Failed to remove workspace member' });
     }
   }
@@ -4255,7 +4274,7 @@ async function listApiKeys(req, res) {
     );
     res.json(keys);
   } catch (err) {
-    console.error('List API keys error:', err);
+    logger.error('List API keys error:', err);
     res.status(500).json({ error: 'Failed to fetch API keys' });
   }
 }
@@ -4320,7 +4339,7 @@ async function createApiKey(req, res) {
       keys: keys,
     });
   } catch (err) {
-    console.error('Create API key error:', err);
+    logger.error('Create API key error:', err);
     res.status(500).json({ error: 'Failed to create API key' });
   }
 }
@@ -4362,7 +4381,7 @@ async function revokeApiKey(req, res) {
 
     res.json({ success: true, keys });
   } catch (err) {
-    console.error('Revoke API key error:', err);
+    logger.error('Revoke API key error:', err);
     res.status(500).json({ error: 'Failed to revoke API key' });
   }
 }
@@ -4452,7 +4471,7 @@ app.get('/api/user/usage', authMiddleware, async (req, res) => {
       days,
     });
   } catch (err) {
-    console.error('Fetch usage error:', err);
+    logger.error('Fetch usage error:', err);
     res.status(500).json({ error: 'Failed to fetch usage analytics' });
   }
 });
@@ -4545,7 +4564,7 @@ app.post(
 
       res.json({ success: true, message: 'Password updated successfully' });
     } catch (err) {
-      console.error('Change password error:', err);
+      logger.error('Change password error:', err);
       res.status(500).json({ error: 'Failed to change password' });
     }
   }
@@ -4566,7 +4585,7 @@ app.get('/api/user/presets', authMiddleware, async (req, res) => {
     });
     res.json(presets);
   } catch (err) {
-    console.error('Fetch presets error:', err);
+    logger.error('Fetch presets error:', err);
     res.status(500).json({ error: 'Failed to fetch presets' });
   }
 });
@@ -4604,7 +4623,7 @@ app.post('/api/user/presets', authMiddleware, async (req, res) => {
     });
     res.status(201).json(updated);
   } catch (err) {
-    console.error('Create preset error:', err);
+    logger.error('Create preset error:', err);
     res.status(500).json({ error: 'Failed to create preset' });
   }
 });
@@ -4629,7 +4648,7 @@ app.delete('/api/user/presets/:id', authMiddleware, async (req, res) => {
     });
     res.json(updated);
   } catch (err) {
-    console.error('Delete preset error:', err);
+    logger.error('Delete preset error:', err);
     res.status(500).json({ error: 'Failed to delete preset' });
   }
 });
@@ -4651,7 +4670,7 @@ app.get('/api/user/rag-files', authMiddleware, async (req, res) => {
     });
     res.json(files);
   } catch (err) {
-    console.error('Fetch rag files error:', err);
+    logger.error('Fetch rag files error:', err);
     res.status(500).json({ error: 'Failed to fetch RAG files' });
   }
 });
@@ -4749,7 +4768,7 @@ app.post('/api/user/rag-files', authMiddleware, async (req, res) => {
     });
     res.status(201).json(updated);
   } catch (err) {
-    console.error('Save rag file error:', err);
+    logger.error('Save rag file error:', err);
     res.status(500).json({ error: 'Failed to save RAG file' });
   }
 });
@@ -4776,7 +4795,7 @@ app.patch('/api/user/rag-files/:id', authMiddleware, async (req, res) => {
     });
     res.json(updated);
   } catch (err) {
-    console.error('Toggle rag file error:', err);
+    logger.error('Toggle rag file error:', err);
     res.status(500).json({ error: 'Failed to toggle RAG file' });
   }
 });
@@ -4802,7 +4821,7 @@ app.delete('/api/user/rag-files/:id', authMiddleware, async (req, res) => {
     });
     res.json(updated);
   } catch (err) {
-    console.error('Delete rag file error:', err);
+    logger.error('Delete rag file error:', err);
     res.status(500).json({ error: 'Failed to delete RAG file' });
   }
 });
@@ -4881,7 +4900,7 @@ app.get('/api/chat/history', authMiddleware, async (req, res) => {
     );
     res.json({ conversations });
   } catch (err) {
-    console.error('Chat history error:', err);
+    logger.error('Chat history error:', err);
     res.status(500).json({ error: 'Failed to fetch chat history' });
   }
 });
@@ -4909,7 +4928,7 @@ app.get('/api/billing/invoices', authMiddleware, async (req, res) => {
     );
     res.json({ invoices });
   } catch (err) {
-    console.error('Fetch billing invoices error:', err);
+    logger.error('Fetch billing invoices error:', err);
     res.status(500).json({ error: 'Failed to fetch invoices' });
   }
 });
@@ -4918,14 +4937,14 @@ app.get('/api/billing/invoices', authMiddleware, async (req, res) => {
 
 // Global Error Handler
 app.use((err, req, res, next) => {
-  console.error('Unhandled server error:', err);
+  logger.error(err, 'Unhandled server error');
   res.status(500).json({ error: 'Internal Server Error' });
 });
 
 initUserTables().catch((err) =>
-  console.error('❌ Error initializing tables:', err)
+  logger.error(err, '❌ Error initializing tables')
 );
 
 app.listen(port, () => {
-  console.log(`⚡ [Tenant API] Operational and listening on port ${port}`);
+  logger.info(`⚡ [Tenant API] Operational and listening on port ${port}`);
 });

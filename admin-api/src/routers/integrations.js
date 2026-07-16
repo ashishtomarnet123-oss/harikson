@@ -1,3 +1,4 @@
+import logger from '../utils/logger.js';
 /**
  * Integration Center Router
  * Handles all /admin/integrations/* and /admin/webhooks/* endpoints
@@ -256,7 +257,7 @@ async function initIntegrationTables(pool) {
     )
     .catch(() => {});
 
-  console.log('[Integration Center] Tables initialized.');
+  logger.info('[Integration Center] Tables initialized.');
 }
 
 // ─────────────────────────────────────────────────────────────────────
@@ -282,7 +283,7 @@ async function logActivity(
       [tenantId, providerId, level, message, JSON.stringify(metadata)]
     );
   } catch (e) {
-    console.error('[Integration Activity Log Error]', e.message);
+    logger.error('[Integration Activity Log Error]', e.message);
   }
 }
 
@@ -405,7 +406,7 @@ router.get('/providers', async (req, res) => {
 
     res.json({ success: true, data: providers });
   } catch (e) {
-    console.error('[GET /integrations/providers]', e);
+    logger.error('[GET /integrations/providers]', e);
     res.status(500).json({ success: false, error: e.message });
   }
 });
@@ -599,7 +600,7 @@ router.post('/:provider/connect', async (req, res) => {
       message: `${providerConfig.name} connected`,
     });
   } catch (e) {
-    console.error(`[POST /integrations/${provider}/connect]`, e);
+    logger.error(`[POST /integrations/${provider}/connect]`, e);
     res.status(500).json({ success: false, error: e.message });
   }
 });
@@ -727,7 +728,7 @@ router.get('/:provider/callback', async (req, res) => {
       `/admin/integrations?provider=${provider}&status=connected`;
     return res.redirect(redirectAfter);
   } catch (e) {
-    console.error(`[GET /integrations/${provider}/callback]`, e);
+    logger.error(`[GET /integrations/${provider}/callback]`, e);
     return res.redirect(
       `/admin/integrations?provider=${provider}&status=error&reason=server_error`
     );
@@ -788,7 +789,7 @@ router.post('/:provider/disconnect', async (req, res) => {
       disconnected_at: new Date().toISOString(),
     });
   } catch (e) {
-    console.error(`[POST /integrations/${provider}/disconnect]`, e);
+    logger.error(`[POST /integrations/${provider}/disconnect]`, e);
     res.status(500).json({ success: false, error: e.message });
   }
 });
@@ -859,7 +860,7 @@ router.post('/:provider/sync', async (req, res) => {
       poll_url: `/admin/integrations/${provider}/sync/${jobId}`,
     });
   } catch (e) {
-    console.error(`[POST /integrations/${provider}/sync]`, e);
+    logger.error(`[POST /integrations/${provider}/sync]`, e);
     res.status(500).json({ success: false, error: e.message });
   }
 });
@@ -1042,11 +1043,11 @@ router.post('/webhooks/:provider', async (req, res) => {
       [provider, eventId, eventType, signatureValid, req.body, idempotencyKey]
     );
 
-    console.log(
+    logger.info(
       `[Webhook] ${provider} ${eventType} received (valid: ${signatureValid})`
     );
   } catch (e) {
-    console.error(`[Webhook Error - ${provider}]`, e.message);
+    logger.error(`[Webhook Error - ${provider}]`, e.message);
   }
 });
 
@@ -1062,9 +1063,9 @@ function startIntegrationWorkers(pool) {
           `DELETE FROM oauth_states WHERE expires_at < NOW()`
         );
         if (r.rowCount > 0)
-          console.log(`[Worker] Purged ${r.rowCount} expired OAuth states`);
+          logger.info(`[Worker] Purged ${r.rowCount} expired OAuth states`);
       } catch (e) {
-        console.error('[Worker: OAuth state cleanup]', e.message);
+        logger.error('[Worker: OAuth state cleanup]', e.message);
       }
     },
     5 * 60 * 1000
@@ -1089,15 +1090,15 @@ function startIntegrationWorkers(pool) {
           );
         }
         if (rows.length > 0)
-          console.log(`[Worker] Recovered ${rows.length} stuck sync jobs`);
+          logger.info(`[Worker] Recovered ${rows.length} stuck sync jobs`);
       } catch (e) {
-        console.error('[Worker: stuck sync recovery]', e.message);
+        logger.error('[Worker: stuck sync recovery]', e.message);
       }
     },
     5 * 60 * 1000
   );
 
-  console.log('[Integration Center] Background workers started.');
+  logger.info('[Integration Center] Background workers started.');
 }
 
 export { router, initIntegrationTables, startIntegrationWorkers, PROVIDERS };

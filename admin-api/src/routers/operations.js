@@ -1,3 +1,4 @@
+import logger from '../utils/logger.js';
 import express from 'express';
 import pg from 'pg';
 import { exec } from 'child_process';
@@ -81,7 +82,7 @@ router.get('/activity', async (req, res) => {
       total: result.rowCount,
     });
   } catch (err) {
-    console.error('Activity fetch error:', err);
+    logger.error('Activity fetch error:', err);
     res.status(500).json({ error: 'Failed to fetch activity' });
   }
 });
@@ -120,7 +121,7 @@ router.post('/activity', validate(activitySchema), async (req, res) => {
     );
     res.json({ id: result.rows[0].id });
   } catch (err) {
-    console.error('Activity log error:', err);
+    logger.error('Activity log error:', err);
     res.status(500).json({ error: 'Failed to log activity' });
   }
 });
@@ -141,7 +142,7 @@ router.get('/activity/stream', async (req, res) => {
         ORDER BY a.created_at DESC LIMIT 25
       `);
     } catch (err) {
-      console.error('Error in sendData SSE callback:', err);
+      logger.error('Error in sendData SSE callback:', err);
     }
   };
 
@@ -230,7 +231,7 @@ router.post('/knowledge/:id/documents', async (req, res) => {
           [chunks, file_size_bytes || 0, req.params.id]
         );
       } catch (err) {
-        console.error('Error in background document indexing simulation:', err);
+        logger.error('Error in background document indexing simulation:', err);
       }
     });
     res.json(doc.rows[0]);
@@ -308,7 +309,7 @@ router.post('/playground/chat', async (req, res) => {
               res.write(parsed.message.content);
             }
           } catch (e) {
-            console.warn(
+            logger.warn(
               'Warning parsing playground Ollama stream chunk:',
               e.message
             );
@@ -339,7 +340,7 @@ router.post('/playground/chat', async (req, res) => {
           ]
         );
       } catch (err) {
-        console.warn('Warning saving playground session to DB:', err.message);
+        logger.warn('Warning saving playground session to DB:', err.message);
       }
       res.setHeader('X-Tokens-In', tokensIn);
       res.setHeader('X-Tokens-Out', tokensOut);
@@ -350,7 +351,7 @@ router.post('/playground/chat', async (req, res) => {
       if (!res.writableEnded) res.end();
     });
   } catch (err) {
-    console.error('Playground chat error:', err.message);
+    logger.error('Playground chat error:', err.message);
     if (!res.headersSent)
       res.status(500).json({ error: 'Inference failed', details: err.message });
     else res.end();
@@ -502,10 +503,10 @@ async function seedWorkflows() {
         ('Weekly Backup Pipeline', 'Triggers DB snapshot, uploads to S3, verifies integrity', 'scheduled', 'active', 8, 100),
         ('GPU Alert Handler', 'When GPU > 90%, routes traffic to 8B model, alerts admin', 'event', 'active', 3, 66.67)
       `);
-      console.log('✅ Seeded default workflows');
+      logger.info('✅ Seeded default workflows');
     }
   } catch (err) {
-    console.error('Error seeding default workflows:', err);
+    logger.error('Error seeding default workflows:', err);
   }
 }
 seedWorkflows();
@@ -557,10 +558,10 @@ async function seedKnowledge() {
           [kb2.rows[0].id]
         );
       }
-      console.log('✅ Seeded default knowledge bases and documents');
+      logger.info('✅ Seeded default knowledge bases and documents');
     }
   } catch (err) {
-    console.error('Failed to seed knowledge base:', err);
+    logger.error('Failed to seed knowledge base:', err);
   }
 }
 seedKnowledge();
@@ -615,7 +616,7 @@ router.get('/gpu', async (req, res) => {
           };
         });
     } catch (err) {
-      console.warn('Warning querying GPU processes:', err.message);
+      logger.warn('Warning querying GPU processes:', err.message);
     }
     res.json({ gpus, processes });
   } catch (err) {
@@ -695,7 +696,7 @@ router.get('/security', async (req, res) => {
       audit_event_count: recentActivity.rows.length,
     });
   } catch (err) {
-    console.error('Security fetch error:', err);
+    logger.error('Security fetch error:', err);
     res.status(500).json({ error: 'Failed to fetch security data' });
   }
 });
@@ -721,7 +722,7 @@ router.get('/notifications', async (req, res) => {
       unread_count: parseInt(unread.rows[0].count),
     });
   } catch (err) {
-    console.error('Notifications error:', err);
+    logger.error('Notifications error:', err);
     res.status(500).json({ error: 'Failed to fetch notifications' });
   }
 });
@@ -1030,7 +1031,7 @@ router.get('/search', async (req, res) => {
     ].slice(0, 20);
     res.json({ results, query: q });
   } catch (err) {
-    console.error('Search error:', err);
+    logger.error('Search error:', err);
     res.status(500).json({ error: 'Search failed' });
   }
 });

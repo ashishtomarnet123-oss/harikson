@@ -1,3 +1,4 @@
+import logger from '../utils/logger.js';
 import express from 'express';
 import pg from 'pg';
 import { founderAuth } from '../middleware/founderAuth.js';
@@ -83,7 +84,7 @@ router.get('/sync', founderAuth, async (req, res) => {
 
     res.json(data);
   } catch (err) {
-    console.error('Failed to sync founder dashboard:', err);
+    logger.error('Failed to sync founder dashboard:', err);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
@@ -117,7 +118,7 @@ router.post('/oh-shit', founderAuth, async (req, res) => {
 
     res.json({ status: 'executed', message: 'Global kill switch engaged.' });
   } catch (err) {
-    console.error('Failed to execute Oh Shit sequence:', err);
+    logger.error('Failed to execute Oh Shit sequence:', err);
     res.status(500).json({ error: 'Failed to execute sequence' });
   }
 });

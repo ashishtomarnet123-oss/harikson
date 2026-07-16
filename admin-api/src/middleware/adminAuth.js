@@ -1,3 +1,4 @@
+import logger from '../utils/logger.js';
 import jwt from 'jsonwebtoken';
 import pg from 'pg';
 
@@ -70,7 +71,7 @@ export const adminAuth = async (req, res, next) => {
     req.admin = { id: user.id, role: user.role, email: user.email };
     next();
   } catch (err) {
-    console.error('Admin Auth Middleware error:', err);
+    logger.error('Admin Auth Middleware error:', err);
     return res.status(500).json({ error: 'Internal Server Error' });
   }
 };

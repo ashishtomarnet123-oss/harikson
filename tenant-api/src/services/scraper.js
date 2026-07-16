@@ -1,3 +1,4 @@
+import logger from '../utils/logger.js';
 import axios from 'axios';
 import * as cheerio from 'cheerio';
 
@@ -36,7 +37,7 @@ export async function crawlUrls(urls) {
         `URL: ${url}\nTitle: ${title}\nContent:\n${cleanText.substring(0, 5000)}...`
       );
     } catch (err) {
-      console.error(`Failed to crawl ${url}:`, err.message);
+      logger.error(`Failed to crawl ${url}:`, err.message);
       results.push(`URL: ${url}\nError: Failed to crawl website.`);
     }
   }
@@ -76,7 +77,7 @@ export async function searchWeb(query) {
     if (results.length === 0) return 'No web search results found.';
     return results.join('\n\n');
   } catch (err) {
-    console.error(`Failed to search web for "${query}":`, err.message);
+    logger.error(`Failed to search web for "${query}":`, err.message);
     return 'Web search failed. Proceed using existing knowledge.';
   }
 }

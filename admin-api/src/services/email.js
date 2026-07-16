@@ -1,3 +1,4 @@
+import logger from '../utils/logger.js';
 import { Resend } from 'resend';
 import Redis from 'ioredis';
 
@@ -13,7 +14,7 @@ async function checkEmailRateLimit(email) {
       await redis.expire(key, 3600); // 1 hour expiration
     }
     if (attempts > 3) {
-      console.warn(
+      logger.warn(
         `[EMAIL RATE LIMIT EXCEEDED] Email "${email}" has requested too many emails in the last hour.`
       );
       return false;
@@ -21,7 +22,7 @@ async function checkEmailRateLimit(email) {
     return true;
   } catch (err) {
     // If Redis is not available or errors out, fallback to allowing the email send
-    console.error('[EMAIL RATE LIMIT ERROR]:', err.message);
+    logger.error('[EMAIL RATE LIMIT ERROR]:', err.message);
     return true;
   }
 }
@@ -55,7 +56,7 @@ export const sendPasswordReset = async (to, resetUrl) => {
       `,
     });
     if (error) {
-      console.error(
+      logger.error(
         '[EMAIL SEND ERROR - PASSWORD RESET]:',
         error.message || error
       );
@@ -66,7 +67,7 @@ export const sendPasswordReset = async (to, resetUrl) => {
     }
     return { success: true, data };
   } catch (err) {
-    console.error('[EMAIL SEND ERROR - PASSWORD RESET]:', err.message);
+    logger.error('[EMAIL SEND ERROR - PASSWORD RESET]:', err.message);
     return { success: false, error: 'Failed to send password reset email' };
   }
 };
@@ -96,7 +97,7 @@ export const sendWelcomeEmail = async (to, name) => {
       `,
     });
     if (error) {
-      console.error('[EMAIL SEND ERROR - WELCOME]:', error.message || error);
+      logger.error('[EMAIL SEND ERROR - WELCOME]:', error.message || error);
       return {
         success: false,
         error: error.message || 'Failed to send welcome email',
@@ -104,7 +105,7 @@ export const sendWelcomeEmail = async (to, name) => {
     }
     return { success: true, data };
   } catch (err) {
-    console.error('[EMAIL SEND ERROR - WELCOME]:', err.message);
+    logger.error('[EMAIL SEND ERROR - WELCOME]:', err.message);
     return { success: false, error: 'Failed to send welcome email' };
   }
 };
@@ -140,7 +141,7 @@ export const sendInvoiceReceipt = async (to, invoiceDetails) => {
       `,
     });
     if (error) {
-      console.error('[EMAIL SEND ERROR - INVOICE]:', error.message || error);
+      logger.error('[EMAIL SEND ERROR - INVOICE]:', error.message || error);
       return {
         success: false,
         error: error.message || 'Failed to send invoice receipt',
@@ -148,7 +149,7 @@ export const sendInvoiceReceipt = async (to, invoiceDetails) => {
     }
     return { success: true, data };
   } catch (err) {
-    console.error('[EMAIL SEND ERROR - INVOICE]:', err.message);
+    logger.error('[EMAIL SEND ERROR - INVOICE]:', err.message);
     return { success: false, error: 'Failed to send invoice receipt' };
   }
 };

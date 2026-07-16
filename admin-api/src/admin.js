@@ -1,3 +1,4 @@
+import logger from './utils/logger.js';
 import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
@@ -27,7 +28,7 @@ dotenv.config();
 import { sendInvoiceReceipt } from './services/email.js';
 
 if (!process.env.JWT_SECRET || process.env.JWT_SECRET.length < 32) {
-  console.error('FATAL: JWT_SECRET not set or too short (min 32 characters)');
+  logger.error('FATAL: JWT_SECRET not set or too short (min 32 characters)');
   process.exit(1);
 }
 
@@ -68,7 +69,7 @@ function decryptText(encryptedText) {
     decrypted += decipher.final('utf8');
     return decrypted;
   } catch (err) {
-    console.error('Failed to decrypt credentials:', err);
+    logger.error('Failed to decrypt credentials:', err);
     return null;
   }
 }
@@ -83,7 +84,7 @@ async function initDb() {
       WHERE table_name = 'subscriptions' AND column_name = 'plan'
     `);
     if (tableInfo.rows.length > 0) {
-      console.log(
+      logger.info(
         '🔄 Recreating subscriptions and invoices tables for new schema alignment...'
       );
       await pool.query(`
@@ -236,12 +237,12 @@ async function initDb() {
       'SELECT COUNT(*) FROM payment_providers WHERE is_active = true'
     );
     if (parseInt(providers.rows[0].count) === 0) {
-      console.warn(
+      logger.warn(
         '⚠️ No active payment providers configured. Add Razorpay or Stripe merchant settings in Harikson Admin Panel.'
       );
     }
 
-    console.log('✅ Billing databases and indexes successfully operational.');
+    logger.info('✅ Billing databases and indexes successfully operational.');
     // 6. Founder Dashboard Tables
     await pool.query(`
       CREATE TABLE IF NOT EXISTS founder_dashboard_state (
@@ -543,7 +544,7 @@ async function initDb() {
       ALTER TABLE playground_sessions ADD COLUMN IF NOT EXISTS tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE;
     `
       )
-      .catch((err) => console.error('Database schema migrations failed:', err));
+      .catch((err) => logger.error('Database schema migrations failed:', err));
 
     // Migration: populate tenant_id from parent relations
     await pool
@@ -556,7 +557,7 @@ async function initDb() {
     `
       )
       .catch((err) =>
-        console.error('Database schema data population failed:', err)
+        logger.error('Database schema data population failed:', err)
       );
 
     // Phase 3.2 — Vector Collections
@@ -698,7 +699,7 @@ async function initDb() {
       DROP POLICY IF EXISTS tenant_isolation_policy ON tenants;
     `
       )
-      .catch((err) => console.error('RLS disable failed on tenants:', err));
+      .catch((err) => logger.error('RLS disable failed on tenants:', err));
 
     await pool
       .query(
@@ -710,7 +711,7 @@ async function initDb() {
           WITH CHECK (tenant_id = current_setting('app.current_tenant', true)::uuid AND deleted_at IS NULL);
     `
       )
-      .catch((err) => console.error('Policy recreation failed on users:', err));
+      .catch((err) => logger.error('Policy recreation failed on users:', err));
 
     await pool
       .query(
@@ -723,7 +724,7 @@ async function initDb() {
     `
       )
       .catch((err) =>
-        console.error('Policy recreation failed on conversations:', err)
+        logger.error('Policy recreation failed on conversations:', err)
       );
 
     await pool
@@ -737,7 +738,7 @@ async function initDb() {
     `
       )
       .catch((err) =>
-        console.error('Policy recreation failed on messages:', err)
+        logger.error('Policy recreation failed on messages:', err)
       );
 
     // Create password_reset_tokens table and policies
@@ -767,7 +768,7 @@ async function initDb() {
     `
       )
       .catch((err) =>
-        console.error('Policy recreation failed on password_reset_tokens:', err)
+        logger.error('Policy recreation failed on password_reset_tokens:', err)
       );
 
     // Create activity_logs table and policies
@@ -798,7 +799,7 @@ async function initDb() {
     `
       )
       .catch((err) =>
-        console.error('Policy recreation failed on activity_logs:', err)
+        logger.error('Policy recreation failed on activity_logs:', err)
       );
 
     // Create user_sessions table and policies
@@ -831,7 +832,7 @@ async function initDb() {
     `
       )
       .catch((err) =>
-        console.error('Policy recreation failed on user_sessions:', err)
+        logger.error('Policy recreation failed on user_sessions:', err)
       );
 
     // Create indexes for optimization
@@ -873,7 +874,7 @@ async function initDb() {
     `
       )
       .catch((err) =>
-        console.error('Policy recreation failed on api_keys:', err)
+        logger.error('Policy recreation failed on api_keys:', err)
       );
 
     // Enable and set RLS for workflows
@@ -890,7 +891,7 @@ async function initDb() {
     `
       )
       .catch((err) =>
-        console.error('Policy recreation failed on workflows:', err)
+        logger.error('Policy recreation failed on workflows:', err)
       );
 
     // Enable and set RLS for knowledge_bases
@@ -907,7 +908,7 @@ async function initDb() {
     `
       )
       .catch((err) =>
-        console.error('Policy recreation failed on knowledge_bases:', err)
+        logger.error('Policy recreation failed on knowledge_bases:', err)
       );
 
     // Enable and set RLS for the remaining tenant-scoped tables
@@ -936,12 +937,12 @@ async function initDb() {
       `
         )
         .catch((err) =>
-          console.error(`Policy recreation failed on ${table}:`, err)
+          logger.error(`Policy recreation failed on ${table}:`, err)
         );
     }
 
     // ── Database Schema Alignment (Fk & updated_at Triggers) ────────────────
-    console.log(
+    logger.info(
       '[MIGRATION] Running constraint and updated_at column migrations...'
     );
     await pool
@@ -1067,15 +1068,15 @@ async function initDb() {
     `
       )
       .catch((err) =>
-        console.error('❌ Schema alignment migration failed:', err)
+        logger.error('❌ Schema alignment migration failed:', err)
       );
 
-    console.log('✅ All Phase 1-5 database tables migrated successfully.');
+    logger.info('✅ All Phase 1-5 database tables migrated successfully.');
 
     // Integration Center tables
     await initIntegrationTables(pool);
   } catch (err) {
-    console.error('Failed to auto-migrate database tables:', err);
+    logger.error('Failed to auto-migrate database tables:', err);
   }
 }
 initDb();
@@ -1144,6 +1145,24 @@ app.use(
   })
 );
 
+// Custom request logger middleware with PII query redaction
+app.use((req, res, next) => {
+  const query = { ...req.query };
+  const sensitiveKeys = ['password', 'token', 'refreshToken', 'apiKey', 'key', 'secret', 'email', 'phone'];
+  for (const k of sensitiveKeys) {
+    if (k in query) {
+      query[k] = '[REDACTED]';
+    }
+  }
+  logger.info({
+    msg: `Incoming Request: ${req.method} ${req.path}`,
+    method: req.method,
+    path: req.path,
+    query
+  });
+  next();
+});
+
 // Helper for audit logging
 async function logAdminAction(
   adminId,
@@ -1173,7 +1192,7 @@ async function logAdminAction(
       ]
     );
   } catch (err) {
-    console.error('Audit logging failed:', err);
+    logger.error('Audit logging failed:', err);
   }
 }
 
@@ -1313,7 +1332,7 @@ app.get('/api/user/billing', async (req, res) => {
       invoices,
     });
   } catch (err) {
-    console.error('User billing fetch failed:', err);
+    logger.error('User billing fetch failed:', err);
     res.status(500).json({ error: 'Failed to load billing information' });
   }
 });
@@ -1366,7 +1385,7 @@ app.post('/admin/login', async (req, res) => {
       },
     });
   } catch (err) {
-    console.error('Login endpoint error:', err);
+    logger.error('Login endpoint error:', err);
     res.status(500).json({ error: 'Internal Server Error' });
   }
 });
@@ -1439,7 +1458,7 @@ app.get('/admin/kpis', async (req, res) => {
       revenueToday: parseFloat(revenue.rows[0].revenue || 0),
     });
   } catch (err) {
-    console.error('Failed to get KPIs:', err);
+    logger.error('Failed to get KPIs:', err);
     res.status(500).json({ error: 'Failed to fetch KPIs' });
   }
 });
@@ -1537,7 +1556,7 @@ app.get('/admin/system-status', async (req, res) => {
         }
       }
     } catch (e) {
-      console.error('Failed to ping Ollama:', e.message);
+      logger.error('Failed to ping Ollama:', e.message);
     }
 
     const payload = {
@@ -1575,7 +1594,7 @@ app.get('/admin/system-status', async (req, res) => {
 
     res.status(200).json(payload);
   } catch (err) {
-    console.error('Failed to query system status:', err);
+    logger.error('Failed to query system status:', err);
     res.status(500).json({ error: 'Failed to retrieve system status metrics' });
   }
 });
@@ -1608,7 +1627,7 @@ app.get('/admin/users', async (req, res) => {
     const result = await pool.query(query);
     res.status(200).json({ users: result.rows });
   } catch (err) {
-    console.error('Failed to get users:', err);
+    logger.error('Failed to get users:', err);
     res.status(500).json({ error: 'Failed to retrieve users' });
   }
 });
@@ -1669,7 +1688,7 @@ app.put('/admin/users/:userId/plan', async (req, res) => {
 
     res.status(200).json({ success: true, billing_info: billingInfo });
   } catch (err) {
-    console.error('Failed to update user plan:', err);
+    logger.error('Failed to update user plan:', err);
     res.status(500).json({ error: 'Failed to update user plan' });
   }
 });
@@ -1713,7 +1732,7 @@ app.delete('/admin/users/:userId', async (req, res) => {
       message: `User ${user.email} deleted successfully.`,
     });
   } catch (err) {
-    console.error('Failed to delete user:', err);
+    logger.error('Failed to delete user:', err);
     res.status(500).json({ error: 'Failed to delete user' });
   }
 });
@@ -1736,7 +1755,7 @@ app.get('/admin/users/:userId/conversations', async (req, res) => {
     const result = await pool.query(query, [userId]);
     res.status(200).json({ conversations: result.rows });
   } catch (err) {
-    console.error('Failed to get user conversations:', err);
+    logger.error('Failed to get user conversations:', err);
     res.status(500).json({ error: 'Failed to retrieve user conversations' });
   }
 });
@@ -1745,7 +1764,7 @@ app.get('/admin/users/:userId/conversations', async (req, res) => {
 app.post('/admin/models/:name/load', async (req, res) => {
   const { name } = req.params;
   try {
-    console.log(
+    logger.info(
       `🤖 Spawning vLLM OpenAI API Server for model Qwen/${name}-Instruct`
     );
 
@@ -1795,7 +1814,7 @@ app.post('/admin/models/:name/load', async (req, res) => {
       message: `vLLM model load process triggered for ${name}`,
     });
   } catch (err) {
-    console.error('Failed to trigger model load:', err);
+    logger.error('Failed to trigger model load:', err);
     res.status(500).json({ error: 'Failed to load model weights' });
   }
 });
@@ -1821,7 +1840,7 @@ app.post('/admin/models/:name/unload', async (req, res) => {
       .status(200)
       .json({ success: true, message: `Model ${name} unloaded successfully` });
   } catch (err) {
-    console.error('Failed to unload model:', err);
+    logger.error('Failed to unload model:', err);
     res.status(500).json({ error: 'Failed to unload model weights' });
   }
 });
@@ -1844,7 +1863,7 @@ app.post('/admin/models/unload-all', async (req, res) => {
       message: 'All model weights unloaded successfully',
     });
   } catch (err) {
-    console.error('Failed to unload all models:', err);
+    logger.error('Failed to unload all models:', err);
     res.status(500).json({ error: 'Emergency unload action failed' });
   }
 });
@@ -1886,7 +1905,7 @@ app.post('/admin/vllm/restart', async (req, res) => {
       .status(200)
       .json({ success: true, message: 'vLLM server restart triggered' });
   } catch (err) {
-    console.error('vLLM restart failed:', err);
+    logger.error('vLLM restart failed:', err);
     res.status(500).json({ error: 'Failed to restart vLLM engine' });
   }
 });
@@ -1914,7 +1933,7 @@ app.get('/admin/tenants', async (req, res) => {
     const result = await pool.query(listQuery, [limit, offset]);
     res.status(200).json({ tenants: result.rows });
   } catch (err) {
-    console.error('List tenants failed:', err);
+    logger.error('List tenants failed:', err);
     res.status(500).json({ error: 'Failed to list tenants' });
   }
 });
@@ -1964,7 +1983,7 @@ app.post('/admin/tenants', async (req, res) => {
 
     res.status(201).json({ success: true, tenant });
   } catch (err) {
-    console.error('Failed to create tenant:', err);
+    logger.error('Failed to create tenant:', err);
     res.status(500).json({ error: 'Failed to create tenant' });
   }
 });
@@ -2024,7 +2043,7 @@ app.put('/admin/tenants/:id', async (req, res) => {
 
     res.status(200).json({ success: true, tenant: newTenant });
   } catch (err) {
-    console.error('Failed to update tenant details:', err);
+    logger.error('Failed to update tenant details:', err);
     res.status(500).json({ error: 'Failed to update tenant details' });
   }
 });
@@ -2052,7 +2071,7 @@ app.get('/admin/tenants/:id', async (req, res) => {
       return res.status(404).json({ error: 'Tenant not found' });
     res.status(200).json(result.rows[0]);
   } catch (err) {
-    console.error('Get tenant details failed:', err);
+    logger.error('Get tenant details failed:', err);
     res.status(500).json({ error: 'Failed to retrieve tenant info' });
   }
 });
@@ -2160,7 +2179,7 @@ app.put('/admin/tenants/:id/plan', async (req, res) => {
 
     res.status(200).json({ success: true, tenant: result.rows[0] });
   } catch (err) {
-    console.error('Failed to change tenant plan:', err);
+    logger.error('Failed to change tenant plan:', err);
     res.status(500).json({ error: 'Failed to update subscription plan' });
   }
 });
@@ -2197,7 +2216,7 @@ app.post('/admin/tenants/:id/suspend', async (req, res) => {
 
     res.status(200).json({ success: true, tenant: result.rows[0] });
   } catch (err) {
-    console.error('Failed to suspend/active tenant:', err);
+    logger.error('Failed to suspend/active tenant:', err);
     res.status(500).json({ error: 'Failed to adjust tenant active state' });
   }
 });
@@ -2218,7 +2237,7 @@ app.get('/admin/usage/daily', async (req, res) => {
     const result = await pool.query(query);
     res.status(200).json({ usage: result.rows });
   } catch (err) {
-    console.error('Daily usage retrieval failed:', err);
+    logger.error('Daily usage retrieval failed:', err);
     res.status(500).json({ error: 'Failed to fetch usage logs' });
   }
 });
@@ -2294,7 +2313,7 @@ app.get('/admin/logs/requests', async (req, res) => {
     const result = await pool.query(query);
     res.status(200).json({ logs: result.rows });
   } catch (err) {
-    console.error('Failed to get request logs:', err);
+    logger.error('Failed to get request logs:', err);
     res.status(500).json({ error: 'Failed to fetch logs' });
   }
 });
@@ -2379,7 +2398,7 @@ app.get('/admin/audit-log', async (req, res) => {
     );
     res.status(200).json({ audit: result.rows });
   } catch (err) {
-    console.error('Failed to get audit log:', err);
+    logger.error('Failed to get audit log:', err);
     res.status(500).json({ error: 'Failed to retrieve audits' });
   }
 });
@@ -2395,7 +2414,7 @@ app.get('/admin/api-keys', async (req, res) => {
     );
     res.status(200).json({ keys: result.rows });
   } catch (err) {
-    console.error('Failed to get API keys:', err);
+    logger.error('Failed to get API keys:', err);
     res.status(500).json({ error: 'Failed to list API keys' });
   }
 });
@@ -2446,7 +2465,7 @@ app.post('/admin/api-keys', async (req, res) => {
       },
     });
   } catch (err) {
-    console.error('Failed to create API key:', err);
+    logger.error('Failed to create API key:', err);
     res.status(500).json({ error: 'Failed to generate new client key' });
   }
 });
@@ -2475,7 +2494,7 @@ app.delete('/admin/api-keys/:id', async (req, res) => {
       .status(200)
       .json({ success: true, message: 'API key revoked successfully' });
   } catch (err) {
-    console.error('Failed to delete API key:', err);
+    logger.error('Failed to delete API key:', err);
     res.status(500).json({ error: 'Failed to revoke API key' });
   }
 });
@@ -2610,7 +2629,7 @@ app.post('/admin/billing/providers', adminAuth, async (req, res) => {
 
     res.status(201).json({ success: true, provider: inserted });
   } catch (err) {
-    console.error('Failed to create payment provider:', err);
+    logger.error('Failed to create payment provider:', err);
     res.status(500).json({ error: 'Failed to configure payment merchant' });
   }
 });
@@ -2638,7 +2657,7 @@ app.get('/admin/billing/providers', adminAuth, async (req, res) => {
     });
     res.status(200).json({ providers });
   } catch (err) {
-    console.error('Failed to list payment providers:', err);
+    logger.error('Failed to list payment providers:', err);
     res.status(500).json({ error: 'Failed to list payment configurations' });
   }
 });
@@ -2669,7 +2688,7 @@ app.delete('/admin/billing/providers/:id', adminAuth, async (req, res) => {
       .status(200)
       .json({ success: true, message: 'Provider de-activated successfully' });
   } catch (err) {
-    console.error('Failed to deactivate provider:', err);
+    logger.error('Failed to deactivate provider:', err);
     res.status(500).json({ error: 'Failed to disable payment provider' });
   }
 });
@@ -2696,7 +2715,7 @@ app.post('/webhooks/stripe', async (req, res) => {
         const timestamp = parseInt(match[1], 10);
         const now = Math.floor(Date.now() / 1000);
         if (Math.abs(now - timestamp) > 300) {
-          console.error('Stripe webhook timestamp is older than 5 minutes');
+          logger.error('Stripe webhook timestamp is older than 5 minutes');
           return res.status(400).json({ error: 'Webhook timestamp expired' });
         }
       } else {
@@ -2721,7 +2740,7 @@ app.post('/webhooks/stripe', async (req, res) => {
         webhookSecret
       );
     } catch (err) {
-      console.error('Stripe signature failed:', err.message);
+      logger.error('Stripe signature failed:', err.message);
       await pool.query(
         `INSERT INTO payment_webhooks (event_id, provider_id, provider, event_type, status, amount, signature_verified, processing_error, payload)
          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
@@ -2748,7 +2767,7 @@ app.post('/webhooks/stripe', async (req, res) => {
       [eventId]
     );
     if (existing.rows.length > 0) {
-      console.log(
+      logger.info(
         `[WEBHOOK] Stripe event ${eventId} has already been processed.`
       );
       return res.status(200).json({ status: 'already_processed' });
@@ -2882,7 +2901,7 @@ app.post('/webhooks/stripe', async (req, res) => {
             invoiceUrl,
             pdfUrl,
           }).catch((err) =>
-            console.error('[INVOICE EMAIL RECEIPT SEND ERROR]:', err.message)
+            logger.error('[INVOICE EMAIL RECEIPT SEND ERROR]:', err.message)
           );
         }
       }
@@ -2890,7 +2909,7 @@ app.post('/webhooks/stripe', async (req, res) => {
 
     res.status(200).json({ status: 'processed' });
   } catch (err) {
-    console.error('Stripe webhook handling failed:', err);
+    logger.error('Stripe webhook handling failed:', err);
     res.status(500).json({ error: 'Internal webhook failure' });
   }
 });
@@ -2927,7 +2946,7 @@ app.post('/webhooks/razorpay', async (req, res) => {
     }
 
     if (!isVerified) {
-      console.error('Razorpay signature mismatch');
+      logger.error('Razorpay signature mismatch');
       await pool.query(
         `INSERT INTO payment_webhooks (event_id, provider_id, provider, event_type, status, amount, signature_verified, processing_error, payload)
          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
@@ -2960,7 +2979,7 @@ app.post('/webhooks/razorpay', async (req, res) => {
       [eventId]
     );
     if (existing.rows.length > 0) {
-      console.log(
+      logger.info(
         `[WEBHOOK] Razorpay event ${eventId} has already been processed.`
       );
       return res.status(200).json({ status: 'already_processed' });
@@ -3056,7 +3075,7 @@ app.post('/webhooks/razorpay', async (req, res) => {
 
     res.status(200).json({ status: 'processed' });
   } catch (err) {
-    console.error('Razorpay webhook processing error:', err);
+    logger.error('Razorpay webhook processing error:', err);
     res.status(500).json({ error: 'Internal webhook error' });
   }
 });
@@ -3140,7 +3159,7 @@ app.get('/admin/billing/webhooks', adminAuth, async (req, res) => {
       }, {}),
     });
   } catch (err) {
-    console.error('Failed to query payment webhooks:', err);
+    logger.error('Failed to query payment webhooks:', err);
     res.status(500).json({ error: 'Failed to query webhook entries' });
   }
 });
@@ -3154,7 +3173,7 @@ app.get('/admin/plans', async (req, res) => {
     );
     res.status(200).json({ plans: result.rows });
   } catch (err) {
-    console.error('List plans failed:', err);
+    logger.error('List plans failed:', err);
     res.status(500).json({ error: 'Failed to list subscription plans' });
   }
 });
@@ -3168,7 +3187,7 @@ app.get('/admin/plans/:id', async (req, res) => {
       return res.status(404).json({ error: 'Plan not found' });
     res.status(200).json(result.rows[0]);
   } catch (err) {
-    console.error('Get plan failed:', err);
+    logger.error('Get plan failed:', err);
     res.status(500).json({ error: 'Failed to retrieve subscription plan' });
   }
 });
@@ -3238,7 +3257,7 @@ app.post('/admin/plans', async (req, res) => {
 
     res.status(201).json({ success: true, plan: result.rows[0] });
   } catch (err) {
-    console.error('Create plan failed:', err);
+    logger.error('Create plan failed:', err);
     res.status(500).json({ error: 'Failed to create subscription plan' });
   }
 });
@@ -3319,7 +3338,7 @@ app.put('/admin/plans/:id', async (req, res) => {
 
     res.status(200).json({ success: true, plan: result.rows[0] });
   } catch (err) {
-    console.error('Update plan failed:', err);
+    logger.error('Update plan failed:', err);
     res.status(500).json({ error: 'Failed to update subscription plan' });
   }
 });
@@ -3350,19 +3369,19 @@ app.delete('/admin/plans/:id', async (req, res) => {
       .status(200)
       .json({ success: true, message: 'Plan deleted successfully' });
   } catch (err) {
-    console.error('Delete plan failed:', err);
+    logger.error('Delete plan failed:', err);
     res.status(500).json({ error: 'Failed to delete subscription plan' });
   }
 });
 
 // Global Error Handler
 app.use((err, req, res, next) => {
-  console.error('Unhandled Admin server error:', err);
+  logger.error(err, 'Unhandled Admin server error');
   res.status(500).json({ error: 'Internal Server Error' });
 });
 
 app.listen(port, () => {
-  console.log(
+  logger.info(
     `⚡ [Admin Management API] Operational and listening on port ${port}`
   );
   startIntegrationWorkers(pool);

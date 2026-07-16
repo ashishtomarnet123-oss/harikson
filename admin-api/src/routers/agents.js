@@ -1,3 +1,4 @@
+import logger from '../utils/logger.js';
 import express from 'express';
 import pg from 'pg';
 import dotenv from 'dotenv';
@@ -27,7 +28,7 @@ router.get('/', async (req, res) => {
     `);
     res.json(result.rows);
   } catch (err) {
-    console.error('Failed to fetch agents:', err);
+    logger.error('Failed to fetch agents:', err);
     res.status(500).json({ error: 'Failed to fetch agents' });
   }
 });
@@ -75,7 +76,7 @@ router.post('/', validate(createAgentSchema), async (req, res) => {
 
     res.status(201).json(result.rows[0]);
   } catch (err) {
-    console.error('Failed to create agent:', err);
+    logger.error('Failed to create agent:', err);
     res.status(500).json({ error: 'Failed to create agent' });
   }
 });
@@ -129,7 +130,7 @@ router.put('/:id', validate(updateAgentSchema), async (req, res) => {
       return res.status(404).json({ error: 'Agent not found' });
     res.json(result.rows[0]);
   } catch (err) {
-    console.error('Failed to update agent:', err);
+    logger.error('Failed to update agent:', err);
     res.status(500).json({ error: 'Failed to update agent' });
   }
 });
@@ -148,7 +149,7 @@ router.delete('/:id', async (req, res) => {
       return res.status(404).json({ error: 'Agent not found' });
     res.json({ success: true });
   } catch (err) {
-    console.error('Failed to archive agent:', err);
+    logger.error('Failed to archive agent:', err);
     res.status(500).json({ error: 'Failed to archive agent' });
   }
 });
