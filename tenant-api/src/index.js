@@ -109,8 +109,35 @@ app.use(async (req, res, next) => {
       if (res.statusCode >= 200 && res.statusCode < 300) {
         const nowStr = Date.now().toString();
         res.setHeader('X-Write-Timestamp', nowStr);
-        if (req.userId) {
-          const stickyKey = `primary_stickiness:${req.headers['x-tenant-slug'] || 'system'}:${req.userId}`;
+
+        let finalUserId = req.userId;
+        if (!finalUserId) {
+          const setCookie = res.getHeader('set-cookie');
+          let tokenVal = '';
+          if (setCookie) {
+            const cookiesArray = Array.isArray(setCookie) ? setCookie : [setCookie];
+            for (const sc of cookiesArray) {
+              const matches = sc.match(/hk_access_token=([^;]+)/);
+              if (matches) {
+                tokenVal = matches[1];
+                break;
+              }
+            }
+          }
+          if (tokenVal) {
+            try {
+              const decoded = jwt.verify(tokenVal, jwtSecret);
+              if (decoded && decoded.userId) {
+                finalUserId = decoded.userId;
+              }
+            } catch (e) {
+              // Ignored
+            }
+          }
+        }
+
+        if (finalUserId) {
+          const stickyKey = `primary_stickiness:${req.headers['x-tenant-slug'] || 'system'}:${finalUserId}`;
           redis.set(stickyKey, 'true', 'EX', 2).catch(err => logger.error('Redis stickiness set error:', err));
         }
       }
