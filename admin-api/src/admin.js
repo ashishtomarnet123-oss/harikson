@@ -1809,12 +1809,29 @@ app.put('/admin/users/:userId/plan', async (req, res) => {
   const { userId } = req.params;
   const { planId } = req.body; // e.g. 'starter', 'professional', 'enterprise', or null/empty to clear override
 
+  const idempotencyKey = req.headers['idempotency-key'];
+  let dedupKey = '';
   try {
+    if (idempotencyKey) {
+      const cached = await redis.get(`dedup:response:${idempotencyKey}`);
+      if (cached) {
+        return res.status(200).json(JSON.parse(cached));
+      }
+      dedupKey = `dedup:plan:${idempotencyKey}`;
+      const exists = await redis.set(dedupKey, '1', 'EX', 300, 'NX');
+      if (!exists) {
+        return res.status(409).json({ error: 'Duplicate request' });
+      }
+    }
+
     // Check if user exists
     const userCheck = await pool.query('SELECT * FROM users WHERE id = $1', [
       userId,
     ]);
     if (userCheck.rows.length === 0) {
+      if (idempotencyKey && dedupKey) {
+        await redis.del(dedupKey);
+      }
       return res.status(404).json({ error: 'User not found' });
     }
 
@@ -1826,6 +1843,9 @@ app.put('/admin/users/:userId/plan', async (req, res) => {
         planId.toLowerCase(),
       ]);
       if (planResult.rows.length === 0) {
+        if (idempotencyKey && dedupKey) {
+          await redis.del(dedupKey);
+        }
         return res.status(404).json({ error: 'Subscription plan not found' });
       }
       const plan = planResult.rows[0];
@@ -1858,8 +1878,18 @@ app.put('/admin/users/:userId/plan', async (req, res) => {
       req
     );
 
-    res.status(200).json({ success: true, billing_info: billingInfo });
+    const responsePayload = { success: true, billing_info: billingInfo };
+
+    if (idempotencyKey && dedupKey) {
+      await redis.set(`dedup:response:${idempotencyKey}`, JSON.stringify(responsePayload), 'EX', 300);
+      await redis.del(dedupKey);
+    }
+
+    res.status(200).json(responsePayload);
   } catch (err) {
+    if (idempotencyKey && dedupKey) {
+      await redis.del(dedupKey);
+    }
     logger.error('Failed to update user plan:', err);
     res.status(500).json({ error: 'Failed to update user plan' });
   }
@@ -2254,13 +2284,31 @@ app.put('/admin/tenants/:id/plan', async (req, res) => {
   const { plan } = req.body;
   if (!plan) return res.status(400).json({ error: 'Plan is required' });
 
+  const idempotencyKey = req.headers['idempotency-key'];
+  let dedupKey = '';
   try {
+    if (idempotencyKey) {
+      const cached = await redis.get(`dedup:response:${idempotencyKey}`);
+      if (cached) {
+        return res.status(200).json(JSON.parse(cached));
+      }
+      dedupKey = `dedup:plan:${idempotencyKey}`;
+      const exists = await redis.set(dedupKey, '1', 'EX', 300, 'NX');
+      if (!exists) {
+        return res.status(409).json({ error: 'Duplicate request' });
+      }
+    }
+
     const oldQuery = await pool.query(
       'SELECT plan FROM tenants WHERE id = $1',
       [id]
     );
-    if (oldQuery.rows.length === 0)
+    if (oldQuery.rows.length === 0) {
+      if (idempotencyKey && dedupKey) {
+        await redis.del(dedupKey);
+      }
       return res.status(404).json({ error: 'Tenant not found' });
+    }
     const oldPlanId = oldQuery.rows[0].plan;
 
     const oldPlanRes = await pool.query('SELECT * FROM plans WHERE id = $1', [
@@ -2349,8 +2397,18 @@ app.put('/admin/tenants/:id/plan', async (req, res) => {
       req
     );
 
-    res.status(200).json({ success: true, tenant: result.rows[0] });
+    const responsePayload = { success: true, tenant: result.rows[0] };
+
+    if (idempotencyKey && dedupKey) {
+      await redis.set(`dedup:response:${idempotencyKey}`, JSON.stringify(responsePayload), 'EX', 300);
+      await redis.del(dedupKey);
+    }
+
+    res.status(200).json(responsePayload);
   } catch (err) {
+    if (idempotencyKey && dedupKey) {
+      await redis.del(dedupKey);
+    }
     logger.error('Failed to change tenant plan:', err);
     res.status(500).json({ error: 'Failed to update subscription plan' });
   }

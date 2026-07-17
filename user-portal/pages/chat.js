@@ -1562,9 +1562,14 @@ If any check fails, revise the relevant section before output.`;
     abortControllerRef.current = controller;
 
     try {
+      const conversationId = activeConvId || 'new';
+      const idempotencyKey = `${conversationId}:${Date.now()}:${Math.random()}`;
       const res = await fetch(`${apiBase}/api/v1/chat`, {
         method: 'POST',
-        headers: authHeaders(),
+        headers: {
+          ...authHeaders(),
+          'Idempotency-Key': idempotencyKey,
+        },
         credentials: 'include',
         signal: controller.signal,
         body: JSON.stringify({

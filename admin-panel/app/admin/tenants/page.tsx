@@ -1040,11 +1040,13 @@ export default function TenantPlanManager() {
       localStorage.getItem('admin_token') ||
       'TEST_ADMIN_TOKEN';
     try {
+      const idempotencyKey = `plan:tenant:${id}:${plan}:${Date.now()}:${Math.random()}`;
       const res = await fetch(`${apiBase}/v1/admin/tenants/${id}/plan`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`,
+          'Idempotency-Key': idempotencyKey,
         },
         body: JSON.stringify({ plan }),
       });

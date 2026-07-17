@@ -87,6 +87,7 @@ const redis = new Redis(process.env.REDIS_URL || 'redis://localhost:6379', {
 
 redis.on('error', (err) => logger.error('Redis error:', err));
 redis.on('reconnecting', () => logger.warn('Redis reconnecting...'));
+app.set('redis', redis);
 
 export async function checkRedisHealth(): Promise<boolean> {
   try {
@@ -3368,7 +3369,20 @@ app.post(
   validate(forgotPasswordSchema),
   async (req, res) => {
     const { email } = req.body;
+    const idempotencyKey = req.headers['idempotency-key'] as string;
+    let dedupKey = '';
     try {
+      if (idempotencyKey) {
+        const cached = await redis.get(`dedup:response:${idempotencyKey}`);
+        if (cached) {
+          return res.status(200).json(JSON.parse(cached));
+        }
+        dedupKey = `dedup:pwdreset:${idempotencyKey}`;
+        const exists = await redis.set(dedupKey, '1', 'EX', 300, 'NX');
+        if (!exists) {
+          return res.status(409).json({ error: 'Duplicate request' });
+        }
+      }
       // Rate limit: 3 requests per email per day
       const rateLimitKey = `ratelimit:forgotpwd:${req.tenant.id}:${email.toLowerCase()}`;
       const attempts = await redis.incr(rateLimitKey);
@@ -3396,10 +3410,15 @@ app.post(
         logger.info(
           `[FORGOT PASSWORD] Requested email "${email}" does not exist in tenant "${req.tenant.slug}"`
         );
-        return res.status(200).json({
+        const responsePayload = {
           message:
             'If this email exists in our records, a reset link will be sent.',
-        });
+        };
+        if (idempotencyKey && dedupKey) {
+          await redis.set(`dedup:response:${idempotencyKey}`, JSON.stringify(responsePayload), 'EX', 300);
+          await redis.del(dedupKey);
+        }
+        return res.status(200).json(responsePayload);
       }
 
       const token = crypto.randomBytes(20).toString('hex');
@@ -3469,11 +3488,21 @@ ${emailHtml}
         logger.error('[PASSWORD RESET EMAIL SEND ERROR]:', err.message)
       );
 
-      res.status(200).json({
+      const responsePayload = {
         message:
           'If this email exists in our records, a reset link will be sent.',
-      });
+      };
+
+      if (idempotencyKey && dedupKey) {
+        await redis.set(`dedup:response:${idempotencyKey}`, JSON.stringify(responsePayload), 'EX', 300);
+        await redis.del(dedupKey);
+      }
+
+      res.status(200).json(responsePayload);
     } catch (err) {
+      if (idempotencyKey && dedupKey) {
+        await redis.del(dedupKey);
+      }
       logger.error('Forgot password error:', err);
       res
         .status(500)
@@ -3487,7 +3516,20 @@ app.post(
   '/api/auth/reset-password',
   validate(resetPasswordSchema),
   async (req, res) => {
+    const idempotencyKey = req.headers['idempotency-key'] as string;
+    let dedupKey = '';
     try {
+      if (idempotencyKey) {
+        const cached = await redis.get(`dedup:response:${idempotencyKey}`);
+        if (cached) {
+          return res.status(200).json(JSON.parse(cached));
+        }
+        dedupKey = `dedup:pwdreset:${idempotencyKey}`;
+        const exists = await redis.set(dedupKey, '1', 'EX', 300, 'NX');
+        if (!exists) {
+          return res.status(409).json({ error: 'Duplicate request' });
+        }
+      }
       // Rate limit check (using the unified key: ratelimit:password-reset:${ip})
       const ip =
         ((req.headers['x-forwarded-for'] as any) || req.socket.remoteAddress || '')
@@ -3574,11 +3616,21 @@ app.post(
         );
       });
 
-      res.status(200).json({
+      const responsePayload = {
         message:
           'Password has been reset successfully. All other active sessions have been logged out.',
-      });
+      };
+
+      if (idempotencyKey && dedupKey) {
+        await redis.set(`dedup:response:${idempotencyKey}`, JSON.stringify(responsePayload), 'EX', 300);
+        await redis.del(dedupKey);
+      }
+
+      res.status(200).json(responsePayload);
     } catch (err) {
+      if (idempotencyKey && dedupKey) {
+        await redis.del(dedupKey);
+      }
       logger.error('Reset password error:', err);
       res.status(500).json({ error: 'Failed to reset password' });
     }
@@ -4642,9 +4694,23 @@ app.get('/api/user/developer/keys', authMiddleware, listApiKeys);
 
 // POST /api/keys & /api/user/developer/keys - Create API Key
 async function createApiKey(req, res) {
+  const idempotencyKey = req.headers['idempotency-key'] as string;
+  let dedupKey = '';
   try {
     const { name, scopes, expires_at } = req.body;
     if (!name) return res.status(400).json({ error: 'Key name is required' });
+
+    if (idempotencyKey) {
+      const cached = await redis.get(`dedup:response:${idempotencyKey}`);
+      if (cached) {
+        return res.status(200).json(JSON.parse(cached));
+      }
+      dedupKey = `dedup:apikey:${idempotencyKey}`;
+      const exists = await redis.set(dedupKey, '1', 'EX', 300, 'NX');
+      if (!exists) {
+        return res.status(409).json({ error: 'Duplicate request' });
+      }
+    }
 
     // Generate secure API key format: hk_live_<32 random hex chars>
     const rawKey = 'hk_live_' + crypto.randomBytes(16).toString('hex');
@@ -4691,12 +4757,22 @@ async function createApiKey(req, res) {
       }));
     });
 
-    res.json({
+    const responsePayload = {
       success: true,
-      key: rawKey, // Show raw full key ONCE on creation response
+      key: rawKey,
       keys: keys,
-    });
+    };
+
+    if (idempotencyKey && dedupKey) {
+      await redis.set(`dedup:response:${idempotencyKey}`, JSON.stringify(responsePayload), 'EX', 300);
+      await redis.del(dedupKey);
+    }
+
+    res.json(responsePayload);
   } catch (err) {
+    if (idempotencyKey && dedupKey) {
+      await redis.del(dedupKey);
+    }
     logger.error('Create API key error:', err);
     res.status(500).json({ error: 'Failed to create API key' });
   }

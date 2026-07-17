@@ -112,6 +112,7 @@ export default function UsersPage() {
       getCookie('admin_token') || localStorage.getItem('admin_token');
     if (!token) return;
     try {
+      const idempotencyKey = `plan:user:${selectedUser.id}:${planId || 'clear'}:${Date.now()}:${Math.random()}`;
       const res = await fetch(
         `${apiBase}/v1/admin/users/${selectedUser.id}/plan`,
         {
@@ -119,6 +120,7 @@ export default function UsersPage() {
           headers: {
             Authorization: `Bearer ${token}`,
             'Content-Type': 'application/json',
+            'Idempotency-Key': idempotencyKey,
           },
           body: JSON.stringify({ planId: planId || null }),
         }

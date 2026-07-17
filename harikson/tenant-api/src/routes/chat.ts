@@ -14,10 +14,27 @@ const chatSchema = z.object({
 });
 
 router.post('/', async (req: Request, res: Response) => {
+  const redis = req.app.get('redis');
+  const idempotencyKey = req.headers['idempotency-key'] as string;
+  let dedupKey = '';
+
   try {
     const check = chatSchema.safeParse(req.body);
     if (!check.success) {
       return res.status(400).json({ error: 'Message content is required' });
+    }
+
+    if (idempotencyKey && redis) {
+      const cached = await redis.get(`dedup:response:${idempotencyKey}`);
+      if (cached) {
+        return res.status(200).json(JSON.parse(cached));
+      }
+      
+      dedupKey = `dedup:chat:${idempotencyKey}`;
+      const exists = await redis.set(dedupKey, '1', 'EX', 300, 'NX');
+      if (!exists) {
+        return res.status(409).json({ error: 'Duplicate request' });
+      }
     }
 
     const { message, useRag } = check.data;
@@ -71,6 +88,9 @@ router.post('/', async (req: Request, res: Response) => {
         '⚠️ [Chat Router] Blocked unsafe generated output:',
         validation.reason
       );
+      if (idempotencyKey && redis && dedupKey) {
+        await redis.del(dedupKey);
+      }
       return res.status(400).json({
         error: 'Generation Blocked',
         reason:
@@ -79,8 +99,17 @@ router.post('/', async (req: Request, res: Response) => {
       });
     }
 
+    if (idempotencyKey && redis && dedupKey) {
+      const payload = { response };
+      await redis.set(`dedup:response:${idempotencyKey}`, JSON.stringify(payload), 'EX', 300);
+      await redis.del(dedupKey);
+    }
+
     return res.status(200).json({ response });
   } catch (error: any) {
+    if (idempotencyKey && redis && dedupKey) {
+      await redis.del(dedupKey);
+    }
     return res.status(500).json({ error: error.message });
   }
 });

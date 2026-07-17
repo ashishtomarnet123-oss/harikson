@@ -46,12 +46,14 @@ export default function DeveloperSettings() {
       const apiBase =
         localStorage.getItem('hk_api_base') || 'http://localhost:3008';
       const tenantSlug = localStorage.getItem('hk_tenant') || 'neuravolt';
+      const idempotencyKey = `apikey:${name.trim()}:${Date.now()}:${Math.random()}`;
       const res = await fetch(`${apiBase}/api/v1/user/developer/keys`, {
         credentials: 'include',
         method: 'POST',
         headers: {
           'x-tenant-slug': tenantSlug,
           'Content-Type': 'application/json',
+          'Idempotency-Key': idempotencyKey,
         },
         body: JSON.stringify({ name }),
       });
