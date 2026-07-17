@@ -3631,6 +3631,108 @@ app.delete('/admin/plans/:id', async (req, res) => {
     logger.error('Delete plan failed:', err);
     res.status(500).json({ error: 'Failed to delete subscription plan' });
   }
+// GET /health - Status check for admin-api
+app.get('/health', async (req, res) => {
+  let dbStatus = 'up';
+  let dbLatency = 0;
+  const dbStart = Date.now();
+  try {
+    const client = await pool.connect();
+    try {
+      await client.query('SELECT 1');
+      dbLatency = Date.now() - dbStart;
+    } finally {
+      client.release();
+    }
+  } catch (err) {
+    dbStatus = 'down';
+    dbLatency = Date.now() - dbStart;
+  }
+
+  let redisStatus = 'up';
+  let redisLatency = 0;
+  const redisStart = Date.now();
+  try {
+    const pingRes = await redis.ping();
+    if (pingRes === 'PONG') {
+      redisLatency = Date.now() - redisStart;
+    } else {
+      redisStatus = 'down';
+      redisLatency = Date.now() - redisStart;
+    }
+  } catch (err) {
+    redisStatus = 'down';
+    redisLatency = Date.now() - redisStart;
+  }
+
+  let stripeStatus = 'up';
+  let stripeLatency = 0;
+  let razorpayStatus = 'up';
+  let razorpayLatency = 0;
+
+  try {
+    const stripeRes = await pool.query(
+      "SELECT * FROM payment_providers WHERE provider = 'stripe' AND is_active = true LIMIT 1"
+    );
+    if (stripeRes.rows.length > 0) {
+      const stripeStart = Date.now();
+      try {
+        const secret = decryptText(stripeRes.rows[0].api_secret_encrypted);
+        const stripeClient = new Stripe(secret);
+        await stripeClient.accounts.retrieve();
+        stripeLatency = Date.now() - stripeStart;
+      } catch (err) {
+        stripeStatus = 'down';
+        stripeLatency = Date.now() - stripeStart;
+      }
+    } else {
+      stripeStatus = 'not_configured';
+    }
+
+    const razorpayRes = await pool.query(
+      "SELECT * FROM payment_providers WHERE provider = 'razorpay' AND is_active = true LIMIT 1"
+    );
+    if (razorpayRes.rows.length > 0) {
+      const razorpayStart = Date.now();
+      try {
+        const keyId = decryptText(razorpayRes.rows[0].api_key_encrypted);
+        const keySecret = decryptText(razorpayRes.rows[0].api_secret_encrypted);
+        const client = new Razorpay({
+          key_id: keyId,
+          key_secret: keySecret,
+        });
+        await client.orders.all({ count: 1 });
+        razorpayLatency = Date.now() - razorpayStart;
+      } catch (err) {
+        razorpayStatus = 'down';
+        razorpayLatency = Date.now() - razorpayStart;
+      }
+    } else {
+      razorpayStatus = 'not_configured';
+    }
+  } catch (err) {
+    stripeStatus = 'down';
+    razorpayStatus = 'down';
+  }
+
+  const isHealthy =
+    dbStatus === 'up' &&
+    redisStatus === 'up' &&
+    stripeStatus !== 'down' &&
+    razorpayStatus !== 'down';
+
+  const statusCode = isHealthy ? 200 : 503;
+
+  res.status(statusCode).json({
+    status: isHealthy ? 'healthy' : 'unhealthy',
+    timestamp: new Date().toISOString(),
+    checks: {
+      database: { status: dbStatus, latencyMs: dbLatency },
+      redis: { status: redisStatus, latencyMs: redisLatency },
+      stripe: { status: stripeStatus, latencyMs: stripeLatency },
+      razorpay: { status: razorpayStatus, latencyMs: razorpayLatency },
+    },
+  });
 });
 
 // Global Error Handler

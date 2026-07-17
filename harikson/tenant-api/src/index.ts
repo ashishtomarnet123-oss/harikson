@@ -1867,22 +1867,98 @@ app.use(rateLimiterMiddleware);
 
 // 1. GET /health (Bypasses tenant middleware for status probes)
 app.get('/health', async (req, res) => {
-  const isDbHealthy = await checkDbHealth();
-  const isRedisHealthy = await checkRedisHealth();
-  
+  let dbStatus = 'up';
+  let dbLatency = 0;
+  const dbStart = Date.now();
+  try {
+    const client = await pool.connect();
+    try {
+      await client.query('SELECT 1');
+      dbLatency = Date.now() - dbStart;
+    } finally {
+      client.release();
+    }
+  } catch (err) {
+    dbStatus = 'down';
+    dbLatency = Date.now() - dbStart;
+  }
+
+  let redisStatus = 'up';
+  let redisLatency = 0;
+  const redisStart = Date.now();
+  try {
+    const pong = await redis.ping();
+    if (pong === 'PONG') {
+      redisLatency = Date.now() - redisStart;
+    } else {
+      redisStatus = 'down';
+      redisLatency = Date.now() - redisStart;
+    }
+  } catch (err) {
+    redisStatus = 'down';
+    redisLatency = Date.now() - redisStart;
+  }
+
+  let ollamaStatus = 'up';
+  let ollamaLatency = 0;
+  const ollamaStart = Date.now();
+  try {
+    const response = await axios.get(`${ollamaHost}/api/tags`, { timeout: 3000 });
+    if (response.status === 200) {
+      ollamaLatency = Date.now() - ollamaStart;
+    } else {
+      ollamaStatus = 'down';
+      ollamaLatency = Date.now() - ollamaStart;
+    }
+  } catch (err) {
+    try {
+      const response2 = await axios.get(`${ollamaHost}/api/version`, { timeout: 3000 });
+      if (response2.status === 200) {
+        ollamaLatency = Date.now() - ollamaStart;
+      } else {
+        ollamaStatus = 'down';
+        ollamaLatency = Date.now() - ollamaStart;
+      }
+    } catch (_) {
+      ollamaStatus = 'down';
+      ollamaLatency = Date.now() - ollamaStart;
+    }
+  }
+
+  let diskStatus = 'up';
+  let freePercent = 0;
+  try {
+    const fs = await import('fs/promises');
+    const stats = await fs.statfs('/');
+    freePercent = Math.round((stats.bavail / stats.blocks) * 100);
+    if (freePercent <= 10) {
+      diskStatus = 'down';
+    }
+  } catch (err) {
+    diskStatus = 'down';
+  }
+
+  const isHealthy =
+    dbStatus === 'up' &&
+    redisStatus === 'up' &&
+    ollamaStatus === 'up' &&
+    diskStatus === 'up';
+
+  const statusCode = isHealthy ? 200 : 503;
+
   if (pool.waitingCount > 5) {
     logger.error(`🚨 [ALERT] DB Pool Exhaustion Warning: waitingCount is ${pool.waitingCount}!`);
   }
 
-  res.status(isDbHealthy && isRedisHealthy ? 200 : 500).json({
-    status: isDbHealthy && isRedisHealthy ? 'healthy' : 'unhealthy',
+  res.status(statusCode).json({
+    status: isHealthy ? 'healthy' : 'unhealthy',
     timestamp: new Date().toISOString(),
-    db: {
-      totalConnections: pool.totalCount,
-      idleConnections: pool.idleCount,
-      waitingClients: pool.waitingCount,
-    },
-    redis: isRedisHealthy ? 'healthy' : 'unhealthy',
+    checks: {
+      database: { status: dbStatus, latencyMs: dbLatency },
+      redis: { status: redisStatus, latencyMs: redisLatency },
+      ollama: { status: ollamaStatus, latencyMs: ollamaLatency },
+      disk: { status: diskStatus, freePercent: freePercent }
+    }
   });
 });
 

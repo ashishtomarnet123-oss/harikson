@@ -157,20 +157,17 @@ services:
       - 'traefik.http.routers.tenant-api.entrypoints=websecure'
       - 'traefik.http.routers.tenant-api.tls.certresolver=letsencrypt'
       - 'traefik.http.services.tenant-api.loadbalancer.server.port=3008'
+      - 'traefik.http.services.tenant-api.loadbalancer.healthcheck.path=/health'
+      - 'traefik.http.services.tenant-api.loadbalancer.healthcheck.interval=30s'
+      - 'traefik.http.services.tenant-api.loadbalancer.healthcheck.timeout=5s'
     deploy:
       resources:
         limits:
           memory: 1g
     healthcheck:
-      test:
-        [
-          'CMD',
-          'node',
-          '-e',
-          "fetch('http://localhost:3008/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
-        ]
+      test: ["CMD", "curl", "-f", "http://localhost:3008/health"]
       interval: 30s
-      timeout: 10s
+      timeout: 5s
       retries: 3
 
   # 5.5. Admin API (Control Plane Management)
@@ -195,6 +192,20 @@ services:
       resources:
         limits:
           memory: 512m
+    labels:
+      - 'traefik.enable=true'
+      - 'traefik.http.routers.admin-api.rule=Host(`admin-api.neuravolt.cloud`)'
+      - 'traefik.http.routers.admin-api.entrypoints=websecure'
+      - 'traefik.http.routers.admin-api.tls.certresolver=letsencrypt'
+      - 'traefik.http.services.admin-api.loadbalancer.server.port=4000'
+      - 'traefik.http.services.admin-api.loadbalancer.healthcheck.path=/health'
+      - 'traefik.http.services.admin-api.loadbalancer.healthcheck.interval=30s'
+      - 'traefik.http.services.admin-api.loadbalancer.healthcheck.timeout=5s'
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:4000/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
 
   # 6. Admin Panel (Next.js Dashboard)
   admin-panel:
