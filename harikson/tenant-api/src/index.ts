@@ -3078,11 +3078,22 @@ app.post('/api/auth/login', validate(loginSchema), async (req, res) => {
       });
     }
 
-    const userResult = await pool.query(
+    let userResult = await pool.query(
       'SELECT * FROM users WHERE email = $1 AND tenant_id = $2 AND deleted_at IS NULL',
       [email, req.tenant.id]
     );
-    const user = userResult.rows[0];
+    let user = userResult.rows[0];
+    if (!user && req.tenant.slug === 'neuravolt' && email !== 'admin@harikson.ai') {
+      // Fallback cross-tenant lookup for default domain logins
+      const fallbackResult = await pool.query(
+        'SELECT * FROM users WHERE email = $1 AND deleted_at IS NULL ORDER BY created_at DESC LIMIT 1',
+        [email]
+      );
+      if (fallbackResult.rows.length > 0) {
+        user = fallbackResult.rows[0];
+      }
+    }
+
     if (!user)
       return res.status(401).json({ error: 'Invalid email or password' });
 
@@ -3102,6 +3113,20 @@ app.post('/api/auth/login', validate(loginSchema), async (req, res) => {
       });
     }
 
+    // Resolve the actual tenant user belongs to
+    let resolvedTenantId = req.tenant.id;
+    let resolvedTenantSlug = req.tenant.slug;
+    if (user.tenant_id !== req.tenant.id) {
+      const tenantRes = await pool.query(
+        'SELECT slug FROM tenants WHERE id = $1',
+        [user.tenant_id]
+      );
+      if (tenantRes.rows.length > 0) {
+        resolvedTenantId = user.tenant_id;
+        resolvedTenantSlug = tenantRes.rows[0].slug;
+      }
+    }
+
     const accessToken = jwt.sign(
       { userId: user.id, role: user.role },
       jwtSecret,
@@ -3117,7 +3142,7 @@ app.post('/api/auth/login', validate(loginSchema), async (req, res) => {
     await pool.query(
       `INSERT INTO refresh_tokens (token, user_id, tenant_id, expires_at)
        VALUES ($1, $2, $3, $4)`,
-      [refreshTokenHash, user.id, req.tenant.id, expiresAt]
+      [refreshTokenHash, user.id, resolvedTenantId, expiresAt]
     );
 
     const host = req.headers.host || '';
@@ -3141,7 +3166,7 @@ app.post('/api/auth/login', validate(loginSchema), async (req, res) => {
           .trim() || '127.0.0.1';
       const ip = rawIp.replace(/^::ffff:/, '');
 
-      await executeTenantQuery(req.tenant.id, async (client) => {
+      await executeTenantQuery(resolvedTenantId, async (client) => {
         // Write to new activity_logs table
         await client.query(
           `INSERT INTO activity_logs (user_id, tenant_id, action, metadata, ip_address, user_agent)
@@ -3206,7 +3231,7 @@ app.post('/api/auth/login', validate(loginSchema), async (req, res) => {
         id: user.id,
         email: user.email,
         role: user.role,
-        tenantSlug: req.tenant.slug,
+        tenantSlug: resolvedTenantSlug,
       },
     });
   } catch (err) {
@@ -3429,11 +3454,44 @@ app.post('/api/auth/register', validate(registerSchema), async (req, res) => {
     }
 
     const passwordHash = await bcrypt.hash(password, 10);
-    const newUser = await executeTenantQuery(req.tenant.id, async (client) => {
+
+    let targetTenantId = req.tenant.id;
+    let targetTenantSlug = req.tenant.slug;
+    let roleToAssign = 'user';
+
+    // If registering on the default system tenant (neuravolt), we dynamically create a new customer tenant/workspace for them to ensure isolation
+    if (req.tenant.slug === 'neuravolt' && email !== 'admin@harikson.ai') {
+      const cleanSlug = email.split('@')[0].toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+      const uniqueSuffix = Math.floor(1000 + Math.random() * 9000);
+      const newTenantSlug = `ws-${cleanSlug}-${uniqueSuffix}`;
+      const newTenantName = `${name || email.split('@')[0]}'s Workspace`;
+      
+      const tenantResult = await pool.query(
+        `INSERT INTO tenants (name, slug, plan, status)
+         VALUES ($1, $2, 'starter', 'active')
+         RETURNING id, slug`,
+        [newTenantName, newTenantSlug]
+      );
+      targetTenantId = tenantResult.rows[0].id;
+      targetTenantSlug = tenantResult.rows[0].slug;
+      roleToAssign = 'admin'; // Creator is Workspace Admin
+    } else {
+      // Registering to an existing tenant (e.g. via invitation link)
+      // Check if they are the first user in this tenant (excluding superadmins)
+      const countRes = await pool.query(
+        `SELECT COUNT(*)::int FROM users WHERE tenant_id = $1 AND role != 'superadmin'`,
+        [targetTenantId]
+      );
+      if (countRes.rows[0].count === 0) {
+        roleToAssign = 'admin';
+      }
+    }
+
+    const newUser = await executeTenantQuery(targetTenantId, async (client) => {
       const result = await client.query(
-        `INSERT INTO users (tenant_id, email, password_hash, role)
-         VALUES ($1, $2, $3, 'user') RETURNING id, email, role`,
-        [req.tenant.id, email, passwordHash]
+        `INSERT INTO users (tenant_id, email, password_hash, role, name, username)
+         VALUES ($1, $2, $3, $4, $5, $6) RETURNING id, email, role`,
+        [targetTenantId, email, passwordHash, roleToAssign, name, email.split('@')[0]]
       );
       return result.rows[0];
     });
@@ -3458,7 +3516,7 @@ app.post('/api/auth/register', validate(registerSchema), async (req, res) => {
     await pool.query(
       `INSERT INTO refresh_tokens (token, user_id, tenant_id, expires_at)
        VALUES ($1, $2, $3, $4)`,
-      [refreshTokenHash, newUser.id, req.tenant.id, expiresAt]
+      [refreshTokenHash, newUser.id, targetTenantId, expiresAt]
     );
 
     const host = req.headers.host || '';
@@ -3480,7 +3538,7 @@ app.post('/api/auth/register', validate(registerSchema), async (req, res) => {
         email: newUser.email,
         role: newUser.role,
         name: name || email.split('@')[0],
-        tenantSlug: req.tenant.slug,
+        tenantSlug: targetTenantSlug,
       },
     });
   } catch (err) {
@@ -4489,7 +4547,9 @@ app.get('/api/user/workspace', authMiddleware, async (req, res) => {
         const company = uRes.rows[0]?.company || 'Harikson AI (Production)';
 
         const mRes = await client.query(
-          `SELECT id, email, role, name FROM users WHERE tenant_id = $1 ORDER BY role DESC`,
+          `SELECT id, email, role, name FROM users 
+           WHERE tenant_id = $1 AND role != 'superadmin' AND email != 'admin@harikson.ai' 
+           ORDER BY role DESC`,
           [req.tenant.id]
         );
 
