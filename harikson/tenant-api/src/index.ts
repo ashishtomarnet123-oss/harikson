@@ -79,7 +79,24 @@ const jwtSecret = process.env.JWT_SECRET;
 const ollamaHost = process.env.OLLAMA_HOST || 'http://localhost:11434';
 
 // Redis Client (Moved to top for consistency middleware access)
-const redis = new Redis(process.env.REDIS_URL || 'redis://localhost:6379');
+const redis = new Redis(process.env.REDIS_URL || 'redis://localhost:6379', {
+  retryStrategy: (times) => Math.min(times * 50, 2000),
+  maxRetriesPerRequest: 3,
+  enableReadyCheck: true,
+});
+
+redis.on('error', (err) => logger.error('Redis error:', err));
+redis.on('reconnecting', () => logger.warn('Redis reconnecting...'));
+
+export async function checkRedisHealth(): Promise<boolean> {
+  try {
+    const res = await redis.ping();
+    return res === 'PONG';
+  } catch (err) {
+    logger.error('Redis health check failed:', err);
+    return false;
+  }
+}
 
 
 
@@ -1850,19 +1867,21 @@ app.use(rateLimiterMiddleware);
 // 1. GET /health (Bypasses tenant middleware for status probes)
 app.get('/health', async (req, res) => {
   const isDbHealthy = await checkDbHealth();
+  const isRedisHealthy = await checkRedisHealth();
   
   if (pool.waitingCount > 5) {
     logger.error(`🚨 [ALERT] DB Pool Exhaustion Warning: waitingCount is ${pool.waitingCount}!`);
   }
 
-  res.status(isDbHealthy ? 200 : 500).json({
-    status: isDbHealthy ? 'healthy' : 'unhealthy',
+  res.status(isDbHealthy && isRedisHealthy ? 200 : 500).json({
+    status: isDbHealthy && isRedisHealthy ? 'healthy' : 'unhealthy',
     timestamp: new Date().toISOString(),
     db: {
       totalConnections: pool.totalCount,
       idleConnections: pool.idleCount,
       waitingClients: pool.waitingCount,
     },
+    redis: isRedisHealthy ? 'healthy' : 'unhealthy',
   });
 });
 

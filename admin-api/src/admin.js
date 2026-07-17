@@ -1112,7 +1112,14 @@ async function initDb() {
 }
 initDb();
 
-const redis = new Redis(process.env.REDIS_URL || 'redis://redis:6379');
+const redis = new Redis(process.env.REDIS_URL || 'redis://redis:6379', {
+  retryStrategy: (times) => Math.min(times * 50, 2000),
+  maxRetriesPerRequest: 3,
+  enableReadyCheck: true,
+});
+
+redis.on('error', (err) => logger.error('Redis error:', err));
+redis.on('reconnecting', () => logger.warn('Redis reconnecting...'));
 
 // Redis trace wrapper
 const originalSendCommand = redis.send_command;
@@ -1526,7 +1533,12 @@ app.get('/admin/kpis', async (req, res) => {
 app.get('/admin/system-status', async (req, res) => {
   const cacheKey = 'admin:system-status';
   try {
-    const cached = await redis.get(cacheKey);
+    let cached = null;
+    try {
+      cached = await redis.get(cacheKey);
+    } catch (err) {
+      logger.warn('Redis cache get system-status failed, bypassing:', err.message);
+    }
     if (cached) {
       return res.status(200).json(JSON.parse(cached));
     }
@@ -1631,7 +1643,11 @@ app.get('/admin/system-status', async (req, res) => {
     };
 
     // Cache metrics in Redis for 5 seconds
-    await redis.setex(cacheKey, 5, JSON.stringify(payload));
+    try {
+      await redis.setex(cacheKey, 5, JSON.stringify(payload));
+    } catch (err) {
+      logger.warn('Redis cache set system-status failed:', err.message);
+    }
 
     // Save to historical metrics table for graphing
     await pool.query(
@@ -1669,9 +1685,14 @@ app.post('/admin/users/:userId/impersonate', adminAuth, async (req, res) => {
   try {
     // Rate limit check: max 10 impersonations per hour per admin
     const rateLimitKey = `ratelimit:impersonate:${req.admin.id}`;
-    const count = await redis.incr(rateLimitKey);
-    if (count === 1) {
-      await redis.expire(rateLimitKey, 3600);
+    let count = 0;
+    try {
+      count = await redis.incr(rateLimitKey);
+      if (count === 1) {
+        await redis.expire(rateLimitKey, 3600);
+      }
+    } catch (rlErr) {
+      logger.warn('Redis rate limit for impersonation failed, bypassing:', rlErr.message);
     }
     if (count > 10) {
       return res.status(429).json({ error: 'Rate limit exceeded: Max 10 impersonations per hour.' });
@@ -2653,7 +2674,12 @@ app.delete('/admin/api-keys/:id', async (req, res) => {
 // 21. GET /admin/vllm/params
 app.get('/admin/vllm/params', async (req, res) => {
   try {
-    const data = await redis.get('vllm:hyperparams');
+    let data = null;
+    try {
+      data = await redis.get('vllm:hyperparams');
+    } catch (redisErr) {
+      logger.warn('Failed to read hyperparams from Redis, using defaults:', redisErr.message);
+    }
     const params = data
       ? JSON.parse(data)
       : {
@@ -2673,7 +2699,11 @@ app.post('/admin/vllm/params', async (req, res) => {
   const { temperature, top_p, max_tokens, system_restrict } = req.body;
   try {
     const payload = { temperature, top_p, max_tokens, system_restrict };
-    await redis.set('vllm:hyperparams', JSON.stringify(payload));
+    try {
+      await redis.set('vllm:hyperparams', JSON.stringify(payload));
+    } catch (redisErr) {
+      logger.error('Failed to save hyperparams in Redis:', redisErr.message);
+    }
     await logAdminAction(
       req.admin.id,
       'update_vllm_params',
