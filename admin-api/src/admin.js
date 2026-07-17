@@ -23,8 +23,22 @@ import {
   initIntegrationTables,
   startIntegrationWorkers,
 } from './routers/integrations.js';
+import fs from 'fs';
+import path from 'path';
 
 dotenv.config();
+
+if (!process.env.JWT_SECRET) {
+  const secretFile = process.env.JWT_SECRET_FILE || './secrets/jwt_secret';
+  try {
+    const secretPath = path.resolve(secretFile);
+    if (fs.existsSync(secretPath)) {
+      process.env.JWT_SECRET = fs.readFileSync(secretPath, 'utf8').trim();
+    }
+  } catch (err) {
+    logger.warn(`Failed to read JWT_SECRET_FILE at ${secretFile}:`, err);
+  }
+}
 
 import { sendInvoiceReceipt, sendImpersonationAlert } from './services/email.js';
 
@@ -3631,6 +3645,8 @@ app.delete('/admin/plans/:id', async (req, res) => {
     logger.error('Delete plan failed:', err);
     res.status(500).json({ error: 'Failed to delete subscription plan' });
   }
+});
+
 // GET /health - Status check for admin-api
 app.get('/health', async (req, res) => {
   let dbStatus = 'up';

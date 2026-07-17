@@ -52,6 +52,18 @@ import { HariksonScheduler } from './workers/scheduler.js';
 
 dotenv.config();
 
+if (!process.env.JWT_SECRET) {
+  const secretFile = process.env.JWT_SECRET_FILE || './secrets/jwt_secret';
+  try {
+    const secretPath = path.resolve(secretFile);
+    if (fs.existsSync(secretPath)) {
+      process.env.JWT_SECRET = fs.readFileSync(secretPath, 'utf8').trim();
+    }
+  } catch (err) {
+    logger.warn(`Failed to read JWT_SECRET_FILE at ${secretFile}:`, err);
+  }
+}
+
 import { sendPasswordReset, sendWelcomeEmail } from './services/email.js';
 import { validate } from './middleware/validation.middleware.js';
 import {
