@@ -408,9 +408,9 @@ async function initDb() {
           -- Stats (auto-updated)
           total_requests INT DEFAULT 0,
           total_tokens BIGINT DEFAULT 0,
-          avg_response_time_ms INT,
-          success_rate DECIMAL(5,2),
-          error_rate DECIMAL(5,2),
+          avg_response_time_ms INT DEFAULT 0,
+          success_count INT DEFAULT 0,
+          error_count INT DEFAULT 0,
           last_used_at TIMESTAMPTZ,
           
           created_at TIMESTAMPTZ DEFAULT NOW(),

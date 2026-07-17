@@ -2747,10 +2747,30 @@ app.post(
                 [currentConvId]
               );
               if (agentConfig) {
-                await client.query(
-                  'UPDATE agents SET total_requests = total_requests + 1, total_tokens = total_tokens + $1, last_used_at = NOW() WHERE id = $2',
-                  [inTokens + outTokens, agentConfig.id]
-                );
+                const responseTimeMs = Date.now() - chatStartTime;
+                if (wasTerminated) {
+                  await client.query(
+                    `UPDATE agents 
+                     SET total_requests = total_requests + 1, 
+                         total_tokens = total_tokens + $1, 
+                         last_used_at = NOW(),
+                         avg_response_time_ms = COALESCE(((avg_response_time_ms * total_requests) + $2) / (total_requests + 1), $2),
+                         error_count = error_count + 1
+                     WHERE id = $3`,
+                    [inTokens + outTokens, responseTimeMs, agentConfig.id]
+                  );
+                } else {
+                  await client.query(
+                    `UPDATE agents 
+                     SET total_requests = total_requests + 1, 
+                         total_tokens = total_tokens + $1, 
+                         last_used_at = NOW(),
+                         avg_response_time_ms = COALESCE(((avg_response_time_ms * total_requests) + $2) / (total_requests + 1), $2),
+                         success_count = success_count + 1
+                     WHERE id = $3`,
+                    [inTokens + outTokens, responseTimeMs, agentConfig.id]
+                  );
+                }
               }
 
               const totalFinalUsage =
@@ -2919,6 +2939,19 @@ app.post(
               'UPDATE conversations SET updated_at = NOW() WHERE id = $1',
               [currentConvId]
             );
+            if (agentConfig) {
+              const responseTimeMs = Date.now() - chatStartTime;
+              await client.query(
+                `UPDATE agents 
+                 SET total_requests = total_requests + 1, 
+                     total_tokens = total_tokens + $1, 
+                     last_used_at = NOW(),
+                     avg_response_time_ms = COALESCE(((avg_response_time_ms * total_requests) + $2) / (total_requests + 1), $2),
+                     error_count = error_count + 1
+                 WHERE id = $3`,
+                [promptTokenEstimate + completionTokens, responseTimeMs, agentConfig.id]
+              );
+            }
           });
         } catch (dbErr) {
           logger.error('Failed to save fallback messages to DB:', dbErr);

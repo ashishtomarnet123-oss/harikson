@@ -21,7 +21,18 @@ const router = express.Router();
 router.get('/', async (req, res) => {
   try {
     const result = await pool.query(`
-      SELECT a.*, t.name as tenant_name 
+      SELECT a.*,
+             CASE 
+               WHEN (a.success_count + a.error_count) > 0 THEN 
+                 ROUND((a.success_count::decimal / (a.success_count + a.error_count)) * 100, 2)
+               ELSE 0.00
+             END AS success_rate,
+             CASE 
+               WHEN (a.success_count + a.error_count) > 0 THEN 
+                 ROUND((a.error_count::decimal / (a.success_count + a.error_count)) * 100, 2)
+               ELSE 0.00
+             END AS error_rate,
+             t.name as tenant_name 
       FROM agents a
       LEFT JOIN tenants t ON a.tenant_id = t.id
       ORDER BY a.created_at DESC
