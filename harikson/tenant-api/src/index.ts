@@ -1823,11 +1823,12 @@ const authMiddleware = async (req, res, next) => {
       const domainSuffix = host.includes('neuravolt.cloud')
         ? '; Domain=.neuravolt.cloud'
         : '';
-      const secureFlag = process.env.NODE_ENV === 'production' ? 'Secure;' : '';
+      const isHttps = req.headers['x-forwarded-proto'] === 'https' || (req.socket as any)?.encrypted;
+      const secureFlag = isHttps ? 'Secure;' : '';
 
       res.setHeader('Set-Cookie', [
-        `hk_access_token=${newAccessToken}; HttpOnly; ${secureFlag} SameSite=Strict; Path=/; Max-Age=${15 * 60}${domainSuffix}`,
-        `hk_refresh_token=${newRefreshToken}; HttpOnly; ${secureFlag} SameSite=Strict; Path=/; Max-Age=${30 * 24 * 60 * 60}${domainSuffix}`,
+        `hk_access_token=${newAccessToken}; HttpOnly; ${secureFlag} SameSite=Lax; Path=/; Max-Age=${15 * 60}${domainSuffix}`,
+        `hk_refresh_token=${newRefreshToken}; HttpOnly; ${secureFlag} SameSite=Lax; Path=/; Max-Age=${30 * 24 * 60 * 60}${domainSuffix}`,
       ]);
 
       decoded = { userId: user.id, role: user.role };
@@ -3123,11 +3124,12 @@ app.post('/api/auth/login', validate(loginSchema), async (req, res) => {
     const domainSuffix = host.includes('neuravolt.cloud')
       ? '; Domain=.neuravolt.cloud'
       : '';
-    const secureFlag = process.env.NODE_ENV === 'production' ? 'Secure;' : '';
+    const isHttps = req.headers['x-forwarded-proto'] === 'https' || (req.socket as any)?.encrypted;
+    const secureFlag = isHttps ? 'Secure;' : '';
 
     res.setHeader('Set-Cookie', [
-      `hk_access_token=${accessToken}; HttpOnly; ${secureFlag} SameSite=Strict; Path=/; Max-Age=${15 * 60}${domainSuffix}`,
-      `hk_refresh_token=${refreshToken}; HttpOnly; ${secureFlag} SameSite=Strict; Path=/; Max-Age=${30 * 24 * 60 * 60}${domainSuffix}`,
+      `hk_access_token=${accessToken}; HttpOnly; ${secureFlag} SameSite=Lax; Path=/; Max-Age=${15 * 60}${domainSuffix}`,
+      `hk_refresh_token=${refreshToken}; HttpOnly; ${secureFlag} SameSite=Lax; Path=/; Max-Age=${30 * 24 * 60 * 60}${domainSuffix}`,
     ]);
 
     // ── Record real login activity + device session ──────────────────────────
@@ -3199,6 +3201,7 @@ app.post('/api/auth/login', validate(loginSchema), async (req, res) => {
 
     res.json({
       success: true,
+      accessToken,
       user: {
         id: user.id,
         email: user.email,
@@ -3290,11 +3293,12 @@ app.post('/api/auth/login/2fa', async (req, res) => {
     const domainSuffix = host.includes('neuravolt.cloud')
       ? '; Domain=.neuravolt.cloud'
       : '';
-    const secureFlag = process.env.NODE_ENV === 'production' ? 'Secure;' : '';
+    const isHttps = req.headers['x-forwarded-proto'] === 'https' || (req.socket as any)?.encrypted;
+    const secureFlag = isHttps ? 'Secure;' : '';
 
     res.setHeader('Set-Cookie', [
-      `hk_access_token=${accessToken}; HttpOnly; ${secureFlag} SameSite=Strict; Path=/; Max-Age=${15 * 60}${domainSuffix}`,
-      `hk_refresh_token=${refreshToken}; HttpOnly; ${secureFlag} SameSite=Strict; Path=/; Max-Age=${30 * 24 * 60 * 60}${domainSuffix}`,
+      `hk_access_token=${accessToken}; HttpOnly; ${secureFlag} SameSite=Lax; Path=/; Max-Age=${15 * 60}${domainSuffix}`,
+      `hk_refresh_token=${refreshToken}; HttpOnly; ${secureFlag} SameSite=Lax; Path=/; Max-Age=${30 * 24 * 60 * 60}${domainSuffix}`,
     ]);
 
     // Record real login activity + device session
@@ -3461,11 +3465,12 @@ app.post('/api/auth/register', validate(registerSchema), async (req, res) => {
     const domainSuffix = host.includes('neuravolt.cloud')
       ? '; Domain=.neuravolt.cloud'
       : '';
-    const secureFlag = process.env.NODE_ENV === 'production' ? 'Secure;' : '';
+    const isHttps = req.headers['x-forwarded-proto'] === 'https' || (req.socket as any)?.encrypted;
+    const secureFlag = isHttps ? 'Secure;' : '';
 
     res.setHeader('Set-Cookie', [
-      `hk_access_token=${accessToken}; HttpOnly; ${secureFlag} SameSite=Strict; Path=/; Max-Age=${15 * 60}${domainSuffix}`,
-      `hk_refresh_token=${refreshToken}; HttpOnly; ${secureFlag} SameSite=Strict; Path=/; Max-Age=${30 * 24 * 60 * 60}${domainSuffix}`,
+      `hk_access_token=${accessToken}; HttpOnly; ${secureFlag} SameSite=Lax; Path=/; Max-Age=${15 * 60}${domainSuffix}`,
+      `hk_refresh_token=${refreshToken}; HttpOnly; ${secureFlag} SameSite=Lax; Path=/; Max-Age=${30 * 24 * 60 * 60}${domainSuffix}`,
     ]);
 
     res.status(201).json({
@@ -3883,11 +3888,12 @@ app.post('/api/auth/refresh', async (req, res) => {
     const domainSuffix = host.includes('neuravolt.cloud')
       ? '; Domain=.neuravolt.cloud'
       : '';
-    const secureFlag = process.env.NODE_ENV === 'production' ? 'Secure;' : '';
+    const isHttps = req.headers['x-forwarded-proto'] === 'https' || (req.socket as any)?.encrypted;
+    const secureFlag = isHttps ? 'Secure;' : '';
 
     res.setHeader('Set-Cookie', [
-      `hk_access_token=${newAccessToken}; HttpOnly; ${secureFlag} SameSite=Strict; Path=/; Max-Age=${15 * 60}${domainSuffix}`,
-      `hk_refresh_token=${newRefreshToken}; HttpOnly; ${secureFlag} SameSite=Strict; Path=/; Max-Age=${30 * 24 * 60 * 60}${domainSuffix}`,
+      `hk_access_token=${newAccessToken}; HttpOnly; ${secureFlag} SameSite=Lax; Path=/; Max-Age=${15 * 60}${domainSuffix}`,
+      `hk_refresh_token=${newRefreshToken}; HttpOnly; ${secureFlag} SameSite=Lax; Path=/; Max-Age=${30 * 24 * 60 * 60}${domainSuffix}`,
     ]);
 
     res.status(200).json({

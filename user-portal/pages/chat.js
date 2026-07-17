@@ -927,7 +927,7 @@ export default function ChatPage() {
     const savedBase =
       localStorage.getItem('hk_api_base') || 'http://localhost:3008';
     const savedTenant = localStorage.getItem('hk_tenant') || 'system';
-    setToken('cookie_auth');
+    setToken(savedBase);
     setUser(savedUser);
     setApiBase(savedBase);
     setTenantSlug(savedTenant);
@@ -994,10 +994,17 @@ export default function ChatPage() {
   }, [inputText]);
 
   const authHeaders = useCallback(
-    () => ({
-      'Content-Type': 'application/json',
-      'x-tenant-slug': tenantSlug,
-    }),
+    () => {
+      const storedToken = typeof window !== 'undefined' ? localStorage.getItem('hk_token') : null;
+      const headers = {
+        'Content-Type': 'application/json',
+        'x-tenant-slug': tenantSlug,
+      };
+      if (storedToken) {
+        headers['Authorization'] = `Bearer ${storedToken}`;
+      }
+      return headers;
+    },
     [tenantSlug]
   );
 
@@ -1009,7 +1016,8 @@ export default function ChatPage() {
         credentials: 'include',
       });
       if (res.status === 401) {
-        handleLogout();
+        // Session expired — redirect to login without wiping localStorage aggressively
+        router.replace('/login');
         return;
       }
       const data = await res.json();

@@ -114,8 +114,8 @@ export default function LoginPage() {
         return;
       }
 
-      localStorage.removeItem('hk_token');
-      localStorage.setItem('hk_user', JSON.stringify(data.user));
+      localStorage.setItem('hk_token', data.accessToken || '');
+      localStorage.setItem('hk_user', JSON.stringify({ ...data.user, tenantSlug }));
       localStorage.setItem('hk_tenant', tenantSlug);
       localStorage.setItem('hk_api_base', apiBase);
       router.replace('/chat');
@@ -143,8 +143,8 @@ export default function LoginPage() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Verification failed');
 
-      localStorage.removeItem('hk_token');
-      localStorage.setItem('hk_user', JSON.stringify(data.user));
+      localStorage.setItem('hk_token', data.accessToken || '');
+      localStorage.setItem('hk_user', JSON.stringify({ ...data.user, tenantSlug }));
       localStorage.setItem('hk_tenant', tenantSlug);
       localStorage.setItem('hk_api_base', apiBase);
       router.replace('/chat');
