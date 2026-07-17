@@ -12,6 +12,7 @@ import util from 'util';
 import Redis from 'ioredis';
 import { adminAuth } from './middleware/adminAuth.js';
 import crypto from 'crypto';
+import { requestContext } from './utils/context.js';
 import Stripe from 'stripe';
 import Razorpay from 'razorpay';
 import founderRouter from './routers/founder.js';
@@ -34,8 +35,34 @@ if (!process.env.JWT_SECRET || process.env.JWT_SECRET.length < 32) {
 
 const { Pool } = pg;
 const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
+  connectionString:
+    process.env.DATABASE_URL ||
+    'postgresql://neuravolt:neuravolt_dev_pwd@postgres:5432/neuravolt',
 });
+
+// Wrap pool query functions for tracing
+const originalPoolQuery = pool.query;
+pool.query = function (text, params, callback) {
+  const store = requestContext.getStore();
+  const reqId = store?.req?.id || 'no-request';
+  const sql = typeof text === 'string' ? text : text?.text;
+  logger.info({ reqId, sql, msg: 'Executing DB Query on AdminPool' });
+  return originalPoolQuery.apply(pool, arguments);
+};
+
+const originalPoolConnect = pool.connect;
+pool.connect = async function () {
+  const client = await originalPoolConnect.apply(pool, arguments);
+  const originalClientQuery = client.query;
+  client.query = function (text, params, callback) {
+    const store = requestContext.getStore();
+    const reqId = store?.req?.id || 'no-request';
+    const sql = typeof text === 'string' ? text : text?.text;
+    logger.info({ reqId, sql, msg: 'Executing DB Query on AdminClient' });
+    return originalClientQuery.apply(client, arguments);
+  };
+  return client;
+};
 
 // Encryption Helpers for credentials at rest
 const ENCRYPTION_KEY =
@@ -1086,6 +1113,15 @@ async function initDb() {
 initDb();
 
 const redis = new Redis(process.env.REDIS_URL || 'redis://redis:6379');
+
+// Redis trace wrapper
+const originalSendCommand = redis.send_command;
+redis.send_command = function (command, args, callback) {
+  const store = requestContext.getStore();
+  const reqId = store?.req?.id || 'no-request';
+  logger.info({ reqId, command: command.name || command, args, msg: 'Executing Redis Command' });
+  return originalSendCommand.apply(redis, arguments);
+};
 const execPromise = util.promisify(exec);
 
 const app = express();
@@ -1139,6 +1175,7 @@ app.use(
       }
     },
     credentials: true,
+    exposedHeaders: ['x-request-id', 'X-Request-ID'],
   })
 );
 app.use(
@@ -1157,6 +1194,14 @@ app.use((req, res, next) => {
     res.setHeader('Sunset', new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toUTCString());
   }
   next();
+});
+
+app.use((req, res, next) => {
+  req.id = req.headers['x-request-id'] || crypto.randomUUID();
+  res.setHeader('x-request-id', req.id);
+  requestContext.run({ req }, () => {
+    next();
+  });
 });
 
 // Custom request logger middleware with PII query redaction

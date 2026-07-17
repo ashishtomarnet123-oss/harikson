@@ -6,7 +6,7 @@ declare global {
       user?: any;
       usePrimaryDb?: boolean;
       userId?: any;
-      
+      id?: string;
     }
   }
 }
@@ -82,8 +82,64 @@ const redis = new Redis(process.env.REDIS_URL || 'redis://localhost:6379');
 
 
 
+// Redis trace wrapper
+const originalSendCommand = (redis as any).sendCommand || (redis as any).send_command;
+const wrapRedis = (r: any) => {
+  const orig = r.sendCommand || r.send_command;
+  if (orig) {
+    const wrapper = function (this: any, command: any, args: any, callback: any) {
+      const store = requestContext.getStore();
+      const reqId = store?.req?.id || 'no-request';
+      logger.info({ reqId, command: command.name || command, args, msg: 'Executing Redis Command' });
+      return orig.apply(this, arguments as any);
+    };
+    r.sendCommand = wrapper;
+    r.send_command = wrapper;
+  }
+};
+wrapRedis(redis);
+
+// Axios trace wrapper
+axios.interceptors.request.use((config: any) => {
+  const store = requestContext.getStore();
+  const reqId = store?.req?.id;
+  if (reqId) {
+    config.headers = config.headers || {};
+    config.headers['X-Request-ID'] = reqId;
+  }
+  return config;
+});
+
+// Global fetch trace wrapper for Ollama
+const originalFetch = globalThis.fetch;
+globalThis.fetch = function (input: any, init: any) {
+  const url = typeof input === 'string' ? input : input?.url;
+  const ollamaHost = process.env.OLLAMA_HOST || 'http://localhost:11434';
+  
+  if (url && (url.includes('11434') || url.includes(ollamaHost))) {
+    const store = requestContext.getStore();
+    const reqId = store?.req?.id;
+    if (reqId) {
+      init = init || {};
+      init.headers = init.headers || {};
+      if (init.headers instanceof Headers) {
+        init.headers.set('X-Request-ID', reqId);
+      } else if (Array.isArray(init.headers)) {
+        // @ts-ignore
+        init.headers.push(['X-Request-ID', reqId]);
+      } else {
+        // @ts-ignore
+        init.headers['X-Request-ID'] = reqId;
+      }
+    }
+  }
+  return originalFetch.call(this, input, init);
+};
+
 // 1. Context initialization middleware
 app.use((req, res, next) => {
+  req.id = (req.headers['x-request-id'] as string) || crypto.randomUUID();
+  res.setHeader('x-request-id', req.id);
   requestContext.run({ req }, () => {
     next();
   });
@@ -241,7 +297,14 @@ app.use(
       }
     },
     credentials: true,
-    exposedHeaders: ['x-conversation-id', 'X-Conversation-Id', 'X-Write-Timestamp', 'x-write-timestamp'],
+    exposedHeaders: [
+      'x-conversation-id',
+      'X-Conversation-Id',
+      'X-Write-Timestamp',
+      'x-write-timestamp',
+      'x-request-id',
+      'X-Request-ID',
+    ],
   })
 );
 app.use(express.json());

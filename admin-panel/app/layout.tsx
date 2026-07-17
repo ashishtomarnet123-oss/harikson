@@ -1,5 +1,6 @@
 import React from 'react';
 import './globals.css';
+import ClientInitializer from '../components/ClientInitializer';
 
 export const metadata = {
   title: 'Harikson AI Platform - Admin Control Plane',
@@ -20,7 +21,10 @@ export default function RootLayout({
           href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css"
         />
       </head>
-      <body>{children}</body>
+      <body>
+        <ClientInitializer />
+        {children}
+      </body>
     </html>
   );
 }

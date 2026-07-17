@@ -1,6 +1,15 @@
 import pino from 'pino';
+import { requestContext } from './context.js';
+
 export default pino({
   level: process.env.LOG_LEVEL || 'info',
+  mixin() {
+    const store = requestContext.getStore();
+    if (store && store.req && store.req.id) {
+      return { reqId: store.req.id };
+    }
+    return {};
+  },
   redact: {
     paths: [
       'password', 'password_hash', 'token', 'refreshToken',

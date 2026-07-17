@@ -1,10 +1,10 @@
 import pg from 'pg';
-import { AsyncLocalStorage } from 'async_hooks';
+import { requestContext } from '../utils/context.js';
 import logger from '../utils/logger.js';
 
 const { Pool } = pg;
 
-export const requestContext = new AsyncLocalStorage<{ req: any }>();
+export { requestContext };
 
 export const pool = new Pool({
   connectionString:
@@ -18,6 +18,22 @@ export const readPool = new Pool({
     process.env.DATABASE_URL ||
     'postgresql://neuravolt:neuravolt_dev_pwd@postgres:5432/neuravolt',
 });
+
+// Wrap pool query functions for tracing
+const wrapPoolQuery = (p: pg.Pool, name: string) => {
+  const originalQuery = p.query;
+  // @ts-ignore
+  p.query = function (text: any, params: any, callback: any) {
+    const store = requestContext.getStore();
+    const reqId = store?.req?.id || 'no-request';
+    const sql = typeof text === 'string' ? text : text?.text;
+    logger.info({ reqId, sql, msg: `Executing DB Query on ${name}` });
+    return originalQuery.apply(p, arguments as any);
+  };
+};
+
+wrapPoolQuery(pool, 'PrimaryPool');
+wrapPoolQuery(readPool, 'ReadReplicaPool');
 
 // Log any pool errors to prevent crashes
 pool.on('error', (err) => {
@@ -55,6 +71,18 @@ export async function connectWithValidation(useReplica = false): Promise<pg.Pool
   while (retries > 0) {
     try {
       client = await targetPool.connect();
+
+      // Wrap client query function for tracing
+      const originalClientQuery = client.query;
+      // @ts-ignore
+      client.query = function (text: any, params: any, callback: any) {
+        const store = requestContext.getStore();
+        const reqId = store?.req?.id || 'no-request';
+        const sql = typeof text === 'string' ? text : text?.text;
+        logger.info({ reqId, sql, msg: 'Executing DB Query on Client' });
+        return originalClientQuery.apply(client, arguments as any);
+      };
+
       const valRes = await client.query(
         "SELECT current_setting('app.current_tenant', true) AS tenant"
       );
