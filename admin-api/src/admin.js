@@ -65,17 +65,39 @@ pool.query = function (text, params, callback) {
 };
 
 const originalPoolConnect = pool.connect;
-pool.connect = async function () {
-  const client = await originalPoolConnect.apply(pool, arguments);
-  const originalClientQuery = client.query;
-  client.query = function (text, params, callback) {
-    const store = requestContext.getStore();
-    const reqId = store?.req?.id || 'no-request';
-    const sql = typeof text === 'string' ? text : text?.text;
-    logger.info({ reqId, sql, msg: 'Executing DB Query on AdminClient' });
-    return originalClientQuery.apply(client, arguments);
-  };
-  return client;
+pool.connect = function (callback) {
+  if (callback) {
+    return originalPoolConnect.call(pool, (err, client, done) => {
+      if (err) return callback(err);
+      if (client && !client.query.__wrapped) {
+        const originalClientQuery = client.query;
+        client.query = function (text, params, cb) {
+          const store = requestContext.getStore();
+          const reqId = store?.req?.id || 'no-request';
+          const sql = typeof text === 'string' ? text : text?.text;
+          logger.info({ reqId, sql, msg: 'Executing DB Query on AdminClient' });
+          return originalClientQuery.apply(client, arguments);
+        };
+        client.query.__wrapped = true;
+      }
+      callback(null, client, done);
+    });
+  }
+
+  return originalPoolConnect.apply(pool, arguments).then((client) => {
+    if (client && !client.query.__wrapped) {
+      const originalClientQuery = client.query;
+      client.query = function (text, params, cb) {
+        const store = requestContext.getStore();
+        const reqId = store?.req?.id || 'no-request';
+        const sql = typeof text === 'string' ? text : text?.text;
+        logger.info({ reqId, sql, msg: 'Executing DB Query on AdminClient' });
+        return originalClientQuery.apply(client, arguments);
+      };
+      client.query.__wrapped = true;
+    }
+    return client;
+  });
 };
 
 // Encryption Helpers for credentials at rest
