@@ -36,6 +36,7 @@ import {
   requestContext,
   connectWithValidation,
   executeTenantQuery,
+  checkDbHealth,
 } from './db/pool.js';
 import chatRouter from './routes/chat.js';
 import documentsRouter from './routes/documents.js';
@@ -1847,10 +1848,21 @@ const authMiddleware = async (req, res, next) => {
 app.use(rateLimiterMiddleware);
 
 // 1. GET /health (Bypasses tenant middleware for status probes)
-app.get('/health', (req, res) => {
-  res.status(200).json({
-    status: 'healthy',
+app.get('/health', async (req, res) => {
+  const isDbHealthy = await checkDbHealth();
+  
+  if (pool.waitingCount > 5) {
+    logger.error(`🚨 [ALERT] DB Pool Exhaustion Warning: waitingCount is ${pool.waitingCount}!`);
+  }
+
+  res.status(isDbHealthy ? 200 : 500).json({
+    status: isDbHealthy ? 'healthy' : 'unhealthy',
     timestamp: new Date().toISOString(),
+    db: {
+      totalConnections: pool.totalCount,
+      idleConnections: pool.idleCount,
+      waitingClients: pool.waitingCount,
+    },
   });
 });
 

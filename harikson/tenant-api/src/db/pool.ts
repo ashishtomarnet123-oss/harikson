@@ -10,6 +10,9 @@ export const pool = new Pool({
   connectionString:
     process.env.DATABASE_URL ||
     'postgresql://neuravolt:neuravolt_dev_pwd@postgres:5432/neuravolt',
+  max: 20,
+  idleTimeoutMillis: 30000,
+  connectionTimeoutMillis: 5000,
 });
 
 export const readPool = new Pool({
@@ -17,6 +20,9 @@ export const readPool = new Pool({
     process.env.DATABASE_READ_URL ||
     process.env.DATABASE_URL ||
     'postgresql://neuravolt:neuravolt_dev_pwd@postgres:5432/neuravolt',
+  max: 20,
+  idleTimeoutMillis: 30000,
+  connectionTimeoutMillis: 5000,
 });
 
 // Wrap pool query functions for tracing
@@ -35,14 +41,29 @@ const wrapPoolQuery = (p: pg.Pool, name: string) => {
 wrapPoolQuery(pool, 'PrimaryPool');
 wrapPoolQuery(readPool, 'ReadReplicaPool');
 
-// Log any pool errors to prevent crashes
+// Log any pool errors to prevent crashes, letting pg pool reconnect on demand
 pool.on('error', (err) => {
-  logger.error('⚠️ [Harikson DB Pool] Unexpected database connection error:', err);
+  logger.error('Unexpected DB pool error:', err);
 });
 
 readPool.on('error', (err) => {
-  logger.error('⚠️ [Harikson DB Read Pool] Unexpected database connection error:', err);
+  logger.error('Unexpected DB read pool error:', err);
 });
+
+export async function checkDbHealth(): Promise<boolean> {
+  try {
+    const client = await pool.connect();
+    try {
+      await client.query('SELECT 1');
+      return true;
+    } finally {
+      client.release();
+    }
+  } catch (err) {
+    logger.error('Database health check failed:', err);
+    return false;
+  }
+}
 
 // Helper: Acquire a verified clean connection from the pool
 export async function connectWithValidation(useReplica = false): Promise<pg.PoolClient> {
@@ -68,6 +89,7 @@ export async function connectWithValidation(useReplica = false): Promise<pg.Pool
   }
 
   const targetPool = shouldReadFromReplica ? readPool : pool;
+  let delay = 500;
   while (retries > 0) {
     try {
       client = await targetPool.connect();
@@ -106,6 +128,9 @@ export async function connectWithValidation(useReplica = false): Promise<pg.Pool
       if (retries === 0) {
         throw new Error(`Failed to acquire a clean database connection: ${err.message}`);
       }
+      logger.warn(`Database connection failed: ${err.message}. Retrying in ${delay}ms...`);
+      await new Promise((resolve) => setTimeout(resolve, delay));
+      delay *= 2;
     }
   }
   throw new Error('Failed to acquire a clean database connection');
