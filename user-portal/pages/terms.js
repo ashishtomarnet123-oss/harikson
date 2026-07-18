@@ -1,6 +1,6 @@
 import Head from 'next/head';
 import Link from 'next/link';
-import { ArrowLeft, Shield, Lock, FileText, Scale, UserCheck, HelpCircle, Eye, RefreshCw, AlertCircle, Phone, BookOpen, CreditCard, Key } from 'lucide-react';
+import { ArrowLeft } from 'lucide-react';
 
 export default function TermsOfServicePage() {
   return (
@@ -9,24 +9,25 @@ export default function TermsOfServicePage() {
       color: '#1f2937',
       minHeight: '100vh',
       fontFamily: "'Outfit', sans-serif",
-      padding: '60px 20px 100px 20px'
+      padding: '60px 20px 100px 20px',
+      lineHeight: '1.8'
     }}>
       <Head>
-        <title>Terms of Service | Harikson AI Platform</title>
-        <meta name="description" content="Harikson AI Platform terms of service compliant with Indian Contract Act, Information Technology Rules, and DPDP Act 2023." />
-        <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet" />
+        <title>Terms of Service | Harikson AI</title>
+        <meta name="description" content="Harikson AI Terms of Service - legal agreement for using Harikson AI SaaS and API offerings." />
+        <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&display=swap" rel="stylesheet" />
       </Head>
 
       <div style={{
-        maxWidth: '960px',
+        maxWidth: '860px',
         margin: '0 auto'
       }}>
-        {/* Navigation / Header */}
+        {/* Header */}
         <div style={{
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center',
-          marginBottom: '50px',
+          marginBottom: '40px',
           borderBottom: '1px solid #e5e7eb',
           paddingBottom: '20px'
         }}>
@@ -38,12 +39,8 @@ export default function TermsOfServicePage() {
               color: '#4b5563',
               textDecoration: 'none',
               fontSize: '14.5px',
-              fontWeight: '500',
-              transition: 'color 0.2s'
-            }}
-            onMouseEnter={(e) => e.currentTarget.style.color = 'var(--accent, #3b82f6)'}
-            onMouseLeave={(e) => e.currentTarget.style.color = '#4b5563'}
-            >
+              fontWeight: '500'
+            }}>
               <ArrowLeft size={16} />
               Back to Home
             </a>
@@ -53,206 +50,551 @@ export default function TermsOfServicePage() {
             color: '#4b5563',
             background: '#f3f4f6',
             padding: '4px 12px',
-            borderRadius: '20px',
-            border: '1px solid #e5e7eb'
+            borderRadius: '20px'
           }}>
-            Effective Date: July 19, 2026
+            Last Updated: July 19, 2026
           </div>
         </div>
 
-        {/* Hero Section */}
-        <div style={{ marginBottom: '50px' }}>
+        {/* Title */}
+        <div style={{ marginBottom: '40px' }}>
           <h1 style={{
-            fontSize: '44px',
+            fontSize: '36px',
             fontWeight: '800',
-            margin: '0 0 16px 0',
-            background: 'linear-gradient(135deg, #1e40af, #3b82f6)',
-            WebkitBackgroundClip: 'text',
-            WebkitTextFillColor: 'transparent',
-            letterSpacing: '-0.5px'
+            margin: '0 0 10px 0',
+            color: '#111827'
           }}>
             Terms of Service
           </h1>
-          <p style={{
-            fontSize: '18px',
-            color: '#4b5563',
-            margin: '0 0 24px 0',
-            lineHeight: '1.6',
-            fontWeight: '300'
-          }}>
-            These Terms of Service govern the access and use of the Services provided by **Harikson AI Technologies Private Limited** (hereinafter referred to as &ldquo;Harikson&rdquo;, &ldquo;Company&rdquo;, &ldquo;we&rdquo;, &ldquo;us&rdquo;, or &ldquo;our&rdquo;), a company incorporated under the Companies Act, 2013 of India.
+          <p style={{ color: '#4b5563', margin: 0, fontSize: '15px' }}>
+            Harikson AI Technologies Private Limited
           </p>
-          <div style={{
-            background: '#eff6ff',
-            border: '1px solid #bfdbfe',
-            borderRadius: '8px',
-            padding: '16px',
-            fontSize: '14px',
-            color: '#1e40af',
-            lineHeight: '1.5'
-          }}>
-            <strong>Legal Notice:</strong> This document represents a binding electronic contract under the **Information Technology Act, 2000** and rules made thereunder. Please read these terms carefully before creating a workspace.
-          </div>
         </div>
 
-        {/* Key Pillars */}
+        {/* Content Body */}
         <div style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
-          gap: '20px',
-          marginBottom: '50px'
-        }}>
-          <div style={{
-            background: '#ffffff',
-            border: '1px solid #e5e7eb',
-            borderRadius: '12px',
-            padding: '24px',
-            boxShadow: '0 1px 3px rgba(0,0,0,0.05)'
-          }}>
-            <BookOpen style={{ color: '#3b82f6', marginBottom: '12px' }} size={26} />
-            <h3 style={{ margin: '0 0 8px 0', fontSize: '17px', fontWeight: '600', color: '#111827' }}>Indian Contract Act</h3>
-            <p style={{ margin: 0, fontSize: '13.5px', color: '#4b5563', lineHeight: '1.5' }}>
-              All subscriptions and workspace allocations constitute valid commercial contracts governed by Indian laws.
-            </p>
-          </div>
-          <div style={{
-            background: '#ffffff',
-            border: '1px solid #e5e7eb',
-            borderRadius: '12px',
-            padding: '24px',
-            boxShadow: '0 1px 3px rgba(0,0,0,0.05)'
-          }}>
-            <CreditCard style={{ color: '#10b981', marginBottom: '12px' }} size={26} />
-            <h3 style={{ margin: '0 0 8px 0', fontSize: '17px', fontWeight: '600', color: '#111827' }}>GST &amp; RBI Compliance</h3>
-            <p style={{ margin: 0, fontSize: '13.5px', color: '#4b5563', lineHeight: '1.5' }}>
-              All invoices display appropriate CGST/SGST breakdowns. Recurring auto-debits comply with RBI mandate guidelines.
-            </p>
-          </div>
-          <div style={{
-            background: '#ffffff',
-            border: '1px solid #e5e7eb',
-            borderRadius: '12px',
-            padding: '24px',
-            boxShadow: '0 1px 3px rgba(0,0,0,0.05)'
-          }}>
-            <Key style={{ color: '#f59e0b', marginBottom: '12px' }} size={26} />
-            <h3 style={{ margin: '0 0 8px 0', fontSize: '17px', fontWeight: '600', color: '#111827' }}>IP &amp; Input Ownership</h3>
-            <p style={{ margin: 0, fontSize: '13.5px', color: '#4b5563', lineHeight: '1.5' }}>
-              Customers retain full ownership of uploaded data, queries, and resultant AI outputs under the Indian Copyright Act, 1957.
-            </p>
-          </div>
-        </div>
-
-        {/* Full 92-clause mapped details */}
-        <div style={{
-          lineHeight: '1.8',
-          fontSize: '15.5px',
+          fontSize: '15px',
           color: '#374151'
         }}>
-          
-          <section style={{ marginBottom: '40px' }}>
-            <h2 style={{ fontSize: '22px', fontWeight: '600', color: '#111827', marginBottom: '14px', display: 'flex', alignItems: 'center', gap: '10px' }}>
-              <FileText size={20} color="#3b82f6" /> 1. Introduction, Eligibility &amp; Accounts
-            </h2>
-            <p style={{ marginBottom: '12px' }}>
-              These Terms constitute a legally binding agreement between the Customer and Harikson AI Technologies Private Limited.
-            </p>
-            <ul style={{ paddingLeft: '20px' }}>
-              <li style={{ marginBottom: '8px' }}><strong>Definitions:</strong> &ldquo;Workspace Data&rdquo; designates prompts and indexes; &ldquo;AI Output&rdquo; covers model-generated content.</li>
-              <li style={{ marginBottom: '8px' }}><strong>Eligibility:</strong> Users must be at least 18 years of age and hold absolute contracting capacity under the Indian Contract Act, 1872.</li>
-              <li style={{ marginBottom: '8px' }}><strong>Account Security:</strong> You are responsible for safeguarding API keys. Know-Your-Customer (KYC) verification applies under AML rules of India.</li>
-            </ul>
-          </section>
+          <p>
+            Welcome to <strong>Harikson AI</strong> (referred to as the &ldquo;<strong>Platform</strong>&rdquo; or &ldquo;<strong>Services</strong>&rdquo;). These Terms of Service (&ldquo;<strong>Terms</strong>&rdquo; or &ldquo;<strong>Agreement</strong>&rdquo;) govern the access and use of the Services provided by <strong>Harikson AI Technologies Private Limited</strong> (hereinafter referred to as &ldquo;<strong>Harikson</strong>&rdquo;, &ldquo;<strong>Company</strong>&rdquo;, &ldquo;<strong>we</strong>&rdquo;, &ldquo;<strong>us</strong>&rdquo;, or &ldquo;<strong>our</strong>&rdquo;), a company incorporated under the Companies Act, 2013 of India, with its registered office at Sector 62, Noida, Uttar Pradesh, India - 201301, Corporate Identification Number (CIN) U72900UP2026PTC123456.
+          </p>
 
-          <section style={{ marginBottom: '40px' }}>
-            <h2 style={{ fontSize: '22px', fontWeight: '600', color: '#111827', marginBottom: '14px', display: 'flex', alignItems: 'center', gap: '10px' }}>
-              <Shield size={20} color="#10b981" /> 2. Permitted &amp; Prohibited Platform Uses
-            </h2>
-            <p style={{ marginBottom: '12px' }}>
-              We grant a revocable, limited license to access our platform. You agree to adhere to the following conditions:
-            </p>
-            <ul style={{ paddingLeft: '20px' }}>
-              <li style={{ marginBottom: '8px' }}>No prompt injections, boundaries jailbreaking, or automated crawler indexing.</li>
-              <li style={{ marginBottom: '8px' }}>No sharing of developer API private keys or unauthorized reverse engineering of RAG index structures.</li>
-              <li style={{ marginBottom: '8px' }}>No uploading of spyware, trojans, or malware.</li>
-              <li style={{ marginBottom: '8px' }}>Under IT Rules 2021, you must not store, modify, or transmit racially objectionable or copyright-infringing content.</li>
-            </ul>
-          </section>
+          <hr style={{ border: 0, borderTop: '1px solid #e5e7eb', margin: '30px 0' }} />
 
-          <section style={{ marginBottom: '40px' }}>
-            <h2 style={{ fontSize: '22px', fontWeight: '600', color: '#111827', marginBottom: '14px', display: 'flex', alignItems: 'center', gap: '10px' }}>
-              <Key size={20} color="#f59e0b" /> 3. Intellectual Property, Inputs &amp; Outputs
-            </h2>
-            <ul style={{ paddingLeft: '20px' }}>
-              <li style={{ marginBottom: '8px' }}><strong>Prompt Ownership:</strong> Users retain absolute ownership of prompt inputs, documentation, and database assets.</li>
-              <li style={{ marginBottom: '8px' }}><strong>Generated Output:</strong> Subject to subscription payments, Harikson transfers all rights in generated output to the user.</li>
-              <li style={{ marginBottom: '8px' }}><strong>Model Training:</strong> Harikson does **not** utilize user inputs or vectors to train public foundation language models.</li>
-            </ul>
-          </section>
+          <h2 style={{ fontSize: '20px', fontWeight: '700', color: '#111827', margin: '24px 0 12px 0' }}>1. Introduction</h2>
+          <p>
+            These Terms constitute a legally binding agreement between you, whether personally or on behalf of an entity (&ldquo;<strong>you</strong>&rdquo;, &ldquo;<strong>User</strong>&rdquo;, &ldquo;<strong>Customer</strong>&rdquo;, or &ldquo;<strong>Data Principal</strong>&rdquo;), and the Company, concerning your access to and use of our platform, APIs, developer portals, websites, RAG infrastructure, and software applications.
+          </p>
 
-          <section style={{ marginBottom: '40px' }}>
-            <h2 style={{ fontSize: '22px', fontWeight: '600', color: '#111827', marginBottom: '14px', display: 'flex', alignItems: 'center', gap: '10px' }}>
-              <CreditCard size={20} color="#3b82f6" /> 4. Pricing, GST, Wallet &amp; Cancellations
-            </h2>
-            <ul style={{ paddingLeft: '20px' }}>
-              <li style={{ marginBottom: '8px' }}><strong>GST Levies:</strong> 18% GST is added to all invoices for Indian companies. Enter a valid GSTIN to apply for Input Tax Credit.</li>
-              <li style={{ marginBottom: '8px' }}><strong>Prepaid Wallet:</strong> Prepaid wallet credits have a twelve (12) month validity window and are non-refundable.</li>
-              <li style={{ marginBottom: '8px' }}><strong>Auto-Renewal &amp; Cancel:</strong> Cancellations must be registered 48 hours before renewal. Cancelled statuses remain in a <code>canceling</code> state until the cycle expires.</li>
-              <li style={{ marginBottom: '8px' }}><strong>Refunds:</strong> Payments are non-refundable except as mandated by the Consumer Protection Act, 2019.</li>
-            </ul>
-          </section>
+          <h2 style={{ fontSize: '20px', fontWeight: '700', color: '#111827', margin: '24px 0 12px 0' }}>2. Acceptance of Terms</h2>
+          <p>
+            By registering, logging into, accessing, or using the Platform, you acknowledge that you have read, understood, and agree to be bound by these Terms, our Privacy Policy, and all applicable laws and regulations. If you do not agree to these Terms, you must immediately cease all access and use of our Services.
+          </p>
 
-          <section style={{ marginBottom: '40px' }}>
-            <h2 style={{ fontSize: '22px', fontWeight: '600', color: '#111827', marginBottom: '14px', display: 'flex', alignItems: 'center', gap: '10px' }}>
-              <Lock size={20} color="#10b981" /> 5. Data Isolation &amp; Security Compliance
-            </h2>
-            <p style={{ marginBottom: '12px' }}>
-              We adhere strictly to the Digital Personal Data Protection (DPDP) Act, 2023:
-            </p>
-            <ul style={{ paddingLeft: '20px' }}>
-              <li style={{ marginBottom: '8px' }}>Workspace and RAG isolation are enforced through Row-Level Security (RLS).</li>
-              <li style={{ marginBottom: '8px' }}>Data localization: All servers storing database records are located within the geographical borders of India.</li>
-              <li style={{ marginBottom: '8px' }}>Retention: System access audit logs are retained for 180 days according to national security norms.</li>
-            </ul>
-          </section>
+          <h2 style={{ fontSize: '20px', fontWeight: '700', color: '#111827', margin: '24px 0 12px 0' }}>3. Definitions</h2>
+          <ul>
+            <li style={{ marginBottom: '8px' }}>&ldquo;<strong>AI Generated Content</strong>&rdquo; or &ldquo;<strong>Output</strong>&rdquo; means the text, summaries, code, files, predictions, embeddings, or other content generated by the Platform&apos;s LLM components in response to a Prompt.</li>
+            <li style={{ marginBottom: '8px' }}>&ldquo;<strong>Input</strong>&rdquo; or &ldquo;<strong>Prompt</strong>&rdquo; means any text, query, dataset, document, or media provided by the User to the Platform to generate an Output.</li>
+            <li style={{ marginBottom: '8px' }}>&ldquo;<strong>Customer Data</strong>&rdquo; means all data, text, files, documents, or metadata uploaded or integrated into RAG libraries or databases by the Customer.</li>
+            <li style={{ marginBottom: '8px' }}>&ldquo;<strong>Workspace</strong>&rdquo; means the logical tenant container environment isolated using PostgreSQL Row-Level Security (RLS) allocated to a specific Customer.</li>
+            <li style={{ marginBottom: '8px' }}>&ldquo;<strong>Data Principal</strong>&rdquo; has the meaning ascribed to it under the Digital Personal Data Protection (DPDP) Act, 2023 of India.</li>
+          </ul>
 
-          <section style={{ marginBottom: '40px' }}>
-            <h2 style={{ fontSize: '22px', fontWeight: '600', color: '#111827', marginBottom: '14px', display: 'flex', alignItems: 'center', gap: '10px' }}>
-              <AlertCircle size={20} color="#ef4444" /> 6. Disclaimer of Accuracy &amp; Liability Cap
-            </h2>
-            <p style={{ marginBottom: '12px' }}>
-              <strong>Hallucination Notice:</strong> Outputs represent predicted heuristics. Customers are required to perform human verification on all outputs before reliance. High-risk diagnostic or legal uses are prohibited.
-            </p>
-            <p style={{ marginBottom: '12px' }}>
-              <strong>Liability Limitation:</strong> Total liability for any damages shall not exceed the subscription fees paid by you in the immediately preceding three (3) months.
-            </p>
-          </section>
+          <h2 style={{ fontSize: '20px', fontWeight: '700', color: '#111827', margin: '24px 0 12px 0' }}>4. Eligibility</h2>
+          <p>By using the Platform, you represent and warrant that:</p>
+          <ol>
+            <li style={{ marginBottom: '6px' }}>You are at least 18 years of age (or the age of majority in your jurisdiction).</li>
+            <li style={{ marginBottom: '6px' }}>You possess the legal authority to enter into a binding contract under the Indian Contract Act, 1872.</li>
+            <li style={{ marginBottom: '6px' }}>You have not been previously suspended or removed from our Services.</li>
+            <li style={{ marginBottom: '6px' }}>Your use of the Services does not violate any applicable local, state, national, or international law.</li>
+          </ol>
 
-          <section style={{ marginBottom: '40px' }}>
-            <h2 style={{ fontSize: '22px', fontWeight: '600', color: '#111827', marginBottom: '14px', display: 'flex', alignItems: 'center', gap: '10px' }}>
-              <Phone size={20} color="#8b5cf6" /> 7. Governing Law, Arbitration &amp; Redressal
-            </h2>
-            <p style={{ marginBottom: '12px' }}>
-              These terms are governed by the laws of India. Any dispute will be resolved exclusively through arbitration in Noida under the Arbitration and Conciliation Act, 1996.
-            </p>
-            <div style={{
-              background: '#f0fdf4',
-              border: '1px solid #bbf7d0',
-              borderRadius: '8px',
-              padding: '24px',
-              fontSize: '15px',
-              lineHeight: '1.6',
-              color: '#166534',
-              marginTop: '16px'
-            }}>
-              <strong style={{ color: '#15803d', fontSize: '16px' }}>Designated Grievance Officer:</strong><br />
-              <strong>Ashish Pratap Singh Tomar</strong><br />
-              Harikson AI Technologies Private Limited<br />
-              Email: <a href="mailto:grievance@harikson.ai" style={{ color: '#16a34a', textDecoration: 'none', fontWeight: '600' }}>grievance@harikson.ai</a><br />
-              Office Address: Sector 62, Noida, Uttar Pradesh, India - 201301
-            </div>
-          </section>
+          <h2 style={{ fontSize: '20px', fontWeight: '700', color: '#111827', margin: '24px 0 12px 0' }}>5. Account Registration</h2>
+          <ol>
+            <li style={{ marginBottom: '8px' }}><strong>Accuracy of Information:</strong> To access certain features, you must register for an account. You agree to provide accurate, current, and complete information and maintain its accuracy.</li>
+            <li style={{ marginBottom: '8px' }}><strong>Credential Security:</strong> You are responsible for safeguarding your login credentials. You must notify us immediately at <code>security@harikson.ai</code> upon discovering any unauthorized access to or compromise of your account.</li>
+            <li style={{ marginBottom: '8px' }}><strong>KYC Verification:</strong> The Company reserves the right to conduct Know-Your-Customer (KYC) verification procedures under applicable anti-money laundering (AML) laws of India and request valid identity/age proof documents.</li>
+          </ol>
 
+          <h2 style={{ fontSize: '20px', fontWeight: '700', color: '#111827', margin: '24px 0 12px 0' }}>6. User Responsibilities</h2>
+          <p>You are solely responsible for:</p>
+          <ol>
+            <li style={{ marginBottom: '6px' }}>All activities that occur under your account or team workspace.</li>
+            <li style={{ marginBottom: '6px' }}>The legality, accuracy, and appropriateness of all Input and Customer Data.</li>
+            <li style={{ marginBottom: '6px' }}>Establishing and maintaining internal operational controls and security parameters for your systems connecting to the Platform.</li>
+          </ol>
+
+          <h2 style={{ fontSize: '20px', fontWeight: '700', color: '#111827', margin: '24px 0 12px 0' }}>7. Permitted Uses</h2>
+          <p>
+            You are granted a non-exclusive, non-transferable, non-sublicensable, revocable, limited license to access and use the Platform for your internal business operations, research, software integration, or personal development, strictly in accordance with these Terms.
+          </p>
+
+          <h2 style={{ fontSize: '20px', fontWeight: '700', color: '#111827', margin: '24px 0 12px 0' }}>8. Prohibited Uses</h2>
+          <p>You shall not:</p>
+          <ol>
+            <li style={{ marginBottom: '6px' }}>Reverse engineer, decompile, disassemble, or attempt to extract the source code or underlying architecture of the Platform.</li>
+            <li style={{ marginBottom: '6px' }}>Bypass, disable, or circumvent any security parameters, rate limits, or IP access controls.</li>
+            <li style={{ marginBottom: '6px' }}>Perform automated scraping, harvesting, or extraction of platform data using web crawlers, indexers, or bots without our explicit written consent.</li>
+            <li style={{ marginBottom: '6px' }}>Attempt prompt injection attacks, jailbreaking, or boundary testing of LLM layers.</li>
+            <li style={{ marginBottom: '6px' }}>Upload malware, viruses, trojans, or destructive scripts to the Platform.</li>
+          </ol>
+
+          <h2 style={{ fontSize: '20px', fontWeight: '700', color: '#111827', margin: '24px 0 12px 0' }}>9. AI Usage Policy</h2>
+          <p>Your use of the Large Language Model (LLM) components is subject to the following rules:</p>
+          <ol>
+            <li style={{ marginBottom: '6px' }}><strong>No Automation of Harm:</strong> You must not use the Platform to generate deceptive, defamatory, abusive, threatening, or harmful outputs.</li>
+            <li style={{ marginBottom: '6px' }}><strong>Attribution:</strong> When publishing AI-generated content, you must clearly indicate that the content is machine-generated.</li>
+            <li style={{ marginBottom: '6px' }}><strong>No Impersonation:</strong> You shall not configure AI agents to impersonate real persons or organizations without authorization.</li>
+          </ol>
+
+          <h2 style={{ fontSize: '20px', fontWeight: '700', color: '#111827', margin: '24px 0 12px 0' }}>10. Acceptable Use Policy</h2>
+          <p>Under the Information Technology Rules, 2021, you agree not to host, display, upload, modify, publish, transmit, store, update, or share any information that:</p>
+          <ol>
+            <li style={{ marginBottom: '6px' }}>Belongs to another person and to which you do not have any right.</li>
+            <li style={{ marginBottom: '6px' }}>Is obscene, pornographic, pedophilic, invasive of another&apos;s privacy, or racially or ethnically objectionable.</li>
+            <li style={{ marginBottom: '6px' }}>Infringes any patent, trademark, copyright, or other proprietary rights.</li>
+            <li style={{ marginBottom: '6px' }}>Threatens the unity, integrity, defense, security, or sovereignty of India or friendly relations with foreign states.</li>
+          </ol>
+
+          <h2 style={{ fontSize: '20px', fontWeight: '700', color: '#111827', margin: '24px 0 12px 0' }}>11. User Generated Content</h2>
+          <p>
+            You retain all rights to the comments, reviews, or materials you post on public discussion boards of the Platform (&ldquo;<strong>User Generated Content</strong>&rdquo;). You grant the Company a worldwide, royalty-free, perpetual license to host, display, and distribute such content for operational purposes.
+          </p>
+
+          <h2 style={{ fontSize: '20px', fontWeight: '700', color: '#111827', margin: '24px 0 12px 0' }}>12. AI Inputs and Outputs</h2>
+          <p>
+            The Platform processes Inputs provided by the User and returns corresponding Outputs. You acknowledge that AI systems rely on statistical probabilities and predictive heuristics. Therefore, inputs and outputs represent machine-generated text blocks rather than factually audited representations.
+          </p>
+
+          <h2 style={{ fontSize: '20px', fontWeight: '700', color: '#111827', margin: '24px 0 12px 0' }}>13. Ownership of Input</h2>
+          <p>
+            You retain all right, title, and intellectual property ownership in and to the Inputs you upload to the Platform. Harikson claims no ownership over your original queries, documents, or data.
+          </p>
+
+          <h2 style={{ fontSize: '20px', fontWeight: '700', color: '#111827', margin: '24px 0 12px 0' }}>14. Ownership of AI Generated Content</h2>
+          <p>
+            Subject to your compliance with these Terms, Harikson hereby assigns to you all its right, title, and interest in and to the Outputs generated by the Platform. You are responsible for ensuring that the use of such Outputs does not infringe third-party rights or violate applicable laws (e.g. Copyright Act, 1957).
+          </p>
+
+          <h2 style={{ fontSize: '20px', fontWeight: '700', color: '#111827', margin: '24px 0 12px 0' }}>15. Intellectual Property Rights</h2>
+          <ol>
+            <li style={{ marginBottom: '6px' }}><strong>Company IP:</strong> The Platform, codebase, algorithms, RAG frameworks, user interface designs, logo, trademarks, and documentation are the exclusive property of the Company and its licensors.</li>
+            <li style={{ marginBottom: '6px' }}><strong>Reservation of Rights:</strong> No license is granted to you except as explicitly stated herein.</li>
+          </ol>
+
+          <h2 style={{ fontSize: '20px', fontWeight: '700', color: '#111827', margin: '24px 0 12px 0' }}>16. Platform License</h2>
+          <p>
+            We grant you a limited, non-exclusive, non-sublicensable, revocable license to access the Platform solely through standard web browsers, official developer portals, and approved API endpoints.
+          </p>
+
+          <h2 style={{ fontSize: '20px', fontWeight: '700', color: '#111827', margin: '24px 0 12px 0' }}>17. Third-Party Integrations</h2>
+          <p>The Platform may support integrations with third-party software, cloud storage providers, and external LLM nodes. You acknowledge that:</p>
+          <ol>
+            <li style={{ marginBottom: '6px' }}>Your use of third-party integrations is governed by the terms of those service providers.</li>
+            <li style={{ marginBottom: '6px' }}>Harikson is not responsible for data leaks, downtime, or errors arising from third-party systems.</li>
+          </ol>
+
+          <h2 style={{ fontSize: '20px', fontWeight: '700', color: '#111827', margin: '24px 0 12px 0' }}>18. API Usage Terms</h2>
+          <p>We provide API endpoints to enable custom integrations. By using our APIs, you agree to:</p>
+          <ol>
+            <li style={{ marginBottom: '6px' }}>Prevent sharing of API private keys or credentials.</li>
+            <li style={{ marginBottom: '6px' }}>Limit automated API calls to the rate constraints allocated to your subscription plan.</li>
+            <li style={{ marginBottom: '6px' }}>Keep all endpoints isolated under secure TLS links.</li>
+          </ol>
+
+          <h2 style={{ fontSize: '20px', fontWeight: '700', color: '#111827', margin: '24px 0 12px 0' }}>19. API Rate Limits</h2>
+          <p>
+            To maintain stability and platform performance, we enforce strict API rate limits (e.g., requests per minute, monthly token allocations). You shall not attempt to bypass these limits by registering multiple accounts or using proxies. We reserve the right to modify these limits or temporarily throttle your connection.
+          </p>
+
+          <h2 style={{ fontSize: '20px', fontWeight: '700', color: '#111827', margin: '24px 0 12px 0' }}>20. Fair Usage Policy</h2>
+          <p>
+            We monitor CPU/GPU utilization, vector database queries, and memory bandwidth. If your usage significantly exceeds the average utilization metrics of similar plan tiers, we reserve the right to restrict execution access or transition your workspace to an enterprise tier.
+          </p>
+
+          <h2 style={{ fontSize: '20px', fontWeight: '700', color: '#111827', margin: '24px 0 12px 0' }}>21. Subscription Plans</h2>
+          <p>
+            We offer various plan tiers (Starter, Pro, and Enterprise) as detailed on our Pricing page. Each plan allocates distinct capabilities, including message volumes, token limits, RAG vector sizes, and dedicated background queue concurrency slots.
+          </p>
+
+          <h2 style={{ fontSize: '20px', fontWeight: '700', color: '#111827', margin: '24px 0 12px 0' }}>22. Billing</h2>
+          <ol>
+            <li style={{ marginBottom: '6px' }}><strong>Fees:</strong> You agree to pay the fees associated with your chosen subscription plan.</li>
+            <li style={{ marginBottom: '6px' }}><strong>RBI Regulations:</strong> All card transactions and billing procedures comply with Reserve Bank of India (RBI) directives, including mandate requirements for recurring transactions (e-mandates).</li>
+            <li style={{ marginBottom: '6px' }}><strong>Invoicing:</strong> Invoices will be generated electronically and made available in your billing settings page.</li>
+          </ol>
+
+          <h2 style={{ fontSize: '20px', fontWeight: '700', color: '#111827', margin: '24px 0 12px 0' }}>23. GST</h2>
+          <p>
+            Goods and Services Tax (GST) at the applicable rate (currently 18% for electronic services) will be levied on all charges billed to Indian customers. You must provide a valid GSTIN in your settings to claim input tax credit (ITC).
+          </p>
+
+          <h2 style={{ fontSize: '20px', fontWeight: '700', color: '#111827', margin: '24px 0 12px 0' }}>24. Taxes</h2>
+          <p>
+            You are responsible for all other taxes, duties, withholdings, or levies applicable to your transactions in your local jurisdiction.
+          </p>
+
+          <h2 style={{ fontSize: '20px', fontWeight: '700', color: '#111827', margin: '24px 0 12px 0' }}>25. Auto Renewal</h2>
+          <p>
+            Subscription plans will automatically renew at the end of the billing period unless cancelled at least 48 hours prior to the renewal date.
+          </p>
+
+          <h2 style={{ fontSize: '20px', fontWeight: '700', color: '#111827', margin: '24px 0 12px 0' }}>26. Cancellation Policy</h2>
+          <p>
+            You can cancel your subscription at any time via the self-serve Billing portal. Following cancellation, your subscription status will transition to &apos;canceling&apos; and remain active until the end of the current paid billing cycle.
+          </p>
+
+          <h2 style={{ fontSize: '20px', fontWeight: '700', color: '#111827', margin: '24px 0 12px 0' }}>27. Refund Policy</h2>
+          <p>Fees paid are non-refundable except:</p>
+          <ol>
+            <li style={{ marginBottom: '6px' }}>As required under the Consumer Protection Act, 2019.</li>
+            <li style={{ marginBottom: '6px' }}>If the billing error was caused solely by a malfunction of our payment processors.</li>
+          </ol>
+
+          <h2 style={{ fontSize: '20px', fontWeight: '700', color: '#111827', margin: '24px 0 12px 0' }}>28. Wallet Credits</h2>
+          <p>
+            We may permit you to purchase prepaid wallet credits to cover auxiliary API queries. Wallet credits are non-refundable, non-exchangeable, non-transferable, and expire twelve (12) months from the date of purchase.
+          </p>
+
+          <h2 style={{ fontSize: '20px', fontWeight: '700', color: '#111827', margin: '24px 0 12px 0' }}>29. Promotional Credits</h2>
+          <p>Promotional or wallet credits granted to your account:</p>
+          <ol>
+            <li style={{ marginBottom: '6px' }}>Have no cash value and cannot be transferred or refunded.</li>
+            <li style={{ marginBottom: '6px' }}>Will expire on the date specified at the time of credit allocation.</li>
+            <li style={{ marginBottom: '6px' }}>Can only be applied to billing invoices of the Platform.</li>
+          </ol>
+
+          <h2 style={{ fontSize: '20px', fontWeight: '700', color: '#111827', margin: '24px 0 12px 0' }}>30. Free Trial Terms</h2>
+          <p>
+            We may offer a free trial plan with usage limits. We reserve the right to terminate free trials at any time without notice.
+          </p>
+
+          <h2 style={{ fontSize: '20px', fontWeight: '700', color: '#111827', margin: '24px 0 12px 0' }}>31. Enterprise Accounts</h2>
+          <p>
+            Enterprise accounts are governed by these Terms and any custom Service Level Agreements (SLAs) or Order Forms executed between the Company and the Customer. Enterprise workspaces feature custom vector limits, Single Sign-On (SSO) integrations, and custom database residency options.
+          </p>
+
+          <h2 style={{ fontSize: '20px', fontWeight: '700', color: '#111827', margin: '24px 0 12px 0' }}>32. Team Workspaces</h2>
+          <p>
+            Workspaces allow multiple users to collaborate. The Organization Owner is responsible for the conduct of all Workspace users and guests. All inputs and outputs created within a Workspace are accessible to the Workspace Owner and Administrators.
+          </p>
+
+          <h2 style={{ fontSize: '20px', fontWeight: '700', color: '#111827', margin: '24px 0 12px 0' }}>33. Organization Ownership</h2>
+          <ol>
+            <li style={{ marginBottom: '6px' }}><strong>Owner Authority:</strong> The user who establishes the Workspace is designated as the &apos;Admin&apos;/&apos;Owner&apos;.</li>
+            <li style={{ marginBottom: '6px' }}><strong>Access Control:</strong> The Owner has full authority to invite users, delete resources, adjust billing plans, and request complete database erasure.</li>
+          </ol>
+
+          <h2 style={{ fontSize: '20px', fontWeight: '700', color: '#111827', margin: '24px 0 12px 0' }}>34. Data Privacy</h2>
+          <p>
+            Our data collection and processing activities are governed by our Privacy Policy, which is incorporated into these Terms by reference. We process your data in compliance with the DPDP Act, 2023 of India.
+          </p>
+
+          <h2 style={{ fontSize: '20px', fontWeight: '700', color: '#111827', margin: '24px 0 12px 0' }}>35. Data Storage</h2>
+          <p>
+            All data processed on behalf of Indian customers is stored in secure data centers located within the geographical borders of the Republic of India to comply with local data localization laws (including RBI payment processing guidelines).
+          </p>
+
+          <h2 style={{ fontSize: '20px', fontWeight: '700', color: '#111827', margin: '24px 0 12px 0' }}>36. Data Security</h2>
+          <p>
+            We implement commercially reasonable administrative, technical, and physical security measures to safeguard Customer Data. However, you acknowledge that no storage system is completely secure, and you are responsible for maintaining the security of your own network integrations.
+          </p>
+
+          <h2 style={{ fontSize: '20px', fontWeight: '700', color: '#111827', margin: '24px 0 12px 0' }}>37. Encryption</h2>
+          <p>We implement strict compliance parameters under the Digital Personal Data Protection (DPDP) Act, 2023:</p>
+          <ol>
+            <li style={{ marginBottom: '6px' }}>All Customer Data is stored in secure server centers utilizing AES-256 encryption at rest and TLS 1.3 encryption in transit.</li>
+            <li style={{ marginBottom: '6px' }}>Database instances are segmented using strict multi-tenant RLS patterns to prevent cross-tenant data exposure.</li>
+          </ol>
+
+          <h2 style={{ fontSize: '20px', fontWeight: '700', color: '#111827', margin: '24px 0 12px 0' }}>38. Data Retention</h2>
+          <p>
+            We retain your personal and workspace data only for the duration of your active subscription subscription, or as required by law. In compliance with the Information Technology Rules, 2021, system access and server audit logs are retained for a minimum period of 180 days.
+          </p>
+
+          <h2 style={{ fontSize: '20px', fontWeight: '700', color: '#111827', margin: '24px 0 12px 0' }}>39. Data Deletion</h2>
+          <p>
+            Upon account cancellation or tenant termination, we purge vectors, files, and chat records from active databases within 30 days. Archive back-ups are overwritten within a maximum window of 90 days.
+          </p>
+
+          <h2 style={{ fontSize: '20px', fontWeight: '700', color: '#111827', margin: '24px 0 12px 0' }}>40. User Data Export</h2>
+          <ol>
+            <li style={{ marginBottom: '6px' }}><strong>Erasure Policy:</strong> Upon workspace deletion or account closure, we erase all database entries and vectors within 30 days.</li>
+            <li style={{ marginBottom: '6px' }}><strong>Data Portability:</strong> You can download or export your conversation history and index metrics in JSON format from the Settings console prior to requesting deletion.</li>
+          </ol>
+
+          <h2 style={{ fontSize: '20px', fontWeight: '700', color: '#111827', margin: '24px 0 12px 0' }}>41. AI Model Training Policy</h2>
+          <p>
+            We maintain strict corporate walls between tenant vector stores and primary base model nodes.
+          </p>
+
+          <h2 style={{ fontSize: '20px', fontWeight: '700', color: '#111827', margin: '24px 0 12px 0' }}>42. Whether user content is used for model training</h2>
+          <p>
+            Harikson does <strong>NOT</strong> use your Inputs, Customer Data, prompts, or vectors to train or fine-tune public foundation language models.
+          </p>
+
+          <h2 style={{ fontSize: '20px', fontWeight: '700', color: '#111827', margin: '24px 0 12px 0' }}>43. User Opt-Out Policy</h2>
+          <p>
+            By default, all customer workspaces are opt-out environments. Any metadata training or telemetry analysis for model refinement requires explicit, separate, affirmative consent.
+          </p>
+
+          <h2 style={{ fontSize: '20px', fontWeight: '700', color: '#111827', margin: '24px 0 12px 0' }}>44. Confidential Information</h2>
+          <p>
+            Each party agrees to protect the other&apos;s proprietary non-public technical, product, and financial information (&ldquo;<strong>Confidential Information</strong>&rdquo;) with a reasonable degree of care. Confidential Information does not include information that is publicly known or independently developed without access to the other party&apos;s data.
+          </p>
+
+          <h2 style={{ fontSize: '20px', fontWeight: '700', color: '#111827', margin: '24px 0 12px 0' }}>45. Security Responsibilities</h2>
+          <p>
+            You are responsible for implementing client-side firewall configurations, security audits, and protecting API tokens. Harikson is not liable for security compromises arising from weak user credentials or API key exposure.
+          </p>
+
+          <h2 style={{ fontSize: '20px', fontWeight: '700', color: '#111827', margin: '24px 0 12px 0' }}>46. Platform Availability</h2>
+          <p>
+            We target an uptime of 99.9% for our cloud APIs. However, we do not guarantee uninterrupted platform availability, and you are advised to implement client-side fallback configurations.
+          </p>
+
+          <h2 style={{ fontSize: '20px', fontWeight: '700', color: '#111827', margin: '24px 0 12px 0' }}>47. Maintenance Windows</h2>
+          <p>
+            We conduct scheduled platform maintenance during off-peak hours (usually IST). We will post system notices on the user dashboard at least twenty-four (24) hours prior to scheduled maintenance.
+          </p>
+
+          <h2 style={{ fontSize: '20px', fontWeight: '700', color: '#111827', margin: '24px 0 12px 0' }}>48. Service Interruptions</h2>
+          <p>
+            While we strive to maintain 99.9% uptime, we do not guarantee uninterrupted access. Scheduled maintenance windows will occur during off-peak hours (IST) and will be announced via the dashboard status pages.
+          </p>
+
+          <h2 style={{ fontSize: '20px', fontWeight: '700', color: '#111827', margin: '24px 0 12px 0' }}>49. Beta Features</h2>
+          <p>
+            We may offer early-stage beta features. You acknowledge that Beta features are experimental and may exhibit bugs or service failures. Use of Beta features is entirely at your own risk.
+          </p>
+
+          <h2 style={{ fontSize: '20px', fontWeight: '700', color: '#111827', margin: '24px 0 12px 0' }}>50. Experimental AI Features</h2>
+          <p>
+            We may introduce experimental or &ldquo;Beta&rdquo; LLM nodes. These are provided &ldquo;<strong>AS IS</strong>&rdquo; without any warranties, uptime SLAs, or support commitments.
+          </p>
+
+          <h2 style={{ fontSize: '20px', fontWeight: '700', color: '#111827', margin: '24px 0 12px 0' }}>51. Third-Party AI Models</h2>
+          <p>
+            Our platform allows you to access third-party LLMs (e.g., GPT, Claude, Gemini). By configuring your system to connect to these models, you agree to comply with the terms and usage policies of their respective providers.
+          </p>
+
+          <h2 style={{ fontSize: '20px', fontWeight: '700', color: '#111827', margin: '24px 0 12px 0' }}>52. Third-Party Services Disclaimer</h2>
+          <p>
+            If we utilize public API infrastructure from providers like OpenAI, Anthropic, or Google, you acknowledge that their operational constraints, pricing adjustments, or licensing modifications may affect the Platform&apos;s operations.
+          </p>
+
+          <h2 style={{ fontSize: '20px', fontWeight: '700', color: '#111827', margin: '24px 0 12px 0' }}>53. Accuracy of AI Output</h2>
+          <p>
+            You acknowledge that AI models generate text based on statistical prediction and mathematical heuristics. We make no warranty or representation regarding the correctness, validity, completeness, or suitability of any Output.
+          </p>
+
+          <h2 style={{ fontSize: '20px', fontWeight: '700', color: '#111827', margin: '24px 0 12px 0' }}>54. Human Verification Requirement</h2>
+          <p>
+            Outputs are generated by predictive text algorithms and may occasionally contain factual inaccuracies, errors, or anomalies (&ldquo;<strong>Hallucinations</strong>&rdquo;). You must perform independent human verification on all outputs before relying on them for business decisions.
+          </p>
+
+          <h2 style={{ fontSize: '20px', fontWeight: '700', color: '#111827', margin: '24px 0 12px 0' }}>55. High-Risk Use Restrictions</h2>
+          <p>
+            You shall not use the Platform for life-critical activities, medical diagnostics, weapon design, nuclear facilities control, or automated legal contracts.
+          </p>
+
+          <h2 style={{ fontSize: '20px', fontWeight: '700', color: '#111827', margin: '24px 0 12px 0' }}>56. Medical Disclaimer</h2>
+          <p>
+            The Platform does not provide medical advice or diagnosis.
+          </p>
+
+          <h2 style={{ fontSize: '20px', fontWeight: '700', color: '#111827', margin: '24px 0 12px 0' }}>57. Financial Disclaimer</h2>
+          <p>
+            No outputs from the Platform constitute financial, stock trading, or investment advice.
+          </p>
+
+          <h2 style={{ fontSize: '20px', fontWeight: '700', color: '#111827', margin: '24px 0 12px 0' }}>58. Legal Advice Disclaimer</h2>
+          <p>
+            The Platform is not a licensed attorney and does not generate binding legal advice.
+          </p>
+
+          <h2 style={{ fontSize: '20px', fontWeight: '700', color: '#111827', margin: '24px 0 12px 0' }}>59. Educational Disclaimer</h2>
+          <p>
+            All instructional material is for educational purposes only.
+          </p>
+
+          <h2 style={{ fontSize: '20px', fontWeight: '700', color: '#111827', margin: '24px 0 12px 0' }}>60. AI Hallucination Disclaimer</h2>
+          <p>
+            You acknowledge that LLM outputs can be unpredictable and agree to hold Harikson harmless for damages resulting from incorrect AI predictions or hallucinations.
+          </p>
+
+          <h2 style={{ fontSize: '20px', fontWeight: '700', color: '#111827', margin: '24px 0 12px 0' }}>61. Limitation of Liability</h2>
+          <p>
+            TO THE MAXIMUM EXTENT PERMITTED BY THE CONSUMER PROTECTION ACT, 2019 AND OTHER LAWS OF INDIA, HARIKSON&apos;S TOTAL LIABILITY FOR ANY CLAIM ARISING OUT OF OR RELATING TO THIS AGREEMENT, WHETHER IN CONTRACT, TORT, OR OTHERWISE, SHALL NOT EXCEED THE TOTAL FEES PAID BY YOU TO HARIKSON IN THE THREE (3) MONTHS IMMEDIATELY PRECEDING THE EVENT GIVING RISE TO LIABILITY.
+          </p>
+
+          <h2 style={{ fontSize: '20px', fontWeight: '700', color: '#111827', margin: '24px 0 12px 0' }}>62. Disclaimer of Warranties</h2>
+          <p>
+            THE SERVICES ARE PROVIDED ON AN &ldquo;AS IS&rdquo; AND &ldquo;AS AVAILABLE&rdquo; BASIS. THE COMPANY DISCLAIMS ALL WARRANTIES, EXPRESS OR IMPLIED, INCLUDING WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, AND NON-INFRINGEMENT.
+          </p>
+
+          <h2 style={{ fontSize: '20px', fontWeight: '700', color: '#111827', margin: '24px 0 12px 0' }}>63. Indemnification</h2>
+          <p>You agree to indemnify, defend, and hold harmless Harikson, its directors, officers, employees, and affiliates from and against any claims, losses, damages, liabilities, and expenses (including attorney fees) arising from:</p>
+          <ol>
+            <li style={{ marginBottom: '6px' }}>Your violation of these Terms.</li>
+            <li style={{ marginBottom: '6px' }}>Your Inputs, Customer Data, or User Generated Content.</li>
+            <li style={{ marginBottom: '6px' }}>Your use of Outputs in violation of third-party intellectual property rights.</li>
+          </ol>
+
+          <h2 style={{ fontSize: '20px', fontWeight: '700', color: '#111827', margin: '24px 0 12px 0' }}>64. Suspension of Accounts</h2>
+          <p>
+            We reserve the right to temporarily suspend your user account or workspace if we suspect a security breach, unauthorized API traffic patterns, or if subscription invoice payments are overdue by more than seven (7) business days.
+          </p>
+
+          <h2 style={{ fontSize: '20px', fontWeight: '700', color: '#111827', margin: '24px 0 12px 0' }}>65. Termination</h2>
+          <p>We reserve the right to suspend or terminate your account and database access immediately if:</p>
+          <ol>
+            <li style={{ marginBottom: '6px' }}>You violate these Terms or the Acceptable Use Policy.</li>
+            <li style={{ marginBottom: '6px' }}>You fail to pay subscription fees.</li>
+            <li style={{ marginBottom: '6px' }}>Compelled to do so by a legal directive from an Indian government authority.</li>
+          </ol>
+
+          <h2 style={{ fontSize: '20px', fontWeight: '700', color: '#111827', margin: '24px 0 12px 0' }}>66. Appeals Process</h2>
+          <p>
+            If your account is suspended, you may request a review by emailing <code>appeals@harikson.ai</code> within fourteen (14) business days of the suspension notice.
+          </p>
+
+          <h2 style={{ fontSize: '20px', fontWeight: '700', color: '#111827', margin: '24px 0 12px 0' }}>67. Abuse Reporting</h2>
+          <p>
+            If you detect any platform activity that violates our acceptable use rules or represents abusive behavior, you can submit an abuse report containing URL traces to <code>abuse@harikson.ai</code>.
+          </p>
+
+          <h2 style={{ fontSize: '20px', fontWeight: '700', color: '#111827', margin: '24px 0 12px 0' }}>68. Copyright Complaints</h2>
+          <p>
+            If you believe that any material on the Platform infringes your intellectual property, you may submit a takedown request to our Grievance Officer in writing, containing details required under the Copyright Act, 1957.
+          </p>
+
+          <h2 style={{ fontSize: '20px', fontWeight: '700', color: '#111827', margin: '24px 0 12px 0' }}>69. DMCA-like Procedure adapted for India</h2>
+          <p>Under Section 52(1)(c) of the Indian Copyright Act, 1957, you must submit a signed affidavit containing:</p>
+          <ol>
+            <li style={{ marginBottom: '6px' }}>Proof of ownership of the copyrighted work.</li>
+            <li style={{ marginBottom: '6px' }}>Identification of the infringing material and its URL location.</li>
+            <li style={{ marginBottom: '6px' }}>Your contact details (address, phone number, email).</li>
+          </ol>
+
+          <h2 style={{ fontSize: '20px', fontWeight: '700', color: '#111827', margin: '24px 0 12px 0' }}>70. Trademark Complaints</h2>
+          <p>
+            In the event of suspected trademark misuse on our public dashboards or API registries, please email details of the registered trademark certificate and URL locations of the infringement to <code>legal@harikson.ai</code>.
+          </p>
+
+          <h2 style={{ fontSize: '20px', fontWeight: '700', color: '#111827', margin: '24px 0 12px 0' }}>71. Notice and Takedown Procedure</h2>
+          <p>
+            Upon receipt of a valid infringement notice, we will remove or disable access to the infringing material within 36 hours. We will notify the affected user, who may file a counter-notice if they believe the takedown was erroneous.
+          </p>
+
+          <h2 style={{ fontSize: '20px', fontWeight: '700', color: '#111827', margin: '24px 0 12px 0' }}>72. Force Majeure</h2>
+          <p>
+            Neither party will be liable for failure to perform obligations due to events beyond their control (e.g., acts of God, war, acts of terrorism, civil unrest, grid failures, government embargoes).
+          </p>
+
+          <h2 style={{ fontSize: '20px', fontWeight: '700', color: '#111827', margin: '24px 0 12px 0' }}>73. Export Compliance</h2>
+          <p>
+            You represent that you will not use, transport, or export software code or access tokens in violation of the Foreign Trade (Development and Regulation) Act, 1992 of India.
+          </p>
+
+          <h2 style={{ fontSize: '20px', fontWeight: '700', color: '#111827', margin: '24px 0 12px 0' }}>74. Sanctions Compliance</h2>
+          <p>
+            You represent and warrant that you are not located in a sanctioned country, or listed on any government embargo or restricted party list (including Indian, US, and EU lists).
+          </p>
+
+          <h2 style={{ fontSize: '20px', fontWeight: '700', color: '#111827', margin: '24px 0 12px 0' }}>75. Governing Law (India)</h2>
+          <p>
+            These Terms shall be governed by and construed in accordance with the laws of the Republic of India.
+          </p>
+
+          <h2 style={{ fontSize: '20px', fontWeight: '700', color: '#111827', margin: '24px 0 12px 0' }}>76. Jurisdiction</h2>
+          <p>
+            Any dispute, legal proceeding, or litigation arising out of or in connection with these Terms shall be subject to the exclusive jurisdiction of the courts located in <strong>Noida, Uttar Pradesh, India</strong>.
+          </p>
+
+          <h2 style={{ fontSize: '20px', fontWeight: '700', color: '#111827', margin: '24px 0 12px 0' }}>77. Arbitration under the Arbitration and Conciliation Act, 1996</h2>
+          <p>
+            Any dispute arising out of or in connection with this Agreement shall be referred to arbitration in Noida, India. The arbitration shall be conducted in accordance with the Arbitration and Conciliation Act, 1996, by a sole arbitrator appointed mutually by the parties. The language of arbitration shall be English.
+          </p>
+
+          <h2 style={{ fontSize: '20px', fontWeight: '700', color: '#111827', margin: '24px 0 12px 0' }}>78. Consumer Rights</h2>
+          <p>
+            Nothing in these Terms shall limit your consumer rights under the Consumer Protection Act, 2019.
+          </p>
+
+          <h2 style={{ fontSize: '20px', fontWeight: '700', color: '#111827', margin: '24px 0 12px 0' }}>79. Severability</h2>
+          <p>
+            If any provision of these Terms is found to be invalid or unenforceable, the remaining provisions shall continue in full force.
+          </p>
+
+          <h2 style={{ fontSize: '20px', fontWeight: '700', color: '#111827', margin: '24px 0 12px 0' }}>80. Waiver</h2>
+          <p>
+            No waiver of any term of these Terms shall be deemed a further or continuing waiver.
+          </p>
+
+          <h2 style={{ fontSize: '20px', fontWeight: '700', color: '#111827', margin: '24px 0 12px 0' }}>81. Assignment</h2>
+          <p>
+            You may not assign your rights under these Terms without our prior written consent. The Company may assign its rights under these Terms at its sole discretion.
+          </p>
+
+          <h2 style={{ fontSize: '20px', fontWeight: '700', color: '#111827', margin: '24px 0 12px 0' }}>82. Survival</h2>
+          <p>
+            Provisions regarding intellectual property ownership, limitations of liability, disclaimers, governing law, and dispute resolution shall survive the termination of this Agreement.
+          </p>
+
+          <h2 style={{ fontSize: '20px', fontWeight: '700', color: '#111827', margin: '24px 0 12px 0' }}>83. Entire Agreement</h2>
+          <p>
+            These Terms, together with our Privacy Policy, constitute the entire agreement between you and Harikson regarding your use of the Platform.
+          </p>
+
+          <h2 style={{ fontSize: '20px', fontWeight: '700', color: '#111827', margin: '24px 0 12px 0' }}>84. Changes to Terms</h2>
+          <p>
+            We may update these Terms from time to time. When we do, we will publish the updated version on this page and notify you via email or platform notification.
+          </p>
+
+          <h2 style={{ fontSize: '20px', fontWeight: '700', color: '#111827', margin: '24px 0 12px 0' }}>85. Contact Information</h2>
+          <p>
+            For corporate governance inquiries, you can reach out directly to our support desk at <code>support@harikson.ai</code>.
+          </p>
+
+          <h2 style={{ fontSize: '20px', fontWeight: '700', color: '#111827', margin: '24px 0 12px 0' }}>86. Grievance Officer details (as required under Indian law)</h2>
+          <p>Under the Information Technology Act, 2000 and the DPDP Act, 2023, the Grievance Officer details are:</p>
+          <ul>
+            <li style={{ marginBottom: '6px' }}><strong>Name:</strong> Ashish Pratap Singh Tomar</li>
+            <li style={{ marginBottom: '6px' }}><strong>Email:</strong> <code>grievance@harikson.ai</code></li>
+            <li style={{ marginBottom: '6px' }}><strong>Address:</strong> Sector 62, Noida, Uttar Pradesh, India - 201301</li>
+          </ul>
+
+          <h2 style={{ fontSize: '20px', fontWeight: '700', color: '#111827', margin: '24px 0 12px 0' }}>87. Compliance Officer details</h2>
+          <ul>
+            <li style={{ marginBottom: '6px' }}><strong>Email:</strong> <code>compliance@harikson.ai</code></li>
+          </ul>
+
+          <h2 style={{ fontSize: '20px', fontWeight: '700', color: '#111827', margin: '24px 0 12px 0' }}>88. Nodal Officer details</h2>
+          <ul>
+            <li style={{ marginBottom: '6px' }}><strong>Email:</strong> <code>nodal@harikson.ai</code></li>
+          </ul>
+
+          <h2 style={{ fontSize: '20px', fontWeight: '700', color: '#111827', margin: '24px 0 12px 0' }}>89. Registered Office details</h2>
+          <ul>
+            <li style={{ marginBottom: '6px' }}><strong>Address:</strong> Harikson AI Technologies Private Limited, Sector 62, Noida, Uttar Pradesh, India - 201301</li>
+          </ul>
+
+          <h2 style={{ fontSize: '20px', fontWeight: '700', color: '#111827', margin: '24px 0 12px 0' }}>90. Support Contact</h2>
+          <ul>
+            <li style={{ marginBottom: '6px' }}><strong>Email:</strong> <code>support@harikson.ai</code></li>
+          </ul>
+
+          <h2 style={{ fontSize: '20px', fontWeight: '700', color: '#111827', margin: '24px 0 12px 0' }}>91. Effective Date</h2>
+          <ul>
+            <li style={{ marginBottom: '6px' }}><strong>Date:</strong> July 19, 2026</li>
+          </ul>
+
+          <h2 style={{ fontSize: '20px', fontWeight: '700', color: '#111827', margin: '24px 0 12px 0' }}>92. Version History</h2>
+          <ul>
+            <li style={{ marginBottom: '6px' }}><strong>v1.0.0:</strong> Initial Release (July 19, 2026)</li>
+          </ul>
         </div>
       </div>
     </div>
