@@ -1071,199 +1071,7 @@ async function exportGDPRData(tenantId) {
   }
 }
 
-// Daily Clean-up Cron Job
-function startDailyCleanupCron() {
-  const ONE_DAY = 24 * 60 * 60 * 1000;
 
-  async function runCleanup() {
-    logger.info(
-      '[CRON] Running daily database cleanup & data retention rules...'
-    );
-    try {
-      // 1. Delete activity logs older than 90 days
-      const delLogs = await pool.query(
-        `DELETE FROM activity_logs WHERE created_at < NOW() - INTERVAL '90 days'`
-      );
-      logger.info(
-        `[CRON] Cleaned up ${delLogs.rowCount} activity logs older than 90 days.`
-      );
-
-      // 2. Clean expired or revoked sessions daily (keep active ones)
-      const delSessions = await pool.query(
-        `DELETE FROM user_sessions WHERE expires_at < NOW() OR revoked_at IS NOT NULL`
-      );
-      logger.info(
-        `[CRON] Cleaned up ${delSessions.rowCount} expired/revoked user sessions.`
-      );
-
-      // 3. Clean invoices older than 7 years (tax compliance retention)
-      const delInvoices = await pool.query(
-        `DELETE FROM invoices WHERE created_at < NOW() - INTERVAL '2555 days'`
-      );
-      logger.info(
-        `[CRON] Hard deleted ${delInvoices.rowCount} invoices older than 7 years.`
-      );
-
-      // 4. Clean conversations based on plans: Starter (1yr), Pro (2yr), Enterprise (Unlimited or overrides)
-      const activeTenants = await pool.query(
-        `SELECT id, plan, retention_overrides FROM tenants WHERE status = 'active' AND deleted_at IS NULL`
-      );
-      for (const tenantRow of activeTenants.rows) {
-        const tId = tenantRow.id;
-        const plan = (tenantRow.plan || 'starter').toLowerCase();
-        const overrides = tenantRow.retention_overrides || {};
-
-        let days = 365; // default Starter (1 year)
-        if (plan === 'pro' || plan === 'professional') {
-          days = 730; // Pro (2 years)
-        } else if (plan === 'enterprise') {
-          days = overrides.conversations_days
-            ? parseInt(overrides.conversations_days, 10)
-            : null;
-        }
-
-        if (days !== null) {
-          const delConvsResult = await pool.query(
-            `DELETE FROM conversations 
-             WHERE tenant_id = $1 AND updated_at < NOW() - $2 * INTERVAL '1 day'`,
-            [tId, days]
-          );
-          if (delConvsResult.rowCount > 0) {
-            logger.info(
-              `[CRON] Conversations retention: Hard deleted ${delConvsResult.rowCount} conversations older than ${days} days for tenant ${tId}`
-            );
-          }
-        }
-      }
-
-      // 5. Clean permanently soft-deleted records after retention period (default 30 days)
-      const retentionDays = parseInt(
-        process.env.HARD_DELETE_AFTER_DAYS || '30',
-        10
-      );
-
-      // GDPR Export soft-deleted tenants before hard deleting them
-      const softDeletedTenantsToPurge = await pool.query(
-        `SELECT id FROM tenants WHERE deleted_at < NOW() - $1 * INTERVAL '1 day'`,
-        [retentionDays]
-      );
-      for (const tRow of softDeletedTenantsToPurge.rows) {
-        await exportGDPRData(tRow.id);
-      }
-
-      const delTenants = await pool.query(
-        `DELETE FROM tenants WHERE deleted_at < NOW() - $1 * INTERVAL '1 day'`,
-        [retentionDays]
-      );
-      logger.info(
-        `[CRON] Hard deleted ${delTenants.rowCount} soft-deleted tenants older than ${retentionDays} days.`
-      );
-
-      const delUsers = await pool.query(
-        `DELETE FROM users WHERE deleted_at < NOW() - $1 * INTERVAL '1 day'`,
-        [retentionDays]
-      );
-      logger.info(
-        `[CRON] Hard deleted ${delUsers.rowCount} soft-deleted users older than ${retentionDays} days.`
-      );
-
-      const delConvs = await pool.query(
-        `DELETE FROM conversations WHERE deleted_at < NOW() - $1 * INTERVAL '1 day'`,
-        [retentionDays]
-      );
-      logger.info(
-        `[CRON] Hard deleted ${delConvs.rowCount} soft-deleted conversations older than ${retentionDays} days.`
-      );
-
-      const delMsgs = await pool.query(
-        `DELETE FROM messages WHERE deleted_at < NOW() - $1 * INTERVAL '1 day'`,
-        [retentionDays]
-      );
-      logger.info(
-        `[CRON] Hard deleted ${delMsgs.rowCount} soft-deleted messages older than ${retentionDays} days.`
-      );
-      // 4. Check plan downgrade grace period violations
-      const expiredGraceTenants = await pool.query(
-        `SELECT id, plan, downgrade_grace_ends FROM tenants 
-         WHERE downgrade_grace_ends < NOW() AND status = 'active'`
-      );
-
-      for (const tRow of expiredGraceTenants.rows) {
-        const tenantId = tRow.id;
-        const planId = tRow.plan.toLowerCase();
-
-        const planRes = await pool.query(
-          'SELECT agent_limit, features FROM plans WHERE id = $1',
-          [planId]
-        );
-        if (planRes.rows.length > 0) {
-          const plan = planRes.rows[0];
-          const agentLimit = plan.agent_limit;
-
-          if (agentLimit !== -1) {
-            const activeAgents = await pool.query(
-              `SELECT id FROM agents WHERE tenant_id = $1 AND status = 'active' ORDER BY created_at ASC`,
-              [tenantId]
-            );
-            if (activeAgents.rows.length > agentLimit) {
-              const extraAgentIds = activeAgents.rows
-                .slice(agentLimit)
-                .map((r) => r.id);
-              await pool.query(
-                `UPDATE agents SET status = 'disabled' WHERE id = ANY($1)`,
-                [extraAgentIds]
-              );
-              logger.info(
-                `[CRON] Disabled ${extraAgentIds.length} extra agents for tenant ${tenantId}`
-              );
-            }
-          }
-
-          await pool.query(
-            `INSERT INTO activity_logs (tenant_id, action, metadata)
-             VALUES ($1, 'PLAN_LIMIT_VIOLATION_NOTIFIED', $2)`,
-            [
-              tenantId,
-              JSON.stringify({
-                message:
-                  'Tenant has violated plan limits after grace period. Immediate action required.',
-                plan: planId,
-                grace_ends: tRow.downgrade_grace_ends,
-              }),
-            ]
-          );
-
-          const graceEnds = new Date(tRow.downgrade_grace_ends);
-          const autoSuspendTime = new Date(
-            graceEnds.getTime() + 14 * 24 * 60 * 60 * 1000
-          );
-          if (new Date() > autoSuspendTime) {
-            await pool.query(
-              `UPDATE tenants SET status = 'suspended' WHERE id = $1`,
-              [tenantId]
-            );
-            logger.info(
-              `[CRON] Auto-suspended tenant ${tenantId} due to unresolved plan limit violations for 14 days.`
-            );
-          }
-        }
-      }
-    } catch (err) {
-      logger.error('[CRON ERROR] Daily database cleanup failed:', err);
-    }
-  }
-
-  // Run once immediately on startup (with 5s delay)
-  setTimeout(() => {
-    runCleanup().catch((err) => logger.error(err));
-  }, 5000);
-
-  // Schedule to run every 24 hours
-  setInterval(() => {
-    runCleanup().catch((err) => logger.error(err));
-  }, ONE_DAY);
-}
-startDailyCleanupCron();
 
 // Tenant Middleware
 const tenantMiddleware = async (req, res, next) => {
@@ -2076,6 +1884,422 @@ app.get('/health', async (req, res) => {
       disk: { status: diskStatus, freePercent: freePercent }
     }
   });
+});
+
+// Admin Auth Middleware
+const adminAuthMiddleware = async (req: any, res: any, next: any) => {
+  await authMiddleware(req, res, () => {
+    if (req.user && (req.user.role === 'admin' || req.user.role === 'superadmin' || req.user.role === 'owner')) {
+      return next();
+    }
+    return res.status(403).json({ error: 'Forbidden: Admin access required' });
+  });
+};
+
+// GET /admin/queues - Dashboard for BullMQ stats and failed jobs
+app.get('/admin/queues', adminAuthMiddleware, async (req: any, res: any) => {
+  try {
+    const queues = {
+      memoryQueue: HariksonScheduler.memoryQueue,
+      summarizerQueue: HariksonScheduler.summarizerQueue,
+      cacheQueue: HariksonScheduler.cacheQueue,
+      cleanupQueue: HariksonScheduler.cleanupQueue,
+      failedQueue: HariksonScheduler.failedQueue,
+    };
+
+    const stats: any = {};
+    for (const [name, queue] of Object.entries(queues)) {
+      if (!queue) {
+        stats[name] = { waiting: 0, active: 0, completed: 0, failed: 0, total: 0 };
+        continue;
+      }
+      const [waiting, active, completed, failed, delayed] = await Promise.all([
+        queue.getWaitingCount(),
+        queue.getActiveCount(),
+        queue.getCompletedCount(),
+        queue.getFailedCount(),
+        queue.getDelayedCount(),
+      ]);
+      stats[name] = {
+        waiting,
+        active,
+        completed,
+        failed,
+        delayed,
+        total: waiting + active + completed + failed + delayed,
+      };
+    }
+
+    // Get active jobs in each queue
+    const activeJobsList: any[] = [];
+    for (const [name, queue] of Object.entries(queues)) {
+      if (!queue) continue;
+      const active = await queue.getActive();
+      for (const job of active) {
+        activeJobsList.push({
+          queue: name,
+          id: job.id,
+          name: job.name,
+          data: job.data,
+          processedAt: job.processedOn ? new Date(job.processedOn).toISOString() : 'pending',
+        });
+      }
+    }
+
+    // Get failed jobs from failedQueue (our DLQ)
+    const dlqFailedJobs: any[] = [];
+    if (HariksonScheduler.failedQueue) {
+      const dlqJobs = await HariksonScheduler.failedQueue.getJobs(['waiting', 'active', 'completed', 'failed']);
+      for (const job of dlqJobs) {
+        dlqFailedJobs.push({
+          id: job.id,
+          name: job.name,
+          data: job.data,
+          failedReason: job.data.failedReason || 'Unknown error',
+          failedAt: job.data.failedAt || new Date().toISOString(),
+          originalQueue: job.data.originalQueue || 'unknown',
+        });
+      }
+    }
+
+    // Also get natively failed jobs from each individual queue
+    const nativeFailedJobs: any[] = [];
+    for (const [name, queue] of Object.entries(queues)) {
+      if (!queue || name === 'failedQueue') continue;
+      const failed = await queue.getFailed();
+      for (const job of failed) {
+        nativeFailedJobs.push({
+          id: job.id,
+          name: job.name,
+          data: job.data,
+          failedReason: job.failedReason || 'Unknown error',
+          failedAt: job.finishedOn ? new Date(job.finishedOn).toISOString() : 'unknown',
+          originalQueue: name,
+        });
+      }
+    }
+
+    // Combine failed jobs and remove duplicates by original queue & job id
+    const seen = new Set();
+    const allFailedJobs = [...dlqFailedJobs, ...nativeFailedJobs].filter((job) => {
+      const key = `${job.originalQueue}:${job.id}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+
+    const html = `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Harikson Queue Dashboard</title>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #0b0f19;
+      --card-bg: rgba(17, 24, 39, 0.7);
+      --border: rgba(255, 255, 255, 0.08);
+      --text: #f3f4f6;
+      --text-muted: #9ca3af;
+      --primary: #3b82f6;
+      --success: #10b981;
+      --danger: #ef4444;
+      --warning: #f59e0b;
+    }
+    body {
+      background-color: var(--bg);
+      color: var(--text);
+      font-family: 'Outfit', sans-serif;
+      margin: 0;
+      padding: 40px 20px;
+    }
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 40px;
+    }
+    h1 {
+      font-size: 32px;
+      font-weight: 800;
+      margin: 0;
+      background: linear-gradient(135deg, #60a5fa, #3b82f6);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 20px;
+      margin-bottom: 40px;
+    }
+    .card {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 24px;
+      backdrop-filter: blur(10px);
+      box-shadow: 0 4px 30px rgba(0, 0, 0, 0.4);
+    }
+    .card h3 {
+      margin: 0 0 16px 0;
+      font-size: 18px;
+      color: var(--text-muted);
+    }
+    .stat-row {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 8px;
+      font-size: 14px;
+    }
+    .stat-row:last-child {
+      margin-bottom: 0;
+    }
+    .stat-val {
+      font-weight: 600;
+    }
+    .stat-val.active { color: var(--primary); }
+    .stat-val.waiting { color: var(--warning); }
+    .stat-val.completed { color: var(--success); }
+    .stat-val.failed { color: var(--danger); }
+    
+    .section-title {
+      font-size: 22px;
+      font-weight: 600;
+      margin: 40px 0 20px 0;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 10px;
+    }
+    .btn {
+      background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+      color: white;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 8px;
+      font-weight: 600;
+      cursor: pointer;
+      font-family: inherit;
+      transition: opacity 0.2s;
+    }
+    .btn:hover {
+      opacity: 0.9;
+    }
+    .btn.danger {
+      background: linear-gradient(135deg, #ef4444, #b91c1c);
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      overflow: hidden;
+      margin-bottom: 40px;
+    }
+    th, td {
+      padding: 16px;
+      text-align: left;
+      border-bottom: 1px solid var(--border);
+      font-size: 14px;
+    }
+    th {
+      background: rgba(255, 255, 255, 0.02);
+      color: var(--text-muted);
+      font-weight: 600;
+    }
+    .code {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 12px;
+      background: rgba(0, 0, 0, 0.3);
+      padding: 4px 8px;
+      border-radius: 4px;
+      border: 1px solid rgba(255, 255, 255, 0.05);
+    }
+    .error-msg {
+      color: var(--danger);
+      font-family: 'JetBrains Mono', monospace;
+      max-width: 400px;
+      word-break: break-all;
+    }
+  </style>
+  <script>
+    async function retryFailedJobs() {
+      const btn = document.getElementById('retry-btn');
+      btn.innerText = 'Retrying...';
+      btn.disabled = true;
+      try {
+        const res = await fetch('/admin/queues/retry', { method: 'POST' });
+        if (res.ok) {
+          alert('Failed jobs retried successfully!');
+          window.location.reload();
+        } else {
+          alert('Failed to retry jobs');
+        }
+      } catch (err) {
+        alert('Error: ' + err.message);
+      } finally {
+        btn.innerText = 'Retry Failed Jobs';
+        btn.disabled = false;
+      }
+    }
+  </script>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <div>
+        <h1>Harikson Queue Dashboard</h1>
+        <p style="margin: 4px 0 0 0; color: var(--text-muted);">Admin Control Panel for BullMQ & Background Workers</p>
+      </div>
+      <div>
+        <button id="retry-btn" onclick="retryFailedJobs()" class="btn danger">Retry Failed Jobs</button>
+      </div>
+    </header>
+
+    <div class="grid">
+      \${Object.entries(stats).map(([name, stat]: any) => \`
+        <div class="card">
+          <h3>\${name}</h3>
+          <div class="stat-row">
+            <span>Active:</span>
+            <span class="stat-val active">\${stat.active}</span>
+          </div>
+          <div class="stat-row">
+            <span>Waiting:</span>
+            <span class="stat-val waiting">\${stat.waiting}</span>
+          </div>
+          <div class="stat-row">
+            <span>Completed:</span>
+            <span class="stat-val completed">\${stat.completed}</span>
+          </div>
+          <div class="stat-row">
+            <span>Failed:</span>
+            <span class="stat-val failed">\${stat.failed}</span>
+          </div>
+          <div style="margin-top: 12px; border-top: 1px solid var(--border); padding-top: 8px;" class="stat-row">
+            <span>Total:</span>
+            <span class="stat-val">\${stat.total}</span>
+          </div>
+        </div>
+      \`).join('')}
+    </div>
+
+    <div class="section-title">Active Jobs</div>
+    \${activeJobsList.length === 0 ? '<p style="color: var(--text-muted);">No active jobs processing.</p>' : \`
+      <table>
+        <thead>
+          <tr>
+            <th>Queue</th>
+            <th>Job ID</th>
+            <th>Name</th>
+            <th>Data</th>
+            <th>Processed At</th>
+          </tr>
+        </thead>
+        <tbody>
+          \${activeJobsList.map((job) => \`
+            <tr>
+              <td><span class="code">\${job.queue}</span></td>
+              <td><span class="code">\${job.id}</span></td>
+              <td>\${job.name}</td>
+              <td><span class="code">\${JSON.stringify(job.data)}</span></td>
+              <td>\${job.processedAt}</td>
+            </tr>
+          \`).join('')}
+        </tbody>
+      </table>
+    \`}
+
+    <div class="section-title">Failed / DLQ Jobs</div>
+    \${allFailedJobs.length === 0 ? '<p style="color: var(--text-muted);">No failed jobs.</p>' : \`
+      <table>
+        <thead>
+          <tr>
+            <th>Original Queue</th>
+            <th>Job ID</th>
+            <th>Name</th>
+            <th>Data</th>
+            <th>Error Message</th>
+            <th>Failed At</th>
+          </tr>
+        </thead>
+        <tbody>
+          \${allFailedJobs.map((job) => \`
+            <tr>
+              <td><span class="code">\${job.originalQueue}</span></td>
+              <td><span class="code">\${job.id}</span></td>
+              <td>\${job.name}</td>
+              <td><span class="code">\${JSON.stringify(job.data)}</span></td>
+              <td class="error-msg">\${job.failedReason}</td>
+              <td>\${job.failedAt}</td>
+            </tr>
+          \`).join('')}
+        </tbody>
+      </table>
+    \`}
+  </div>
+</body>
+</html>
+    `;
+    res.setHeader('Content-Type', 'text/html');
+    res.status(200).send(html);
+  } catch (err: any) {
+    logger.error('Failed to load queue dashboard:', err);
+    res.status(500).json({ error: 'Failed to load queue dashboard', details: err.message });
+  }
+});
+
+// POST /admin/queues/retry - Retries failed jobs natively and from DLQ
+app.post('/admin/queues/retry', adminAuthMiddleware, async (req: any, res: any) => {
+  try {
+    const queues = [
+      HariksonScheduler.memoryQueue,
+      HariksonScheduler.summarizerQueue,
+      HariksonScheduler.cacheQueue,
+      HariksonScheduler.cleanupQueue,
+    ];
+
+    let retriedCount = 0;
+
+    // 1. Retry natively failed jobs in each queue
+    for (const queue of queues) {
+      if (!queue) continue;
+      const failedJobs = await queue.getFailed();
+      for (const job of failedJobs) {
+        await job.retry();
+        retriedCount++;
+      }
+    }
+
+    // 2. Retry jobs from the DLQ (failedQueue)
+    if (HariksonScheduler.failedQueue) {
+      const dlqJobs = await HariksonScheduler.failedQueue.getJobs(['waiting', 'active', 'completed', 'failed']);
+      for (const job of dlqJobs) {
+        const { originalQueue, name, data } = job.data;
+        const targetQueue = queues.find((q) => q && q.name === originalQueue);
+        if (targetQueue) {
+          await targetQueue.add(name, data, {
+            attempts: 3,
+            backoff: { type: 'exponential', delay: 1000 },
+          });
+          retriedCount++;
+        }
+        await job.remove();
+      }
+    }
+
+    logger.info(`[ADMIN] Retried ${retriedCount} failed background jobs.`);
+    res.status(200).json({ success: true, retriedCount });
+  } catch (err: any) {
+    logger.error('Failed to retry background jobs:', err);
+    res.status(500).json({ error: 'Failed to retry jobs', details: err.message });
+  }
 });
 
 // Apply tenant middleware to all non-health routes
@@ -6085,7 +6309,7 @@ const server = app.listen(port, () => {
     '00000000-0000-0000-0000-000000000000',
     './',
     '00000000-0000-0000-0000-000000000001'
-  );
+  ).catch((err) => logger.error('Failed to start BullMQ scheduler:', err));
 });
 
 const gracefulShutdown = (signal: string) => {
@@ -6093,7 +6317,7 @@ const gracefulShutdown = (signal: string) => {
   server.close(async () => {
     logger.info('HTTP server closed. Closing connection pools...');
     try {
-      HariksonScheduler.stopAll();
+      await HariksonScheduler.stopAll();
       await pool.end();
       await readPool.end();
       await redis.quit();
