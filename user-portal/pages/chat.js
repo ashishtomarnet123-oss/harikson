@@ -915,7 +915,6 @@ export default function ChatPage() {
       savedUser = JSON.parse(localStorage.getItem('hk_user') || 'null');
     } catch (e) {
       console.error('Failed to parse user from localStorage', e);
-      localStorage.removeItem('hk_token');
       localStorage.removeItem('hk_user');
       router.replace('/login');
       return;
@@ -927,7 +926,7 @@ export default function ChatPage() {
     const savedBase =
       localStorage.getItem('hk_api_base') || 'http://localhost:3008';
     const savedTenant = localStorage.getItem('hk_tenant') || 'system';
-    setToken(savedBase);
+    setToken(true);
     setUser(savedUser);
     setApiBase(savedBase);
     setTenantSlug(savedTenant);
@@ -995,14 +994,10 @@ export default function ChatPage() {
 
   const authHeaders = useCallback(
     () => {
-      const storedToken = typeof window !== 'undefined' ? localStorage.getItem('hk_token') : null;
       const headers = {
         'Content-Type': 'application/json',
         'x-tenant-slug': tenantSlug,
       };
-      if (storedToken) {
-        headers['Authorization'] = `Bearer ${storedToken}`;
-      }
       return headers;
     },
     [tenantSlug]
@@ -1715,14 +1710,12 @@ If any check fails, revise the relevant section before output.`;
     setRenamingId(null);
   };
 
-  /* ── Logout ── */
   const handleLogout = async () => {
     try {
       const apiBase =
         localStorage.getItem('hk_api_base') ||
         process.env.NEXT_PUBLIC_API_URL ||
         'http://localhost:3008';
-      const token = localStorage.getItem('hk_token');
       const tenantSlug = localStorage.getItem('hk_tenant') || 'neuravolt';
       await fetch(`${apiBase}/api/v1/auth/logout`, {
         method: 'POST',
@@ -1734,7 +1727,6 @@ If any check fails, revise the relevant section before output.`;
     } catch (e) {
       console.error('Logout error', e);
     }
-    localStorage.removeItem('hk_token');
     localStorage.removeItem('hk_user');
     localStorage.removeItem('hk_tenant');
     localStorage.removeItem('hk_api_base');

@@ -60,34 +60,57 @@ export default function LoginPage() {
       }
     }
 
-    // Check if already logged in
-    const user = localStorage.getItem('hk_user');
-    if (user) {
-      router.replace('/chat');
-      return;
-    }
     // Resolve API base and tenant slug from URL
+    let resolvedApiBase = 'http://localhost:3008';
+    let resolvedTenantSlug = 'system';
     if (typeof window !== 'undefined') {
       const hostname = window.location.hostname;
       if (hostname !== 'localhost' && hostname !== '127.0.0.1') {
         if (window.location.port) {
-          setApiBase(`http://${hostname}:3008`);
+          resolvedApiBase = `http://${hostname}:3008`;
         } else {
-          setApiBase(
+          resolvedApiBase =
             process.env.NEXT_PUBLIC_API_URL ||
-              `${window.location.protocol}//api.${hostname.split('.').slice(1).join('.')}`
-          );
+              `${window.location.protocol}//api.${hostname.split('.').slice(1).join('.')}`;
         }
         const parts = hostname.split('.');
         const isIP = !isNaN(parts[0]);
         if (!isIP && parts[0] !== 'www') {
-          setTenantSlug(parts[0]);
+          resolvedTenantSlug = parts[0];
         } else {
           const urlParams = new URLSearchParams(window.location.search);
-          setTenantSlug(urlParams.get('tenant') || 'system');
+          resolvedTenantSlug = urlParams.get('tenant') || 'system';
         }
       }
+      setApiBase(resolvedApiBase);
+      setTenantSlug(resolvedTenantSlug);
     }
+
+    // Verify session using HttpOnly cookies via the /auth/me endpoint
+    fetch(`${resolvedApiBase}/api/auth/me`, {
+      credentials: 'include',
+      headers: {
+        'x-tenant-slug': resolvedTenantSlug
+      }
+    })
+      .then(res => {
+        if (res.ok) return res.json();
+        throw new Error('Not authenticated');
+      })
+      .then(data => {
+        localStorage.setItem('hk_user', JSON.stringify({
+          id: data.id,
+          email: data.email,
+          role: data.role,
+          tenantSlug: resolvedTenantSlug
+        }));
+        localStorage.setItem('hk_tenant', resolvedTenantSlug);
+        localStorage.setItem('hk_api_base', resolvedApiBase);
+        router.replace('/chat');
+      })
+      .catch(() => {
+        localStorage.removeItem('hk_user');
+      });
   }, [router]);
 
   const handleLogin = async (e) => {
@@ -114,7 +137,6 @@ export default function LoginPage() {
         return;
       }
 
-      localStorage.setItem('hk_token', data.accessToken || '');
       localStorage.setItem('hk_user', JSON.stringify({ ...data.user, tenantSlug }));
       localStorage.setItem('hk_tenant', tenantSlug);
       localStorage.setItem('hk_api_base', apiBase);
@@ -143,7 +165,6 @@ export default function LoginPage() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Verification failed');
 
-      localStorage.setItem('hk_token', data.accessToken || '');
       localStorage.setItem('hk_user', JSON.stringify({ ...data.user, tenantSlug }));
       localStorage.setItem('hk_tenant', tenantSlug);
       localStorage.setItem('hk_api_base', apiBase);

@@ -85,7 +85,6 @@ export default function SignupPage() {
       }
 
       // Auto-login after successful registration
-      localStorage.removeItem('hk_token');
       localStorage.setItem('hk_user', JSON.stringify(data.user));
       localStorage.setItem('hk_tenant', tenantSlug);
       localStorage.setItem('hk_api_base', apiBase);

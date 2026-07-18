@@ -734,7 +734,9 @@ export default function SettingsModal({
                   if (handleLogout) {
                     await handleLogout();
                   } else {
-                    localStorage.removeItem('hk_token');
+                    localStorage.removeItem('hk_user');
+                    localStorage.removeItem('hk_tenant');
+                    localStorage.removeItem('hk_api_base');
                     router.push('/login');
                   }
                 }}
