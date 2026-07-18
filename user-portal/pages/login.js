@@ -10,7 +10,9 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [apiBase, setApiBase] = useState('http://localhost:3008');
-  const [tenantSlug, setTenantSlug] = useState('system');
+  const [tenantSlug, setTenantSlug] = useState(
+    (typeof process !== 'undefined' && process.env.NEXT_PUBLIC_DEFAULT_TENANT_SLUG) || 'neuravolt'
+  );
   const [requires2FA, setRequires2FA] = useState(false);
   const [totpCode, setTotpCode] = useState('');
   const [userId, setUserId] = useState('');
@@ -61,8 +63,13 @@ export default function LoginPage() {
     }
 
     // Resolve API base and tenant slug from URL
+    // Default slug: env var > localStorage last-known > 'neuravolt'
+    const defaultTenantSlug =
+      process.env.NEXT_PUBLIC_DEFAULT_TENANT_SLUG ||
+      (typeof window !== 'undefined' && localStorage.getItem('hk_tenant')) ||
+      'neuravolt';
     let resolvedApiBase = 'http://localhost:3008';
-    let resolvedTenantSlug = 'system';
+    let resolvedTenantSlug = defaultTenantSlug;
     if (typeof window !== 'undefined') {
       const hostname = window.location.hostname;
       if (hostname !== 'localhost' && hostname !== '127.0.0.1') {
@@ -74,13 +81,16 @@ export default function LoginPage() {
               `${window.location.protocol}//api.${hostname.split('.').slice(1).join('.')}`;
         }
         const parts = hostname.split('.');
-        const isIP = !isNaN(parts[0]);
+        const isIP = !isNaN(Number(parts[0]));
+        const urlParams = new URLSearchParams(window.location.search);
         if (!isIP && parts[0] !== 'www') {
+          // Subdomain-based routing: e.g., acme.neuravolt.cloud → slug=acme
           resolvedTenantSlug = parts[0];
-        } else {
-          const urlParams = new URLSearchParams(window.location.search);
-          resolvedTenantSlug = urlParams.get('tenant') || 'system';
+        } else if (urlParams.get('tenant')) {
+          // Explicit ?tenant= param takes precedence over default
+          resolvedTenantSlug = urlParams.get('tenant');
         }
+        // else: keep defaultTenantSlug (IP access, no subdomain, no ?tenant=)
       }
       setApiBase(resolvedApiBase);
       setTenantSlug(resolvedTenantSlug);
@@ -118,7 +128,7 @@ export default function LoginPage() {
     setError('');
     setLoading(true);
     try {
-      const res = await fetch(`${apiBase}/api/v1/auth/login`, {
+      const res = await fetch(`${apiBase}/api/auth/login`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -153,7 +163,7 @@ export default function LoginPage() {
     setError('');
     setLoading(true);
     try {
-      const res = await fetch(`${apiBase}/api/v1/auth/login/2fa`, {
+      const res = await fetch(`${apiBase}/api/auth/login/2fa`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
