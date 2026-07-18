@@ -2169,35 +2169,35 @@ app.get('/admin/queues', setGlobalTenantContext, adminAuthMiddleware, async (req
     </header>
 
     <div class="grid">
-      \${Object.entries(stats).map(([name, stat]: any) => \`
+      ${Object.entries(stats).map(([name, stat]: any) => `
         <div class="card">
-          <h3>\${name}</h3>
+          <h3>${name}</h3>
           <div class="stat-row">
             <span>Active:</span>
-            <span class="stat-val active">\${stat.active}</span>
+            <span class="stat-val active">${stat.active}</span>
           </div>
           <div class="stat-row">
             <span>Waiting:</span>
-            <span class="stat-val waiting">\${stat.waiting}</span>
+            <span class="stat-val waiting">${stat.waiting}</span>
           </div>
           <div class="stat-row">
             <span>Completed:</span>
-            <span class="stat-val completed">\${stat.completed}</span>
+            <span class="stat-val completed">${stat.completed}</span>
           </div>
           <div class="stat-row">
             <span>Failed:</span>
-            <span class="stat-val failed">\${stat.failed}</span>
+            <span class="stat-val failed">${stat.failed}</span>
           </div>
           <div style="margin-top: 12px; border-top: 1px solid var(--border); padding-top: 8px;" class="stat-row">
             <span>Total:</span>
-            <span class="stat-val">\${stat.total}</span>
+            <span class="stat-val">${stat.total}</span>
           </div>
         </div>
-      \`).join('')}
+      `).join('')}
     </div>
 
     <div class="section-title">Active Jobs</div>
-    \${activeJobsList.length === 0 ? '<p style="color: var(--text-muted);">No active jobs processing.</p>' : \`
+    ${activeJobsList.length === 0 ? '<p style="color: var(--text-muted);">No active jobs processing.</p>' : `
       <table>
         <thead>
           <tr>
@@ -2209,21 +2209,21 @@ app.get('/admin/queues', setGlobalTenantContext, adminAuthMiddleware, async (req
           </tr>
         </thead>
         <tbody>
-          \${activeJobsList.map((job) => \`
+          ${activeJobsList.map((job) => `
             <tr>
-              <td><span class="code">\${job.queue}</span></td>
-              <td><span class="code">\${job.id}</span></td>
-              <td>\${job.name}</td>
-              <td><span class="code">\${JSON.stringify(job.data)}</span></td>
-              <td>\${job.processedAt}</td>
+              <td><span class="code">${job.queue}</span></td>
+              <td><span class="code">${job.id}</span></td>
+              <td>${job.name}</td>
+              <td><span class="code">${JSON.stringify(job.data)}</span></td>
+              <td>${job.processedAt}</td>
             </tr>
-          \`).join('')}
+          `).join('')}
         </tbody>
       </table>
-    \`}
+    `}
 
     <div class="section-title">Failed / DLQ Jobs</div>
-    \${allFailedJobs.length === 0 ? '<p style="color: var(--text-muted);">No failed jobs.</p>' : \`
+    ${allFailedJobs.length === 0 ? '<p style="color: var(--text-muted);">No failed jobs.</p>' : `
       <table>
         <thead>
           <tr>
@@ -2236,19 +2236,19 @@ app.get('/admin/queues', setGlobalTenantContext, adminAuthMiddleware, async (req
           </tr>
         </thead>
         <tbody>
-          \${allFailedJobs.map((job) => \`
+          ${allFailedJobs.map((job) => `
             <tr>
-              <td><span class="code">\${job.originalQueue}</span></td>
-              <td><span class="code">\${job.id}</span></td>
-              <td>\${job.name}</td>
-              <td><span class="code">\${JSON.stringify(job.data)}</span></td>
-              <td class="error-msg">\${job.failedReason}</td>
-              <td>\${job.failedAt}</td>
+              <td><span class="code">${job.originalQueue}</span></td>
+              <td><span class="code">${job.id}</span></td>
+              <td>${job.name}</td>
+              <td><span class="code">${JSON.stringify(job.data)}</span></td>
+              <td class="error-msg">${job.failedReason}</td>
+              <td>${job.failedAt}</td>
             </tr>
-          \`).join('')}
+          `).join('')}
         </tbody>
       </table>
-    \`}
+    `}
   </div>
 </body>
 </html>
