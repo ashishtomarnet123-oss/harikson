@@ -13,7 +13,6 @@ services:
     container_name: harikson-traefik
     restart: unless-stopped
     command:
-      - '--api.insecure=true'
       - '--api.dashboard=true'
       - '--providers.docker=true'
       - '--providers.docker.exposedbydefault=false'
@@ -27,13 +26,25 @@ services:
     ports:
       - '8085:80'
       - '8443:443'
-      - '8088:8080'
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - ${DATA_DIR:-./data}/traefik:/letsencrypt
       - ./traefik/dynamic.yml:/dynamic/dynamic.yml:ro
     networks:
       - harikson-network
+    labels:
+      - "traefik.enable=true"
+      # Dashboard routing rules pointing to internal service
+      - "traefik.http.routers.dashboard.rule=Host(`traefik.neuravolt.cloud`)"
+      - "traefik.http.routers.dashboard.entrypoints=websecure"
+      - "traefik.http.routers.dashboard.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.dashboard.service=api@internal"
+      - "traefik.http.routers.dashboard.middlewares=auth,ip-whitelist"
+      # BasicAuth configuration for admin dashboard access
+      - "traefik.http.middlewares.auth.basicauth.users=admin:$$apr1$$H6uskkk7$$IgXLP6ewTrSuBkTrqE8wj/"
+      # Restrict access to local host loopback and private VPN subnets in production
+      - "traefik.http.middlewares.ip-whitelist.ipwhitelist.sourcerange=127.0.0.1/32,10.0.0.0/8,172.16.0.0/12,192.168.0.0/16"
+
 
   # 2. Ollama (Shared AI Inference Engine)
   ollama:
