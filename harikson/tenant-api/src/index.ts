@@ -29,6 +29,7 @@ import speakeasy from 'speakeasy';
 import QRCode from 'qrcode';
 import { fileURLToPath } from 'url';
 import multer from 'multer';
+import Stripe from 'stripe';
 import { runMigrations } from './utils/migrate.js';
 import {
   pool,
@@ -66,7 +67,7 @@ if (!process.env.JWT_SECRET) {
   }
 }
 
-import { sendPasswordReset, sendWelcomeEmail } from './services/email.js';
+import { sendPasswordReset, sendWelcomeEmail, sendSubscriptionCancellation } from './services/email.js';
 import { validate } from './middleware/validation.middleware.js';
 import {
   loginSchema,
@@ -4526,6 +4527,163 @@ app.put(
   }
 );
 
+const ENCRYPTION_KEY = process.env.PAYMENT_ENCRYPTION_KEY || 'default_32_bytes_long_secret_key_!';
+
+function decryptText(encryptedText: string | null) {
+  if (!encryptedText) return null;
+  try {
+    const hashedKey = crypto
+      .createHash('sha256')
+      .update(ENCRYPTION_KEY)
+      .digest();
+    const parts = encryptedText.split(':');
+    if (parts.length < 3) return encryptedText; // Fallback
+    const iv = Buffer.from(parts[0], 'hex');
+    const authTag = Buffer.from(parts[1], 'hex');
+    const encrypted = parts[2];
+    const decipher = crypto.createDecipheriv('aes-256-gcm', hashedKey, iv);
+    decipher.setAuthTag(authTag);
+    let decrypted = decipher.update(encrypted, 'hex', 'utf8');
+    decrypted += decipher.final('utf8');
+    return decrypted;
+  } catch (err) {
+    return null;
+  }
+}
+
+async function getStripeClient(): Promise<Stripe> {
+  if (process.env.STRIPE_API_KEY) {
+    return new Stripe(process.env.STRIPE_API_KEY);
+  }
+  const stripeRes = await pool.query(
+    "SELECT * FROM payment_providers WHERE provider = 'stripe' AND is_active = true LIMIT 1"
+  );
+  if (stripeRes.rows.length === 0) {
+    throw new Error('Stripe payment provider is not configured or active. Set STRIPE_API_KEY env var.');
+  }
+  const secret = decryptText(stripeRes.rows[0].api_secret_encrypted);
+  if (!secret) {
+    throw new Error('Failed to decrypt Stripe API secret');
+  }
+  return new Stripe(secret);
+}
+
+// POST /api/user/billing/portal - Get Stripe Billing Portal Session URL
+app.post('/api/user/billing/portal', authMiddleware, async (req: any, res: any) => {
+  try {
+    const subQuery = await pool.query(
+      "SELECT * FROM subscriptions WHERE tenant_id = $1 AND provider = 'stripe' AND status IN ('active', 'past_due') ORDER BY created_at DESC LIMIT 1",
+      [req.tenant.id]
+    );
+    if (subQuery.rows.length === 0) {
+      return res.status(400).json({ error: 'No active Stripe subscription found for this workspace.' });
+    }
+    const sub = subQuery.rows[0];
+    let stripeCustomerId = sub.metadata?.stripe_customer_id || sub.metadata?.customer_id;
+    const stripe = await getStripeClient();
+
+    if (!stripeCustomerId) {
+      logger.info(`[BILLING PORTAL] Stripe customer ID not in metadata for sub ${sub.id}. Retrieving from Stripe...`);
+      const stripeSub = await stripe.subscriptions.retrieve(sub.provider_subscription_id);
+      stripeCustomerId = stripeSub.customer as string;
+      await pool.query(
+        "UPDATE subscriptions SET metadata = COALESCE(metadata, '{}'::jsonb) || $1::jsonb WHERE id = $2",
+        [JSON.stringify({ stripe_customer_id: stripeCustomerId }), sub.id]
+      );
+    }
+
+    const portalSession = await stripe.billingPortal.sessions.create({
+      customer: stripeCustomerId,
+      return_url: 'https://app.neuravolt.cloud/settings/billing',
+    });
+
+    res.json({ url: portalSession.url });
+  } catch (err: any) {
+    logger.error('Billing portal session creation error:', err);
+    res.status(500).json({ error: 'Failed to create billing portal session', details: err.message });
+  }
+});
+
+// POST /api/user/billing/cancel - Direct cancel at period end
+app.post('/api/user/billing/cancel', authMiddleware, async (req: any, res: any) => {
+  try {
+    const subQuery = await pool.query(
+      "SELECT * FROM subscriptions WHERE tenant_id = $1 AND provider = 'stripe' AND status IN ('active', 'past_due') ORDER BY created_at DESC LIMIT 1",
+      [req.tenant.id]
+    );
+    if (subQuery.rows.length === 0) {
+      return res.status(400).json({ error: 'No active Stripe subscription found to cancel.' });
+    }
+    const sub = subQuery.rows[0];
+    const stripe = await getStripeClient();
+
+    logger.info(`[BILLING CANCEL] Cancelling Stripe sub ${sub.provider_subscription_id} at period end...`);
+    const stripeSub = await stripe.subscriptions.update(sub.provider_subscription_id, {
+      cancel_at_period_end: true,
+    });
+
+    // Update status to 'canceling' as requested
+    await pool.query(
+      "UPDATE subscriptions SET status = 'canceling', updated_at = NOW() WHERE id = $1",
+      [sub.id]
+    );
+
+    // Send email confirmation in the background
+    const endDateFormatted = new Date(stripeSub.current_period_end * 1000).toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+    });
+    sendSubscriptionCancellation(req.user.email, sub.plan_id.toUpperCase(), endDateFormatted).catch((err) => {
+      logger.error('Failed to send subscription cancellation email:', err);
+    });
+
+    res.json({
+      success: true,
+      message: 'Subscription will be canceled at the end of the current billing period.',
+      cancelAt: endDateFormatted
+    });
+  } catch (err: any) {
+    logger.error('Billing cancellation error:', err);
+    res.status(500).json({ error: 'Failed to cancel subscription', details: err.message });
+  }
+});
+
+// GET /api/user/billing/subscription - Get current subscription details
+app.get('/api/user/billing/subscription', authMiddleware, async (req: any, res: any) => {
+  try {
+    const subQuery = await pool.query(
+      `SELECT s.*, p.name as plan_name 
+       FROM subscriptions s
+       JOIN plans p ON s.plan_id = p.id
+       WHERE s.tenant_id = $1 
+       ORDER BY s.created_at DESC 
+       LIMIT 1`,
+      [req.tenant.id]
+    );
+
+    if (subQuery.rows.length === 0) {
+      return res.json({
+        planName: 'Starter Plan',
+        status: 'FREE',
+        current_period_end: null,
+        cancel_at_period_end: false
+      });
+    }
+
+    const sub = subQuery.rows[0];
+    res.json({
+      planName: sub.plan_name,
+      status: sub.status,
+      current_period_end: sub.current_period_end,
+      cancel_at_period_end: sub.metadata?.cancel_at_period_end || (sub.status === 'canceling')
+    });
+  } catch (err: any) {
+    logger.error('Fetch current subscription error:', err);
+    res.status(500).json({ error: 'Failed to fetch subscription details', details: err.message });
+  }
+});
+
 // GET /api/user/billing - Get billing plan & invoice history (real tenant plan data)
 app.get('/api/user/billing', authMiddleware, async (req, res) => {
   try {
@@ -4560,11 +4718,15 @@ app.get('/api/user/billing', authMiddleware, async (req, res) => {
       req.tenant.status === 'suspended' ? 'SUSPENDED' : 'ACTIVE';
     let paymentMethod = null;
     let priceNum = parseFloat(req.tenant.price) || 0;
+    let currentPeriodEnd = null;
+    let cancelAtPeriodEnd = false;
 
     if (subRes.rows.length > 0) {
       const sub = subRes.rows[0];
       subscriptionStatus = sub.status.toUpperCase();
       priceNum = parseFloat(sub.amount) || priceNum;
+      currentPeriodEnd = sub.current_period_end;
+      cancelAtPeriodEnd = sub.metadata?.cancel_at_period_end || (sub.status === 'canceling');
 
       // Parse payment method from subscription metadata if available
       if (sub.metadata && typeof sub.metadata === 'object') {
@@ -4637,6 +4799,8 @@ app.get('/api/user/billing', authMiddleware, async (req, res) => {
       description: req.tenant.plan_description || '',
       paymentMethod,
       invoices,
+      currentPeriodEnd,
+      cancelAtPeriodEnd,
     });
   } catch (err) {
     logger.error('Fetch billing error:', err);

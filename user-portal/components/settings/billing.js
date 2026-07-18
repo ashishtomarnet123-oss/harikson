@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { CreditCard, CheckCircle2, Download, XCircle } from 'lucide-react';
+import { CreditCard, CheckCircle2, Download, XCircle, ExternalLink, Calendar, RefreshCw } from 'lucide-react';
 
 export default function BillingSettings() {
   const [billing, setBilling] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [showCancelModal, setShowCancelModal] = useState(false);
+  const [actionLoading, setActionLoading] = useState(false);
 
   const getFeaturesArray = (features) => {
     if (!features) return [];
@@ -97,10 +99,97 @@ export default function BillingSettings() {
     }
   };
 
+  const handleManageBilling = async () => {
+    setActionLoading(true);
+    setError(null);
+    try {
+      const tenantSlug = localStorage.getItem('hk_tenant') || 'neuravolt';
+      const apiBase =
+        localStorage.getItem('hk_api_base') ||
+        process.env.NEXT_PUBLIC_API_URL ||
+        'http://localhost:3008';
+
+      const res = await fetch(`${apiBase}/api/v1/user/billing/portal`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: {
+          'x-tenant-slug': tenantSlug,
+          'Content-Type': 'application/json'
+        },
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        if (data.url) {
+          window.open(data.url, '_blank');
+        } else {
+          throw new Error('Billing portal URL not found in response');
+        }
+      } else {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.error || 'Failed to redirect to Stripe Customer Portal');
+      }
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleCancelSubscription = async () => {
+    setActionLoading(true);
+    setError(null);
+    setShowCancelModal(false);
+    try {
+      const tenantSlug = localStorage.getItem('hk_tenant') || 'neuravolt';
+      const apiBase =
+        localStorage.getItem('hk_api_base') ||
+        process.env.NEXT_PUBLIC_API_URL ||
+        'http://localhost:3008';
+
+      const res = await fetch(`${apiBase}/api/v1/user/billing/cancel`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: {
+          'x-tenant-slug': tenantSlug,
+          'Content-Type': 'application/json'
+        },
+      });
+
+      if (res.ok) {
+        alert('Your subscription has been scheduled for cancellation at the end of the billing period.');
+        await fetchBilling();
+      } else {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.error || 'Failed to cancel subscription');
+      }
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleResubscribe = () => {
+    alert('To resubscribe or update your subscription tier, please use the "Manage Billing" button to open the Stripe Portal.');
+  };
+
   if (loading)
     return (
       <div className="settings-loading">Loading subscription details...</div>
     );
+
+  const isCanceling = billing?.status?.toUpperCase() === 'CANCELING';
+  const isCancelled = billing?.status?.toUpperCase() === 'CANCELLED';
+  const isFree = billing?.status?.toUpperCase() === 'FREE' || !billing?.status;
+
+  const getStatusBadgeStyle = () => {
+    const status = billing?.status?.toUpperCase();
+    if (status === 'ACTIVE') return { background: '#10b981', color: '#fff' };
+    if (status === 'CANCELING') return { background: '#f59e0b', color: '#fff' };
+    if (status === 'CANCELLED') return { background: '#ef4444', color: '#fff' };
+    return { background: 'var(--accent)', color: '#fff' };
+  };
 
   return (
     <>
@@ -116,15 +205,54 @@ export default function BillingSettings() {
           {/* Current Plan */}
           <div className="settings-section">
             <h2>Current Plan</h2>
-            <div className="settings-plan-card">
-              <span className="settings-plan-badge">{billing.status}</span>
+            <div className="settings-plan-card" style={{ position: 'relative' }}>
+              <span className="settings-plan-badge" style={getStatusBadgeStyle()}>
+                {billing.status}
+              </span>
               <div className="settings-plan-body">
-                <div className="settings-plan-info">
+                <div className="settings-plan-info" style={{ flex: 1 }}>
                   <h3>{billing.planName}</h3>
                   <div className="settings-plan-price">
                     {billing.price} <span>/ user / month</span>
                   </div>
-                  <ul className="settings-plan-features">
+                  
+                  {isCanceling && billing.currentPeriodEnd && (
+                    <div style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                      background: 'rgba(245, 158, 11, 0.1)',
+                      color: '#f59e0b',
+                      padding: '10px 14px',
+                      borderRadius: '8px',
+                      marginTop: '16px',
+                      fontSize: '13.5px',
+                      border: '1px solid rgba(245, 158, 11, 0.2)',
+                    }}>
+                      <Calendar size={16} />
+                      <span>Subscription is scheduled to cancel. Access remains active until <strong>{new Date(billing.currentPeriodEnd).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</strong>.</span>
+                    </div>
+                  )}
+
+                  {isCancelled && (
+                    <div style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                      background: 'rgba(239, 68, 68, 0.1)',
+                      color: '#ef4444',
+                      padding: '10px 14px',
+                      borderRadius: '8px',
+                      marginTop: '16px',
+                      fontSize: '13.5px',
+                      border: '1px solid rgba(239, 68, 68, 0.2)',
+                    }}>
+                      <XCircle size={16} />
+                      <span>Your subscription has been canceled. To regain access to enterprise features, please resubscribe.</span>
+                    </div>
+                  )}
+
+                  <ul className="settings-plan-features" style={{ marginTop: '20px' }}>
                     {billing.features ? (
                       getFeaturesArray(billing.features).map((f) => (
                         <li
@@ -185,19 +313,95 @@ export default function BillingSettings() {
                     )}
                   </ul>
                 </div>
-                <div>
-                  <button
-                    className="btn-secondary"
-                    onClick={() =>
-                      alert(
-                        'Plan change is managed by workspace administrator.'
-                      )
-                    }
-                  >
-                    Change Plan
-                  </button>
+                
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', minWidth: '160px' }}>
+                  {!isFree && (
+                    <button
+                      className="btn-primary"
+                      onClick={handleManageBilling}
+                      disabled={actionLoading}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '6px',
+                        width: '100%',
+                        padding: '10px 16px',
+                        fontWeight: '600'
+                      }}
+                    >
+                      <ExternalLink size={15} />
+                      {actionLoading ? 'Loading...' : 'Manage Billing'}
+                    </button>
+                  )}
+
+                  {!isFree && !isCanceling && !isCancelled && (
+                    <button
+                      className="btn-secondary"
+                      onClick={() => setShowCancelModal(true)}
+                      disabled={actionLoading}
+                      style={{
+                        width: '100%',
+                        padding: '10px 16px',
+                        border: '1px solid rgba(239, 68, 68, 0.4)',
+                        color: '#ef4444',
+                        background: 'transparent',
+                        fontWeight: '600'
+                      }}
+                    >
+                      Cancel Plan
+                    </button>
+                  )}
+
+                  {(isCanceling || isCancelled) && (
+                    <button
+                      className="btn-primary"
+                      onClick={handleResubscribe}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '6px',
+                        width: '100%',
+                        padding: '10px 16px',
+                        background: 'linear-gradient(135deg, #10b981, #059669)',
+                        fontWeight: '600'
+                      }}
+                    >
+                      <RefreshCw size={15} />
+                      Resubscribe
+                    </button>
+                  )}
                 </div>
               </div>
+
+              {/* Plan Usage Section */}
+              <div style={{ marginTop: '24px', borderTop: '1px solid var(--border)', paddingTop: '20px' }}>
+                <h4 style={{ margin: '0 0 16px 0', fontSize: '14px', fontWeight: '600', color: 'var(--text-secondary)' }}>
+                  Plan Usage &amp; Limits
+                </h4>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '20px' }}>
+                  <div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', color: 'var(--text-muted)', marginBottom: '6px' }}>
+                      <span>API Message Requests</span>
+                      <span>24.5% (2,450 / 10,000)</span>
+                    </div>
+                    <div style={{ background: 'rgba(255,255,255,0.05)', borderRadius: '4px', height: '6px', overflow: 'hidden' }}>
+                      <div style={{ background: 'var(--accent)', width: '24.5%', height: '100%' }}></div>
+                    </div>
+                  </div>
+                  <div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', color: 'var(--text-muted)', marginBottom: '6px' }}>
+                      <span>RAG Documents Library</span>
+                      <span>14.5% (14.5 GB / 100 GB)</span>
+                    </div>
+                    <div style={{ background: 'rgba(255,255,255,0.05)', borderRadius: '4px', height: '6px', overflow: 'hidden' }}>
+                      <div style={{ background: 'var(--accent)', width: '14.5%', height: '100%' }}></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
             </div>
           </div>
 
@@ -205,14 +409,15 @@ export default function BillingSettings() {
           <div className="settings-section">
             <div className="settings-section-header">
               <h2>Payment Method</h2>
-              <button
-                className="btn-primary"
-                onClick={() =>
-                  alert('Update payment method feature is locked.')
-                }
-              >
-                {billing.paymentMethod ? 'Update' : 'Add Card'}
-              </button>
+              {!isFree && (
+                <button
+                  className="btn-primary"
+                  onClick={handleManageBilling}
+                  disabled={actionLoading}
+                >
+                  Update
+                </button>
+              )}
             </div>
             {billing.paymentMethod ? (
               <div
@@ -253,8 +458,7 @@ export default function BillingSettings() {
                   margin: 0,
                 }}
               >
-                No payment method on file. Add a billing card to manage
-                automated payments.
+                {isFree ? 'No billing method is required for the free starter tier.' : 'No payment method on file. Add a billing card to manage automated payments.'}
               </p>
             )}
           </div>
@@ -365,9 +569,11 @@ export default function BillingSettings() {
                         </td>
                         <td style={{ textAlign: 'right', padding: '8px' }}>
                           <button
-                            onClick={() =>
-                              alert(`Downloading receipt for ${inv.id}...`)
-                            }
+                            onClick={() => {
+                              if (inv.pdfUrl) window.open(inv.pdfUrl, '_blank');
+                              else if (inv.invoiceUrl) window.open(inv.invoiceUrl, '_blank');
+                              else alert(`Downloading receipt for ${inv.id}...`);
+                            }}
                             style={{
                               background: 'none',
                               border: 'none',
@@ -387,6 +593,63 @@ export default function BillingSettings() {
             )}
           </div>
         </>
+      )}
+
+      {/* Confirmation Modal */}
+      {showCancelModal && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(0, 0, 0, 0.65)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 9999,
+          backdropFilter: 'blur(4px)',
+        }}>
+          <div style={{
+            background: '#111827',
+            border: '1px solid rgba(255, 255, 255, 0.08)',
+            borderRadius: '12px',
+            padding: '24px',
+            maxWidth: '400px',
+            width: '100%',
+            boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.3)',
+          }}>
+            <h3 style={{ margin: '0 0 12px 0', fontSize: '18px', color: '#f3f4f6' }}>Cancel Subscription</h3>
+            <p style={{ margin: '0 0 20px 0', fontSize: '14px', color: '#9ca3af', lineHeight: '1.5' }}>
+              Are you sure you want to cancel your subscription? You will still have access to the plan features until the end of your billing cycle.
+            </p>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
+              <button 
+                className="btn-secondary" 
+                onClick={() => setShowCancelModal(false)}
+                style={{ padding: '8px 16px', fontSize: '14px' }}
+              >
+                No, Keep Plan
+              </button>
+              <button 
+                className="btn-danger" 
+                onClick={handleCancelSubscription}
+                style={{ 
+                  padding: '8px 16px', 
+                  fontSize: '14px', 
+                  backgroundColor: '#ef4444', 
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '6px',
+                  cursor: 'pointer',
+                  fontWeight: '600'
+                }}
+              >
+                Yes, Cancel
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </>
   );

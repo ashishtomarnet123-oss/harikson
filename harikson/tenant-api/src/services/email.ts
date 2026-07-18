@@ -161,3 +161,43 @@ export const sendInvoiceReceipt = async (to: string, invoiceDetails: InvoiceDeta
     return { success: false, error: 'Failed to send invoice receipt' };
   }
 };
+
+export const sendSubscriptionCancellation = async (to: string, planName: string, endDate: string) => {
+  if (!(await checkEmailRateLimit(to))) {
+    return {
+      success: false,
+      error: 'Rate limit exceeded. Max 3 emails per hour.',
+    };
+  }
+
+  try {
+    const { data, error } = await resend.emails.send({
+      from: 'Harikson AI <noreply@neuravolt.cloud>',
+      to,
+      subject: 'Subscription Cancelled — Harikson AI',
+      html: `
+        <div style="font-family: sans-serif; padding: 20px; color: #1e293b; max-width: 600px; margin: 0 auto; border: 1px solid #e2e8f0; border-radius: 8px;">
+          <h2 style="color: #ef4444; border-bottom: 2px solid #ef4444; padding-bottom: 10px;">Subscription Cancelled</h2>
+          <p>Hello,</p>
+          <p>Your subscription to the <strong>${planName}</strong> plan has been cancelled as requested.</p>
+          <p>Your access will remain active until the end of your billing cycle on <strong>${endDate}</strong>.</p>
+          <p>If you change your mind, you can resubscribe at any time from your settings panel.</p>
+          <hr style="border: 0; border-top: 1px solid #e2e8f0; margin: 20px 0;" />
+          <p style="font-size: 12px; color: #94a3b8;">Secured by Harikson · Enterprise AI Platform</p>
+        </div>
+      `,
+    });
+    if (error) {
+      logger.error('[EMAIL SEND ERROR - CANCEL]:', error.message || error);
+      return {
+        success: false,
+        error: error.message || 'Failed to send cancellation email',
+      };
+    }
+    return { success: true, data };
+  } catch (err: any) {
+    logger.error('[EMAIL SEND ERROR - CANCEL]:', err.message);
+    return { success: false, error: 'Failed to send cancellation email' };
+  }
+};
+
