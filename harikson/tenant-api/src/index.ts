@@ -48,6 +48,8 @@ import contextRouter from './api/routes/context.js';
 import toolsRouter from './api/routes/tools.js';
 import orchestratorRouter from './api/routes/orchestrator-routes.js';
 import { HariksonScheduler } from './workers/scheduler.js';
+import { rateLimit } from 'express-rate-limit';
+import RedisStore from 'rate-limit-redis';
 
 
 dotenv.config();
@@ -1539,7 +1541,7 @@ async function checkSlidingWindowLimit(key, limit, windowSeconds = 60) {
       reset: resetTime,
       retryAfter,
     };
-  } catch (err) {
+  } catch (err: any) {
     logger.error(`[RATE LIMIT ERROR] Redis key ${key} failed:`, err.message);
     return {
       allowed: true,
@@ -1550,179 +1552,213 @@ async function checkSlidingWindowLimit(key, limit, windowSeconds = 60) {
     };
   }
 }
+// Skip rate limiting for health check and webhook endpoints
+const skipRateLimit = (req: any) => {
+  const path = req.path || '';
+  return (
+    path === '/health' ||
+    path.startsWith('/billing/webhook/') ||
+    path.startsWith('/api/billing/webhook/') ||
+    path.startsWith('/webhooks/') ||
+    path.startsWith('/api/webhooks/') ||
+    path.includes('/webhook')
+  );
+};
 
-// Comprehensive rate-limiting middleware
-const rateLimiterMiddleware = async (req, res, next) => {
-  try {
-    // 1. IP Determination
-    const rawIp =
-      ((req.headers['x-forwarded-for'] as any) || req.socket?.remoteAddress || '')
-        .split(',')[0]
-        .trim() || '127.0.0.1';
-    const ip = rawIp.replace(/^::ffff:/, '');
+// Create distinct RedisStores for each rate limiter to support different prefixes
+const globalLimitStore = new RedisStore({
+  prefix: 'rl:global:',
+  // @ts-expect-error - compatibility wrapper for ioredis
+  sendCommand: (...args: string[]) => redis.send_command(args[0], ...args.slice(1)),
+});
 
+const authLimitStore = new RedisStore({
+  prefix: 'rl:auth-login:',
+  // @ts-expect-error - compatibility wrapper for ioredis
+  sendCommand: (...args: string[]) => redis.send_command(args[0], ...args.slice(1)),
+});
+
+const userLimitStore = new RedisStore({
+  prefix: 'rl:user:',
+  // @ts-expect-error - compatibility wrapper for ioredis
+  sendCommand: (...args: string[]) => redis.send_command(args[0], ...args.slice(1)),
+});
+
+const tenantLimitStore = new RedisStore({
+  prefix: 'rl:tenant:',
+  // @ts-expect-error - compatibility wrapper for ioredis
+  sendCommand: (...args: string[]) => redis.send_command(args[0], ...args.slice(1)),
+});
+
+// Helper to extract IP address safely
+const getClientIp = (req: any): string => {
+  const rawIp = ((req.headers['x-forwarded-for'] as string) || req.socket?.remoteAddress || '127.0.0.1').split(',')[0].trim();
+  return rawIp.replace(/^::ffff:/, '');
+};
+
+// 1. Global Rate Limiter: 100 requests per 15 minutes per IP
+const globalRateLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 100,
+  standardHeaders: true,
+  legacyHeaders: false,
+  store: globalLimitStore,
+  keyGenerator: getClientIp,
+  skip: skipRateLimit,
+  handler: (req, res, next, options) => {
+    logger.warn(`[RATE LIMIT HIT] Global limit exceeded. IP: ${getClientIp(req)}, Path: ${req.path}`);
+    res.setHeader('Retry-After', Math.ceil(options.windowMs / 1000));
+    res.status(options.statusCode).json({
+      error: 'Too Many Requests: Global rate limit exceeded',
+      retryAfter: Math.ceil(options.windowMs / 1000),
+    });
+  },
+});
+
+// 2. Stricter limits for auth endpoints: 5 login attempts per 15 minutes per IP
+const authRateLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  store: authLimitStore,
+  keyGenerator: getClientIp,
+  skip: (req) => {
+    if (skipRateLimit(req)) return true;
     const path = req.path || '';
-    const isAuthEndpoint = path.startsWith('/api/auth');
-    const isChatEndpoint =
-      path.startsWith('/api/conversations') ||
-      path.startsWith('/api/messages') ||
-      path.includes('/chat');
-    const isApiEndpoint = path.startsWith('/api/') && !isAuthEndpoint;
+    const isLogin = path === '/api/auth/login' || path === '/auth/login' || path === '/api/auth/login/2fa' || path === '/auth/login/2fa';
+    return !isLogin || req.method !== 'POST';
+  },
+  handler: (req, res, next, options) => {
+    logger.warn(`[RATE LIMIT HIT] Auth login limit exceeded. IP: ${getClientIp(req)}, Path: ${req.path}`);
+    res.setHeader('Retry-After', Math.ceil(options.windowMs / 1000));
+    res.status(options.statusCode).json({
+      error: 'Too many login attempts. Please try again after 15 minutes.',
+      retryAfter: Math.ceil(options.windowMs / 1000),
+    });
+  },
+});
 
-    // A. IP Limit:
-    // - Auth endpoints: 10 req/min
-    // - Public/Other endpoints: 100 req/min
-    const ipLimit = isAuthEndpoint ? 10 : 100;
-    const ipKey = `rl:ip:${ip}:${isAuthEndpoint ? 'auth' : 'public'}`;
-    const ipRes = await checkSlidingWindowLimit(ipKey, ipLimit, 60);
-
-    // Set rate limit headers on response
-    res.setHeader('X-RateLimit-Limit', ipRes.limit);
-    res.setHeader('X-RateLimit-Remaining', ipRes.remaining);
-    res.setHeader('X-RateLimit-Reset', ipRes.reset);
-
-    if (!ipRes.allowed) {
-      res.setHeader('Retry-After', ipRes.retryAfter);
-      return res.status(429).json({
-        error: 'Too Many Requests: IP rate limit exceeded',
-        retryAfter: ipRes.retryAfter,
-      });
-    }
-
-    // Resolve context to determine API Key / User / Tenant limits
-    let tenantId = null;
-    let userId = null;
-    let tenantPlan = 'starter';
-    let isApiKey = false;
-    let apiKeyId = null;
-    let keyHash = null;
-
+// 3. Authenticated user rate limit: 200 requests per 15 minutes per userId (from JWT)
+const userRateLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 200,
+  standardHeaders: true,
+  legacyHeaders: false,
+  store: userLimitStore,
+  keyGenerator: (req) => {
     let token = null;
-    const cookies = (parseCookies(req.headers.cookie) as any) as any;
-    if (cookies && cookies.hk_access_token) {
+    const cookieHeader = req.headers.cookie;
+    if (cookieHeader) {
+      const cookies = {} as any;
+      cookieHeader.split(';').forEach((cookie: string) => {
+        const parts = cookie.split('=');
+        if (parts.length >= 2) {
+          cookies[parts[0].trim()] = parts.slice(1).join('=').trim();
+        }
+      });
       token = cookies.hk_access_token;
     }
-    const authHeader = req.headers.authorization as string;
+    const authHeader = req.headers.authorization;
     if (!token && authHeader && authHeader.startsWith('Bearer ')) {
       token = authHeader.split(' ')[1];
     }
-
-    if (token) {
-      if (token.startsWith('hk_live_') || token.startsWith('hk_test_')) {
-        isApiKey = true;
-        keyHash = crypto.createHash('sha256').update(token).digest('hex');
-        const keyRes = await pool.query(
-          'SELECT * FROM api_keys WHERE key_hash = $1 AND revoked_at IS NULL AND (expires_at IS NULL OR expires_at > NOW())',
-          [keyHash]
-        );
-        if (keyRes.rows.length > 0) {
-          apiKeyId = keyRes.rows[0].id;
-          tenantId = keyRes.rows[0].tenant_id;
-          userId = keyRes.rows[0].user_id;
+    if (token && token !== 'TEST_TOKEN' && token !== 'TEST_ADMIN_TOKEN') {
+      try {
+        const decoded = jwt.verify(token, jwtSecret) as any;
+        if (decoded && decoded.userId) {
+          return decoded.userId;
         }
-      } else if (token !== 'TEST_TOKEN' && token !== 'TEST_ADMIN_TOKEN') {
-        try {
-          const decoded = (jwt.verify(token, jwtSecret) as any) as any;
-          userId = decoded.userId;
-        } catch (err) {
-          logger.warn(
-            'Warning verifying JWT token in request logging middleware:',
-            err.message
-          );
-        }
+      } catch (err) {
+        // Ignored
       }
     }
-
-    // Resolve tenant context via header if not set by API key
-    const tenantSlug = req.headers['x-tenant-slug'] || '';
-    if (!tenantId && tenantSlug) {
-      let querySlug = tenantSlug;
-      if (['system', 'app', 'alphatech'].includes(tenantSlug.toLowerCase())) {
-        querySlug = 'neuravolt';
-      }
-      const tRes = await pool.query(
-        'SELECT id, plan FROM tenants WHERE slug = $1 AND deleted_at IS NULL',
-        [querySlug]
-      );
-      if (tRes.rows.length > 0) {
-        tenantId = tRes.rows[0].id;
-        tenantPlan = tRes.rows[0].plan || 'starter';
+    return 'anonymous';
+  },
+  skip: (req) => {
+    if (skipRateLimit(req)) return true;
+    let token = null;
+    const cookieHeader = req.headers.cookie;
+    if (cookieHeader) {
+      const cookies = {} as any;
+      cookieHeader.split(';').forEach((cookie: string) => {
+        const parts = cookie.split('=');
+        if (parts.length >= 2) {
+          cookies[parts[0].trim()] = parts.slice(1).join('=').trim();
+        }
+      });
+      token = cookies.hk_access_token;
+    }
+    const authHeader = req.headers.authorization;
+    if (!token && authHeader && authHeader.startsWith('Bearer ')) {
+      token = authHeader.split(' ')[1];
+    }
+    if (token && token !== 'TEST_TOKEN' && token !== 'TEST_ADMIN_TOKEN') {
+      try {
+        const decoded = jwt.verify(token, jwtSecret) as any;
+        return !(decoded && decoded.userId);
+      } catch (err) {
+        return true;
       }
     }
-
-    // B. Developer API Key Limit: 500 req/min per key (using the unified key: ratelimit:apikey:${keyHash})
-    if (isApiKey && keyHash) {
-      const keyLimitRes = await checkSlidingWindowLimit(
-        `ratelimit:apikey:${keyHash}`,
-        500,
-        60
-      );
-      res.setHeader('X-RateLimit-Limit', keyLimitRes.limit);
-      res.setHeader('X-RateLimit-Remaining', keyLimitRes.remaining);
-      res.setHeader('X-RateLimit-Reset', keyLimitRes.reset);
-      if (!keyLimitRes.allowed) {
-        res.setHeader('Retry-After', keyLimitRes.retryAfter);
-        return res.status(429).json({
-          error: 'Too Many Requests: API Key rate limit exceeded',
-          retryAfter: keyLimitRes.retryAfter,
+    return true;
+  },
+  handler: (req, res, next, options) => {
+    let userId = 'unknown';
+    try {
+      let token = null;
+      const cookieHeader = req.headers.cookie;
+      if (cookieHeader) {
+        const cookies = {} as any;
+        cookieHeader.split(';').forEach((cookie: string) => {
+          const parts = cookie.split('=');
+          if (parts.length >= 2) {
+            cookies[parts[0].trim()] = parts.slice(1).join('=').trim();
+          }
         });
+        token = cookies.hk_access_token;
       }
-    }
-
-    // C. Tenant Plan limits: Starter: 100/min, Pro/Professional: 1000/min, Enterprise: unlimited
-    if (tenantId) {
-      let tenantLimit = 100;
-      if (tenantPlan === 'professional' || tenantPlan === 'pro') {
-        tenantLimit = 1000;
-      } else if (tenantPlan === 'enterprise') {
-        tenantLimit = -1; // unlimited
+      const authHeader = req.headers.authorization;
+      if (!token && authHeader && authHeader.startsWith('Bearer ')) {
+        token = authHeader.split(' ')[1];
       }
-
-      if (tenantLimit !== -1) {
-        const tenantLimitRes = await checkSlidingWindowLimit(
-          `rl:tenant:${tenantId}`,
-          tenantLimit,
-          60
-        );
-        res.setHeader('X-RateLimit-Limit', tenantLimitRes.limit);
-        res.setHeader('X-RateLimit-Remaining', tenantLimitRes.remaining);
-        res.setHeader('X-RateLimit-Reset', tenantLimitRes.reset);
-        if (!tenantLimitRes.allowed) {
-          res.setHeader('Retry-After', tenantLimitRes.retryAfter);
-          return res.status(429).json({
-            error: 'Too Many Requests: Tenant plan rate limit exceeded',
-            retryAfter: tenantLimitRes.retryAfter,
-          });
-        }
+      if (token) {
+        const decoded = jwt.verify(token, jwtSecret) as any;
+        userId = decoded?.userId || 'unknown';
       }
-    }
+    } catch (e) {}
 
-    // D. User-based limits: API: 1000 req/min, Chat: 60 req/min
-    if (userId) {
-      const userLimit = isChatEndpoint ? 60 : 1000;
-      const userLimitKey = `rl:user:${userId}:${isChatEndpoint ? 'chat' : 'api'}`;
-      const userLimitRes = await checkSlidingWindowLimit(
-        userLimitKey,
-        userLimit,
-        60
-      );
-      res.setHeader('X-RateLimit-Limit', userLimitRes.limit);
-      res.setHeader('X-RateLimit-Remaining', userLimitRes.remaining);
-      res.setHeader('X-RateLimit-Reset', userLimitRes.reset);
-      if (!userLimitRes.allowed) {
-        res.setHeader('Retry-After', userLimitRes.retryAfter);
-        return res.status(429).json({
-          error: 'Too Many Requests: User rate limit exceeded',
-          retryAfter: userLimitRes.retryAfter,
-        });
-      }
-    }
-  } catch (err) {
-    logger.error('[RATE LIMIT MIDDLEWARE ERROR]:', err);
-  }
+    logger.warn(`[RATE LIMIT HIT] User rate limit exceeded. User: ${userId}, Tenant: ${req.headers['x-tenant-slug'] || 'unknown'}, Path: ${req.path}`);
+    res.setHeader('Retry-After', Math.ceil(options.windowMs / 1000));
+    res.status(options.statusCode).json({
+      error: 'Too Many Requests: Authenticated user rate limit exceeded',
+      retryAfter: Math.ceil(options.windowMs / 1000),
+    });
+  },
+});
 
-  next();
-};
+// 4. Tenant-specific rate limit: 1000 requests per hour per tenant (identified by slug)
+const tenantRateLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  max: 1000,
+  standardHeaders: true,
+  legacyHeaders: false,
+  store: tenantLimitStore,
+  keyGenerator: (req) => {
+    return req.tenant?.slug || 'unknown';
+  },
+  skip: (req) => {
+    return skipRateLimit(req) || !req.tenant?.slug;
+  },
+  handler: (req, res, next, options) => {
+    logger.warn(`[RATE LIMIT HIT] Tenant rate limit exceeded. Tenant: ${req.tenant?.slug}, Path: ${req.path}`);
+    res.setHeader('Retry-After', Math.ceil(options.windowMs / 1000));
+    res.status(options.statusCode).json({
+      error: `Too Many Requests: Rate limit exceeded for workspace "${req.tenant?.slug}"`,
+      retryAfter: Math.ceil(options.windowMs / 1000),
+    });
+  },
+});
 
 // Auth Middleware
 const authMiddleware = async (req, res, next) => {
@@ -1945,7 +1981,9 @@ const authMiddleware = async (req, res, next) => {
   }
 };
 
-app.use(rateLimiterMiddleware);
+app.use(globalRateLimiter);
+app.use(authRateLimiter);
+app.use(userRateLimiter);
 
 // 1. GET /health (Bypasses tenant middleware for status probes)
 app.get('/health', async (req, res) => {
@@ -2046,6 +2084,7 @@ app.get('/health', async (req, res) => {
 
 // Apply tenant middleware to all non-health routes
 app.use(tenantMiddleware);
+app.use(tenantRateLimiter);
 
 // Map TS Router endpoints
 app.use('/chat', chatRouter);
