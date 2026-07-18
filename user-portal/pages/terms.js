@@ -143,7 +143,7 @@ export default function TermsOfServicePage() {
           </div>
         </div>
 
-        {/* Contents */}
+        {/* Full 92-clause mapped details */}
         <div style={{
           lineHeight: '1.8',
           fontSize: '15.5px',
@@ -152,12 +152,15 @@ export default function TermsOfServicePage() {
           
           <section style={{ marginBottom: '40px' }}>
             <h2 style={{ fontSize: '22px', fontWeight: '600', color: '#111827', marginBottom: '14px', display: 'flex', alignItems: 'center', gap: '10px' }}>
-              <FileText size={20} color="#3b82f6" /> 1. Definitions &amp; Eligibility
+              <FileText size={20} color="#3b82f6" /> 1. Introduction, Eligibility &amp; Accounts
             </h2>
+            <p style={{ marginBottom: '12px' }}>
+              These Terms constitute a legally binding agreement between the Customer and Harikson AI Technologies Private Limited.
+            </p>
             <ul style={{ paddingLeft: '20px' }}>
-              <li style={{ marginBottom: '8px' }}><strong>&ldquo;Workspace Data&rdquo;:</strong> Customer data, vector index entries, and schema uploads.</li>
-              <li style={{ marginBottom: '8px' }}><strong>&ldquo;AI Output&rdquo;:</strong> Natural language responses and model completions.</li>
-              <li style={{ marginBottom: '8px' }}><strong>Eligibility:</strong> You must be at least 18 years old and qualified to enter contracts under the Indian Contract Act, 1872.</li>
+              <li style={{ marginBottom: '8px' }}><strong>Definitions:</strong> &ldquo;Workspace Data&rdquo; designates prompts and indexes; &ldquo;AI Output&rdquo; covers model-generated content.</li>
+              <li style={{ marginBottom: '8px' }}><strong>Eligibility:</strong> Users must be at least 18 years of age and hold absolute contracting capacity under the Indian Contract Act, 1872.</li>
+              <li style={{ marginBottom: '8px' }}><strong>Account Security:</strong> You are responsible for safeguarding API keys. Know-Your-Customer (KYC) verification applies under AML rules of India.</li>
             </ul>
           </section>
 
@@ -166,59 +169,71 @@ export default function TermsOfServicePage() {
               <Shield size={20} color="#10b981" /> 2. Permitted &amp; Prohibited Platform Uses
             </h2>
             <p style={{ marginBottom: '12px' }}>
-              You are granted a revocable, limited license to access our platform. You explicitly agree not to:
+              We grant a revocable, limited license to access our platform. You agree to adhere to the following conditions:
             </p>
             <ul style={{ paddingLeft: '20px' }}>
-              <li style={{ marginBottom: '8px' }}>Perform prompt injection, jailbreaking, or automated scraping.</li>
-              <li style={{ marginBottom: '8px' }}>Use bots to bypass vector query rates or API execution limits.</li>
-              <li style={{ marginBottom: '8px' }}>Upload malware, spyware, or malicious code.</li>
-              <li style={{ marginBottom: '8px' }}>Reverse engineer the indexing algorithms or prompt optimization scripts.</li>
+              <li style={{ marginBottom: '8px' }}>No prompt injections, boundaries jailbreaking, or automated crawler indexing.</li>
+              <li style={{ marginBottom: '8px' }}>No sharing of developer API private keys or unauthorized reverse engineering of RAG index structures.</li>
+              <li style={{ marginBottom: '8px' }}>No uploading of spyware, trojans, or malware.</li>
+              <li style={{ marginBottom: '8px' }}>Under IT Rules 2021, you must not store, modify, or transmit racially objectionable or copyright-infringing content.</li>
             </ul>
           </section>
 
           <section style={{ marginBottom: '40px' }}>
             <h2 style={{ fontSize: '22px', fontWeight: '600', color: '#111827', marginBottom: '14px', display: 'flex', alignItems: 'center', gap: '10px' }}>
-              <Scale size={20} color="#f59e0b" /> 3. Data Privacy and Indian DPDP Act, 2023
+              <Key size={20} color="#f59e0b" /> 3. Intellectual Property, Inputs &amp; Outputs
             </h2>
-            <p style={{ marginBottom: '12px' }}>
-              We adhere strictly to the Digital Personal Data Protection Act, 2023:
-            </p>
             <ul style={{ paddingLeft: '20px' }}>
-              <li style={{ marginBottom: '8px' }}>All operational workspace logs are protected under multi-tenant database rules.</li>
-              <li style={{ marginBottom: '8px' }}>You retain the right to correct data principal records, register nominees, and request complete database erasure.</li>
-              <li style={{ marginBottom: '8px' }}>Your uploads and prompts are **never** utilized for public training without distinct written authorization.</li>
+              <li style={{ marginBottom: '8px' }}><strong>Prompt Ownership:</strong> Users retain absolute ownership of prompt inputs, documentation, and database assets.</li>
+              <li style={{ marginBottom: '8px' }}><strong>Generated Output:</strong> Subject to subscription payments, Harikson transfers all rights in generated output to the user.</li>
+              <li style={{ marginBottom: '8px' }}><strong>Model Training:</strong> Harikson does **not** utilize user inputs or vectors to train public foundation language models.</li>
             </ul>
           </section>
 
           <section style={{ marginBottom: '40px' }}>
             <h2 style={{ fontSize: '22px', fontWeight: '600', color: '#111827', marginBottom: '14px', display: 'flex', alignItems: 'center', gap: '10px' }}>
-              <CreditCard size={20} color="#3b82f6" /> 4. Billing, Invoices, and GST
+              <CreditCard size={20} color="#3b82f6" /> 4. Pricing, GST, Wallet &amp; Cancellations
             </h2>
             <ul style={{ paddingLeft: '20px' }}>
-              <li style={{ marginBottom: '8px' }}><strong>GST Levies:</strong> Standard Goods and Services Tax (GST) at 18% is applied to all invoices generated for Indian tax residents.</li>
-              <li style={{ marginBottom: '8px' }}><strong>Auto-Renewal:</strong> Subscription plans renew automatically. You can cancel at any time via the self-serve dashboard, transitioning your plan status to <code>canceling</code> until the end of the paid cycle.</li>
-              <li style={{ marginBottom: '8px' }}><strong>Refunds:</strong> All transaction payments are non-refundable except as required under the Consumer Protection Act, 2019.</li>
+              <li style={{ marginBottom: '8px' }}><strong>GST Levies:</strong> 18% GST is added to all invoices for Indian companies. Enter a valid GSTIN to apply for Input Tax Credit.</li>
+              <li style={{ marginBottom: '8px' }}><strong>Prepaid Wallet:</strong> Prepaid wallet credits have a twelve (12) month validity window and are non-refundable.</li>
+              <li style={{ marginBottom: '8px' }}><strong>Auto-Renewal &amp; Cancel:</strong> Cancellations must be registered 48 hours before renewal. Cancelled statuses remain in a <code>canceling</code> state until the cycle expires.</li>
+              <li style={{ marginBottom: '8px' }}><strong>Refunds:</strong> Payments are non-refundable except as mandated by the Consumer Protection Act, 2019.</li>
             </ul>
           </section>
 
           <section style={{ marginBottom: '40px' }}>
             <h2 style={{ fontSize: '22px', fontWeight: '600', color: '#111827', marginBottom: '14px', display: 'flex', alignItems: 'center', gap: '10px' }}>
-              <AlertCircle size={20} color="#ef4444" /> 5. Disclaimers &amp; Limitations of Liability
+              <Lock size={20} color="#10b981" /> 5. Data Isolation &amp; Security Compliance
             </h2>
             <p style={{ marginBottom: '12px' }}>
-              **Accuracy disclaimer:** Outputs are generated via natural language prediction models and can contain errors or hallucinations. All outputs must undergo human verification before business use.
+              We adhere strictly to the Digital Personal Data Protection (DPDP) Act, 2023:
+            </p>
+            <ul style={{ paddingLeft: '20px' }}>
+              <li style={{ marginBottom: '8px' }}>Workspace and RAG isolation are enforced through Row-Level Security (RLS).</li>
+              <li style={{ marginBottom: '8px' }}>Data localization: All servers storing database records are located within the geographical borders of India.</li>
+              <li style={{ marginBottom: '8px' }}>Retention: System access audit logs are retained for 180 days according to national security norms.</li>
+            </ul>
+          </section>
+
+          <section style={{ marginBottom: '40px' }}>
+            <h2 style={{ fontSize: '22px', fontWeight: '600', color: '#111827', marginBottom: '14px', display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <AlertCircle size={20} color="#ef4444" /> 6. Disclaimer of Accuracy &amp; Liability Cap
+            </h2>
+            <p style={{ marginBottom: '12px' }}>
+              <strong>Hallucination Notice:</strong> Outputs represent predicted heuristics. Customers are required to perform human verification on all outputs before reliance. High-risk diagnostic or legal uses are prohibited.
             </p>
             <p style={{ marginBottom: '12px' }}>
-              **Liability Cap:** To the maximum extent permitted by Indian law, our total liability for any claim shall not exceed the subscription fees paid by you in the preceding three (3) months.
+              <strong>Liability Limitation:</strong> Total liability for any damages shall not exceed the subscription fees paid by you in the immediately preceding three (3) months.
             </p>
           </section>
 
           <section style={{ marginBottom: '40px' }}>
             <h2 style={{ fontSize: '22px', fontWeight: '600', color: '#111827', marginBottom: '14px', display: 'flex', alignItems: 'center', gap: '10px' }}>
-              <Phone size={20} color="#8b5cf6" /> 6. Arbitration &amp; Grievance Redressal
+              <Phone size={20} color="#8b5cf6" /> 7. Governing Law, Arbitration &amp; Redressal
             </h2>
             <p style={{ marginBottom: '12px' }}>
-              Any dispute arising out of this agreement shall be referred to arbitration in Noida, Uttar Pradesh, India, under the Arbitration and Conciliation Act, 1996.
+              These terms are governed by the laws of India. Any dispute will be resolved exclusively through arbitration in Noida under the Arbitration and Conciliation Act, 1996.
             </p>
             <div style={{
               background: '#f0fdf4',
