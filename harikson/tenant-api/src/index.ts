@@ -1277,14 +1277,34 @@ const tenantMiddleware = async (req, res, next) => {
     }
 
     // Fallback to headers or query params for development / local testing or IP access
-    if (!slug || slug === 'localhost' || slug === '127') {
-      slug = req.headers['x-tenant-slug'] || req.query.tenant || 'alphatech';
+    if (!slug || slug === 'localhost' || slug.startsWith('127.')) {
+      const headerSlug = req.headers['x-tenant-slug'] as string;
+      const querySlugParam = req.query.tenant as string;
+      slug = headerSlug || querySlugParam || '';
     }
 
-    // Normalize tenant slug for unified single-tenant/demo deployment
+    if (!slug) {
+      return res.status(400).json({
+        error: 'Missing required tenant context. Please provide x-tenant-slug header or tenant query parameter.'
+      });
+    }
+
+    // Resolve tenant slug aliases for development/testing if configured.
+    // In production, aliases are disabled to ensure strict multi-tenancy.
     let querySlug = slug;
-    if (['system', 'app', 'alphatech'].includes(slug.toLowerCase())) {
-      querySlug = 'neuravolt';
+    if (process.env.NODE_ENV !== 'production') {
+      const aliasesStr = process.env.DEV_TENANT_ALIASES || 'system:neuravolt,app:neuravolt,alphatech:neuravolt';
+      const aliases = aliasesStr.split(',').reduce((acc, pair) => {
+        const [key, val] = pair.split(':');
+        if (key && val) {
+          acc[key.trim().toLowerCase()] = val.trim().toLowerCase();
+        }
+        return acc;
+      }, {} as Record<string, string>);
+
+      if (aliases[slug.toLowerCase()]) {
+        querySlug = aliases[slug.toLowerCase()];
+      }
     }
 
     // Look up tenant by slug and fetch its active plan settings
@@ -1300,7 +1320,7 @@ const tenantMiddleware = async (req, res, next) => {
       [querySlug]
     );
     if (result.rows.length === 0) {
-      return res.status(404).json({ error: 'Tenant not found' });
+      return res.status(404).json({ error: `Tenant workspace not found for slug: "${slug}"` });
     }
 
     const tenant = result.rows[0];
