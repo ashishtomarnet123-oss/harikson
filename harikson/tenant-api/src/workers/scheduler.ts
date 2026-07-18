@@ -203,10 +203,20 @@ export class HariksonScheduler {
           for (const row of res.rows) {
             const convId = row.conversation_id;
 
-            const checkRes = await client.query(
-              'SELECT id FROM conversation_summaries WHERE conversation_id = $1 LIMIT 1',
-              [convId]
-            );
+            let checkRes;
+            try {
+              checkRes = await client.query(
+                'SELECT id FROM conversation_summaries WHERE conversation_id = $1 LIMIT 1',
+                [convId]
+              );
+            } catch (err: any) {
+              if (err.code === '42P01') {
+                Logger.warn(`conversation_summaries table does not exist yet. Skipping summarizer check.`, err);
+                checkRes = { rows: [] };
+              } else {
+                throw err;
+              }
+            }
 
             if (checkRes.rows.length === 0) {
               await this.summarizerQueue.add('summarize', {
