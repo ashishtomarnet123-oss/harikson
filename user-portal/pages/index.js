@@ -2106,7 +2106,7 @@ export default function LandingPage() {
                 <a href="#security">Audit Logs</a>
                 <a href="#security">Disaster Recovery</a>
                 <a href="#security">Compliance Center</a>
-                <a href="#security">Privacy</a>
+                <Link href="/privacy"><a>Privacy</a></Link>
                 <a href="#security">Responsible AI</a>
               </div>
             </div>
@@ -2253,7 +2253,7 @@ export default function LandingPage() {
 
               {/* Legal Links */}
               <div className="footer-legal-links">
-                <a href="#security">Privacy Policy</a>
+                <Link href="/privacy"><a>Privacy Policy</a></Link>
                 <a href="#security">Terms of Service</a>
                 <a href="#security">Security Policy</a>
                 <a href="#security">Cookie Policy</a>
