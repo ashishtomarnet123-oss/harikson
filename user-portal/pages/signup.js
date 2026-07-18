@@ -7,6 +7,7 @@ export default function SignupPage() {
   const router = useRouter();
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
+  const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -70,7 +71,7 @@ export default function SignupPage() {
           'x-tenant-slug': tenantSlug,
         },
         credentials: 'include',
-        body: JSON.stringify({ name, email, password }),
+        body: JSON.stringify({ name, email, password, phone }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -148,6 +149,20 @@ export default function SignupPage() {
                 onChange={(e) => setEmail(e.target.value)}
                 autoComplete="email"
                 required
+              />
+            </div>
+            <div className="form-group">
+              <label className="form-label" htmlFor="phone">
+                Phone number
+              </label>
+              <input
+                id="phone"
+                type="tel"
+                className="form-input"
+                placeholder="+1 (555) 000-0000"
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                autoComplete="tel"
               />
             </div>
             <div className="form-group">

@@ -3407,7 +3407,7 @@ app.post('/api/auth/login/2fa', async (req, res) => {
 
 // 6b. POST /api/auth/register
 app.post('/api/auth/register', validate(registerSchema), async (req, res) => {
-  const { name, email, password } = req.body;
+  const { name, email, password, phone } = req.body;
   try {
     // Rate limit check (using the unified key: ratelimit:register:${ip})
     const ip =
@@ -3489,9 +3489,9 @@ app.post('/api/auth/register', validate(registerSchema), async (req, res) => {
 
     const newUser = await executeTenantQuery(targetTenantId, async (client) => {
       const result = await client.query(
-        `INSERT INTO users (tenant_id, email, password_hash, role, name, username)
-         VALUES ($1, $2, $3, $4, $5, $6) RETURNING id, email, role`,
-        [targetTenantId, email, passwordHash, roleToAssign, name, email.split('@')[0]]
+        `INSERT INTO users (tenant_id, email, password_hash, role, name, username, phone)
+         VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id, email, role`,
+        [targetTenantId, email, passwordHash, roleToAssign, name, email.split('@')[0], phone || null]
       );
       return result.rows[0];
     });
