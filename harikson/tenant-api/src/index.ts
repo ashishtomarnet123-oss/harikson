@@ -1568,26 +1568,22 @@ const skipRateLimit = (req: any) => {
 // Create distinct RedisStores for each rate limiter to support different prefixes
 const globalLimitStore = new RedisStore({
   prefix: 'rl:global:',
-  // @ts-expect-error - compatibility wrapper for ioredis
-  sendCommand: (...args: string[]) => redis.send_command(args[0], ...args.slice(1)),
+  sendCommand: (...args: string[]) => redis.call(args[0], ...args.slice(1)) as any,
 });
 
 const authLimitStore = new RedisStore({
   prefix: 'rl:auth-login:',
-  // @ts-expect-error - compatibility wrapper for ioredis
-  sendCommand: (...args: string[]) => redis.send_command(args[0], ...args.slice(1)),
+  sendCommand: (...args: string[]) => redis.call(args[0], ...args.slice(1)) as any,
 });
 
 const userLimitStore = new RedisStore({
   prefix: 'rl:user:',
-  // @ts-expect-error - compatibility wrapper for ioredis
-  sendCommand: (...args: string[]) => redis.send_command(args[0], ...args.slice(1)),
+  sendCommand: (...args: string[]) => redis.call(args[0], ...args.slice(1)) as any,
 });
 
 const tenantLimitStore = new RedisStore({
   prefix: 'rl:tenant:',
-  // @ts-expect-error - compatibility wrapper for ioredis
-  sendCommand: (...args: string[]) => redis.send_command(args[0], ...args.slice(1)),
+  sendCommand: (...args: string[]) => redis.call(args[0], ...args.slice(1)) as any,
 });
 
 // Helper to extract IP address safely
