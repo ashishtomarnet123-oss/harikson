@@ -169,7 +169,7 @@ export class HariksonScheduler {
               messageId: row.id,
               content: row.content,
             }, {
-              jobId: `memory:${row.id}`,
+              jobId: `memory-${row.id}`,
               attempts: 3,
               backoff: { type: 'exponential', delay: 1000 },
               removeOnComplete: { age: 86400 },
@@ -214,7 +214,7 @@ export class HariksonScheduler {
                 userId,
                 conversationId: convId,
               }, {
-                jobId: `summarize:${convId}`,
+                jobId: `summarize-${convId}`,
                 attempts: 3,
                 backoff: { type: 'exponential', delay: 1000 },
                 removeOnComplete: { age: 86400 },
