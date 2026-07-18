@@ -1886,6 +1886,12 @@ app.get('/health', async (req, res) => {
   });
 });
 
+// Global Tenant Context Mock for Admin Endpoints (RLS lookup bypass)
+const setGlobalTenantContext = (req: any, res: any, next: any) => {
+  req.tenant = { id: '00000000-0000-0000-0000-000000000000' };
+  next();
+};
+
 // Admin Auth Middleware
 const adminAuthMiddleware = async (req: any, res: any, next: any) => {
   await authMiddleware(req, res, () => {
@@ -1897,7 +1903,7 @@ const adminAuthMiddleware = async (req: any, res: any, next: any) => {
 };
 
 // GET /admin/queues - Dashboard for BullMQ stats and failed jobs
-app.get('/admin/queues', adminAuthMiddleware, async (req: any, res: any) => {
+app.get('/admin/queues', setGlobalTenantContext, adminAuthMiddleware, async (req: any, res: any) => {
   try {
     const queues = {
       memoryQueue: HariksonScheduler.memoryQueue,
@@ -2256,7 +2262,7 @@ app.get('/admin/queues', adminAuthMiddleware, async (req: any, res: any) => {
 });
 
 // POST /admin/queues/retry - Retries failed jobs natively and from DLQ
-app.post('/admin/queues/retry', adminAuthMiddleware, async (req: any, res: any) => {
+app.post('/admin/queues/retry', setGlobalTenantContext, adminAuthMiddleware, async (req: any, res: any) => {
   try {
     const queues = [
       HariksonScheduler.memoryQueue,
