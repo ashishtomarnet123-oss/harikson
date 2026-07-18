@@ -33,7 +33,7 @@ const menuSections = [
     items: [
       { name: 'Dashboard', path: '/admin/dashboard', icon: LayoutDashboard },
       { name: 'Live Activity', path: '/admin/activity', icon: Activity },
-      { name: 'AI Agents', path: '/v1/admin/agents', icon: Bot },
+      { name: 'AI Agents', path: '/admin/agents', icon: Bot },
       { name: 'Knowledge', path: '/admin/knowledge', icon: Database },
       { name: 'Playground', path: '/admin/playground', icon: FlaskConical },
     ],
@@ -198,7 +198,7 @@ export default function AdminLayout({
   };
   const resultLinks: Record<string, string> = {
     tenant: '/admin/tenants',
-    agent: '/v1/admin/agents',
+    agent: '/admin/agents',
     knowledge_base: '/admin/knowledge',
     workflow: '/admin/workflows',
   };
@@ -544,7 +544,7 @@ export default function AdminLayout({
                 <div className="grid grid-cols-2 gap-1">
                   {[
                     ['Dashboard', '/admin/dashboard'],
-                    ['Agents', '/v1/admin/agents'],
+                    ['Agents', '/admin/agents'],
                     ['Activity', '/admin/activity'],
                     ['Playground', '/admin/playground'],
                   ].map(([name, path]) => (

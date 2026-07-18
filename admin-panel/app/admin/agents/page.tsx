@@ -110,7 +110,7 @@ export default function AgentsManagement() {
     const token =
       getCookie('admin_token') || localStorage.getItem('admin_token');
     try {
-      await fetch(`${apiBase}/v1/v1/admin/agents/${id}`, {
+      await fetch(`${apiBase}/v1/admin/agents/${id}`, {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${token}` },
       });
