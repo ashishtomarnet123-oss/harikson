@@ -962,6 +962,55 @@ async function initUserTables() {
         logger.error('❌ Schema alignment migration failed:', err)
       );
 
+    // ── Fix: Workspace Creator Role Migration ────────────────────────────────
+    // For every tenant that has no 'admin' or 'owner' user at all, promote the
+    // earliest created non-superadmin user to 'admin'. This fixes existing tenants
+    // where the workspace creator was incorrectly stored as role='user'.
+    logger.info('[MIGRATION] Fixing workspace creator roles: promoting earliest user to admin where no admin exists...');
+    await pool
+      .query(`
+        WITH tenant_admins AS (
+          SELECT DISTINCT tenant_id
+          FROM users
+          WHERE role IN ('admin', 'owner', 'superadmin')
+        ),
+        tenants_without_admin AS (
+          SELECT DISTINCT t.id AS tenant_id
+          FROM tenants t
+          WHERE t.id NOT IN (SELECT tenant_id FROM tenant_admins)
+            AND t.deleted_at IS NULL
+        ),
+        earliest_user_per_tenant AS (
+          SELECT DISTINCT ON (u.tenant_id)
+            u.id,
+            u.tenant_id,
+            u.email
+          FROM users u
+          JOIN tenants_without_admin twa ON u.tenant_id = twa.tenant_id
+          WHERE u.role NOT IN ('superadmin')
+            AND u.deleted_at IS NULL
+            AND u.email != 'admin@harikson.ai'
+          ORDER BY u.tenant_id, u.created_at ASC, u.id ASC
+        )
+        UPDATE users
+        SET role = 'admin'
+        WHERE id IN (SELECT id FROM earliest_user_per_tenant)
+        RETURNING id, email, tenant_id;
+      `)
+      .then((result) => {
+        if (result.rowCount && result.rowCount > 0) {
+          logger.info(
+            `[MIGRATION] ✅ Promoted ${result.rowCount} workspace creators to admin role:`,
+            result.rows.map((r) => `${r.email} (tenant: ${r.tenant_id})`)
+          );
+        } else {
+          logger.info('[MIGRATION] ✅ No workspace creator role fixes needed — all tenants already have an admin.');
+        }
+      })
+      .catch((err) =>
+        logger.error('[MIGRATION] ❌ Workspace creator role fix migration failed:', err)
+      );
+
     logger.info('✅ Tenant users schema extension verified successfully.');
   } catch (err) {
     logger.error('❌ Failed to extend tenant users schema:', err);
@@ -3457,15 +3506,18 @@ app.post('/api/auth/register', validate(registerSchema), async (req, res) => {
 
     let targetTenantId = req.tenant.id;
     let targetTenantSlug = req.tenant.slug;
+    // Default to 'user' (displayed as Member) for invited users joining an existing tenant.
+    // Workspace creators are always elevated to 'admin' further below.
     let roleToAssign = 'user';
 
-    // If registering on the default system tenant (neuravolt), we dynamically create a new customer tenant/workspace for them to ensure isolation
+    // If registering on the default system tenant (neuravolt), dynamically create a
+    // private workspace for this user to ensure full tenant isolation.
     if (req.tenant.slug === 'neuravolt' && email !== 'admin@harikson.ai') {
       const cleanSlug = email.split('@')[0].toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
       const uniqueSuffix = Math.floor(1000 + Math.random() * 9000);
       const newTenantSlug = `ws-${cleanSlug}-${uniqueSuffix}`;
       const newTenantName = `${name || email.split('@')[0]}'s Workspace`;
-      
+
       const tenantResult = await pool.query(
         `INSERT INTO tenants (name, slug, plan, status)
          VALUES ($1, $2, 'starter', 'active')
@@ -3474,17 +3526,27 @@ app.post('/api/auth/register', validate(registerSchema), async (req, res) => {
       );
       targetTenantId = tenantResult.rows[0].id;
       targetTenantSlug = tenantResult.rows[0].slug;
-      roleToAssign = 'admin'; // Creator is Workspace Admin
+      // The user who just created this workspace is its owner — always admin.
+      roleToAssign = 'admin';
     } else {
-      // Registering to an existing tenant (e.g. via invitation link)
-      // Check if they are the first user in this tenant (excluding superadmins)
+      // Registering into an existing tenant (e.g., via an invitation link).
+      // If this is literally the very first non-superadmin user, make them admin.
+      // Any subsequent user stays 'user' (Member) unless explicitly promoted later.
       const countRes = await pool.query(
-        `SELECT COUNT(*)::int FROM users WHERE tenant_id = $1 AND role != 'superadmin'`,
+        `SELECT COUNT(*)::int FROM users
+         WHERE tenant_id = $1 AND role NOT IN ('superadmin', 'admin', 'owner')`,
         [targetTenantId]
       );
-      if (countRes.rows[0].count === 0) {
+      const hasNoAdmin = await pool.query(
+        `SELECT 1 FROM users
+         WHERE tenant_id = $1 AND role IN ('admin', 'owner') LIMIT 1`,
+        [targetTenantId]
+      );
+      if (hasNoAdmin.rows.length === 0) {
+        // No admin exists at all in this tenant — first user becomes admin.
         roleToAssign = 'admin';
       }
+      // Otherwise: joining an existing workspace → stays 'user' (Member).
     }
 
     const newUser = await executeTenantQuery(targetTenantId, async (client) => {
@@ -4681,8 +4743,10 @@ app.post('/api/user/workspace/members', authMiddleware, async (req, res) => {
         .json({ error: 'Forbidden: Insufficient permissions to add members' });
     }
 
-    // Map UI role to database role string
-    let dbRole = 'user';
+    // Map UI role label to database role string.
+    // Invited/added members default to 'user' (displayed as 'Member') unless
+    // the inviting admin explicitly selects Admin or Owner.
+    let dbRole = 'user'; // default: Member
     if (role === 'Admin') dbRole = 'admin';
     if (role === 'Owner') dbRole = 'owner';
     if (role === 'Member') dbRole = 'user';
