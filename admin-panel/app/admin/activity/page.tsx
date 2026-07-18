@@ -1,5 +1,6 @@
 'use client';
 import React, { useState, useEffect, useRef } from 'react';
+import { useRouter } from 'next/navigation';
 import {
   Activity,
   Pause,
@@ -9,7 +10,7 @@ import {
   WifiOff,
   RefreshCw,
 } from 'lucide-react';
-import { getCookie } from 'cookies-next';
+import { getCookie, deleteCookie } from 'cookies-next';
 
 interface ActivityEntry {
   id: string;
@@ -42,6 +43,7 @@ const statusColors: Record<string, string> = {
 };
 
 export default function ActivityCenter() {
+  const router = useRouter();
   const [activity, setActivity] = useState<ActivityEntry[]>([]);
   const [stats, setStats] = useState<Stats | null>(null);
   const [paused, setPaused] = useState(false);
@@ -58,6 +60,12 @@ export default function ActivityCenter() {
       const res = await fetch(`${apiBase}/v1/admin/activity${params}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
+      if (res.status === 401 || res.status === 403) {
+        deleteCookie('admin_token');
+        localStorage.removeItem('admin_token');
+        router.push('/admin/login');
+        return;
+      }
       if (res.ok) {
         const data = await res.json();
         setActivity(data.activity || []);

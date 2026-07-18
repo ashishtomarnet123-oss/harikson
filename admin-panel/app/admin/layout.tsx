@@ -130,6 +130,13 @@ export default function AdminLayout({
       const res = await fetch(`${apiBase}/v1/admin/notifications`, {
         headers: { Authorization: `Bearer ${token}` },
       });
+      if (res.status === 401 || res.status === 403) {
+        deleteCookie('admin_token');
+        localStorage.removeItem('admin_token');
+        setAuthenticated(false);
+        router.push('/admin/login');
+        return;
+      }
       if (res.ok) {
         const d = await res.json();
         setNotifications(d.notifications || []);
