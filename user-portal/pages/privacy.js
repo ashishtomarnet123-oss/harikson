@@ -1,285 +1,394 @@
+import { useState } from 'react';
 import Head from 'next/head';
 import Link from 'next/link';
-import { ArrowLeft, Shield, Lock, FileText, Scale, UserCheck, HelpCircle, Eye, RefreshCw, AlertCircle, Phone } from 'lucide-react';
+import { ArrowLeft, Search, Shield, Eye, ShieldAlert, Cpu, Database, RefreshCw, AlertCircle, HelpCircle, ChevronRight } from 'lucide-react';
 
 export default function PrivacyPolicyPage() {
+  const [searchQuery, setSearchQuery] = useState('');
+  const [activeCategory, setActiveCategory] = useState('all');
+
+  const categories = [
+    { id: 'all', name: 'All Policy Sections', icon: Shield },
+    { id: 'intro', name: 'Introduction & Scope', icon: Eye, range: [1, 4] },
+    { id: 'collection', name: 'Data Collection & Flow', icon: Database, range: [5, 7] },
+    { id: 'legal', name: 'Legal Basis & Purpose', icon: ShieldAlert, range: [8, 9] },
+    { id: 'ai', name: 'AI & Inference Handling', icon: Cpu, range: [10, 13] },
+    { id: 'sharing', name: 'Sharing & Transfers', icon: RefreshCw, range: [14, 16] },
+    { id: 'security', name: 'Security & Retention', icon: LockIcon, range: [17, 18] },
+    { id: 'rights', name: 'Data Rights & SLA', icon: AlertCircle, range: [19, 21] },
+    { id: 'thirdparty', name: 'Integrations & Incident', icon: HelpCircle, range: [22, 27] },
+    { id: 'governance', name: 'Governance & Contacts', icon: Shield, range: [28, 33] }
+  ];
+
+  // Helper custom icon since lock is often used
+  function LockIcon(props) {
+    return (
+      <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>
+        <rect width="18" height="11" x="3" y="11" rx="2" ry="2" />
+        <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+      </svg>
+    );
+  }
+
+  const sectionsData = [
+    { num: 1, cat: 'intro', title: 'Introduction', content: 'This Privacy Policy describes how Harikson AI Technologies Private Limited ("Harikson", "Company", "we", "us", or "our") processes, collects, stores, and protects personal data obtained from users of our Platform.' },
+    { num: 2, cat: 'intro', title: 'About Us', content: 'Company: Harikson AI Technologies Private Limited. Registered Office Address: Sector 62, Noida, Uttar Pradesh, India - 201301. CIN: U72900UP2026PTC123456. Support Email: support@harikson.ai. Privacy Email: privacy@harikson.ai.' },
+    { num: 3, cat: 'intro', title: 'Definitions', content: 'Personal Data: Data about an individual who is identifiable. Sensitive Personal Data: Passwords, financial or biometric credentials. Processing: Automated operations performed on data. Data Principal: The individual whose data is processed. Data Fiduciary: Entity determining processing purposes (Harikson).' },
+    { num: 4, cat: 'intro', title: 'Scope of this Policy', content: 'This policy applies to our websites, dashboards, user portals, developer APIs, SDKs, mobile systems, browser extensions, and collaborative workspaces.' },
+    
+    { num: 5, cat: 'collection', title: 'Information We Collect', content: 'We collect: 1. Identity & Profile: Names, login credentials, dates of birth. 2. Contact & Billing: Corporate email, address, tax records (GSTIN), subscription history. 3. Metadata: IP addresses, timezone, language. 4. Prompt Data: Prompts, vector index documents, chat histories. 5. Telemetry Logs: Token counts, CPU usage, GPU latency.' },
+    { num: 6, cat: 'collection', title: 'Information We Do NOT Collect', content: 'We do not collect passwords in cleartext (all entries are cryptographically hashed), primary card numbers (processed entirely by Stripe/Razorpay), or government identity numbers unless explicitly required under KYC laws.' },
+    { num: 7, cat: 'collection', title: 'How We Collect Information', content: 'Data is collected directly when you register or upload prompts, automatically via platform diagnostic telemetry logs, and through third-party integrations (such as Google SSO or payment verification notifications).' },
+    
+    { num: 8, cat: 'legal', title: 'Legal Basis of Processing', content: 'We process personal data based on: 1. Consent (unconditional and unambiguous choice under the DPDP Act 2023). 2. Contractual Necessity (to fulfill billing plan limits). 3. Legal Obligations (complying with Indian tax rules and CERT-In directions). 4. Legitimate Interests (monitoring system abuse).' },
+    { num: 9, cat: 'legal', title: 'Purpose of Processing', content: 'Your data is used for user account authentication, running RAG search pipelines, subscription renewals, security safety logs (preventing jailbreaks), system diagnostic optimizations, and support communications.' },
+    
+    { num: 10, cat: 'ai', title: 'AI-Specific Data Processing', content: 'During model inference, prompt inputs are vectorized and processed by baseline AI nodes. Prompts are also dynamically parsed through content moderation layers to identify malicious boundaries or illegal content.' },
+    { num: 11, cat: 'ai', title: 'AI Training Policy', content: 'Harikson does NOT use prompt inputs, RAG documents, or generated outputs to train public baseline AI models. All workspace assets are isolated from public training runs. Opt-in consent is required for custom model refinements.' },
+    { num: 12, cat: 'ai', title: 'Conversation History', content: 'We store history to display past queries. Users can delete chats to purge entries from active databases. History metrics can be exported in JSON format, and workspace owners can turn history logging off.' },
+    { num: 13, cat: 'ai', title: 'Uploaded Files', content: 'Files uploaded to RAG vectors are parsed and stored in logically separated databases. Uploaded files are encrypted at rest using AES-256 and scanned for malware.' },
+    
+    { num: 14, cat: 'sharing', title: 'Sharing of Personal Data', content: 'We share data with hosting services, Stripe/Razorpay, and legal nodes when compelled by valid CERT-In security directives or Indian court warrants. Workspace owners have access to log actions of team members.' },
+    { num: 15, cat: 'sharing', title: 'International Data Transfers', content: 'To comply with local localization rules, database instances of Indian clients are hosted within the borders of India. International transfers comply with DPDP guidelines and Standard Contractual Clauses.' },
+    { num: 16, cat: 'sharing', title: 'Cookies and Tracking Technologies', content: 'We use cookies, web storage, and local IndexedDB parameters to preserve workspace settings. Read our Cookie Policy page for details.' },
+    
+    { num: 17, cat: 'security', title: 'Data Retention', content: 'Accounts are kept for active plan lifecycles plus 90 days. Server logs are kept for 180 days (IT Rules 2021). Billing documents are stored for 8 years to meet statutory Indian auditing rules.' },
+    { num: 18, cat: 'security', title: 'Data Security', content: 'Technical safety measures include AES-256 database encryption, TLS 1.3 encryption in transit, multi-tenant RLS segregation, regular penetration tests, and alignment with SOC 2 and ISO 27001 guidelines.' },
+    
+    { num: 19, cat: 'rights', title: 'Your Rights as a Data Principal', content: 'Under the DPDP Act 2023, you have the right to access a summary of your processed data, correct anomalies, request erasures, nominate an individual to act in the event of incapacity, and submit complaints to our Grievance Officer.' },
+    { num: 20, cat: 'rights', title: 'Children\'s Privacy', content: 'Our service blocks registration for minors under 18. We do not knowingly track or process minors data. If discovered, minor accounts are immediately erased.' },
+    { num: 21, cat: 'rights', title: 'Enterprise Customers', content: 'Workspace admins hold complete authority to delete indexes, restrict member queries, export conversation logs, and request complete database purges.' },
+    
+    { num: 22, cat: 'thirdparty', title: 'Third-Party Services', content: 'Integrations with third-party tools (Google SSO, Stripe, Razorpay, Cloudflare, OpenAI, Anthropic APIs) are governed by their respective privacy policies.' },
+    { num: 23, cat: 'thirdparty', title: 'Security Incident Response', content: 'We investigate breaches immediately. Safe guards are implemented and breaches are reported to affected users and CERT-In within 6 hours of discovery.' },
+    { num: 24, cat: 'thirdparty', title: 'Marketing Communications', content: 'Users can opt-out of promotional alerts or email newsletters using the unsubscribe link at the footer of emails.' },
+    { num: 25, cat: 'thirdparty', title: 'Automated Decision-Making', content: 'We do not perform decisions carrying legally binding or significant consequences solely based on automated AI processing. Human review is implemented for operational choices.' },
+    { num: 26, cat: 'thirdparty', title: 'Data Accuracy', content: 'You must ensure that the personal details you submit are correct and complete. Update records using the Account Settings page.' },
+    { num: 27, cat: 'thirdparty', title: 'Data Deletion Requests', content: 'Deletion requests sent to privacy@harikson.ai are verified and processed within 30 days, subject to legal auditing requirements.' },
+    
+    { num: 28, cat: 'governance', title: 'Grievance Redressal', content: 'Grievances can be submitted to our designated Grievance Officer: Ashish Pratap Singh Tomar, Email: grievance@harikson.ai, Address: Sector 62, Noida, Uttar Pradesh, India - 201301. We reply within 72 hours.' },
+    { num: 29, cat: 'governance', title: 'Changes to Privacy Policy', content: 'Policy revisions are posted on this page with updated version numbers. Users are notified of significant changes via email.' },
+    { num: 30, cat: 'governance', title: 'Contact Us', content: 'Company: Harikson AI Technologies Private Limited. Office: Sector 62, Noida, UP, India. Email: privacy@harikson.ai.' },
+    { num: 31, cat: 'governance', title: 'Governing Law', content: 'This policy is governed by the laws of India. Legal disputes are subject to the exclusive jurisdiction of the courts of Noida, Uttar Pradesh, India.' },
+    { num: 32, cat: 'governance', title: 'Definitions Appendix', content: 'Data Fiduciary: Harikson AI. Data Principal: User. Processing: Any operation performed on personal data.' },
+    { num: 33, cat: 'governance', title: 'Annexures', content: 'Annexure A: Categories of Personal Data.\nAnnexure B: Retention Schedule.\nAnnexure C: Third-Party Service Providers.\nAnnexure D: International Transfers.\nAnnexure E: Security Measures.' }
+  ];
+
+  // Filter sections by search query and category tab
+  const filteredSections = sectionsData.filter(sec => {
+    const matchesCategory = activeCategory === 'all' || sec.cat === activeCategory;
+    const matchesSearch = searchQuery === '' || 
+      sec.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
+      sec.content.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      `section ${sec.num}`.includes(searchQuery.toLowerCase());
+    return matchesCategory && matchesSearch;
+  });
+
   return (
     <div style={{
-      backgroundColor: '#f9fafb',
-      color: '#1f2937',
+      backgroundColor: '#f8fafc',
+      color: '#1e293b',
       minHeight: '100vh',
-      fontFamily: "'Outfit', sans-serif",
-      padding: '60px 20px 100px 20px'
+      fontFamily: "'Outfit', sans-serif"
     }}>
       <Head>
         <title>Privacy Policy | Harikson AI Platform</title>
-        <meta name="description" content="Harikson AI privacy policy compliant with Indian DPDP Act 2023 and global privacy norms." />
-        <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet" />
+        <meta name="description" content="Harikson AI Privacy Policy - comprehensive data disclosures compliant with Indian and global regulations." />
+        <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
       </Head>
 
+      {/* Top Banner Gradient Hero */}
       <div style={{
-        maxWidth: '960px',
-        margin: '0 auto'
+        background: 'linear-gradient(135deg, #1e40af 0%, #3b82f6 50%, #60a5fa 100%)',
+        color: '#ffffff',
+        padding: '80px 20px 120px 20px',
+        textAlign: 'center',
+        position: 'relative',
+        boxShadow: 'inset 0 -30px 40px rgba(0,0,0,0.03)'
       }}>
-        {/* Navigation / Header */}
         <div style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          marginBottom: '50px',
-          borderBottom: '1px solid #e5e7eb',
-          paddingBottom: '20px'
+          position: 'absolute',
+          top: '25px',
+          left: '20px'
         }}>
           <Link href="/">
             <a style={{
-              display: 'flex',
+              display: 'inline-flex',
               alignItems: 'center',
-              gap: '8px',
-              color: '#4b5563',
+              gap: '6px',
+              color: 'rgba(255, 255, 255, 0.85)',
               textDecoration: 'none',
               fontSize: '14.5px',
               fontWeight: '500',
-              transition: 'color 0.2s'
+              background: 'rgba(255, 255, 255, 0.1)',
+              padding: '6px 14px',
+              borderRadius: '20px',
+              backdropFilter: 'blur(8px)',
+              transition: 'background 0.2s'
             }}
-            onMouseEnter={(e) => e.currentTarget.style.color = 'var(--accent, #3b82f6)'}
-            onMouseLeave={(e) => e.currentTarget.style.color = '#4b5563'}
+            onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(255, 255, 255, 0.2)'}
+            onMouseLeave={(e) => e.currentTarget.style.background = 'rgba(255, 255, 255, 0.1)'}
             >
               <ArrowLeft size={16} />
               Back to Home
             </a>
           </Link>
-          <div style={{
-            fontSize: '13px',
-            color: '#4b5563',
-            background: '#f3f4f6',
-            padding: '4px 12px',
-            borderRadius: '20px',
-            border: '1px solid #e5e7eb'
-          }}>
-            Effective Date: July 19, 2026
-          </div>
         </div>
 
-        {/* Hero Section */}
-        <div style={{ marginBottom: '50px' }}>
-          <h1 style={{
-            fontSize: '44px',
-            fontWeight: '800',
-            margin: '0 0 16px 0',
-            background: 'linear-gradient(135deg, #1e40af, #3b82f6)',
-            WebkitBackgroundClip: 'text',
-            WebkitTextFillColor: 'transparent',
-            letterSpacing: '-0.5px'
-          }}>
-            Privacy Policy
-          </h1>
-          <p style={{
-            fontSize: '18px',
-            color: '#4b5563',
-            margin: '0 0 24px 0',
-            lineHeight: '1.6',
-            fontWeight: '300'
-          }}>
-            At Harikson AI, our mission is to deliver secure, high-performance, enterprise-grade AI agent coordination and Retrieval-Augmented Generation (RAG) technologies. We are strongly committed to keeping secure any information we obtain from you or about you, in strict compliance with the **Digital Personal Data Protection (DPDP) Act, 2023 (India)**.
-          </p>
-          <div style={{
-            background: '#eff6ff',
-            border: '1px solid #bfdbfe',
-            borderRadius: '8px',
-            padding: '16px',
-            fontSize: '14px',
-            color: '#1e40af',
-            lineHeight: '1.5'
-          }}>
-            <strong>Important Note:</strong> This Privacy Policy describes our practices with respect to personal data that we collect from or about you when you use our website, portal, and API. It does not apply to corporate content processed on behalf of our enterprise business agreements (e.g. customized multi-tenant indexers), which are strictly governed by our dedicated customer Service Level Agreements (SLAs).
-          </div>
-        </div>
-
-        {/* Core Pillars */}
-        <div style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
-          gap: '20px',
-          marginBottom: '50px'
+        <h1 style={{
+          fontSize: '48px',
+          fontWeight: '800',
+          margin: '0 0 16px 0',
+          letterSpacing: '-0.75px',
+          textShadow: '0 2px 4px rgba(0,0,0,0.1)'
         }}>
-          <div style={{
-            background: '#ffffff',
-            border: '1px solid #e5e7eb',
-            borderRadius: '12px',
-            padding: '24px',
-            boxShadow: '0 1px 3px rgba(0,0,0,0.05)'
-          }}>
-            <Shield style={{ color: '#3b82f6', marginBottom: '12px' }} size={26} />
-            <h3 style={{ margin: '0 0 8px 0', fontSize: '17px', fontWeight: '600', color: '#111827' }}>Tenant RLS Isolation</h3>
-            <p style={{ margin: 0, fontSize: '13.5px', color: '#4b5563', lineHeight: '1.5' }}>
-              We enforce strict Row-Level Security (RLS) policies within PostgreSQL to isolate prompts, memories, and documents by tenant ID.
-            </p>
-          </div>
-          <div style={{
-            background: '#ffffff',
-            border: '1px solid #e5e7eb',
-            borderRadius: '12px',
-            padding: '24px',
-            boxShadow: '0 1px 3px rgba(0,0,0,0.05)'
-          }}>
-            <Lock style={{ color: '#10b981', marginBottom: '12px' }} size={26} />
-            <h3 style={{ margin: '0 0 8px 0', fontSize: '17px', fontWeight: '600', color: '#111827' }}>No External Training</h3>
-            <p style={{ margin: 0, fontSize: '13.5px', color: '#4b5563', lineHeight: '1.5' }}>
-              Your private workspace contents, models parameters, and custom database integrations are never used to train public foundation models.
-            </p>
-          </div>
-          <div style={{
-            background: '#ffffff',
-            border: '1px solid #e5e7eb',
-            borderRadius: '12px',
-            padding: '24px',
-            boxShadow: '0 1px 3px rgba(0,0,0,0.05)'
-          }}>
-            <Scale style={{ color: '#f59e0b', marginBottom: '12px' }} size={26} />
-            <h3 style={{ margin: '0 0 8px 0', fontSize: '17px', fontWeight: '600', color: '#111827' }}>Indian DPDP Act</h3>
-            <p style={{ margin: 0, fontSize: '13.5px', color: '#4b5563', lineHeight: '1.5' }}>
-              Fully structured to honor your rights as a Data Principal under Indian law, including consent withdrawal and nominee settings.
-            </p>
-          </div>
-        </div>
-
-        {/* Content Sections */}
-        <div style={{
-          lineHeight: '1.8',
-          fontSize: '15.5px',
-          color: '#374151'
+          Privacy Policy
+        </h1>
+        <p style={{
+          fontSize: '18px',
+          color: 'rgba(255,255,255,0.9)',
+          maxWidth: '700px',
+          margin: '0 auto',
+          lineHeight: '1.6',
+          fontWeight: '300'
         }}>
-          
-          {/* Section 1 */}
-          <section style={{ marginBottom: '45px' }}>
-            <h2 style={{ fontSize: '24px', fontWeight: '600', color: '#111827', marginBottom: '18px', display: 'flex', alignItems: 'center', gap: '12px' }}>
-              <FileText size={22} color="#3b82f6" /> 1. Personal Data We Collect
-            </h2>
-            <p style={{ marginBottom: '16px' }}>
-              We collect information relating to you (“Personal Data”) through your interactions and account setup on the Harikson AI Platform:
-            </p>
+          Comprehensive data processing guidelines, model inference boundaries, and DPDP Act 2023 regulations on Harikson.
+        </p>
 
-            <h3 style={{ fontSize: '18px', color: '#111827', margin: '20px 0 10px 0' }}>A. Personal Data You Provide</h3>
-            <ul style={{ paddingLeft: '22px', marginBottom: '20px' }}>
-              <li style={{ marginBottom: '12px' }}>
-                <strong>Account Information:</strong> When you register or establish a workspace tenant, we collect Account Information including your name, professional email address, account credentials, phone number, organization name, and billing details (such as encrypted Stripe customer details and billing invoices history).
-              </li>
-              <li style={{ marginBottom: '12px' }}>
-                <strong>User Content:</strong> We store prompts, message contexts, uploaded files, and document libraries used to seed your local RAG indexes.
-              </li>
-              <li style={{ marginBottom: '12px' }}>
-                <strong>Communication details:</strong> If you contact us via support tickets or email, we collect the content of those messages.
-              </li>
-            </ul>
-
-            <h3 style={{ fontSize: '18px', color: '#111827', margin: '20px 0 10px 0' }}>B. Personal Data We Automatically Log</h3>
-            <ul style={{ paddingLeft: '22px', marginBottom: '20px' }}>
-              <li style={{ marginBottom: '12px' }}>
-                <strong>Log Data:</strong> Internet Protocol (IP) address, browser version, client-side viewport specifications, request time/dates, and request path logs.
-              </li>
-              <li style={{ marginBottom: '12px' }}>
-                <strong>AI Usage Metrics:</strong> We track active job executions, model requests, prompt tokens (in/out counts), processing latency (ms), and status codes inside the <code>ai_activity</code> table for billing, rate-limiting, and resource allocation.
-              </li>
-              <li style={{ marginBottom: '12px' }}>
-                <strong>Cookies:</strong> Session identification cookies are used to support authentication (HttpOnly cookies), preserve configuration settings, and prevent CSRF vulnerabilities.
-              </li>
-            </ul>
-          </section>
-
-          {/* Section 2 */}
-          <section style={{ marginBottom: '45px' }}>
-            <h2 style={{ fontSize: '24px', fontWeight: '600', color: '#111827', marginBottom: '18px', display: 'flex', alignItems: 'center', gap: '12px' }}>
-              <Eye size={22} color="#10b981" /> 2. How We Use Personal Data
-            </h2>
-            <p style={{ marginBottom: '16px' }}>
-              We utilize your Personal Data to operate, analyze, and secure the Harikson AI Platform for the following purposes:
-            </p>
-            <ul style={{ paddingLeft: '22px', marginBottom: '20px' }}>
-              <li style={{ marginBottom: '10px' }}>To provide, maintain, and upgrade the quality of our conversational and document search services.</li>
-              <li style={{ marginBottom: '10px' }}>To manage billing structures (e.g. calculating active plans, invoices, and payment limits).</li>
-              <li style={{ marginBottom: '10px' }}>To run background jobs (such as conversational summaries, RAG precomputations, and memory extraction via BullMQ and Redis).</li>
-              <li style={{ marginBottom: '10px' }}>To protect against malicious activities, prevent service abuse, and enforce strict API rate limiting metrics per user and tenant.</li>
-              <li style={{ marginBottom: '10px' }}>To comply with statutory legal requirements and maintain proper corporate audit trail trails.</li>
-            </ul>
-          </section>
-
-          {/* Section 3 */}
-          <section style={{ marginBottom: '45px' }}>
-            <h2 style={{ fontSize: '24px', fontWeight: '600', color: '#111827', marginBottom: '18px', display: 'flex', alignItems: 'center', gap: '12px' }}>
-              <AlertCircle size={22} color="#f59e0b" /> 3. Disclosure of Personal Data
-            </h2>
-            <p style={{ marginBottom: '16px' }}>
-              We will only disclose your personal information under the following limited circumstances:
-            </p>
-            <ul style={{ paddingLeft: '22px', marginBottom: '20px' }}>
-              <li style={{ marginBottom: '12px' }}>
-                <strong>Workspace Administrators:</strong> If you join a corporate workspace, the administrator controls and monitors user activity logs and settings inside that tenant.
-              </li>
-              <li style={{ marginBottom: '12px' }}>
-                <strong>Service Providers:</strong> We share essential data with payment gateways (Stripe) and email communication systems (Resend) only to fulfill functional billing and notice operations.
-              </li>
-              <li style={{ marginBottom: '12px' }}>
-                <strong>Legal Compliance &amp; Authorities:</strong> In accordance with Indian laws, we may share information with government bodies or law enforcement if legally compelled to do so (such as under direction from Indian courts or Cert-In commands).
-              </li>
-            </ul>
-          </section>
-
-          {/* Section 4 */}
-          <section style={{ marginBottom: '45px' }}>
-            <h2 style={{ fontSize: '24px', fontWeight: '600', color: '#111827', marginBottom: '18px', display: 'flex', alignItems: 'center', gap: '12px' }}>
-              <RefreshCw size={22} color="#8b5cf6" /> 4. Data Retention &amp; Erasure
-            </h2>
-            <p style={{ marginBottom: '12px' }}>
-              In alignment with the Indian DPDP Act 2023, personal data is retained only for the duration necessary to satisfy the purpose of collection:
-            </p>
-            <ul style={{ paddingLeft: '22px', marginBottom: '20px' }}>
-              <li style={{ marginBottom: '8px' }}><strong>User-Initiated Deletion:</strong> If you delete messages, RAG documents, or delete your user account, the associated rows will be permanently deleted from database tables within <strong>30 days</strong>.</li>
-              <li style={{ marginBottom: '8px' }}><strong>Consent Withdrawal:</strong> Upon explicit withdrawal of consent, we will terminate your data processing and initiate database erasure scripts, unless preservation is required by applicable law (e.g. Indian accounting or audit guidelines).</li>
-            </ul>
-          </section>
-
-          {/* Section 5 */}
-          <section style={{ marginBottom: '45px' }}>
-            <h2 style={{ fontSize: '24px', fontWeight: '600', color: '#111827', marginBottom: '18px', display: 'flex', alignItems: 'center', gap: '12px' }}>
-              <Scale size={22} color="#3b82f6" /> 5. Data Controls &amp; Rights (Indian Norms)
-            </h2>
-            <p style={{ marginBottom: '12px' }}>
-              As a Data Principal under India&apos;s DPDP Act, 2023, you enjoy full sovereignty over your personal data:
-            </p>
-            <ul style={{ paddingLeft: '22px', marginBottom: '20px' }}>
-              <li style={{ marginBottom: '10px' }}><strong>Right to Access:</strong> You can query details about what profile, logs, and RAG document data are processed.</li>
-              <li style={{ marginBottom: '10px' }}><strong>Right to Rectification:</strong> You can edit and complete your profile, company information, and settings in your account options.</li>
-              <li style={{ marginBottom: '10px' }}><strong>Right to Erasure:</strong> Request deletion of your personal account, database entries, and custom workspace integrations.</li>
-              <li style={{ marginBottom: '10px' }}><strong>Right to Nominate:</strong> You have the right to nominate a person who can manage your data principal rights in the event of death or physical/mental incapacity.</li>
-            </ul>
-          </section>
-
-          {/* Section 6 */}
-          <section style={{ marginBottom: '45px' }}>
-            <h2 style={{ fontSize: '24px', fontWeight: '600', color: '#111827', marginBottom: '18px', display: 'flex', alignItems: 'center', gap: '12px' }}>
-              <Phone size={22} color="#10b981" /> 6. Grievance Redressal and DPO Contact
-            </h2>
-            <p style={{ marginBottom: '16px' }}>
-              If you have any questions, concerns, or grievances regarding our data handling procedures, or if you want to exercise your rights under the DPDP Act, you can contact our designated Grievance Officer:
-            </p>
-            <div style={{
-              background: '#f0fdf4',
-              border: '1px solid #bbf7d0',
-              borderRadius: '8px',
-              padding: '24px',
+        {/* Floating Search Container */}
+        <div style={{
+          position: 'absolute',
+          bottom: '-30px',
+          left: '50%',
+          transform: 'translateX(-50%)',
+          width: '90%',
+          maxWidth: '650px',
+          background: '#ffffff',
+          borderRadius: '30px',
+          padding: '4px 8px 4px 20px',
+          display: 'flex',
+          alignItems: 'center',
+          boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.05)',
+          border: '1px solid #e2e8f0'
+        }}>
+          <Search size={20} color="#94a3b8" style={{ marginRight: '10px' }} />
+          <input
+            type="text"
+            placeholder="Search across 33 legal sections (e.g. CERT-In, OAuth, RLS...)"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            style={{
+              border: 'none',
+              outline: 'none',
+              width: '100%',
               fontSize: '15px',
-              lineHeight: '1.6',
-              color: '#166534'
-            }}>
-              <strong style={{ color: '#15803d', fontSize: '16px' }}>Designated Grievance Redressal Officer / DPO:</strong><br />
-              <strong>Ashish Pratap Singh Tomar</strong><br />
-              Harikson AI Technologies Pvt. Ltd.<br />
-              Email: <a href="mailto:grievance@harikson.ai" style={{ color: '#16a34a', textDecoration: 'none', fontWeight: '600' }}>grievance@harikson.ai</a><br />
-              Office Address: Sector 62, Noida, Uttar Pradesh, India - 201301<br />
-              Grievance Response SLA: <strong>Within 72 Hours</strong>
-            </div>
-          </section>
+              color: '#1e293b',
+              padding: '10px 0'
+            }}
+          />
+          {searchQuery && (
+            <button 
+              onClick={() => setSearchQuery('')}
+              style={{
+                background: 'none',
+                border: 'none',
+                color: '#94a3b8',
+                cursor: 'pointer',
+                marginRight: '10px',
+                fontSize: '13px'
+              }}
+            >
+              Clear
+            </button>
+          )}
+        </div>
+      </div>
 
+      {/* Main Container Layout */}
+      <div style={{
+        maxWidth: '1200px',
+        margin: '60px auto 100px auto',
+        padding: '0 20px',
+        display: 'flex',
+        gap: '40px',
+        flexWrap: 'wrap'
+      }}>
+        {/* Sidebar Table of Contents */}
+        <div style={{
+          flex: '1 1 280px',
+          position: 'relative'
+        }}>
+          <div style={{
+            position: 'sticky',
+            top: '40px',
+            background: '#ffffff',
+            border: '1px solid #e2e8f0',
+            borderRadius: '16px',
+            padding: '24px 16px',
+            boxShadow: '0 4px 6px -1px rgba(0,0,0,0.02)'
+          }}>
+            <h3 style={{
+              fontSize: '14px',
+              fontWeight: '700',
+              color: '#64748b',
+              textTransform: 'uppercase',
+              letterSpacing: '1px',
+              margin: '0 0 16px 8px'
+            }}>
+              Table of Contents
+            </h3>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+              {categories.map(cat => {
+                const Icon = cat.icon;
+                const isActive = activeCategory === cat.id;
+                return (
+                  <button
+                    key={cat.id}
+                    onClick={() => setActiveCategory(cat.id)}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '10px',
+                      width: '100%',
+                      background: isActive ? '#f0f6ff' : 'none',
+                      border: 'none',
+                      color: isActive ? '#1d4ed8' : '#475569',
+                      padding: '10px 14px',
+                      borderRadius: '8px',
+                      textAlign: 'left',
+                      cursor: 'pointer',
+                      fontSize: '14px',
+                      fontWeight: isActive ? '600' : '400',
+                      transition: 'all 0.2s'
+                    }}
+                    onMouseEnter={(e) => {
+                      if (!isActive) e.currentTarget.style.background = '#f8fafc';
+                    }}
+                    onMouseLeave={(e) => {
+                      if (!isActive) e.currentTarget.style.background = 'none';
+                    }}
+                  >
+                    <Icon size={18} color={isActive ? '#1d4ed8' : '#94a3b8'} />
+                    <span style={{ flex: 1 }}>{cat.name}</span>
+                    <ChevronRight size={14} style={{
+                      opacity: isActive ? 1 : 0,
+                      transform: isActive ? 'translateX(0)' : 'translateX(-4px)',
+                      transition: 'all 0.2s'
+                    }} />
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+
+        {/* Content Area */}
+        <div style={{
+          flex: '3 1 600px'
+        }}>
+          {/* Metadata banner */}
+          <div style={{
+            background: '#ffffff',
+            border: '1px solid #e2e8f0',
+            borderRadius: '16px',
+            padding: '20px 24px',
+            marginBottom: '30px',
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            boxShadow: '0 4px 6px -1px rgba(0,0,0,0.02)'
+          }}>
+            <div>
+              <span style={{ color: '#64748b', fontSize: '13px' }}>Corporate Registry:</span>
+              <div style={{ fontSize: '14px', fontWeight: '600', color: '#1e293b', marginTop: '2px' }}>
+                Harikson AI Technologies Pvt. Ltd. (CIN: U72900UP2026PTC123456)
+              </div>
+            </div>
+            <div style={{ textAlign: 'right' }}>
+              <span style={{ color: '#64748b', fontSize: '13px' }}>Version:</span>
+              <div style={{ fontSize: '14px', fontWeight: '600', color: '#1e293b', marginTop: '2px' }}>
+                v1.0.0 (Effective)
+              </div>
+            </div>
+          </div>
+
+          {/* Sections List */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+            {filteredSections.length > 0 ? (
+              filteredSections.map(sec => (
+                <div
+                  key={sec.num}
+                  id={`section-${sec.num}`}
+                  style={{
+                    background: '#ffffff',
+                    border: '1px solid #e2e8f0',
+                    borderRadius: '16px',
+                    padding: '24px 30px',
+                    boxShadow: '0 4px 6px -1px rgba(0,0,0,0.02)',
+                    transition: 'transform 0.2s, box-shadow 0.2s'
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.transform = 'translateY(-2px)';
+                    e.currentTarget.style.boxShadow = '0 10px 15px -3px rgba(0, 0, 0, 0.05)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.transform = 'translateY(0)';
+                    e.currentTarget.style.boxShadow = '0 4px 6px -1px rgba(0,0,0,0.02)';
+                  }}
+                >
+                  <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '12px',
+                    marginBottom: '12px'
+                  }}>
+                    <span style={{
+                      fontSize: '13px',
+                      fontWeight: '700',
+                      background: '#eff6ff',
+                      color: '#2563eb',
+                      padding: '4px 10px',
+                      borderRadius: '6px'
+                    }}>
+                      Section {sec.num}
+                    </span>
+                    <h3 style={{
+                      fontSize: '18px',
+                      fontWeight: '700',
+                      color: '#0f172a',
+                      margin: 0
+                    }}>
+                      {sec.title}
+                    </h3>
+                  </div>
+                  <p style={{
+                    fontSize: '15px',
+                    lineHeight: '1.75',
+                    color: '#475569',
+                    margin: 0,
+                    whiteSpace: 'pre-line' // Preserve line breaks for tables, lists or annexures
+                  }}>
+                    {sec.content}
+                  </p>
+                </div>
+              ))
+            ) : (
+              <div style={{
+                background: '#ffffff',
+                border: '1px solid #e2e8f0',
+                borderRadius: '16px',
+                padding: '60px 20px',
+                textAlign: 'center',
+                boxShadow: '0 4px 6px -1px rgba(0,0,0,0.02)'
+              }}>
+                <Search size={40} color="#94a3b8" style={{ marginBottom: '16px' }} />
+                <h4 style={{ fontSize: '18px', color: '#1e293b', margin: '0 0 8px 0' }}>No Sections Found</h4>
+                <p style={{ color: '#64748b', fontSize: '14px', margin: 0 }}>
+                  We couldn&apos;t find any rules matching &ldquo;{searchQuery}&rdquo;. Try using another query term.
+                </p>
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </div>
