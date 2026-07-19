@@ -4,19 +4,53 @@ import Link from 'next/link';
 import { 
   ArrowRight, Shield, Cpu, Activity, Play, ChevronRight, Code2, Copy, Check, 
   Terminal, Server, Globe, Lock, Workflow, Database, Layers, CheckCircle2, 
-  MessageSquare, Search, Zap, BarChart3, HelpCircle 
+  MessageSquare, Search, Zap, BarChart3, HelpCircle, ArrowUpRight, ShieldCheck 
 } from 'lucide-react';
 
 export default function NeuravoltLandingPage() {
   const [billingPeriod, setBillingPeriod] = useState('yearly');
-  const [activeTab, setActiveTab] = useState('workspace');
   const [copiedCode, setCopiedCode] = useState(false);
   const [faqOpen, setFaqOpen] = useState({});
-  const [chatInput, setChatInput] = useState('');
+  const [activeTab, setActiveTab] = useState('workspace');
+  const [selectedPrompt, setSelectedPrompt] = useState(null);
+  
+  // Interactive Chat playpen parameters
   const [chatMessages, setChatMessages] = useState([
-    { role: 'user', content: 'Compile a summary of Acme vector database nodes' },
-    { role: 'assistant', content: 'Acme tenant contains 3 active vectors. Overall CPU latency is 14ms with 99.8% cache hits.' }
+    { role: 'assistant', content: 'System initialized. Isolated Acme RLS node ready. Select a prompt below to evaluate inference routing.' }
   ]);
+  const [isTyping, setIsTyping] = useState(false);
+
+  // Interactive Calculator parameters
+  const [monthlyQueries, setMonthlyQueries] = useState(250000);
+  const [currentCost, setCurrentCost] = useState(1250); // $0.005 avg cost
+  const [neuravoltCost, setNeuravoltCost] = useState(500); // 60% savings
+
+  useEffect(() => {
+    // Dynamically calculate savings based on query slider
+    const rawCost = Math.round(monthlyQueries * 0.005);
+    const optimizedCost = Math.round(monthlyQueries * 0.002);
+    setCurrentCost(rawCost);
+    setNeuravoltCost(optimizedCost);
+  }, [monthlyQueries]);
+
+  const samplePrompts = [
+    { label: 'Run Security Audit', response: 'Scanning workspace index... \n🔒 Zero exposed credentials found. \n⚠️ 2 obsolete dependencies identified in package.json.' },
+    { label: 'Optimize pgvector latency', response: 'Latency optimized. \n📊 pgvector index transitioned to HNSW. Average query speed dropped from 24ms to 11ms.' },
+    { label: 'Migrate Tenant Schema', response: 'Migrated. \n✓ Isolated row-level security (RLS) tables compiled. Database nodes relocated to AWS Mumbai VPC.' }
+  ];
+
+  const handlePromptClick = (prompt) => {
+    if (isTyping) return;
+    setSelectedPrompt(prompt.label);
+    setChatMessages(prev => [...prev, { role: 'user', content: prompt.label }]);
+    setIsTyping(true);
+    
+    // Simulate streaming AI token typing
+    setTimeout(() => {
+      setChatMessages(prev => [...prev, { role: 'assistant', content: prompt.response }]);
+      setIsTyping(false);
+    }, 1200);
+  };
 
   const copyToClipboard = () => {
     navigator.clipboard.writeText('npm install @neuravolt/sdk');
@@ -76,6 +110,11 @@ export default function NeuravoltLandingPage() {
           50% { opacity: 0.6; }
           100% { opacity: 0.3; }
         }
+        @keyframes blink {
+          0% { opacity: 0.2; }
+          50% { opacity: 1; }
+          100% { opacity: 0.2; }
+        }
         .scrolling-marquee {
           display: flex;
           width: 200%;
@@ -90,6 +129,12 @@ export default function NeuravoltLandingPage() {
           filter: blur(120px);
           z-index: 0;
           animation: pulseGlow 8s ease-in-out infinite;
+        }
+        .grid-bg {
+          background-size: 40px 40px;
+          background-image: 
+            linear-gradient(to right, rgba(255, 255, 255, 0.02) 1px, transparent 1px),
+            linear-gradient(to bottom, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
         }
       `}</style>
 
@@ -119,11 +164,35 @@ export default function NeuravoltLandingPage() {
             fontSize: '18px'
           }}>N</span>
           <span style={{ fontSize: '20px', fontWeight: '700', letterSpacing: '-0.5px', fontFamily: 'Outfit' }}>Neuravolt</span>
+          {/* Status Indicator */}
+          <div style={{
+            marginLeft: '16px',
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '6px',
+            background: 'rgba(16, 185, 129, 0.08)',
+            border: '1px solid rgba(16, 185, 129, 0.15)',
+            padding: '3px 10px',
+            borderRadius: '12px',
+            fontSize: '11px',
+            color: '#10B981'
+          }}>
+            <span style={{
+              width: '6px',
+              height: '6px',
+              borderRadius: '50%',
+              background: '#10B981',
+              animation: 'blink 1.5s infinite'
+            }} />
+            Systems Operational
+          </div>
         </div>
+        
         <div style={{ display: 'flex', alignItems: 'center', gap: '30px', fontSize: '14px', color: '#94A3B8' }}>
+          <a href="#why" style={{ textDecoration: 'none', color: 'inherit' }}>Why Neuravolt</a>
           <a href="#features" style={{ textDecoration: 'none', color: 'inherit' }}>Features</a>
-          <a href="#models" style={{ textDecoration: 'none', color: 'inherit' }}>Models</a>
-          <a href="#developer" style={{ textDecoration: 'none', color: 'inherit' }}>Developer</a>
+          <a href="#models" style={{ textDecoration: 'none', color: 'inherit' }}>Model Routing</a>
+          <a href="#calculator" style={{ textDecoration: 'none', color: 'inherit' }}>Savings Calculator</a>
           <a href="#pricing" style={{ textDecoration: 'none', color: 'inherit' }}>Pricing</a>
         </div>
         <div>
@@ -151,7 +220,7 @@ export default function NeuravoltLandingPage() {
       </nav>
 
       {/* 1. HERO SECTION */}
-      <section style={{
+      <section className="grid-bg" style={{
         padding: '120px 40px 100px 40px',
         position: 'relative',
         maxWidth: '1280px',
@@ -246,19 +315,19 @@ export default function NeuravoltLandingPage() {
           </div>
         </div>
 
-        {/* Right Side Glassmorphism Dashboard */}
+        {/* Right Side Interactive Chat Playpen Mockup */}
         <div style={{ flex: '1 1 500px', zIndex: 1, display: 'flex', justifyContent: 'center' }}>
           <div className="float-card" style={{
             width: '100%',
             maxWidth: '560px',
-            background: 'rgba(11, 17, 32, 0.6)',
+            background: 'rgba(11, 17, 32, 0.65)',
             border: '1px solid rgba(255,255,255,0.08)',
             borderRadius: '24px',
             padding: '24px',
             backdropFilter: 'blur(20px)',
             boxShadow: '0 30px 60px rgba(0,0,0,0.5)'
           }}>
-            {/* Header */}
+            {/* Window controls */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', borderBottom: '1px solid rgba(255,255,255,0.06)', paddingBottom: '16px' }}>
               <div style={{ display: 'flex', gap: '6px' }}>
                 <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#EF4444' }} />
@@ -268,8 +337,8 @@ export default function NeuravoltLandingPage() {
               <div style={{ fontSize: '12px', color: '#64748B' }}>tenant-workspace: acme-node-1</div>
             </div>
 
-            {/* Chat Frame */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginBottom: '20px' }}>
+            {/* Chat Messages */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', height: '200px', overflowY: 'auto', marginBottom: '20px', paddingRight: '4px' }}>
               {chatMessages.map((msg, i) => (
                 <div key={i} style={{
                   alignSelf: msg.role === 'user' ? 'flex-end' : 'flex-start',
@@ -278,15 +347,54 @@ export default function NeuravoltLandingPage() {
                   borderRadius: '16px',
                   maxWidth: '85%',
                   fontSize: '13.5px',
-                  lineHeight: '1.5'
+                  lineHeight: '1.5',
+                  whiteSpace: 'pre-line',
+                  border: msg.role === 'assistant' ? '1px solid rgba(255,255,255,0.04)' : 'none'
                 }}>
                   {msg.content}
                 </div>
               ))}
+              {isTyping && (
+                <div style={{ alignSelf: 'flex-start', background: 'rgba(255,255,255,0.05)', padding: '10px 16px', borderRadius: '16px', fontSize: '13.5px', color: '#94A3B8' }}>
+                  Streaming optimized response...
+                </div>
+              )}
+            </div>
+
+            {/* Prompt Selector Triggers */}
+            <div style={{ marginBottom: '16px' }}>
+              <div style={{ fontSize: '11px', color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '8px' }}>Test Live Prompts:</div>
+              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                {samplePrompts.map((p, idx) => (
+                  <button
+                    key={idx}
+                    onClick={() => handlePromptClick(p)}
+                    disabled={isTyping}
+                    style={{
+                      background: selectedPrompt === p.label ? 'rgba(79, 140, 255, 0.15)' : 'rgba(255,255,255,0.03)',
+                      border: selectedPrompt === p.label ? '1px solid #4F8CFF' : '1px solid rgba(255,255,255,0.06)',
+                      color: selectedPrompt === p.label ? '#FFFFFF' : '#94A3B8',
+                      padding: '6px 12px',
+                      borderRadius: '20px',
+                      fontSize: '12px',
+                      cursor: 'pointer',
+                      transition: 'all 0.2s'
+                    }}
+                    onMouseEnter={(e) => {
+                      if (selectedPrompt !== p.label) e.currentTarget.style.borderColor = 'rgba(255,255,255,0.2)';
+                    }}
+                    onMouseLeave={(e) => {
+                      if (selectedPrompt !== p.label) e.currentTarget.style.borderColor = 'rgba(255,255,255,0.06)';
+                    }}
+                  >
+                    {p.label}
+                  </button>
+                ))}
+              </div>
             </div>
 
             {/* Sub Widgets (Latency & Usage) */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: '16px' }}>
               <div style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '12px', padding: '12px' }}>
                 <div style={{ fontSize: '11px', color: '#64748B', display: 'flex', alignItems: 'center', gap: '4px' }}><Cpu size={12} /> Model Inference</div>
                 <div style={{ fontSize: '18px', fontWeight: '700', marginTop: '4px' }}>14 ms <span style={{ fontSize: '11px', color: '#10B981', fontWeight: 'normal' }}>-4%</span></div>
@@ -398,6 +506,74 @@ export default function NeuravoltLandingPage() {
                 </div>
               );
             })}
+          </div>
+        </div>
+      </section>
+
+      {/* NEW SECTION: COST SAVINGS CALCULATOR */}
+      <section id="calculator" style={{ padding: '100px 40px', maxWidth: '1000px', margin: '0 auto' }}>
+        <div style={{
+          background: 'radial-gradient(circle at bottom left, rgba(79, 140, 255, 0.08) 0%, rgba(5, 8, 22, 0) 70%)',
+          border: '1px solid rgba(255,255,255,0.06)',
+          borderRadius: '24px',
+          padding: '50px 40px',
+          boxShadow: '0 20px 40px rgba(0,0,0,0.3)'
+        }}>
+          <div style={{ textAlign: 'center', marginBottom: '40px' }}>
+            <span style={{ fontSize: '11px', color: '#8B5CF6', fontWeight: '700', letterSpacing: '1.5px', textTransform: 'uppercase' }}>ROI Analysis</span>
+            <h2 style={{ fontSize: '32px', fontWeight: '800', fontFamily: 'Outfit', marginTop: '6px' }}>Compute &amp; Model Cost Optimizer</h2>
+            <p style={{ color: '#94A3B8', fontSize: '15px' }}>See how much you save by routing queries dynamically using our intelligent Model Router.</p>
+          </div>
+
+          <div style={{ display: 'flex', gap: '40px', flexWrap: 'wrap', alignItems: 'center' }}>
+            {/* Slider */}
+            <div style={{ flex: '1 1 400px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '12px' }}>
+                <span style={{ fontSize: '14px', fontWeight: '600' }}>Expected Monthly Queries:</span>
+                <span style={{ fontSize: '16px', fontWeight: '700', color: '#4F8CFF' }}>{monthlyQueries.toLocaleString()}</span>
+              </div>
+              <input
+                type="range"
+                min="50000"
+                max="2000000"
+                step="50000"
+                value={monthlyQueries}
+                onChange={(e) => setMonthlyQueries(Number(e.target.value))}
+                style={{
+                  width: '100%',
+                  height: '6px',
+                  background: 'rgba(255,255,255,0.1)',
+                  borderRadius: '3px',
+                  outline: 'none',
+                  cursor: 'pointer'
+                }}
+              />
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: '#64748B', marginTop: '6px' }}>
+                <span>50k queries</span>
+                <span>2M queries</span>
+              </div>
+            </div>
+
+            {/* Savings Cards */}
+            <div style={{ flex: '1 1 300px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              <div style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '12px', padding: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div>
+                  <div style={{ fontSize: '12px', color: '#64748B' }}>Standard API Cost</div>
+                  <div style={{ fontSize: '20px', fontWeight: '700', color: '#EF4444' }}>${currentCost.toLocaleString()}</div>
+                </div>
+                <span style={{ fontSize: '12px', color: '#EF4444' }}>Full price rates</span>
+              </div>
+              <div style={{ background: 'rgba(79, 140, 255, 0.05)', border: '1px solid rgba(79, 140, 255, 0.2)', borderRadius: '12px', padding: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div>
+                  <div style={{ fontSize: '12px', color: '#4F8CFF' }}>Neuravolt Routing Cost</div>
+                  <div style={{ fontSize: '24px', fontWeight: '800', color: '#10B981' }}>${neuravoltCost.toLocaleString()}</div>
+                </div>
+                <div style={{ textAlign: 'right' }}>
+                  <span style={{ fontSize: '12px', color: '#10B981', fontWeight: '700', display: 'block' }}>Save 60%</span>
+                  <span style={{ fontSize: '11px', color: '#94A3B8' }}>Via model cache</span>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </section>
