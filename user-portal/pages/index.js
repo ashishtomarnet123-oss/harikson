@@ -2255,7 +2255,7 @@ export default function LandingPage() {
               <div className="footer-legal-links">
                 <Link href="/privacy"><a>Privacy Policy</a></Link>
                 <Link href="/terms"><a>Terms of Service</a></Link>
-                <a href="#security">Security Policy</a>
+                <Link href="/security"><a>Security Policy</a></Link>
                 <Link href="/cookies"><a>Cookie Policy</a></Link>
                 <a href="#security">Data Processing Agreement</a>
                 <Link href="/aup"><a>Acceptable Use Policy</a></Link>
