@@ -2258,7 +2258,7 @@ export default function LandingPage() {
                 <a href="#security">Security Policy</a>
                 <Link href="/cookies"><a>Cookie Policy</a></Link>
                 <a href="#security">Data Processing Agreement</a>
-                <a href="#security">Acceptable Use Policy</a>
+                <Link href="/aup"><a>Acceptable Use Policy</a></Link>
                 <a href="#security">Trademark</a>
                 <a href="#security">Licenses</a>
                 <a href="#security">Responsible AI Policy</a>
