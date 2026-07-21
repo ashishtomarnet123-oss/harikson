@@ -34,6 +34,7 @@ import { runMigrations } from './utils/migrate.js';
 import {
   pool,
   readPool,
+  RequestContext,
   requestContext,
   connectWithValidation,
   executeTenantQuery,
@@ -170,15 +171,7 @@ globalThis.fetch = function (input: any, init: any) {
   return originalFetch.call(this, input, init);
 };
 
-// 1. Context initialization middleware
-app.use((req, res, next) => {
-  req.id = (req.headers['x-request-id'] as string) || crypto.randomUUID();
-  res.setHeader('x-request-id', req.id);
-  requestContext.run({ req }, () => {
-    next();
-  });
-});
-
+// 1. URL Rewrite & Deprecation Headers
 app.use((req, res, next) => {
   if (req.url.startsWith('/api/v1/')) {
     req.url = req.url.replace('/api/v1/', '/api/');
@@ -196,20 +189,35 @@ app.use((req, res, next) => {
   next();
 });
 
-// 2. Read-Your-Writes consistency tracking middleware
+// 2. Context initialization & Read-Your-Writes consistency tracking middleware
 app.use(async (req, res, next) => {
-  req.usePrimaryDb = false;
+  req.id = (req.headers['x-request-id'] as string) || crypto.randomUUID();
+  res.setHeader('x-request-id', req.id);
 
-  // Track if subsequent request within 2 seconds of a write
+  let usePrimaryDb = false;
+
+  // 1. Manual override via request header X-Use-Primary-Db (admin/debug only)
+  const headerOverride = req.headers['x-use-primary-db'];
+  if (headerOverride === 'true' || headerOverride === '1') {
+    usePrimaryDb = true;
+  }
+
+  // 2. Track if subsequent request within 2 seconds of a write via X-Last-Write header
   const lastWrite = req.headers['x-last-write'];
   if (lastWrite) {
     const diff = Date.now() - parseInt(lastWrite as string, 10);
     if (diff >= 0 && diff < 2000) {
-      req.usePrimaryDb = true;
+      usePrimaryDb = true;
     }
   }
 
-  // Check Redis session stickiness if token is present
+  // 3. Always force primary DB for mutation requests (POST/PUT/DELETE/PATCH)
+  const isWriteMethod = ['POST', 'PUT', 'DELETE', 'PATCH'].includes(req.method);
+  if (isWriteMethod) {
+    usePrimaryDb = true;
+  }
+
+  // 4. Check Redis session stickiness if user token is present (primary_stickiness:{slug}:{userId})
   let token = null;
   const cookies = (parseCookies(req.headers.cookie) as any) as any;
   if (cookies && cookies.hk_access_token) {
@@ -220,15 +228,18 @@ app.use(async (req, res, next) => {
     token = authHeader.split(' ')[1];
   }
 
+  let userId: string | undefined = undefined;
   if (token && token !== 'TEST_TOKEN' && token !== 'TEST_ADMIN_TOKEN') {
     try {
       const decoded = (jwt.verify(token, jwtSecret) as any) as any;
       if (decoded && decoded.userId) {
-        req.userId = decoded.userId;
-        const stickyKey = `primary_stickiness:${req.headers['x-tenant-slug'] || 'system'}:${decoded.userId}`;
+        userId = decoded.userId;
+        req.userId = userId;
+        const tenantSlug = (req.headers['x-tenant-slug'] as string) || 'system';
+        const stickyKey = `primary_stickiness:${tenantSlug}:${userId}`;
         const isSticky = await redis.get(stickyKey);
         if (isSticky) {
-          req.usePrimaryDb = true;
+          usePrimaryDb = true;
         }
       }
     } catch (err) {
@@ -236,8 +247,9 @@ app.use(async (req, res, next) => {
     }
   }
 
-  // Hook response to set X-Write-Timestamp on successful writes
-  const isWriteMethod = ['POST', 'PUT', 'DELETE', 'PATCH'].includes(req.method);
+  req.usePrimaryDb = usePrimaryDb;
+
+  // Hook response to set X-Write-Timestamp and 2-second Redis stickiness key on successful writes (2xx)
   if (isWriteMethod) {
     const originalSend = res.send;
     res.send = function (...args) {
@@ -245,7 +257,9 @@ app.use(async (req, res, next) => {
         const nowStr = Date.now().toString();
         res.setHeader('X-Write-Timestamp', nowStr);
 
-        let finalUserId = req.userId;
+        let finalUserId = req.userId || userId;
+        const tenantSlug = (req.headers['x-tenant-slug'] as string) || req.tenant?.slug || 'system';
+
         if (!finalUserId) {
           const setCookie = res.getHeader('set-cookie');
           let tokenVal = '';
@@ -272,7 +286,7 @@ app.use(async (req, res, next) => {
         }
 
         if (finalUserId) {
-          const stickyKey = `primary_stickiness:${req.headers['x-tenant-slug'] || 'system'}:${finalUserId}`;
+          const stickyKey = `primary_stickiness:${tenantSlug}:${finalUserId}`;
           redis.set(stickyKey, 'true', 'EX', 2).catch(err => logger.error('Redis stickiness set error:', err));
         }
       }
@@ -280,7 +294,19 @@ app.use(async (req, res, next) => {
     };
   }
 
-  next();
+  const tenantId = req.tenant?.id;
+
+  RequestContext.run(
+    {
+      tenantId,
+      userId,
+      usePrimaryDb,
+      req,
+    },
+    () => {
+      next();
+    }
+  );
 });
 
 // Express Setup
@@ -1235,6 +1261,7 @@ const tenantMiddleware = async (req, res, next) => {
     }
 
     req.tenant = tenant;
+    RequestContext.update({ tenantId: tenant.id });
     next();
   } catch (err) {
     logger.error('Tenant middleware error:', err);
@@ -1844,6 +1871,7 @@ const authMiddleware = async (req, res, next) => {
     }
 
     req.user = user;
+    RequestContext.update({ userId: user.id });
     next();
   } catch (err) {
     logger.error('Auth middleware error:', err);

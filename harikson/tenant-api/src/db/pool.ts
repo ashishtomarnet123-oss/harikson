@@ -1,10 +1,10 @@
 import pg from 'pg';
-import { requestContext } from '../utils/context.js';
+import { RequestContext, requestContext } from '../utils/context.js';
 import logger from '../utils/logger.js';
 
 const { Pool } = pg;
 
-export { requestContext };
+export { RequestContext, requestContext };
 
 export const pool = new Pool({
   connectionString:
@@ -30,7 +30,7 @@ const wrapPoolQuery = (p: pg.Pool, name: string) => {
   const originalQuery = p.query;
   // @ts-ignore
   p.query = function (text: any, params: any, callback: any) {
-    const store = requestContext.getStore();
+    const store = RequestContext.getStore();
     const reqId = store?.req?.id || 'no-request';
     const sql = typeof text === 'string' ? text : text?.text;
     logger.info({ reqId, sql, msg: `Executing DB Query on ${name}` });
@@ -70,20 +70,24 @@ export async function connectWithValidation(useReplica = false): Promise<pg.Pool
   let client: pg.PoolClient | undefined;
   let retries = 3;
 
-  const store = requestContext.getStore();
+  const store = RequestContext.getStore();
   const req = store?.req;
+  const usePrimaryDb = RequestContext.isUsePrimaryDb() || req?.usePrimaryDb || false;
 
   let shouldReadFromReplica = useReplica;
-  if (req && req.method === 'GET') {
-    const isCriticalPath =
-      req.path.startsWith('/api/auth') ||
-      req.path.startsWith('/api/billing') ||
-      req.path.startsWith('/api/subscription') ||
-      req.path.startsWith('/api/invoices') ||
-      req.path.startsWith('/api/user/security') ||
-      req.path.startsWith('/api/user/2fa');
 
-    if (!isCriticalPath && !req.usePrimaryDb) {
+  if (usePrimaryDb) {
+    shouldReadFromReplica = false;
+  } else if (req && req.method === 'GET') {
+    const isCriticalPath =
+      req.path?.startsWith('/api/auth') ||
+      req.path?.startsWith('/api/billing') ||
+      req.path?.startsWith('/api/subscription') ||
+      req.path?.startsWith('/api/invoices') ||
+      req.path?.startsWith('/api/user/security') ||
+      req.path?.startsWith('/api/user/2fa');
+
+    if (!isCriticalPath && !usePrimaryDb) {
       shouldReadFromReplica = true;
     }
   }
@@ -98,7 +102,7 @@ export async function connectWithValidation(useReplica = false): Promise<pg.Pool
       const originalClientQuery = client.query;
       // @ts-ignore
       client.query = function (text: any, params: any, callback: any) {
-        const store = requestContext.getStore();
+        const store = RequestContext.getStore();
         const reqId = store?.req?.id || 'no-request';
         const sql = typeof text === 'string' ? text : text?.text;
         logger.info({ reqId, sql, msg: 'Executing DB Query on Client' });
@@ -141,7 +145,10 @@ export async function executeTenantQuery<T>(
   callback: (client: pg.PoolClient) => Promise<T>,
   useReplica = false
 ): Promise<T> {
-  const client = await connectWithValidation(useReplica);
+  const isPrimaryForced = RequestContext.isUsePrimaryDb();
+  const effectiveUseReplica = isPrimaryForced ? false : useReplica;
+
+  const client = await connectWithValidation(effectiveUseReplica);
   let contextSet = false;
   try {
     // Set RLS context on the connection
