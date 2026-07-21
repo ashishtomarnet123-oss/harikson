@@ -42,6 +42,7 @@ if (!process.env.JWT_SECRET) {
 }
 
 import { sendInvoiceReceipt, sendImpersonationAlert } from './services/email.js';
+import { createInvoice } from './services/invoiceService.js';
 
 if (!process.env.JWT_SECRET || process.env.JWT_SECRET.length < 32) {
   logger.error('FATAL: JWT_SECRET not set or too short (min 32 characters)');
@@ -1524,6 +1525,55 @@ app.post('/admin/cleanup', adminAuth, async (req, res) => {
   } catch (err) {
     logger.error('Manual cleanup execution error:', err);
     res.status(500).json({ error: 'Manual cleanup failed', message: err.message });
+  }
+});
+
+// POST /admin/billing/invoices/:id/resend - Resend invoice receipt email (Admin only)
+app.post('/admin/billing/invoices/:id/resend', adminAuth, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const invRes = await pool.query('SELECT * FROM invoices WHERE id = $1', [id]);
+    if (invRes.rows.length === 0) {
+      return res.status(404).json({ error: 'Invoice not found' });
+    }
+
+    const invoiceRow = invRes.rows[0];
+    const userRes = await pool.query(
+      `SELECT email, name FROM users 
+       WHERE tenant_id = $1 
+       ORDER BY role = 'admin' DESC, created_at ASC 
+       LIMIT 1`,
+      [invoiceRow.tenant_id]
+    );
+
+    if (userRes.rows.length === 0) {
+      return res.status(400).json({ error: 'No user email associated with this tenant' });
+    }
+
+    const recipientEmail = userRes.rows[0].email;
+    const emailResult = await sendInvoiceReceipt(recipientEmail, {
+      id: invoiceRow.id,
+      amount: invoiceRow.amount,
+      currency: invoiceRow.currency,
+      status: invoiceRow.status,
+      invoice_url: invoiceRow.invoice_url,
+      pdf_url: invoiceRow.pdf_url,
+      provider: invoiceRow.provider,
+      provider_invoice_id: invoiceRow.provider_invoice_id,
+    });
+
+    if (!emailResult.success) {
+      return res.status(500).json({ error: emailResult.error || 'Failed to resend invoice email' });
+    }
+
+    res.status(200).json({
+      success: true,
+      message: 'Invoice receipt resent successfully',
+      email: recipientEmail,
+    });
+  } catch (err) {
+    logger.error('Resend invoice error:', err);
+    res.status(500).json({ error: 'Failed to resend invoice', message: err.message });
   }
 });
 
@@ -3262,40 +3312,22 @@ app.post('/webhooks/stripe', async (req, res) => {
           const subscriptionUuid =
             subRes.rows.length > 0 ? subRes.rows[0].id : null;
 
-          await client.query(
-            `INSERT INTO invoices (tenant_id, subscription_id, provider, provider_invoice_id, amount, currency, status, paid_at, invoice_url, pdf_url)
-             VALUES ($1, $2, $3, $4, $5, $6, $7, NOW(), $8, $9)
-             ON CONFLICT (provider, provider_invoice_id) DO NOTHING`,
-            [
+          await createInvoice(
+            {
               tenantId,
-              subscriptionUuid,
-              'stripe',
-              invId,
-              amount,
-              currency,
-              'paid',
-              invoiceUrl,
-              pdfUrl,
-            ]
-          );
-
-          // Retrieve tenant's primary administrator/user email and send receipt
-          const userRes = await client.query(
-            `SELECT email, name FROM users WHERE tenant_id = $1 ORDER BY role = 'admin' DESC, created_at ASC LIMIT 1`,
-            [tenantId]
-          );
-          if (userRes.rows.length > 0) {
-            const userEmail = userRes.rows[0].email;
-            sendInvoiceReceipt(userEmail, {
+              subscriptionId: subscriptionUuid,
+              provider: 'stripe',
+              providerInvoiceId: invId,
               amount,
               currency,
               status: 'paid',
+              paidAt: new Date(),
               invoiceUrl,
               pdfUrl,
-            }).catch((err) =>
-              logger.error('[INVOICE EMAIL RECEIPT SEND ERROR]:', err.message)
-            );
-          }
+              planName: 'Enterprise AI OS Plan',
+            },
+            client
+          );
         }
       }
 
@@ -3466,6 +3498,28 @@ app.post('/webhooks/razorpay', async (req, res) => {
             planId.toUpperCase(),
             tenantId,
           ]);
+
+          // Create invoice & send email receipt on subscription charge
+          const subRes = await client.query(
+            'SELECT id FROM subscriptions WHERE provider = $1 AND provider_subscription_id = $2',
+            ['razorpay', subId]
+          );
+          const subscriptionUuid = subRes.rows.length > 0 ? subRes.rows[0].id : null;
+
+          await createInvoice(
+            {
+              tenantId,
+              subscriptionId: subscriptionUuid,
+              provider: 'razorpay',
+              providerInvoiceId: entity.payment_id || entity.invoice_id || subId,
+              amount: amount || 0,
+              currency: 'INR',
+              status: 'paid',
+              paidAt: new Date(),
+              planName: planId.toUpperCase(),
+            },
+            client
+          );
         } else if (eventType === 'subscription.cancelled') {
           const subId = entity.id;
           await client.query(
