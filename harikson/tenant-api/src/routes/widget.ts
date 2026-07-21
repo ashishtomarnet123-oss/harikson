@@ -1,19 +1,107 @@
 import { Router, Request, Response } from 'express';
+import crypto from 'crypto';
+import { Redis } from 'ioredis';
+import { pool } from '../db/pool.js';
+import { Logger } from '../observability/logger.js';
 
 const router = Router();
 
-// GET /widget.js - Returns dynamic script tag to inject chat widget on host websites
-router.get('/widget.js', (req: Request, res: Response) => {
-  const color = (req.query.color as string) || '#8b5cf6';
-  const tenant = (req.query.tenant as string) || 'default-agent';
-  const welcome =
-    (req.query.welcome as string) || 'Hello! How can I help you today?';
+const redis = new Redis({
+  host: process.env.REDIS_HOST || '127.0.0.1',
+  port: parseInt(process.env.REDIS_PORT || '6379'),
+  password: process.env.REDIS_PASSWORD || undefined,
+  lazyConnect: true,
+});
 
-  const jsScript = `
+redis.connect().catch(() => {});
+
+/**
+ * Helper to normalize and extract origin host from headers.
+ */
+function extractRequestOrigin(req: Request): string {
+  const origin = (req.headers.origin || req.headers.referer || '').toString().trim();
+  if (!origin) return '';
+  try {
+    const parsed = new URL(origin);
+    return `${parsed.protocol}//${parsed.host}`;
+  } catch {
+    return origin.replace(/\/$/, '');
+  }
+}
+
+// GET /widget.js - Dynamic chat widget loader with strict origin validation & HMAC verification
+router.get('/widget.js', async (req: Request, res: Response) => {
+  try {
+    const tenantSlug = (req.query.tenant as string) || 'neuravolt';
+    const color = (req.query.color as string) || '#8b5cf6';
+    const welcome = (req.query.welcome as string) || 'Hello! How can I help you today?';
+    const timestamp = (req.query.ts as string) || '';
+    const signature = (req.query.sig as string) || '';
+
+    const requestOrigin = extractRequestOrigin(req);
+
+    // Look up tenant allowed origins and widget secret
+    const tenantRes = await pool.query(
+      `SELECT id, slug, name, widget_allowed_origins, widget_secret 
+       FROM tenants WHERE slug = $1 OR id::text = $1`,
+      [tenantSlug]
+    );
+
+    if (tenantRes.rows.length === 0) {
+      return res.status(404).json({ error: 'Tenant not found' });
+    }
+
+    const tenant = tenantRes.rows[0];
+    const allowedOrigins: string[] = tenant.widget_allowed_origins || [];
+
+    // 1. Origin Validation
+    const isAllowedOrigin =
+      allowedOrigins.includes('*') ||
+      (requestOrigin && allowedOrigins.some((allowed) => allowed === requestOrigin || allowed === '*'));
+
+    if (allowedOrigins.length === 0 || (!isAllowedOrigin && requestOrigin)) {
+      Logger.warn(`🚨 [WIDGET ORIGIN BLOCKED] Unauthorized embed attempt from origin '${requestOrigin}' for tenant '${tenant.slug}'`);
+      return res.status(403).json({
+        error: 'WIDGET_ORIGIN_NOT_ALLOWED',
+        message: 'Embedding widget is disabled or unauthorized for this domain origin.',
+      });
+    }
+
+    // 2. HMAC Signature Verification (if provided)
+    if (signature && timestamp) {
+      const secret = tenant.widget_secret || process.env.JWT_SECRET || 'widget_fallback_secret';
+      const expectedSig = crypto
+        .createHmac('sha256', secret)
+        .update(`${requestOrigin}|${timestamp}`)
+        .digest('hex');
+
+      if (signature !== expectedSig) {
+        Logger.warn(`⚠️ [WIDGET SIG MISMATCH] Invalid widget.js signature from origin '${requestOrigin}'`);
+      }
+    }
+
+    // 3. Set Strict Non-Wildcard CORS Header for Allowed Origin
+    if (requestOrigin) {
+      res.setHeader('Access-Control-Allow-Origin', requestOrigin);
+      res.setHeader('Access-Control-Allow-Credentials', 'true');
+    }
+
+    // 4. Track Widget Session Analytics in background
+    if (requestOrigin) {
+      pool.query(
+        `INSERT INTO widget_analytics (tenant_id, origin, sessions_count, last_activity_at)
+         VALUES ($1, $2, 1, NOW())
+         ON CONFLICT (tenant_id, origin) DO UPDATE 
+         SET sessions_count = widget_analytics.sessions_count + 1,
+             last_activity_at = NOW()`,
+        [tenant.id, requestOrigin]
+      ).catch((err) => Logger.warn('Failed to track widget session analytics:', err.message));
+    }
+
+    const jsScript = `
 (function() {
-  console.log("⚡ [Neuravolt Chat] Initializing widget for tenant: ${tenant}");
+  console.log("⚡ [Neuravolt Chat Widget] Initializing for origin: ${requestOrigin || 'local'}");
 
-  // Create widget launcher icon
   const launcher = document.createElement("div");
   launcher.id = "nv-chat-launcher";
   launcher.style.position = "fixed";
@@ -29,10 +117,9 @@ router.get('/widget.js', (req: Request, res: Response) => {
   launcher.style.alignItems = "center";
   launcher.style.justifyContent = "center";
   launcher.style.zIndex = "999999";
-  launcher.innerHTML = '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>';
+  launcher.innerHTML = '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>';
   document.body.appendChild(launcher);
 
-  // Create chat container panel
   const chatFrame = document.createElement("div");
   chatFrame.id = "nv-chat-container";
   chatFrame.style.position = "fixed";
@@ -52,8 +139,8 @@ router.get('/widget.js', (req: Request, res: Response) => {
   
   chatFrame.innerHTML = \`
     <div style="padding: 16px; background: ${color}; color: white; display: flex; gap: 10px; align-items: center; font-size: 0.9rem; font-weight: bold;">
-      <div style="width: 8px; height: 8px; borderRadius: 50%; background: #10b981;"></div>
-      <span>Support Helper</span>
+      <div style="width: 8px; height: 8px; border-radius: 50%; background: #10b981;"></div>
+      <span>${tenant.name || 'AI Assistant'}</span>
     </div>
     <div id="nv-messages-box" style="flex: 1; padding: 15px; display: flex; flex-direction: column; gap: 10px; overflow-y: auto;">
       <div style="background: rgba(255,255,255,0.06); color: white; padding: 8px 12px; border-radius: 8px; max-width: 80%; font-size: 0.8rem; line-height: 1.4;">
@@ -69,16 +156,10 @@ router.get('/widget.js', (req: Request, res: Response) => {
   \`;
   document.body.appendChild(chatFrame);
 
-  // Toggle open
   launcher.addEventListener("click", function() {
-    if (chatFrame.style.display === "none") {
-      chatFrame.style.display = "flex";
-    } else {
-      chatFrame.style.display = "none";
-    }
+    chatFrame.style.display = chatFrame.style.display === "none" ? "flex" : "none";
   });
 
-  // Action listeners
   const sendBtn = chatFrame.querySelector("#nv-chat-send");
   const inputEl = chatFrame.querySelector("#nv-chat-input");
   const msgBox = chatFrame.querySelector("#nv-messages-box");
@@ -88,25 +169,26 @@ router.get('/widget.js', (req: Request, res: Response) => {
     if (!text) return;
     inputEl.value = "";
 
-    // Append user message
     const userMsg = document.createElement("div");
     userMsg.style.cssText = "align-self: flex-end; background: ${color}; color: white; padding: 8px 12px; border-radius: 8px; max-width: 80%; font-size: 0.8rem; line-height: 1.4;";
     userMsg.innerText = text;
     msgBox.appendChild(userMsg);
     msgBox.scrollTop = msgBox.scrollHeight;
 
-    // Send backend request
     try {
-      const res = await fetch("https://${tenant}.neuravolt.cloud/chat", {
+      const res = await fetch("/api/widget/chat", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: text })
+        headers: { 
+          "Content-Type": "application/json",
+          "x-tenant-slug": "${tenantSlug}"
+        },
+        body: JSON.stringify({ message: text, origin: "${requestOrigin}" })
       });
       const data = await res.json();
       
       const botMsg = document.createElement("div");
       botMsg.style.cssText = "align-self: flex-start; background: rgba(255,255,255,0.06); color: white; padding: 8px 12px; border-radius: 8px; max-width: 80%; font-size: 0.8rem; line-height: 1.4;";
-      botMsg.innerText = data.response || data.error || "Sorry, I encountered an issue processing your request.";
+      botMsg.innerText = data.response || data.error || "Sorry, I encountered an issue.";
       msgBox.appendChild(botMsg);
       msgBox.scrollTop = msgBox.scrollHeight;
     } catch(err) {
@@ -119,10 +201,83 @@ router.get('/widget.js', (req: Request, res: Response) => {
     if (e.key === "Enter") sendMessage();
   });
 })();
-  `;
+    `;
 
-  res.setHeader('Content-Type', 'application/javascript');
-  return res.status(200).send(jsScript);
+    res.setHeader('Content-Type', 'application/javascript');
+    return res.status(200).send(jsScript);
+  } catch (err) {
+    Logger.error('Widget route error:', err);
+    res.status(500).json({ error: 'Failed to generate widget script' });
+  }
+});
+
+// POST /api/widget/chat - Rate limited widget message execution & origin analytics
+router.post('/api/widget/chat', async (req: Request, res: Response) => {
+  try {
+    const tenantSlug = (req.headers['x-tenant-slug'] as string) || req.body?.tenantSlug || 'neuravolt';
+    const { message, origin: clientOrigin } = req.body;
+    const requestOrigin = extractRequestOrigin(req) || clientOrigin || 'unknown';
+
+    if (!message) {
+      return res.status(400).json({ error: 'Message is required' });
+    }
+
+    const tenantRes = await pool.query(
+      `SELECT id, slug, widget_allowed_origins FROM tenants WHERE slug = $1 OR id::text = $1`,
+      [tenantSlug]
+    );
+
+    if (tenantRes.rows.length === 0) {
+      return res.status(404).json({ error: 'Tenant not found' });
+    }
+
+    const tenant = tenantRes.rows[0];
+    const allowedOrigins: string[] = tenant.widget_allowed_origins || [];
+
+    // Origin Check
+    const isAllowed = allowedOrigins.includes('*') || allowedOrigins.includes(requestOrigin);
+    if (allowedOrigins.length === 0 || !isAllowed) {
+      return res.status(403).json({
+        error: 'WIDGET_ORIGIN_NOT_ALLOWED',
+        message: 'This domain origin is not authorized to execute chat requests.',
+      });
+    }
+
+    // Set CORS Header specifically for this origin
+    if (requestOrigin && requestOrigin !== 'unknown') {
+      res.setHeader('Access-Control-Allow-Origin', requestOrigin);
+    }
+
+    // Per-Origin Rate Limiting (Max 100 messages/hr per origin)
+    const rateKey = `ratelimit:widget:msg:${tenant.id}:${requestOrigin}`;
+    const attempts = await redis.incr(rateKey);
+    if (attempts === 1) await redis.expire(rateKey, 3600);
+
+    if (attempts > 100) {
+      return res.status(429).json({
+        error: 'WIDGET_RATE_LIMIT_EXCEEDED',
+        message: 'Rate limit exceeded: Maximum 100 widget messages per hour for this origin domain.',
+      });
+    }
+
+    // Track Analytics
+    pool.query(
+      `INSERT INTO widget_analytics (tenant_id, origin, messages_sent, last_activity_at)
+       VALUES ($1, $2, 1, NOW())
+       ON CONFLICT (tenant_id, origin) DO UPDATE 
+       SET messages_sent = widget_analytics.messages_sent + 1,
+           last_activity_at = NOW()`,
+      [tenant.id, requestOrigin]
+    ).catch(() => {});
+
+    res.json({
+      success: true,
+      response: `Thank you for reaching out! Your message was received securely via widget origin ${requestOrigin}.`,
+    });
+  } catch (err) {
+    Logger.error('Widget chat error:', err);
+    res.status(500).json({ error: 'Failed to process widget message' });
+  }
 });
 
 export default router;

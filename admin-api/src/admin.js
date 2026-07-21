@@ -1737,6 +1737,68 @@ app.post('/admin/documents/rotate-keys', adminAuth, async (req, res) => {
   }
 });
 
+// GET /admin/widget/analytics - Fetch widget usage analytics grouped by domain origin
+app.get('/admin/widget/analytics', adminAuth, async (req, res) => {
+  try {
+    const { tenantId } = req.query;
+    let query = `
+      SELECT wa.id, wa.tenant_id, t.name as tenant_name, t.slug as tenant_slug,
+             wa.origin, wa.messages_sent, wa.sessions_count, wa.unique_users_count, wa.last_activity_at
+      FROM widget_analytics wa
+      JOIN tenants t ON wa.tenant_id = t.id
+    `;
+    const params = [];
+
+    if (tenantId) {
+      params.push(tenantId);
+      query += ` WHERE wa.tenant_id = $1`;
+    }
+
+    query += ` ORDER BY wa.last_activity_at DESC LIMIT 100`;
+
+    const result = await pool.query(query, params);
+    res.status(200).json({
+      success: true,
+      analytics: result.rows,
+    });
+  } catch (err) {
+    logger.error('Fetch widget analytics error:', err);
+    res.status(500).json({ error: 'Failed to fetch widget analytics', message: err.message });
+  }
+});
+
+// PUT /admin/tenants/:id/widget-config - Configure allowed origins and widget secret for a tenant
+app.put('/admin/tenants/:id/widget-config', adminAuth, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { allowedOrigins = [] } = req.body;
+
+    const widgetSecret = crypto.randomBytes(32).toString('hex');
+
+    const result = await pool.query(
+      `UPDATE tenants 
+       SET widget_allowed_origins = $1, 
+           widget_secret = COALESCE(widget_secret, $2)
+       WHERE id = $3
+       RETURNING id, name, slug, widget_allowed_origins, widget_secret`,
+      [allowedOrigins, widgetSecret, id]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Tenant not found' });
+    }
+
+    res.status(200).json({
+      success: true,
+      message: 'Widget security configuration updated successfully',
+      tenant: result.rows[0],
+    });
+  } catch (err) {
+    logger.error('Update widget config error:', err);
+    res.status(500).json({ error: 'Failed to update widget configuration', message: err.message });
+  }
+});
+
 // ────────────────────────────────────────────────────────────
 // PROTECTED ROUTES (Admin Authorization required)
 // ────────────────────────────────────────────────────────────
