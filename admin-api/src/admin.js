@@ -1663,6 +1663,80 @@ app.post('/admin/users/:id/force-password-reset', adminAuth, async (req, res) =>
   }
 });
 
+// POST /admin/documents/rotate-keys - Trigger batch re-encryption of knowledge documents (Admin only)
+app.post('/admin/documents/rotate-keys', adminAuth, async (req, res) => {
+  try {
+    const { newKeyId = 'v2', batchSize = 100 } = req.body || {};
+
+    const docsRes = await pool.query(
+      `SELECT id, content, content_iv, content_tag, key_id 
+       FROM knowledge_documents 
+       WHERE key_id IS NULL OR key_id != $1 
+       LIMIT $2`,
+      [newKeyId, parseInt(batchSize)]
+    );
+
+    let processed = 0;
+    const masterKey = process.env.TENANT_MASTER_KEY || process.env.JWT_SECRET || 'neuravolt_default_master_encryption_key_2026';
+
+    for (const doc of docsRes.rows) {
+      let plainText = doc.content;
+
+      // Decrypt if previously encrypted
+      if (doc.content_iv && doc.content_tag) {
+        try {
+          const oldSalt = `${doc.id}:${doc.key_id || 'v1'}`;
+          const oldDerivedKey = crypto.pbkdf2Sync(masterKey, oldSalt, 100000, 32, 'sha256');
+          const decipher = crypto.createDecipheriv('aes-256-gcm', oldDerivedKey, Buffer.from(doc.content_iv, 'hex'));
+          decipher.setAuthTag(Buffer.from(doc.content_tag, 'hex'));
+          plainText = decipher.update(doc.content, 'hex', 'utf8') + decipher.final('utf8');
+        } catch (decErr) {
+          logger.warn(`Failed to decrypt doc ${doc.id} during key rotation:`, decErr.message);
+          continue;
+        }
+      }
+
+      // Re-encrypt with new key version
+      const newSalt = `${doc.id}:${newKeyId}`;
+      const newDerivedKey = crypto.pbkdf2Sync(masterKey, newSalt, 100000, 32, 'sha256');
+      const iv = crypto.randomBytes(12);
+      const cipher = crypto.createCipheriv('aes-256-gcm', newDerivedKey, iv);
+      let encrypted = cipher.update(plainText, 'utf8', 'hex') + cipher.final('hex');
+      const authTag = cipher.getAuthTag().toString('hex');
+
+      await pool.query(
+        `UPDATE knowledge_documents 
+         SET content = $1, content_iv = $2, content_tag = $3, key_id = $4 
+         WHERE id = $5`,
+        [encrypted, iv.toString('hex'), authTag, newKeyId, doc.id]
+      );
+
+      await redis.del(`cache:doc:${doc.id}`).catch(() => {});
+      processed++;
+    }
+
+    const remainingRes = await pool.query(
+      `SELECT COUNT(*)::int as count FROM knowledge_documents WHERE key_id IS NULL OR key_id != $1`,
+      [newKeyId]
+    );
+
+    const remaining = remainingRes.rows[0]?.count || 0;
+
+    logger.info(`🔄 [KEY ROTATION] Processed ${processed} documents with target key '${newKeyId}'. Remaining: ${remaining}`);
+
+    res.status(200).json({
+      success: true,
+      message: `Batch document re-encryption completed. Processed ${processed} documents.`,
+      targetKeyId: newKeyId,
+      processed,
+      remaining,
+    });
+  } catch (err) {
+    logger.error('Document key rotation error:', err);
+    res.status(500).json({ error: 'Failed to rotate document encryption keys', message: err.message });
+  }
+});
+
 // ────────────────────────────────────────────────────────────
 // PROTECTED ROUTES (Admin Authorization required)
 // ────────────────────────────────────────────────────────────

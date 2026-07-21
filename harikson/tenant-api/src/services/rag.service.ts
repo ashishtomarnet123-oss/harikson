@@ -3,6 +3,7 @@ import { pool } from '../db/pool.js';
 import { OllamaClient } from '../llm/ollama.js';
 import pdf from 'pdf-parse';
 import crypto from 'crypto';
+import { encryptDocumentContent } from './documentEncryptionService.js';
 
 export class RagService {
   private static async executeQuery<T>(
@@ -60,10 +61,16 @@ export class RagService {
       const newDocId = crypto.randomUUID();
       const fileType = type || 'txt';
 
+      // Encrypt content at rest using AES-256-GCM
+      const { encryptedContent, iv, authTag, keyId } = encryptDocumentContent(newDocId, text);
+
       await this.executeQuery(tenantId, async (client) => {
         await client.query(
-          `INSERT INTO knowledge_documents (id, tenant_id, user_id, filename, file_type, file_size_bytes, content, is_active, status)
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'indexed')`,
+          `INSERT INTO knowledge_documents (
+            id, tenant_id, user_id, filename, file_type, file_size_bytes, 
+            content, content_iv, content_tag, key_id, is_active, status
+           )
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, 'indexed')`,
           [
             newDocId,
             tenantId,
@@ -71,7 +78,10 @@ export class RagService {
             name,
             fileType,
             buffer.length || 0,
-            text,
+            encryptedContent,
+            iv,
+            authTag,
+            keyId,
             true,
           ]
         );
@@ -123,11 +133,16 @@ export class RagService {
       const chunks = this.chunkText(text, 800, 150);
       const newDocId = crypto.randomUUID();
 
+      const { encryptedContent, iv, authTag, keyId } = encryptDocumentContent(newDocId, text);
+
       await this.executeQuery(tenantId, async (client) => {
         await client.query(
-          `INSERT INTO knowledge_documents (id, tenant_id, user_id, filename, file_type, file_size_bytes, content, is_active, status)
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'indexed')`,
-          [newDocId, tenantId, userId, url, 'url', text.length || 0, text, true]
+          `INSERT INTO knowledge_documents (
+            id, tenant_id, user_id, filename, file_type, file_size_bytes, 
+            content, content_iv, content_tag, key_id, is_active, status
+           )
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, 'indexed')`,
+          [newDocId, tenantId, userId, url, 'url', text.length || 0, encryptedContent, iv, authTag, keyId, true]
         );
       });
 
