@@ -1,16 +1,13 @@
+import { getApiBaseUrl, getTenantSlug } from '../../lib/api-config';
+
 /**
  * Shared API helper for all settings components.
  * Automatically injects x-tenant-slug headers and passes credentials.
  */
 
 export function getApiConfig() {
-  const apiBase =
-    (typeof window !== 'undefined' && localStorage.getItem('hk_api_base')) ||
-    process.env.NEXT_PUBLIC_API_URL ||
-    'http://localhost:3008';
-  const tenantSlug =
-    (typeof window !== 'undefined' && localStorage.getItem('hk_tenant')) ||
-    'neuravolt';
+  const apiBase = getApiBaseUrl();
+  const tenantSlug = getTenantSlug();
   return { apiBase, tenantSlug };
 }
 
@@ -52,50 +49,46 @@ export async function refreshAuthToken() {
     }
 
     const data = await res.json();
-    if (data.refreshToken && typeof window !== 'undefined') {
-      localStorage.setItem('hk_refresh_token', data.refreshToken);
-    }
     if (data.accessToken && typeof window !== 'undefined') {
       localStorage.setItem('hk_access_token', data.accessToken);
     }
-    return data;
+    if (data.refreshToken && typeof window !== 'undefined') {
+      localStorage.setItem('hk_refresh_token', data.refreshToken);
+    }
+    return data.accessToken || true;
   } catch (err) {
     console.error('Failed to refresh auth token:', err);
     return null;
   }
 }
 
-export async function apiFetch(path, options = {}) {
-  const { apiBase } = getApiConfig();
-  const { headers = {}, ...rest } = options;
+/**
+ * Wrapper around fetch that automatically handles auth headers and token refresh on 401.
+ */
+export async function authenticatedFetch(url, options = {}) {
+  const { tenantSlug } = getApiConfig();
+  const headers = new Headers(options.headers || {});
+  headers.set('x-tenant-slug', tenantSlug);
 
-  let res = await fetch(`${apiBase}${path}`, {
-    headers: { ...apiHeaders(), ...headers },
-    credentials: 'include',
-    ...rest,
-  });
+  const token = typeof window !== 'undefined' ? localStorage.getItem('hk_access_token') : null;
+  if (token && !headers.has('Authorization')) {
+    headers.set('Authorization', `Bearer ${token}`);
+  }
 
-  // Handle 401 response with automatic token rotation retry
-  if (
-    res.status === 401 &&
-    !path.includes('/auth/login') &&
-    !path.includes('/auth/refresh')
-  ) {
-    const refreshedData = await refreshAuthToken();
-    if (refreshedData) {
-      res = await fetch(`${apiBase}${path}`, {
-        headers: { ...apiHeaders(), ...headers },
-        credentials: 'include',
-        ...rest,
-      });
-    }
+  let res = await fetch(url, { ...options, headers, credentials: 'include' });
 
-    if (res.status === 401 && typeof window !== 'undefined' && !window.location.pathname.includes('/login')) {
-      localStorage.removeItem('hk_user');
-      localStorage.removeItem('hk_access_token');
-      localStorage.removeItem('hk_refresh_token');
-      localStorage.removeItem('is_impersonating');
-      window.location.href = '/login?session_expired=true';
+  // If 401 Unauthenticated, attempt token refresh once
+  if (res.status === 401) {
+    const newToken = await refreshAuthToken();
+    if (newToken) {
+      const retryHeaders = new Headers(options.headers || {});
+      retryHeaders.set('x-tenant-slug', tenantSlug);
+      retryHeaders.set('Authorization', `Bearer ${newToken}`);
+      res = await fetch(url, { ...options, headers: retryHeaders, credentials: 'include' });
+    } else {
+      if (typeof window !== 'undefined' && !window.location.pathname.includes('/login')) {
+        window.location.href = '/login?session_expired=true';
+      }
     }
   }
 
