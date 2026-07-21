@@ -23,6 +23,7 @@ import bcrypt from 'bcrypt';
 import dotenv from 'dotenv';
 import crypto from 'crypto';
 import { generateHashedBackupCodes, verifyBackupCode } from './services/twoFactorService.js';
+import { computeDeviceFingerprint } from './services/deviceService.js';
 import * as cheerio from 'cheerio';
 import fs from 'fs';
 import path from 'path';
@@ -3587,11 +3588,25 @@ app.post('/api/auth/login', validate(loginSchema), async (req, res) => {
       .digest('hex');
     const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000); // 30 days
     const familyId = crypto.randomUUID();
+    const fingerprint = computeDeviceFingerprint(req);
 
     await pool.query(
-      `INSERT INTO refresh_tokens (token, user_id, tenant_id, expires_at, refresh_token_family)
-       VALUES ($1, $2, $3, $4, $5)`,
-      [refreshTokenHash, user.id, resolvedTenantId, expiresAt, familyId]
+      `INSERT INTO refresh_tokens (
+        token, user_id, tenant_id, expires_at, refresh_token_family,
+        device_hash, device_name, last_ip, country_code, last_used_at
+       )
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW())`,
+      [
+        refreshTokenHash,
+        user.id,
+        resolvedTenantId,
+        expiresAt,
+        familyId,
+        fingerprint.deviceHash,
+        fingerprint.deviceName,
+        fingerprint.ip,
+        fingerprint.countryCode,
+      ]
     );
 
     const host = req.headers.host || '';
@@ -3747,11 +3762,25 @@ app.post('/api/auth/login/2fa', async (req, res) => {
       .digest('hex');
     const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000); // 30 days
     const familyId = crypto.randomUUID();
+    const fingerprint = computeDeviceFingerprint(req);
 
     await pool.query(
-      `INSERT INTO refresh_tokens (token, user_id, tenant_id, expires_at, refresh_token_family)
-       VALUES ($1, $2, $3, $4, $5)`,
-      [refreshTokenHash, user.id, req.tenant.id, expiresAt, familyId]
+      `INSERT INTO refresh_tokens (
+        token, user_id, tenant_id, expires_at, refresh_token_family,
+        device_hash, device_name, last_ip, country_code, last_used_at
+       )
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW())`,
+      [
+        refreshTokenHash,
+        user.id,
+        user.tenant_id,
+        expiresAt,
+        familyId,
+        fingerprint.deviceHash,
+        fingerprint.deviceName,
+        fingerprint.ip,
+        fingerprint.countryCode,
+      ]
     );
 
     const host = req.headers.host || '';
@@ -4409,12 +4438,46 @@ app.post(['/api/auth/refresh', '/api/v1/auth/refresh'], async (req, res) => {
       });
     }
 
-    // Verify expired
-    if (new Date(rtRecord.expires_at) <= new Date()) {
-      return res
-        .status(401)
-        .json({ error: 'Refresh token expired. Please log in again.' });
+    // Device Fingerprinting Check
+    const fingerprint = computeDeviceFingerprint(req);
+
+    if (rtRecord.device_hash && rtRecord.device_hash !== fingerprint.deviceHash) {
+      const failCount = (rtRecord.failed_device_attempts || 0) + 1;
+      logger.warn(`⚠️ [DEVICE MISMATCH] Refresh attempt ${failCount}/5 from wrong device for user ${rtRecord.user_id}`);
+
+      if (failCount >= 5) {
+        logger.error(`🚨 [SECURITY ALERT] 5+ mismatched device refresh attempts for family ${rtRecord.refresh_token_family}. Revoking token family!`);
+        await pool.query(
+          'UPDATE refresh_tokens SET revoked_at = NOW() WHERE refresh_token_family = $1 AND revoked_at IS NULL',
+          [rtRecord.refresh_token_family]
+        );
+      } else {
+        await pool.query(
+          'UPDATE refresh_tokens SET failed_device_attempts = $1 WHERE id = $2',
+          [failCount, rtRecord.id]
+        );
+      }
+
+      res.setHeader('Set-Cookie', [
+        `hk_access_token=; HttpOnly; Path=/; Max-Age=0${domainSuffix}`,
+        `hk_refresh_token=; HttpOnly; Path=/; Max-Age=0${domainSuffix}`,
+      ]);
+
+      return res.status(401).json({
+        error: 'Unrecognized device. Re-authentication required for security.',
+        code: 'DEVICE_MISMATCH',
+      });
     }
+
+    // Update last_used_at & last_ip
+    await pool.query(
+      `UPDATE refresh_tokens 
+       SET last_used_at = NOW(), 
+           last_ip = $1, 
+           failed_device_attempts = 0 
+       WHERE id = $2`,
+      [fingerprint.ip, rtRecord.id]
+    );
 
     // Revoke old token (rotation!)
     await pool.query(
@@ -4447,9 +4510,22 @@ app.post(['/api/auth/refresh', '/api/v1/auth/refresh'], async (req, res) => {
     const familyId = rtRecord.refresh_token_family || crypto.randomUUID();
 
     await pool.query(
-      `INSERT INTO refresh_tokens (token, user_id, tenant_id, expires_at, refresh_token_family)
-       VALUES ($1, $2, $3, $4, $5)`,
-      [newRefreshTokenHash, user.id, rtRecord.tenant_id, expiresAt, familyId]
+      `INSERT INTO refresh_tokens (
+        token, user_id, tenant_id, expires_at, refresh_token_family,
+        device_hash, device_name, last_ip, country_code, last_used_at
+       )
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW())`,
+      [
+        newRefreshTokenHash,
+        user.id,
+        rtRecord.tenant_id,
+        expiresAt,
+        familyId,
+        fingerprint.deviceHash,
+        fingerprint.deviceName,
+        fingerprint.ip,
+        fingerprint.countryCode,
+      ]
     );
 
     const isHttps = req.headers['x-forwarded-proto'] === 'https' || (req.socket as any)?.encrypted;
@@ -5992,6 +6068,86 @@ app.post('/api/user/2fa/disable', authMiddleware, async (req, res) => {
   } catch (err) {
     logger.error(err, 'Failed to disable 2FA');
     res.status(500).json({ error: 'Failed to disable 2FA' });
+  }
+});
+
+// ─── DEVICE MANAGEMENT ENDPOINTS ─────────────────────────────────────────────
+
+// GET /api/user/devices - List all active device sessions for current user
+app.get('/api/user/devices', authMiddleware, async (req, res) => {
+  try {
+    const fingerprint = computeDeviceFingerprint(req);
+    const result = await pool.query(
+      `SELECT id, device_name, last_ip, country_code, last_used_at, created_at,
+              (device_hash = $1) as is_current_device
+       FROM refresh_tokens
+       WHERE user_id = $2 AND revoked_at IS NULL AND expires_at > NOW()
+       ORDER BY last_used_at DESC`,
+      [fingerprint.deviceHash, req.user.id]
+    );
+
+    res.json({
+      success: true,
+      currentDeviceHash: fingerprint.deviceHash,
+      devices: result.rows.map((row) => ({
+        id: row.id,
+        name: row.device_name || 'Unknown Device',
+        lastIp: row.last_ip || '127.0.0.1',
+        countryCode: row.country_code || 'IN',
+        lastUsedAt: row.last_used_at,
+        createdAt: row.created_at,
+        isCurrent: Boolean(row.is_current_device),
+      })),
+    });
+  } catch (err) {
+    logger.error(err, 'Failed to list user devices');
+    res.status(500).json({ error: 'Failed to retrieve active devices' });
+  }
+});
+
+// POST /api/user/devices/:id/revoke - Revoke a specific device session
+app.post('/api/user/devices/:id/revoke', authMiddleware, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const result = await pool.query(
+      `UPDATE refresh_tokens 
+       SET revoked_at = NOW() 
+       WHERE id = $1 AND user_id = $2 AND revoked_at IS NULL
+       RETURNING id`,
+      [id, req.user.id]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Device session not found or already revoked' });
+    }
+
+    res.json({ success: true, message: 'Device session revoked successfully', id });
+  } catch (err) {
+    logger.error(err, 'Failed to revoke device session');
+    res.status(500).json({ error: 'Failed to revoke device session' });
+  }
+});
+
+// POST /api/user/devices/revoke-others - Revoke all other device sessions
+app.post('/api/user/devices/revoke-others', authMiddleware, async (req, res) => {
+  try {
+    const fingerprint = computeDeviceFingerprint(req);
+    const result = await pool.query(
+      `UPDATE refresh_tokens 
+       SET revoked_at = NOW() 
+       WHERE user_id = $1 AND (device_hash IS NULL OR device_hash != $2) AND revoked_at IS NULL
+       RETURNING id`,
+      [req.user.id, fingerprint.deviceHash]
+    );
+
+    res.json({
+      success: true,
+      message: `Revoked ${result.rowCount} other active device sessions`,
+      revokedCount: result.rowCount,
+    });
+  } catch (err) {
+    logger.error(err, 'Failed to revoke other device sessions');
+    res.status(500).json({ error: 'Failed to revoke other device sessions' });
   }
 });
 
