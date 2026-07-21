@@ -22,6 +22,7 @@ import jwt from 'jsonwebtoken';
 import bcrypt from 'bcrypt';
 import dotenv from 'dotenv';
 import crypto from 'crypto';
+import { generateHashedBackupCodes, verifyBackupCode } from './services/twoFactorService.js';
 import * as cheerio from 'cheerio';
 import fs from 'fs';
 import path from 'path';
@@ -3719,29 +3720,18 @@ app.post('/api/auth/login/2fa', async (req, res) => {
     }
 
     // 2. Try backup codes verification
-    if (!verified && user.two_factor_backup_codes && user.two_factor_backup_codes.length > 0) {
-      for (let i = 0; i < user.two_factor_backup_codes.length; i++) {
-        const match = await bcrypt.compare(code, user.two_factor_backup_codes[i]);
-        if (match) {
-          backupCodeMatchedIndex = i;
-          verified = true;
-          break;
-        }
+    if (!verified) {
+      const backupResult = await verifyBackupCode(user.id, code);
+      if (backupResult.locked) {
+        return res.status(423).json({ error: backupResult.error });
+      }
+      if (backupResult.success) {
+        verified = true;
       }
     }
 
     if (!verified) {
       return res.status(400).json({ error: 'Invalid verification code or backup code' });
-    }
-
-    // If backup code was used, remove it from the database (single-use)
-    if (backupCodeMatchedIndex !== -1) {
-      const updatedBackupCodes = [...user.two_factor_backup_codes];
-      updatedBackupCodes.splice(backupCodeMatchedIndex, 1);
-      await pool.query(
-        'UPDATE users SET two_factor_backup_codes = $1 WHERE id = $2',
-        [updatedBackupCodes, user.id]
-      );
     }
 
     // Issue tokens
@@ -5949,24 +5939,23 @@ app.post('/api/user/2fa/verify', authMiddleware, async (req, res) => {
       return res.status(400).json({ error: 'Invalid verification code' });
     }
 
-    // Generate 10 backup codes (alphanumeric, 10 characters)
-    const backupCodes = [];
-    const hashedBackupCodes = [];
-    for (let i = 0; i < 10; i++) {
-      const plainCode = crypto.randomBytes(5).toString('hex');
-      backupCodes.push(plainCode);
-      const hashed = await bcrypt.hash(plainCode, 10);
-      hashedBackupCodes.push(hashed);
-    }
+    // Generate 10 backup codes with bcrypt hashes and JSONB records
+    const { plainCodes, hashedRecords } = await generateHashedBackupCodes();
 
     await pool.query(
-      'UPDATE users SET two_factor_enabled = true, two_factor_backup_codes = $1 WHERE id = $2',
-      [hashedBackupCodes, req.user.id]
+      `UPDATE users 
+       SET two_factor_enabled = true, 
+           two_factor_backup_codes = $1::jsonb, 
+           failed_2fa_attempts = 0, 
+           locked_until = NULL 
+       WHERE id = $2`,
+      [JSON.stringify(hashedRecords), req.user.id]
     );
 
     res.json({
       success: true,
-      backupCodes
+      backupCodes: plainCodes,
+      message: '2FA enabled successfully. Store these backup codes securely in a password manager.'
     });
   } catch (err) {
     logger.error(err, 'Failed to verify 2FA');

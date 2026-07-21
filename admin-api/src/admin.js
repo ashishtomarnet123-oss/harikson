@@ -1577,6 +1577,47 @@ app.post('/admin/billing/invoices/:id/resend', adminAuth, async (req, res) => {
   }
 });
 
+// POST /admin/users/:id/reset-2fa - Reset user 2FA and backup codes (Admin only)
+app.post('/admin/users/:id/reset-2fa', adminAuth, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const userRes = await pool.query('SELECT id, email FROM users WHERE id = $1', [id]);
+    if (userRes.rows.length === 0) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    const user = userRes.rows[0];
+
+    // Reset 2FA secret, status, backup codes, and lockout counters
+    await pool.query(
+      `UPDATE users 
+       SET two_factor_enabled = false, 
+           two_factor_secret = NULL, 
+           two_factor_backup_codes = '[]'::jsonb,
+           failed_2fa_attempts = 0,
+           locked_until = NULL
+       WHERE id = $1`,
+      [id]
+    );
+
+    // Dispatch security alert email to user
+    await sendImpersonationAlert(user.email, {
+      adminName: req.admin?.email || 'Administrator',
+      message: 'Your 2FA settings and backup codes have been reset by an administrator for security.',
+    }).catch(() => {});
+
+    res.status(200).json({
+      success: true,
+      message: '2FA settings reset successfully for user',
+      userId: id,
+      email: user.email,
+    });
+  } catch (err) {
+    logger.error('Reset 2FA error:', err);
+    res.status(500).json({ error: 'Failed to reset user 2FA', message: err.message });
+  }
+});
+
 // ────────────────────────────────────────────────────────────
 // PROTECTED ROUTES (Admin Authorization required)
 // ────────────────────────────────────────────────────────────
