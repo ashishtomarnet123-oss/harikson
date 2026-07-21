@@ -281,33 +281,36 @@ export class HariksonScheduler {
             const activeTenantId = tRow.id;
             await this.executeQuery(activeTenantId, async (client) => {
               const res = await client.query(`
-                SELECT m.id, m.content, m.conversation_id, c.user_id
+                SELECT m.id, m.content, m.conversation_id, c.user_id, m.created_at
                 FROM messages m
                 JOIN conversations c ON m.conversation_id = c.id
                 WHERE m.role = 'user'
-                ORDER BY m.created_at DESC
-                LIMIT 10
+                ORDER BY m.created_at ASC
+                LIMIT 100
               `);
 
               for (const row of res.rows) {
-                await this.memoryQueue.add('extract', {
-                  tenantId: activeTenantId,
-                  userId: row.user_id,
-                  messageId: row.id,
-                  content: row.content,
-                }, {
-                  jobId: `memory-${row.id}`,
-                  attempts: 3,
-                  backoff: { type: 'exponential', delay: 1000 },
-                  removeOnComplete: { age: 86400 },
-                  removeOnFail: { age: 7 * 86400 },
-                });
+                const isAlreadyProcessed = await MemoryExtractor.isProcessed(activeTenantId, row.id);
+                if (!isAlreadyProcessed) {
+                  await this.memoryQueue.add('extract', {
+                    tenantId: activeTenantId,
+                    userId: row.user_id,
+                    messageId: row.id,
+                    content: row.content,
+                  }, {
+                    jobId: `memory-${row.id}`,
+                    attempts: 3,
+                    backoff: { type: 'exponential', delay: 1000 },
+                    removeOnComplete: { age: 86400 },
+                    removeOnFail: { age: 7 * 86400 },
+                  });
+                }
               }
             });
           }
         } else if (job.name === 'extract') {
           Logger.info(`🧠 [Memory Worker] Extracting facts from message ${messageId}...`);
-          await MemoryExtractor.extractAndSave(tenantId, userId, content, '');
+          await MemoryExtractor.extractAndSave(tenantId, userId, content, '', messageId);
         }
       } catch (err) {
         this.recordWorkerError('memoryWorker', err);
