@@ -332,9 +332,10 @@ export class HariksonScheduler {
             const activeTenantId = tRow.id;
             await this.executeQuery(activeTenantId, async (client) => {
               const res = await client.query(`
-                SELECT conversation_id, user_id, COUNT(*) as count
-                FROM messages
-                GROUP BY conversation_id, user_id
+                SELECT m.conversation_id, c.user_id, COUNT(*) as count
+                FROM messages m
+                JOIN conversations c ON m.conversation_id = c.id
+                GROUP BY m.conversation_id, c.user_id
                 HAVING COUNT(*) > 50
               `);
 
