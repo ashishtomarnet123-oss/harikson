@@ -2,8 +2,9 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import Head from 'next/head';
 import Link from 'next/link';
+import { withAuth } from '../components/withAuth';
 
-export default function WorkflowsPage() {
+function WorkflowsPage() {
   const router = useRouter();
   const [workflows, setWorkflows] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -725,3 +726,5 @@ export default function WorkflowsPage() {
     </>
   );
 }
+
+export default withAuth(WorkflowsPage);

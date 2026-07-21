@@ -15,7 +15,16 @@ export default function LoginPage() {
   );
   const [requires2FA, setRequires2FA] = useState(false);
   const [totpCode, setTotpCode] = useState('');
-  const [userId, setUserId] = useState('');
+  const [sessionExpired, setSessionExpired] = useState(false);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const urlParams = new URLSearchParams(window.location.search);
+      if (urlParams.get('session_expired') === 'true' || router.query.session_expired === 'true') {
+        setSessionExpired(true);
+      }
+    }
+  }, [router]);
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -187,6 +196,24 @@ export default function LoginPage() {
           <p className="login-subtitle">
             {requires2FA ? 'Enter your 6-digit authenticator code or backup code' : 'Sign in to your Harikson workspace'}
           </p>
+
+          {sessionExpired && (
+            <div style={{
+              backgroundColor: 'rgba(245, 158, 11, 0.1)',
+              border: '1px solid rgba(245, 158, 11, 0.3)',
+              color: '#fbbf24',
+              padding: '12px 16px',
+              borderRadius: '8px',
+              fontSize: '14px',
+              marginBottom: '20px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px'
+            }}>
+              <span>⚠️</span>
+              <span>Your session has expired. Please log in again.</span>
+            </div>
+          )}
 
           {requires2FA ? (
             <form onSubmit={handle2FAVerify}>

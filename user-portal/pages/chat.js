@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/router';
 import Head from 'next/head';
 import NextLink from 'next/link';
+import { withAuth } from '../components/withAuth';
 import {
   Mic,
   Paperclip,
@@ -535,7 +536,7 @@ Before generating output, verify:
    Main Chat Page
    ──────────────────────────────────────────────────────────── */
 
-export default function ChatPage() {
+function ChatPage() {
   const [globalError, setGlobalError] = useState('');
   useEffect(() => {
     window.onerror = (msg, src, line, col, err) => {
@@ -2582,3 +2583,5 @@ If any check fails, revise the relevant section before output.`;
     </>
   );
 }
+
+export default withAuth(ChatPage);

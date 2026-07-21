@@ -89,6 +89,14 @@ export async function apiFetch(path, options = {}) {
         ...rest,
       });
     }
+
+    if (res.status === 401 && typeof window !== 'undefined' && !window.location.pathname.includes('/login')) {
+      localStorage.removeItem('hk_user');
+      localStorage.removeItem('hk_access_token');
+      localStorage.removeItem('hk_refresh_token');
+      localStorage.removeItem('is_impersonating');
+      window.location.href = '/login?session_expired=true';
+    }
   }
 
   return res;

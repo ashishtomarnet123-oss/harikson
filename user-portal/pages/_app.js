@@ -1,5 +1,6 @@
 import '../styles/globals.css';
 import '../styles/settings-addon.css';
+import { AuthProvider } from '../context/AuthContext';
 
 if (typeof window !== 'undefined' && !window.__fetchIntercepted) {
   window.__fetchIntercepted = true;
@@ -32,5 +33,9 @@ if (typeof window !== 'undefined' && !window.__fetchIntercepted) {
 }
 
 export default function App({ Component, pageProps }) {
-  return <Component {...pageProps} />;
+  return (
+    <AuthProvider>
+      <Component {...pageProps} />
+    </AuthProvider>
+  );
 }

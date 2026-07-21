@@ -4541,13 +4541,27 @@ app.post(['/api/auth/impersonate/confirm', '/auth/impersonate/confirm'], async (
   }
 });
 
-// 7. GET /api/auth/me
-app.get('/api/auth/me', authMiddleware, (req, res) => {
+// 7. GET /api/auth/me & /auth/me - Validate current session token and return user profile
+app.get(['/api/auth/me', '/auth/me'], authMiddleware, (req, res) => {
+  if (req.user.email_verified === false) {
+    return res.status(403).json({
+      error: 'Email not verified',
+      code: 'EMAIL_NOT_VERIFIED',
+      user: {
+        id: req.user.id,
+        email: req.user.email,
+        tenantSlug: req.tenant.slug,
+      },
+    });
+  }
+
   res.json({
     id: req.user.id,
     email: req.user.email,
     role: req.user.role,
+    name: req.user.name || req.user.email.split('@')[0],
     tenantSlug: req.tenant.slug,
+    emailVerified: req.user.email_verified ?? true,
   });
 });
 
