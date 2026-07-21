@@ -1,4 +1,5 @@
 import fs from 'fs';
+import { executeDatabaseCleanup } from '../services/cleanupService.js';
 import path from 'path';
 import pg from 'pg';
 import { Queue, Worker, Job } from 'bullmq';
@@ -145,19 +146,30 @@ export class HariksonScheduler {
       });
 
       await this.cleanupQueue.add('daily-cleanup', {}, {
-        repeat: { pattern: '0 0 * * *' },
+        repeat: { pattern: '0 3 * * *' }, // 3:00 AM UTC off-peak schedule
         removeOnComplete: { age: 86400 },
         removeOnFail: { age: 7 * 86400 },
       });
 
-      // Trigger daily database cleanup immediately on startup (after 5s delay)
-      setTimeout(async () => {
-        try {
+      // Check if last_run was within 23 hours on startup
+      try {
+        const lastRunStr = await queueConnection.get('cleanup:last_run');
+        if (lastRunStr) {
+          const lastRunTime = parseInt(lastRunStr, 10);
+          const hoursSinceLastRun = (Date.now() - lastRunTime) / (3600 * 1000);
+          if (hoursSinceLastRun < 23) {
+            Logger.info(`[Cleanup] Last cleanup ran ${hoursSinceLastRun.toFixed(1)}h ago (within 23h). Skipping startup run.`);
+          } else {
+            Logger.info(`[Cleanup] Last cleanup ran ${hoursSinceLastRun.toFixed(1)}h ago (> 23h). Queuing startup cleanup.`);
+            await this.cleanupQueue.add('startup-cleanup', {});
+          }
+        } else {
+          Logger.info('[Cleanup] No previous cleanup last_run timestamp found in Redis. Queuing startup cleanup.');
           await this.cleanupQueue.add('startup-cleanup', {});
-        } catch (err) {
-          Logger.error('Failed to trigger startup database cleanup job', err);
         }
-      }, 5000);
+      } catch (rErr) {
+        Logger.error('Failed checking cleanup last_run on startup:', rErr);
+      }
 
     } catch (err) {
       Logger.error('Failed to register repeatable BullMQ jobs', err);
@@ -447,143 +459,10 @@ export class HariksonScheduler {
     this.cleanupWorker = new Worker('cleanupQueue', async (job: Job) => {
       this.recordWorkerRun('cleanupWorker');
       try {
-        Logger.info('[CRON] Running database cleanup & data retention rules (BullMQ)...');
-        
-        const delLogs = await pool.query(
-          `DELETE FROM activity_logs WHERE created_at < NOW() - INTERVAL '90 days'`
-        );
-        Logger.info(`[CRON] Cleaned up ${delLogs.rowCount} activity logs older than 90 days.`);
-
-        const delSessions = await pool.query(
-          `DELETE FROM user_sessions WHERE expires_at < NOW() OR revoked_at IS NOT NULL`
-        );
-        Logger.info(`[CRON] Cleaned up ${delSessions.rowCount} expired/revoked user sessions.`);
-
-        const delInvoices = await pool.query(
-          `DELETE FROM invoices WHERE created_at < NOW() - INTERVAL '2555 days'`
-        );
-        Logger.info(`[CRON] Hard deleted ${delInvoices.rowCount} invoices older than 7 years.`);
-
-        const activeTenants = await pool.query(
-          `SELECT id, plan, retention_overrides FROM tenants WHERE status = 'active' AND deleted_at IS NULL`
-        );
-        for (const tenantRow of activeTenants.rows) {
-          const tId = tenantRow.id;
-          const plan = (tenantRow.plan || 'starter').toLowerCase();
-          const overrides = tenantRow.retention_overrides || {};
-
-          let days = 365;
-          if (plan === 'pro' || plan === 'professional') {
-            days = 730;
-          } else if (plan === 'enterprise') {
-            days = overrides.conversations_days
-              ? parseInt(overrides.conversations_days, 10)
-              : null;
-          }
-
-          if (days !== null) {
-            const delConvsResult = await pool.query(
-              `DELETE FROM conversations 
-               WHERE tenant_id = $1 AND updated_at < NOW() - $2 * INTERVAL '1 day'`,
-              [tId, days]
-            );
-            if (delConvsResult.rowCount > 0) {
-              Logger.info(`[CRON] Conversations retention: Hard deleted ${delConvsResult.rowCount} conversations older than ${days} days for tenant ${tId}`);
-            }
-          }
-        }
-
-        const retentionDays = parseInt(process.env.HARD_DELETE_AFTER_DAYS || '30', 10);
-
-        const softDeletedTenantsToPurge = await pool.query(
-          `SELECT id FROM tenants WHERE deleted_at < NOW() - $1 * INTERVAL '1 day'`,
-          [retentionDays]
-        );
-        for (const tRow of softDeletedTenantsToPurge.rows) {
-          await exportGDPRData(tRow.id);
-        }
-
-        const delTenants = await pool.query(
-          `DELETE FROM tenants WHERE deleted_at < NOW() - $1 * INTERVAL '1 day'`,
-          [retentionDays]
-        );
-        Logger.info(`[CRON] Hard deleted ${delTenants.rowCount} soft-deleted tenants older than ${retentionDays} days.`);
-
-        const delUsers = await pool.query(
-          `DELETE FROM users WHERE deleted_at < NOW() - $1 * INTERVAL '1 day'`,
-          [retentionDays]
-        );
-        Logger.info(`[CRON] Hard deleted ${delUsers.rowCount} soft-deleted users older than ${retentionDays} days.`);
-
-        const delConvs = await pool.query(
-          `DELETE FROM conversations WHERE deleted_at < NOW() - $1 * INTERVAL '1 day'`,
-          [retentionDays]
-        );
-        Logger.info(`[CRON] Hard deleted ${delConvs.rowCount} soft-deleted conversations older than ${retentionDays} days.`);
-
-        const delMsgs = await pool.query(
-          `DELETE FROM messages WHERE deleted_at < NOW() - $1 * INTERVAL '1 day'`,
-          [retentionDays]
-        );
-        Logger.info(`[CRON] Hard deleted ${delMsgs.rowCount} soft-deleted messages older than ${retentionDays} days.`);
-
-        const expiredGraceTenants = await pool.query(
-          `SELECT id, plan, downgrade_grace_ends FROM tenants 
-           WHERE downgrade_grace_ends < NOW() AND status = 'active'`
-        );
-
-        for (const tRow of expiredGraceTenants.rows) {
-          const tId = tRow.id;
-          const planId = tRow.plan.toLowerCase();
-
-          const planRes = await pool.query(
-            'SELECT agent_limit, features FROM plans WHERE id = $1',
-            [planId]
-          );
-          if (planRes.rows.length > 0) {
-            const plan = planRes.rows[0];
-            const agentLimit = plan.agent_limit;
-
-            if (agentLimit !== -1) {
-              const activeAgents = await pool.query(
-                `SELECT id FROM agents WHERE tenant_id = $1 AND status = 'active' ORDER BY created_at ASC`,
-                [tId]
-              );
-              if (activeAgents.rows.length > agentLimit) {
-                const extraAgentIds = activeAgents.rows
-                  .slice(agentLimit)
-                  .map((r) => r.id);
-                await pool.query(
-                  `UPDATE agents SET status = 'disabled' WHERE id = ANY($1)`,
-                  [extraAgentIds]
-                );
-                Logger.info(`[CRON] Disabled ${extraAgentIds.length} extra agents for tenant ${tId}`);
-              }
-            }
-
-            await pool.query(
-              `INSERT INTO activity_logs (tenant_id, action, metadata)
-               VALUES ($1, 'PLAN_LIMIT_VIOLATION_NOTIFIED', $2)`,
-              [
-                tId,
-                JSON.stringify({
-                  message: 'Tenant has violated plan limits after grace period. Immediate action required.',
-                  plan: planId,
-                  grace_ends: tRow.downgrade_grace_ends,
-                }),
-              ]
-            );
-
-            const graceEnds = new Date(tRow.downgrade_grace_ends);
-            const autoSuspendTime = new Date(graceEnds.getTime() + 14 * 24 * 60 * 60 * 1000);
-            if (new Date() > autoSuspendTime) {
-              await pool.query(
-                `UPDATE tenants SET status = 'suspended' WHERE id = $1`,
-                [tId]
-              );
-              Logger.info(`[CRON] Auto-suspended tenant ${tId} due to unresolved plan limit violations for 14 days.`);
-            }
-          }
+        const isForce = job.data?.force === true;
+        const res = await executeDatabaseCleanup(isForce);
+        if (!res.success) {
+          throw new Error(res.reason || 'Database cleanup execution failed');
         }
       } catch (err) {
         this.recordWorkerError('cleanupWorker', err);

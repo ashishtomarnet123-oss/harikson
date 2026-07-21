@@ -1511,6 +1511,22 @@ app.post(['/admin/logout', '/admin/auth/logout'], (req, res) => {
   res.status(200).json({ success: true, message: 'Logged out successfully' });
 });
 
+// POST /admin/cleanup - Manual Trigger Database Cleanup (Admin only)
+app.post('/admin/cleanup', adminAuth, async (req, res) => {
+  try {
+    const { executeDatabaseCleanup } = await import('../../harikson/tenant-api/dist/services/cleanupService.js');
+    const result = await executeDatabaseCleanup(true); // force = true to bypass cron lock
+    res.status(200).json({
+      success: true,
+      message: 'Manual database cleanup completed successfully',
+      deleted: result.deleted || {},
+    });
+  } catch (err) {
+    logger.error('Manual cleanup execution error:', err);
+    res.status(500).json({ error: 'Manual cleanup failed', message: err.message });
+  }
+});
+
 // ────────────────────────────────────────────────────────────
 // PROTECTED ROUTES (Admin Authorization required)
 // ────────────────────────────────────────────────────────────
