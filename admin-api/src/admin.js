@@ -1,4 +1,5 @@
 import logger from './utils/logger.js';
+import { traceQuery, redactPII } from './utils/queryLogger.js';
 import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
@@ -57,11 +58,7 @@ const pool = new Pool({
 // Wrap pool query functions for tracing
 const originalPoolQuery = pool.query;
 pool.query = function (text, params, callback) {
-  const store = requestContext.getStore();
-  const reqId = store?.req?.id || 'no-request';
-  const sql = typeof text === 'string' ? text : text?.text;
-  logger.info({ reqId, sql, msg: 'Executing DB Query on AdminPool' });
-  return originalPoolQuery.apply(pool, arguments);
+  return traceQuery(logger, 'AdminPool', text, originalPoolQuery, pool, Array.from(arguments));
 };
 
 const originalPoolConnect = pool.connect;
@@ -72,11 +69,7 @@ pool.connect = function (callback) {
       if (client && !client.query.__wrapped) {
         const originalClientQuery = client.query;
         client.query = function (text, params, cb) {
-          const store = requestContext.getStore();
-          const reqId = store?.req?.id || 'no-request';
-          const sql = typeof text === 'string' ? text : text?.text;
-          logger.info({ reqId, sql, msg: 'Executing DB Query on AdminClient' });
-          return originalClientQuery.apply(client, arguments);
+          return traceQuery(logger, 'AdminClient', text, originalClientQuery, client, Array.from(arguments));
         };
         client.query.__wrapped = true;
       }
@@ -88,11 +81,7 @@ pool.connect = function (callback) {
     if (client && !client.query.__wrapped) {
       const originalClientQuery = client.query;
       client.query = function (text, params, cb) {
-        const store = requestContext.getStore();
-        const reqId = store?.req?.id || 'no-request';
-        const sql = typeof text === 'string' ? text : text?.text;
-        logger.info({ reqId, sql, msg: 'Executing DB Query on AdminClient' });
-        return originalClientQuery.apply(client, arguments);
+        return traceQuery(logger, 'AdminClient', text, originalClientQuery, client, Array.from(arguments));
       };
       client.query.__wrapped = true;
     }
@@ -1868,7 +1857,7 @@ app.post(['/auth/impersonate/confirm', '/api/auth/impersonate/confirm', '/admin/
     const domainSuffix = host.includes('neuravolt.cloud')
       ? '; Domain=.neuravolt.cloud'
       : '';
-    const isHttps = req.headers['x-forwarded-proto'] === 'https' || (req.socket as any)?.encrypted;
+    const isHttps = req.headers['x-forwarded-proto'] === 'https' || req.socket?.encrypted;
     const secureFlag = isHttps ? 'Secure;' : '';
 
     res.setHeader('Set-Cookie', [

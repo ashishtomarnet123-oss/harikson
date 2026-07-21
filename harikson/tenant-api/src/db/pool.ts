@@ -1,6 +1,7 @@
 import pg from 'pg';
 import { RequestContext, requestContext } from '../utils/context.js';
 import logger from '../utils/logger.js';
+import { traceQuery } from '../utils/queryLogger.js';
 
 const { Pool } = pg;
 
@@ -30,11 +31,7 @@ const wrapPoolQuery = (p: pg.Pool, name: string) => {
   const originalQuery = p.query;
   // @ts-ignore
   p.query = function (text: any, params: any, callback: any) {
-    const store = RequestContext.getStore();
-    const reqId = store?.req?.id || 'no-request';
-    const sql = typeof text === 'string' ? text : text?.text;
-    logger.info({ reqId, sql, msg: `Executing DB Query on ${name}` });
-    return originalQuery.apply(p, arguments as any);
+    return traceQuery(logger, name, text, originalQuery, p, Array.from(arguments));
   };
 };
 
@@ -102,11 +99,7 @@ export async function connectWithValidation(useReplica = false): Promise<pg.Pool
       const originalClientQuery = client.query;
       // @ts-ignore
       client.query = function (text: any, params: any, callback: any) {
-        const store = RequestContext.getStore();
-        const reqId = store?.req?.id || 'no-request';
-        const sql = typeof text === 'string' ? text : text?.text;
-        logger.info({ reqId, sql, msg: 'Executing DB Query on Client' });
-        return originalClientQuery.apply(client, arguments as any);
+        return traceQuery(logger, 'Client', text, originalClientQuery, client, Array.from(arguments));
       };
 
       const valRes = await client.query(
