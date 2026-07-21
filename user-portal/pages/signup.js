@@ -85,6 +85,12 @@ export default function SignupPage() {
       }
 
       // Auto-login after successful registration
+      if (data.refreshToken) {
+        localStorage.setItem('hk_refresh_token', data.refreshToken);
+      }
+      if (data.accessToken) {
+        localStorage.setItem('hk_access_token', data.accessToken);
+      }
       localStorage.setItem('hk_user', JSON.stringify(data.user));
       localStorage.setItem('hk_tenant', tenantSlug);
       localStorage.setItem('hk_api_base', apiBase);

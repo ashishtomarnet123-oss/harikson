@@ -388,8 +388,13 @@ async function initUserTables() {
         tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
         expires_at TIMESTAMPTZ NOT NULL,
         created_at TIMESTAMPTZ DEFAULT NOW(),
-        revoked_at TIMESTAMPTZ
+        revoked_at TIMESTAMPTZ,
+        refresh_token_family UUID
       );
+      ALTER TABLE refresh_tokens ADD COLUMN IF NOT EXISTS refresh_token_family UUID;
+      CREATE INDEX IF NOT EXISTS idx_refresh_tokens_family ON refresh_tokens(refresh_token_family);
+      CREATE INDEX IF NOT EXISTS idx_refresh_tokens_token ON refresh_tokens(token);
+      CREATE INDEX IF NOT EXISTS idx_refresh_tokens_created_at ON refresh_tokens(created_at);
     `);
 
     // 1. Create archived_users table if not exists
@@ -1015,10 +1020,36 @@ async function initUserTables() {
       );
 
     logger.info('✅ Tenant users schema extension verified successfully.');
+
+    // Run cleanup job for expired/revoked refresh tokens older than 60 days
+    cleanupExpiredRefreshTokens().catch((err) =>
+      logger.error('❌ Startup refresh token cleanup failed:', err)
+    );
   } catch (err) {
     logger.error('❌ Failed to extend tenant users schema:', err);
   }
 }
+
+/**
+ * Cleanup job: Deletes refresh tokens older than 60 days (revoked or expired).
+ */
+export async function cleanupExpiredRefreshTokens() {
+  try {
+    const result = await pool.query(
+      `DELETE FROM refresh_tokens 
+       WHERE (revoked_at IS NOT NULL OR expires_at < NOW()) 
+         AND created_at < NOW() - INTERVAL '60 days'`
+    );
+    if (result.rowCount && result.rowCount > 0) {
+      logger.info(`[CLEANUP] Deleted ${result.rowCount} old refresh tokens (>60 days).`);
+    }
+  } catch (err: any) {
+    logger.error('[CLEANUP ERROR] Failed to clean up old refresh tokens:', err.message);
+  }
+}
+
+// Schedule periodic cleanup job every 24 hours
+setInterval(cleanupExpiredRefreshTokens, 24 * 60 * 60 * 1000);
 // GDPR Data Export Helper
 async function exportGDPRData(tenantId) {
   try {
@@ -1679,9 +1710,9 @@ const authMiddleware = async (req, res, next) => {
         .update(refreshToken)
         .digest('hex');
 
-      // Look up and validate refresh token
+      // Look up refresh token record in DB
       const rtQuery = await pool.query(
-        'SELECT * FROM refresh_tokens WHERE token = $1 AND revoked_at IS NULL AND expires_at > NOW() LIMIT 1',
+        'SELECT * FROM refresh_tokens WHERE token = $1 LIMIT 1',
         [refreshTokenHash]
       );
 
@@ -1692,6 +1723,43 @@ const authMiddleware = async (req, res, next) => {
       }
 
       const rtRecord = rtQuery.rows[0];
+      const host = req.headers.host || '';
+      const domainSuffix = host.includes('neuravolt.cloud')
+        ? '; Domain=.neuravolt.cloud'
+        : '';
+
+      // Theft detection: if token is already revoked!
+      if (rtRecord.revoked_at !== null) {
+        logger.warn(
+          `[THEFT DETECTED in verifyToken] Revoked refresh token reused for user ${rtRecord.user_id}, family ${rtRecord.refresh_token_family}`
+        );
+        if (rtRecord.refresh_token_family) {
+          await pool.query(
+            'UPDATE refresh_tokens SET revoked_at = NOW() WHERE refresh_token_family = $1 AND revoked_at IS NULL',
+            [rtRecord.refresh_token_family]
+          );
+        } else {
+          await pool.query(
+            'UPDATE refresh_tokens SET revoked_at = NOW() WHERE user_id = $1 AND revoked_at IS NULL',
+            [rtRecord.user_id]
+          );
+        }
+        res.setHeader('Set-Cookie', [
+          `hk_access_token=; HttpOnly; Path=/; Max-Age=0${domainSuffix}`,
+          `hk_refresh_token=; HttpOnly; Path=/; Max-Age=0${domainSuffix}`,
+        ]);
+        return res.status(401).json({
+          error: 'Security alert: Refresh token reuse detected. Session revoked. Please log in again.',
+          code: 'TOKEN_THEFT_DETECTED',
+        });
+      }
+
+      // Check for expired token
+      if (new Date(rtRecord.expires_at) <= new Date()) {
+        return res
+          .status(401)
+          .json({ error: 'Access Denied: Refresh token expired' });
+      }
 
       // Revoke old refresh token (rotation!)
       await pool.query(
@@ -1700,7 +1768,7 @@ const authMiddleware = async (req, res, next) => {
       );
 
       // Look up user
-      const userQuery = await pool.query('SELECT * FROM users WHERE id = $1', [
+      const userQuery = await pool.query('SELECT * FROM users WHERE id = $1 AND deleted_at IS NULL', [
         rtRecord.user_id,
       ]);
 
@@ -1710,29 +1778,26 @@ const authMiddleware = async (req, res, next) => {
 
       const user = userQuery.rows[0];
 
-      // Issue new token pair
+      // Issue new token pair (crypto-random 64 bytes)
       const newAccessToken = jwt.sign(
         { userId: user.id, role: user.role },
         jwtSecret,
         { expiresIn: '15m' }
       );
-      const newRefreshToken = crypto.randomBytes(32).toString('hex');
+      const newRefreshToken = crypto.randomBytes(64).toString('hex');
       const newRefreshTokenHash = crypto
         .createHash('sha256')
         .update(newRefreshToken)
         .digest('hex');
       const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000); // 30 days
+      const familyId = rtRecord.refresh_token_family || crypto.randomUUID();
 
       await pool.query(
-        `INSERT INTO refresh_tokens (token, user_id, tenant_id, expires_at)
-         VALUES ($1, $2, $3, $4)`,
-        [newRefreshTokenHash, user.id, rtRecord.tenant_id, expiresAt]
+        `INSERT INTO refresh_tokens (token, user_id, tenant_id, expires_at, refresh_token_family)
+         VALUES ($1, $2, $3, $4, $5)`,
+        [newRefreshTokenHash, user.id, rtRecord.tenant_id, expiresAt, familyId]
       );
 
-      const host = req.headers.host || '';
-      const domainSuffix = host.includes('neuravolt.cloud')
-        ? '; Domain=.neuravolt.cloud'
-        : '';
       const isHttps = req.headers['x-forwarded-proto'] === 'https' || (req.socket as any)?.encrypted;
       const secureFlag = isHttps ? 'Secure;' : '';
 
@@ -3479,17 +3544,18 @@ app.post('/api/auth/login', validate(loginSchema), async (req, res) => {
       jwtSecret,
       { expiresIn: '15m' }
     );
-    const refreshToken = crypto.randomBytes(32).toString('hex');
+    const refreshToken = crypto.randomBytes(64).toString('hex');
     const refreshTokenHash = crypto
       .createHash('sha256')
       .update(refreshToken)
       .digest('hex');
     const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000); // 30 days
+    const familyId = crypto.randomUUID();
 
     await pool.query(
-      `INSERT INTO refresh_tokens (token, user_id, tenant_id, expires_at)
-       VALUES ($1, $2, $3, $4)`,
-      [refreshTokenHash, user.id, resolvedTenantId, expiresAt]
+      `INSERT INTO refresh_tokens (token, user_id, tenant_id, expires_at, refresh_token_family)
+       VALUES ($1, $2, $3, $4, $5)`,
+      [refreshTokenHash, user.id, resolvedTenantId, expiresAt, familyId]
     );
 
     const host = req.headers.host || '';
@@ -3573,6 +3639,8 @@ app.post('/api/auth/login', validate(loginSchema), async (req, res) => {
 
     res.json({
       success: true,
+      accessToken,
+      refreshToken,
       user: {
         id: user.id,
         email: user.email,
@@ -3647,17 +3715,18 @@ app.post('/api/auth/login/2fa', async (req, res) => {
       jwtSecret,
       { expiresIn: '15m' }
     );
-    const refreshToken = crypto.randomBytes(32).toString('hex');
+    const refreshToken = crypto.randomBytes(64).toString('hex');
     const refreshTokenHash = crypto
       .createHash('sha256')
       .update(refreshToken)
       .digest('hex');
     const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000); // 30 days
+    const familyId = crypto.randomUUID();
 
     await pool.query(
-      `INSERT INTO refresh_tokens (token, user_id, tenant_id, expires_at)
-       VALUES ($1, $2, $3, $4)`,
-      [refreshTokenHash, user.id, req.tenant.id, expiresAt]
+      `INSERT INTO refresh_tokens (token, user_id, tenant_id, expires_at, refresh_token_family)
+       VALUES ($1, $2, $3, $4, $5)`,
+      [refreshTokenHash, user.id, req.tenant.id, expiresAt, familyId]
     );
 
     const host = req.headers.host || '';
@@ -3688,7 +3757,7 @@ app.post('/api/auth/login/2fa', async (req, res) => {
           [
             user.id,
             req.tenant.id,
-            'Logged in successfully (2FA)',
+            'Logged in via 2FA',
             JSON.stringify({ level: 'info', color: '#059669' }),
             ip,
             ua,
@@ -3865,17 +3934,18 @@ app.post('/api/auth/register', validate(registerSchema), async (req, res) => {
       jwtSecret,
       { expiresIn: '15m' }
     );
-    const refreshToken = crypto.randomBytes(32).toString('hex');
+    const refreshToken = crypto.randomBytes(64).toString('hex');
     const refreshTokenHash = crypto
       .createHash('sha256')
       .update(refreshToken)
       .digest('hex');
     const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000); // 30 days
+    const familyId = crypto.randomUUID();
 
     await pool.query(
-      `INSERT INTO refresh_tokens (token, user_id, tenant_id, expires_at)
-       VALUES ($1, $2, $3, $4)`,
-      [refreshTokenHash, newUser.id, targetTenantId, expiresAt]
+      `INSERT INTO refresh_tokens (token, user_id, tenant_id, expires_at, refresh_token_family)
+       VALUES ($1, $2, $3, $4, $5)`,
+      [refreshTokenHash, newUser.id, targetTenantId, expiresAt, familyId]
     );
 
     const host = req.headers.host || '';
@@ -3892,6 +3962,8 @@ app.post('/api/auth/register', validate(registerSchema), async (req, res) => {
 
     res.status(201).json({
       success: true,
+      accessToken,
+      refreshToken,
       user: {
         id: newUser.id,
         email: newUser.email,
@@ -4191,10 +4263,22 @@ app.post('/api/auth/logout', async (req, res) => {
         .createHash('sha256')
         .update(refreshToken)
         .digest('hex');
-      await pool.query(
-        'UPDATE refresh_tokens SET revoked_at = NOW() WHERE token = $1',
+
+      const rtRes = await pool.query(
+        'SELECT refresh_token_family FROM refresh_tokens WHERE token = $1 LIMIT 1',
         [refreshTokenHash]
       );
+      if (rtRes.rows.length > 0 && rtRes.rows[0].refresh_token_family) {
+        await pool.query(
+          'UPDATE refresh_tokens SET revoked_at = NOW() WHERE refresh_token_family = $1 AND revoked_at IS NULL',
+          [rtRes.rows[0].refresh_token_family]
+        );
+      } else {
+        await pool.query(
+          'UPDATE refresh_tokens SET revoked_at = NOW() WHERE token = $1',
+          [refreshTokenHash]
+        );
+      }
     }
 
     const ua = req.headers['user-agent'] || 'Unknown Browser';
@@ -4240,10 +4324,10 @@ app.post('/api/auth/logout', async (req, res) => {
 });
 
 // 6d. POST /api/auth/refresh
-app.post('/api/auth/refresh', async (req, res) => {
+app.post(['/api/auth/refresh', '/api/v1/auth/refresh'], async (req, res) => {
   try {
-    const cookies = (parseCookies(req.headers.cookie) as any);
-    const refreshToken = cookies.hk_refresh_token;
+    const cookies = (parseCookies(req.headers.cookie) as any) || {};
+    const refreshToken = req.body?.refreshToken || cookies.hk_refresh_token;
 
     if (!refreshToken) {
       return res.status(401).json({ error: 'No refresh token provided' });
@@ -4253,8 +4337,10 @@ app.post('/api/auth/refresh', async (req, res) => {
       .createHash('sha256')
       .update(refreshToken)
       .digest('hex');
+
+    // Look up refresh token in database (do NOT filter revoked_at so we can detect token reuse/theft)
     const rtQuery = await pool.query(
-      'SELECT * FROM refresh_tokens WHERE token = $1 AND revoked_at IS NULL AND expires_at > NOW() LIMIT 1',
+      'SELECT * FROM refresh_tokens WHERE token = $1 LIMIT 1',
       [refreshTokenHash]
     );
 
@@ -4265,46 +4351,82 @@ app.post('/api/auth/refresh', async (req, res) => {
     }
 
     const rtRecord = rtQuery.rows[0];
+    const host = req.headers.host || '';
+    const domainSuffix = host.includes('neuravolt.cloud')
+      ? '; Domain=.neuravolt.cloud'
+      : '';
 
-    // Revoke old token
+    // Theft detection: token has already been revoked!
+    if (rtRecord.revoked_at !== null) {
+      logger.warn(
+        `[THEFT DETECTED] Revoked refresh token reuse attempt! User: ${rtRecord.user_id}, Family: ${rtRecord.refresh_token_family}`
+      );
+      if (rtRecord.refresh_token_family) {
+        await pool.query(
+          'UPDATE refresh_tokens SET revoked_at = NOW() WHERE refresh_token_family = $1 AND revoked_at IS NULL',
+          [rtRecord.refresh_token_family]
+        );
+      } else {
+        await pool.query(
+          'UPDATE refresh_tokens SET revoked_at = NOW() WHERE user_id = $1 AND revoked_at IS NULL',
+          [rtRecord.user_id]
+        );
+      }
+
+      res.setHeader('Set-Cookie', [
+        `hk_access_token=; HttpOnly; Path=/; Max-Age=0${domainSuffix}`,
+        `hk_refresh_token=; HttpOnly; Path=/; Max-Age=0${domainSuffix}`,
+      ]);
+
+      return res.status(401).json({
+        error: 'Security alert: Refresh token reuse detected. Session revoked. Please log in again.',
+        code: 'TOKEN_THEFT_DETECTED',
+      });
+    }
+
+    // Verify expired
+    if (new Date(rtRecord.expires_at) <= new Date()) {
+      return res
+        .status(401)
+        .json({ error: 'Refresh token expired. Please log in again.' });
+    }
+
+    // Revoke old token (rotation!)
     await pool.query(
       'UPDATE refresh_tokens SET revoked_at = NOW() WHERE id = $1',
       [rtRecord.id]
     );
 
-    const userQuery = await pool.query('SELECT * FROM users WHERE id = $1', [
+    const userQuery = await pool.query('SELECT * FROM users WHERE id = $1 AND deleted_at IS NULL', [
       rtRecord.user_id,
     ]);
 
     if (userQuery.rows.length === 0) {
-      return res.status(401).json({ error: 'User not found' });
+      return res.status(401).json({ error: 'User not found or account inactive' });
     }
 
     const user = userQuery.rows[0];
 
-    // Issue new pair
+    // Issue new token pair (crypto-random 64 bytes)
     const newAccessToken = jwt.sign(
       { userId: user.id, role: user.role },
       jwtSecret,
       { expiresIn: '15m' }
     );
-    const newRefreshToken = crypto.randomBytes(32).toString('hex');
+    const newRefreshToken = crypto.randomBytes(64).toString('hex');
     const newRefreshTokenHash = crypto
       .createHash('sha256')
       .update(newRefreshToken)
       .digest('hex');
     const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000); // 30 days
+    const familyId = rtRecord.refresh_token_family || crypto.randomUUID();
 
     await pool.query(
-      `INSERT INTO refresh_tokens (token, user_id, tenant_id, expires_at)
-       VALUES ($1, $2, $3, $4)`,
-      [newRefreshTokenHash, user.id, rtRecord.tenant_id, expiresAt]
+      `INSERT INTO refresh_tokens (token, user_id, tenant_id, expires_at, refresh_token_family)
+       VALUES ($1, $2, $3, $4, $5)`,
+      [newRefreshTokenHash, user.id, rtRecord.tenant_id, expiresAt, familyId]
     );
 
-    const host = req.headers.host || '';
-    const domainSuffix = host.includes('neuravolt.cloud')
-      ? '; Domain=.neuravolt.cloud'
-      : '';
     const isHttps = req.headers['x-forwarded-proto'] === 'https' || (req.socket as any)?.encrypted;
     const secureFlag = isHttps ? 'Secure;' : '';
 
@@ -4315,6 +4437,8 @@ app.post('/api/auth/refresh', async (req, res) => {
 
     res.status(200).json({
       success: true,
+      accessToken: newAccessToken,
+      refreshToken: newRefreshToken,
       user: { id: user.id, email: user.email, role: user.role },
     });
   } catch (err) {
