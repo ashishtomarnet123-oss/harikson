@@ -1864,6 +1864,159 @@ app.get('/admin/token-analytics', adminAuth, async (req, res) => {
   }
 });
 
+// GET /admin/tenants/:id/legal-holds - List legal holds for a tenant
+app.get('/admin/tenants/:id/legal-holds', adminAuth, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const result = await pool.query(
+      `SELECT * FROM legal_holds WHERE tenant_id = $1 ORDER BY created_at DESC`,
+      [id]
+    );
+
+    const activeCount = result.rows.filter(r => r.status === 'active').length;
+
+    res.status(200).json({
+      success: true,
+      tenantId: id,
+      hasActiveLegalHold: activeCount > 0,
+      legalHolds: result.rows,
+    });
+  } catch (err) {
+    logger.error('Fetch legal holds error:', err);
+    res.status(500).json({ error: 'Failed to fetch tenant legal holds', message: err.message });
+  }
+});
+
+// POST /admin/tenants/:id/legal-holds - Place a legal hold on a tenant
+app.post('/admin/tenants/:id/legal-holds', adminAuth, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { caseName, description, expiresAt } = req.body;
+
+    if (!caseName) {
+      return res.status(400).json({ error: 'caseName is required to place a legal hold' });
+    }
+
+    const tenantRes = await pool.query(`SELECT id, name FROM tenants WHERE id = $1`, [id]);
+    if (tenantRes.rows.length === 0) {
+      return res.status(404).json({ error: 'Tenant not found' });
+    }
+
+    const adminEmail = req.admin?.email || 'admin@neuravolt.cloud';
+    const adminId = req.admin?.id || 'admin-system';
+
+    const insertRes = await pool.query(
+      `INSERT INTO legal_holds (tenant_id, case_name, description, created_by_admin_email, expires_at, status)
+       VALUES ($1, $2, $3, $4, $5, 'active')
+       RETURNING *`,
+      [id, caseName, description || null, adminEmail, expiresAt || null]
+    );
+
+    const newHold = insertRes.rows[0];
+
+    // Immutable audit log (append-only)
+    await pool.query(
+      `INSERT INTO legal_hold_audit_logs (legal_hold_id, tenant_id, action, admin_id, admin_email, case_name, reason, metadata)
+       VALUES ($1, $2, 'LEGAL_HOLD_CREATED', $3, $4, $5, $6, $7)`,
+      [
+        newHold.id,
+        id,
+        'LEGAL_HOLD_CREATED',
+        adminId,
+        adminEmail,
+        caseName,
+        description || 'Legal hold placed during litigation',
+        JSON.stringify({ expiresAt }),
+      ]
+    );
+
+    logger.info(`⚖️ [LEGAL HOLD CREATED] Admin ${adminEmail} placed legal hold on tenant ${id} (Case: ${caseName})`);
+
+    res.status(201).json({
+      success: true,
+      message: 'Legal hold placed successfully. Data retention deletion paused for this tenant.',
+      legalHold: newHold,
+    });
+  } catch (err) {
+    logger.error('Create legal hold error:', err);
+    res.status(500).json({ error: 'Failed to create legal hold', message: err.message });
+  }
+});
+
+// POST /admin/tenants/:id/legal-holds/:holdId/lift - Lift an active legal hold
+app.post('/admin/tenants/:id/legal-holds/:holdId/lift', adminAuth, async (req, res) => {
+  try {
+    const { id, holdId } = req.params;
+    const { reason = 'Litigation concluded' } = req.body;
+
+    const adminEmail = req.admin?.email || 'admin@neuravolt.cloud';
+    const adminId = req.admin?.id || 'admin-system';
+
+    const updateRes = await pool.query(
+      `UPDATE legal_holds 
+       SET status = 'lifted', 
+           lifted_at = NOW(), 
+           lifted_by_admin_email = $1, 
+           lift_reason = $2
+       WHERE id = $3 AND tenant_id = $4 AND status = 'active'
+       RETURNING *`,
+      [adminEmail, reason, holdId, id]
+    );
+
+    if (updateRes.rows.length === 0) {
+      return res.status(404).json({ error: 'Active legal hold not found' });
+    }
+
+    const liftedHold = updateRes.rows[0];
+
+    // Immutable audit log (append-only)
+    await pool.query(
+      `INSERT INTO legal_hold_audit_logs (legal_hold_id, tenant_id, action, admin_id, admin_email, case_name, reason)
+       VALUES ($1, $2, 'LEGAL_HOLD_LIFTED', $3, $4, $5, $6)`,
+      [
+        liftedHold.id,
+        id,
+        'LEGAL_HOLD_LIFTED',
+        adminId,
+        adminEmail,
+        liftedHold.case_name,
+        reason,
+      ]
+    );
+
+    logger.info(`⚖️ [LEGAL HOLD LIFTED] Admin ${adminEmail} lifted legal hold ${holdId} for tenant ${id}`);
+
+    res.status(200).json({
+      success: true,
+      message: 'Legal hold lifted successfully. Standard retention policies resumed.',
+      legalHold: liftedHold,
+    });
+  } catch (err) {
+    logger.error('Lift legal hold error:', err);
+    res.status(500).json({ error: 'Failed to lift legal hold', message: err.message });
+  }
+});
+
+// GET /admin/legal-holds/audit-logs - Fetch legal hold audit logs
+app.get('/admin/legal-holds/audit-logs', adminAuth, async (req, res) => {
+  try {
+    const result = await pool.query(
+      `SELECT al.*, t.name as tenant_name, t.slug as tenant_slug 
+       FROM legal_hold_audit_logs al
+       JOIN tenants t ON al.tenant_id = t.id
+       ORDER BY al.created_at DESC LIMIT 100`
+    );
+
+    res.status(200).json({
+      success: true,
+      auditLogs: result.rows,
+    });
+  } catch (err) {
+    logger.error('Fetch legal hold audit logs error:', err);
+    res.status(500).json({ error: 'Failed to fetch legal hold audit logs', message: err.message });
+  }
+});
+
 // ────────────────────────────────────────────────────────────
 // PROTECTED ROUTES (Admin Authorization required)
 // ────────────────────────────────────────────────────────────

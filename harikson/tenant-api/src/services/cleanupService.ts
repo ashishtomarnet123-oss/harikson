@@ -2,9 +2,31 @@ import { Redis } from 'ioredis';
 import { pool } from '../db/pool.js';
 import { Logger } from '../observability/logger.js';
 
-export async function exportGDPRData(tenantId: string): Promise<void> {
-  // Stub for GDPR data export before tenant purge
-  Logger.info(`[GDPR Export] Archiving compliance data for tenant ${tenantId}...`);
+export async function exportGDPRData(tenantId: string): Promise<any> {
+  try {
+    const tenantRes = await pool.query(`SELECT id, name, slug, email, plan, created_at FROM tenants WHERE id = $1`, [tenantId]);
+    if (tenantRes.rows.length === 0) return null;
+
+    const usersRes = await pool.query(`SELECT id, email, name, role, created_at FROM users WHERE tenant_id = $1`, [tenantId]);
+    const holdsRes = await pool.query(`SELECT id, case_name, description, status, created_at, lifted_at FROM legal_holds WHERE tenant_id = $1 ORDER BY created_at DESC`, [tenantId]);
+
+    const activeHolds = holdsRes.rows.filter((h: any) => h.status === 'active');
+
+    const gdprPackage = {
+      tenant: tenantRes.rows[0],
+      users: usersRes.rows,
+      has_active_legal_hold: activeHolds.length > 0,
+      legal_holds: holdsRes.rows,
+      retention_disclaimer: "Some data may be retained beyond standard period due to legal hold.",
+      exported_at: new Date().toISOString(),
+    };
+
+    Logger.info(`📦 [GDPR EXPORT] Export package created for tenant ${tenantId}. Active legal holds: ${activeHolds.length}`);
+    return gdprPackage;
+  } catch (err: any) {
+    Logger.error(`GDPR export failed for tenant ${tenantId}:`, err.message);
+    throw err;
+  }
 }
 
 /**
@@ -105,13 +127,24 @@ export async function executeDatabaseCleanup(force = false): Promise<{
       )
     `);
 
-    // D. Tenant-specific conversation retention
+    // D. Tenant-specific conversation retention (Check active legal hold)
     let totalConvsDeleted = 0;
     const activeTenants = await pool.query(
       `SELECT id, plan, retention_overrides FROM tenants WHERE status = 'active' AND deleted_at IS NULL`
     );
     for (const tenantRow of activeTenants.rows) {
       const tId = tenantRow.id;
+
+      // 1. Check if tenant has active legal hold
+      const legalHoldCheck = await pool.query(
+        `SELECT COUNT(*)::int as count FROM legal_holds WHERE tenant_id = $1 AND status = 'active'`,
+        [tId]
+      );
+      if (legalHoldCheck.rows[0]?.count > 0) {
+        Logger.info(`⚖️ [LEGAL HOLD] Retention skipped for tenant ${tId} — legal hold active`);
+        continue;
+      }
+
       const plan = (tenantRow.plan || 'starter').toLowerCase();
       const overrides = tenantRow.retention_overrides || {};
 
@@ -137,7 +170,7 @@ export async function executeDatabaseCleanup(force = false): Promise<{
     }
     deletedCounts.tenant_conversations = totalConvsDeleted;
 
-    // E. Hard delete soft-deleted records (> 30 days)
+    // E. Hard delete soft-deleted records (> 30 days) — Exclude tenants under active legal hold
     const retentionDays = parseInt(process.env.HARD_DELETE_AFTER_DAYS || '30', 10);
 
     const softDeletedTenants = await pool.query(
@@ -145,28 +178,57 @@ export async function executeDatabaseCleanup(force = false): Promise<{
       [retentionDays]
     );
     for (const tRow of softDeletedTenants.rows) {
+      const legalHoldCheck = await pool.query(
+        `SELECT COUNT(*)::int as count FROM legal_holds WHERE tenant_id = $1 AND status = 'active'`,
+        [tRow.id]
+      );
+      if (legalHoldCheck.rows[0]?.count > 0) {
+        Logger.info(`⚖️ [LEGAL HOLD] Hard delete skipped for tenant ${tRow.id} — legal hold active`);
+        continue;
+      }
+
       await exportGDPRData(tRow.id).catch((err) =>
         Logger.error(`GDPR export error for tenant ${tRow.id}:`, err)
       );
     }
 
     deletedCounts.tenants = await runBatchDelete(
-      `DELETE FROM tenants WHERE id IN (SELECT id FROM tenants WHERE deleted_at < NOW() - $1 * INTERVAL '1 day' LIMIT 10000)`,
+      `DELETE FROM tenants WHERE id IN (
+        SELECT id FROM tenants 
+        WHERE deleted_at < NOW() - $1 * INTERVAL '1 day' 
+        AND id NOT IN (SELECT tenant_id FROM legal_holds WHERE status = 'active')
+        LIMIT 10000
+      )`,
       [retentionDays]
     );
 
     deletedCounts.users = await runBatchDelete(
-      `DELETE FROM users WHERE id IN (SELECT id FROM users WHERE deleted_at < NOW() - $1 * INTERVAL '1 day' LIMIT 10000)`,
+      `DELETE FROM users WHERE id IN (
+        SELECT id FROM users 
+        WHERE deleted_at < NOW() - $1 * INTERVAL '1 day' 
+        AND tenant_id NOT IN (SELECT tenant_id FROM legal_holds WHERE status = 'active')
+        LIMIT 10000
+      )`,
       [retentionDays]
     );
 
     deletedCounts.conversations = await runBatchDelete(
-      `DELETE FROM conversations WHERE id IN (SELECT id FROM conversations WHERE deleted_at < NOW() - $1 * INTERVAL '1 day' LIMIT 10000)`,
+      `DELETE FROM conversations WHERE id IN (
+        SELECT id FROM conversations 
+        WHERE deleted_at < NOW() - $1 * INTERVAL '1 day' 
+        AND tenant_id NOT IN (SELECT tenant_id FROM legal_holds WHERE status = 'active')
+        LIMIT 10000
+      )`,
       [retentionDays]
     );
 
     deletedCounts.messages = await runBatchDelete(
-      `DELETE FROM messages WHERE id IN (SELECT id FROM messages WHERE deleted_at < NOW() - $1 * INTERVAL '1 day' LIMIT 10000)`,
+      `DELETE FROM messages WHERE id IN (
+        SELECT id FROM messages 
+        WHERE deleted_at < NOW() - $1 * INTERVAL '1 day' 
+        AND tenant_id NOT IN (SELECT tenant_id FROM legal_holds WHERE status = 'active')
+        LIMIT 10000
+      )`,
       [retentionDays]
     );
 
