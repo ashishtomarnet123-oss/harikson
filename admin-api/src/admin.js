@@ -1799,6 +1799,71 @@ app.put('/admin/tenants/:id/widget-config', adminAuth, async (req, res) => {
   }
 });
 
+// GET /admin/token-analytics - Returns model, user monthly, and RAG document token breakdown
+app.get('/admin/token-analytics', adminAuth, async (req, res) => {
+  try {
+    const { tenantId } = req.query;
+
+    const perModelQuery = `
+      SELECT 
+        COALESCE(m.metadata->>'model', 'qwen3-coder') as model,
+        COUNT(*)::int as request_count,
+        ROUND(AVG(prompt_tokens))::int as avg_prompt_tokens,
+        ROUND(AVG(completion_tokens))::int as avg_completion_tokens,
+        ROUND(AVG(tokens_used))::int as avg_total_tokens,
+        SUM(tokens_used)::bigint as total_tokens
+      FROM messages m
+      ${tenantId ? 'WHERE m.tenant_id = $1' : ''}
+      GROUP BY 1 ORDER BY total_tokens DESC
+    `;
+
+    const perUserQuery = `
+      SELECT 
+        u.id as user_id, u.email, u.name,
+        DATE_TRUNC('month', m.created_at) as month,
+        SUM(m.prompt_tokens)::bigint as prompt_tokens,
+        SUM(m.completion_tokens)::bigint as completion_tokens,
+        SUM(m.tokens_used)::bigint as total_tokens
+      FROM messages m
+      JOIN conversations c ON m.conversation_id = c.id
+      JOIN users u ON c.user_id = u.id
+      ${tenantId ? 'WHERE m.tenant_id = $1' : ''}
+      GROUP BY u.id, u.email, u.name, 4
+      ORDER BY 4 DESC, total_tokens DESC LIMIT 50
+    `;
+
+    const ragQuery = `
+      SELECT 
+        kd.id as document_id, kd.filename, kd.file_type,
+        COUNT(de.id)::int as chunk_count,
+        COALESCE(SUM(LENGTH(de.content) / 4), 0)::bigint as estimated_tokens_contributed
+      FROM knowledge_documents kd
+      LEFT JOIN document_embeddings de ON de.knowledge_document_id = kd.id
+      ${tenantId ? 'WHERE kd.tenant_id = $1' : ''}
+      GROUP BY kd.id, kd.filename, kd.file_type
+      ORDER BY estimated_tokens_contributed DESC LIMIT 50
+    `;
+
+    const params = tenantId ? [tenantId] : [];
+
+    const [perModel, perUser, ragDocs] = await Promise.all([
+      pool.query(perModelQuery, params),
+      pool.query(perUserQuery, params),
+      pool.query(ragQuery, params),
+    ]);
+
+    res.status(200).json({
+      success: true,
+      byModel: perModel.rows,
+      byUserMonthly: perUser.rows,
+      byRagDocument: ragDocs.rows,
+    });
+  } catch (err) {
+    logger.error('Fetch token analytics error:', err);
+    res.status(500).json({ error: 'Failed to fetch token analytics', message: err.message });
+  }
+});
+
 // ────────────────────────────────────────────────────────────
 // PROTECTED ROUTES (Admin Authorization required)
 // ────────────────────────────────────────────────────────────

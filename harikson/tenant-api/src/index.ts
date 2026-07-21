@@ -3313,11 +3313,17 @@ app.post(
           try {
             await executeTenantQuery(req.tenant.id, async (client) => {
               await client.query(
-                'INSERT INTO messages (tenant_id, conversation_id, role, content, tokens_used) VALUES ($1, $2, $3, $4, $5)',
+                `INSERT INTO messages (
+                  tenant_id, conversation_id, role, content, 
+                  prompt_tokens, completion_tokens, context_tokens, tokens_used
+                ) VALUES ($1, $2, $3, $4, $5, 0, 0, $5)`,
                 [req.tenant.id, currentConvId, 'user', message, inTokens]
               );
               await client.query(
-                'INSERT INTO messages (tenant_id, conversation_id, role, content, tokens_used) VALUES ($1, $2, $3, $4, $5)',
+                `INSERT INTO messages (
+                  tenant_id, conversation_id, role, content, 
+                  prompt_tokens, completion_tokens, context_tokens, tokens_used
+                ) VALUES ($1, $2, $3, $4, 0, $5, 0, $5)`,
                 [
                   req.tenant.id,
                   currentConvId,
