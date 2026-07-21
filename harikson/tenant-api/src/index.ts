@@ -337,18 +337,53 @@ if (process.env.NODE_ENV === 'production') {
 app.use(
   helmet({
     contentSecurityPolicy: {
+      useDefaults: false,
       directives: {
         defaultSrc: ["'self'"],
-        scriptSrc: ["'self'", "'unsafe-inline'"],
+        scriptSrc: ["'self'"],
         styleSrc: ["'self'", "'unsafe-inline'"],
         imgSrc: ["'self'", 'data:', 'https:', 'https://cdn.neuravolt.cloud', 'cdn.neuravolt.cloud'],
+        connectSrc: ["'self'", 'https://api.neuravolt.cloud', 'wss://api.neuravolt.cloud'],
+        fontSrc: ["'self'"],
+        objectSrc: ["'none'"],
+        frameAncestors: ["'none'"],
+        baseUri: ["'self'"],
+        formAction: ["'self'"],
+        reportUri: ['/api/csp-report'],
       },
     },
     crossOriginEmbedderPolicy: false,
     frameguard: {
       action: 'deny',
     },
+    referrerPolicy: {
+      policy: 'strict-origin-when-cross-origin',
+    },
   })
+);
+
+// Enforce modern security headers
+app.use((req, res, next) => {
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-Frame-Options', 'DENY');
+  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+  res.setHeader('Permissions-Policy', 'geolocation=(), microphone=(), camera=()');
+  next();
+});
+
+// POST /api/csp-report - CSP Violation Logger
+app.post(
+  ['/api/csp-report', '/api/v1/csp-report'],
+  express.json({ type: ['application/json', 'application/csp-report'] }),
+  (req, res) => {
+    const report = req.body?.['csp-report'] || req.body || {};
+    logger.warn(
+      `🚨 [CSP VIOLATION] Document: ${report['document-uri'] || report.documentUri || 'unknown'}, ` +
+        `Directive: ${report['violated-directive'] || report.violatedDirective || 'unknown'}, ` +
+        `Blocked: ${report['blocked-uri'] || report.blockedUri || 'unknown'}`
+    );
+    res.status(204).end();
+  }
 );
 
 app.use(
