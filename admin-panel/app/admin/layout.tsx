@@ -25,6 +25,7 @@ import {
   Bell,
   Search,
 } from 'lucide-react';
+import { useAdminAuth } from '../../context/AdminAuthContext';
 import { getCookie, deleteCookie } from 'cookies-next';
 
 const menuSections = [
@@ -81,11 +82,11 @@ export default function AdminLayout({
 }) {
   const router = useRouter();
   const pathname = usePathname();
+  const { user, loading: authLoading, isAuthenticated, isFounder, logout } = useAdminAuth();
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [authenticated, setAuthenticated] = useState(false);
-  const [loading, setLoading] = useState(true);
-  const [adminEmail, setAdminEmail] = useState('');
   const apiBase = '/api-proxy';
+
+  const adminEmail = user?.email || 'admin@harikson.ai';
 
   // Notification Bell
   const [notifications, setNotifications] = useState<Notification[]>([]);
@@ -100,27 +101,12 @@ export default function AdminLayout({
 
   useEffect(() => {
     if (pathname === '/admin/login') {
-      setLoading(false);
       return;
     }
-    const token =
-      getCookie('admin_token') || localStorage.getItem('admin_token');
-    if (!token) {
+    if (!authLoading && !isAuthenticated) {
       router.push('/admin/login');
-    } else {
-      setAuthenticated(true);
-      const userStr = localStorage.getItem('admin_user');
-      if (userStr) {
-        try {
-          const u = JSON.parse(userStr);
-          setAdminEmail(u.email || 'admin@harikson.ai');
-        } catch {
-          setAdminEmail('admin@harikson.ai');
-        }
-      }
-      setLoading(false);
     }
-  }, [router, pathname]);
+  }, [authLoading, isAuthenticated, router, pathname]);
 
   // Fetch notifications
   const fetchNotifications = async () => {
@@ -131,10 +117,7 @@ export default function AdminLayout({
         headers: { Authorization: `Bearer ${token}` },
       });
       if (res.status === 401 || res.status === 403) {
-        deleteCookie('admin_token');
-        localStorage.removeItem('admin_token');
-        setAuthenticated(false);
-        router.push('/admin/login');
+        logout();
         return;
       }
       if (res.ok) {
@@ -148,12 +131,12 @@ export default function AdminLayout({
   };
 
   useEffect(() => {
-    if (authenticated && apiBase) {
+    if (isAuthenticated && apiBase) {
       fetchNotifications();
       const i = setInterval(fetchNotifications, 30000);
       return () => clearInterval(i);
     }
-  }, [authenticated, apiBase]);
+  }, [isAuthenticated, apiBase]);
 
   const markRead = async (id: string) => {
     const token =
@@ -240,15 +223,12 @@ export default function AdminLayout({
     if (showSearch) setTimeout(() => searchRef.current?.focus(), 50);
   }, [showSearch]);
 
-  const handleLogout = () => {
-    deleteCookie('admin_token');
-    localStorage.removeItem('admin_token');
-    localStorage.removeItem('admin_user');
-    router.push('/admin/login');
+  const handleLogout = async () => {
+    await logout();
   };
 
   if (pathname === '/admin/login') return <>{children}</>;
-  if (loading)
+  if (authLoading)
     return (
       <div className="min-h-screen bg-gray-950 flex items-center justify-center flex-col gap-4">
         <Cpu className="w-10 h-10 text-indigo-500 animate-spin" />
@@ -257,7 +237,7 @@ export default function AdminLayout({
         </span>
       </div>
     );
-  if (!authenticated && pathname !== '/admin/login') return null;
+  if (!isAuthenticated && pathname !== '/admin/login') return null;
 
   return (
     <div className="min-h-screen bg-gray-950 text-gray-100 flex font-sans">

@@ -1481,8 +1481,32 @@ app.post('/admin/login', async (req, res) => {
   }
 });
 
-// POST /admin/logout
-app.post('/admin/logout', (req, res) => {
+// GET /admin/auth/me - Validate Admin Session
+app.get(['/admin/auth/me', '/admin/me'], adminAuth, (req, res) => {
+  const isFounder =
+    req.admin.role === 'founder' ||
+    req.admin.role === 'superadmin' ||
+    req.admin.email === 'founder@neuravolt.cloud';
+
+  res.status(200).json({
+    user: {
+      id: req.admin.id,
+      email: req.admin.email,
+      role: req.admin.role,
+      isAdmin: true,
+      isFounder,
+    },
+  });
+});
+
+// POST /admin/auth/login - Alias for /admin/login
+app.post('/admin/auth/login', (req, res, next) => {
+  req.url = '/admin/login';
+  app.handle(req, res, next);
+});
+
+// POST /admin/logout & POST /admin/auth/logout
+app.post(['/admin/logout', '/admin/auth/logout'], (req, res) => {
   res.clearCookie('admin_token');
   res.status(200).json({ success: true, message: 'Logged out successfully' });
 });

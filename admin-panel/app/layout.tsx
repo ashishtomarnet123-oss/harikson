@@ -1,6 +1,7 @@
 import React from 'react';
 import './globals.css';
 import ClientInitializer from '../components/ClientInitializer';
+import { AdminAuthProvider } from '../context/AdminAuthContext';
 
 export const metadata = {
   title: 'Harikson AI Platform - Admin Control Plane',
@@ -22,8 +23,10 @@ export default function RootLayout({
         />
       </head>
       <body>
-        <ClientInitializer />
-        {children}
+        <AdminAuthProvider>
+          <ClientInitializer />
+          {children}
+        </AdminAuthProvider>
       </body>
     </html>
   );

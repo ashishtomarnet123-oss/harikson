@@ -3,23 +3,21 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Cpu, Lock, Mail, AlertCircle } from 'lucide-react';
-import { setCookie, getCookie } from 'cookies-next';
+import { useAdminAuth } from '../../../context/AdminAuthContext';
 
 export default function LoginPage() {
   const router = useRouter();
+  const { login, isAuthenticated } = useAdminAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const apiBase = '/api-proxy';
 
   useEffect(() => {
-    // If already logged in, redirect to dashboard
-    const token = getCookie('admin_token');
-    if (token) {
+    if (isAuthenticated) {
       router.replace('/admin/dashboard');
     }
-  }, [router]);
+  }, [isAuthenticated, router]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -27,31 +25,7 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
-      const res = await fetch(`${apiBase}/v1/admin/login`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password }),
-      });
-
-      let data: any = {};
-      const contentType = res.headers.get('content-type');
-      if (contentType && contentType.includes('application/json')) {
-        data = await res.json();
-      } else {
-        const text = await res.text();
-        throw new Error(text || `HTTP ${res.status}: Server error`);
-      }
-
-      if (!res.ok) {
-        throw new Error(data.error || 'Authentication failed');
-      }
-
-      // Save token in cookie with 24 hours duration
-      setCookie('admin_token', data.token, { maxAge: 24 * 60 * 60 });
-      localStorage.setItem('admin_token', data.token);
-      localStorage.setItem('admin_user', JSON.stringify(data.user));
-
-      router.replace('/admin/dashboard');
+      await login(email, password);
     } catch (err: any) {
       setError(err.message || 'Connection failure to admin API gateway.');
     } finally {
