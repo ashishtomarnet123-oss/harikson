@@ -24,6 +24,7 @@ import dotenv from 'dotenv';
 import crypto from 'crypto';
 import { generateHashedBackupCodes, verifyBackupCode } from './services/twoFactorService.js';
 import { computeDeviceFingerprint } from './services/deviceService.js';
+import { requireScopes, VALID_SCOPES } from './middleware/scopeAuth.js';
 import * as cheerio from 'cheerio';
 import fs from 'fs';
 import path from 'path';
@@ -1690,6 +1691,7 @@ const authMiddleware = async (req, res, next) => {
         name: user.name,
         isDeveloperKey: true,
         apiKeyId: keyRecord.id,
+        scopes: keyRecord.scopes || ['chat:read', 'chat:write', 'documents:read', 'documents:write'],
       };
       req.tenant = { id: keyRecord.tenant_id };
       return next();
@@ -5732,9 +5734,17 @@ async function createApiKey(req, res) {
     const rawKey = 'hk_live_' + crypto.randomBytes(16).toString('hex');
     const keyPrefix = rawKey.substring(0, 12); // hk_live_abcd (12 chars)
     const keyHash = crypto.createHash('sha256').update(rawKey).digest('hex');
-    const keyScopes = Array.isArray(scopes)
-      ? JSON.stringify(scopes)
-      : JSON.stringify(['read', 'write']);
+    const defaultScopes = ['chat:read', 'chat:write', 'documents:read', 'documents:write'];
+    const validTaxonomy = ['chat:read', 'chat:write', 'documents:read', 'documents:write', 'user:read', 'user:write', 'billing:read', 'admin:*'];
+    
+    let keyScopesArray = defaultScopes;
+    if (Array.isArray(scopes) && scopes.length > 0) {
+      keyScopesArray = scopes.filter((s: string) => validTaxonomy.includes(s) || s === '*');
+    }
+    if ((req.user?.role === 'admin' || req.user?.role === 'superadmin') && Array.isArray(scopes) && scopes.includes('admin:*')) {
+      if (!keyScopesArray.includes('admin:*')) keyScopesArray.push('admin:*');
+    }
+    const keyScopes = JSON.stringify(keyScopesArray);
 
     await executeTenantQuery(req.tenant.id, async (client) => {
       await client.query(
@@ -5838,6 +5848,24 @@ async function revokeApiKey(req, res) {
 
 app.delete('/api/keys/:id', authMiddleware, revokeApiKey);
 app.delete('/api/user/developer/keys/:id', authMiddleware, revokeApiKey);
+
+// GET /docs/api/scopes - Interactive API Scope Explorer
+app.get('/docs/api/scopes', (req, res) => {
+  res.json({
+    service: 'Neuravolt Cloud API Scope Taxonomy',
+    version: 'v1',
+    scopes: [
+      { scope: 'chat:read', description: 'Read conversations, message history, and AI outputs', endpoints: ['GET /chat', 'GET /chat/:id/messages'] },
+      { scope: 'chat:write', description: 'Create new AI conversations and send prompt messages', endpoints: ['POST /chat', 'POST /chat/:id/messages'] },
+      { scope: 'documents:read', description: 'List uploaded documents and view RAG knowledge items', endpoints: ['GET /api/documents'] },
+      { scope: 'documents:write', description: 'Upload new documents, trigger indexing, or delete files', endpoints: ['POST /api/documents', 'DELETE /api/documents/:id'] },
+      { scope: 'user:read', description: 'View user profile, organization details, and settings', endpoints: ['GET /user/profile'] },
+      { scope: 'user:write', description: 'Update user profile, preferences, and workspace settings', endpoints: ['PUT /user/profile'] },
+      { scope: 'billing:read', description: 'View subscription plans, billing status, and invoices', endpoints: ['GET /billing/plans', 'GET /billing/invoices'] },
+      { scope: 'admin:*', description: 'Full administrative access to tenant management, billing overrides, and system logs', endpoints: ['ALL /admin/*'] },
+    ],
+  });
+});
 
 // ─── USAGE ANALYTICS ────────────────────────────────────────────────────────
 
