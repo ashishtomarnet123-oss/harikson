@@ -20,7 +20,19 @@ function createRedisConnection(): Redis {
   return conn;
 }
 
+export interface IWorkerStat {
+  name: string;
+  expectedIntervalMs: number;
+  lastRun: string | null;
+  nextRun: string | null;
+  healthy: boolean;
+  errorCount: number;
+  lastError?: string;
+}
+
 export class HariksonScheduler {
+  public static instance: HariksonScheduler | null = null;
+
   public static memoryQueue: Queue;
   public static summarizerQueue: Queue;
   public static cacheQueue: Queue;
@@ -33,11 +45,53 @@ export class HariksonScheduler {
   private static cleanupWorker: Worker;
 
   private static activeWatchers = new Map<string, fs.FSWatcher>();
+  private static startTime: number = 0;
 
-  public static async startAll(tenantId: string, workspacePath: string, userId: string) {
-    Logger.info('🔋 [Harikson Scheduler] Starting BullMQ background workers...', {
-      workspacePath,
-    });
+  public static workerStats: Record<string, IWorkerStat> = {
+    memoryWorker: {
+      name: 'memoryWorker',
+      expectedIntervalMs: 10000,
+      lastRun: null,
+      nextRun: null,
+      healthy: true,
+      errorCount: 0,
+    },
+    summarizerWorker: {
+      name: 'summarizerWorker',
+      expectedIntervalMs: 15000,
+      lastRun: null,
+      nextRun: null,
+      healthy: true,
+      errorCount: 0,
+    },
+    cacheWorker: {
+      name: 'cacheWorker',
+      expectedIntervalMs: 300000,
+      lastRun: null,
+      nextRun: null,
+      healthy: true,
+      errorCount: 0,
+    },
+    cleanupWorker: {
+      name: 'cleanupWorker',
+      expectedIntervalMs: 86400000,
+      lastRun: null,
+      nextRun: null,
+      healthy: true,
+      errorCount: 0,
+    },
+  };
+
+  public static async startAll(tenantId?: string, workspacePath?: string, userId?: string) {
+    // Singleton Guard
+    if (this.instance) {
+      Logger.warn('⚠️ [Harikson Scheduler] HariksonScheduler instance is already running. Skipping redundant start.');
+      return;
+    }
+    this.instance = new HariksonScheduler();
+    this.startTime = Date.now();
+
+    Logger.info('🔋 [Harikson Scheduler] Starting BullMQ global background workers...');
 
     const queueConnection = createRedisConnection();
 
@@ -49,7 +103,7 @@ export class HariksonScheduler {
     this.failedQueue = new Queue('failedQueue', { connection: queueConnection });
 
     // 1. File Watcher Indexer (Incremental Indexer)
-    this.startIndexerWorker(tenantId, workspacePath);
+    this.startIndexerWorker(tenantId || 'system', workspacePath || './');
 
     // 2. Schedule repeatable/cron jobs
     try {
@@ -71,20 +125,20 @@ export class HariksonScheduler {
         await this.cleanupQueue.removeRepeatableByKey(job.key);
       }
 
-      // Add fresh repeatable jobs
-      await this.memoryQueue.add('poller', { tenantId, userId }, {
+      // Add fresh global repeatable jobs
+      await this.memoryQueue.add('poller', {}, {
         repeat: { every: 10000 },
         removeOnComplete: true,
         removeOnFail: true,
       });
 
-      await this.summarizerQueue.add('poller', { tenantId, userId }, {
+      await this.summarizerQueue.add('poller', {}, {
         repeat: { every: 15000 },
         removeOnComplete: true,
         removeOnFail: true,
       });
 
-      await this.cacheQueue.add('cache-warmer', { tenantId, workspacePath }, {
+      await this.cacheQueue.add('cache-warmer', { workspacePath: workspacePath || './' }, {
         repeat: { every: 300000 },
         removeOnComplete: { age: 3600 },
         removeOnFail: { age: 86400 },
@@ -113,73 +167,151 @@ export class HariksonScheduler {
     this.startWorkers();
   }
 
-  public static async stopAll() {
+  public static async stopAll(timeoutMs = 10000): Promise<void> {
     Logger.info('🔌 [Harikson Scheduler] Gracefully stopping all BullMQ workers...');
 
-    // Close all workers
-    if (this.memoryWorker) await this.memoryWorker.close();
-    if (this.summarizerWorker) await this.summarizerWorker.close();
-    if (this.cacheWorker) await this.cacheWorker.close();
-    if (this.cleanupWorker) await this.cleanupWorker.close();
+    const shutdownLogic = async () => {
+      // Close all workers
+      if (this.memoryWorker) await this.memoryWorker.close();
+      if (this.summarizerWorker) await this.summarizerWorker.close();
+      if (this.cacheWorker) await this.cacheWorker.close();
+      if (this.cleanupWorker) await this.cleanupWorker.close();
 
-    // Close all queues
-    if (this.memoryQueue) await this.memoryQueue.close();
-    if (this.summarizerQueue) await this.summarizerQueue.close();
-    if (this.cacheQueue) await this.cacheQueue.close();
-    if (this.cleanupQueue) await this.cleanupQueue.close();
-    if (this.failedQueue) await this.failedQueue.close();
+      // Close all queues
+      if (this.memoryQueue) await this.memoryQueue.close();
+      if (this.summarizerQueue) await this.summarizerQueue.close();
+      if (this.cacheQueue) await this.cacheQueue.close();
+      if (this.cleanupQueue) await this.cleanupQueue.close();
+      if (this.failedQueue) await this.failedQueue.close();
 
-    // Close watchers
-    this.activeWatchers.forEach((watcher) => watcher.close());
-    this.activeWatchers.clear();
+      // Close watchers
+      this.activeWatchers.forEach((watcher) => watcher.close());
+      this.activeWatchers.clear();
 
-    // Quit Redis connections
-    for (const conn of redisConnections) {
-      try {
-        await conn.quit();
-      } catch (err) {
-        // Ignored
+      // Quit Redis connections
+      for (const conn of redisConnections) {
+        try {
+          await conn.quit();
+        } catch (err) {
+          // Ignored
+        }
       }
-    }
-    redisConnections.length = 0;
+      redisConnections.length = 0;
+      this.instance = null;
+    };
 
+    const timeoutPromise = new Promise((resolve) =>
+      setTimeout(() => {
+        Logger.warn(`⚠️ [Harikson Scheduler] Shutdown timed out after ${timeoutMs}ms. Forcing stop.`);
+        resolve(null);
+      }, timeoutMs)
+    );
+
+    await Promise.race([shutdownLogic(), timeoutPromise]);
     Logger.info('🔌 [Harikson Scheduler] All BullMQ workers, queues, and connections closed.');
   }
 
+  public static getHealth() {
+    const now = Date.now();
+    const workerList = Object.values(this.workerStats).map((stat) => {
+      let healthy = true;
+      if (stat.lastRun) {
+        const elapsed = now - new Date(stat.lastRun).getTime();
+        // Unhealthy if a worker hasn't run in 2x its expected interval
+        if (elapsed > 2 * stat.expectedIntervalMs) {
+          healthy = false;
+        }
+      } else {
+        // If never run yet, check if startup time exceeds 2x expected interval
+        if (this.startTime > 0 && (now - this.startTime) > 2 * stat.expectedIntervalMs) {
+          healthy = false;
+        }
+      }
+
+      return {
+        name: stat.name,
+        lastRun: stat.lastRun,
+        nextRun: stat.nextRun,
+        expectedIntervalMs: stat.expectedIntervalMs,
+        healthy,
+        errorCount: stat.errorCount,
+        lastError: stat.lastError,
+      };
+    });
+
+    const allHealthy = workerList.every((w) => w.healthy);
+
+    return {
+      status: allHealthy ? 'ok' : 'degraded',
+      running: !!this.instance,
+      timestamp: new Date().toISOString(),
+      workers: workerList,
+    };
+  }
+
+  private static recordWorkerRun(workerName: string) {
+    const stat = this.workerStats[workerName];
+    if (stat) {
+      const now = new Date();
+      stat.lastRun = now.toISOString();
+      stat.nextRun = new Date(now.getTime() + stat.expectedIntervalMs).toISOString();
+      stat.healthy = true;
+    }
+  }
+
+  private static recordWorkerError(workerName: string, err: any) {
+    const stat = this.workerStats[workerName];
+    if (stat) {
+      stat.errorCount++;
+      stat.lastError = err.message || String(err);
+    }
+  }
+
   private static startWorkers() {
-    // A. Memory Extractor Worker
+    // A. Memory Extractor Worker (Global multi-tenant discovery)
     const memoryWorkerConn = createRedisConnection();
     this.memoryWorker = new Worker('memoryQueue', async (job: Job) => {
-      const { tenantId, userId, messageId, content } = job.data;
-      if (job.name === 'poller') {
-        await this.executeQuery(tenantId, async (client) => {
-          const res = await client.query(`
-            SELECT m.id, m.content, m.conversation_id
-            FROM messages m
-            JOIN conversations c ON m.conversation_id = c.id
-            WHERE m.role = 'user'
-            ORDER BY m.created_at DESC
-            LIMIT 10
-          `);
+      this.recordWorkerRun('memoryWorker');
+      try {
+        const { tenantId, userId, messageId, content } = job.data;
+        if (job.name === 'poller') {
+          // Discover all active tenants
+          const tenantsRes = await pool.query("SELECT id FROM tenants WHERE status = 'active' AND deleted_at IS NULL");
+          for (const tRow of tenantsRes.rows) {
+            const activeTenantId = tRow.id;
+            await this.executeQuery(activeTenantId, async (client) => {
+              const res = await client.query(`
+                SELECT m.id, m.content, m.conversation_id, c.user_id
+                FROM messages m
+                JOIN conversations c ON m.conversation_id = c.id
+                WHERE m.role = 'user'
+                ORDER BY m.created_at DESC
+                LIMIT 10
+              `);
 
-          for (const row of res.rows) {
-            await this.memoryQueue.add('extract', {
-              tenantId,
-              userId,
-              messageId: row.id,
-              content: row.content,
-            }, {
-              jobId: `memory-${row.id}`,
-              attempts: 3,
-              backoff: { type: 'exponential', delay: 1000 },
-              removeOnComplete: { age: 86400 },
-              removeOnFail: { age: 7 * 86400 },
+              for (const row of res.rows) {
+                await this.memoryQueue.add('extract', {
+                  tenantId: activeTenantId,
+                  userId: row.user_id,
+                  messageId: row.id,
+                  content: row.content,
+                }, {
+                  jobId: `memory-${row.id}`,
+                  attempts: 3,
+                  backoff: { type: 'exponential', delay: 1000 },
+                  removeOnComplete: { age: 86400 },
+                  removeOnFail: { age: 7 * 86400 },
+                });
+              }
             });
           }
-        });
-      } else if (job.name === 'extract') {
-        Logger.info(`🧠 [Memory Worker] Extracting facts from message ${messageId}...`);
-        await MemoryExtractor.extractAndSave(tenantId, userId, content, '');
+        } else if (job.name === 'extract') {
+          Logger.info(`🧠 [Memory Worker] Extracting facts from message ${messageId}...`);
+          await MemoryExtractor.extractAndSave(tenantId, userId, content, '');
+        }
+      } catch (err) {
+        this.recordWorkerError('memoryWorker', err);
+        throw err;
       }
     }, {
       connection: memoryWorkerConn,
@@ -187,61 +319,72 @@ export class HariksonScheduler {
     });
     this.setupDLQ(this.memoryWorker, 'memoryQueue');
 
-    // B. Summarizer Worker
+    // B. Summarizer Worker (Global multi-tenant discovery)
     const summarizerWorkerConn = createRedisConnection();
     this.summarizerWorker = new Worker('summarizerQueue', async (job: Job) => {
-      const { tenantId, userId, conversationId } = job.data;
-      if (job.name === 'poller') {
-        await this.executeQuery(tenantId, async (client) => {
-          const res = await client.query(`
-            SELECT conversation_id, COUNT(*) as count
-            FROM messages
-            GROUP BY conversation_id
-            HAVING COUNT(*) > 50
-          `);
+      this.recordWorkerRun('summarizerWorker');
+      try {
+        const { tenantId, userId, conversationId } = job.data;
+        if (job.name === 'poller') {
+          // Discover all active tenants
+          const tenantsRes = await pool.query("SELECT id FROM tenants WHERE status = 'active' AND deleted_at IS NULL");
+          for (const tRow of tenantsRes.rows) {
+            const activeTenantId = tRow.id;
+            await this.executeQuery(activeTenantId, async (client) => {
+              const res = await client.query(`
+                SELECT conversation_id, user_id, COUNT(*) as count
+                FROM messages
+                GROUP BY conversation_id, user_id
+                HAVING COUNT(*) > 50
+              `);
 
-          for (const row of res.rows) {
-            const convId = row.conversation_id;
+              for (const row of res.rows) {
+                const convId = row.conversation_id;
+                const convUserId = row.user_id;
 
-            let checkRes;
-            try {
-              checkRes = await client.query(
-                'SELECT id FROM conversation_summaries WHERE conversation_id = $1 LIMIT 1',
-                [convId]
-              );
-            } catch (err: any) {
-              if (err.code === '42P01') {
-                Logger.warn(`conversation_summaries table does not exist yet. Skipping summarizer check.`, err);
-                checkRes = { rows: [] };
-              } else {
-                throw err;
+                let checkRes;
+                try {
+                  checkRes = await client.query(
+                    'SELECT id FROM conversation_summaries WHERE conversation_id = $1 LIMIT 1',
+                    [convId]
+                  );
+                } catch (err: any) {
+                  if (err.code === '42P01') {
+                    checkRes = { rows: [] };
+                  } else {
+                    throw err;
+                  }
+                }
+
+                if (checkRes.rows.length === 0) {
+                  await this.summarizerQueue.add('summarize', {
+                    tenantId: activeTenantId,
+                    userId: convUserId,
+                    conversationId: convId,
+                  }, {
+                    jobId: `summarize-${convId}`,
+                    attempts: 3,
+                    backoff: { type: 'exponential', delay: 1000 },
+                    removeOnComplete: { age: 86400 },
+                    removeOnFail: { age: 7 * 86400 },
+                  });
+                }
               }
-            }
-
-            if (checkRes.rows.length === 0) {
-              await this.summarizerQueue.add('summarize', {
-                tenantId,
-                userId,
-                conversationId: convId,
-              }, {
-                jobId: `summarize-${convId}`,
-                attempts: 3,
-                backoff: { type: 'exponential', delay: 1000 },
-                removeOnComplete: { age: 86400 },
-                removeOnFail: { age: 7 * 86400 },
-              });
-            }
+            });
           }
-        });
-      } else if (job.name === 'summarize') {
-        Logger.info(`📝 [Summarizer Worker] Compiling summary for conversation ${conversationId} (>50 messages)...`);
-        await ContextBuilder.build(
-          tenantId,
-          userId,
-          'Generate summary',
-          conversationId,
-          './'
-        );
+        } else if (job.name === 'summarize') {
+          Logger.info(`📝 [Summarizer Worker] Compiling summary for conversation ${conversationId} (>50 messages)...`);
+          await ContextBuilder.build(
+            tenantId,
+            userId,
+            'Generate summary',
+            conversationId,
+            './'
+          );
+        }
+      } catch (err) {
+        this.recordWorkerError('summarizerWorker', err);
+        throw err;
       }
     }, {
       connection: summarizerWorkerConn,
@@ -252,37 +395,40 @@ export class HariksonScheduler {
     // C. Cache Warmer Worker
     const cacheWorkerConn = createRedisConnection();
     this.cacheWorker = new Worker('cacheQueue', async (job: Job) => {
-      const { workspacePath } = job.data;
-      Logger.info('🔥 [Cache Warmer Worker] Warming vector embeddings cache...');
+      this.recordWorkerRun('cacheWorker');
+      try {
+        const { workspacePath } = job.data;
+        Logger.info('🔥 [Cache Warmer Worker] Warming vector embeddings cache...');
 
-      const extensions = ['.ts', '.js', '.py'];
-      const root = path.resolve(workspacePath || './');
+        const extensions = ['.ts', '.js', '.py'];
+        const root = path.resolve(workspacePath || './');
 
-      const scanAndWarm = async (dir: string) => {
-        const items = fs.readdirSync(dir);
-        for (const item of items) {
-          const full = path.join(dir, item);
-          const stat = fs.statSync(full);
-          if (stat.isDirectory()) {
-            if (item !== 'node_modules' && item !== '.git') {
-              await scanAndWarm(full);
-            }
-          } else if (stat.isFile() && extensions.includes(path.extname(item))) {
-            try {
-              const content = fs.readFileSync(full, 'utf-8').substring(0, 1000);
-              if (content.trim()) {
-                await OllamaClient.embed(content);
+        const scanAndWarm = async (dir: string) => {
+          if (!fs.existsSync(dir)) return;
+          const items = fs.readdirSync(dir);
+          for (const item of items) {
+            const full = path.join(dir, item);
+            const stat = fs.statSync(full);
+            if (stat.isDirectory()) {
+              if (item !== 'node_modules' && item !== '.git') {
+                await scanAndWarm(full);
               }
-            } catch (err: any) {
-              console.warn(`Warning warming cache for file ${full}:`, err.message);
+            } else if (stat.isFile() && extensions.includes(path.extname(item))) {
+              try {
+                const content = fs.readFileSync(full, 'utf-8').substring(0, 1000);
+                if (content.trim()) {
+                  await OllamaClient.embed(content);
+                }
+              } catch (err: any) {
+                console.warn(`Warning warming cache for file ${full}:`, err.message);
+              }
             }
           }
-        }
-      };
+        };
 
-      try {
         await scanAndWarm(root);
       } catch (err) {
+        this.recordWorkerError('cacheWorker', err);
         Logger.error('Cache warmer search traversal error', err);
         throw err;
       }
@@ -295,143 +441,149 @@ export class HariksonScheduler {
     // D. Cleanup Worker
     const cleanupWorkerConn = createRedisConnection();
     this.cleanupWorker = new Worker('cleanupQueue', async (job: Job) => {
-      Logger.info('[CRON] Running database cleanup & data retention rules (BullMQ)...');
-      
-      const delLogs = await pool.query(
-        `DELETE FROM activity_logs WHERE created_at < NOW() - INTERVAL '90 days'`
-      );
-      Logger.info(`[CRON] Cleaned up ${delLogs.rowCount} activity logs older than 90 days.`);
-
-      const delSessions = await pool.query(
-        `DELETE FROM user_sessions WHERE expires_at < NOW() OR revoked_at IS NOT NULL`
-      );
-      Logger.info(`[CRON] Cleaned up ${delSessions.rowCount} expired/revoked user sessions.`);
-
-      const delInvoices = await pool.query(
-        `DELETE FROM invoices WHERE created_at < NOW() - INTERVAL '2555 days'`
-      );
-      Logger.info(`[CRON] Hard deleted ${delInvoices.rowCount} invoices older than 7 years.`);
-
-      const activeTenants = await pool.query(
-        `SELECT id, plan, retention_overrides FROM tenants WHERE status = 'active' AND deleted_at IS NULL`
-      );
-      for (const tenantRow of activeTenants.rows) {
-        const tId = tenantRow.id;
-        const plan = (tenantRow.plan || 'starter').toLowerCase();
-        const overrides = tenantRow.retention_overrides || {};
-
-        let days = 365;
-        if (plan === 'pro' || plan === 'professional') {
-          days = 730;
-        } else if (plan === 'enterprise') {
-          days = overrides.conversations_days
-            ? parseInt(overrides.conversations_days, 10)
-            : null;
-        }
-
-        if (days !== null) {
-          const delConvsResult = await pool.query(
-            `DELETE FROM conversations 
-             WHERE tenant_id = $1 AND updated_at < NOW() - $2 * INTERVAL '1 day'`,
-            [tId, days]
-          );
-          if (delConvsResult.rowCount > 0) {
-            Logger.info(`[CRON] Conversations retention: Hard deleted ${delConvsResult.rowCount} conversations older than ${days} days for tenant ${tId}`);
-          }
-        }
-      }
-
-      const retentionDays = parseInt(process.env.HARD_DELETE_AFTER_DAYS || '30', 10);
-
-      const softDeletedTenantsToPurge = await pool.query(
-        `SELECT id FROM tenants WHERE deleted_at < NOW() - $1 * INTERVAL '1 day'`,
-        [retentionDays]
-      );
-      for (const tRow of softDeletedTenantsToPurge.rows) {
-        await exportGDPRData(tRow.id);
-      }
-
-      const delTenants = await pool.query(
-        `DELETE FROM tenants WHERE deleted_at < NOW() - $1 * INTERVAL '1 day'`,
-        [retentionDays]
-      );
-      Logger.info(`[CRON] Hard deleted ${delTenants.rowCount} soft-deleted tenants older than ${retentionDays} days.`);
-
-      const delUsers = await pool.query(
-        `DELETE FROM users WHERE deleted_at < NOW() - $1 * INTERVAL '1 day'`,
-        [retentionDays]
-      );
-      Logger.info(`[CRON] Hard deleted ${delUsers.rowCount} soft-deleted users older than ${retentionDays} days.`);
-
-      const delConvs = await pool.query(
-        `DELETE FROM conversations WHERE deleted_at < NOW() - $1 * INTERVAL '1 day'`,
-        [retentionDays]
-      );
-      Logger.info(`[CRON] Hard deleted ${delConvs.rowCount} soft-deleted conversations older than ${retentionDays} days.`);
-
-      const delMsgs = await pool.query(
-        `DELETE FROM messages WHERE deleted_at < NOW() - $1 * INTERVAL '1 day'`,
-        [retentionDays]
-      );
-      Logger.info(`[CRON] Hard deleted ${delMsgs.rowCount} soft-deleted messages older than ${retentionDays} days.`);
-
-      const expiredGraceTenants = await pool.query(
-        `SELECT id, plan, downgrade_grace_ends FROM tenants 
-         WHERE downgrade_grace_ends < NOW() AND status = 'active'`
-      );
-
-      for (const tRow of expiredGraceTenants.rows) {
-        const tId = tRow.id;
-        const planId = tRow.plan.toLowerCase();
-
-        const planRes = await pool.query(
-          'SELECT agent_limit, features FROM plans WHERE id = $1',
-          [planId]
+      this.recordWorkerRun('cleanupWorker');
+      try {
+        Logger.info('[CRON] Running database cleanup & data retention rules (BullMQ)...');
+        
+        const delLogs = await pool.query(
+          `DELETE FROM activity_logs WHERE created_at < NOW() - INTERVAL '90 days'`
         );
-        if (planRes.rows.length > 0) {
-          const plan = planRes.rows[0];
-          const agentLimit = plan.agent_limit;
+        Logger.info(`[CRON] Cleaned up ${delLogs.rowCount} activity logs older than 90 days.`);
 
-          if (agentLimit !== -1) {
-            const activeAgents = await pool.query(
-              `SELECT id FROM agents WHERE tenant_id = $1 AND status = 'active' ORDER BY created_at ASC`,
-              [tId]
+        const delSessions = await pool.query(
+          `DELETE FROM user_sessions WHERE expires_at < NOW() OR revoked_at IS NOT NULL`
+        );
+        Logger.info(`[CRON] Cleaned up ${delSessions.rowCount} expired/revoked user sessions.`);
+
+        const delInvoices = await pool.query(
+          `DELETE FROM invoices WHERE created_at < NOW() - INTERVAL '2555 days'`
+        );
+        Logger.info(`[CRON] Hard deleted ${delInvoices.rowCount} invoices older than 7 years.`);
+
+        const activeTenants = await pool.query(
+          `SELECT id, plan, retention_overrides FROM tenants WHERE status = 'active' AND deleted_at IS NULL`
+        );
+        for (const tenantRow of activeTenants.rows) {
+          const tId = tenantRow.id;
+          const plan = (tenantRow.plan || 'starter').toLowerCase();
+          const overrides = tenantRow.retention_overrides || {};
+
+          let days = 365;
+          if (plan === 'pro' || plan === 'professional') {
+            days = 730;
+          } else if (plan === 'enterprise') {
+            days = overrides.conversations_days
+              ? parseInt(overrides.conversations_days, 10)
+              : null;
+          }
+
+          if (days !== null) {
+            const delConvsResult = await pool.query(
+              `DELETE FROM conversations 
+               WHERE tenant_id = $1 AND updated_at < NOW() - $2 * INTERVAL '1 day'`,
+              [tId, days]
             );
-            if (activeAgents.rows.length > agentLimit) {
-              const extraAgentIds = activeAgents.rows
-                .slice(agentLimit)
-                .map((r) => r.id);
-              await pool.query(
-                `UPDATE agents SET status = 'disabled' WHERE id = ANY($1)`,
-                [extraAgentIds]
-              );
-              Logger.info(`[CRON] Disabled ${extraAgentIds.length} extra agents for tenant ${tId}`);
+            if (delConvsResult.rowCount > 0) {
+              Logger.info(`[CRON] Conversations retention: Hard deleted ${delConvsResult.rowCount} conversations older than ${days} days for tenant ${tId}`);
             }
           }
+        }
 
-          await pool.query(
-            `INSERT INTO activity_logs (tenant_id, action, metadata)
-             VALUES ($1, 'PLAN_LIMIT_VIOLATION_NOTIFIED', $2)`,
-            [
-              tId,
-              JSON.stringify({
-                message: 'Tenant has violated plan limits after grace period. Immediate action required.',
-                plan: planId,
-                grace_ends: tRow.downgrade_grace_ends,
-              }),
-            ]
+        const retentionDays = parseInt(process.env.HARD_DELETE_AFTER_DAYS || '30', 10);
+
+        const softDeletedTenantsToPurge = await pool.query(
+          `SELECT id FROM tenants WHERE deleted_at < NOW() - $1 * INTERVAL '1 day'`,
+          [retentionDays]
+        );
+        for (const tRow of softDeletedTenantsToPurge.rows) {
+          await exportGDPRData(tRow.id);
+        }
+
+        const delTenants = await pool.query(
+          `DELETE FROM tenants WHERE deleted_at < NOW() - $1 * INTERVAL '1 day'`,
+          [retentionDays]
+        );
+        Logger.info(`[CRON] Hard deleted ${delTenants.rowCount} soft-deleted tenants older than ${retentionDays} days.`);
+
+        const delUsers = await pool.query(
+          `DELETE FROM users WHERE deleted_at < NOW() - $1 * INTERVAL '1 day'`,
+          [retentionDays]
+        );
+        Logger.info(`[CRON] Hard deleted ${delUsers.rowCount} soft-deleted users older than ${retentionDays} days.`);
+
+        const delConvs = await pool.query(
+          `DELETE FROM conversations WHERE deleted_at < NOW() - $1 * INTERVAL '1 day'`,
+          [retentionDays]
+        );
+        Logger.info(`[CRON] Hard deleted ${delConvs.rowCount} soft-deleted conversations older than ${retentionDays} days.`);
+
+        const delMsgs = await pool.query(
+          `DELETE FROM messages WHERE deleted_at < NOW() - $1 * INTERVAL '1 day'`,
+          [retentionDays]
+        );
+        Logger.info(`[CRON] Hard deleted ${delMsgs.rowCount} soft-deleted messages older than ${retentionDays} days.`);
+
+        const expiredGraceTenants = await pool.query(
+          `SELECT id, plan, downgrade_grace_ends FROM tenants 
+           WHERE downgrade_grace_ends < NOW() AND status = 'active'`
+        );
+
+        for (const tRow of expiredGraceTenants.rows) {
+          const tId = tRow.id;
+          const planId = tRow.plan.toLowerCase();
+
+          const planRes = await pool.query(
+            'SELECT agent_limit, features FROM plans WHERE id = $1',
+            [planId]
           );
+          if (planRes.rows.length > 0) {
+            const plan = planRes.rows[0];
+            const agentLimit = plan.agent_limit;
 
-          const graceEnds = new Date(tRow.downgrade_grace_ends);
-          const autoSuspendTime = new Date(graceEnds.getTime() + 14 * 24 * 60 * 60 * 1000);
-          if (new Date() > autoSuspendTime) {
+            if (agentLimit !== -1) {
+              const activeAgents = await pool.query(
+                `SELECT id FROM agents WHERE tenant_id = $1 AND status = 'active' ORDER BY created_at ASC`,
+                [tId]
+              );
+              if (activeAgents.rows.length > agentLimit) {
+                const extraAgentIds = activeAgents.rows
+                  .slice(agentLimit)
+                  .map((r) => r.id);
+                await pool.query(
+                  `UPDATE agents SET status = 'disabled' WHERE id = ANY($1)`,
+                  [extraAgentIds]
+                );
+                Logger.info(`[CRON] Disabled ${extraAgentIds.length} extra agents for tenant ${tId}`);
+              }
+            }
+
             await pool.query(
-              `UPDATE tenants SET status = 'suspended' WHERE id = $1`,
-              [tId]
+              `INSERT INTO activity_logs (tenant_id, action, metadata)
+               VALUES ($1, 'PLAN_LIMIT_VIOLATION_NOTIFIED', $2)`,
+              [
+                tId,
+                JSON.stringify({
+                  message: 'Tenant has violated plan limits after grace period. Immediate action required.',
+                  plan: planId,
+                  grace_ends: tRow.downgrade_grace_ends,
+                }),
+              ]
             );
-            Logger.info(`[CRON] Auto-suspended tenant ${tId} due to unresolved plan limit violations for 14 days.`);
+
+            const graceEnds = new Date(tRow.downgrade_grace_ends);
+            const autoSuspendTime = new Date(graceEnds.getTime() + 14 * 24 * 60 * 60 * 1000);
+            if (new Date() > autoSuspendTime) {
+              await pool.query(
+                `UPDATE tenants SET status = 'suspended' WHERE id = $1`,
+                [tId]
+              );
+              Logger.info(`[CRON] Auto-suspended tenant ${tId} due to unresolved plan limit violations for 14 days.`);
+            }
           }
         }
+      } catch (err) {
+        this.recordWorkerError('cleanupWorker', err);
+        throw err;
       }
     }, {
       connection: cleanupWorkerConn,

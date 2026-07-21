@@ -1980,6 +1980,13 @@ app.get('/health', async (req, res) => {
   });
 });
 
+// 1.1 GET /health/scheduler - Background worker health probe
+app.get('/health/scheduler', (req, res) => {
+  const healthData = HariksonScheduler.getHealth();
+  const statusCode = healthData.status === 'ok' ? 200 : 503;
+  res.status(statusCode).json(healthData);
+});
+
 // Global Tenant Context Mock for Admin Endpoints (RLS lookup bypass)
 const setGlobalTenantContext = (req: any, res: any, next: any) => {
   req.tenant = { id: '00000000-0000-0000-0000-000000000000' };
@@ -6701,42 +6708,58 @@ app.use((err, req, res, next) => {
   res.status(500).json({ error: 'Internal Server Error' });
 });
 
-initUserTables().catch((err) =>
-  logger.error(err, '❌ Error initializing tables')
-);
+// Server Initialization & Graceful Shutdown
+async function startServer() {
+  try {
+    await initUserTables().catch((err) =>
+      logger.error(err, '❌ Error initializing tables')
+    );
 
-const server = app.listen(port, () => {
-  logger.info(`⚡ [Tenant API] Operational and listening on port ${port}`);
-  HariksonScheduler.startAll(
-    '00000000-0000-0000-0000-000000000000',
-    './',
-    '00000000-0000-0000-0000-000000000001'
-  ).catch((err) => logger.error('Failed to start BullMQ scheduler:', err));
-});
-
-const gracefulShutdown = (signal: string) => {
-  logger.info(`${signal} received. Starting graceful shutdown...`);
-  server.close(async () => {
-    logger.info('HTTP server closed. Closing connection pools...');
-    try {
-      await HariksonScheduler.stopAll();
-      await pool.end();
-      await readPool.end();
-      await redis.quit();
-      logger.info('Connections closed. Exiting.');
-      process.exit(0);
-    } catch (err) {
-      logger.error('Error during graceful shutdown:', err);
-      process.exit(1);
+    const dbHealthy = await checkDbHealth();
+    if (!dbHealthy) {
+      logger.error('❌ Database health check failed on startup');
     }
-  });
 
-  // Force exit after 10s
-  setTimeout(() => {
-    logger.error('Forced shutdown after timeout');
+    // Initialize background scheduler ONLY ONCE at server startup
+    const scheduler = new HariksonScheduler();
+    await HariksonScheduler.startAll().catch((err) =>
+      logger.error('Failed to start BullMQ scheduler:', err)
+    );
+
+    const server = app.listen(port, () => {
+      logger.info(`⚡ [Tenant API] Operational and listening on port ${port}`);
+    });
+
+    const gracefulShutdown = (signal: string) => {
+      logger.info(`${signal} received. Starting graceful shutdown...`);
+      server.close(async () => {
+        logger.info('HTTP server closed. Closing background workers & connection pools...');
+        try {
+          await HariksonScheduler.stopAll(10000);
+          await pool.end();
+          await readPool.end();
+          await redis.quit();
+          logger.info('All connections closed cleanly. Exiting.');
+          process.exit(0);
+        } catch (err) {
+          logger.error('Error during graceful shutdown:', err);
+          process.exit(1);
+        }
+      });
+
+      // Force exit after 15s timeout
+      setTimeout(() => {
+        logger.error('Forced shutdown after 15s timeout');
+        process.exit(1);
+      }, 15000);
+    };
+
+    process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+    process.on('SIGINT', () => gracefulShutdown('SIGINT'));
+  } catch (err) {
+    logger.error('Fatal startup error in Tenant API:', err);
     process.exit(1);
-  }, 10000);
-};
+  }
+}
 
-process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
-process.on('SIGINT', () => gracefulShutdown('SIGINT'));
+startServer();
