@@ -154,13 +154,17 @@ export const sendInvoiceReceipt = async (to, invoiceDetails) => {
   }
 };
 
-export const sendImpersonationAlert = async (to) => {
+export const sendImpersonationAlert = async (to, details = {}) => {
   if (!(await checkEmailRateLimit(to))) {
     return {
       success: false,
       error: 'Rate limit exceeded. Max 3 emails per hour.',
     };
   }
+
+  const adminName = details.adminName || 'System Administrator';
+  const timestamp = details.timestamp || new Date().toISOString();
+  const ip = details.ip || 'Unknown IP';
 
   try {
     const { data, error } = await resend.emails.send({
@@ -169,8 +173,13 @@ export const sendImpersonationAlert = async (to) => {
       subject: 'Security Alert: Account Impersonation Access',
       html: `
         <div style="font-family: sans-serif; padding: 20px; color: #1e293b; max-width: 600px; margin: 0 auto; border: 1px solid #e2e8f0; border-radius: 8px;">
-          <h2 style="color: #e11d48; border-bottom: 2px solid #e11d48; padding-bottom: 10px;">Security Alert</h2>
+          <h2 style="color: #e11d48; border-bottom: 2px solid #e11d48; padding-bottom: 10px;">Security Alert: Impersonation Access</h2>
           <p>An administrator has initiated an impersonation session and accessed your account.</p>
+          <div style="background-color: #f8fafc; padding: 12px 16px; border-radius: 6px; border-left: 4px solid #e11d48; margin: 16px 0;">
+            <p style="margin: 4px 0;"><strong>Administrator:</strong> ${adminName}</p>
+            <p style="margin: 4px 0;"><strong>Timestamp:</strong> ${timestamp}</p>
+            <p style="margin: 4px 0;"><strong>IP Address:</strong> ${ip}</p>
+          </div>
           <p>This is a standard security notification to inform you that your workspace was accessed by system administration.</p>
           <hr style="border: 0; border-top: 1px solid #e2e8f0; margin: 20px 0;" />
           <p style="font-size: 12px; color: #94a3b8;">Secured by Harikson · Enterprise AI Platform</p>

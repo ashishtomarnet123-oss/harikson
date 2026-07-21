@@ -20,44 +20,9 @@ export default function LoginPage() {
   useEffect(() => {
     if (typeof window !== 'undefined') {
       const urlParams = new URLSearchParams(window.location.search);
-      const impersonateToken = urlParams.get('impersonate_token');
-      const tenant = urlParams.get('tenant') || 'system';
+      const impersonateToken = urlParams.get('impersonate_token') || urlParams.get('token');
       if (impersonateToken) {
-        localStorage.removeItem('hk_user');
-        const host = window.location.host;
-        const domainSuffix = host.includes('neuravolt.cloud')
-          ? '; Domain=.neuravolt.cloud'
-          : '';
-        document.cookie = `hk_access_token=${impersonateToken}; Path=/; Max-Age=${5 * 60}${domainSuffix}`;
-        
-        const resolvedApiBase = window.location.port
-          ? `http://${window.location.hostname}:3008`
-          : (process.env.NEXT_PUBLIC_API_URL || `${window.location.protocol}//api.${window.location.hostname.split('.').slice(1).join('.')}`);
-
-        fetch(`${resolvedApiBase}/api/v1/user/profile`, {
-          headers: {
-            'x-tenant-slug': tenant,
-            'Authorization': `Bearer ${impersonateToken}`
-          }
-        })
-          .then(res => res.json())
-          .then(data => {
-            localStorage.setItem('hk_user', JSON.stringify({
-              id: data.id || 'impersonated-user-id',
-              email: data.email,
-              role: data.role || 'user',
-              tenantSlug: tenant
-            }));
-            localStorage.setItem('hk_tenant', tenant);
-            localStorage.setItem('hk_api_base', resolvedApiBase);
-            localStorage.setItem('is_impersonating', 'true');
-            localStorage.setItem('impersonating_user_email', data.email);
-            router.replace('/chat');
-          })
-          .catch(err => {
-            console.error('Failed to resolve impersonated profile:', err);
-            setError('Impersonation failed: session expired or invalid.');
-          });
+        router.replace(`/impersonate?token=${impersonateToken}`);
         return;
       }
     }

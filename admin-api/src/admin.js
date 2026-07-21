@@ -1719,7 +1719,7 @@ app.post('/admin/users/:userId/impersonate', adminAuth, async (req, res) => {
   const { userId } = req.params;
 
   try {
-    // Rate limit check: max 10 impersonations per hour per admin
+    // Rate limit check: max 3 impersonation attempts per hour per admin
     const rateLimitKey = `ratelimit:impersonate:${req.admin.id}`;
     let count = 0;
     try {
@@ -1730,8 +1730,8 @@ app.post('/admin/users/:userId/impersonate', adminAuth, async (req, res) => {
     } catch (rlErr) {
       logger.warn('Redis rate limit for impersonation failed, bypassing:', rlErr.message);
     }
-    if (count > 10) {
-      return res.status(429).json({ error: 'Rate limit exceeded: Max 10 impersonations per hour.' });
+    if (count > 3) {
+      return res.status(429).json({ error: 'Rate limit exceeded: Max 3 impersonations per hour.' });
     }
 
     // Get the target user
@@ -1752,15 +1752,29 @@ app.post('/admin/users/:userId/impersonate', adminAuth, async (req, res) => {
     const tenant = tenantRes.rows[0];
     const tenantSlug = tenant ? tenant.slug : 'system';
 
-    // Generate a short-lived impersonation token (5 minutes)
-    const impersonationToken = jwt.sign(
-      { adminId: req.admin.id, targetUserId: user.id, type: 'impersonation' },
-      jwtSecret,
-      { expiresIn: '5m' }
-    );
+    // Generate a short-lived random token (5 min expiry) stored in Redis
+    const impersonationToken = crypto.randomBytes(32).toString('hex');
+    const timestamp = new Date().toISOString();
+    const ip = (req.headers['x-forwarded-for'] || req.socket?.remoteAddress || '').split(',')[0].trim() || '127.0.0.1';
+    const adminName = req.admin.name || req.admin.email?.split('@')[0] || 'Administrator';
+
+    const payload = {
+      userId: user.id,
+      adminId: req.admin.id,
+      adminEmail: req.admin.email,
+      adminName,
+      tenantSlug,
+      expiresAt: new Date(Date.now() + 5 * 60 * 1000).toISOString()
+    };
+
+    try {
+      await redis.set(`impersonate:${impersonationToken}`, JSON.stringify(payload), 'EX', 300);
+    } catch (rErr) {
+      logger.error('Failed to store impersonation token in Redis:', rErr);
+      return res.status(500).json({ error: 'Failed to initialize impersonation session' });
+    }
 
     // Log the impersonation event to activity_logs
-    const ip = (req.headers['x-forwarded-for'] || req.socket?.remoteAddress || '').split(',')[0].trim() || '127.0.0.1';
     const ua = req.headers['user-agent'] || 'Unknown Browser';
     await pool.query(
       `INSERT INTO activity_logs (user_id, tenant_id, action, metadata, ip_address, user_agent)
@@ -1776,16 +1790,20 @@ app.post('/admin/users/:userId/impersonate', adminAuth, async (req, res) => {
           adminEmail: req.admin.email,
           targetUserId: user.id,
           targetEmail: user.email,
-          timestamp: new Date().toISOString()
+          timestamp
         }),
         ip,
         ua
       ]
     );
 
-    // Notify the target user via email
+    // Notify the target user via email with admin name, timestamp, and IP
     try {
-      await sendImpersonationAlert(user.email);
+      await sendImpersonationAlert(user.email, {
+        adminName,
+        timestamp,
+        ip
+      });
     } catch (emailErr) {
       logger.warn('Failed to send impersonation email alert:', emailErr.message);
     }
@@ -1793,6 +1811,7 @@ app.post('/admin/users/:userId/impersonate', adminAuth, async (req, res) => {
     res.json({
       success: true,
       token: impersonationToken,
+      redirectUrl: `/impersonate?token=${impersonationToken}`,
       user: {
         id: user.id,
         email: user.email,
@@ -1803,6 +1822,72 @@ app.post('/admin/users/:userId/impersonate', adminAuth, async (req, res) => {
   } catch (err) {
     logger.error('Impersonation error:', err);
     res.status(500).json({ error: 'Failed to process impersonation request' });
+  }
+});
+
+// POST /auth/impersonate/confirm & POST /api/auth/impersonate/confirm - Confirm impersonation token and issue HttpOnly cookie
+app.post(['/auth/impersonate/confirm', '/api/auth/impersonate/confirm', '/admin/impersonate/confirm'], async (req, res) => {
+  try {
+    const { token } = req.body;
+    if (!token) {
+      return res.status(400).json({ error: 'Missing impersonation token' });
+    }
+
+    // Look up token in Redis
+    const dataStr = await redis.get(`impersonate:${token}`);
+    if (!dataStr) {
+      return res.status(401).json({ error: 'Invalid or expired impersonation token' });
+    }
+
+    // Single-use: immediately delete from Redis
+    await redis.del(`impersonate:${token}`);
+
+    const data = JSON.parse(dataStr);
+
+    // Get user and tenant
+    const userRes = await pool.query(
+      'SELECT id, email, role, tenant_id FROM users WHERE id = $1 AND deleted_at IS NULL',
+      [data.userId]
+    );
+    const user = userRes.rows[0];
+    if (!user) {
+      return res.status(404).json({ error: 'Impersonated user not found' });
+    }
+
+    const tenantRes = await pool.query('SELECT slug FROM tenants WHERE id = $1', [user.tenant_id]);
+    const tenantSlug = tenantRes.rows[0]?.slug || data.tenantSlug || 'system';
+
+    // Issue short-lived impersonation JWT (5 min expiry)
+    const impersonationJwt = jwt.sign(
+      { userId: user.id, role: user.role, adminId: data.adminId, type: 'impersonation' },
+      jwtSecret,
+      { expiresIn: '5m' }
+    );
+
+    const host = req.headers.host || '';
+    const domainSuffix = host.includes('neuravolt.cloud')
+      ? '; Domain=.neuravolt.cloud'
+      : '';
+    const isHttps = req.headers['x-forwarded-proto'] === 'https' || (req.socket as any)?.encrypted;
+    const secureFlag = isHttps ? 'Secure;' : '';
+
+    res.setHeader('Set-Cookie', [
+      `hk_access_token=${impersonationJwt}; HttpOnly; ${secureFlag} SameSite=Strict; Path=/; Max-Age=${5 * 60}${domainSuffix}`,
+    ]);
+
+    res.status(200).json({
+      success: true,
+      user: {
+        id: user.id,
+        email: user.email,
+        role: user.role,
+        tenantSlug,
+      },
+      impersonatingAdminEmail: data.adminEmail,
+    });
+  } catch (err) {
+    logger.error('Confirm impersonation error:', err);
+    res.status(500).json({ error: 'Failed to confirm impersonation session' });
   }
 });
 

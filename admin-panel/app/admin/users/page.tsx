@@ -207,9 +207,9 @@ export default function UsersPage() {
         }
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Failed to impersonate');
-      
-      const userPortalUrl = `http://localhost:3028/login?impersonate_token=${data.token}&tenant=${data.user.tenantSlug}`;
+      const userPortalBase = process.env.NEXT_PUBLIC_USER_PORTAL_URL || 'http://localhost:3028';
+      const redirectPath = data.redirectUrl || `/impersonate?token=${data.token}`;
+      const userPortalUrl = `${userPortalBase}${redirectPath}`;
       window.open(userPortalUrl, '_blank');
     } catch (err: any) {
       alert(err.message);

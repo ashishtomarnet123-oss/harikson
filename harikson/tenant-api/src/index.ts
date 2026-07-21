@@ -4447,6 +4447,72 @@ app.post(['/api/auth/refresh', '/api/v1/auth/refresh'], async (req, res) => {
   }
 });
 
+// POST /api/auth/impersonate/confirm & POST /auth/impersonate/confirm - Confirm impersonation token and set HttpOnly cookie
+app.post(['/api/auth/impersonate/confirm', '/auth/impersonate/confirm'], async (req, res) => {
+  try {
+    const { token } = req.body;
+    if (!token) {
+      return res.status(400).json({ error: 'Missing impersonation token' });
+    }
+
+    // Look up token in Redis
+    const dataStr = await redis.get(`impersonate:${token}`);
+    if (!dataStr) {
+      return res.status(401).json({ error: 'Invalid or expired impersonation token' });
+    }
+
+    // Single-use: immediately delete from Redis
+    await redis.del(`impersonate:${token}`);
+
+    const data = JSON.parse(dataStr);
+
+    // Get user and tenant
+    const userRes = await pool.query(
+      'SELECT id, email, role, tenant_id FROM users WHERE id = $1 AND deleted_at IS NULL',
+      [data.userId]
+    );
+    const user = userRes.rows[0];
+    if (!user) {
+      return res.status(404).json({ error: 'Impersonated user not found' });
+    }
+
+    const tenantRes = await pool.query('SELECT slug FROM tenants WHERE id = $1', [user.tenant_id]);
+    const tenantSlug = tenantRes.rows[0]?.slug || data.tenantSlug || 'system';
+
+    // Issue short-lived impersonation JWT (5 min expiry)
+    const impersonationJwt = jwt.sign(
+      { userId: user.id, role: user.role, adminId: data.adminId, type: 'impersonation' },
+      jwtSecret,
+      { expiresIn: '5m' }
+    );
+
+    const host = req.headers.host || '';
+    const domainSuffix = host.includes('neuravolt.cloud')
+      ? '; Domain=.neuravolt.cloud'
+      : '';
+    const isHttps = req.headers['x-forwarded-proto'] === 'https' || (req.socket as any)?.encrypted;
+    const secureFlag = isHttps ? 'Secure;' : '';
+
+    res.setHeader('Set-Cookie', [
+      `hk_access_token=${impersonationJwt}; HttpOnly; ${secureFlag} SameSite=Strict; Path=/; Max-Age=${5 * 60}${domainSuffix}`,
+    ]);
+
+    res.status(200).json({
+      success: true,
+      user: {
+        id: user.id,
+        email: user.email,
+        role: user.role,
+        tenantSlug,
+      },
+      impersonatingAdminEmail: data.adminEmail,
+    });
+  } catch (err) {
+    logger.error('Confirm impersonation error:', err);
+    res.status(500).json({ error: 'Failed to confirm impersonation session' });
+  }
+});
+
 // 7. GET /api/auth/me
 app.get('/api/auth/me', authMiddleware, (req, res) => {
   res.json({
