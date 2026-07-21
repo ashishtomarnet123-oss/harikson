@@ -1894,11 +1894,11 @@ app.post('/admin/users/:userId/impersonate', adminAuth, async (req, res) => {
       return res.status(500).json({ error: 'Failed to initialize impersonation session' });
     }
 
-    // Log the impersonation event to activity_logs
+    // Log the impersonation start event to activity_logs
     const ua = req.headers['user-agent'] || 'Unknown Browser';
     await pool.query(
-      `INSERT INTO activity_logs (user_id, tenant_id, action, metadata, ip_address, user_agent)
-       VALUES ($1, $2, $3, $4, $5, $6)`,
+      `INSERT INTO activity_logs (user_id, tenant_id, action, metadata, ip_address, user_agent, impersonated_by, is_impersonation)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, true)`,
       [
         user.id,
         user.tenant_id,
@@ -1913,9 +1913,12 @@ app.post('/admin/users/:userId/impersonate', adminAuth, async (req, res) => {
           timestamp
         }),
         ip,
-        ua
+        ua,
+        req.admin.id
       ]
     );
+
+    logger.info(`🎭 [IMPERSONATION STARTED] Admin ${req.admin.email} (ID: ${req.admin.id}) started impersonating user ${user.email} (ID: ${user.id}) at ${timestamp}`);
 
     // Notify the target user via email with admin name, timestamp, and IP
     try {
@@ -2871,6 +2874,74 @@ app.get('/admin/audit-log', async (req, res) => {
   } catch (err) {
     logger.error('Failed to get audit log:', err);
     res.status(500).json({ error: 'Failed to retrieve audits' });
+  }
+});
+
+// GET /admin/impersonation/audit-logs - View impersonation audit logs with optional filter
+app.get('/admin/impersonation/audit-logs', adminAuth, async (req, res) => {
+  try {
+    const { impersonatedOnly, limit = 100 } = req.query;
+    const isImpersonatedFilter = impersonatedOnly === 'true';
+
+    const result = await pool.query(
+      `SELECT a.id, a.user_id, a.tenant_id, a.action, a.metadata, a.ip_address, a.user_agent, 
+              a.impersonated_by, a.is_impersonation, a.created_at,
+              u.email as user_email,
+              adm.email as impersonator_email
+       FROM activity_logs a
+       LEFT JOIN users u ON a.user_id = u.id
+       LEFT JOIN users adm ON a.impersonated_by = adm.id
+       WHERE ($1::boolean IS FALSE OR a.is_impersonation = true)
+       ORDER BY a.created_at DESC
+       LIMIT $2`,
+      [isImpersonatedFilter, parseInt(limit)]
+    );
+
+    res.status(200).json({
+      success: true,
+      logs: result.rows.map((row) => ({
+        id: row.id,
+        userId: row.user_id,
+        userEmail: row.user_email || 'Unknown User',
+        action: row.action,
+        metadata: row.metadata,
+        ipAddress: row.ip_address,
+        userAgent: row.user_agent,
+        impersonatedBy: row.impersonated_by,
+        impersonatorEmail: row.impersonator_email || 'Admin',
+        isImpersonation: Boolean(row.is_impersonation),
+        createdAt: row.created_at,
+      })),
+    });
+  } catch (err) {
+    logger.error('Failed to fetch impersonation audit logs:', err);
+    res.status(500).json({ error: 'Failed to retrieve impersonation audit logs' });
+  }
+});
+
+// GET /admin/impersonation/audit-logs/export - Export impersonation audit logs as CSV
+app.get('/admin/impersonation/audit-logs/export', adminAuth, async (req, res) => {
+  try {
+    const result = await pool.query(
+      `SELECT a.id, a.created_at, u.email as user_email, a.action, a.is_impersonation, adm.email as impersonator_email, a.ip_address
+       FROM activity_logs a
+       LEFT JOIN users u ON a.user_id = u.id
+       LEFT JOIN users adm ON a.impersonated_by = adm.id
+       ORDER BY a.created_at DESC
+       LIMIT 1000`
+    );
+
+    let csv = 'ID,Timestamp,User Email,Action,Is Impersonated,Impersonated By Admin,IP Address\n';
+    for (const row of result.rows) {
+      csv += `"${row.id}","${new Date(row.created_at).toISOString()}","${row.user_email || ''}","${(row.action || '').replace(/"/g, '""')}","${row.is_impersonation ? 'YES' : 'NO'}","${row.impersonator_email || ''}","${row.ip_address || ''}"\n`;
+    }
+
+    res.setHeader('Content-Type', 'text/csv');
+    res.setHeader('Content-Disposition', 'attachment; filename="impersonation_audit_logs.csv"');
+    res.status(200).send(csv);
+  } catch (err) {
+    logger.error('Failed to export CSV audit logs:', err);
+    res.status(500).json({ error: 'Failed to export audit logs CSV' });
   }
 });
 

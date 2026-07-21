@@ -25,6 +25,7 @@ import crypto from 'crypto';
 import { generateHashedBackupCodes, verifyBackupCode } from './services/twoFactorService.js';
 import { computeDeviceFingerprint } from './services/deviceService.js';
 import { requireScopes, VALID_SCOPES } from './middleware/scopeAuth.js';
+import { preventImpersonationActions } from './middleware/impersonationGuard.js';
 import * as cheerio from 'cheerio';
 import fs from 'fs';
 import path from 'path';
@@ -1874,7 +1875,15 @@ const authMiddleware = async (req, res, next) => {
         .json({ error: 'Access Denied: Invalid user session for this tenant' });
     }
 
-    req.user = user;
+    if (decoded && (decoded.type === 'impersonation' || decoded.adminId)) {
+      req.user = {
+        ...user,
+        isImpersonating: true,
+        impersonatedBy: decoded.adminId,
+      };
+    } else {
+      req.user = user;
+    }
     RequestContext.update({ userId: user.id });
     next();
   } catch (err) {
@@ -5988,7 +5997,7 @@ function decryptSecret(encryptedText) {
 }
 
 // 2FA Setup
-app.post('/api/user/2fa/setup', authMiddleware, async (req, res) => {
+app.post('/api/user/2fa/setup', authMiddleware, preventImpersonationActions('2fa'), async (req, res) => {
   try {
     const userResult = await pool.query('SELECT email FROM users WHERE id = $1', [req.user.id]);
     const user = userResult.rows[0];
@@ -6019,7 +6028,7 @@ app.post('/api/user/2fa/setup', authMiddleware, async (req, res) => {
 });
 
 // 2FA Verify (First time verification and enable)
-app.post('/api/user/2fa/verify', authMiddleware, async (req, res) => {
+app.post('/api/user/2fa/verify', authMiddleware, preventImpersonationActions('2fa'), async (req, res) => {
   const { code } = req.body;
   if (!code) {
     return res.status(400).json({ error: 'Verification code is required' });
@@ -6068,7 +6077,7 @@ app.post('/api/user/2fa/verify', authMiddleware, async (req, res) => {
 });
 
 // 2FA Disable
-app.post('/api/user/2fa/disable', authMiddleware, async (req, res) => {
+app.post('/api/user/2fa/disable', authMiddleware, preventImpersonationActions('2fa'), async (req, res) => {
   const { password } = req.body;
   if (!password) {
     return res.status(400).json({ error: 'Password confirmation is required' });
