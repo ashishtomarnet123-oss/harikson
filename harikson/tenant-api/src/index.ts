@@ -4063,18 +4063,32 @@ app.post(
           return res.status(409).json({ error: 'Duplicate request' });
         }
       }
-      // Rate limit: 3 requests per email per day
-      const rateLimitKey = `ratelimit:forgotpwd:${req.tenant.id}:${email.toLowerCase()}`;
-      const attempts = await redis.incr(rateLimitKey);
-      if (attempts === 1) {
-        await redis.expire(rateLimitKey, 86400); // 24 hours (1 day)
-      }
-      if (attempts > 3) {
+      const ip =
+        ((req.headers['x-forwarded-for'] as any) || req.socket.remoteAddress || '')
+          .split(',')[0]
+          .trim() || '127.0.0.1';
+      const userAgent = req.headers['user-agent'] || 'Unknown Device';
+      const timestamp = new Date().toISOString();
+
+      // 1. Dual Rate Limiting (Per Email: 3/hr, Per IP: 10/hr)
+      const emailLimitKey = `ratelimit:forgotpwd:email:${email.toLowerCase()}`;
+      const ipLimitKey = `ratelimit:forgotpwd:ip:${ip}`;
+
+      const emailAttempts = await redis.incr(emailLimitKey);
+      if (emailAttempts === 1) await redis.expire(emailLimitKey, 3600);
+
+      const ipAttempts = await redis.incr(ipLimitKey);
+      if (ipAttempts === 1) await redis.expire(ipLimitKey, 3600);
+
+      if (emailAttempts > 3 || ipAttempts > 10) {
         return res.status(429).json({
-          error:
-            'Too many password reset requests. Rate limit exceeded. Try again tomorrow.',
+          error: 'Too many password reset requests. Rate limit exceeded. Try again in an hour.',
         });
       }
+
+      const responsePayload = {
+        message: 'If an account exists for this email, you will receive a password reset link shortly.',
+      };
 
       // Check if user exists in this tenant (using executeTenantQuery to respect RLS)
       const user = await executeTenantQuery(req.tenant.id, async (client) => {
@@ -4086,14 +4100,9 @@ app.post(
       });
 
       if (!user) {
-        // Return 200/success anyway to prevent username enumeration, but log it
         logger.info(
           `[FORGOT PASSWORD] Requested email "${email}" does not exist in tenant "${req.tenant.slug}"`
         );
-        const responsePayload = {
-          message:
-            'If this email exists in our records, a reset link will be sent.',
-        };
         if (idempotencyKey && dedupKey) {
           await redis.set(`dedup:response:${idempotencyKey}`, JSON.stringify(responsePayload), 'EX', 300);
           await redis.del(dedupKey);
@@ -4101,77 +4110,49 @@ app.post(
         return res.status(200).json(responsePayload);
       }
 
-      const token = crypto.randomBytes(20).toString('hex');
+      const token = crypto.randomBytes(32).toString('hex');
       const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
-      const expiresAt = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
+      const expiresAt = new Date(Date.now() + 60 * 60 * 1000); // Strictly 1 hour
 
       await executeTenantQuery(req.tenant.id, async (client) => {
         await client.query(
           `INSERT INTO password_reset_tokens (tenant_id, user_id, token_hash, expires_at)
-         VALUES ($1, $2, $3, $4)`,
+           VALUES ($1, $2, $3, $4)`,
           [req.tenant.id, user.id, tokenHash, expiresAt]
         );
       });
 
       const resetLink = `http://${req.tenant.slug}.neuravolt.cloud/reset-password?token=${token}&email=${encodeURIComponent(email)}`;
 
-      // Simulate sending email
+      // Detailed security notification email
       const emailHtml = `
       <div style="font-family: sans-serif; padding: 20px; color: #1e293b; max-width: 600px; margin: 0 auto; border: 1px solid #e2e8f0; border-radius: 8px;">
-        <h2 style="color: #3b82f6; border-bottom: 2px solid #3b82f6; padding-bottom: 10px;">Password Reset Request</h2>
+        <h2 style="color: #3b82f6; border-bottom: 2px solid #3b82f6; padding-bottom: 10px;">Security Alert: Password Reset Requested</h2>
         <p>Hello ${user.name || 'User'},</p>
-        <p>We received a request to reset your password for your Harikson AI account under tenant **${req.tenant.name}**.</p>
-        <p>Please click the button below to reset your password (link is valid for 1 hour):</p>
-        <div style="text-align: center; margin: 30px 0;">
+        <p>A password reset link was requested for your account under tenant <strong>${req.tenant.name}</strong>.</p>
+        
+        <div style="background-color: #f8fafc; padding: 12px; border-radius: 6px; margin: 15px 0; font-size: 13px; color: #475569;">
+          <p style="margin: 3px 0;"><strong>Timestamp:</strong> ${timestamp}</p>
+          <p style="margin: 3px 0;"><strong>IP Address:</strong> ${ip}</p>
+          <p style="margin: 3px 0;"><strong>Device Info:</strong> ${userAgent}</p>
+        </div>
+
+        <p>Please click the button below to reset your password (valid for 1 hour):</p>
+        <div style="text-align: center; margin: 25px 0;">
           <a href="${resetLink}" style="display: inline-block; padding: 12px 24px; background-color: #3b82f6; color: white; text-decoration: none; border-radius: 6px; font-weight: bold;">Reset Password</a>
         </div>
-        <p style="font-size: 13px; color: #64748b;">If the button doesn't work, you can copy and paste this link into your browser:</p>
-        <p style="font-size: 13px; color: #3b82f6; word-break: break-all;">${resetLink}</p>
+        
         <hr style="border: 0; border-top: 1px solid #e2e8f0; margin: 20px 0;" />
-        <p style="font-size: 12px; color: #94a3b8;">If you did not request a password reset, you can safely ignore this email.</p>
+        <p style="font-size: 12px; color: #94a3b8;">If you did not request this password reset, please ignore this email or contact support immediately.</p>
       </div>
     `;
 
-      // Log the simulated email details to console
-      logger.info(`
-============================================================
-📧 SIMULATED RESET EMAIL SENT TO: ${email}
-============================================================
-${emailHtml}
-============================================================
-    `);
+      // Log simulated email
+      logger.info(`📧 [PASSWORD RESET EMAIL] Sent to: ${email} | IP: ${ip}`);
 
-      // Write to a local log file for proof/automated audit
-      try {
-        const emailLog = {
-          to: email,
-          sentAt: new Date().toISOString(),
-          tenantSlug: req.tenant.slug,
-          resetLink,
-          body: emailHtml,
-        };
-        // Append to local log file
-        const fs = await import('fs/promises');
-        await fs.appendFile(
-          '/Users/ashishpratapsinghtomar/Downloads/files/tenant-api/sent_emails.log',
-          JSON.stringify(emailLog) + '\n'
-        );
-      } catch (logErr) {
-        logger.warn(
-          '[EMAIL LOG] Failed to log email locally:',
-          logErr.message
-        );
-      }
-
-      // Send password reset email in background (non-blocking)
       sendPasswordReset(email, resetLink).catch((err) =>
         logger.error('[PASSWORD RESET EMAIL SEND ERROR]:', err.message)
       );
-
-      const responsePayload = {
-        message:
-          'If this email exists in our records, a reset link will be sent.',
-      };
 
       if (idempotencyKey && dedupKey) {
         await redis.set(`dedup:response:${idempotencyKey}`, JSON.stringify(responsePayload), 'EX', 300);

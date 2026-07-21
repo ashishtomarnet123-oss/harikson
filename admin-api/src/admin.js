@@ -1618,6 +1618,51 @@ app.post('/admin/users/:id/reset-2fa', adminAuth, async (req, res) => {
   }
 });
 
+// POST /admin/users/:id/force-password-reset - Force password reset for any user (Admin only, bypasses rate limit)
+app.post('/admin/users/:id/force-password-reset', adminAuth, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const userRes = await pool.query(
+      `SELECT u.id, u.email, u.name, t.slug as tenant_slug, t.name as tenant_name 
+       FROM users u
+       JOIN tenants t ON u.tenant_id = t.id
+       WHERE u.id = $1`,
+      [id]
+    );
+
+    if (userRes.rows.length === 0) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    const user = userRes.rows[0];
+    const rawToken = crypto.randomBytes(32).toString('hex');
+    const tokenHash = crypto.createHash('sha256').update(rawToken).digest('hex');
+    const expiresAt = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
+
+    // Store single-use hashed token
+    await pool.query(
+      `INSERT INTO password_reset_tokens (tenant_id, user_id, token_hash, expires_at)
+       VALUES ((SELECT tenant_id FROM users WHERE id = $1), $1, $2, $3)`,
+      [id, tokenHash, expiresAt]
+    );
+
+    const resetLink = `http://${user.tenant_slug}.neuravolt.cloud/reset-password?token=${rawToken}&email=${encodeURIComponent(user.email)}`;
+
+    logger.info(`🚨 [ADMIN FORCE RESET] Admin ${req.admin?.email} initiated password reset for user ${user.email}`);
+
+    res.status(200).json({
+      success: true,
+      message: 'Password reset link generated and dispatched successfully',
+      userId: id,
+      email: user.email,
+      resetLink,
+    });
+  } catch (err) {
+    logger.error('Force password reset error:', err);
+    res.status(500).json({ error: 'Failed to force password reset', message: err.message });
+  }
+});
+
 // ────────────────────────────────────────────────────────────
 // PROTECTED ROUTES (Admin Authorization required)
 // ────────────────────────────────────────────────────────────
