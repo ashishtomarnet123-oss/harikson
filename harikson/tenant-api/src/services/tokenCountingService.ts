@@ -1,3 +1,4 @@
+import { encoding_for_model, TiktokenModel } from '@dqbd/tiktoken';
 import { pool } from '../db/pool.js';
 import { Logger } from '../observability/logger.js';
 
@@ -22,11 +23,37 @@ const MODEL_BASE_SYSTEM_TOKENS: Record<string, number> = {
 };
 
 /**
- * Approximate token count for text strings (4 chars per token average).
+ * Exact token count for text strings using tiktoken tokenizer (gpt-4 / cl100k_base).
+ * Encodes input string and frees encoder memory allocation.
+ */
+export function countExactTokens(text: string, model: string = 'gpt-4'): number {
+  if (!text || text.trim().length === 0) return 0;
+
+  try {
+    const validModel = (model as TiktokenModel) || 'gpt-4';
+    const encoder = encoding_for_model(validModel);
+    const tokens = encoder.encode(text);
+    const count = tokens.length;
+    encoder.free();
+    return count;
+  } catch (err) {
+    try {
+      const fallbackEncoder = encoding_for_model('gpt-4');
+      const tokens = fallbackEncoder.encode(text);
+      const count = tokens.length;
+      fallbackEncoder.free();
+      return count;
+    } catch (fallbackErr) {
+      return Math.ceil(text.trim().length / 4);
+    }
+  }
+}
+
+/**
+ * Exact token count for text strings.
  */
 export function estimateTokens(text: string): number {
-  if (!text) return 0;
-  return Math.ceil(text.trim().length / 4);
+  return countExactTokens(text, 'gpt-4');
 }
 
 /**

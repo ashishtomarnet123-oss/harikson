@@ -59,13 +59,9 @@ export default function BillingProvidersPage() {
   };
 
   const fetchData = async () => {
-    const token =
-      getCookie('admin_token') ||
-      localStorage.getItem('admin_token') ||
-      'TEST_ADMIN_TOKEN';
     try {
       const res = await fetch(`${apiBase}/v1/admin/billing/providers`, {
-        headers: { Authorization: `Bearer ${token}` },
+        credentials: 'include',
       });
       if (res.ok) {
         const data = await res.json();
@@ -98,18 +94,14 @@ export default function BillingProvidersPage() {
   const handleSaveProvider = async (e: React.FormEvent) => {
     e.preventDefault();
     setSubmitting(true);
-    const token =
-      getCookie('admin_token') ||
-      localStorage.getItem('admin_token') ||
-      'TEST_ADMIN_TOKEN';
 
     try {
       const res = await fetch(`${apiBase}/v1/admin/billing/providers`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
         },
+        credentials: 'include',
         body: JSON.stringify({
           provider: providerType,
           name,
@@ -149,15 +141,11 @@ export default function BillingProvidersPage() {
       )
     )
       return;
-    const token =
-      getCookie('admin_token') ||
-      localStorage.getItem('admin_token') ||
-      'TEST_ADMIN_TOKEN';
 
     try {
       const res = await fetch(`${apiBase}/v1/admin/billing/providers/${id}`, {
         method: 'DELETE',
-        headers: { Authorization: `Bearer ${token}` },
+        credentials: 'include',
       });
       if (!res.ok) throw new Error('Deactivation request failed');
       fetchData();

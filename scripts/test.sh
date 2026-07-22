@@ -118,8 +118,11 @@ echo -e "\n${BLUE}📡 Category 4: Tenant API Endpoint Verification${NC}"
 run_test "Tenant API /health endpoint check" "curl -s -f -H 'x-tenant-slug: system' http://localhost:3008/health | grep -q 'healthy'"
 run_test "Tenant API /api/models catalog pull" "curl -s -f -H 'x-tenant-slug: system' http://localhost:3008/api/models | grep -q 'harikson-plus'"
 
+# Mint valid test JWT token for diagnostic checks
+TEST_JWT=$(node -e "try { const jwt = require('./harikson/tenant-api/node_modules/jsonwebtoken'); console.log(jwt.sign({ userId: '00000000-0000-0000-0000-000000000001', role: 'superadmin' }, process.env.JWT_SECRET || 'dev_secret', { expiresIn: '15m' })); } catch(e) { console.log(''); }" 2>/dev/null)
+
 chat_payload='{"message": "Provide code test", "model": "harikson-plus"}'
-run_test "Tenant API /api/chat generation & storage check" "curl -s -X POST -H 'Content-Type: application/json' -H 'Authorization: Bearer TEST_TOKEN' -H 'x-tenant-slug: system' -d '$chat_payload' http://localhost:3008/api/chat | grep -q '.'"
+run_test "Tenant API /api/chat generation & storage check" "curl -s -X POST -H 'Content-Type: application/json' -H \"Authorization: Bearer $TEST_JWT\" -H 'x-tenant-slug: system' -d '$chat_payload' http://localhost:3008/api/chat | grep -q '.'"
 
 
 # ==========================================
@@ -143,7 +146,7 @@ stress_test() {
   for i in {1..10}; do
     curl -s -o /dev/null -X POST \
       -H "Content-Type: application/json" \
-      -H "Authorization: Bearer TEST_TOKEN" \
+      -H "Authorization: Bearer $TEST_JWT" \
       -H "x-tenant-slug: system" \
       -d '{"message": "Perform code optimization test", "model": "harikson-plus"}' \
       http://localhost:3008/api/chat &

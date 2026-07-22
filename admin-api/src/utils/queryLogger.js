@@ -1,16 +1,16 @@
-const crypto = require('crypto');
+import crypto from 'crypto';
 
 /**
  * Generate a unique 8-character query ID.
  */
-function generateQueryId() {
+export function generateQueryId() {
   return crypto.randomBytes(4).toString('hex');
 }
 
 /**
  * Extract SQL operation type (SELECT, INSERT, UPDATE, DELETE, etc.).
  */
-function extractOperation(sql) {
+export function extractOperation(sql) {
   if (!sql) return 'UNKNOWN';
   const trimmed = String(sql).trim();
   const firstWord = trimmed.split(/\s+/)[0];
@@ -20,7 +20,7 @@ function extractOperation(sql) {
 /**
  * Extract target database table name from SQL statement.
  */
-function extractTableName(sql) {
+export function extractTableName(sql) {
   if (!sql) return 'unknown';
   const cleaned = String(sql)
     .replace(/--.*$/gm, '')
@@ -36,7 +36,7 @@ function extractTableName(sql) {
 /**
  * Redact sensitive PII patterns (emails, phone numbers, tokens, passwords).
  */
-function redactPII(text) {
+export function redactPII(text) {
   if (!text) return '';
   let result = String(text);
   // Redact emails
@@ -53,7 +53,7 @@ function redactPII(text) {
 /**
  * Safe query execution logger that prevents raw SQL parameter interpolation leakage.
  */
-function traceQuery(logger, poolName, text, originalQueryFn, contextThis, args) {
+export function traceQuery(logger, poolName, text, originalQueryFn, contextThis, args) {
   const qid = generateQueryId();
   const sqlTemplate = typeof text === 'string' ? text : text?.text || '';
   const operation = extractOperation(sqlTemplate);
@@ -61,16 +61,18 @@ function traceQuery(logger, poolName, text, originalQueryFn, contextThis, args) 
   const isDebug = process.env.LOG_LEVEL === 'debug';
 
   // 1. Log query start with QID
-  logger.info({
-    qid,
-    table,
-    operation,
-    poolName,
-    msg: `[QID:${qid}] Starting query on table:${table}, operation:${operation}`,
-  });
+  if (logger && typeof logger.info === 'function') {
+    logger.info({
+      qid,
+      table,
+      operation,
+      poolName,
+      msg: `[QID:${qid}] Starting query on table:${table}, operation:${operation}`,
+    });
+  }
 
   // 2. Debug level template logging with PII redaction
-  if (isDebug) {
+  if (isDebug && logger && typeof logger.debug === 'function') {
     const safeSql = redactPII(sqlTemplate);
     logger.debug({ qid, sql: safeSql, msg: `[QID:${qid}] Debug SQL Template: ${safeSql}` });
   }
@@ -81,24 +83,28 @@ function traceQuery(logger, poolName, text, originalQueryFn, contextThis, args) 
     const durationMs = Date.now() - startTime;
     if (err) {
       const safeErrMsg = redactPII(err.message || String(err));
-      logger.error({
-        qid,
-        table,
-        operation,
-        durationMs,
-        error: safeErrMsg,
-        msg: `[QID:${qid}] Query failed: ${safeErrMsg}`,
-      });
+      if (logger && typeof logger.error === 'function') {
+        logger.error({
+          qid,
+          table,
+          operation,
+          durationMs,
+          error: safeErrMsg,
+          msg: `[QID:${qid}] Query failed: ${safeErrMsg}`,
+        });
+      }
     } else {
       const rowCount = result?.rowCount ?? (Array.isArray(result?.rows) ? result.rows.length : 0);
-      logger.info({
-        qid,
-        table,
-        operation,
-        durationMs,
-        rows: rowCount,
-        msg: `[QID:${qid}] Query completed in ${durationMs}ms, rows:${rowCount}`,
-      });
+      if (logger && typeof logger.info === 'function') {
+        logger.info({
+          qid,
+          table,
+          operation,
+          durationMs,
+          rows: rowCount,
+          msg: `[QID:${qid}] Query completed in ${durationMs}ms, rows:${rowCount}`,
+        });
+      }
     }
   };
 
@@ -132,11 +138,3 @@ function traceQuery(logger, poolName, text, originalQueryFn, contextThis, args) 
     throw err;
   }
 }
-
-module.exports = {
-  generateQueryId,
-  extractOperation,
-  extractTableName,
-  redactPII,
-  traceQuery,
-};

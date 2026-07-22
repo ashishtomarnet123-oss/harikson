@@ -42,57 +42,80 @@ export const AdminAuthProvider = ({ children }: { children: React.ReactNode }) =
 
   const checkAuth = async () => {
     try {
-      const token =
-        getCookie('admin_token') ||
-        (typeof window !== 'undefined' ? localStorage.getItem('admin_token') : null);
-
-      if (!token) {
-        setUser(null);
-        setLoading(false);
-        return;
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('admin_token');
+        localStorage.removeItem('admin_user');
       }
 
-      const res = await fetch(`${apiBase}/v1/admin/auth/me`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      let res = await fetch(`${apiBase}/v1/admin/auth/me`, {
+        credentials: 'include',
+      }).catch(() => null);
 
-      if (res.ok) {
-        const data = await res.json();
-        const u = data.user;
-        const isAdmin =
-          u.role === 'admin' ||
-          u.role === 'superadmin' ||
-          u.role === 'founder' ||
-          u.isAdmin === true;
-        const isFounder =
-          u.role === 'founder' ||
-          u.role === 'superadmin' ||
-          u.email === 'founder@neuravolt.cloud' ||
-          u.isFounder === true;
-
-        const adminUserData: AdminUser = {
-          id: u.id,
-          email: u.email,
-          role: u.role,
-          name: u.email ? u.email.split('@')[0] : 'Administrator',
-          isAdmin,
-          isFounder,
-        };
-
-        setUser(adminUserData);
-        if (typeof window !== 'undefined') {
-          localStorage.setItem('admin_user', JSON.stringify(adminUserData));
-        }
-      } else {
-        deleteCookie('admin_token');
-        if (typeof window !== 'undefined') {
-          localStorage.removeItem('admin_token');
-          localStorage.removeItem('admin_user');
-        }
-        setUser(null);
+      if (!res || !res.ok) {
+        // Fallback to internal Next.js auth endpoint if proxy fails
+        res = await fetch(`/api/auth/me`, {
+          credentials: 'include',
+        }).catch(() => null);
       }
+
+      if (res && res.status === 401) {
+        const refreshRes = await fetch(`${apiBase}/v1/admin/auth/refresh`, {
+          method: 'POST',
+          credentials: 'include',
+        }).catch(() => null);
+
+        if (refreshRes && refreshRes.ok) {
+          res = await fetch(`${apiBase}/v1/admin/auth/me`, {
+            credentials: 'include',
+          }).catch(() => null);
+        }
+      }
+
+      if (res && res.ok) {
+        const text = await res.text();
+        let data: any = {};
+        try {
+          data = text ? JSON.parse(text) : {};
+        } catch {
+          data = {};
+        }
+
+        if (data.user) {
+          const u = data.user;
+          const isAdmin =
+            u.role === 'admin' ||
+            u.role === 'superadmin' ||
+            u.role === 'founder' ||
+            u.isAdmin === true;
+          const isFounder =
+            u.role === 'founder' ||
+            u.role === 'superadmin' ||
+            u.email === 'founder@neuravolt.cloud' ||
+            u.isFounder === true;
+
+          const adminUserData: AdminUser = {
+            id: u.id,
+            email: u.email,
+            role: u.role,
+            name: u.email ? u.email.split('@')[0] : 'Administrator',
+            isAdmin,
+            isFounder,
+          };
+
+          setUser(adminUserData);
+          return;
+        }
+      }
+
+      deleteCookie('admin_token');
+      deleteCookie('admin_access_token');
+      deleteCookie('admin_refresh_token');
+      setUser(null);
     } catch (err) {
       console.warn('Error checking admin auth session:', err);
+      deleteCookie('admin_token');
+      deleteCookie('admin_access_token');
+      deleteCookie('admin_refresh_token');
       setUser(null);
     } finally {
       setLoading(false);
@@ -106,20 +129,50 @@ export const AdminAuthProvider = ({ children }: { children: React.ReactNode }) =
   const login = async (email: string, password: string) => {
     setLoading(true);
     try {
-      const res = await fetch(`${apiBase}/v1/admin/login`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password }),
-      });
+      let res: Response | null = null;
+      let isProxyError = false;
 
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data.error || 'Authentication failed');
+      try {
+        res = await fetch(`${apiBase}/v1/admin/login`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, password }),
+          credentials: 'include',
+        });
+      } catch (e) {
+        isProxyError = true;
       }
 
-      setCookie('admin_token', data.token, { maxAge: 24 * 60 * 60 });
-      if (typeof window !== 'undefined') {
-        localStorage.setItem('admin_token', data.token);
+      // If gateway returns 500/502/503/504 or network error, fallback to native route
+      if (isProxyError || !res || (res.status >= 500 && res.status <= 504)) {
+        res = await fetch('/api/auth/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, password }),
+          credentials: 'include',
+        }).catch(() => null);
+      }
+
+      if (!res) {
+        throw new Error('Unable to reach authentication service. Please check network connection.');
+      }
+
+      const text = await res.text();
+      let data: any = {};
+      try {
+        data = text ? JSON.parse(text) : {};
+      } catch (jsonErr) {
+        if (!res.ok) {
+          throw new Error('Authentication gateway error (500). Please try again in a few moments.');
+        }
+        data = {};
+      }
+
+      if (!res.ok) {
+        if (data.requirePasswordChange) {
+          throw new Error('First login password change required. Please use the reset link or first-login page.');
+        }
+        throw new Error(data.error || data.message || `Authentication failed (${res.status})`);
       }
 
       await checkAuth();
@@ -132,19 +185,14 @@ export const AdminAuthProvider = ({ children }: { children: React.ReactNode }) =
 
   const logout = async () => {
     try {
-      const token =
-        getCookie('admin_token') ||
-        (typeof window !== 'undefined' ? localStorage.getItem('admin_token') : null);
       await fetch(`${apiBase}/v1/admin/logout`, {
         method: 'POST',
-        headers: { Authorization: `Bearer ${token}` },
+        credentials: 'include',
       }).catch(() => {});
     } finally {
       deleteCookie('admin_token');
-      if (typeof window !== 'undefined') {
-        localStorage.removeItem('admin_token');
-        localStorage.removeItem('admin_user');
-      }
+      deleteCookie('admin_access_token');
+      deleteCookie('admin_refresh_token');
       setUser(null);
       router.replace('/admin/login');
     }

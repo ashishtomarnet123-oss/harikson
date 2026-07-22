@@ -1929,6 +1929,7 @@ If any check fails, revise the relevant section before output.`;
                   <button
                     className="conv-action-btn"
                     title="Rename"
+                    aria-label="Rename conversation"
                     onClick={(e) => startRename(conv, e)}
                   >
                     <Edit3 size={14} />
@@ -1936,6 +1937,7 @@ If any check fails, revise the relevant section before output.`;
                   <button
                     className="conv-action-btn danger"
                     title="Delete"
+                    aria-label="Delete conversation"
                     onClick={(e) => deleteConversation(conv.id, e)}
                   >
                     <X size={14} />
@@ -2452,6 +2454,7 @@ If any check fails, revise the relevant section before output.`;
                           className="send-btn stop-btn"
                           onClick={stopGeneration}
                           title="Stop generation"
+                          aria-label="Stop generation"
                         >
                           <Square fill="currentColor" size={14} />
                         </button>
@@ -2464,6 +2467,7 @@ If any check fails, revise the relevant section before output.`;
                             hasProcessingFiles
                           }
                           title="Send (Enter)"
+                          aria-label="Send message"
                         >
                           <ArrowUp size={18} />
                         </button>

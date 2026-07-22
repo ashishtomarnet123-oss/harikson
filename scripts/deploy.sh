@@ -241,22 +241,39 @@ until [ "$(docker inspect --format='{{.State.Health.Status}}' harikson-postgres 
     sleep 2
 done
 
-# Provision default superadmin account
-# Email: admin@harikson.ai, Password: 12345678
+# Run centralized database migrations
+echo "🗃️ Running database migrations (npm run migrate)..."
+npm run migrate
+
+# Provision default superadmin account securely
 echo "👤 Creating default system tenant and superadmin user..."
-docker exec -i harikson-postgres psql -U neuravolt -d neuravolt <<'EOF'
+ADMIN_PASSWORD=$(openssl rand -base64 32)
+ADMIN_PASSWORD_HASH=$(node -e "try { const bcrypt = require('bcrypt'); console.log(bcrypt.hashSync(process.argv[1], 10)); } catch(e) { const crypto = require('crypto'); console.log(crypto.createHash('sha256').update(process.argv[1]).digest('hex')); }" "$ADMIN_PASSWORD" 2>/dev/null)
+
+PAYMENT_ENCRYPTION_KEY=$(openssl rand -base64 32)
+export PAYMENT_ENCRYPTION_KEY
+
+SETUP_TOKEN=$(openssl rand -hex 32)
+SETUP_TOKEN_HASH=$(node -e "const crypto = require('crypto'); console.log(crypto.createHash('sha256').update(process.argv[1]).digest('hex'));" "$SETUP_TOKEN")
+SETUP_EXPIRES=$(node -e "console.log(new Date(Date.now() + 3600000).toISOString());")
+
+docker exec -i harikson-postgres psql -U neuravolt -d neuravolt <<EOF
 -- Create default system tenant
 INSERT INTO tenants (id, name, slug, plan, status)
 VALUES ('00000000-0000-0000-0000-000000000000', 'System Admin Services', 'system', 'ENTERPRISE', 'active')
 ON CONFLICT (slug) DO NOTHING;
 
 -- Create default superadmin account
-INSERT INTO users (id, tenant_id, email, password_hash, role)
-VALUES ('00000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-000000000000', 'admin@harikson.ai', '$2b$10$AcOM2sIZpvpH7EcKCc4yie36q5WI0HCEX.C3/yVtBV2GZyA.8CMpu', 'superadmin')
-ON CONFLICT (tenant_id, email) DO UPDATE SET password_hash = '$2b$10$AcOM2sIZpvpH7EcKCc4yie36q5WI0HCEX.C3/yVtBV2GZyA.8CMpu';
+INSERT INTO users (id, tenant_id, email, password_hash, role, force_password_change)
+VALUES ('00000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-000000000000', 'admin@harikson.ai', '$ADMIN_PASSWORD_HASH', 'superadmin', true)
+ON CONFLICT (tenant_id, email) DO UPDATE SET password_hash = '$ADMIN_PASSWORD_HASH', force_password_change = true;
+
+-- Insert 1-hour one-time setup token
+INSERT INTO password_reset_tokens (tenant_id, user_id, token_hash, expires_at)
+VALUES ('00000000-0000-0000-0000-000000000000', '00000000-0000-0000-0000-000000000001', '$SETUP_TOKEN_HASH', '$SETUP_EXPIRES');
 EOF
 
-echo -e "${GREEN}✅ Database tables and defaults generated.${NC}"
+echo -e "${GREEN}✅ Database tables and secure admin defaults generated.${NC}"
 
 
 # ==========================================
@@ -304,5 +321,6 @@ echo -e "  - Tenant API: http://localhost:3008/health"
 echo -e "  - Admin Panel: http://localhost:3018"
 echo -e "  - User Portal: http://localhost:3028"
 echo -e "  - Default Admin Username: admin@harikson.ai"
-echo -e "  - Default Admin Password: 12345678"
+echo -e "  - One-Time Setup URL (Expires in 1 hour):"
+echo -e "    https://admin.neuravolt.cloud/first-login?token=$SETUP_TOKEN"
 echo -e "${BLUE}======================================================================${NC}"

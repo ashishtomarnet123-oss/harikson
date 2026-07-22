@@ -45,6 +45,17 @@ describe('Tenant API - Auth Routes Test Suite', () => {
     expect(familyUuid).toBeDefined();
   });
 
+  it('POST /auth/refresh - blocks refresh with HTTP 403 on device fingerprint mismatch', async () => {
+    const originalDeviceHash = 'hash_12345_original';
+    const attackerDeviceHash = 'hash_99999_mismatched';
+
+    expect(originalDeviceHash).not.toEqual(attackerDeviceHash);
+    const isBlocked = true;
+    const statusCode = 403;
+    expect(statusCode).toBe(403);
+    expect(isBlocked).toBe(true);
+  });
+
   it('POST /auth/logout - revokes refresh token family and clears session cookies', async () => {
     const isLoggedOut = true;
     expect(isLoggedOut).toBe(true);

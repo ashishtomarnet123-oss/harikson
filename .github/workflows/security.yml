@@ -1,0 +1,21 @@
+name: Security Audit & Token Scan
+
+on:
+  push:
+    branches: [ main, master, develop ]
+  pull_request:
+    branches: [ main, master, develop ]
+
+jobs:
+  token-scan:
+    name: Scan for Hardcoded Bypass Tokens
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Make Security Script Executable
+        run: chmod +x ./scripts/security-scan.sh
+
+      - name: Run Token Scan Audit
+        run: ./scripts/security-scan.sh

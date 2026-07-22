@@ -1,3 +1,5 @@
+import { countExactTokens } from '../tokenCountingService.js';
+
 export interface BudgetAllocation {
   systemPrompt: number; // 4k (fixed)
   developerPromptRules: number; // 4k (fixed)
@@ -13,8 +15,7 @@ export class TokenBudgetManager {
 
   static estimateTokens(text: string): number {
     if (!text) return 0;
-    // Conservative character-based estimator: 1 token ≈ 4 characters
-    return Math.ceil(text.length / 4);
+    return countExactTokens(text);
   }
 
   static getBudgets(

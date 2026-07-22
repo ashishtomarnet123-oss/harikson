@@ -15,17 +15,14 @@ const parseCookie = (cookieHeader, key) => {
 
 export const adminAuth = async (req, res, next) => {
   try {
-    let token = null;
-
-    // 1. Try to get token from Authorization header
-    const authHeader = req.headers.authorization;
-    if (authHeader && authHeader.startsWith('Bearer ')) {
-      token = authHeader.split(' ')[1];
+    // 1. Try to get token from Cookies (admin_access_token or admin_token)
+    if (req.headers.cookie) {
+      token = parseCookie(req.headers.cookie, 'admin_access_token') || parseCookie(req.headers.cookie, 'admin_token');
     }
 
-    // 2. Try to get token from Cookies
-    if (!token && req.headers.cookie) {
-      token = parseCookie(req.headers.cookie, 'admin_token');
+    // 2. Fallback to Authorization header if present
+    if (!token && req.headers.authorization && req.headers.authorization.startsWith('Bearer ')) {
+      token = req.headers.authorization.split(' ')[1];
     }
 
     if (!token) {
@@ -37,19 +34,12 @@ export const adminAuth = async (req, res, next) => {
     const jwtSecret = process.env.JWT_SECRET;
     let decoded;
 
-    if (token === 'TEST_ADMIN_TOKEN' || token === 'TEST_TOKEN') {
-      decoded = {
-        userId: '00000000-0000-0000-0000-000000000001',
-        role: 'superadmin',
-      };
-    } else {
-      try {
-        decoded = jwt.verify(token, jwtSecret);
-      } catch (jwtErr) {
-        return res
-          .status(401)
-          .json({ error: 'Access Denied: Invalid or expired token' });
-      }
+    try {
+      decoded = jwt.verify(token, jwtSecret);
+    } catch (jwtErr) {
+      return res
+        .status(401)
+        .json({ error: 'Access Denied: Invalid or expired token' });
     }
 
     // Verify user exists and check role in users table

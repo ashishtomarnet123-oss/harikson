@@ -10,11 +10,13 @@ const __dirname = path.dirname(__filename);
 export async function runMigrations(pool: pg.Pool) {
   logger.info('⚙️ Running database migrations...');
   try {
-    // 1. Ensure schema_migrations exists
+    // 1. Ensure migrations_meta exists
     await pool.query(`
-      CREATE TABLE IF NOT EXISTS schema_migrations (
-        version TEXT PRIMARY KEY,
-        applied_at TIMESTAMPTZ DEFAULT NOW()
+      CREATE TABLE IF NOT EXISTS migrations_meta (
+        id SERIAL PRIMARY KEY,
+        filename VARCHAR(255) UNIQUE NOT NULL,
+        checksum VARCHAR(64) NOT NULL,
+        executed_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
       )
     `);
 
@@ -30,8 +32,8 @@ export async function runMigrations(pool: pg.Pool) {
       .sort(); // Sort sequentially (e.g. 001, 002, 003)
 
     // 3. Query already applied migrations
-    const { rows } = await pool.query('SELECT version FROM schema_migrations');
-    const applied = new Set(rows.map(r => r.version));
+    const { rows } = await pool.query('SELECT filename FROM migrations_meta');
+    const applied = new Set(rows.map(r => r.filename));
 
     // 4. Apply new migrations in order
     for (const file of files) {
@@ -48,7 +50,7 @@ export async function runMigrations(pool: pg.Pool) {
       try {
         await client.query('BEGIN');
         await client.query(sql);
-        await client.query('INSERT INTO schema_migrations (version) VALUES ($1)', [file]);
+        await client.query('INSERT INTO migrations_meta (filename, checksum) VALUES ($1, $2)', [file, 'hash']);
         await client.query('COMMIT');
         logger.info(`   ✓ Migration applied successfully: ${file}`);
       } catch (err: any) {

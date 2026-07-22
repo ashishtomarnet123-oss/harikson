@@ -84,18 +84,8 @@ export default function SignupPage() {
         throw new Error(data.error || 'Registration failed');
       }
 
-      // Auto-login after successful registration
-      if (data.refreshToken) {
-        localStorage.setItem('hk_refresh_token', data.refreshToken);
-      }
-      if (data.accessToken) {
-        localStorage.setItem('hk_access_token', data.accessToken);
-      }
-      localStorage.setItem('hk_user', JSON.stringify(data.user));
-      localStorage.setItem('hk_tenant', tenantSlug);
-      localStorage.setItem('hk_api_base', apiBase);
-      setSuccess('Account created! Redirecting…');
-      setTimeout(() => router.replace('/chat'), 1000);
+      setSuccess(data.message || 'Registration successful! Please check your email to verify your account.');
+      setLoading(false);
     } catch (err) {
       setError(err.message);
     } finally {

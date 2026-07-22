@@ -191,11 +191,16 @@ services:
       - '4008:4000'
     environment:
       - DATABASE_URL=postgresql://neuravolt:neuravolt_dev_pwd@postgres:5432/neuravolt
+      - REDIS_URL=redis://redis:6379
       - JWT_SECRET
       - PORT=4000
+      - NODE_ENV=production
+      - PAYMENT_ENCRYPTION_KEY=neuravolt_payment_encryption_key_production_secure_32chars!
       - ALLOWED_ORIGINS=https://app.neuravolt.cloud,https://admin.neuravolt.cloud,https://neuravolt.cloud,http://localhost:3002,http://localhost:3018,http://localhost:3028,http://154.201.127.68:3018,http://154.201.127.68:3028
     depends_on:
       postgres:
+        condition: service_healthy
+      redis:
         condition: service_healthy
     networks:
       - harikson-network
@@ -232,6 +237,8 @@ services:
     environment:
       - PORT=3001
       - NEXT_PUBLIC_API_URL=https://api.neuravolt.cloud
+      - ADMIN_API_URL=http://admin-api:4000
+      - NEXTAUTH_SECRET
     networks:
       - harikson-network
     labels:
@@ -241,6 +248,7 @@ services:
       - 'traefik.http.routers.admin-panel.tls.certresolver=letsencrypt'
       - 'traefik.http.services.admin-panel.loadbalancer.server.port=3001'
     depends_on:
+      - admin-api
       - tenant-api
 
   # 7. User Portal (Next.js App)

@@ -38,12 +38,12 @@ router.post('/', async (req: Request, res: Response) => {
     }
 
     const { message, useRag } = check.data;
-    const tenantId =
-      (req.headers['x-tenant-id'] as string) ||
-      '00000000-0000-0000-0000-000000000000';
-    const userId =
-      (req.headers['x-user-id'] as string) ||
-      '00000000-0000-0000-0000-000000000001';
+    const tenantId = (req as any).tenantId || (req as any).tenant?.id || (req.headers['x-tenant-id'] as string);
+    const userId = (req as any).userId || (req.headers['x-user-id'] as string);
+
+    if (!tenantId || !userId) {
+      return res.status(401).json({ error: 'Unauthorized: Missing tenant or user context' });
+    }
 
     let context = '';
 

@@ -47,7 +47,7 @@ export default function SecurityPolicyPage() {
     { num: 3, cat: 'intro', title: 'Governance', content: 'Our security operations are led by our CISO, who coordinates threat assessments. DevSecOps handles pipeline safety and container updates, while Risk Management conducts quarterly audits.' },
     { num: 4, cat: 'intro', title: 'Compliance', content: 'We comply with India\'s DPDP Act 2023, IT Act 2000, CERT-In Directions (incident notification reporting within 6 hours), ISO/IEC 27001 standard practices, and SOC 2 Type II controls.' },
     
-    { num: 5, cat: 'iam', title: 'Identity & Access Management (IAM)', content: 'We enforce identity controls including mandatory Multi-Factor Authentication (MFA), SAML SSO integrations, Role-Based Access Control (RBAC), and immediate token revocation upon user offboarding.' },
+    { num: 5, cat: 'iam', title: 'Identity & Access Management (IAM) & WebAuthn Passkeys', content: 'We enforce identity controls including mandatory Multi-Factor Authentication (MFA), WebAuthn Passkey authentication, SAML/OAuth SSO integrations, Role-Based Access Control (RBAC), and immediate token revocation upon user offboarding.' },
     { num: 6, cat: 'iam', title: 'Data Classification', content: 'We classify data into: Tier 1 (Public specs), Tier 2 (Internal telemetry), Tier 3 (Confidential customer profiles), and Tier 4 (Restricted vector contexts, hashed passwords, API keys).' },
     { num: 7, cat: 'iam', title: 'Data Protection', content: 'We enforce TLS 1.3 encryption in transit and AES-256 encryption at rest. Decryption keys are rotated annually via cloud KMS. Hashing is used for credentials.' },
     

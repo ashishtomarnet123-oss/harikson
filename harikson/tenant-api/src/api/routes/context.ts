@@ -29,12 +29,12 @@ router.post('/build', async (req: Request, res: Response) => {
       currentFile,
       cursorPosition,
     } = check.data;
-    const tenantId =
-      (req.headers['x-tenant-id'] as string) ||
-      '00000000-0000-0000-0000-000000000000';
-    const userId =
-      (req.headers['x-user-id'] as string) ||
-      '00000000-0000-0000-0000-000000000001';
+    const tenantId = (req as any).tenantId || (req as any).tenant?.id || (req.headers['x-tenant-id'] as string);
+    const userId = (req as any).userId || (req.headers['x-user-id'] as string);
+
+    if (!tenantId || !userId) {
+      return res.status(401).json({ hariksonError: 'Unauthorized: Missing tenant or user context' });
+    }
 
     const result = await ContextBuilder.build(
       tenantId,

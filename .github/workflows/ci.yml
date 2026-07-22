@@ -1,73 +1,29 @@
-name: CI Test Suite & Code Coverage Audit
+name: CI
 
-on:
-  push:
-    branches: [ main ]
-  pull_request:
-    branches: [ main ]
+on: [pull_request, push]
 
 jobs:
-  test:
-    name: Run Unit, Integration & E2E Tests
+  lint-typecheck-test-build:
     runs-on: ubuntu-latest
-
-    services:
-      postgres:
-        image: postgres:15-alpine
-        env:
-          POSTGRES_DB: harikson_test
-          POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: postgrespassword
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-
-      redis:
-        image: redis:7-alpine
-        ports:
-          - 6379:6379
-        options: >-
-          --health-cmd "redis-cli ping"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-
     steps:
-      - name: Checkout Code Repository
-        uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
-      - name: Setup Node.js Environment
-        uses: actions/setup-node@v3
+      - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 18
           cache: 'npm'
 
-      - name: Install Workspace Dependencies
-        run: |
-          cd harikson/tenant-api && npm ci
-          cd ../../admin-api && npm ci
-          cd ../user-portal && npm ci
+      - run: npm ci
 
-      - name: Build TypeScript Services
-        run: |
-          cd harikson/tenant-api && npm run build
+      - run: npm run lint
 
-      - name: Run Tenant API Test Suite with Coverage
-        env:
-          DATABASE_URL: postgres://postgres:postgrespassword@localhost:5432/harikson_test
-          REDIS_URL: redis://localhost:6379
-          JWT_SECRET: super-secret-jwt-key-minimum-32-characters-long
-        run: |
-          cd harikson/tenant-api && npm test -- --coverage
+      - run: npm run typecheck
 
-      - name: Upload Code Coverage to Codecov
-        uses: codecov/codecov-action@v3
+      - run: npm run test:coverage
+
+      - run: npm run build
+
+      - uses: actions/upload-artifact@v4
         with:
-          token: ${{ secrets.CODECOV_TOKEN }}
-          files: ./harikson/tenant-api/coverage/coverage-final.json
-          fail_ci_if_error: true
-          threshold: 60%
+          name: coverage
+          path: coverage/

@@ -27,7 +27,7 @@ graph TD
 
 The codebase is organized into modular services:
 
-- **`init.sql`**: Bootstraps the PostgreSQL database. Enables `uuid-ossp`, RLS policies, auto-updating triggers, and session helper functions.
+- **`harikson/tenant-api/src/migrations/`**: Centralized SQL schema migrations (001 to 023+). Enables `uuid-ossp`, RLS policies, indexes, multi-tenancy, and automated checksum tracking.
 - **`tenant-api/`**: The backend service handling chat generation, model catalogs, and auth scoped dynamically by tenant subdomain.
 - **`admin-api/`**: Separate admin service handling tenant creation (with database provisioning transactions), usage analytics, and VM capacity tracking.
 - **`user-portal/`**: Next.js user-facing web app. Includes the sandbox chat page (`user-portal/pages/chat.js`).
@@ -235,16 +235,27 @@ Deploys local code changes directly to your remote VM:
 ./scripts/deploy-to-vm.sh
 ```
 
-- Stages and commits local code edits.
-- Pushes code updates to your GitHub repository.
 - Establishes an SSH connection to the Ace Cloud VM (`154.201.127.68`), pulls the fresh code, generates random environment secrets, runs migrations, triggers model downloads, and restarts containers.
+
+---
+
+## 🔒 Security & Encryption Configuration
+
+> [!CAUTION]
+> **MANDATORY ENVIRONMENT VARIABLE REQUIREMENT**
+> The Harikson API service will **FAIL TO START** if `TENANT_MASTER_KEY` is unconfigured or fewer than 32 characters. There are NO hardcoded fallback encryption keys.
+> 
+> Generate a 256-bit secure key using OpenSSL before booting:
+> ```bash
+> export TENANT_MASTER_KEY=$(openssl rand -base64 32)
+> ```
 
 ---
 
 ## 🗃️ Database Schema & Migration Guide
 
 > [!IMPORTANT]
-> The **Prisma schema** ([schema.prisma](file:///Users/ashishpratapsinghtomar/Downloads/files/backend/prisma/schema.prisma)) is the **single source of truth** for the database schema. Raw SQL migrations (`init.sql` / `migration.sql`) are deprecated for manual table creation, but remain supported for PostgreSQL-specific setups (extensions, functions, triggers, and Row-Level Security policies).
+> Centralized SQL migrations ([harikson/tenant-api/src/migrations/](file:///Users/ashishpratapsinghtomar/Downloads/files/harikson/tenant-api/src/migrations)) are the **single source of truth** for the database schema. Migrations are tracked with SHA-256 checksums in `migrations_meta` and executed automatically via `npm run migrate`.
 
 ### Generating SQL Migrations
 

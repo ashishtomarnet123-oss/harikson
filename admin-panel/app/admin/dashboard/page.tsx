@@ -80,13 +80,9 @@ export default function SystemMonitor() {
 
   // KPI polling
   const fetchKpis = async () => {
-    const token =
-      getCookie('admin_token') ||
-      localStorage.getItem('admin_token') ||
-      'TEST_ADMIN_TOKEN';
     try {
       const res = await fetch(`${apiBase}/v1/admin/kpis`, {
-        headers: { Authorization: `Bearer ${token}` },
+        credentials: 'include',
       });
       if (res.ok) {
         const data = await res.json();
@@ -100,13 +96,9 @@ export default function SystemMonitor() {
   // System status polling (5 seconds interval)
   const fetchStatus = async (showLoad = false) => {
     if (showLoad) setLoading(true);
-    const token =
-      getCookie('admin_token') ||
-      localStorage.getItem('admin_token') ||
-      'TEST_ADMIN_TOKEN';
     try {
       const res = await fetch(`${apiBase}/v1/admin/system-status`, {
-        headers: { Authorization: `Bearer ${token}` },
+        credentials: 'include',
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
@@ -145,23 +137,19 @@ export default function SystemMonitor() {
     if (confirmMsg && !window.confirm(confirmMsg)) return;
 
     setActionLoading(actionName);
-    const token =
-      getCookie('admin_token') ||
-      localStorage.getItem('admin_token') ||
-      'TEST_ADMIN_TOKEN';
     try {
       const res = await fetch(`${apiBase}/v1/admin/models/${endpoint}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
         },
+        credentials: 'include',
       });
       if (!res.ok) throw new Error('Action failed');
-      await new Promise((resolve) => setTimeout(resolve, 1500));
+      await new Promise((resolve) => setTimeout(resolve, 2000));
       fetchStatus(false);
     } catch (err: any) {
-      alert(err.message || 'Failed to execute model control instruction.');
+      alert(`Model action failed: ${err.message}`);
     } finally {
       setActionLoading(null);
     }
@@ -186,7 +174,8 @@ export default function SystemMonitor() {
     }, 1000);
   };
 
-  const cancelRestart = () => {
+  // Cancel scheduled unload
+  const cancelScheduledUnload = () => {
     if (countdownTimer.current) {
       clearInterval(countdownTimer.current);
       setCountdown(null);
@@ -200,21 +189,17 @@ export default function SystemMonitor() {
     )
       return;
     setActionLoading('switch-8b');
-    const token =
-      getCookie('admin_token') ||
-      localStorage.getItem('admin_token') ||
-      'TEST_ADMIN_TOKEN';
     try {
       // 1. Unload all
       await fetch(`${apiBase}/v1/admin/models/unload-all`, {
         method: 'POST',
-        headers: { Authorization: `Bearer ${token}` },
+        credentials: 'include',
       });
       await new Promise((resolve) => setTimeout(resolve, 2000));
       // 2. Load 8B
       await fetch(`${apiBase}/v1/admin/models/8b/load`, {
         method: 'POST',
-        headers: { Authorization: `Bearer ${token}` },
+        credentials: 'include',
       });
       await new Promise((resolve) => setTimeout(resolve, 2000));
       fetchStatus(false);

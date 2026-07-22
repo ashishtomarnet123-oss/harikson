@@ -754,10 +754,6 @@ export default function TenantPlanManager() {
 
   // ── Data fetching (single fetch for all state) ──
   const fetchData = async () => {
-    const token =
-      getCookie('admin_token') ||
-      localStorage.getItem('admin_token') ||
-      'TEST_ADMIN_TOKEN';
     try {
       const [
         resPlans,
@@ -767,24 +763,12 @@ export default function TenantPlanManager() {
         resKeys,
         resWebhooks,
       ] = await Promise.allSettled([
-        fetch(`${apiBase}/v1/admin/plans`, {
-          headers: { Authorization: `Bearer ${token}` },
-        }),
-        fetch(`${apiBase}/v1/admin/tenants?page=1&limit=50`, {
-          headers: { Authorization: `Bearer ${token}` },
-        }),
-        fetch(`${apiBase}/v1/admin/rate-limit-violations`, {
-          headers: { Authorization: `Bearer ${token}` },
-        }),
-        fetch(`${apiBase}/v1/admin/billing/reconciliation`, {
-          headers: { Authorization: `Bearer ${token}` },
-        }),
-        fetch(`${apiBase}/v1/admin/api-keys`, {
-          headers: { Authorization: `Bearer ${token}` },
-        }),
-        fetch(`${apiBase}/v1/admin/billing/webhooks`, {
-          headers: { Authorization: `Bearer ${token}` },
-        }),
+        fetch(`${apiBase}/v1/admin/plans`, { credentials: 'include' }),
+        fetch(`${apiBase}/v1/admin/tenants?page=1&limit=50`, { credentials: 'include' }),
+        fetch(`${apiBase}/v1/admin/rate-limit-violations`, { credentials: 'include' }),
+        fetch(`${apiBase}/v1/admin/billing/reconciliation`, { credentials: 'include' }),
+        fetch(`${apiBase}/v1/admin/api-keys`, { credentials: 'include' }),
+        fetch(`${apiBase}/v1/admin/billing/webhooks`, { credentials: 'include' }),
       ]);
 
       if (resPlans.status === 'fulfilled' && resPlans.value.ok) {
@@ -1037,8 +1021,7 @@ export default function TenantPlanManager() {
   const handleUpdatePlan = async (id: string, plan: string) => {
     const token =
       getCookie('admin_token') ||
-      localStorage.getItem('admin_token') ||
-      'TEST_ADMIN_TOKEN';
+      '';
     try {
       const idempotencyKey = `plan:tenant:${id}:${plan}:${Date.now()}:${Math.random()}`;
       const res = await fetch(`${apiBase}/v1/admin/tenants/${id}/plan`, {
@@ -1069,8 +1052,7 @@ export default function TenantPlanManager() {
     if (!window.confirm(`Change status to ${targetStatus}?`)) return;
     const token =
       getCookie('admin_token') ||
-      localStorage.getItem('admin_token') ||
-      'TEST_ADMIN_TOKEN';
+      '';
     try {
       const res = await fetch(`${apiBase}/v1/admin/tenants/${id}/suspend`, {
         method: 'POST',
@@ -1102,8 +1084,7 @@ export default function TenantPlanManager() {
     }
     const token =
       getCookie('admin_token') ||
-      localStorage.getItem('admin_token') ||
-      'TEST_ADMIN_TOKEN';
+      '';
     try {
       const res = await fetch(`${apiBase}/v1/admin/tenants`, {
         method: 'POST',
@@ -1148,8 +1129,7 @@ export default function TenantPlanManager() {
     }
     const token =
       getCookie('admin_token') ||
-      localStorage.getItem('admin_token') ||
-      'TEST_ADMIN_TOKEN';
+      '';
     try {
       const res = await fetch(
         `${apiBase}/v1/admin/tenants/${editingTenantDetails.id}`,
@@ -1191,8 +1171,7 @@ export default function TenantPlanManager() {
     if (!plan) return;
     const token =
       getCookie('admin_token') ||
-      localStorage.getItem('admin_token') ||
-      'TEST_ADMIN_TOKEN';
+      '';
     try {
       const res = await fetch(`${apiBase}/v1/admin/plans/${id}`, {
         method: 'PUT',
@@ -1222,8 +1201,7 @@ export default function TenantPlanManager() {
     if (!plan) return;
     const token =
       getCookie('admin_token') ||
-      localStorage.getItem('admin_token') ||
-      'TEST_ADMIN_TOKEN';
+      '';
     try {
       const res = await fetch(`${apiBase}/v1/admin/plans/${id}`, {
         method: 'DELETE',
@@ -1244,8 +1222,7 @@ export default function TenantPlanManager() {
   const setRecommended = async (id: string) => {
     const token =
       getCookie('admin_token') ||
-      localStorage.getItem('admin_token') ||
-      'TEST_ADMIN_TOKEN';
+      '';
     try {
       await Promise.all(
         plans.map((p) => {
@@ -1274,8 +1251,7 @@ export default function TenantPlanManager() {
   const savePlan = async (updated: Plan) => {
     const token =
       getCookie('admin_token') ||
-      localStorage.getItem('admin_token') ||
-      'TEST_ADMIN_TOKEN';
+      '';
     const featuresObj = updated.features.reduce((acc: any, f) => {
       acc[f.key] = f.value;
       return acc;
@@ -1320,8 +1296,7 @@ export default function TenantPlanManager() {
   const createPlan = async (newPlan: Plan) => {
     const token =
       getCookie('admin_token') ||
-      localStorage.getItem('admin_token') ||
-      'TEST_ADMIN_TOKEN';
+      '';
     const featuresObj = newPlan.features.reduce((acc: any, f) => {
       acc[f.key] = f.value;
       return acc;
@@ -1371,8 +1346,7 @@ export default function TenantPlanManager() {
     }
     const token =
       getCookie('admin_token') ||
-      localStorage.getItem('admin_token') ||
-      'TEST_ADMIN_TOKEN';
+      '';
     try {
       const res = await fetch(`${apiBase}/v1/admin/api-keys`, {
         method: 'POST',
@@ -1408,8 +1382,7 @@ export default function TenantPlanManager() {
       return;
     const token =
       getCookie('admin_token') ||
-      localStorage.getItem('admin_token') ||
-      'TEST_ADMIN_TOKEN';
+      '';
     try {
       const res = await fetch(`${apiBase}/v1/admin/api-keys/${id}`, {
         method: 'DELETE',

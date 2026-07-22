@@ -1,11 +1,40 @@
 import bcrypt from 'bcrypt';
 import crypto from 'crypto';
+import { authenticator } from 'otplib';
 import { pool } from '../db/pool.js';
 import { Logger } from '../observability/logger.js';
+
+// Configure otplib authenticator options (window of ±1 step = 30 seconds drift tolerance)
+authenticator.options = { window: 1 };
 
 export interface BackupCodeRecord {
   hash: string;
   used_at: string | null;
+}
+
+/**
+ * Generate base32 secret for TOTP using otplib.
+ */
+export function generateTotpSecret(): string {
+  return authenticator.generateSecret();
+}
+
+/**
+ * Generate OTPAuth URI string for QR code generation using otplib.
+ */
+export function generateOtpauthUrl(email: string, secret: string, serviceName: string = 'Neuravolt'): string {
+  return authenticator.keyuri(email, serviceName, secret);
+}
+
+/**
+ * Verify input TOTP code against base32 secret using otplib.
+ */
+export function verifyTotpToken(code: string, secret: string): boolean {
+  try {
+    return authenticator.verify({ token: code, secret });
+  } catch (err) {
+    return false;
+  }
 }
 
 /**

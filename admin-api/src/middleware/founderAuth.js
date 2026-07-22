@@ -15,15 +15,14 @@ const parseCookie = (cookieHeader, key) => {
 
 export const founderAuth = async (req, res, next) => {
   try {
-    let token = null;
-
-    const authHeader = req.headers.authorization;
-    if (authHeader && authHeader.startsWith('Bearer ')) {
-      token = authHeader.split(' ')[1];
+    // 1. Try to get token from Cookies (admin_access_token or admin_token)
+    if (req.headers.cookie) {
+      token = parseCookie(req.headers.cookie, 'admin_access_token') || parseCookie(req.headers.cookie, 'admin_token');
     }
 
-    if (!token && req.headers.cookie) {
-      token = parseCookie(req.headers.cookie, 'admin_token');
+    // 2. Fallback to Authorization header if present
+    if (!token && req.headers.authorization && req.headers.authorization.startsWith('Bearer ')) {
+      token = req.headers.authorization.split(' ')[1];
     }
 
     if (!token) {
@@ -33,17 +32,10 @@ export const founderAuth = async (req, res, next) => {
     const jwtSecret = process.env.JWT_SECRET;
     let decoded;
 
-    if (token === 'TEST_ADMIN_TOKEN' || token === 'TEST_TOKEN') {
-      decoded = {
-        userId: '00000000-0000-0000-0000-000000000001',
-        role: 'founder',
-      };
-    } else {
-      try {
-        decoded = jwt.verify(token, jwtSecret);
-      } catch (jwtErr) {
-        return res.status(404).json({ error: 'Not Found' });
-      }
+    try {
+      decoded = jwt.verify(token, jwtSecret);
+    } catch (jwtErr) {
+      return res.status(404).json({ error: 'Not Found' });
     }
 
     const result = await pool.query(

@@ -6,7 +6,7 @@ module.exports = {
     es2022: true
   },
   parser: '@typescript-eslint/parser',
-  plugins: ['@typescript-eslint', 'security', 'react', 'react-hooks'],
+  plugins: ['@typescript-eslint', 'security', 'react', 'react-hooks', 'jsx-a11y'],
   extends: [
     'eslint:recommended',
     'plugin:@typescript-eslint/recommended',
@@ -37,7 +37,8 @@ module.exports = {
     'no-useless-catch': 'off',
     'prefer-const': 'off',
     'react-hooks/rules-of-hooks': 'error',
-    'react-hooks/exhaustive-deps': 'off'
+    'react-hooks/exhaustive-deps': 'off',
+    'jsx-a11y/control-has-associated-label': 'error'
   },
   overrides: [
     {

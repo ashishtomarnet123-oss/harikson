@@ -1,4 +1,5 @@
 import { getApiBaseUrl, getTenantSlug } from '../../lib/api-config';
+import { handleDeviceMismatch, clearAuthState } from '../../lib/security';
 
 /**
  * Shared API helper for all settings components.
@@ -40,10 +41,14 @@ export async function refreshAuthToken() {
     });
 
     if (!res.ok) {
-      if (typeof window !== 'undefined') {
-        localStorage.removeItem('hk_user');
-        localStorage.removeItem('hk_refresh_token');
-        localStorage.removeItem('hk_access_token');
+      if (res.status === 403) {
+        let errorData = null;
+        try {
+          errorData = await res.json();
+        } catch (e) {}
+        handleDeviceMismatch(errorData?.error || 'For your security, please log in again on this device.');
+      } else {
+        clearAuthState();
       }
       return null;
     }

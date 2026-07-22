@@ -1,0 +1,2 @@
+# Mark generated or refactored core files for clean diffs
+harikson/tenant-api/src/index.ts linguist-generated=true

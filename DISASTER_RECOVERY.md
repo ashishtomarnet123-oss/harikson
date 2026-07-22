@@ -60,7 +60,7 @@ Every backup automatically triggers the integrity test script (`harikson/scripts
      docker exec -i harikson-postgres psql -U neuravolt -d neuravolt < /mnt/docker-data/backups/harikson_db_latest.sql
      ```
 
-4. **Deploy Application Stack**:
+4. **Deploy Application Stack & Initial Superadmin Password Setup**:
    - Build and launch all API & portal services:
      ```bash
      docker compose build
@@ -70,6 +70,13 @@ Every backup automatically triggers the integrity test script (`harikson/scripts
      ```bash
      curl -si http://localhost:3008/health
      ```
+   - **Initial Admin Authentication Setup**:
+     Deploy script `scripts/deploy.sh` automatically generates a crypto-random bcrypt-hashed admin password and outputs a single-use setup URL valid for 1 hour:
+     ```text
+     https://admin.neuravolt.cloud/first-login?token=<SETUP_TOKEN>
+     ```
+     Open the setup URL immediately to establish a new admin password before control plane access is granted. Plaintext passwords are never logged or stored.
+     All administrative users restored or provisioned have `force_password_change = true` enabled by default until completing the first-login setup flow.
 
 ---
 

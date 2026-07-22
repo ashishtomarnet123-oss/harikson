@@ -11,12 +11,16 @@ const jwtSecret = process.env.JWT_SECRET || 'fallback_secret_must_be_at_least_32
 async function runImpersonationTest() {
   console.log('\n🚀 Starting Admin Impersonation Security Verification...');
 
-  // 1. Authenticate as a superadmin (using the test token fallback)
-  console.log('1. Simulating admin login (using fallback token)...');
+  // 1. Authenticate as a superadmin (using signed JWT)
+  console.log('1. Signing valid admin test JWT...');
+  const testAdminToken = jwt.sign(
+    { userId: '00000000-0000-0000-0000-000000000001', role: 'superadmin' },
+    jwtSecret
+  );
   const superadminClient = axios.create({
     baseURL: apiBase,
     headers: {
-      Authorization: 'Bearer TEST_ADMIN_TOKEN',
+      Authorization: `Bearer ${testAdminToken}`,
       'Content-Type': 'application/json'
     }
   });

@@ -8,6 +8,8 @@
       name="description"
       content="Host isolated, secure managed n8n workflow containers and deploy branded Harikson AI Agents with vector storage and adapter training capabilities."
     />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link rel="stylesheet" href="style.css" />
     <link
       href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Outfit:wght@500;600;700;800&display=swap"
@@ -922,6 +924,120 @@
       </div>
     </section>
 
+    <!-- FAQ Accordion Section -->
+    <section id="faq" class="faq-section" style="padding: 60px 0; background: rgba(15, 23, 42, 0.6);">
+      <div class="container" style="max-width: 800px; margin: 0 auto; padding: 0 20px;">
+        <div class="section-header" style="text-align: center; margin-bottom: 40px;">
+          <h2 style="font-size: 2rem; color: #f8fafc; font-weight: 800;">Frequently Asked Questions</h2>
+          <p style="color: var(--text-muted, #94a3b8); margin-top: 8px;">
+            Find quick answers to common questions about deployment, billing, and AI agent integration.
+          </p>
+        </div>
+
+        <div class="faq-accordion" role="region" aria-label="Frequently Asked Questions Accordion">
+          <div class="faq-item" style="margin-bottom: 16px; border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; background: rgba(30, 41, 59, 0.5); overflow: hidden;">
+            <button
+              id="faq-header-1"
+              class="faq-trigger"
+              role="button"
+              aria-expanded="false"
+              aria-controls="faq-content-1"
+              tabindex="0"
+              style="width: 100%; display: flex; justify-content: space-between; align-items: center; padding: 20px 24px; background: transparent; border: none; color: #f8fafc; font-size: 1.1rem; font-weight: 600; text-align: left; cursor: pointer;"
+            >
+              <span>What is the difference between n8n Automation and Harikson AI Agents?</span>
+              <span class="faq-icon" style="transition: transform 0.3s ease; font-size: 1.2rem;">+</span>
+            </button>
+            <div
+              id="faq-content-1"
+              class="faq-content"
+              role="region"
+              aria-labelledby="faq-header-1"
+              hidden
+              style="padding: 0 24px 20px; color: #94a3b8; font-size: 0.95rem; line-height: 1.6;"
+            >
+              n8n Automation Engine provides dedicated, isolated n8n container instances for workflow automation, API integration, and scheduled data processing. Harikson AI Agents Core provides LLM chat agents, RAG vector document search, and white-label chat widgets.
+            </div>
+          </div>
+
+          <div class="faq-item" style="margin-bottom: 16px; border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; background: rgba(30, 41, 59, 0.5); overflow: hidden;">
+            <button
+              id="faq-header-2"
+              class="faq-trigger"
+              role="button"
+              aria-expanded="false"
+              aria-controls="faq-content-2"
+              tabindex="0"
+              style="width: 100%; display: flex; justify-content: space-between; align-items: center; padding: 20px 24px; background: transparent; border: none; color: #f8fafc; font-size: 1.1rem; font-weight: 600; text-align: left; cursor: pointer;"
+            >
+              <span>Can I upgrade or downgrade my plan mid-cycle?</span>
+              <span class="faq-icon" style="transition: transform 0.3s ease; font-size: 1.2rem;">+</span>
+            </button>
+            <div
+              id="faq-content-2"
+              class="faq-content"
+              role="region"
+              aria-labelledby="faq-header-2"
+              hidden
+              style="padding: 0 24px 20px; color: #94a3b8; font-size: 0.95rem; line-height: 1.6;"
+            >
+              Yes! We offer automated prorated billing. When upgrading or downgrading mid-cycle, unused days on your previous plan are credited and applied automatically to your new plan charge.
+            </div>
+          </div>
+
+          <div class="faq-item" style="margin-bottom: 16px; border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; background: rgba(30, 41, 59, 0.5); overflow: hidden;">
+            <button
+              id="faq-header-3"
+              class="faq-trigger"
+              role="button"
+              aria-expanded="false"
+              aria-controls="faq-content-3"
+              tabindex="0"
+              style="width: 100%; display: flex; justify-content: space-between; align-items: center; padding: 20px 24px; background: transparent; border: none; color: #f8fafc; font-size: 1.1rem; font-weight: 600; text-align: left; cursor: pointer;"
+            >
+              <span>How does payment failure and dunning retry work?</span>
+              <span class="faq-icon" style="transition: transform 0.3s ease; font-size: 1.2rem;">+</span>
+            </button>
+            <div
+              id="faq-content-3"
+              class="faq-content"
+              role="region"
+              aria-labelledby="faq-header-3"
+              hidden
+              style="padding: 0 24px 20px; color: #94a3b8; font-size: 0.95rem; line-height: 1.6;"
+            >
+              If a payment fails, your workspace enters a 30-day grace period with retries on Days 0, 3, 7, 14, and 30. Chat access is temporarily paused on Day 14, and account details can be updated at any time to reactivate service instantly.
+            </div>
+          </div>
+
+          <div class="faq-item" style="margin-bottom: 16px; border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; background: rgba(30, 41, 59, 0.5); overflow: hidden;">
+            <button
+              id="faq-header-4"
+              class="faq-trigger"
+              role="button"
+              aria-expanded="false"
+              aria-controls="faq-content-4"
+              tabindex="0"
+              style="width: 100%; display: flex; justify-content: space-between; align-items: center; padding: 20px 24px; background: transparent; border: none; color: #f8fafc; font-size: 1.1rem; font-weight: 600; text-align: left; cursor: pointer;"
+            >
+              <span>Is my data isolated and secure?</span>
+              <span class="faq-icon" style="transition: transform 0.3s ease; font-size: 1.2rem;">+</span>
+            </button>
+            <div
+              id="faq-content-4"
+              class="faq-content"
+              role="region"
+              aria-labelledby="faq-header-4"
+              hidden
+              style="padding: 0 24px 20px; color: #94a3b8; font-size: 0.95rem; line-height: 1.6;"
+            >
+              All customer workloads run in isolated containers with tenant-level database row security, SSL/TLS encryption, and multi-tenant key isolation.
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
     <!-- Footer -->
     <footer>
       <div class="container">
@@ -948,6 +1064,57 @@
           gridN8n.style.display = 'none';
         }
       }
+
+      // FAQ Accordion Keyboard Navigation & Toggle Handling
+      document.addEventListener('DOMContentLoaded', () => {
+        const triggers = Array.from(document.querySelectorAll('.faq-trigger'));
+
+        triggers.forEach((trigger, index) => {
+          function toggleItem() {
+            const isExpanded = trigger.getAttribute('aria-expanded') === 'true';
+            const contentId = trigger.getAttribute('aria-controls');
+            const contentEl = document.getElementById(contentId);
+            const iconEl = trigger.querySelector('.faq-icon');
+
+            trigger.setAttribute('aria-expanded', !isExpanded);
+            if (contentEl) {
+              if (isExpanded) {
+                contentEl.setAttribute('hidden', '');
+              } else {
+                contentEl.removeAttribute('hidden');
+              }
+            }
+            if (iconEl) {
+              iconEl.textContent = isExpanded ? '+' : '−';
+            }
+          }
+
+          trigger.addEventListener('click', toggleItem);
+
+          trigger.addEventListener('keydown', (e) => {
+            const { key } = e;
+
+            if (key === 'Enter' || key === ' ') {
+              e.preventDefault();
+              toggleItem();
+            } else if (key === 'ArrowDown') {
+              e.preventDefault();
+              const nextIndex = (index + 1) % triggers.length;
+              triggers[nextIndex].focus();
+            } else if (key === 'ArrowUp') {
+              e.preventDefault();
+              const prevIndex = (index - 1 + triggers.length) % triggers.length;
+              triggers[prevIndex].focus();
+            } else if (key === 'Home') {
+              e.preventDefault();
+              triggers[0].focus();
+            } else if (key === 'End') {
+              e.preventDefault();
+              triggers[triggers.length - 1].focus();
+            }
+          });
+        });
+      });
     </script>
   </body>
 </html>

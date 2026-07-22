@@ -1,0 +1,137 @@
+name: CD Production
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+    inputs:
+      release_version:
+        description: 'Semantic Version Tag (e.g. v1.2.0)'
+        required: false
+        default: 'latest'
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_PREFIX: ${{ github.repository_owner }}/harikson
+
+jobs:
+  build-and-push-prod:
+    name: Build & Push Production Docker Images
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build & Push Tenant API (Production)
+        uses: docker/build-push-action@v5
+        with:
+          context: ./harikson/tenant-api
+          file: ./harikson/tenant-api/Dockerfile
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}-tenant-api:latest
+            ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}-tenant-api:${{ github.sha }}
+
+      - name: Build & Push Admin API (Production)
+        uses: docker/build-push-action@v5
+        with:
+          context: ./admin-api
+          file: ./admin-api/Dockerfile
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}-admin-api:latest
+            ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}-admin-api:${{ github.sha }}
+
+      - name: Build & Push User Portal (Production)
+        uses: docker/build-push-action@v5
+        with:
+          context: ./user-portal
+          file: ./user-portal/Dockerfile
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}-user-portal:latest
+            ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}-user-portal:${{ github.sha }}
+
+      - name: Build & Push Admin Panel (Production)
+        uses: docker/build-push-action@v5
+        with:
+          context: ./admin-panel
+          file: ./admin-panel/Dockerfile
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}-admin-panel:latest
+            ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}-admin-panel:${{ github.sha }}
+
+  blue-green-deploy-prod:
+    name: Blue-Green Deploy to Production
+    needs: build-and-push-prod
+    environment: production
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Execute Production Blue-Green Switch
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.PROD_HOST }}
+          username: ${{ secrets.PROD_USER || 'ubuntu' }}
+          key: ${{ secrets.PROD_SSH_KEY }}
+          script: |
+            set -e
+            cd /mnt/docker-data/harikson || exit 1
+            echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+
+            echo "🚀 Initializing Production Blue-Green Deployment..."
+            
+            # Step 1: Pull fresh images
+            docker compose pull
+
+            # Step 2: Spin up green container set
+            echo "1. Launching Green environment containers..."
+            docker compose up -d --no-deps --scale tenant-api=2 --scale admin-api=2
+
+            # Step 3: Perform Health Checks against new instances
+            echo "2. Running health probes against new instances..."
+            HEALTH_PASS=0
+            for i in {1..12}; do
+              if curl -s -f http://localhost:3008/health | grep -q "healthy"; then
+                HEALTH_PASS=1
+                break
+              fi
+              echo "   Waiting for green instance health check... ($i/12)"
+              sleep 5
+            done
+
+            if [ $HEALTH_PASS -eq 1 ]; then
+              echo "✅ Green health checks PASSED. Switching Traefik traffic and draining old instances..."
+              docker compose up -d --remove-orphans
+              echo "🎉 Production Blue-Green deployment complete."
+            else
+              echo "❌ Green health check FAILED! Triggering automatic rollback..."
+              docker compose up -d --scale tenant-api=1 --scale admin-api=1
+              echo "🚨 Rollback completed. Active production traffic restored to previous stable build."
+              exit 1
+            fi
+
+      - name: Notify Slack on Failure
+        if: failure()
+        uses: slackapi/slack-github-action@v1.26.0
+        with:
+          payload: |
+            {
+              "text": "🚨 PRODUCTION DEPLOYMENT FAILED & ROLLED BACK: Harikson Platform deployment failed on commit ${{ github.sha }}. Automatic rollback executed successfully."
+            }
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}

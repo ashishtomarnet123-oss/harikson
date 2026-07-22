@@ -1,0 +1,110 @@
+name: CD Staging
+
+on:
+  push:
+    branches:
+      - develop
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_PREFIX: ${{ github.repository_owner }}/harikson
+
+jobs:
+  build-and-push-staging:
+    name: Build & Push Docker Images (Staging)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract Metadata & Tags
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}
+
+      - name: Build & Push Tenant API
+        uses: docker/build-push-action@v5
+        with:
+          context: ./harikson/tenant-api
+          file: ./harikson/tenant-api/Dockerfile
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}-tenant-api:staging
+            ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}-tenant-api:${{ github.sha }}
+
+      - name: Build & Push Admin API
+        uses: docker/build-push-action@v5
+        with:
+          context: ./admin-api
+          file: ./admin-api/Dockerfile
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}-admin-api:staging
+            ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}-admin-api:${{ github.sha }}
+
+      - name: Build & Push User Portal
+        uses: docker/build-push-action@v5
+        with:
+          context: ./user-portal
+          file: ./user-portal/Dockerfile
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}-user-portal:staging
+            ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}-user-portal:${{ github.sha }}
+
+      - name: Build & Push Admin Panel
+        uses: docker/build-push-action@v5
+        with:
+          context: ./admin-panel
+          file: ./admin-panel/Dockerfile
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}-admin-panel:staging
+            ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}-admin-panel:${{ github.sha }}
+
+  deploy-staging:
+    name: Deploy to Staging VM
+    needs: build-and-push-staging
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: SSH & Deploy to Staging Environment
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.STAGING_HOST }}
+          username: ${{ secrets.STAGING_USER || 'ubuntu' }}
+          key: ${{ secrets.STAGING_SSH_KEY }}
+          script: |
+            cd /mnt/docker-data/harikson || mkdir -p /mnt/docker-data/harikson && cd /mnt/docker-data/harikson
+            echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+            docker compose pull
+            docker compose up -d --remove-orphans
+
+      - name: Run Staging Smoke Tests
+        run: |
+          echo "Executing staging endpoint smoke tests..."
+          curl -s -f -m 10 "http://${{ secrets.STAGING_HOST }}:3008/health" || echo "Staging API health probe failed"
+
+      - name: Notify Slack on Failure
+        if: failure()
+        uses: slackapi/slack-github-action@v1.26.0
+        with:
+          payload: |
+            {
+              "text": "🚨 STAGING DEPLOYMENT FAILED: Harikson Platform deployment to staging failed on commit ${{ github.sha }}."
+            }
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}

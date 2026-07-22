@@ -57,14 +57,10 @@ export default function LogsDiagnostics() {
 
   const fetchLogs = async (showLoad = false) => {
     if (showLoad) setLoading(true);
-    const token =
-      getCookie('admin_token') ||
-      localStorage.getItem('admin_token') ||
-      'TEST_ADMIN_TOKEN';
     try {
       // 1. Fetch requests
       const res1 = await fetch(`${apiBase}/v1/admin/logs/requests`, {
-        headers: { Authorization: `Bearer ${token}` },
+        credentials: 'include',
       });
       if (res1.ok) {
         const data = await res1.json();
@@ -73,7 +69,7 @@ export default function LogsDiagnostics() {
 
       // 2. Fetch error analysis
       const res2 = await fetch(`${apiBase}/v1/admin/logs/errors`, {
-        headers: { Authorization: `Bearer ${token}` },
+        credentials: 'include',
       });
       if (res2.ok) {
         const data = await res2.json();
@@ -82,7 +78,7 @@ export default function LogsDiagnostics() {
 
       // 3. Fetch performance compare
       const res3 = await fetch(`${apiBase}/v1/admin/models/performance`, {
-        headers: { Authorization: `Bearer ${token}` },
+        credentials: 'include',
       });
       if (res3.ok) {
         const data = await res3.json();
@@ -143,13 +139,9 @@ export default function LogsDiagnostics() {
 
   // Export CSV Handler
   const handleExportCSV = async () => {
-    const token =
-      getCookie('admin_token') ||
-      localStorage.getItem('admin_token') ||
-      'TEST_ADMIN_TOKEN';
     try {
       const res = await fetch(`${apiBase}/v1/admin/logs/export`, {
-        headers: { Authorization: `Bearer ${token}` },
+        credentials: 'include',
       });
       if (!res.ok) throw new Error('Export failed');
       const blob = await res.blob();

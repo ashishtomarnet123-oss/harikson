@@ -24,6 +24,7 @@ import {
   MonitorSpeaker,
   Bell,
   Search,
+  Scale,
 } from 'lucide-react';
 import { useAdminAuth } from '../../context/AdminAuthContext';
 import { getCookie, deleteCookie } from 'cookies-next';
@@ -43,6 +44,7 @@ const menuSections = [
     label: 'Operations',
     items: [
       { name: 'Tenants & Plans', path: '/admin/tenants', icon: Users },
+      { name: 'Legal Holds', path: '/admin/tenants/legal-holds', icon: Scale },
       { name: 'Users', path: '/admin/users', icon: Users },
       { name: 'Workflows', path: '/admin/workflows', icon: GitBranch },
       { name: 'Billing', path: '/admin/billing/providers', icon: CreditCard },
@@ -253,12 +255,14 @@ export default function AdminLayout({
           <button
             onClick={() => setShowSearch(true)}
             className="p-1.5 hover:bg-gray-800 rounded-lg"
+            aria-label="Search workspace"
           >
             <Search className="w-5 h-5 text-gray-400" />
           </button>
           <button
             onClick={() => setShowNotifs(!showNotifs)}
             className="p-1.5 hover:bg-gray-800 rounded-lg relative"
+            aria-label="Notifications"
           >
             <Bell className="w-5 h-5 text-gray-400" />
             {unreadCount > 0 && (
@@ -270,6 +274,7 @@ export default function AdminLayout({
           <button
             onClick={() => setSidebarOpen(!sidebarOpen)}
             className="p-1 hover:bg-gray-800 rounded"
+            aria-label="Toggle navigation menu"
           >
             {sidebarOpen ? (
               <X className="w-6 h-6" />
@@ -298,6 +303,7 @@ export default function AdminLayout({
                 onClick={() => setShowSearch(true)}
                 className="p-1.5 hover:bg-gray-800 rounded-lg"
                 title="Search (⌘K)"
+                aria-label="Search workspace"
               >
                 <Search className="w-4 h-4 text-gray-500" />
               </button>
@@ -305,6 +311,7 @@ export default function AdminLayout({
                 onClick={() => setShowNotifs(!showNotifs)}
                 className="p-1.5 hover:bg-gray-800 rounded-lg relative"
                 title="Notifications"
+                aria-label="Notifications"
               >
                 <Bell className="w-4 h-4 text-gray-500" />
                 {unreadCount > 0 && (

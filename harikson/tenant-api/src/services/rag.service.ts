@@ -3,6 +3,7 @@ import { pool } from '../db/pool.js';
 import { OllamaClient } from '../llm/ollama.js';
 import pdf from 'pdf-parse';
 import crypto from 'crypto';
+import pLimit from 'p-limit';
 import { encryptDocumentContent } from './documentEncryptionService.js';
 
 export class RagService {
@@ -29,6 +30,72 @@ export class RagService {
     } finally {
       client.release();
     }
+  }
+
+  /**
+   * Parallelized batch embedding generation with p-limit concurrency (max 5),
+   * 30-second chunk timeout, single retry after 2s, chunk skipping on failure, and progress tracking.
+   */
+  private static async generateBatchEmbeddings(
+    chunks: string[],
+    concurrency = 5
+  ): Promise<Array<{ chunk: string; embedding: number[] }>> {
+    const validChunks = chunks.filter((c) => c && c.trim().length > 0);
+    const total = validChunks.length;
+    if (total === 0) return [];
+
+    const limit = pLimit(concurrency);
+    let completedCount = 0;
+
+    const tasks = validChunks.map((chunk, index) =>
+      limit(async () => {
+        const timeoutMs = 30000;
+
+        const embedSingleChunk = async (): Promise<number[]> => {
+          let timer: NodeJS.Timeout | null = null;
+          const timeoutPromise = new Promise<number[]>((_, reject) => {
+            timer = setTimeout(() => reject(new Error(`Embedding timed out after 30s`)), timeoutMs);
+          });
+
+          try {
+            const res = await Promise.race([OllamaClient.embed(chunk), timeoutPromise]);
+            if (timer) clearTimeout(timer);
+            return res;
+          } catch (err) {
+            if (timer) clearTimeout(timer);
+            throw err;
+          }
+        };
+
+        let embedding: number[] | null = null;
+        try {
+          embedding = await embedSingleChunk();
+        } catch (firstErr: any) {
+          console.warn(
+            `⚠️ [Harikson RAG] Embed attempt 1 failed for chunk ${index + 1}/${total}: ${firstErr.message}. Retrying in 2s...`
+          );
+          await new Promise((res) => setTimeout(res, 2000));
+          try {
+            embedding = await embedSingleChunk();
+          } catch (retryErr: any) {
+            console.error(
+              `❌ [Harikson RAG] Skipping chunk ${index + 1}/${total} after retry failure:`,
+              retryErr.message
+            );
+            return null;
+          }
+        }
+
+        completedCount++;
+        const percent = Math.round((completedCount / total) * 100);
+        console.log(`⏳ [Harikson RAG] Embedding chunk ${completedCount}/${total} (${percent}%)`);
+
+        return { chunk, embedding };
+      })
+    );
+
+    const results = await Promise.all(tasks);
+    return results.filter((item): item is { chunk: string; embedding: number[] } => item !== null);
   }
 
   // Parse uploaded file buffers based on file type
@@ -87,13 +154,8 @@ export class RagService {
         );
       });
 
-      // Generate embeddings and insert chunks outside client query loop to avoid holding connections
-      const chunkEmbeddings: Array<{ chunk: string; embedding: number[] }> = [];
-      for (const chunk of chunks) {
-        if (!chunk.trim()) continue;
-        const embedding = await OllamaClient.embed(chunk);
-        chunkEmbeddings.push({ chunk, embedding });
-      }
+      // Generate embeddings in parallel (max 5 concurrent calls)
+      const chunkEmbeddings = await this.generateBatchEmbeddings(chunks, 5);
 
       // Save embeddings inside DB connection
       await this.executeQuery(tenantId, async (client) => {
@@ -108,9 +170,9 @@ export class RagService {
       });
 
       console.log(
-        `📂 [Harikson RAG] Indexed document ${name}: created ${chunks.length} chunks.`
+        `📂 [Harikson RAG] Indexed document ${name}: created ${chunkEmbeddings.length}/${chunks.length} chunks.`
       );
-      return chunks.length;
+      return chunkEmbeddings.length;
     } catch (error) {
       console.error(
         `❌ [Harikson RAG] Ingestion error on document ${name}:`,
@@ -146,12 +208,8 @@ export class RagService {
         );
       });
 
-      const chunkEmbeddings: Array<{ chunk: string; embedding: number[] }> = [];
-      for (const chunk of chunks) {
-        if (!chunk.trim()) continue;
-        const embedding = await OllamaClient.embed(chunk);
-        chunkEmbeddings.push({ chunk, embedding });
-      }
+      // Generate embeddings in parallel (max 5 concurrent calls)
+      const chunkEmbeddings = await this.generateBatchEmbeddings(chunks, 5);
 
       await this.executeQuery(tenantId, async (client) => {
         for (const item of chunkEmbeddings) {
@@ -165,16 +223,16 @@ export class RagService {
       });
 
       console.log(
-        `📂 [Harikson RAG] Indexed URL ${url}: created ${chunks.length} chunks.`
+        `📂 [Harikson RAG] Indexed URL ${url}: created ${chunkEmbeddings.length}/${chunks.length} chunks.`
       );
-      return chunks.length;
+      return chunkEmbeddings.length;
     } catch (error) {
       console.error(`❌ [Harikson RAG] Crawl error on ${url}:`, error);
       throw error;
     }
   }
 
-  // Semantic/Keyword search to find relevant context
+  // Hybrid (Semantic Vector + Full-Text BM25) search to find relevant context
   static async queryContext(
     tenantId: string,
     query: string,
@@ -186,23 +244,28 @@ export class RagService {
 
       const ragRows = await this.executeQuery(tenantId, async (client) => {
         const res = await client.query(
-          `SELECT de.content, 1 - (de.embedding <=> $1::vector) AS similarity, kd.filename
+          `SELECT de.content, kd.filename,
+                  (1 - (de.embedding <=> $1::vector)) AS vector_score,
+                  COALESCE(ts_rank(kd.tsv, plainto_tsquery('english', $2)), 0) AS text_score,
+                  (0.7 * (1 - (de.embedding <=> $1::vector)) + 0.3 * COALESCE(ts_rank(kd.tsv, plainto_tsquery('english', $2)), 0)) AS final_score
            FROM document_embeddings de
            JOIN knowledge_documents kd ON de.knowledge_document_id = kd.id
-           WHERE de.tenant_id = $2 AND kd.is_active = true
-           ORDER BY de.embedding <=> $1::vector
-           LIMIT $3`,
-          [embeddingString, tenantId, maxResults]
+           WHERE de.tenant_id = $3 AND kd.is_active = true
+           ORDER BY (0.7 * (1 - (de.embedding <=> $1::vector)) + 0.3 * COALESCE(ts_rank(kd.tsv, plainto_tsquery('english', $2)), 0)) DESC
+           LIMIT $4`,
+          [embeddingString, query, tenantId, maxResults]
         );
         return res.rows as Array<{
           content: string;
-          similarity: number;
+          vector_score: number;
+          text_score: number;
+          final_score: number;
           filename: string;
         }>;
       });
 
       const matched = ragRows
-        .filter((row) => row.similarity > 0.35)
+        .filter((row) => (row.final_score || row.vector_score) > 0.25)
         .map((row) => `[Source: ${row.filename}]: ${row.content}`);
 
       if (matched.length === 0) {

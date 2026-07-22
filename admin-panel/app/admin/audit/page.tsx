@@ -35,13 +35,9 @@ export default function AuditLogs() {
 
   const fetchAudits = async () => {
     setLoading(true);
-    const token =
-      getCookie('admin_token') ||
-      localStorage.getItem('admin_token') ||
-      'TEST_ADMIN_TOKEN';
     try {
       const res = await fetch(`${apiBase}/v1/admin/audit-log`, {
-        headers: { Authorization: `Bearer ${token}` },
+        credentials: 'include',
       });
       if (res.ok) {
         const data = await res.json();

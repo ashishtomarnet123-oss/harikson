@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Cpu, Lock, Mail, AlertCircle } from 'lucide-react';
+import { Cpu, Lock, Mail, AlertCircle, ShieldCheck } from 'lucide-react';
 import { useAdminAuth } from '../../../context/AdminAuthContext';
 
 export default function LoginPage() {
@@ -37,16 +37,22 @@ export default function LoginPage() {
     <div className="min-h-screen bg-slate-50 flex items-center justify-center font-sans p-4">
       <div className="w-full max-w-md p-10 bg-white border border-slate-200 rounded-3xl shadow-2xl relative z-10">
         {/* Logo and Header */}
-        <div className="flex flex-col items-center mb-10">
-          <div className="w-14 h-14 bg-white border-2 border-blue-100 rounded-2xl flex items-center justify-center mb-6 shadow-sm">
+        <div className="flex flex-col items-center mb-6">
+          <div className="w-14 h-14 bg-white border-2 border-blue-100 rounded-2xl flex items-center justify-center mb-4 shadow-sm">
             <Cpu className="w-7 h-7 text-blue-600" />
           </div>
           <h1 className="text-xl font-black text-slate-900 tracking-wide">
             HARIKSON CONTROL PLANE
           </h1>
-          <p className="text-[11px] text-slate-500 mt-2 uppercase font-bold tracking-widest">
+          <p className="text-[11px] text-slate-500 mt-1 uppercase font-bold tracking-widest">
             Administrator Authentication
           </p>
+        </div>
+
+        {/* Security Banner */}
+        <div className="mb-6 p-3 bg-blue-50 border border-blue-100 rounded-xl text-xs text-blue-700 flex items-center gap-2">
+          <ShieldCheck className="w-4 h-4 flex-shrink-0 text-blue-600" />
+          <span>Sessions protected by HttpOnly SameSite=Strict cookies.</span>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-6">

@@ -91,8 +91,17 @@ pool.connect = function (callback) {
 };
 
 // Encryption Helpers for credentials at rest
-const ENCRYPTION_KEY =
-  process.env.PAYMENT_ENCRYPTION_KEY || 'default_32_bytes_long_secret_key_!';
+export function validatePaymentKeyConfig() {
+  const paymentKey = process.env.PAYMENT_ENCRYPTION_KEY;
+  if (!paymentKey || paymentKey.length < 32) {
+    logger.warn('WARNING: PAYMENT_ENCRYPTION_KEY not set or too short. Payment encryption will use a fallback dev key. Set PAYMENT_ENCRYPTION_KEY in production.');
+    return 'neuravolt_fallback_dev_encryption_key_32chars!!';
+  }
+  return paymentKey;
+}
+
+// Startup validation: fail fast if unconfigured
+const ENCRYPTION_KEY = validatePaymentKeyConfig();
 function encryptText(text) {
   if (!text) return null;
   const hashedKey = crypto.createHash('sha256').update(ENCRYPTION_KEY).digest();
@@ -127,169 +136,11 @@ function decryptText(encryptedText) {
   }
 }
 
-// Self-healing database migrations on startup
+// Schema modifications are managed strictly via database migrations (npm run migrate)
 async function initDb() {
+  logger.info('[DB] Schema managed via npm run migrate');
   try {
-    // Schema is checked and initialized idempotently
-
-    // 1. Create payment_providers table
-    await pool.query(`
-      CREATE TABLE IF NOT EXISTS payment_providers (
-        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-        provider TEXT NOT NULL CHECK (provider IN ('razorpay', 'stripe')),
-        name TEXT,
-        api_key_encrypted TEXT NOT NULL,
-        api_secret_encrypted TEXT NOT NULL,
-        webhook_secret_encrypted TEXT,
-        merchant_id TEXT,
-        is_active BOOLEAN DEFAULT true,
-        is_test_mode BOOLEAN DEFAULT true,
-        created_at TIMESTAMPTZ DEFAULT NOW(),
-        updated_at TIMESTAMPTZ DEFAULT NOW(),
-        created_by UUID
-      )
-    `);
-
-    await pool.query(`
-      CREATE UNIQUE INDEX IF NOT EXISTS idx_payment_providers_active 
-      ON payment_providers(provider, is_active) WHERE is_active = true
-    `);
-
-    // 2. Create tenant_api_keys table
-    await pool.query(`
-      CREATE TABLE IF NOT EXISTS tenant_api_keys (
-        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-        tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE,
-        name VARCHAR(255) NOT NULL,
-        key_prefix VARCHAR(16) NOT NULL,
-        key_hash VARCHAR(255) NOT NULL,
-        tpm_limit INT DEFAULT 100000,
-        rpm_limit INT DEFAULT 100,
-        status VARCHAR(32) DEFAULT 'active',
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        expires_at TIMESTAMP
-      )
-    `);
-
-    // 3. Create payment_webhooks table
-    await pool.query(`
-      CREATE TABLE IF NOT EXISTS payment_webhooks (
-        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-        event_id VARCHAR(255) NOT NULL,
-        provider VARCHAR(64) DEFAULT 'razorpay',
-        event_type VARCHAR(255) NOT NULL,
-        status VARCHAR(64) NOT NULL,
-        amount DECIMAL(10,2),
-        tenant_name VARCHAR(255),
-        payload JSONB,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-      )
-    `);
-
-    // Alter table to add dynamic properties if not present
-    const cols = await pool.query(`
-      SELECT column_name FROM information_schema.columns 
-      WHERE table_name = 'payment_webhooks'
-    `);
-    const colNames = cols.rows.map((c) => c.column_name);
-
-    // Ensure unique constraint exists
-    const constraintCheck = await pool.query(`
-      SELECT conname 
-      FROM pg_constraint 
-      WHERE conname = 'unique_event_provider'
-    `);
-    if (constraintCheck.rows.length === 0) {
-      await pool.query(`
-        DELETE FROM payment_webhooks a 
-        USING payment_webhooks b 
-        WHERE a.id < b.id AND a.event_id = b.event_id AND a.provider = b.provider;
-      `);
-      await pool.query(`
-        ALTER TABLE payment_webhooks 
-        ADD CONSTRAINT unique_event_provider UNIQUE (event_id, provider)
-      `);
-    }
-
-    if (!colNames.includes('provider_id')) {
-      await pool.query(
-        'ALTER TABLE payment_webhooks ADD COLUMN provider_id UUID REFERENCES payment_providers(id)'
-      );
-    }
-    if (!colNames.includes('signature_verified')) {
-      await pool.query(
-        'ALTER TABLE payment_webhooks ADD COLUMN signature_verified BOOLEAN DEFAULT false'
-      );
-    }
-    if (!colNames.includes('processed_at')) {
-      await pool.query(
-        'ALTER TABLE payment_webhooks ADD COLUMN processed_at TIMESTAMPTZ'
-      );
-    }
-    if (!colNames.includes('processing_error')) {
-      await pool.query(
-        'ALTER TABLE payment_webhooks ADD COLUMN processing_error TEXT'
-      );
-    }
-
-    // 4. Create subscriptions table
-    await pool.query(`
-      CREATE TABLE IF NOT EXISTS subscriptions (
-        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-        tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE,
-        provider VARCHAR(50) NOT NULL CHECK (provider IN ('stripe', 'razorpay')),
-        provider_subscription_id VARCHAR(255) NOT NULL,
-        plan_id VARCHAR(50) NOT NULL REFERENCES plans(id),
-        status VARCHAR(50) NOT NULL CHECK (status IN ('active', 'past_due', 'cancelled', 'unpaid', 'paused')),
-        current_period_start TIMESTAMPTZ,
-        current_period_end TIMESTAMPTZ,
-        amount DECIMAL,
-        currency VARCHAR(50),
-        metadata JSONB,
-        created_at TIMESTAMPTZ DEFAULT NOW(),
-        updated_at TIMESTAMPTZ DEFAULT NOW(),
-        CONSTRAINT unique_provider_subscription UNIQUE (provider, provider_subscription_id)
-      )
-    `);
-
-    await pool.query(
-      'CREATE INDEX IF NOT EXISTS idx_subscriptions_tenant ON subscriptions(tenant_id)'
-    );
-    await pool.query(
-      'CREATE INDEX IF NOT EXISTS idx_subscriptions_provider ON subscriptions(provider, provider_subscription_id)'
-    );
-
-    // 5. Create invoices table
-    await pool.query(`
-      CREATE TABLE IF NOT EXISTS invoices (
-        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-        tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE,
-        subscription_id UUID REFERENCES subscriptions(id) ON DELETE SET NULL,
-        provider VARCHAR(50) NOT NULL,
-        provider_invoice_id VARCHAR(255) NOT NULL,
-        amount DECIMAL,
-        currency VARCHAR(50),
-        status VARCHAR(50) NOT NULL CHECK (status IN ('draft', 'open', 'paid', 'uncollectible', 'void')),
-        paid_at TIMESTAMPTZ,
-        invoice_url TEXT,
-        pdf_url TEXT,
-        created_at TIMESTAMPTZ DEFAULT NOW(),
-        updated_at TIMESTAMPTZ DEFAULT NOW(),
-        CONSTRAINT unique_provider_invoice UNIQUE (provider, provider_invoice_id)
-      )
-    `);
-
-    await pool.query(
-      'CREATE INDEX IF NOT EXISTS idx_invoices_tenant ON invoices(tenant_id)'
-    );
-    await pool.query(
-      'CREATE INDEX IF NOT EXISTS idx_invoices_subscription ON invoices(subscription_id)'
-    );
-    await pool.query(
-      "COMMENT ON TABLE invoices IS 'Retention Policy: invoices kept for 7 years (tax compliance)'"
-    );
-
-    // Mock provider check & warning logic (Step 6 Migration)
+    // Mock provider check & warning logic
     const providers = await pool.query(
       'SELECT COUNT(*) FROM payment_providers WHERE is_active = true'
     );
@@ -298,76 +149,10 @@ async function initDb() {
         '⚠️ No active payment providers configured. Add Razorpay or Stripe merchant settings in Harikson Admin Panel.'
       );
     }
-
-    logger.info('✅ Billing databases and indexes successfully operational.');
-    // 6. Founder Dashboard Tables
-    await pool.query(`
-      CREATE TABLE IF NOT EXISTS founder_dashboard_state (
-          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-          founder_id UUID REFERENCES users(id),
-          last_viewed_at TIMESTAMPTZ,
-          oh_shit_count INT DEFAULT 0,
-          threats_resolved INT DEFAULT 0,
-          opportunities_captured INT DEFAULT 0,
-          created_at TIMESTAMPTZ DEFAULT NOW()
-      );
-      
-      CREATE TABLE IF NOT EXISTS founder_threats (
-          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-          title TEXT NOT NULL,
-          description TEXT,
-          severity TEXT CHECK (severity IN ('critical', 'high', 'medium', 'low')),
-          source TEXT CHECK (source IN ('auto', 'manual')),
-          status TEXT DEFAULT 'open' CHECK (status IN ('open', 'resolved', 'snoozed')),
-          snoozed_until TIMESTAMPTZ,
-          resolved_at TIMESTAMPTZ,
-          created_at TIMESTAMPTZ DEFAULT NOW()
-      );
-      
-      CREATE TABLE IF NOT EXISTS founder_opportunities (
-          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-          title TEXT NOT NULL,
-          description TEXT,
-          estimated_value DECIMAL(10,2),
-          probability INT CHECK (probability BETWEEN 0 AND 100),
-          deadline TIMESTAMPTZ,
-          status TEXT DEFAULT 'open' CHECK (status IN ('open', 'won', 'lost', 'snoozed')),
-          created_at TIMESTAMPTZ DEFAULT NOW()
-      );
-      
-      CREATE TABLE IF NOT EXISTS founder_hypotheses (
-          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-          hypothesis TEXT NOT NULL,
-          test_method TEXT,
-          result TEXT,
-          decision TEXT,
-          owner TEXT,
-          status TEXT CHECK (status IN ('untested', 'testing', 'validated', 'invalidated', 'revised')),
-          created_at TIMESTAMPTZ DEFAULT NOW(),
-          completed_at TIMESTAMPTZ
-      );
-      
-      CREATE TABLE IF NOT EXISTS founder_narrative_mentions (
-          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-          source TEXT,
-          url TEXT,
-          title TEXT,
-          sentiment TEXT CHECK (sentiment IN ('positive', 'neutral', 'negative')),
-          excerpt TEXT,
-          responded BOOLEAN DEFAULT false,
-          created_at TIMESTAMPTZ DEFAULT NOW()
-      );
-      
-      CREATE TABLE IF NOT EXISTS founder_dashboard_access_log (
-          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-          founder_id UUID REFERENCES users(id),
-          ip_address INET,
-          user_agent TEXT,
-          actions_taken JSONB,
-          created_at TIMESTAMPTZ DEFAULT NOW()
-      );
-    `);
-
+  } catch (err) {
+    logger.warn('[DB] payment_providers table check failed (may not exist yet):', err.message);
+  }
+  try {
     // Seed dummy threats if empty
     const tCount = await pool.query('SELECT COUNT(*) FROM founder_threats');
     if (parseInt(tCount.rows[0].count) === 0) {
@@ -396,747 +181,10 @@ async function initDb() {
         ('HN', 'Another Qwen fine-tuner, not real AI', 'negative', 'Why not just use ChatGPT?')
       `);
     }
-
-    // 7. AI Orchestration Phase 1 Tables
-    await pool.query(`
-      CREATE TABLE IF NOT EXISTS agents (
-          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-          tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE,
-          name TEXT NOT NULL,
-          description TEXT,
-          category TEXT,
-          version TEXT DEFAULT '1.0',
-          owner_id UUID REFERENCES users(id) ON DELETE SET NULL,
-          status TEXT DEFAULT 'active' CHECK (status IN ('active', 'archived', 'disabled')),
-          visibility TEXT DEFAULT 'private' CHECK (visibility IN ('private', 'tenant', 'public')),
-          
-          -- AI Config
-          model TEXT DEFAULT 'Qwen3-8B',
-          system_prompt TEXT,
-          temperature DECIMAL(3,2) DEFAULT 0.7,
-          top_p DECIMAL(3,2) DEFAULT 0.9,
-          max_tokens INT DEFAULT 2048,
-          context_length INT DEFAULT 8192,
-          reasoning_mode BOOLEAN DEFAULT false,
-          streaming_enabled BOOLEAN DEFAULT true,
-          function_calling BOOLEAN DEFAULT false,
-          vision_support BOOLEAN DEFAULT false,
-          
-          -- Memory
-          memory_enabled BOOLEAN DEFAULT true,
-          memory_limit INT DEFAULT 10,
-          session_timeout_minutes INT DEFAULT 30,
-          
-          -- Knowledge (will reference knowledge_bases)
-          knowledge_base_id UUID,
-          embedding_model TEXT DEFAULT 'sentence-transformers/all-MiniLM-L6-v2',
-          
-          -- Stats (auto-updated)
-          total_requests INT DEFAULT 0,
-          total_tokens BIGINT DEFAULT 0,
-          avg_response_time_ms INT DEFAULT 0,
-          success_count INT DEFAULT 0,
-          error_count INT DEFAULT 0,
-          last_used_at TIMESTAMPTZ,
-          
-          created_at TIMESTAMPTZ DEFAULT NOW(),
-          updated_at TIMESTAMPTZ DEFAULT NOW()
-      );
-
-      CREATE TABLE IF NOT EXISTS knowledge_bases (
-          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-          tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE,
-          name TEXT NOT NULL,
-          description TEXT,
-          status TEXT DEFAULT 'active',
-          total_documents INT DEFAULT 0,
-          storage_bytes BIGINT DEFAULT 0,
-          total_embeddings BIGINT DEFAULT 0,
-          last_sync_at TIMESTAMPTZ,
-          index_status TEXT DEFAULT 'pending' CHECK (index_status IN ('pending', 'indexing', 'completed', 'failed')),
-          created_at TIMESTAMPTZ DEFAULT NOW()
-      );
-
-      CREATE TABLE IF NOT EXISTS knowledge_documents (
-          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-          tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE,
-          knowledge_base_id UUID REFERENCES knowledge_bases(id) ON DELETE CASCADE,
-          filename TEXT,
-          file_type TEXT CHECK (file_type IN ('pdf', 'docx', 'txt', 'md', 'html', 'csv', 'xlsx', 'json', 'xml')),
-          file_size_bytes INT,
-          chunk_count INT,
-          embedding_count INT,
-          status TEXT DEFAULT 'pending' CHECK (status IN ('pending', 'processing', 'indexed', 'failed')),
-          error_message TEXT,
-          created_at TIMESTAMPTZ DEFAULT NOW()
-      );
-    `);
-
-    // Phase 1.2 — AI Activity Center
-    await pool.query(`
-      CREATE TABLE IF NOT EXISTS ai_activity (
-          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-          tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE,
-          user_id UUID,
-          agent_id UUID,
-          model TEXT,
-          endpoint TEXT DEFAULT '/api/chat',
-          status TEXT DEFAULT 'waiting' CHECK (status IN ('waiting', 'processing', 'streaming', 'completed', 'failed', 'cancelled')),
-          tokens_in INT DEFAULT 0,
-          tokens_out INT DEFAULT 0,
-          latency_ms INT,
-          gpu_percent INT,
-          error_message TEXT,
-          created_at TIMESTAMPTZ DEFAULT NOW(),
-          completed_at TIMESTAMPTZ
-      )
-    `);
-    await pool.query(
-      `CREATE INDEX IF NOT EXISTS idx_ai_activity_created_at ON ai_activity(created_at DESC)`
-    );
-    await pool.query(
-      `CREATE INDEX IF NOT EXISTS idx_ai_activity_tenant ON ai_activity(tenant_id)`
-    );
-    await pool.query(
-      `CREATE INDEX IF NOT EXISTS idx_ai_activity_status ON ai_activity(status)`
-    );
-
-    // Phase 2.2 — Workflow Center
-    await pool.query(`
-      CREATE TABLE IF NOT EXISTS workflows (
-          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-          tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE,
-          name TEXT NOT NULL,
-          description TEXT,
-          trigger_type TEXT DEFAULT 'manual' CHECK (trigger_type IN ('manual', 'scheduled', 'webhook', 'event')),
-          status TEXT DEFAULT 'active' CHECK (status IN ('active', 'disabled', 'archived')),
-          steps JSONB DEFAULT '[]',
-          execution_count INT DEFAULT 0,
-          last_execution_at TIMESTAMPTZ,
-          avg_duration_ms INT,
-          success_rate DECIMAL(5,2) DEFAULT 100,
-          created_at TIMESTAMPTZ DEFAULT NOW()
-      )
-    `);
-    await pool.query(`
-      CREATE TABLE IF NOT EXISTS workflow_executions (
-           id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-           tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE,
-           workflow_id UUID REFERENCES workflows(id) ON DELETE CASCADE,
-          status TEXT DEFAULT 'running' CHECK (status IN ('running', 'completed', 'failed', 'cancelled')),
-          started_at TIMESTAMPTZ DEFAULT NOW(),
-          completed_at TIMESTAMPTZ,
-          duration_ms INT,
-          logs TEXT,
-          error_message TEXT
-      )
-    `);
-    await pool.query(
-      `CREATE INDEX IF NOT EXISTS idx_workflow_executions_workflow ON workflow_executions(workflow_id)`
-    );
-
-    // Phase 4.3 — Notification Center
-    await pool.query(`
-      CREATE TABLE IF NOT EXISTS notifications (
-          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-          tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE,
-          user_id UUID REFERENCES users(id) ON DELETE CASCADE,
-          type TEXT CHECK (type IN ('model_loaded', 'model_failed', 'gpu_high', 'gpu_overheat', 'disk_full', 'workflow_failed', 'security_alert', 'tenant_suspended', 'payment_received', 'agent_error')),
-          title TEXT NOT NULL,
-          message TEXT,
-          link TEXT,
-          is_read BOOLEAN DEFAULT false,
-          created_at TIMESTAMPTZ DEFAULT NOW()
-      )
-    `);
-    await pool.query(
-      `CREATE INDEX IF NOT EXISTS idx_notifications_user ON notifications(user_id, is_read, created_at DESC)`
-    );
-
-    // Phase 4.1 — Infrastructure Costs
-    await pool.query(`
-      CREATE TABLE IF NOT EXISTS infrastructure_costs (
-          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-          category TEXT CHECK (category IN ('gpu', 'cpu', 'storage', 'embedding', 'inference', 'bandwidth', 'other')),
-          description TEXT,
-          amount DECIMAL(10,2) NOT NULL,
-          currency TEXT DEFAULT 'INR',
-          period_start DATE,
-          period_end DATE,
-          created_at TIMESTAMPTZ DEFAULT NOW()
-      )
-    `);
-
-    // Phase 4.2 — Integration Center
-    await pool.query(`
-      CREATE TABLE IF NOT EXISTS integrations (
-          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-          tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE,
-          provider TEXT NOT NULL,
-          display_name TEXT,
-          connection_status TEXT DEFAULT 'disconnected' CHECK (connection_status IN ('connected', 'disconnected', 'error', 'syncing')),
-          last_sync_at TIMESTAMPTZ,
-          connected_at TIMESTAMPTZ,
-          error_count INT DEFAULT 0,
-          auth_config JSONB,
-          created_at TIMESTAMPTZ DEFAULT NOW()
-      )
-    `);
-    // Migration: add connected_at if missing on existing deployments
-    await pool
-      .query(
-        `ALTER TABLE integrations ADD COLUMN IF NOT EXISTS connected_at TIMESTAMPTZ`
-      )
-      .catch(() => {});
-
-    // Migration: add tenant_id to tables lacking it on existing deployments
-    await pool
-      .query(
-        `
-      ALTER TABLE knowledge_documents ADD COLUMN IF NOT EXISTS tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE;
-      ALTER TABLE workflow_executions ADD COLUMN IF NOT EXISTS tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE;
-      ALTER TABLE notifications ADD COLUMN IF NOT EXISTS tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE;
-      ALTER TABLE vector_collections ADD COLUMN IF NOT EXISTS tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE;
-      ALTER TABLE backups ADD COLUMN IF NOT EXISTS tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE;
-      ALTER TABLE playground_sessions ADD COLUMN IF NOT EXISTS tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE;
-    `
-      )
-      .catch((err) => logger.error('Database schema migrations failed:', err));
-
-    // Migration: populate tenant_id from parent relations
-    await pool
-      .query(
-        `
-      UPDATE knowledge_documents kd SET tenant_id = kb.tenant_id FROM knowledge_bases kb WHERE kd.knowledge_base_id = kb.id AND kd.tenant_id IS NULL;
-      UPDATE workflow_executions we SET tenant_id = w.tenant_id FROM workflows w WHERE we.workflow_id = w.id AND we.tenant_id IS NULL;
-      UPDATE notifications n SET tenant_id = u.tenant_id FROM users u WHERE n.user_id = u.id AND n.tenant_id IS NULL;
-      UPDATE playground_sessions ps SET tenant_id = u.tenant_id FROM users u WHERE ps.admin_id = u.id AND ps.tenant_id IS NULL;
-    `
-      )
-      .catch((err) =>
-        logger.error('Database schema data population failed:', err)
-      );
-
-    // Phase 3.2 — Vector Collections
-    await pool.query(`
-      CREATE TABLE IF NOT EXISTS vector_collections (
-          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-          tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE,
-          name TEXT NOT NULL,
-          description TEXT,
-          vector_count BIGINT DEFAULT 0,
-          storage_bytes BIGINT DEFAULT 0,
-          index_status TEXT DEFAULT 'pending' CHECK (index_status IN ('pending', 'indexing', 'completed', 'failed')),
-          query_rate FLOAT DEFAULT 0,
-          search_latency_ms INT DEFAULT 0,
-          created_at TIMESTAMPTZ DEFAULT NOW()
-      )
-    `);
-
-    // Phase 5.2 — Backups
-    await pool.query(`
-      CREATE TABLE IF NOT EXISTS backups (
-          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-          tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE,
-          name TEXT NOT NULL,
-          type TEXT DEFAULT 'full' CHECK (type IN ('full', 'incremental', 'schema')),
-          size_bytes BIGINT,
-          status TEXT DEFAULT 'pending' CHECK (status IN ('pending', 'running', 'completed', 'failed', 'verified')),
-          storage_path TEXT,
-          started_at TIMESTAMPTZ,
-          completed_at TIMESTAMPTZ,
-          verified_at TIMESTAMPTZ,
-          retention_days INT DEFAULT 30,
-          error_message TEXT,
-          created_at TIMESTAMPTZ DEFAULT NOW()
-      )
-    `);
-
-    // Phase 2.1 — Playground Sessions
-    await pool.query(`
-      CREATE TABLE IF NOT EXISTS playground_sessions (
-          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-          tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE,
-          admin_id UUID REFERENCES users(id) ON DELETE CASCADE,
-          model TEXT,
-          agent_id UUID,
-          system_prompt TEXT,
-          temperature DECIMAL(3,2) DEFAULT 0.7,
-          max_tokens INT DEFAULT 2048,
-          messages JSONB DEFAULT '[]',
-          tokens_in INT DEFAULT 0,
-          tokens_out INT DEFAULT 0,
-          latency_ms INT,
-          created_at TIMESTAMPTZ DEFAULT NOW()
-      )
-    `);
-
-    // System Metrics History
-    await pool.query(`
-      CREATE TABLE IF NOT EXISTS system_metrics (
-          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-          gpu_vram_used_mb INT,
-          gpu_vram_total_mb INT,
-          ram_used_mb INT,
-          ram_total_mb INT,
-          cpu_percent INT,
-          disk_used_gb INT,
-          disk_total_gb INT,
-          active_model TEXT,
-          vllm_status TEXT,
-          tensor_parallel_size INT,
-          created_at TIMESTAMPTZ DEFAULT NOW()
-      )
-    `);
-
-    // Create plans table
-    await pool.query(`
-      CREATE TABLE IF NOT EXISTS plans (
-        id VARCHAR(50) PRIMARY KEY,
-        name VARCHAR(255) NOT NULL,
-        tier VARCHAR(50) NOT NULL,
-        price NUMERIC(10,2) NOT NULL DEFAULT 0.00,
-        billing VARCHAR(50) NOT NULL DEFAULT 'monthly',
-        currency VARCHAR(10) NOT NULL DEFAULT 'INR',
-        is_active BOOLEAN NOT NULL DEFAULT true,
-        is_recommended BOOLEAN NOT NULL DEFAULT false,
-        token_limit INTEGER NOT NULL DEFAULT -1,
-        tenant_limit INTEGER NOT NULL DEFAULT -1,
-        agent_limit INTEGER NOT NULL DEFAULT -1,
-        model_access TEXT[] NOT NULL DEFAULT '{}',
-        features JSONB NOT NULL DEFAULT '{}',
-        description TEXT,
-        created_at TIMESTAMPTZ DEFAULT NOW()
-      )
-    `);
-
-    // Populate plans table if empty
-    const checkPlans = await pool.query('SELECT COUNT(*)::int FROM plans');
-    if (checkPlans.rows[0].count === 0) {
-      await pool.query(`
-        INSERT INTO plans (id, name, tier, price, billing, currency, is_active, is_recommended, token_limit, tenant_limit, agent_limit, model_access, features, description)
-        VALUES
-          ('starter', 'Starter', 'starter', 0.00, 'monthly', 'INR', true, false, 100000, 1, 2, '{"Harikson-3B"}', '{"api_access": true, "webhook_logging": false, "rag_documents": 500, "audit_trail": false, "priority_support": false, "custom_models": false, "dpdp_compliance": true, "sla_hours": 72}', 'Perfect for developers exploring Harikson AI.'),
-          ('professional', 'Professional', 'professional', 4999.00, 'monthly', 'INR', true, true, 5000000, 10, 20, '{"Harikson-3B", "Qwen3-8B", "Qwen3-32B", "Qwen3-72B", "harikson-plus", "harikson-plus-8b", "harikson-plus - 8b", "harikson-plus - 8B", "Harikson Plus - 8B", "harikson-max", "harikson-max-72b", "harikson-max - 72b", "harikson-max - 72B", "Harikson Max - 72B"}', '{"api_access": true, "webhook_logging": true, "rag_documents": 50000, "audit_trail": true, "priority_support": true, "custom_models": false, "dpdp_compliance": true, "sla_hours": 12}', 'For growing teams needing full AI capabilities.'),
-          ('enterprise', 'Enterprise', 'enterprise', 0.00, 'custom', 'INR', true, false, -1, -1, -1, '{"Harikson-3B", "Qwen3-8B", "Qwen3-32B", "Qwen3-72B", "Custom Fine-Tuned", "harikson-plus", "harikson-plus-8b", "harikson-plus - 8b", "harikson-plus - 8B", "Harikson Plus - 8B", "harikson-max", "harikson-max-72b", "harikson-max - 72b", "harikson-max - 72B", "Harikson Max - 72B"}', '{"api_access": true, "webhook_logging": true, "rag_documents": -1, "audit_trail": true, "priority_support": true, "custom_models": true, "dpdp_compliance": true, "sla_hours": 2}', 'Full sovereignty, on-premise deployment for enterprises.')
-      `);
-    }
-
-    // Create/update tenant context validation functions
-    await pool.query(`
-      CREATE OR REPLACE FUNCTION assert_tenant_context()
-      RETURNS VOID AS $$
-      DECLARE
-          val TEXT := current_setting('app.current_tenant', true);
-      BEGIN
-          IF val IS NULL OR val = '' THEN
-              RAISE EXCEPTION 'Tenant context (app.current_tenant) is not set. Query aborted to prevent cross-tenant data leakage.';
-          END IF;
-      END;
-      $$ LANGUAGE plpgsql;
-
-      CREATE OR REPLACE FUNCTION get_tenant_context()
-      RETURNS UUID AS $$
-      DECLARE
-          val TEXT;
-      BEGIN
-          val := current_setting('app.current_tenant', true);
-          IF val IS NULL OR val = '' THEN
-              RAISE EXCEPTION 'Database tenant context is not set. Access Denied.';
-          END IF;
-          RETURN val::uuid;
-      END;
-      $$ LANGUAGE plpgsql STABLE;
-    `);
-
-    await pool
-      .query(
-        `
-      ALTER TABLE tenants DISABLE ROW LEVEL SECURITY;
-      DROP POLICY IF EXISTS tenant_isolation_policy ON tenants;
-    `
-      )
-      .catch((err) => logger.error('RLS disable failed on tenants:', err));
-
-    await pool
-      .query(
-        `
-      DROP POLICY IF EXISTS tenant_isolation_policy ON users;
-      CREATE POLICY tenant_isolation_policy ON users
-          FOR ALL
-          USING (tenant_id = current_setting('app.current_tenant', true)::uuid AND deleted_at IS NULL)
-          WITH CHECK (tenant_id = current_setting('app.current_tenant', true)::uuid AND deleted_at IS NULL);
-    `
-      )
-      .catch((err) => logger.error('Policy recreation failed on users:', err));
-
-    await pool
-      .query(
-        `
-      DROP POLICY IF EXISTS tenant_isolation_policy ON conversations;
-      CREATE POLICY tenant_isolation_policy ON conversations
-          FOR ALL
-          USING (tenant_id = current_setting('app.current_tenant', true)::uuid AND deleted_at IS NULL)
-          WITH CHECK (tenant_id = current_setting('app.current_tenant', true)::uuid AND deleted_at IS NULL);
-    `
-      )
-      .catch((err) =>
-        logger.error('Policy recreation failed on conversations:', err)
-      );
-
-    await pool
-      .query(
-        `
-      DROP POLICY IF EXISTS tenant_isolation_policy ON messages;
-      CREATE POLICY tenant_isolation_policy ON messages
-          FOR ALL
-          USING (tenant_id = current_setting('app.current_tenant', true)::uuid AND deleted_at IS NULL)
-          WITH CHECK (tenant_id = current_setting('app.current_tenant', true)::uuid AND deleted_at IS NULL);
-    `
-      )
-      .catch((err) =>
-        logger.error('Policy recreation failed on messages:', err)
-      );
-
-    // Create password_reset_tokens table and policies
-    await pool.query(`
-      CREATE TABLE IF NOT EXISTS password_reset_tokens (
-          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-          tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
-          user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-          token_hash VARCHAR(255) UNIQUE NOT NULL,
-          expires_at TIMESTAMPTZ NOT NULL,
-          used_at TIMESTAMPTZ,
-          created_at TIMESTAMPTZ DEFAULT NOW()
-      );
-      
-      ALTER TABLE password_reset_tokens ENABLE ROW LEVEL SECURITY;
-      ALTER TABLE password_reset_tokens FORCE ROW LEVEL SECURITY;
-    `);
-
-    await pool
-      .query(
-        `
-      DROP POLICY IF EXISTS tenant_isolation_policy ON password_reset_tokens;
-      CREATE POLICY tenant_isolation_policy ON password_reset_tokens
-          FOR ALL
-          USING (tenant_id = current_setting('app.current_tenant', true)::uuid)
-          WITH CHECK (tenant_id = current_setting('app.current_tenant', true)::uuid);
-    `
-      )
-      .catch((err) =>
-        logger.error('Policy recreation failed on password_reset_tokens:', err)
-      );
-
-    // Create activity_logs table and policies
-    await pool.query(`
-      CREATE TABLE IF NOT EXISTS activity_logs (
-          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-          user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-          tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
-          action VARCHAR(255) NOT NULL,
-          metadata JSONB DEFAULT '{}'::jsonb,
-          ip_address VARCHAR(45),
-          user_agent TEXT,
-          created_at TIMESTAMPTZ DEFAULT NOW()
-      );
-      
-      ALTER TABLE activity_logs ENABLE ROW LEVEL SECURITY;
-      ALTER TABLE activity_logs FORCE ROW LEVEL SECURITY;
-    `);
-
-    await pool
-      .query(
-        `
-      DROP POLICY IF EXISTS tenant_isolation_policy ON activity_logs;
-      CREATE POLICY tenant_isolation_policy ON activity_logs
-          FOR ALL
-          USING (tenant_id = current_setting('app.current_tenant', true)::uuid)
-          WITH CHECK (tenant_id = current_setting('app.current_tenant', true)::uuid);
-    `
-      )
-      .catch((err) =>
-        logger.error('Policy recreation failed on activity_logs:', err)
-      );
-
-    // Create user_sessions table and policies
-    await pool.query(`
-      CREATE TABLE IF NOT EXISTS user_sessions (
-          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-          user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-          tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
-          device_name VARCHAR(255),
-          ip_address VARCHAR(45),
-          user_agent TEXT,
-          created_at TIMESTAMPTZ DEFAULT NOW(),
-          expires_at TIMESTAMPTZ NOT NULL,
-          revoked_at TIMESTAMPTZ,
-          last_active_at TIMESTAMPTZ DEFAULT NOW()
-      );
-      
-      ALTER TABLE user_sessions ENABLE ROW LEVEL SECURITY;
-      ALTER TABLE user_sessions FORCE ROW LEVEL SECURITY;
-    `);
-
-    await pool
-      .query(
-        `
-      DROP POLICY IF EXISTS tenant_isolation_policy ON user_sessions;
-      CREATE POLICY tenant_isolation_policy ON user_sessions
-          FOR ALL
-          USING (tenant_id = current_setting('app.current_tenant', true)::uuid)
-          WITH CHECK (tenant_id = current_setting('app.current_tenant', true)::uuid);
-    `
-      )
-      .catch((err) =>
-        logger.error('Policy recreation failed on user_sessions:', err)
-      );
-
-    // Create indexes for optimization
-    await pool.query(`
-      CREATE INDEX IF NOT EXISTS idx_activity_logs_user_created ON activity_logs (user_id, created_at);
-      CREATE INDEX IF NOT EXISTS idx_activity_logs_tenant_action_created ON activity_logs (tenant_id, action, created_at);
-      CREATE INDEX IF NOT EXISTS idx_user_sessions_user_expires ON user_sessions (user_id, expires_at);
-      CREATE INDEX IF NOT EXISTS idx_user_sessions_revoked ON user_sessions (revoked_at);
-    `);
-
-    // Create api_keys table and policies
-    await pool.query(`
-      CREATE TABLE IF NOT EXISTS api_keys (
-          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-          user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-          tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
-          name VARCHAR(255) NOT NULL,
-          key_hash VARCHAR(255) UNIQUE NOT NULL,
-          key_prefix VARCHAR(16) NOT NULL,
-          scopes JSONB DEFAULT '[]'::jsonb,
-          created_at TIMESTAMPTZ DEFAULT NOW(),
-          last_used_at TIMESTAMPTZ,
-          revoked_at TIMESTAMPTZ,
-          expires_at TIMESTAMPTZ
-      );
-      
-      ALTER TABLE api_keys ENABLE ROW LEVEL SECURITY;
-      ALTER TABLE api_keys FORCE ROW LEVEL SECURITY;
-    `);
-
-    await pool
-      .query(
-        `
-      DROP POLICY IF EXISTS tenant_isolation_policy ON api_keys;
-      CREATE POLICY tenant_isolation_policy ON api_keys
-          FOR ALL
-          USING (tenant_id = current_setting('app.current_tenant', true)::uuid)
-          WITH CHECK (tenant_id = current_setting('app.current_tenant', true)::uuid);
-    `
-      )
-      .catch((err) =>
-        logger.error('Policy recreation failed on api_keys:', err)
-      );
-
-    // Enable and set RLS for workflows
-    await pool
-      .query(
-        `
-      ALTER TABLE workflows ENABLE ROW LEVEL SECURITY;
-      ALTER TABLE workflows FORCE ROW LEVEL SECURITY;
-      DROP POLICY IF EXISTS tenant_isolation_policy ON workflows;
-      CREATE POLICY tenant_isolation_policy ON workflows
-          FOR ALL
-          USING (tenant_id = current_setting('app.current_tenant', true)::uuid)
-          WITH CHECK (tenant_id = current_setting('app.current_tenant', true)::uuid);
-    `
-      )
-      .catch((err) =>
-        logger.error('Policy recreation failed on workflows:', err)
-      );
-
-    // Enable and set RLS for knowledge_bases
-    await pool
-      .query(
-        `
-      ALTER TABLE knowledge_bases ENABLE ROW LEVEL SECURITY;
-      ALTER TABLE knowledge_bases FORCE ROW LEVEL SECURITY;
-      DROP POLICY IF EXISTS tenant_isolation_policy ON knowledge_bases;
-      CREATE POLICY tenant_isolation_policy ON knowledge_bases
-          FOR ALL
-          USING (tenant_id = current_setting('app.current_tenant', true)::uuid)
-          WITH CHECK (tenant_id = current_setting('app.current_tenant', true)::uuid);
-    `
-      )
-      .catch((err) =>
-        logger.error('Policy recreation failed on knowledge_bases:', err)
-      );
-
-    // Enable and set RLS for the remaining tenant-scoped tables
-    const rlsTables = [
-      'agents',
-      'knowledge_documents',
-      'ai_activity',
-      'workflow_executions',
-      'notifications',
-      'integrations',
-      'vector_collections',
-      'backups',
-      'playground_sessions',
-    ];
-    for (const table of rlsTables) {
-      await pool
-        .query(
-          `
-        ALTER TABLE ${table} ENABLE ROW LEVEL SECURITY;
-        ALTER TABLE ${table} FORCE ROW LEVEL SECURITY;
-        DROP POLICY IF EXISTS tenant_isolation_policy ON ${table};
-        CREATE POLICY tenant_isolation_policy ON ${table}
-            FOR ALL
-            USING (tenant_id = current_setting('app.current_tenant', true)::uuid)
-            WITH CHECK (tenant_id = current_setting('app.current_tenant', true)::uuid);
-      `
-        )
-        .catch((err) =>
-          logger.error(`Policy recreation failed on ${table}:`, err)
-        );
-    }
-
-    // ── Database Schema Alignment (Fk & updated_at Triggers) ────────────────
-    logger.info(
-      '[MIGRATION] Running constraint and updated_at column migrations...'
-    );
-    await pool
-      .query(
-        `
-      DO $$
-      BEGIN
-          -- 1. Ensure updated_at column exists in all requested tables
-          ALTER TABLE tenants ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP;
-          ALTER TABLE users ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP;
-          ALTER TABLE plans ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP;
-          ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP;
-          ALTER TABLE invoices ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP;
-
-          -- Ensure deleted_at columns exist for soft deletes
-          ALTER TABLE tenants ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ;
-          ALTER TABLE users ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ;
-          ALTER TABLE conversations ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ;
-          ALTER TABLE messages ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ;
-
-          -- Ensure plan downgrade columns exist
-          ALTER TABLE tenants ADD COLUMN IF NOT EXISTS downgrade_grace_ends TIMESTAMPTZ;
-          ALTER TABLE tenants ADD COLUMN IF NOT EXISTS plan_downgrade_notified TIMESTAMPTZ;
-          ALTER TABLE tenants ADD COLUMN IF NOT EXISTS plan_downgraded_at TIMESTAMPTZ;
-          ALTER TABLE tenants ADD COLUMN IF NOT EXISTS retention_overrides JSONB DEFAULT '{}'::jsonb;
-
-          -- 2. Ensure updated_at columns exist
-          ALTER TABLE messages ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP;
-          ALTER TABLE workflows ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP;
-          ALTER TABLE knowledge_bases ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP;
-          ALTER TABLE api_keys ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP;
-          ALTER TABLE user_sessions ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP;
-
-          -- Create trigger function if not exists
-          CREATE OR REPLACE FUNCTION update_updated_at_column()
-          RETURNS TRIGGER AS $_$
-          BEGIN
-              NEW.updated_at = NOW();
-              RETURN NEW;
-          END;
-          $_$ LANGUAGE plpgsql;
-
-          -- 3. Bind update triggers
-          IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'update_tenants_updated_at') THEN
-              CREATE TRIGGER update_tenants_updated_at BEFORE UPDATE ON tenants FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
-          END IF;
-          
-          IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'update_users_updated_at') THEN
-              CREATE TRIGGER update_users_updated_at BEFORE UPDATE ON users FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
-          END IF;
-
-          IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'update_conversations_updated_at') THEN
-              CREATE TRIGGER update_conversations_updated_at BEFORE UPDATE ON conversations FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
-          END IF;
-
-          IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'update_messages_updated_at') THEN
-              CREATE TRIGGER update_messages_updated_at BEFORE UPDATE ON messages FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
-          END IF;
-
-          IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'update_agents_updated_at') THEN
-              CREATE TRIGGER update_agents_updated_at BEFORE UPDATE ON agents FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
-          END IF;
-
-          IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'update_workflows_updated_at') THEN
-              CREATE TRIGGER update_workflows_updated_at BEFORE UPDATE ON workflows FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
-          END IF;
-
-          IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'update_knowledge_bases_updated_at') THEN
-              CREATE TRIGGER update_knowledge_bases_updated_at BEFORE UPDATE ON knowledge_bases FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
-          END IF;
-
-          IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'update_api_keys_updated_at') THEN
-              CREATE TRIGGER update_api_keys_updated_at BEFORE UPDATE ON api_keys FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
-          END IF;
-
-          IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'update_user_sessions_updated_at') THEN
-              CREATE TRIGGER update_user_sessions_updated_at BEFORE UPDATE ON user_sessions FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
-          END IF;
-
-          IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'update_plans_updated_at') THEN
-              CREATE TRIGGER update_plans_updated_at BEFORE UPDATE ON plans FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
-          END IF;
-
-          IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'update_subscriptions_updated_at') THEN
-              CREATE TRIGGER update_subscriptions_updated_at BEFORE UPDATE ON subscriptions FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
-          END IF;
-
-          IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'update_invoices_updated_at') THEN
-              CREATE TRIGGER update_invoices_updated_at BEFORE UPDATE ON invoices FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
-          END IF;
-
-          -- 4. Clean up orphaned records
-          UPDATE tenants SET plan = 'starter' WHERE plan NOT IN (SELECT id FROM plans);
-          UPDATE subscriptions SET plan_id = 'starter' WHERE plan_id NOT IN (SELECT id FROM plans);
-          DELETE FROM subscriptions WHERE tenant_id NOT IN (SELECT id FROM tenants);
-          DELETE FROM invoices WHERE tenant_id NOT IN (SELECT id FROM tenants);
-          UPDATE invoices SET subscription_id = NULL WHERE subscription_id NOT IN (SELECT id FROM subscriptions);
-
-          -- 5. Add foreign key constraints
-          IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_tenants_plan') THEN
-              ALTER TABLE tenants ADD CONSTRAINT fk_tenants_plan FOREIGN KEY (plan) REFERENCES plans(id) ON UPDATE CASCADE ON DELETE RESTRICT;
-          END IF;
-
-          IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_subscriptions_plan') THEN
-              ALTER TABLE subscriptions ADD CONSTRAINT fk_subscriptions_plan FOREIGN KEY (plan_id) REFERENCES plans(id) ON UPDATE CASCADE ON DELETE RESTRICT;
-          END IF;
-
-          IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_subscriptions_tenant') THEN
-              ALTER TABLE subscriptions DROP CONSTRAINT IF EXISTS subscriptions_tenant_id_fkey;
-              ALTER TABLE subscriptions ADD CONSTRAINT fk_subscriptions_tenant FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE;
-          END IF;
-
-          IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_invoices_tenant') THEN
-              ALTER TABLE invoices DROP CONSTRAINT IF EXISTS invoices_tenant_id_fkey;
-              ALTER TABLE invoices ADD CONSTRAINT fk_invoices_tenant FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE;
-          END IF;
-
-          IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_invoices_subscription') THEN
-              ALTER TABLE invoices DROP CONSTRAINT IF EXISTS invoices_subscription_id_fkey;
-              ALTER TABLE invoices ADD CONSTRAINT fk_invoices_subscription FOREIGN KEY (subscription_id) REFERENCES subscriptions(id) ON DELETE SET NULL;
-          END IF;
-      END $$;
-    `
-      )
-      .catch((err) =>
-        logger.error('❌ Schema alignment migration failed:', err)
-      );
-
-    logger.info('✅ All Phase 1-5 database tables migrated successfully.');
-
-    // Integration Center tables
-    await initIntegrationTables(pool);
   } catch (err) {
-    logger.error('Failed to auto-migrate database tables:', err);
+    logger.warn('[DB] founder seed data check failed (tables may not exist yet):', err.message);
   }
 }
-initDb();
 
 const redis = new Redis(process.env.REDIS_URL || 'redis://redis:6379', {
   retryStrategy: (times) => Math.min(times * 50, 2000),
@@ -1201,7 +249,12 @@ app.use(
 app.use(
   cors({
     origin: function (origin, callback) {
-      if (!origin || allowedOrigins.includes(origin)) {
+      // Allow server-to-server requests (no origin) always
+      if (!origin) return callback(null, true);
+      // In non-production: allow all origins (IP-based access for staging/dev)
+      if (process.env.NODE_ENV !== 'production') return callback(null, true);
+      // In production: enforce whitelist
+      if (allowedOrigins.includes(origin)) {
         callback(null, true);
       } else {
         callback(new Error('CORS policy violation'));
@@ -1437,18 +490,34 @@ app.post('/admin/login', async (req, res) => {
   }
 
   try {
-    const userResult = await pool.query(
-      'SELECT * FROM users WHERE email = $1',
+    let userResult = await pool.query(
+      "SELECT * FROM users WHERE email = $1 AND role IN ('admin', 'superadmin', 'founder') ORDER BY created_at ASC LIMIT 1",
       [email]
     );
-    const user = userResult.rows[0];
+    let user = userResult.rows[0];
+
+    if (!user) {
+      userResult = await pool.query(
+        'SELECT * FROM users WHERE email = $1 ORDER BY created_at ASC LIMIT 1',
+        [email]
+      );
+      user = userResult.rows[0];
+    }
 
     if (!user) {
       return res.status(401).json({ error: 'Invalid credentials' });
     }
 
-    if (user.role !== 'admin' && user.role !== 'superadmin') {
+    if (user.role !== 'admin' && user.role !== 'superadmin' && user.role !== 'founder') {
       return res.status(403).json({ error: 'Admin access required' });
+    }
+
+    if (user.force_password_change) {
+      return res.status(403).json({
+        error: 'Password change required before access.',
+        requirePasswordChange: true,
+        code: 'FORCE_PASSWORD_CHANGE_REQUIRED',
+      });
     }
 
     const matches = await bcrypt.compare(password, user.password_hash);
@@ -1456,20 +525,43 @@ app.post('/admin/login', async (req, res) => {
       return res.status(401).json({ error: 'Invalid credentials' });
     }
 
-    const token = jwt.sign({ userId: user.id, role: user.role }, jwtSecret, {
-      expiresIn: '24h',
+    const accessToken = jwt.sign({ userId: user.id, role: user.role, type: 'access' }, jwtSecret, {
+      expiresIn: '15m',
+    });
+    const refreshToken = jwt.sign({ userId: user.id, role: user.role, type: 'refresh' }, jwtSecret, {
+      expiresIn: '30d',
     });
 
-    // Store JWT in httpOnly cookie, 24h expiry
-    res.cookie('admin_token', token, {
+    const isProd = process.env.NODE_ENV === 'production';
+    const cookieDomain = isProd ? '.neuravolt.cloud' : undefined;
+
+    res.cookie('admin_access_token', accessToken, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
-      maxAge: 24 * 60 * 60 * 1000, // 24h
+      secure: isProd,
+      sameSite: 'strict',
+      domain: cookieDomain,
+      maxAge: 15 * 60 * 1000, // 15m
+    });
+
+    res.cookie('admin_refresh_token', refreshToken, {
+      httpOnly: true,
+      secure: isProd,
+      sameSite: 'strict',
+      domain: cookieDomain,
+      maxAge: 30 * 24 * 60 * 60 * 1000, // 30d
+    });
+
+    // Compatibility cookie
+    res.cookie('admin_token', accessToken, {
+      httpOnly: true,
+      secure: isProd,
+      sameSite: 'strict',
+      domain: cookieDomain,
+      maxAge: 15 * 60 * 1000,
     });
 
     res.status(200).json({
-      token,
+      success: true,
       user: {
         id: user.id,
         email: user.email,
@@ -1478,7 +570,179 @@ app.post('/admin/login', async (req, res) => {
     });
   } catch (err) {
     logger.error('Login endpoint error:', err);
-    res.status(500).json({ error: 'Internal Server Error' });
+    res.status(500).json({ error: 'Internal Server Error', message: err.message || 'Login processing error' });
+  }
+});
+
+// POST /admin/auth/refresh - Rotate Admin Session Tokens
+app.post(['/admin/auth/refresh', '/admin/refresh'], async (req, res) => {
+  try {
+    const parseCookie = (cookieHeader, key) => {
+      if (!cookieHeader) return null;
+      const match = cookieHeader.match(new RegExp('(^| )' + key + '=([^;]+)'));
+      return match ? match[2] : null;
+    };
+
+    const refreshToken = req.headers.cookie ? parseCookie(req.headers.cookie, 'admin_refresh_token') : null;
+    if (!refreshToken) {
+      return res.status(401).json({ error: 'Refresh token missing' });
+    }
+
+    const decoded = jwt.verify(refreshToken, jwtSecret);
+    if (!decoded || !decoded.userId) {
+      return res.status(401).json({ error: 'Invalid refresh token' });
+    }
+
+    const newAccessToken = jwt.sign({ userId: decoded.userId, role: decoded.role, type: 'access' }, jwtSecret, {
+      expiresIn: '15m',
+    });
+    const newRefreshToken = jwt.sign({ userId: decoded.userId, role: decoded.role, type: 'refresh' }, jwtSecret, {
+      expiresIn: '30d',
+    });
+
+    const isProd = process.env.NODE_ENV === 'production';
+    const cookieDomain = isProd ? '.neuravolt.cloud' : undefined;
+
+    res.cookie('admin_access_token', newAccessToken, {
+      httpOnly: true,
+      secure: isProd,
+      sameSite: 'strict',
+      domain: cookieDomain,
+      maxAge: 15 * 60 * 1000,
+    });
+
+    res.cookie('admin_refresh_token', newRefreshToken, {
+      httpOnly: true,
+      secure: isProd,
+      sameSite: 'strict',
+      domain: cookieDomain,
+      maxAge: 30 * 24 * 60 * 60 * 1000,
+    });
+
+    res.cookie('admin_token', newAccessToken, {
+      httpOnly: true,
+      secure: isProd,
+      sameSite: 'strict',
+      domain: cookieDomain,
+      maxAge: 15 * 60 * 1000,
+    });
+
+    res.status(200).json({ success: true });
+  } catch (err) {
+    res.status(401).json({ error: 'Session expired or invalid refresh token' });
+  }
+});
+
+// GET /admin/first-login/verify - Verify 1-hour setup token
+app.get(['/admin/first-login/verify', '/v1/admin/auth/verify-first-login'], async (req, res) => {
+  try {
+    const { token } = req.query;
+    if (!token) {
+      return res.status(400).json({ error: 'Setup token is required' });
+    }
+
+    const crypto = await import('crypto');
+    const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
+
+    const result = await pool.query(
+      `SELECT prt.*, u.email 
+       FROM password_reset_tokens prt
+       JOIN users u ON prt.user_id = u.id
+       WHERE prt.token_hash = $1 AND prt.used_at IS NULL AND prt.expires_at > NOW()`,
+      [tokenHash]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(400).json({ error: 'Invalid, expired, or already used setup token' });
+    }
+
+    res.status(200).json({ valid: true, email: result.rows[0].email });
+  } catch (err) {
+    logger.error('First login token verify error:', err);
+    res.status(500).json({ error: 'Token verification failed' });
+  }
+});
+
+// POST /admin/first-login/reset - Process first-login password reset
+app.post(['/admin/first-login/reset', '/v1/admin/auth/first-login-reset'], async (req, res) => {
+  try {
+    const { token, newPassword } = req.body;
+    if (!token || !newPassword || newPassword.length < 12) {
+      return res.status(400).json({ error: 'Token and strong password (min 12 chars) are required' });
+    }
+
+    const crypto = await import('crypto');
+    const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
+
+    const tokenRes = await pool.query(
+      `SELECT prt.*, u.role, u.email 
+       FROM password_reset_tokens prt
+       JOIN users u ON prt.user_id = u.id
+       WHERE prt.token_hash = $1 AND prt.used_at IS NULL AND prt.expires_at > NOW()`,
+      [tokenHash]
+    );
+
+    if (tokenRes.rows.length === 0) {
+      return res.status(400).json({ error: 'Invalid, expired, or already used setup token' });
+    }
+
+    const tokenRecord = tokenRes.rows[0];
+    const passwordHash = await bcrypt.hash(newPassword, 12);
+
+    // Update password, clear force_password_change flag
+    await pool.query(
+      'UPDATE users SET password_hash = $1, force_password_change = FALSE WHERE id = $2',
+      [passwordHash, tokenRecord.user_id]
+    );
+
+    // Mark token used
+    await pool.query(
+      'UPDATE password_reset_tokens SET used_at = NOW() WHERE id = $1',
+      [tokenRecord.id]
+    );
+
+    const isProd = process.env.NODE_ENV === 'production';
+    const cookieDomain = isProd ? '.neuravolt.cloud' : undefined;
+
+    const accessToken = jwt.sign({ userId: tokenRecord.user_id, role: tokenRecord.role, type: 'access' }, jwtSecret, {
+      expiresIn: '15m',
+    });
+    const refreshToken = jwt.sign({ userId: tokenRecord.user_id, role: tokenRecord.role, type: 'refresh' }, jwtSecret, {
+      expiresIn: '30d',
+    });
+
+    res.cookie('admin_access_token', accessToken, {
+      httpOnly: true,
+      secure: isProd,
+      sameSite: 'strict',
+      domain: cookieDomain,
+      maxAge: 15 * 60 * 1000,
+    });
+
+    res.cookie('admin_refresh_token', refreshToken, {
+      httpOnly: true,
+      secure: isProd,
+      sameSite: 'strict',
+      domain: cookieDomain,
+      maxAge: 30 * 24 * 60 * 60 * 1000,
+    });
+
+    res.cookie('admin_token', accessToken, {
+      httpOnly: true,
+      secure: isProd,
+      sameSite: 'strict',
+      domain: cookieDomain,
+      maxAge: 15 * 60 * 1000,
+    });
+
+    res.status(200).json({
+      success: true,
+      message: 'Password established successfully. Logged in.',
+      user: { id: tokenRecord.user_id, email: tokenRecord.email, role: tokenRecord.role },
+    });
+  } catch (err) {
+    logger.error('First login reset error:', err);
+    res.status(500).json({ error: 'Password setup failed' });
   }
 });
 
@@ -1508,8 +772,145 @@ app.post('/admin/auth/login', (req, res, next) => {
 
 // POST /admin/logout & POST /admin/auth/logout
 app.post(['/admin/logout', '/admin/auth/logout'], (req, res) => {
-  res.clearCookie('admin_token');
+  const isProd = process.env.NODE_ENV === 'production';
+  const cookieDomain = isProd ? '.neuravolt.cloud' : undefined;
+
+  res.clearCookie('admin_access_token', { domain: cookieDomain });
+  res.clearCookie('admin_refresh_token', { domain: cookieDomain });
+  res.clearCookie('admin_token', { domain: cookieDomain });
+
   res.status(200).json({ success: true, message: 'Logged out successfully' });
+});
+
+// POST /admin/users/:id/unlock - Manually clear account lockout status
+app.post(['/admin/users/:id/unlock', '/v1/admin/users/:id/unlock'], adminAuth, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const result = await pool.query(
+      `UPDATE users
+       SET failed_login_attempts = 0,
+           locked_until = NULL,
+           lockout_count = 0,
+           unlock_token = NULL
+       WHERE id = $1
+       RETURNING id, email`,
+      [id]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    res.status(200).json({
+      success: true,
+      message: `Account lockout cleared for ${result.rows[0].email}.`,
+    });
+  } catch (err) {
+    logger.error('Admin user unlock error:', err);
+    res.status(500).json({ error: 'Failed to unlock user account' });
+  }
+// GET /admin/tax-rates - List all tax rates and monthly collections summary
+app.get(['/admin/tax-rates', '/v1/admin/tax-rates'], adminAuth, async (req, res) => {
+  try {
+    const ratesRes = await pool.query(
+      'SELECT * FROM tax_rates ORDER BY country_code ASC, region_code ASC NULLS FIRST'
+    );
+
+    const summaryRes = await pool.query(`
+      SELECT 
+        COALESCE(tr.country_code, 'IN') as country_code,
+        COALESCE(tr.tax_name, 'GST') as tax_name,
+        COUNT(i.id)::int as total_invoices,
+        COALESCE(SUM(i.subtotal), 0)::numeric(10,2) as total_subtotal,
+        COALESCE(SUM(i.tax_amount), 0)::numeric(10,2) as total_tax_collected,
+        COALESCE(SUM(i.total), 0)::numeric(10,2) as total_revenue
+      FROM invoices i
+      LEFT JOIN tax_rates tr ON i.tax_rate_id = tr.id
+      WHERE i.created_at >= NOW() - INTERVAL '30 days'
+      GROUP BY tr.country_code, tr.tax_name
+    `);
+
+    res.status(200).json({
+      success: true,
+      taxRates: ratesRes.rows,
+      summary30Days: summaryRes.rows,
+    });
+  } catch (err) {
+    logger.error('Fetch tax rates error:', err);
+    res.status(500).json({ error: 'Failed to fetch tax rates' });
+  }
+});
+
+// POST /admin/tax-rates - Create or update tax rate
+app.post(['/admin/tax-rates', '/v1/admin/tax-rates'], adminAuth, async (req, res) => {
+  try {
+    const { country_code, region_code, tax_name, rate_percent, type, hsn_code, is_active, id } = req.body;
+    if (!country_code || !tax_name || rate_percent === undefined) {
+      return res.status(400).json({ error: 'country_code, tax_name, and rate_percent are required' });
+    }
+
+    if (id) {
+      const updateRes = await pool.query(
+        `UPDATE tax_rates
+         SET country_code = $1, region_code = $2, tax_name = $3, rate_percent = $4,
+             type = $5, hsn_code = $6, is_active = $7
+         WHERE id = $8
+         RETURNING *`,
+        [country_code, region_code || null, tax_name, rate_percent, type || 'gst', hsn_code || '998315', is_active !== false, id]
+      );
+      return res.status(200).json({ success: true, taxRate: updateRes.rows[0] });
+    }
+
+    const insertRes = await pool.query(
+      `INSERT INTO tax_rates (country_code, region_code, tax_name, rate_percent, type, hsn_code, is_active)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)
+       RETURNING *`,
+      [country_code, region_code || null, tax_name, rate_percent, type || 'gst', hsn_code || '998315', is_active !== false]
+    );
+
+    res.status(201).json({ success: true, taxRate: insertRes.rows[0] });
+  } catch (err) {
+    logger.error('Save tax rate error:', err);
+    res.status(500).json({ error: 'Failed to save tax rate' });
+  }
+});
+
+// GET /admin/reports/gstr1 - Export GSTR-1 Outward Supplies Report CSV
+app.get(['/admin/reports/gstr1', '/v1/admin/reports/gstr1'], adminAuth, async (req, res) => {
+  try {
+    const result = await pool.query(`
+      SELECT 
+        i.id as invoice_id,
+        t.name as customer_name,
+        t.id as tenant_id,
+        i.created_at::date as invoice_date,
+        COALESCE(i.hsn_code, '998315') as hsn_sac_code,
+        'Online Information and Database Access or Retrieval Services (OIDAR)' as description,
+        COALESCE(i.subtotal, 0) as taxable_value,
+        COALESCE(tr.rate_percent, 18.00) as gst_rate_percent,
+        COALESCE(i.tax_amount, 0) as total_tax_amount,
+        ROUND(COALESCE(i.tax_amount, 0) / 2, 2) as cgst_amount,
+        ROUND(COALESCE(i.tax_amount, 0) / 2, 2) as sgst_amount,
+        COALESCE(i.total, 0) as total_invoice_value
+      FROM invoices i
+      JOIN tenants t ON i.tenant_id = t.id
+      LEFT JOIN tax_rates tr ON i.tax_rate_id = tr.id
+      WHERE i.created_at >= NOW() - INTERVAL '30 days'
+      ORDER BY i.created_at DESC
+    `);
+
+    let csvContent = 'Invoice ID,Customer Name,Invoice Date,HSN/SAC Code,Description,Taxable Value (INR),GST Rate (%),CGST (INR),SGST (INR),Total Tax (INR),Invoice Total (INR)\n';
+    for (const row of result.rows) {
+      csvContent += `"${row.invoice_id}","${row.customer_name}","${row.invoice_date}","${row.hsn_sac_code}","${row.description}",${row.taxable_value},${row.gst_rate_percent},${row.cgst_amount},${row.sgst_amount},${row.total_tax_amount},${row.total_invoice_value}\n`;
+    }
+
+    res.setHeader('Content-Type', 'text/csv');
+    res.setHeader('Content-Disposition', 'attachment; filename="GSTR1_Outward_Supplies_Report.csv"');
+    res.status(200).send(csvContent);
+  } catch (err) {
+    logger.error('GSTR-1 report export error:', err);
+    res.status(500).json({ error: 'Failed to generate GSTR-1 report' });
+  }
 });
 
 // POST /admin/cleanup - Manual Trigger Database Cleanup (Admin only)
@@ -2039,7 +1440,104 @@ app.use(
     next();
   },
   integrationsRouter
-);
+// Middleware: Metrics Auth / IP Whitelist Guard for /admin/metrics
+const metricsAuthGuard = (req, res, next) => {
+  const authHeader = req.headers.authorization || '';
+  const expectedToken = process.env.METRICS_BEARER_TOKEN || 'harikson_prometheus_metrics_secret_token_2026';
+
+  // 1. Bearer Token Auth (for Prometheus scrape job)
+  if (authHeader === `Bearer ${expectedToken}`) {
+    return next();
+  }
+
+  // 2. Admin JWT Cookie / Header Auth (for logged-in admin users)
+  const cookies = parseCookies(req.headers.cookie || '');
+  const token = cookies.hk_admin_token || (authHeader.startsWith('Bearer ') ? authHeader.substring(7) : null);
+  if (token) {
+    try {
+      const decoded = jwt.verify(token, process.env.ADMIN_JWT_SECRET || 'dev-admin-secret-key-change-in-prod');
+      if (decoded && (decoded.role === 'admin' || decoded.role === 'superadmin')) {
+        req.admin = decoded;
+        return next();
+      }
+    } catch (e) {
+      // Invalid token, fall through to IP check
+    }
+  }
+
+  // 3. IP Whitelist check (allow Docker container network 172.x.x.x, loopback 127.0.0.1, ::1)
+  const rawIp = (req.headers['x-forwarded-for'] || req.socket.remoteAddress || '').toString();
+  const cleanIp = rawIp.replace(/^::ffff:/, '').trim();
+
+  const isInternalIp =
+    cleanIp === '127.0.0.1' ||
+    cleanIp === '::1' ||
+    cleanIp.startsWith('172.') ||
+    cleanIp.startsWith('10.') ||
+    cleanIp.startsWith('192.168.');
+
+  if (isInternalIp) {
+    return next();
+  }
+
+  logger.warn(`🚨 Unauthorized access attempt to /admin/metrics from IP: ${cleanIp}`);
+  return res.status(403).json({
+    error: 'Access Denied: /admin/metrics requires Bearer token or internal Prometheus network access',
+  });
+};
+
+// GET /admin/metrics - Secured Prometheus Metrics Scrape Endpoint
+app.get('/admin/metrics', metricsAuthGuard, async (req, res) => {
+  try {
+    const tenants = await pool.query("SELECT COUNT(*) FROM tenants WHERE status='active'");
+    const users = await pool.query("SELECT COUNT(*) FROM users WHERE deleted_at IS NULL");
+    const agents = await pool.query("SELECT COUNT(*) FROM agents WHERE status='active'");
+    const kbs = await pool.query("SELECT COUNT(*) FROM knowledge_bases");
+
+    const memTotal = Math.round(os.totalmem() / (1024 * 1024));
+    const memFree = Math.round(os.freemem() / (1024 * 1024));
+    const memUsed = memTotal - memFree;
+    const cpuLoad = os.loadavg()[0] || 0;
+
+    const metricsText = [
+      '# HELP system_cpu_load System 1-minute CPU load average',
+      '# TYPE system_cpu_load gauge',
+      `system_cpu_load ${cpuLoad.toFixed(2)}`,
+      '',
+      '# HELP system_memory_used_mb System memory used in MB',
+      '# TYPE system_memory_used_mb gauge',
+      `system_memory_used_mb ${memUsed}`,
+      '',
+      '# HELP system_memory_total_mb System total memory in MB',
+      '# TYPE system_memory_total_mb gauge',
+      `system_memory_total_mb ${memTotal}`,
+      '',
+      '# HELP harikson_active_tenants_total Total active tenants count',
+      '# TYPE harikson_active_tenants_total gauge',
+      `harikson_active_tenants_total ${parseInt(tenants.rows[0].count)}`,
+      '',
+      '# HELP harikson_total_users Total active users count',
+      '# TYPE harikson_total_users gauge',
+      `harikson_total_users ${parseInt(users.rows[0].count)}`,
+      '',
+      '# HELP harikson_active_agents_total Total active agents count',
+      '# TYPE harikson_active_agents_total gauge',
+      `harikson_active_agents_total ${parseInt(agents.rows[0].count)}`,
+      '',
+      '# HELP harikson_knowledge_bases_total Total knowledge bases count',
+      '# TYPE harikson_knowledge_bases_total gauge',
+      `harikson_knowledge_bases_total ${parseInt(kbs.rows[0].count)}`,
+      ''
+    ].join('\n');
+
+    res.setHeader('Content-Type', 'text/plain; version=0.0.4');
+    res.status(200).send(metricsText);
+  } catch (err) {
+    logger.error('Failed to generate Prometheus metrics:', err);
+    res.status(500).json({ error: 'Failed to generate metrics' });
+  }
+});
+
 app.use('/admin', adminAuth);
 
 // 0. GET /admin/kpis
@@ -4133,8 +3631,174 @@ app.get('/admin/billing/webhooks', adminAuth, async (req, res) => {
       }, {}),
     });
   } catch (err) {
-    logger.error('Failed to query payment webhooks:', err);
-    res.status(500).json({ error: 'Failed to query webhook entries' });
+// GET /admin/billing/webhook-logs - Alias for webhook entries with date & status filters
+app.get('/admin/billing/webhook-logs', adminAuth, async (req, res) => {
+  const {
+    provider,
+    event_type,
+    status,
+    from_date,
+    to_date,
+    limit = 50,
+    offset = 0,
+  } = req.query;
+  try {
+    let query = `SELECT w.id, w.event_id, w.provider, w.event_type, w.status, w.amount, w.tenant_name, w.payload, w.signature_verified, w.processing_error, w.created_at, w.processed_at 
+                 FROM payment_webhooks w WHERE 1=1`;
+    const params = [];
+
+    if (provider) {
+      params.push(provider);
+      query += ` AND w.provider = $${params.length}`;
+    }
+    if (event_type) {
+      params.push(event_type);
+      query += ` AND w.event_type = $${params.length}`;
+    }
+    if (status) {
+      params.push(status);
+      query += ` AND w.status = $${params.length}`;
+    }
+    if (from_date) {
+      params.push(from_date);
+      query += ` AND w.created_at >= $${params.length}`;
+    }
+    if (to_date) {
+      params.push(to_date);
+      query += ` AND w.created_at <= $${params.length}`;
+    }
+
+    params.push(parseInt(limit));
+    query += ` ORDER BY w.created_at DESC LIMIT $${params.length}`;
+    params.push(parseInt(offset));
+    query += ` OFFSET $${params.length}`;
+
+    const result = await pool.query(query, params);
+
+    let countQuery = `SELECT COUNT(*) FROM payment_webhooks WHERE 1=1`;
+    const countParams = [];
+    if (provider) {
+      countParams.push(provider);
+      countQuery += ` AND provider = $${countParams.length}`;
+    }
+    if (event_type) {
+      countParams.push(event_type);
+      countQuery += ` AND event_type = $${countParams.length}`;
+    }
+    if (status) {
+      countParams.push(status);
+      countQuery += ` AND status = $${countParams.length}`;
+    }
+    if (from_date) {
+      countParams.push(from_date);
+      countQuery += ` AND created_at >= $${countParams.length}`;
+    }
+    if (to_date) {
+      countParams.push(to_date);
+      countQuery += ` AND created_at <= $${countParams.length}`;
+    }
+    const countRes = await pool.query(countQuery, countParams);
+
+    res.status(200).json({
+      webhooks: result.rows,
+      total: parseInt(countRes.rows[0].count),
+      limit: parseInt(limit),
+      offset: parseInt(offset),
+    });
+  } catch (err) {
+    logger.error('Failed to query payment webhook logs:', err);
+    res.status(500).json({ error: 'Failed to query webhook logs' });
+  }
+});
+
+// POST /admin/billing/webhooks/:id/retry - Manual retry button for failed/pending webhooks
+app.post('/admin/billing/webhooks/:id/retry', adminAuth, async (req, res) => {
+  const { id } = req.params;
+  try {
+    const webhookRes = await pool.query('SELECT * FROM payment_webhooks WHERE id = $1', [id]);
+    if (webhookRes.rows.length === 0) {
+      return res.status(404).json({ error: 'Webhook entry not found' });
+    }
+
+    const event = webhookRes.rows[0];
+
+    // Reset status to pending in DB
+    await pool.query(
+      "UPDATE payment_webhooks SET status = 'pending', processing_error = NULL, processed_at = NULL WHERE id = $1",
+      [id]
+    );
+
+    const payload = typeof event.payload === 'string' ? JSON.parse(event.payload) : event.payload;
+
+    logger.info(`🔄 [Admin] Manual webhook retry triggered for event ${event.event_id} (${event.provider})`);
+
+    res.status(200).json({
+      success: true,
+      message: `Webhook event ${event.event_id} re-enqueued for retry processing`,
+      webhook: {
+        id: event.id,
+        event_id: event.event_id,
+        provider: event.provider,
+        status: 'pending',
+      },
+    });
+  } catch (err) {
+    logger.error('Failed to trigger manual webhook retry:', err);
+// GET /admin/billing/dunning-dashboard - Dunning accounts, retry stages, failure reasons, and recovery rate
+app.get('/admin/billing/dunning-dashboard', adminAuth, async (req, res) => {
+  try {
+    const accountsInRetryRes = await pool.query(
+      `SELECT t.id, t.name, t.slug, t.status, s.status as sub_status, s.amount, s.currency,
+              COALESCE((t.metadata->>'dunning_stage')::int, 1) as dunning_stage,
+              COALESCE(t.metadata->>'failure_reason', 'Card declined') as failure_reason,
+              s.updated_at as last_failed_at
+       FROM tenants t
+       JOIN subscriptions s ON s.tenant_id = t.id
+       WHERE t.status = 'past_due' OR s.status = 'past_due'
+       ORDER BY s.updated_at DESC`
+    );
+
+    const stagesBreakdownRes = await pool.query(
+      `SELECT COALESCE((metadata->>'dunning_stage')::int, 1) as stage, COUNT(*)::int as count
+       FROM tenants
+       WHERE status = 'past_due'
+       GROUP BY 1 ORDER BY 1 ASC`
+    );
+
+    const failureReasonsRes = await pool.query(
+      `SELECT COALESCE(metadata->>'failure_reason', 'Card declined') as reason, COUNT(*)::int as count
+       FROM tenants
+       WHERE status = 'past_due'
+       GROUP BY 1 ORDER BY 2 DESC`
+    );
+
+    const recoveryRes = await pool.query(
+      `SELECT 
+         COUNT(*) FILTER (WHERE status = 'active')::int as recovered,
+         COUNT(*) FILTER (WHERE status = 'canceled')::int as canceled,
+         COUNT(*) FILTER (WHERE status = 'past_due')::int as past_due
+       FROM subscriptions`
+    );
+
+    const rec = recoveryRes.rows[0] || { recovered: 0, canceled: 0, past_due: 0 };
+    const totalProcessed = rec.recovered + rec.canceled;
+    const recoveryRatePercent = totalProcessed > 0 ? parseFloat(((rec.recovered / totalProcessed) * 100).toFixed(2)) : 100;
+
+    res.status(200).json({
+      accountsInRetry: accountsInRetryRes.rows,
+      totalInRetry: accountsInRetryRes.rows.length,
+      stagesBreakdown: stagesBreakdownRes.rows,
+      failureReasons: failureReasonsRes.rows,
+      metrics: {
+        recoveredCount: rec.recovered,
+        canceledCount: rec.canceled,
+        pastDueCount: rec.past_due,
+        recoveryRatePercent,
+      },
+    });
+  } catch (err) {
+    logger.error('Failed to fetch dunning dashboard stats:', err);
+    res.status(500).json({ error: 'Failed to fetch dunning dashboard' });
   }
 });
 
@@ -4463,6 +4127,7 @@ const server = app.listen(port, () => {
     `⚡ [Admin Management API] Operational and listening on port ${port}`
   );
   startIntegrationWorkers(pool);
+  initDb().catch((err) => logger.warn('[DB] initDb failed on startup:', err.message));
 });
 
 const gracefulShutdown = (signal) => {

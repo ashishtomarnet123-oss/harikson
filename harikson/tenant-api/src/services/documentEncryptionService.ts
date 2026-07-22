@@ -12,6 +12,21 @@ const redis = new Redis({
 
 redis.connect().catch(() => {});
 
+/**
+ * Validates that TENANT_MASTER_KEY is present and meets security standards (at least 32 characters).
+ * Fails fast with a fatal exception if unconfigured.
+ */
+export function validateMasterKeyConfig(): string {
+  const masterKey = process.env.TENANT_MASTER_KEY;
+  if (!masterKey || masterKey.length < 32) {
+    throw new Error('FATAL: TENANT_MASTER_KEY must be set and at least 32 characters');
+  }
+  return masterKey;
+}
+
+// Execute module load-time configuration validation
+validateMasterKeyConfig();
+
 export interface EncryptedPayload {
   encryptedContent: string;
   iv: string;
@@ -23,11 +38,7 @@ export interface EncryptedPayload {
  * Derive a 256-bit key from the tenant master key and document ID using PBKDF2 (100,000 iterations).
  */
 function deriveDocumentKey(documentId: string, keyId: string = 'v1'): Buffer {
-  const masterKey =
-    process.env.TENANT_MASTER_KEY ||
-    process.env.JWT_SECRET ||
-    'neuravolt_default_master_encryption_key_2026';
-
+  const masterKey = validateMasterKeyConfig();
   const salt = `${documentId}:${keyId}`;
   return crypto.pbkdf2Sync(masterKey, salt, 100000, 32, 'sha256');
 }
