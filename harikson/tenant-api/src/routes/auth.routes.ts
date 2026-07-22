@@ -42,11 +42,11 @@ async function handleLogin(req: any, res: any) {
     const key = `ratelimit:login:${ip}`;
     const attempts = await redis.incr(key);
     if (attempts === 1) {
-      await redis.expire(key, 3600);
+      await redis.expire(key, 60); // 60s sliding window instead of 3600s
     }
-    if (attempts > 5) {
+    if (attempts > 60) { // 60 attempts/min threshold instead of 5/hr
       return res.status(429).json({
-        error: 'Too many login attempts. Rate limit exceeded. Try again in an hour.',
+        error: 'Too many login attempts. Rate limit exceeded. Try again in a minute.',
       });
     }
 
@@ -128,6 +128,7 @@ async function handleLogin(req: any, res: any) {
       'UPDATE users SET failed_login_attempts = 0, locked_until = NULL, lockout_count = 0, unlock_token = NULL WHERE id = $1',
       [user.id]
     );
+    await redis.del(key).catch(() => {});
 
     if (user.email_verified === false) {
       return res.status(403).json({
