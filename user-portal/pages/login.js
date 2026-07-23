@@ -21,6 +21,9 @@ export default function LoginPage() {
   const [lockoutSeconds, setLockoutSeconds] = useState(0);
   const [unlockMsg, setUnlockMsg] = useState('');
   const [verifiedSuccess, setVerifiedSuccess] = useState(false);
+  const [requireVerification, setRequireVerification] = useState(false);
+  const [userId, setUserId] = useState('');
+  const [resendStatus, setResendStatus] = useState('');
 
   useEffect(() => {
     if (!accountLocked || lockoutSeconds <= 0) return;

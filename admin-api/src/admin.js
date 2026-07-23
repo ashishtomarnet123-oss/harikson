@@ -3632,6 +3632,11 @@ app.get('/admin/billing/webhooks', adminAuth, async (req, res) => {
       }, {}),
     });
   } catch (err) {
+    logger.error('Failed to query payment webhooks:', err);
+    res.status(500).json({ error: 'Failed to query webhook entries' });
+  }
+});
+
 // GET /admin/billing/webhook-logs - Alias for webhook entries with date & status filters
 app.get('/admin/billing/webhook-logs', adminAuth, async (req, res) => {
   const {
@@ -3745,6 +3750,10 @@ app.post('/admin/billing/webhooks/:id/retry', adminAuth, async (req, res) => {
     });
   } catch (err) {
     logger.error('Failed to trigger manual webhook retry:', err);
+    res.status(500).json({ error: 'Failed to retry webhook' });
+  }
+});
+
 // GET /admin/billing/dunning-dashboard - Dunning accounts, retry stages, failure reasons, and recovery rate
 app.get('/admin/billing/dunning-dashboard', adminAuth, async (req, res) => {
   try {
