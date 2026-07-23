@@ -76,7 +76,7 @@ ssh -o ServerAliveInterval=30 -o ServerAliveCountMax=20 -i "$VM_KEY" "$VM_USER@$
     sudo rm -rf /tmp/* || true
     
     echo "Building Harikson services..."
-    docker compose build --no-cache user-portal admin-panel admin-api tenant-api || true
+    docker compose build user-portal admin-panel admin-api tenant-api || true
     
     echo "Starting Harikson services..."
     docker compose up -d
