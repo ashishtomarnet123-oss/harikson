@@ -336,6 +336,8 @@ export default function LoginPage() {
                 <p style={{ margin: '8px 0 0 0', fontSize: '12px', color: '#93c5fd' }}>{resendStatus}</p>
               )}
             </div>
+          )}
+
           {accountLocked && (
             <div style={{
               backgroundColor: 'rgba(239, 68, 68, 0.1)',
