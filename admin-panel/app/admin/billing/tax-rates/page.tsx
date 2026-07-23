@@ -24,7 +24,7 @@ interface SummaryRow {
 }
 
 export default function TaxRatesPage() {
-  const { getAuthHeaders, apiBase } = useAdminAuth();
+  const apiBase = '/api-proxy';
   const [taxRates, setTaxRates] = useState<TaxRate[]>([]);
   const [summary, setSummary] = useState<SummaryRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -45,7 +45,6 @@ export default function TaxRatesPage() {
     setError('');
     try {
       const res = await fetch(`${apiBase}/admin/tax-rates`, {
-        headers: getAuthHeaders(),
         credentials: 'include',
       });
       const data = await res.json();
@@ -70,7 +69,6 @@ export default function TaxRatesPage() {
       const res = await fetch(`${apiBase}/admin/tax-rates`, {
         method: 'POST',
         headers: {
-          ...getAuthHeaders(),
           'Content-Type': 'application/json',
         },
         credentials: 'include',
@@ -89,7 +87,6 @@ export default function TaxRatesPage() {
   const handleExportGSTR1 = async () => {
     try {
       const res = await fetch(`${apiBase}/admin/reports/gstr1`, {
-        headers: getAuthHeaders(),
         credentials: 'include',
       });
       if (!res.ok) throw new Error('Failed to generate GSTR-1 report');
