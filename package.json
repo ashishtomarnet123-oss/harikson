@@ -6,11 +6,11 @@
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "format": "prettier --write .",
-    "typecheck": "tsc --noEmit || true",
+    "typecheck": "npm --prefix harikson/tenant-api install && npm --prefix harikson/tenant-api run typecheck",
     "test": "node --test || true",
     "test:coverage": "mkdir -p coverage && echo 'Coverage report generated' > coverage/lcov.info",
     "migrate": "node scripts/migrate.js",
-    "build": "npm --prefix harikson/tenant-api run build && npm --prefix user-portal run build && npm --prefix admin-panel run build"
+    "build": "npm --prefix harikson/tenant-api install && npm --prefix harikson/tenant-api run build && npm --prefix user-portal install && npm --prefix user-portal run build && npm --prefix admin-panel install && npm --prefix admin-panel run build"
   },
   "dependencies": {
     "chromium": "^3.0.3",
