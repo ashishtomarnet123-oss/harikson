@@ -1,6 +1,6 @@
 import bcrypt from 'bcrypt';
 import crypto from 'crypto';
-import otplibPkg from 'otplib';
+import * as otplibPkg from 'otplib';
 import { pool } from '../db/pool.js';
 import { Logger } from '../observability/logger.js';
 
