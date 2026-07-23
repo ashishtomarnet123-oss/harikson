@@ -1,8 +1,10 @@
 import bcrypt from 'bcrypt';
 import crypto from 'crypto';
-import { authenticator } from 'otplib';
+import otplibPkg from 'otplib';
 import { pool } from '../db/pool.js';
 import { Logger } from '../observability/logger.js';
+
+const authenticator = (otplibPkg as any).authenticator || (otplibPkg as any).default?.authenticator || otplibPkg;
 
 // Configure otplib authenticator options (window of ±1 step = 30 seconds drift tolerance)
 authenticator.options = { window: 1 };

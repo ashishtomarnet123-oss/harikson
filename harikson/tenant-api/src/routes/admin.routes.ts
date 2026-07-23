@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { pool, getCacheHitMetrics } from '../db/pool.js';
-import { rotateDocumentEncryptionKeys } from '../services/documentEncryptionService.js';
+import { rotateDocumentKeys } from '../services/documentEncryptionService.js';
 import logger from '../utils/logger.js';
 
 const router = Router();
@@ -10,7 +10,7 @@ router.post('/rotate-keys', async (req: any, res) => {
   if (!req.tenant) return res.status(401).json({ error: 'Tenant context required' });
 
   try {
-    const count = await rotateDocumentEncryptionKeys(req.tenant.id);
+    const count = await rotateDocumentKeys(req.tenant.id);
     res.json({ success: true, rotatedCount: count });
   } catch (err: any) {
     logger.error('Document key rotation error:', err);

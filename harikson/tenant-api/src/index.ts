@@ -27,7 +27,7 @@ import healthRoutes from './routes/health.routes.js';
 import authRoutes from './routes/auth.routes.js';
 import userRoutes from './routes/user.routes.js';
 import chatRoutes from './routes/chat.routes.js';
-import documentRoutes from './routes/document.routes.ts';
+import documentRoutes from './routes/document.routes.js';
 import billingRoutes from './routes/billing.routes.js';
 import agentRoutes from './routes/agent.routes.js';
 import widgetRoutes from './routes/widget.routes.js';
@@ -178,13 +178,12 @@ const PORT = process.env.PORT || 3008;
 
 async function startServer() {
   try {
-    await runMigrations();
+    await runMigrations(pool);
     logger.info('Database migrations completed successfully.');
 
     // Initialize background worker scheduler
     try {
-      const scheduler = new HariksonScheduler();
-      scheduler.start();
+      await HariksonScheduler.startAll();
       logger.info('Harikson background scheduler initialized.');
     } catch (schedErr: any) {
       logger.warn('Scheduler failed to start:', schedErr.message);

@@ -134,7 +134,7 @@ router.post('/2fa/verify', async (req: any, res) => {
       return res.status(400).json({ error: 'Invalid verification code' });
     }
 
-    const { rawCodes, hashedCodes } = await generateHashedBackupCodes();
+    const { plainCodes, hashedRecords } = await generateHashedBackupCodes();
 
     await pool.query(
       `UPDATE users 
@@ -143,7 +143,7 @@ router.post('/2fa/verify', async (req: any, res) => {
            two_factor_secret_temp = NULL,
            two_factor_backup_codes = $1
        WHERE id = $2`,
-      [hashedCodes, req.user.userId]
+      [JSON.stringify(hashedRecords), req.user.userId]
     );
 
     await invalidateUserCache(req.user.userId);
@@ -151,7 +151,7 @@ router.post('/2fa/verify', async (req: any, res) => {
     res.json({
       success: true,
       message: '2FA enabled successfully',
-      backupCodes: rawCodes,
+      backupCodes: plainCodes,
     });
   } catch (err: any) {
     logger.error('2FA verify error:', err);
