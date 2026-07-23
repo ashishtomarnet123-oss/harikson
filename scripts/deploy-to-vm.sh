@@ -69,8 +69,14 @@ ssh -o ServerAliveInterval=30 -o ServerAliveCountMax=20 -i "$VM_KEY" "$VM_USER@$
     
     echo "Stopping existing containers and freeing up disk space on VM..."
     docker compose down --remove-orphans || true
-    docker stop $(docker ps -aq) || true
-    docker rm $(docker ps -aq) || true
+    
+    CONTS=$(docker ps -aq)
+    if [ ! -z "$CONTS" ]; then
+        echo "Removing containers: $CONTS"
+        docker stop $CONTS || true
+        docker rm -f $CONTS || true
+    fi
+    
     docker system prune -af --volumes || true
     docker builder prune -af || true
     sudo rm -rf /tmp/* || true
