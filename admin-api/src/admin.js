@@ -809,6 +809,8 @@ app.post(['/admin/users/:id/unlock', '/v1/admin/users/:id/unlock'], adminAuth, a
     logger.error('Admin user unlock error:', err);
     res.status(500).json({ error: 'Failed to unlock user account' });
   }
+});
+
 // GET /admin/tax-rates - List all tax rates and monthly collections summary
 app.get(['/admin/tax-rates', '/v1/admin/tax-rates'], adminAuth, async (req, res) => {
   try {

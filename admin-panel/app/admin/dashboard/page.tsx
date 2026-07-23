@@ -175,7 +175,7 @@ export default function SystemMonitor() {
   };
 
   // Cancel scheduled unload
-  const cancelScheduledUnload = () => {
+  const cancelRestart = () => {
     if (countdownTimer.current) {
       clearInterval(countdownTimer.current);
       setCountdown(null);
