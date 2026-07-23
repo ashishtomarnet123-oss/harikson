@@ -1440,6 +1440,7 @@ app.use(
     next();
   },
   integrationsRouter
+);
 // Middleware: Metrics Auth / IP Whitelist Guard for /admin/metrics
 const metricsAuthGuard = (req, res, next) => {
   const authHeader = req.headers.authorization || '';

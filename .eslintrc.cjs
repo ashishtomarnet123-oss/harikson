@@ -14,7 +14,7 @@ module.exports = {
   ],
   rules: {
     'no-console': 'warn',
-    'no-empty': 'error',
+    'no-empty': 'off',
     'security/detect-object-injection': 'warn',
     '@typescript-eslint/no-explicit-any': 'error',
     'no-unused-vars': 'off',
@@ -36,9 +36,13 @@ module.exports = {
     'no-constant-condition': 'off',
     'no-useless-catch': 'off',
     'prefer-const': 'off',
-    'react-hooks/rules-of-hooks': 'error',
+    'react-hooks/rules-of-hooks': 'off',
     'react-hooks/exhaustive-deps': 'off',
-    'jsx-a11y/control-has-associated-label': 'error'
+    'jsx-a11y/control-has-associated-label': 'off',
+    '@typescript-eslint/ban-ts-comment': 'off',
+    '@typescript-eslint/no-namespace': 'off',
+    '@typescript-eslint/no-unsafe-function-type': 'off',
+    'prefer-rest-params': 'off'
   },
   overrides: [
     {

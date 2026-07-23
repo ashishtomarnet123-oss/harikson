@@ -289,7 +289,9 @@ export async function executeDatabaseCleanup(force = false): Promise<{
         );
       }
       await redis.quit();
-    } catch (rErr) {}
+    } catch (rErr) {
+      // Ignored
+    }
 
     return {
       success: false,

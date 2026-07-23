@@ -20,6 +20,7 @@ export default function LoginPage() {
   const [accountLocked, setAccountLocked] = useState(false);
   const [lockoutSeconds, setLockoutSeconds] = useState(0);
   const [unlockMsg, setUnlockMsg] = useState('');
+  const [verifiedSuccess, setVerifiedSuccess] = useState(false);
 
   useEffect(() => {
     if (!accountLocked || lockoutSeconds <= 0) return;
@@ -63,6 +64,9 @@ export default function LoginPage() {
       }
       if (urlParams.get('reason') === 'device_mismatch' || router.query.reason === 'device_mismatch') {
         setDeviceMismatch(true);
+      }
+      if (urlParams.get('verified') === 'true' || router.query.verified === 'true') {
+        setVerifiedSuccess(true);
       }
     }
   }, [router]);
