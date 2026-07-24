@@ -25,10 +25,9 @@ export function getApiBaseUrl(): string {
         return `${protocol}//api.${domain}`;
       }
     }
-    // 3. Same-origin proxy fallback - return just the origin.
-    // Next.js rewrites /api/* to the backend, so callers should use ${origin}/api/v1/...
+    // 3. Same-origin proxy fallback
     if (window.location.origin) {
-      return window.location.origin;
+      return '';
     }
   }
 

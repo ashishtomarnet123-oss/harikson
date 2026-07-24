@@ -108,7 +108,7 @@ export default function SecuritySettings() {
       const data = await res.json();
       if (res.ok) {
         setSetupSecret(data.secret);
-        setQrCodeUrl(data.qrCode || data.qrCodeUrl);
+        setQrCodeUrl(data.qrCodeUrl);
         setShowSetup(true);
       } else {
         throw new Error(data.error || 'Failed to start 2FA setup');

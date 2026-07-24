@@ -110,11 +110,15 @@ export default function WorkspaceSettings() {
       const token = localStorage.getItem('hk_user') ? 'cookie_auth' : null;
       if (!token) return;
       const { apiBase, tenantSlug } = getApiConfig();
-      const res = await authenticatedFetch(
+      const res = await fetch(
         `${apiBase}/api/v1/user/workspace/members/${memberId}/role`,
         {
+          credentials: 'include',
           method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
+          headers: {
+            'Content-Type': 'application/json',
+            'x-tenant-slug': tenantSlug,
+          },
           body: JSON.stringify({ role: newRole }),
         }
       );
@@ -151,9 +155,15 @@ export default function WorkspaceSettings() {
       const token = localStorage.getItem('hk_user') ? 'cookie_auth' : null;
       if (!token) return;
       const { apiBase, tenantSlug } = getApiConfig();
-      const res = await authenticatedFetch(
+      const res = await fetch(
         `${apiBase}/api/v1/user/workspace/members/${memberId}`,
-        { method: 'DELETE' }
+        {
+          credentials: 'include',
+          method: 'DELETE',
+          headers: {
+            'x-tenant-slug': tenantSlug,
+          },
+        }
       );
       const data = await res.json();
       if (res.ok) {
