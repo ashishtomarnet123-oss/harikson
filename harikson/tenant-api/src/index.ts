@@ -97,7 +97,7 @@ app.use(async (req, _res, next) => {
   try {
     const host = req.headers.host || '';
     const authHeader = req.headers.authorization || '';
-    const tenantHeader = (req.headers['x-tenant-id'] as string) || '';
+    const tenantHeader = (req.headers['x-tenant-id'] as string) || (req.headers['x-tenant-slug'] as string) || '';
 
     let tenant: any = null;
 

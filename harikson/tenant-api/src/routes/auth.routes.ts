@@ -29,7 +29,7 @@ const redis = new Redis(process.env.REDIS_URL || 'redis://redis:6379', {
   enableReadyCheck: true,
 });
 
-const jwtSecret = process.env.JWT_SECRET || 'dev-jwt-secret-key-change-in-prod';
+const getJwtSecret = () => process.env.JWT_SECRET || 'dev-jwt-secret-key-change-in-prod';
 
 // Helper: Handle Login Logic
 async function handleLogin(req: any, res: any) {
@@ -156,7 +156,7 @@ async function handleLogin(req: any, res: any) {
       }
     }
 
-    const accessToken = jwt.sign({ userId: user.id, role: user.role }, jwtSecret, { expiresIn: '15m' });
+    const accessToken = jwt.sign({ userId: user.id, role: user.role }, getJwtSecret(), { expiresIn: '15m' });
     const refreshToken = crypto.randomBytes(64).toString('hex');
     const refreshTokenHash = crypto.createHash('sha256').update(refreshToken).digest('hex');
     const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
@@ -326,7 +326,7 @@ router.post('/login/2fa', async (req, res) => {
       return res.status(401).json({ error: 'Invalid 2FA code' });
     }
 
-    const accessToken = jwt.sign({ userId: user.id, role: user.role }, jwtSecret, { expiresIn: '15m' });
+    const accessToken = jwt.sign({ userId: user.id, role: user.role }, getJwtSecret(), { expiresIn: '15m' });
     const refreshToken = crypto.randomBytes(64).toString('hex');
     const refreshTokenHash = crypto.createHash('sha256').update(refreshToken).digest('hex');
     const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
@@ -430,7 +430,7 @@ async function handleRefresh(req: any, res: any) {
       return res.status(401).json({ error: 'User no longer exists' });
     }
 
-    const newAccessToken = jwt.sign({ userId: user.id, role: user.role }, jwtSecret, { expiresIn: '15m' });
+    const newAccessToken = jwt.sign({ userId: user.id, role: user.role }, getJwtSecret(), { expiresIn: '15m' });
     const newRefreshToken = crypto.randomBytes(64).toString('hex');
     const newRefreshTokenHash = crypto.createHash('sha256').update(newRefreshToken).digest('hex');
 
@@ -641,7 +641,7 @@ async function handleMe(req: any, res: any) {
       return res.status(401).json({ error: 'Authentication required' });
     }
 
-    const decoded: any = jwt.verify(token, jwtSecret);
+    const decoded: any = jwt.verify(token, getJwtSecret());
     const userRes = await pool.query(
       'SELECT id, email, name, role, tenant_id, email_verified, created_at FROM users WHERE id = $1 AND deleted_at IS NULL',
       [decoded.userId]

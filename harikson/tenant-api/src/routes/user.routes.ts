@@ -15,8 +15,6 @@ import {
 import jwt from 'jsonwebtoken';
 
 const router = Router();
-const jwtSecret = process.env.JWT_SECRET || 'fallback_secret_key_neuravolt_2026';
-
 router.use((req: any, _res, next) => {
   if (!req.user) {
     const authHeader = req.headers.authorization || '';
@@ -29,7 +27,7 @@ router.use((req: any, _res, next) => {
     }
     if (token) {
       try {
-        const decoded: any = jwt.verify(token, jwtSecret);
+        const decoded: any = jwt.verify(token, process.env.JWT_SECRET || 'fallback_secret_key_neuravolt_2026');
         req.user = decoded;
       } catch (err) {}
     }
