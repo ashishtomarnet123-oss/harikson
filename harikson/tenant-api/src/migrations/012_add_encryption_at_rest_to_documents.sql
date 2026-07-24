@@ -1,4 +1,12 @@
 -- Migration 012: Add encryption columns (content_iv, content_tag, key_id) to knowledge_documents
+CREATE TABLE IF NOT EXISTS knowledge_documents (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id UUID NOT NULL,
+    title VARCHAR(255) NOT NULL,
+    content TEXT,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
 ALTER TABLE knowledge_documents ADD COLUMN IF NOT EXISTS content_iv VARCHAR(64);
 ALTER TABLE knowledge_documents ADD COLUMN IF NOT EXISTS content_tag VARCHAR(64);
 ALTER TABLE knowledge_documents ADD COLUMN IF NOT EXISTS key_id VARCHAR(32) DEFAULT 'v1';
