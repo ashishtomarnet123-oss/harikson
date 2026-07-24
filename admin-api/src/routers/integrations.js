@@ -981,6 +981,8 @@ function startIntegrationWorkers(pool) {
     },
     5 * 60 * 1000
   );
+  logger.info('[Integration Center] Background workers started.');
+}
 
 async function initIntegrationTables() {
   logger.info('[Integration Center] Tables initialization checked.');
