@@ -265,15 +265,15 @@ async function handleRegister(req: any, res: any) {
 
     await pool.query(
       `INSERT INTO subscriptions (
-        tenant_id, plan_id, status, current_period_start, current_period_end, amount, currency, created_at
+        tenant_id, plan_id, provider, status, current_period_start, current_period_end, amount, currency, created_at
        )
-       VALUES ($1, $2, 'trialing', NOW(), NOW() + ($3 || '14')::int * INTERVAL '1 day', 0, 'INR', NOW())`,
-      [tenantId, plan?.id || 'starter', trialDays]
+       VALUES ($1, $2, 'system', 'trialing', NOW(), NOW() + ($3 || '14')::int * INTERVAL '1 day', 0, 'INR', NOW())`,
+      [tenantId, plan?.id || 'free', trialDays]
     );
 
     const verifyUrl = `https://app.neuravolt.cloud/verify-email?token=${verificationToken}`;
     sendVerificationEmail(user.email, verifyUrl).catch((err) =>
-      logger.error('Failed to send verification email:', err)
+      logger.error('Failed to send verification email:', err?.message || err)
     );
 
     res.status(201).json({
@@ -288,8 +288,8 @@ async function handleRegister(req: any, res: any) {
       },
     });
   } catch (err: any) {
-    logger.error('Registration error:', err);
-    res.status(500).json({ error: 'Registration failed due to a server error' });
+    logger.error('Registration error:', err?.message || err);
+    res.status(500).json({ error: err?.message || 'Registration failed due to a server error' });
   }
 }
 
