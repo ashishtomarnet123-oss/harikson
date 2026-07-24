@@ -39,14 +39,21 @@ export function AuthProvider({ children }) {
 
     const { apiBase, tenantSlug } = getApiConfig();
     const isPublicPage = ['/login', '/signup', '/verify-email', '/aup', '/privacy', '/terms', '/cookies', '/neuravolt', '/'].includes(router.pathname);
+    const storedToken = localStorage.getItem('hk_access_token');
+    const storedUser = localStorage.getItem('hk_user');
 
     try {
       setIsLoading(true);
+      const headers = {
+        'x-tenant-slug': tenantSlug,
+      };
+      if (storedToken) {
+        headers['Authorization'] = `Bearer ${storedToken}`;
+      }
+
       const res = await fetch(`${apiBase}/api/auth/me`, {
         method: 'GET',
-        headers: {
-          'x-tenant-slug': tenantSlug,
-        },
+        headers,
         credentials: 'include',
       });
 
@@ -68,18 +75,30 @@ export function AuthProvider({ children }) {
           router.replace('/verify-email');
         }
       } else if (res.status === 401) {
-        clearAuthData();
-        if (!isPublicPage && router.pathname !== '/impersonate') {
+        if (!storedToken && !storedUser) {
+          clearAuthData();
+          if (!isPublicPage && router.pathname !== '/impersonate') {
+            router.replace('/login');
+          }
+        } else if (!isPublicPage) {
+          clearAuthData();
           router.replace('/login?session_expired=true');
         }
       } else {
-        clearAuthData();
+        if (storedUser && storedToken) {
+          try {
+            setUser(JSON.parse(storedUser));
+            setIsAuthenticated(true);
+          } catch {
+            clearAuthData();
+          }
+        } else {
+          clearAuthData();
+        }
       }
     } catch (err) {
       console.error('Auth verification error:', err);
-      // Fallback check to localStorage if network error offline
-      const storedUser = localStorage.getItem('hk_user');
-      if (storedUser) {
+      if (storedUser && storedToken) {
         try {
           setUser(JSON.parse(storedUser));
           setIsAuthenticated(true);

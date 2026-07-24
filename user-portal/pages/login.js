@@ -124,12 +124,17 @@ export default function LoginPage() {
         new URLSearchParams(window.location.search).get('session_expired') === 'true') ||
       router.query.session_expired === 'true';
 
-    if (!isSessionExpired) {
+    const existingToken = typeof window !== 'undefined' ? localStorage.getItem('hk_access_token') : null;
+
+    if (!isSessionExpired && existingToken) {
+      const headers = {
+        'x-tenant-slug': resolvedTenantSlug,
+        'Authorization': `Bearer ${existingToken}`,
+      };
+
       fetch(`${resolvedApiBase}/api/auth/me`, {
         credentials: 'include',
-        headers: {
-          'x-tenant-slug': resolvedTenantSlug,
-        },
+        headers,
       })
         .then((res) => {
           if (res.ok) return res.json();
@@ -154,7 +159,7 @@ export default function LoginPage() {
           localStorage.removeItem('hk_access_token');
           localStorage.removeItem('hk_refresh_token');
         });
-    } else {
+    } else if (isSessionExpired) {
       localStorage.removeItem('hk_user');
       localStorage.removeItem('hk_access_token');
       localStorage.removeItem('hk_refresh_token');
