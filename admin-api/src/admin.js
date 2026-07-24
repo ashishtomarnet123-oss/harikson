@@ -50,7 +50,7 @@ if (!process.env.JWT_SECRET || process.env.JWT_SECRET.length < 32) {
 }
 
 const { Pool } = pg;
-const pool = new Pool({
+export const pool = new Pool({
   connectionString:
     process.env.DATABASE_URL ||
     'postgresql://neuravolt:neuravolt_dev_pwd@postgres:5432/neuravolt',
