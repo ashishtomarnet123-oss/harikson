@@ -265,10 +265,10 @@ async function handleRegister(req: any, res: any) {
 
     await pool.query(
       `INSERT INTO subscriptions (
-        tenant_id, plan_id, provider, status, current_period_start, current_period_end, amount, currency, created_at
+        tenant_id, plan_id, provider, provider_subscription_id, status, current_period_start, current_period_end, amount, currency, created_at
        )
-       VALUES ($1, $2, 'system', 'trialing', NOW(), NOW() + ($3 || '14')::int * INTERVAL '1 day', 0, 'INR', NOW())`,
-      [tenantId, plan?.id || 'free', trialDays]
+       VALUES ($1, $2, 'system', $4, 'trialing', NOW(), NOW() + ($3 || '14')::int * INTERVAL '1 day', 0, 'INR', NOW())`,
+      [tenantId, plan?.id || 'free', trialDays, 'sub_trial_' + crypto.randomBytes(8).toString('hex')]
     );
 
     const verifyUrl = `https://app.neuravolt.cloud/verify-email?token=${verificationToken}`;
