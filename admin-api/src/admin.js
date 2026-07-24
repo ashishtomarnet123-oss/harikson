@@ -532,21 +532,21 @@ app.post('/admin/login', async (req, res) => {
       expiresIn: '30d',
     });
 
-    const isProd = process.env.NODE_ENV === 'production';
-    const cookieDomain = isProd ? '.neuravolt.cloud' : undefined;
+    const isHttps = req.secure || req.headers['x-forwarded-proto'] === 'https';
+    const cookieDomain = process.env.COOKIE_DOMAIN || undefined;
 
     res.cookie('admin_access_token', accessToken, {
       httpOnly: true,
-      secure: isProd,
-      sameSite: 'strict',
+      secure: isHttps,
+      sameSite: 'lax',
       domain: cookieDomain,
       maxAge: 15 * 60 * 1000, // 15m
     });
 
     res.cookie('admin_refresh_token', refreshToken, {
       httpOnly: true,
-      secure: isProd,
-      sameSite: 'strict',
+      secure: isHttps,
+      sameSite: 'lax',
       domain: cookieDomain,
       maxAge: 30 * 24 * 60 * 60 * 1000, // 30d
     });
@@ -554,8 +554,8 @@ app.post('/admin/login', async (req, res) => {
     // Compatibility cookie
     res.cookie('admin_token', accessToken, {
       httpOnly: true,
-      secure: isProd,
-      sameSite: 'strict',
+      secure: isHttps,
+      sameSite: 'lax',
       domain: cookieDomain,
       maxAge: 15 * 60 * 1000,
     });

@@ -26,7 +26,6 @@ async function queryUser(email: string) {
   try {
     return await primaryPool.query(query, [normalizedEmail]);
   } catch (err: any) {
-    // Try fallback host names (postgres, localhost)
     const fallbackUrls = [
       'postgresql://neuravolt:neuravolt_dev_pwd@postgres:5432/neuravolt',
       'postgresql://neuravolt:neuravolt_dev_pwd@localhost:5432/neuravolt',
@@ -83,7 +82,6 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Invalid credentials' }, { status: 401 });
     }
 
-    // Check role
     const allowedRoles = ['admin', 'superadmin', 'founder'];
     if (!allowedRoles.includes(user.role)) {
       return NextResponse.json(
@@ -92,13 +90,11 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Verify password
     const matches = await bcrypt.compare(password, user.password_hash);
     if (!matches) {
       return NextResponse.json({ error: 'Invalid credentials' }, { status: 401 });
     }
 
-    // Issue JWT tokens
     const accessToken = jwt.sign(
       { userId: user.id, role: user.role, type: 'access' },
       JWT_SECRET,
@@ -110,10 +106,12 @@ export async function POST(req: NextRequest) {
       { expiresIn: '30d' }
     );
 
-    const isProd = process.env.NODE_ENV === 'production';
+    // Only set Secure attribute if request is over HTTPS
+    const isHttps = req.nextUrl.protocol === 'https:' || req.headers.get('x-forwarded-proto') === 'https';
+
     const cookieOpts = [
       'HttpOnly',
-      isProd ? 'Secure' : '',
+      isHttps ? 'Secure' : '',
       'SameSite=Lax',
       'Path=/',
       `Max-Age=${15 * 60}`,
@@ -123,7 +121,7 @@ export async function POST(req: NextRequest) {
 
     const refreshOpts = [
       'HttpOnly',
-      isProd ? 'Secure' : '',
+      isHttps ? 'Secure' : '',
       'SameSite=Lax',
       'Path=/',
       `Max-Age=${30 * 24 * 60 * 60}`,
