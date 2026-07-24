@@ -27,7 +27,12 @@ export default function LoginPage() {
     try {
       await login(email, password);
     } catch (err: any) {
-      setError(err.message || 'Connection failure to admin API gateway.');
+      const rawMsg = err?.message || '';
+      if (rawMsg.includes('Unexpected token') || rawMsg.includes('is not valid JSON')) {
+        setError('Server returned invalid non-JSON response (Internal Server Error 500). Please check backend database service.');
+      } else {
+        setError(rawMsg || 'Connection failure to admin API gateway.');
+      }
     } finally {
       setLoading(false);
     }

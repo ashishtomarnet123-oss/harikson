@@ -195,7 +195,15 @@ export default function LoginPage() {
         credentials: 'include',
         body: JSON.stringify({ email, password }),
       });
-      const data = await res.json();
+      const text = await res.text().catch(() => '');
+      let data = {};
+      if (text && text.trim()) {
+        try {
+          data = JSON.parse(text);
+        } catch {
+          data = { error: res.status >= 500 ? 'Server internal error (500). Please try again later.' : 'Unexpected server response.' };
+        }
+      }
 
       if (res.status === 429 && data.locked) {
         setAccountLocked(true);
@@ -212,7 +220,7 @@ export default function LoginPage() {
         return;
       }
 
-      if (!res.ok) throw new Error(data.error || 'Login failed');
+      if (!res.ok) throw new Error(data.error || `Login failed (${res.status})`);
       
       if (data.requires2FA) {
         setRequires2FA(true);
@@ -232,7 +240,12 @@ export default function LoginPage() {
       localStorage.setItem('hk_api_base', apiBase);
       router.replace('/chat');
     } catch (err) {
-      setError(err.message);
+      const errMsg = err?.message || 'Login error occurred';
+      if (errMsg.includes('Unexpected token') || errMsg.includes('is not valid JSON')) {
+        setError('Server returned an unparseable response (Internal Server Error 500).');
+      } else {
+        setError(errMsg);
+      }
     } finally {
       setLoading(false);
     }

@@ -238,6 +238,8 @@ services:
       - PORT=3001
       - NEXT_PUBLIC_API_URL=https://api.neuravolt.cloud
       - ADMIN_API_URL=http://admin-api:4000
+      - DATABASE_URL=postgresql://neuravolt:neuravolt_dev_pwd@postgres:5432/neuravolt
+      - JWT_SECRET
       - NEXTAUTH_SECRET
     networks:
       - harikson-network
@@ -250,6 +252,7 @@ services:
     depends_on:
       - admin-api
       - tenant-api
+
 
   # 7. User Portal (Next.js App)
   user-portal:

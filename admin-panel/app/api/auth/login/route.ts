@@ -3,15 +3,48 @@ import { Pool } from 'pg';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 
-// Direct DB connection inside admin-panel (bypasses admin-api completely)
-const pool = new Pool({
-  connectionString:
-    process.env.DATABASE_URL ||
-    'postgresql://neuravolt:neuravolt_dev_pwd@postgres:5432/neuravolt',
+const dbConnectionString =
+  process.env.DATABASE_URL ||
+  'postgresql://neuravolt:neuravolt_dev_pwd@postgres:5432/neuravolt';
+
+const primaryPool = new Pool({
+  connectionString: dbConnectionString,
   max: 5,
   idleTimeoutMillis: 30000,
-  connectionTimeoutMillis: 5000,
+  connectionTimeoutMillis: 3000,
 });
+
+async function queryUser(email: string) {
+  const normalizedEmail = email.toLowerCase().trim();
+  const query = `
+    SELECT id, email, role, password_hash, force_password_change, is_active
+    FROM users
+    WHERE email = $1
+    ORDER BY created_at ASC LIMIT 1
+  `;
+
+  try {
+    return await primaryPool.query(query, [normalizedEmail]);
+  } catch (err: any) {
+    // If running outside docker and 'postgres' hostname fails, try localhost fallback
+    if (err?.code === 'ENOTFOUND' || err?.message?.includes('postgres')) {
+      const localPool = new Pool({
+        connectionString: 'postgresql://neuravolt:neuravolt_dev_pwd@localhost:5432/neuravolt',
+        max: 3,
+        connectionTimeoutMillis: 3000,
+      });
+      try {
+        const res = await localPool.query(query, [normalizedEmail]);
+        localPool.end().catch(() => {});
+        return res;
+      } catch (localErr) {
+        localPool.end().catch(() => {});
+        throw localErr;
+      }
+    }
+    throw err;
+  }
+}
 
 const JWT_SECRET =
   process.env.JWT_SECRET ||
@@ -30,16 +63,18 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Query user from DB directly
-    const userResult = await pool.query(
-      `SELECT id, email, role, password_hash, force_password_change, is_active
-       FROM users
-       WHERE email = $1
-       ORDER BY created_at ASC LIMIT 1`,
-      [email.toLowerCase().trim()]
-    );
+    let userResult;
+    try {
+      userResult = await queryUser(email);
+    } catch (dbErr: any) {
+      console.error('[/api/auth/login] Database connection error:', dbErr?.message);
+      return NextResponse.json(
+        { error: 'Database service unavailable. Please check database connection.' },
+        { status: 500 }
+      );
+    }
 
-    const user = userResult.rows[0];
+    const user = userResult?.rows?.[0];
 
     if (!user) {
       return NextResponse.json({ error: 'Invalid credentials' }, { status: 401 });
@@ -136,11 +171,8 @@ export async function POST(req: NextRequest) {
     console.error('[/api/auth/login] Error:', err);
     return NextResponse.json(
       {
-        error: 'Login failed',
-        message:
-          process.env.NODE_ENV !== 'production'
-            ? err.message
-            : 'An internal error occurred. Please try again.',
+        error: 'Login error',
+        message: err.message || 'An internal error occurred. Please try again.',
       },
       { status: 500 }
     );

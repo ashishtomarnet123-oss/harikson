@@ -2,14 +2,40 @@ import { NextRequest, NextResponse } from 'next/server';
 import { Pool } from 'pg';
 import jwt from 'jsonwebtoken';
 
-const pool = new Pool({
-  connectionString:
-    process.env.DATABASE_URL ||
-    'postgresql://neuravolt:neuravolt_dev_pwd@postgres:5432/neuravolt',
+const dbConnectionString =
+  process.env.DATABASE_URL ||
+  'postgresql://neuravolt:neuravolt_dev_pwd@postgres:5432/neuravolt';
+
+const primaryPool = new Pool({
+  connectionString: dbConnectionString,
   max: 5,
   idleTimeoutMillis: 30000,
-  connectionTimeoutMillis: 5000,
+  connectionTimeoutMillis: 3000,
 });
+
+async function queryUserById(userId: string) {
+  const query = 'SELECT id, email, role, is_active FROM users WHERE id = $1 LIMIT 1';
+  try {
+    return await primaryPool.query(query, [userId]);
+  } catch (err: any) {
+    if (err?.code === 'ENOTFOUND' || err?.message?.includes('postgres')) {
+      const localPool = new Pool({
+        connectionString: 'postgresql://neuravolt:neuravolt_dev_pwd@localhost:5432/neuravolt',
+        max: 3,
+        connectionTimeoutMillis: 3000,
+      });
+      try {
+        const res = await localPool.query(query, [userId]);
+        localPool.end().catch(() => {});
+        return res;
+      } catch (localErr) {
+        localPool.end().catch(() => {});
+        throw localErr;
+      }
+    }
+    throw err;
+  }
+}
 
 const JWT_SECRET =
   process.env.JWT_SECRET ||
@@ -40,12 +66,9 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'Invalid or expired token' }, { status: 401 });
     }
 
-    const userResult = await pool.query(
-      'SELECT id, email, role, is_active FROM users WHERE id = $1 LIMIT 1',
-      [payload.userId]
-    );
+    const userResult = await queryUserById(payload.userId);
+    const user = userResult?.rows?.[0];
 
-    const user = userResult.rows[0];
     if (!user || user.is_active === false) {
       return NextResponse.json({ error: 'User not found or suspended' }, { status: 401 });
     }

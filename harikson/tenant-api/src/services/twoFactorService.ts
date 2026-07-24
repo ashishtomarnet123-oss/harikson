@@ -7,7 +7,15 @@ import { Logger } from '../observability/logger.js';
 const authenticator = (otplibPkg as any).authenticator || (otplibPkg as any).default?.authenticator || otplibPkg;
 
 // Configure otplib authenticator options (window of ±1 step = 30 seconds drift tolerance)
-authenticator.options = { window: 1 };
+try {
+  (authenticator as any).options = { window: 1 };
+} catch {
+  try {
+    (authenticator as any).options({ window: 1 });
+  } catch {
+    // fallback if frozen
+  }
+}
 
 export interface BackupCodeRecord {
   hash: string;

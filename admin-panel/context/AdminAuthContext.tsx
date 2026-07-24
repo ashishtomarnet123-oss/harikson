@@ -2,7 +2,7 @@
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
-import { getCookie, setCookie, deleteCookie } from 'cookies-next';
+import { deleteCookie } from 'cookies-next';
 
 export interface AdminUser {
   id: string;
@@ -33,89 +33,105 @@ const AdminAuthContext = createContext<AdminAuthContextType>({
   logout: async () => {},
 });
 
+// ─────────────────────────────────────────────────────────────
+//  Safe JSON fetch helper — never throws on HTML or invalid JSON
+// ─────────────────────────────────────────────────────────────
+async function safeFetchJson(
+  url: string,
+  options: RequestInit = {}
+): Promise<{ res: Response | null; data: any }> {
+  try {
+    const res = await fetch(url, { ...options, credentials: 'include' });
+    const text = await res.text().catch(() => '');
+    let data: any = {};
+    if (text && text.trim()) {
+      try {
+        data = JSON.parse(text);
+      } catch {
+        // Server returned plain-text or HTML (e.g. 500 Internal Server Error)
+        data = {
+          error: res.status >= 500
+            ? 'Authentication service error. Please check server status.'
+            : text.substring(0, 120),
+        };
+      }
+    }
+    return { res, data };
+  } catch {
+    return { res: null, data: { error: 'Network connection failure.' } };
+  }
+}
+
+// ─────────────────────────────────────────────────────────────
+//  Clear all auth cookies from browser
+// ─────────────────────────────────────────────────────────────
+function clearAuthCookies() {
+  deleteCookie('admin_token');
+  deleteCookie('admin_access_token');
+  deleteCookie('admin_refresh_token');
+}
+
+// ─────────────────────────────────────────────────────────────
+//  Normalise user object from either /api/auth/* or /admin/auth/me
+// ─────────────────────────────────────────────────────────────
+function parseUser(data: any): AdminUser | null {
+  const u = data?.user ?? data;
+  if (!u?.id && !u?.email) return null;
+
+  const allowedRoles = ['admin', 'superadmin', 'founder'];
+  if (!allowedRoles.includes(u.role)) return null;
+
+  const isAdmin =
+    u.role === 'admin' || u.role === 'superadmin' || u.role === 'founder' || u.isAdmin === true;
+  const isFounder =
+    u.role === 'founder' ||
+    u.role === 'superadmin' ||
+    u.email === 'founder@neuravolt.cloud' ||
+    u.isFounder === true;
+
+  return {
+    id: u.id,
+    email: u.email,
+    role: u.role,
+    name: u.email ? u.email.split('@')[0] : 'Administrator',
+    isAdmin,
+    isFounder,
+  };
+}
+
 export const AdminAuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [user, setUser] = useState<AdminUser | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const router = useRouter();
   const pathname = usePathname();
-  const apiBase = '/api-proxy';
 
+  // ── checkAuth: try direct internal API first, then proxy fallback ──
   const checkAuth = async () => {
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('admin_token');
+      localStorage.removeItem('admin_user');
+    }
+
     try {
-      if (typeof window !== 'undefined') {
-        localStorage.removeItem('admin_token');
-        localStorage.removeItem('admin_user');
+      // PRIMARY: /api/auth/me — internal Next.js API route (direct DB, no proxy needed)
+      const { res: r1, data: d1 } = await safeFetchJson('/api/auth/me');
+      if (r1?.ok) {
+        const u = parseUser(d1);
+        if (u) { setUser(u); return; }
       }
 
-      let res = await fetch(`${apiBase}/v1/admin/auth/me`, {
-        credentials: 'include',
-      }).catch(() => null);
-
-      if (!res || !res.ok) {
-        // Fallback to internal Next.js auth endpoint if proxy fails
-        res = await fetch(`/api/auth/me`, {
-          credentials: 'include',
-        }).catch(() => null);
+      // FALLBACK: /api-proxy/v1/admin/auth/me — proxy to admin-api
+      const { res: r2, data: d2 } = await safeFetchJson('/api-proxy/v1/admin/auth/me');
+      if (r2?.ok) {
+        const u = parseUser(d2);
+        if (u) { setUser(u); return; }
       }
 
-      if (res && res.status === 401) {
-        const refreshRes = await fetch(`${apiBase}/v1/admin/auth/refresh`, {
-          method: 'POST',
-          credentials: 'include',
-        }).catch(() => null);
-
-        if (refreshRes && refreshRes.ok) {
-          res = await fetch(`${apiBase}/v1/admin/auth/me`, {
-            credentials: 'include',
-          }).catch(() => null);
-        }
-      }
-
-      if (res && res.ok) {
-        const text = await res.text();
-        let data: any = {};
-        try {
-          data = text ? JSON.parse(text) : {};
-        } catch {
-          data = {};
-        }
-
-        if (data.user) {
-          const u = data.user;
-          const isAdmin =
-            u.role === 'admin' ||
-            u.role === 'superadmin' ||
-            u.role === 'founder' ||
-            u.isAdmin === true;
-          const isFounder =
-            u.role === 'founder' ||
-            u.role === 'superadmin' ||
-            u.email === 'founder@neuravolt.cloud' ||
-            u.isFounder === true;
-
-          const adminUserData: AdminUser = {
-            id: u.id,
-            email: u.email,
-            role: u.role,
-            name: u.email ? u.email.split('@')[0] : 'Administrator',
-            isAdmin,
-            isFounder,
-          };
-
-          setUser(adminUserData);
-          return;
-        }
-      }
-
-      deleteCookie('admin_token');
-      deleteCookie('admin_access_token');
-      deleteCookie('admin_refresh_token');
+      // Not authenticated
+      clearAuthCookies();
       setUser(null);
-    } catch (err) {
-      console.warn('Error checking admin auth session:', err);
-      deleteCookie('admin_token');
-      deleteCookie('admin_access_token');
-      deleteCookie('admin_refresh_token');
+    } catch {
+      clearAuthCookies();
       setUser(null);
     } finally {
       setLoading(false);
@@ -124,59 +140,64 @@ export const AdminAuthProvider = ({ children }: { children: React.ReactNode }) =
 
   useEffect(() => {
     checkAuth();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // ── login: try direct internal API first, then proxy fallback ──
   const login = async (email: string, password: string) => {
     setLoading(true);
+    const body = JSON.stringify({ email: email.trim().toLowerCase(), password });
+    const headers = { 'Content-Type': 'application/json' };
+
     try {
-      let res: Response | null = null;
-      let isProxyError = false;
+      // PRIMARY: /api/auth/login — internal Next.js route (direct DB)
+      const { res: r1, data: d1 } = await safeFetchJson('/api/auth/login', {
+        method: 'POST',
+        headers,
+        body,
+      });
 
-      try {
-        res = await fetch(`${apiBase}/v1/admin/login`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email, password }),
-          credentials: 'include',
-        });
-      } catch (e) {
-        isProxyError = true;
+      if (r1 && r1.ok) {
+        await checkAuth();
+        router.replace('/admin/dashboard');
+        return;
       }
 
-      // If gateway returns 500/502/503/504 or network error, fallback to native route
-      if (isProxyError || !res || (res.status >= 500 && res.status <= 504)) {
-        res = await fetch('/api/auth/login', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email, password }),
-          credentials: 'include',
-        }).catch(() => null);
-      }
-
-      if (!res) {
-        throw new Error('Unable to reach authentication service. Please check network connection.');
-      }
-
-      const text = await res.text();
-      let data: any = {};
-      try {
-        data = text ? JSON.parse(text) : {};
-      } catch (jsonErr) {
-        if (!res.ok) {
-          throw new Error('Authentication gateway error (500). Please try again in a few moments.');
+      // If direct route returned a 4xx error (e.g. 401 Invalid credentials, 403 Suspended)
+      if (r1 && r1.status >= 400 && r1.status < 500) {
+        if (d1?.requirePasswordChange) {
+          throw new Error(
+            'You must change your password before accessing the dashboard. Please use the first-login reset link.'
+          );
         }
-        data = {};
+        throw new Error(d1?.error || d1?.message || `Login failed (${r1.status})`);
       }
 
-      if (!res.ok) {
-        if (data.requirePasswordChange) {
-          throw new Error('First login password change required. Please use the reset link or first-login page.');
+      // FALLBACK: try proxy /api-proxy/v1/admin/login
+      const { res: r2, data: d2 } = await safeFetchJson('/api-proxy/v1/admin/login', {
+        method: 'POST',
+        headers,
+        body,
+      });
+
+      if (r2 && r2.ok) {
+        await checkAuth();
+        router.replace('/admin/dashboard');
+        return;
+      }
+
+      if (r2 && r2.status >= 400 && r2.status < 500) {
+        if (d2?.requirePasswordChange) {
+          throw new Error(
+            'You must change your password before accessing the dashboard. Please use the first-login reset link.'
+          );
         }
-        throw new Error(data.error || data.message || `Authentication failed (${res.status})`);
+        throw new Error(d2?.error || d2?.message || `Login failed (${r2.status})`);
       }
 
-      await checkAuth();
-      router.replace('/admin/dashboard');
+      // Both paths failed (5xx error or unreachable)
+      const serverErrMsg = d1?.error || d1?.message || d2?.error || d2?.message || 'Authentication service error (500). Please check backend database and API server.';
+      throw new Error(serverErrMsg);
     } catch (err) {
       setLoading(false);
       throw err;
@@ -185,14 +206,10 @@ export const AdminAuthProvider = ({ children }: { children: React.ReactNode }) =
 
   const logout = async () => {
     try {
-      await fetch(`${apiBase}/v1/admin/logout`, {
-        method: 'POST',
-        credentials: 'include',
-      }).catch(() => {});
+      await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' }).catch(() => {});
+      await fetch('/api-proxy/v1/admin/logout', { method: 'POST', credentials: 'include' }).catch(() => {});
     } finally {
-      deleteCookie('admin_token');
-      deleteCookie('admin_access_token');
-      deleteCookie('admin_refresh_token');
+      clearAuthCookies();
       setUser(null);
       router.replace('/admin/login');
     }
@@ -203,17 +220,7 @@ export const AdminAuthProvider = ({ children }: { children: React.ReactNode }) =
   const isFounder = user?.isFounder || false;
 
   return (
-    <AdminAuthContext.Provider
-      value={{
-        user,
-        loading,
-        isAuthenticated,
-        isAdmin,
-        isFounder,
-        login,
-        logout,
-      }}
-    >
+    <AdminAuthContext.Provider value={{ user, loading, isAuthenticated, isAdmin, isFounder, login, logout }}>
       {children}
     </AdminAuthContext.Provider>
   );
