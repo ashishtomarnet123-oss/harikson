@@ -229,11 +229,12 @@ export default function LoginPage() {
         return;
       }
 
+      const tokenToSave = data.accessToken || data.token;
       if (data.refreshToken) {
         localStorage.setItem('hk_refresh_token', data.refreshToken);
       }
-      if (data.accessToken) {
-        localStorage.setItem('hk_access_token', data.accessToken);
+      if (tokenToSave) {
+        localStorage.setItem('hk_access_token', tokenToSave);
       }
       localStorage.setItem('hk_user', JSON.stringify({ ...data.user, tenantSlug }));
       localStorage.setItem('hk_tenant', tenantSlug);
@@ -268,11 +269,12 @@ export default function LoginPage() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Verification failed');
 
+      const tokenToSave2FA = data.accessToken || data.token;
       if (data.refreshToken) {
         localStorage.setItem('hk_refresh_token', data.refreshToken);
       }
-      if (data.accessToken) {
-        localStorage.setItem('hk_access_token', data.accessToken);
+      if (tokenToSave2FA) {
+        localStorage.setItem('hk_access_token', tokenToSave2FA);
       }
       localStorage.setItem('hk_user', JSON.stringify({ ...data.user, tenantSlug }));
       localStorage.setItem('hk_tenant', tenantSlug);

@@ -54,13 +54,14 @@ export async function refreshAuthToken() {
     }
 
     const data = await res.json();
-    if (data.accessToken && typeof window !== 'undefined') {
-      localStorage.setItem('hk_access_token', data.accessToken);
+    const tokenToSave = data.accessToken || data.token;
+    if (tokenToSave && typeof window !== 'undefined') {
+      localStorage.setItem('hk_access_token', tokenToSave);
     }
     if (data.refreshToken && typeof window !== 'undefined') {
       localStorage.setItem('hk_refresh_token', data.refreshToken);
     }
-    return data.accessToken || true;
+    return tokenToSave || true;
   } catch (err) {
     console.error('Failed to refresh auth token:', err);
     return null;
