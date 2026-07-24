@@ -624,4 +624,54 @@ router.post('/passkeys/generate-options', async (req, res) => {
   }
 });
 
+// GET /me and GET /v1/me for AuthContext session verification
+async function handleMe(req: any, res: any) {
+  try {
+    const authHeader = req.headers.authorization || '';
+    const cookieToken = req.cookies?.hk_access_token;
+    let token = '';
+
+    if (authHeader.startsWith('Bearer ')) {
+      token = authHeader.substring(7);
+    } else if (cookieToken) {
+      token = cookieToken;
+    }
+
+    if (!token) {
+      return res.status(401).json({ error: 'Authentication required' });
+    }
+
+    const decoded: any = jwt.verify(token, jwtSecret);
+    const userRes = await pool.query(
+      'SELECT id, email, name, role, tenant_id, email_verified, created_at FROM users WHERE id = $1 AND deleted_at IS NULL',
+      [decoded.userId]
+    );
+
+    if (userRes.rows.length === 0) {
+      return res.status(401).json({ error: 'User account not found' });
+    }
+
+    const user = userRes.rows[0];
+    const tenantRes = await pool.query('SELECT slug FROM tenants WHERE id = $1', [user.tenant_id]);
+    const tenantSlug = tenantRes.rows[0]?.slug || req.tenant?.slug || 'neuravolt';
+
+    res.json({
+      id: user.id,
+      email: user.email,
+      name: user.name,
+      role: user.role,
+      tenantId: user.tenant_id,
+      tenantSlug,
+      emailVerified: user.email_verified !== false,
+      createdAt: user.created_at,
+    });
+  } catch (err: any) {
+    logger.error('Session verification (/me) error:', err);
+    res.status(401).json({ error: 'Invalid or expired session token' });
+  }
+}
+
+router.get('/me', handleMe);
+router.get('/v1/me', handleMe);
+
 export default router;
