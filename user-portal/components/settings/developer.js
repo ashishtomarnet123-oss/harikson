@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Plus, Key, Copy, Trash2 } from 'lucide-react';
+import { authenticatedFetch, getApiConfig } from './apiHelper';
 
 export default function DeveloperSettings() {
   const [keys, setKeys] = useState([]);
@@ -12,20 +13,11 @@ export default function DeveloperSettings() {
 
   const fetchKeys = async () => {
     try {
-      const token = localStorage.getItem('hk_user') ? 'cookie_auth' : null;
-      if (!token) return;
-      const apiBase =
-        localStorage.getItem('hk_api_base') || 'http://localhost:3008';
-      const tenantSlug = localStorage.getItem('hk_tenant') || 'neuravolt';
-      const res = await fetch(`${apiBase}/api/v1/user/developer/keys`, {
-        credentials: 'include',
-        headers: {
-          'x-tenant-slug': tenantSlug,
-        },
-      });
+      const { apiBase } = getApiConfig();
+      const res = await authenticatedFetch(`${apiBase}/api/v1/user/developer/keys`);
       if (res.ok) {
         const data = await res.json();
-        setKeys(data);
+        setKeys(Array.isArray(data) ? data : data.keys || []);
       } else {
         throw new Error('Failed to load keys');
       }
@@ -41,18 +33,12 @@ export default function DeveloperSettings() {
     if (!name || !name.trim()) return;
 
     try {
-      const token = localStorage.getItem('hk_user') ? 'cookie_auth' : null;
-      if (!token) return;
-      const apiBase =
-        localStorage.getItem('hk_api_base') || 'http://localhost:3008';
-      const tenantSlug = localStorage.getItem('hk_tenant') || 'neuravolt';
+      const { apiBase } = getApiConfig();
       const idempotencyKey = `apikey:${name.trim()}:${Date.now()}:${Math.random()}`;
       const defaultScopes = ['chat:read', 'chat:write', 'documents:read', 'documents:write'];
-      const res = await fetch(`${apiBase}/api/v1/user/developer/keys`, {
-        credentials: 'include',
+      const res = await authenticatedFetch(`${apiBase}/api/v1/user/developer/keys`, {
         method: 'POST',
         headers: {
-          'x-tenant-slug': tenantSlug,
           'Content-Type': 'application/json',
           'Idempotency-Key': idempotencyKey,
         },
@@ -60,7 +46,7 @@ export default function DeveloperSettings() {
       });
       if (res.ok) {
         const data = await res.json();
-        setKeys(data.keys);
+        fetchKeys();
       } else {
         alert('Failed to generate key');
       }
@@ -79,21 +65,12 @@ export default function DeveloperSettings() {
       return;
 
     try {
-      const token = localStorage.getItem('hk_user') ? 'cookie_auth' : null;
-      if (!token) return;
-      const apiBase =
-        localStorage.getItem('hk_api_base') || 'http://localhost:3008';
-      const tenantSlug = localStorage.getItem('hk_tenant') || 'neuravolt';
-      const res = await fetch(`${apiBase}/api/v1/user/developer/keys/${id}`, {
-        credentials: 'include',
+      const { apiBase } = getApiConfig();
+      const res = await authenticatedFetch(`${apiBase}/api/v1/user/developer/keys/${id}`, {
         method: 'DELETE',
-        headers: {
-          'x-tenant-slug': tenantSlug,
-        },
       });
       if (res.ok) {
-        const data = await res.json();
-        setKeys(data.keys);
+        fetchKeys();
       } else {
         alert('Failed to revoke key');
       }

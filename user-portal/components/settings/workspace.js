@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Settings, Trash2 } from 'lucide-react';
+import { authenticatedFetch, getApiConfig } from './apiHelper';
 
 export default function WorkspaceSettings() {
   const [workspace, setWorkspace] = useState(null);
@@ -10,7 +11,7 @@ export default function WorkspaceSettings() {
 
   useEffect(() => {
     fetchWorkspace();
-    const token = localStorage.getItem('hk_user') ? 'cookie_auth' : null;
+    const token = typeof window !== 'undefined' ? localStorage.getItem('hk_access_token') : null;
     if (token) {
       try {
         const payload = JSON.parse(atob(token.split('.')[1]));
@@ -39,17 +40,11 @@ export default function WorkspaceSettings() {
     setAddingMember(true);
     setError(null);
     try {
-      const token = localStorage.getItem('hk_user') ? 'cookie_auth' : null;
-      if (!token) return;
-      const apiBase =
-        localStorage.getItem('hk_api_base') || 'http://localhost:3008';
-      const tenantSlug = localStorage.getItem('hk_tenant') || 'neuravolt';
-      const res = await fetch(`${apiBase}/api/v1/user/workspace/members`, {
-        credentials: 'include',
+      const { apiBase } = getApiConfig();
+      const res = await authenticatedFetch(`${apiBase}/api/v1/user/workspace/members`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'x-tenant-slug': tenantSlug,
         },
         body: JSON.stringify({
           email: newEmail,
@@ -62,7 +57,7 @@ export default function WorkspaceSettings() {
       if (res.ok) {
         setWorkspace((prev) => ({
           ...prev,
-          members: [data, ...prev.members],
+          members: [data, ...(prev?.members || [])],
         }));
         setNewEmail('');
         setNewName('');
@@ -81,17 +76,8 @@ export default function WorkspaceSettings() {
 
   const fetchWorkspace = async () => {
     try {
-      const token = localStorage.getItem('hk_user') ? 'cookie_auth' : null;
-      if (!token) return;
-      const apiBase =
-        localStorage.getItem('hk_api_base') || 'http://localhost:3008';
-      const tenantSlug = localStorage.getItem('hk_tenant') || 'neuravolt';
-      const res = await fetch(`${apiBase}/api/v1/user/workspace`, {
-        credentials: 'include',
-        headers: {
-          'x-tenant-slug': tenantSlug,
-        },
-      });
+      const { apiBase } = getApiConfig();
+      const res = await authenticatedFetch(`${apiBase}/api/v1/user/workspace`);
       if (res.ok) {
         const data = await res.json();
         setWorkspace(data);
@@ -110,19 +96,13 @@ export default function WorkspaceSettings() {
     setUpdatingRole(true);
     setError(null);
     try {
-      const token = localStorage.getItem('hk_user') ? 'cookie_auth' : null;
-      if (!token) return;
-      const apiBase =
-        localStorage.getItem('hk_api_base') || 'http://localhost:3008';
-      const tenantSlug = localStorage.getItem('hk_tenant') || 'neuravolt';
-      const res = await fetch(
+      const { apiBase } = getApiConfig();
+      const res = await authenticatedFetch(
         `${apiBase}/api/v1/user/workspace/members/${memberId}/role`,
         {
-          credentials: 'include',
           method: 'PUT',
           headers: {
             'Content-Type': 'application/json',
-            'x-tenant-slug': tenantSlug,
           },
           body: JSON.stringify({ role: newRole }),
         }
@@ -157,19 +137,11 @@ export default function WorkspaceSettings() {
     setUpdatingRole(true);
     setError(null);
     try {
-      const token = localStorage.getItem('hk_user') ? 'cookie_auth' : null;
-      if (!token) return;
-      const apiBase =
-        localStorage.getItem('hk_api_base') || 'http://localhost:3008';
-      const tenantSlug = localStorage.getItem('hk_tenant') || 'neuravolt';
-      const res = await fetch(
+      const { apiBase } = getApiConfig();
+      const res = await authenticatedFetch(
         `${apiBase}/api/v1/user/workspace/members/${memberId}`,
         {
-          credentials: 'include',
           method: 'DELETE',
-          headers: {
-            'x-tenant-slug': tenantSlug,
-          },
         }
       );
       const data = await res.json();

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Smartphone, Shield, Key } from 'lucide-react';
+import { authenticatedFetch, getApiConfig } from './apiHelper';
 
 export default function SecuritySettings() {
   const [passwords, setPasswords] = useState({
@@ -19,23 +20,11 @@ export default function SecuritySettings() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showDisable, setShowDisable] = useState(false);
 
-  const apiBase =
-    (typeof window !== 'undefined' && localStorage.getItem('hk_api_base')) ||
-    process.env.NEXT_PUBLIC_API_URL ||
-    'http://localhost:3008';
-  const tenantSlug =
-    (typeof window !== 'undefined' && localStorage.getItem('hk_tenant')) ||
-    'system';
-
   useEffect(() => {
     const fetch2FAStatus = async () => {
       try {
-        const res = await fetch(`${apiBase}/api/v1/user/profile`, {
-          credentials: 'include',
-          headers: {
-            'x-tenant-slug': tenantSlug,
-          },
-        });
+        const { apiBase } = getApiConfig();
+        const res = await authenticatedFetch(`${apiBase}/api/v1/user/profile`);
         if (res.ok) {
           const data = await res.json();
           setTwoFactorEnabled(data.twoFactorEnabled || false);
@@ -45,7 +34,7 @@ export default function SecuritySettings() {
       }
     };
     fetch2FAStatus();
-  }, [apiBase, tenantSlug]);
+  }, []);
 
   const handleChange = (e) => {
     setPasswords((prev) => ({ ...prev, [e.target.name]: e.target.value }));
@@ -73,11 +62,10 @@ export default function SecuritySettings() {
 
     setSaving(true);
     try {
-      const res = await fetch(`${apiBase}/api/v1/user/security/change-password`, {
-        credentials: 'include',
+      const { apiBase } = getApiConfig();
+      const res = await authenticatedFetch(`${apiBase}/api/v1/user/security/change-password`, {
         method: 'POST',
         headers: {
-          'x-tenant-slug': tenantSlug,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
@@ -102,18 +90,17 @@ export default function SecuritySettings() {
   const handleStartSetup = async () => {
     setMessage(null);
     try {
-      const res = await fetch(`${apiBase}/api/v1/user/2fa/setup`, {
+      const { apiBase } = getApiConfig();
+      const res = await authenticatedFetch(`${apiBase}/api/v1/user/2fa/setup`, {
         method: 'POST',
-        credentials: 'include',
         headers: {
-          'x-tenant-slug': tenantSlug,
           'Content-Type': 'application/json',
         },
       });
       const data = await res.json();
       if (res.ok) {
         setSetupSecret(data.secret);
-        setQrCodeUrl(data.qrCodeUrl);
+        setQrCodeUrl(data.qrCode || data.qrCodeUrl);
         setShowSetup(true);
       } else {
         throw new Error(data.error || 'Failed to start 2FA setup');
@@ -129,11 +116,10 @@ export default function SecuritySettings() {
       return setMessage({ type: 'error', text: 'Please enter verification code.' });
     }
     try {
-      const res = await fetch(`${apiBase}/api/v1/user/2fa/verify`, {
+      const { apiBase } = getApiConfig();
+      const res = await authenticatedFetch(`${apiBase}/api/v1/user/2fa/verify`, {
         method: 'POST',
-        credentials: 'include',
         headers: {
-          'x-tenant-slug': tenantSlug,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({ code: totpCode }),
@@ -159,11 +145,10 @@ export default function SecuritySettings() {
       return setMessage({ type: 'error', text: 'Please enter your password to confirm.' });
     }
     try {
-      const res = await fetch(`${apiBase}/api/v1/user/2fa/disable`, {
+      const { apiBase } = getApiConfig();
+      const res = await authenticatedFetch(`${apiBase}/api/v1/user/2fa/disable`, {
         method: 'POST',
-        credentials: 'include',
         headers: {
-          'x-tenant-slug': tenantSlug,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({ password: confirmPassword }),

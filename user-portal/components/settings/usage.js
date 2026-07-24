@@ -19,6 +19,8 @@ import {
   Clock,
 } from 'lucide-react';
 
+import { authenticatedFetch, getApiConfig } from './apiHelper';
+
 export default function UsageSettings() {
   const [mounted, setMounted] = useState(false);
   const [usage, setUsage] = useState(null);
@@ -34,19 +36,8 @@ export default function UsageSettings() {
   const fetchUsage = async (days) => {
     setLoading(true);
     try {
-      const token = localStorage.getItem('hk_user') ? 'cookie_auth' : null;
-      if (!token) return;
-      const apiBase =
-        localStorage.getItem('hk_api_base') ||
-        process.env.NEXT_PUBLIC_API_URL ||
-        'http://localhost:3008';
-      const tenantSlug = localStorage.getItem('hk_tenant') || 'neuravolt';
-      const res = await fetch(`${apiBase}/api/v1/user/usage?days=${days}`, {
-        credentials: 'include',
-        headers: {
-          'x-tenant-slug': tenantSlug,
-        },
-      });
+      const { apiBase } = getApiConfig();
+      const res = await authenticatedFetch(`${apiBase}/api/v1/user/usage?days=${days}`);
       if (res.ok) {
         setUsage(await res.json());
       } else {

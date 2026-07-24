@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { Save } from 'lucide-react';
+import { authenticatedFetch, getApiConfig } from './apiHelper';
 
 export default function LanguageSettings() {
   const [profile, setProfile] = useState({
     language: 'en',
-    timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+    timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'America/New_York',
   });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -13,19 +14,8 @@ export default function LanguageSettings() {
   useEffect(() => {
     const fetchProfile = async () => {
       try {
-        const token = localStorage.getItem('hk_user') ? 'cookie_auth' : null;
-        if (!token) return;
-        const apiBase =
-          localStorage.getItem('hk_api_base') ||
-          process.env.NEXT_PUBLIC_API_URL ||
-          'http://localhost:3008';
-        const tenantSlug = localStorage.getItem('hk_tenant') || 'neuravolt';
-        const res = await fetch(`${apiBase}/api/v1/user/profile`, {
-          credentials: 'include',
-          headers: {
-            'x-tenant-slug': tenantSlug,
-          },
-        });
+        const { apiBase } = getApiConfig();
+        const res = await authenticatedFetch(`${apiBase}/api/v1/user/profile`);
         if (res.ok) {
           const data = await res.json();
           setProfile((prev) => ({
@@ -53,17 +43,10 @@ export default function LanguageSettings() {
     setSaving(true);
     setMessage(null);
     try {
-      const token = localStorage.getItem('hk_user') ? 'cookie_auth' : null;
-      const apiBase =
-        localStorage.getItem('hk_api_base') ||
-        process.env.NEXT_PUBLIC_API_URL ||
-        'http://localhost:3008';
-      const tenantSlug = localStorage.getItem('hk_tenant') || 'neuravolt';
-      const res = await fetch(`${apiBase}/api/v1/user/profile`, {
-        credentials: 'include',
+      const { apiBase } = getApiConfig();
+      const res = await authenticatedFetch(`${apiBase}/api/v1/user/profile`, {
         method: 'PUT',
         headers: {
-          'x-tenant-slug': tenantSlug,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify(profile),
