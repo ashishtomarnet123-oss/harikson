@@ -32,7 +32,7 @@ export default function ActivitySettings() {
       });
       if (res.ok) {
         const data = await res.json();
-        setLogs(data);
+        setLogs(data.logs || data || []);
       } else {
         throw new Error('Failed to load activity logs');
       }

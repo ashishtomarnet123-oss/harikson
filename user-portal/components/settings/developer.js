@@ -24,7 +24,7 @@ export default function DeveloperSettings() {
       });
       if (res.ok) {
         const data = await res.json();
-        setKeys(data);
+        setKeys(data.keys || data || []);
       } else {
         throw new Error('Failed to load keys');
       }
@@ -57,7 +57,10 @@ export default function DeveloperSettings() {
       });
       if (res.ok) {
         const data = await res.json();
-        setKeys(data.keys);
+        if (data.secretKey) {
+          alert(`API Key created!\n\nSave this secret key now — it won't be shown again:\n\n${data.secretKey}`);
+        }
+        await fetchKeys(); // Refresh the list
       } else {
         alert('Failed to generate key');
       }
@@ -87,8 +90,7 @@ export default function DeveloperSettings() {
         },
       });
       if (res.ok) {
-        const data = await res.json();
-        setKeys(data.keys);
+        await fetchKeys(); // Refresh the list
       } else {
         alert('Failed to revoke key');
       }
