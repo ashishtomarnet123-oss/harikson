@@ -267,6 +267,7 @@ services:
       - '3028:3002'
     environment:
       - PORT=3002
+      - TENANT_API_URL=http://tenant-api:3008
       - NEXT_PUBLIC_API_URL=https://api.neuravolt.cloud
       - NEXTAUTH_SECRET
       - NEXTAUTH_URL=https://app.neuravolt.cloud
