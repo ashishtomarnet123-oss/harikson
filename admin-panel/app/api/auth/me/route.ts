@@ -4,7 +4,7 @@ import jwt from 'jsonwebtoken';
 
 const dbConnectionString =
   process.env.DATABASE_URL ||
-  'postgresql://neuravolt:neuravolt_dev_pwd@postgres:5432/neuravolt';
+  'postgresql://neuravolt:neuravolt_dev_pwd@harikson-postgres:5432/neuravolt';
 
 const primaryPool = new Pool({
   connectionString: dbConnectionString,
@@ -14,23 +14,26 @@ const primaryPool = new Pool({
 });
 
 async function queryUserById(userId: string) {
-  const query = 'SELECT id, email, role, is_active FROM users WHERE id = $1 LIMIT 1';
+  const query = 'SELECT id, tenant_id, email, role FROM users WHERE id = $1 LIMIT 1';
   try {
     return await primaryPool.query(query, [userId]);
   } catch (err: any) {
-    if (err?.code === 'ENOTFOUND' || err?.message?.includes('postgres')) {
-      const localPool = new Pool({
-        connectionString: 'postgresql://neuravolt:neuravolt_dev_pwd@localhost:5432/neuravolt',
-        max: 3,
-        connectionTimeoutMillis: 3000,
-      });
+    const fallbackUrls = [
+      'postgresql://neuravolt:neuravolt_dev_pwd@postgres:5432/neuravolt',
+      'postgresql://neuravolt:neuravolt_dev_pwd@localhost:5432/neuravolt',
+    ];
+    for (const url of fallbackUrls) {
       try {
+        const localPool = new Pool({
+          connectionString: url,
+          max: 2,
+          connectionTimeoutMillis: 2000,
+        });
         const res = await localPool.query(query, [userId]);
         localPool.end().catch(() => {});
         return res;
-      } catch (localErr) {
-        localPool.end().catch(() => {});
-        throw localErr;
+      } catch {
+        // try next
       }
     }
     throw err;
@@ -69,8 +72,8 @@ export async function GET(req: NextRequest) {
     const userResult = await queryUserById(payload.userId);
     const user = userResult?.rows?.[0];
 
-    if (!user || user.is_active === false) {
-      return NextResponse.json({ error: 'User not found or suspended' }, { status: 401 });
+    if (!user) {
+      return NextResponse.json({ error: 'User not found' }, { status: 401 });
     }
 
     const allowedRoles = ['admin', 'superadmin', 'founder'];

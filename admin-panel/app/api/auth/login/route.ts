@@ -5,7 +5,7 @@ import jwt from 'jsonwebtoken';
 
 const dbConnectionString =
   process.env.DATABASE_URL ||
-  'postgresql://neuravolt:neuravolt_dev_pwd@postgres:5432/neuravolt';
+  'postgresql://neuravolt:neuravolt_dev_pwd@harikson-postgres:5432/neuravolt';
 
 const primaryPool = new Pool({
   connectionString: dbConnectionString,
@@ -17,7 +17,7 @@ const primaryPool = new Pool({
 async function queryUser(email: string) {
   const normalizedEmail = email.toLowerCase().trim();
   const query = `
-    SELECT id, email, role, password_hash, force_password_change, is_active
+    SELECT id, tenant_id, email, role, password_hash
     FROM users
     WHERE email = $1
     ORDER BY created_at ASC LIMIT 1
@@ -26,20 +26,23 @@ async function queryUser(email: string) {
   try {
     return await primaryPool.query(query, [normalizedEmail]);
   } catch (err: any) {
-    // If running outside docker and 'postgres' hostname fails, try localhost fallback
-    if (err?.code === 'ENOTFOUND' || err?.message?.includes('postgres')) {
-      const localPool = new Pool({
-        connectionString: 'postgresql://neuravolt:neuravolt_dev_pwd@localhost:5432/neuravolt',
-        max: 3,
-        connectionTimeoutMillis: 3000,
-      });
+    // Try fallback host names (postgres, localhost)
+    const fallbackUrls = [
+      'postgresql://neuravolt:neuravolt_dev_pwd@postgres:5432/neuravolt',
+      'postgresql://neuravolt:neuravolt_dev_pwd@localhost:5432/neuravolt',
+    ];
+    for (const url of fallbackUrls) {
       try {
+        const localPool = new Pool({
+          connectionString: url,
+          max: 2,
+          connectionTimeoutMillis: 2000,
+        });
         const res = await localPool.query(query, [normalizedEmail]);
         localPool.end().catch(() => {});
         return res;
-      } catch (localErr) {
-        localPool.end().catch(() => {});
-        throw localErr;
+      } catch {
+        // try next
       }
     }
     throw err;
@@ -85,26 +88,6 @@ export async function POST(req: NextRequest) {
     if (!allowedRoles.includes(user.role)) {
       return NextResponse.json(
         { error: 'Admin access required. This portal is for administrators only.' },
-        { status: 403 }
-      );
-    }
-
-    // Check if account is active
-    if (user.is_active === false) {
-      return NextResponse.json(
-        { error: 'Account is suspended. Contact support.' },
-        { status: 403 }
-      );
-    }
-
-    // Check force password change
-    if (user.force_password_change) {
-      return NextResponse.json(
-        {
-          error: 'Password change required before access.',
-          requirePasswordChange: true,
-          code: 'FORCE_PASSWORD_CHANGE_REQUIRED',
-        },
         { status: 403 }
       );
     }
