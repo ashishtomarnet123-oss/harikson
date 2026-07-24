@@ -249,9 +249,9 @@ async function handleRegister(req: any, res: any) {
 
     const newUserRes = await pool.query(
       `INSERT INTO users (
-        tenant_id, email, password_hash, name, role, email_verified, verification_token, created_at
+        tenant_id, email, password_hash, name, role, email_verified, email_verification_token, verification_token, created_at
        )
-       VALUES ($1, $2, $3, $4, 'admin', false, $5, NOW())
+       VALUES ($1, $2, $3, $4, 'admin', false, $5, $5, NOW())
        RETURNING id, email, name, role, created_at`,
       [tenantId, email, passwordHash, name, verificationTokenHash]
     );
