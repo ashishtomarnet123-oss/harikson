@@ -57,7 +57,7 @@ export default function Navbar() {
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
           {isAuthenticated ? (
             <Link
-              href="/dashboard"
+              href="/chat"
               style={{
                 display: 'inline-flex',
                 alignItems: 'center',
@@ -72,7 +72,7 @@ export default function Navbar() {
                 boxShadow: '0 4px 14px rgba(99, 102, 241, 0.35)'
               }}
             >
-              Go to Dashboard
+              Go to Workspace
               <ArrowRight size={16} />
             </Link>
           ) : (

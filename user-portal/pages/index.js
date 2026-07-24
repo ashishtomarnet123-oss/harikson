@@ -30,7 +30,7 @@ export default function LandingPage() {
 
   useEffect(() => {
     if (!isLoading && isAuthenticated) {
-      router.replace('/dashboard');
+      router.replace('/chat');
     }
   }, [isLoading, isAuthenticated, router]);
 

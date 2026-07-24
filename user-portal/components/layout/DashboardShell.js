@@ -24,7 +24,6 @@ export default function DashboardShell({ children, title = 'Dashboard' }) {
   const [showSettingsModal, setShowSettingsModal] = useState(false);
 
   const navItems = [
-    { name: 'Dashboard', href: '/dashboard', icon: Layers },
     { name: 'AI Workspaces', href: '/chat', icon: MessageSquare },
     { name: 'Agent Workflows', href: '/workflows', icon: Workflow },
     { name: 'Security & Compliance', href: '/security', icon: Shield },
@@ -55,7 +54,7 @@ export default function DashboardShell({ children, title = 'Dashboard' }) {
       }}>
         <div>
           {/* Brand Logo */}
-          <Link href="/dashboard" style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '28px', paddingLeft: '8px' }}>
+          <Link href="/chat" style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '28px', paddingLeft: '8px' }}>
             <div style={{
               width: '32px',
               height: '32px',
