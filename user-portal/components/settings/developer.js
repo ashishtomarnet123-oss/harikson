@@ -1,3 +1,4 @@
+import { authenticatedFetch, getApiConfig } from './apiHelper';
 import React, { useState, useEffect } from 'react';
 import { Plus, Key, Copy, Trash2 } from 'lucide-react';
 
@@ -14,10 +15,8 @@ export default function DeveloperSettings() {
     try {
       const token = localStorage.getItem('hk_user') ? 'cookie_auth' : null;
       if (!token) return;
-      const apiBase =
-        localStorage.getItem('hk_api_base') || 'http://localhost:3008';
-      const tenantSlug = localStorage.getItem('hk_tenant') || 'neuravolt';
-      const res = await fetch(`${apiBase}/api/v1/user/developer/keys`, {
+      const { apiBase, tenantSlug } = getApiConfig();
+      const res = await authenticatedFetch(`${apiBase}/api/v1/user/developer/keys`, {
         credentials: 'include',
         headers: {
           'x-tenant-slug': tenantSlug,
@@ -43,12 +42,10 @@ export default function DeveloperSettings() {
     try {
       const token = localStorage.getItem('hk_user') ? 'cookie_auth' : null;
       if (!token) return;
-      const apiBase =
-        localStorage.getItem('hk_api_base') || 'http://localhost:3008';
-      const tenantSlug = localStorage.getItem('hk_tenant') || 'neuravolt';
+      const { apiBase, tenantSlug } = getApiConfig();
       const idempotencyKey = `apikey:${name.trim()}:${Date.now()}:${Math.random()}`;
       const defaultScopes = ['chat:read', 'chat:write', 'documents:read', 'documents:write'];
-      const res = await fetch(`${apiBase}/api/v1/user/developer/keys`, {
+      const res = await authenticatedFetch(`${apiBase}/api/v1/user/developer/keys`, {
         credentials: 'include',
         method: 'POST',
         headers: {
@@ -81,10 +78,8 @@ export default function DeveloperSettings() {
     try {
       const token = localStorage.getItem('hk_user') ? 'cookie_auth' : null;
       if (!token) return;
-      const apiBase =
-        localStorage.getItem('hk_api_base') || 'http://localhost:3008';
-      const tenantSlug = localStorage.getItem('hk_tenant') || 'neuravolt';
-      const res = await fetch(`${apiBase}/api/v1/user/developer/keys/${id}`, {
+      const { apiBase, tenantSlug } = getApiConfig();
+      const res = await authenticatedFetch(`${apiBase}/api/v1/user/developer/keys/${id}`, {
         credentials: 'include',
         method: 'DELETE',
         headers: {

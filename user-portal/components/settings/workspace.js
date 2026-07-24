@@ -1,3 +1,4 @@
+import { authenticatedFetch, getApiConfig } from './apiHelper';
 import React, { useState, useEffect } from 'react';
 import { Settings, Trash2 } from 'lucide-react';
 
@@ -41,10 +42,8 @@ export default function WorkspaceSettings() {
     try {
       const token = localStorage.getItem('hk_user') ? 'cookie_auth' : null;
       if (!token) return;
-      const apiBase =
-        localStorage.getItem('hk_api_base') || 'http://localhost:3008';
-      const tenantSlug = localStorage.getItem('hk_tenant') || 'neuravolt';
-      const res = await fetch(`${apiBase}/api/v1/user/workspace/members`, {
+      const { apiBase, tenantSlug } = getApiConfig();
+      const res = await authenticatedFetch(`${apiBase}/api/v1/user/workspace/members`, {
         credentials: 'include',
         method: 'POST',
         headers: {
@@ -83,10 +82,8 @@ export default function WorkspaceSettings() {
     try {
       const token = localStorage.getItem('hk_user') ? 'cookie_auth' : null;
       if (!token) return;
-      const apiBase =
-        localStorage.getItem('hk_api_base') || 'http://localhost:3008';
-      const tenantSlug = localStorage.getItem('hk_tenant') || 'neuravolt';
-      const res = await fetch(`${apiBase}/api/v1/user/workspace`, {
+      const { apiBase, tenantSlug } = getApiConfig();
+      const res = await authenticatedFetch(`${apiBase}/api/v1/user/workspace`, {
         credentials: 'include',
         headers: {
           'x-tenant-slug': tenantSlug,
@@ -112,18 +109,12 @@ export default function WorkspaceSettings() {
     try {
       const token = localStorage.getItem('hk_user') ? 'cookie_auth' : null;
       if (!token) return;
-      const apiBase =
-        localStorage.getItem('hk_api_base') || 'http://localhost:3008';
-      const tenantSlug = localStorage.getItem('hk_tenant') || 'neuravolt';
-      const res = await fetch(
+      const { apiBase, tenantSlug } = getApiConfig();
+      const res = await authenticatedFetch(
         `${apiBase}/api/v1/user/workspace/members/${memberId}/role`,
         {
-          credentials: 'include',
           method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json',
-            'x-tenant-slug': tenantSlug,
-          },
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ role: newRole }),
         }
       );
@@ -159,18 +150,10 @@ export default function WorkspaceSettings() {
     try {
       const token = localStorage.getItem('hk_user') ? 'cookie_auth' : null;
       if (!token) return;
-      const apiBase =
-        localStorage.getItem('hk_api_base') || 'http://localhost:3008';
-      const tenantSlug = localStorage.getItem('hk_tenant') || 'neuravolt';
-      const res = await fetch(
+      const { apiBase, tenantSlug } = getApiConfig();
+      const res = await authenticatedFetch(
         `${apiBase}/api/v1/user/workspace/members/${memberId}`,
-        {
-          credentials: 'include',
-          method: 'DELETE',
-          headers: {
-            'x-tenant-slug': tenantSlug,
-          },
-        }
+        { method: 'DELETE' }
       );
       const data = await res.json();
       if (res.ok) {

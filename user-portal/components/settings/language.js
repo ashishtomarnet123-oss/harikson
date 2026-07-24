@@ -1,3 +1,4 @@
+import { authenticatedFetch, getApiConfig } from './apiHelper';
 import React, { useState, useEffect } from 'react';
 import { Save } from 'lucide-react';
 
@@ -15,12 +16,8 @@ export default function LanguageSettings() {
       try {
         const token = localStorage.getItem('hk_user') ? 'cookie_auth' : null;
         if (!token) return;
-        const apiBase =
-          localStorage.getItem('hk_api_base') ||
-          process.env.NEXT_PUBLIC_API_URL ||
-          'http://localhost:3008';
-        const tenantSlug = localStorage.getItem('hk_tenant') || 'neuravolt';
-        const res = await fetch(`${apiBase}/api/v1/user/profile`, {
+        const { apiBase, tenantSlug } = getApiConfig();
+        const res = await authenticatedFetch(`${apiBase}/api/v1/user/profile`, {
           credentials: 'include',
           headers: {
             'x-tenant-slug': tenantSlug,
@@ -54,12 +51,8 @@ export default function LanguageSettings() {
     setMessage(null);
     try {
       const token = localStorage.getItem('hk_user') ? 'cookie_auth' : null;
-      const apiBase =
-        localStorage.getItem('hk_api_base') ||
-        process.env.NEXT_PUBLIC_API_URL ||
-        'http://localhost:3008';
-      const tenantSlug = localStorage.getItem('hk_tenant') || 'neuravolt';
-      const res = await fetch(`${apiBase}/api/v1/user/profile`, {
+      const { apiBase, tenantSlug } = getApiConfig();
+      const res = await authenticatedFetch(`${apiBase}/api/v1/user/profile`, {
         credentials: 'include',
         method: 'PUT',
         headers: {

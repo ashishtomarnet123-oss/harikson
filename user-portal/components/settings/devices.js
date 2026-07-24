@@ -1,3 +1,4 @@
+import { authenticatedFetch, getApiConfig } from './apiHelper';
 import React, { useState, useEffect } from 'react';
 import { Smartphone, Monitor, LogOut } from 'lucide-react';
 
@@ -45,10 +46,8 @@ export default function DevicesSettings() {
     try {
       const token = localStorage.getItem('hk_user') ? 'cookie_auth' : null;
       if (!token) return;
-      const apiBase =
-        localStorage.getItem('hk_api_base') || 'http://localhost:3008';
-      const tenantSlug = localStorage.getItem('hk_tenant') || 'neuravolt';
-      const res = await fetch(`${apiBase}/api/v1/user/devices`, {
+      const { apiBase, tenantSlug } = getApiConfig();
+      const res = await authenticatedFetch(`${apiBase}/api/v1/user/devices`, {
         credentials: 'include',
         headers: {
           'x-tenant-slug': tenantSlug,
@@ -73,10 +72,8 @@ export default function DevicesSettings() {
     try {
       const token = localStorage.getItem('hk_user') ? 'cookie_auth' : null;
       if (!token) return;
-      const apiBase =
-        localStorage.getItem('hk_api_base') || 'http://localhost:3008';
-      const tenantSlug = localStorage.getItem('hk_tenant') || 'neuravolt';
-      const res = await fetch(`${apiBase}/api/v1/user/devices/${id}`, {
+      const { apiBase, tenantSlug } = getApiConfig();
+      const res = await authenticatedFetch(`${apiBase}/api/v1/user/devices/${id}`, {
         credentials: 'include',
         method: 'DELETE',
         headers: {

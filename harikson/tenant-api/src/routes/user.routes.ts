@@ -21,7 +21,9 @@ router.get('/profile', async (req: any, res) => {
 
   try {
     const userRes = await pool.query(
-      'SELECT id, email, name, role, two_factor_enabled, created_at FROM users WHERE id = $1 AND deleted_at IS NULL',
+      `SELECT id, email, name, username, phone, company, job_title, department, country, bio,
+              role, two_factor_enabled, avatar_url, created_at, settings
+       FROM users WHERE id = $1 AND deleted_at IS NULL`,
       [req.user.userId]
     );
 
@@ -29,7 +31,30 @@ router.get('/profile', async (req: any, res) => {
       return res.status(404).json({ error: 'User not found' });
     }
 
-    res.json({ user: userRes.rows[0] });
+    const u = userRes.rows[0];
+    // Return flat profile object that matches frontend expectations
+    res.json({
+      id: u.id,
+      email: u.email,
+      name: u.name || '',
+      username: u.username || '',
+      phone: u.phone || '',
+      company: u.company || '',
+      jobTitle: u.job_title || '',
+      department: u.department || '',
+      country: u.country || '',
+      bio: u.bio || '',
+      role: u.role,
+      twoFactorEnabled: u.two_factor_enabled,
+      avatarUrl: u.avatar_url || '',
+      createdAt: u.created_at,
+      settings: u.settings || {},
+      // Also expose as 'user' for backward compat
+      user: {
+        id: u.id, email: u.email, name: u.name, role: u.role,
+        two_factor_enabled: u.two_factor_enabled,
+      },
+    });
   } catch (err: any) {
     logger.error('Fetch user profile error:', err);
     res.status(500).json({ error: 'Failed to fetch user profile' });
@@ -40,11 +65,22 @@ router.get('/profile', async (req: any, res) => {
 router.put('/profile', validate(profileUpdateSchema), async (req: any, res) => {
   if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
 
-  const { name } = req.body;
+  const { name, username, phone, company, jobTitle, department, country, bio } = req.body;
   try {
     const updateRes = await pool.query(
-      'UPDATE users SET name = COALESCE($1, name), updated_at = NOW() WHERE id = $2 RETURNING id, email, name, role',
-      [name, req.user.userId]
+      `UPDATE users SET
+         name = COALESCE($1, name),
+         username = COALESCE($2, username),
+         phone = COALESCE($3, phone),
+         company = COALESCE($4, company),
+         job_title = COALESCE($5, job_title),
+         department = COALESCE($6, department),
+         country = COALESCE($7, country),
+         bio = COALESCE($8, bio),
+         updated_at = NOW()
+       WHERE id = $9
+       RETURNING id, email, name, username, phone, company, job_title, department, country, bio, role`,
+      [name, username, phone, company, jobTitle, department, country, bio, req.user.userId]
     );
 
     await invalidateUserCache(req.user.userId);
@@ -248,357 +284,420 @@ router.delete('/api-keys/:id', async (req: any, res) => {
   }
 });
 
-// GET /api/user/billing - tenant subscription & plan details
-router.get('/billing', async (req: any, res) => {
-  if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
+// ── Developer Keys (alias /api-keys as /developer/keys) ──────────────────────
+router.get('/developer/keys', async (req: any, res) => {
+  if (!req.tenant) return res.status(401).json({ error: 'Tenant context required' });
   try {
-    const tenantId = req.tenant?.id;
-    if (!tenantId) return res.status(400).json({ error: 'Tenant context required' });
-
-    const subRes = await pool.query(
-      `SELECT s.id, s.status, s.current_period_start, s.current_period_end, s.amount, s.currency, s.cancel_at_period_end,
-              p.name as plan_name, p.price, p.billing_period, p.features, p.trial_days
-       FROM subscriptions s
-       LEFT JOIN plans p ON p.id = s.plan_id
-       WHERE s.tenant_id = $1
-       ORDER BY s.created_at DESC LIMIT 1`,
-      [tenantId]
+    const keysRes = await executeTenantQuery(req.tenant.id, (client) =>
+      client.query(
+        `SELECT id, name, key_prefix, scopes, created_at, last_used_at, status
+         FROM tenant_api_keys WHERE tenant_id = $1 AND status = 'active' ORDER BY created_at DESC`,
+        [req.tenant.id]
+      )
     );
-
-    const subscription = subRes.rows[0] || null;
-    const invoicesRes = await pool.query(
-      `SELECT id, amount, currency, status, created_at, invoice_url
-       FROM invoices WHERE tenant_id = $1
-       ORDER BY created_at DESC LIMIT 10`,
-      [tenantId]
-    ).catch(() => ({ rows: [] }));
-
-    res.json({
-      subscription,
-      invoices: invoicesRes.rows,
-      paymentMethod: null,
-    });
+    res.json({ keys: keysRes.rows });
   } catch (err: any) {
-    logger.error('Fetch billing error:', err);
-    res.status(500).json({ error: 'Failed to fetch billing data' });
+    logger.error('Fetch developer keys error:', err);
+    res.status(500).json({ error: 'Failed to fetch developer keys' });
   }
 });
 
-// POST /api/user/billing/portal - billing portal redirect
-router.post('/billing/portal', async (req: any, res) => {
-  if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
-  res.json({ url: null, message: 'Billing portal not configured' });
-});
-
-// POST /api/user/billing/cancel - cancel subscription
-router.post('/billing/cancel', async (req: any, res) => {
-  if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
+router.post('/developer/keys', async (req: any, res) => {
+  if (!req.tenant) return res.status(401).json({ error: 'Tenant context required' });
+  const { name, scopes } = req.body;
+  const rawKey = 'hk_live_' + crypto.randomBytes(24).toString('hex');
+  const prefix = rawKey.substring(0, 12);
+  const keyHash = crypto.createHash('sha256').update(rawKey).digest('hex');
   try {
-    const tenantId = req.tenant?.id;
-    await pool.query(
-      `UPDATE subscriptions SET cancel_at_period_end = true WHERE tenant_id = $1 AND status IN ('active', 'trialing')`,
-      [tenantId]
+    const insertRes = await executeTenantQuery(req.tenant.id, (client) =>
+      client.query(
+        `INSERT INTO tenant_api_keys (tenant_id, user_id, name, key_hash, key_prefix, scopes, status, created_at)
+         VALUES ($1, $2, $3, $4, $5, $6, 'active', NOW())
+         RETURNING id, name, key_prefix, scopes, created_at`,
+        [req.tenant.id, req.user?.userId || null, name || 'API Key', keyHash, prefix, JSON.stringify(scopes || ['read'])]
+      )
     );
-    res.json({ success: true, message: 'Subscription scheduled for cancellation at period end' });
+    res.status(201).json({ key: insertRes.rows[0], secretKey: rawKey });
   } catch (err: any) {
-    logger.error('Cancel subscription error:', err);
-    res.status(500).json({ error: 'Failed to cancel subscription' });
+    logger.error('Create developer key error:', err);
+    res.status(500).json({ error: 'Failed to create developer key' });
   }
 });
 
-// GET /api/user/workspace - tenant workspace info & members
+router.delete('/developer/keys/:id', async (req: any, res) => {
+  if (!req.tenant) return res.status(401).json({ error: 'Tenant context required' });
+  const { id } = req.params;
+  try {
+    await executeTenantQuery(req.tenant.id, (client) =>
+      client.query(
+        `UPDATE tenant_api_keys SET status = 'revoked', revoked_at = NOW() WHERE id = $1 AND tenant_id = $2`,
+        [id, req.tenant.id]
+      )
+    );
+    res.json({ success: true });
+  } catch (err: any) {
+    res.status(500).json({ error: 'Failed to revoke developer key' });
+  }
+});
+
+// ── Workspace ────────────────────────────────────────────────────────────────
 router.get('/workspace', async (req: any, res) => {
-  if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
+  if (!req.user || !req.tenant) return res.status(401).json({ error: 'Unauthorized' });
   try {
-    const tenantId = req.tenant?.id;
-    if (!tenantId) return res.status(400).json({ error: 'Tenant context required' });
-
-    const tenantRes = await pool.query(
-      `SELECT id, name, slug, status, custom_domain, created_at FROM tenants WHERE id = $1`,
-      [tenantId]
-    );
-
     const membersRes = await pool.query(
-      `SELECT id, name, email, role, created_at FROM users WHERE tenant_id = $1 AND deleted_at IS NULL ORDER BY created_at ASC`,
-      [tenantId]
+      `SELECT u.id, u.name, u.email, u.role, u.created_at, u.last_login_at
+       FROM users u WHERE u.tenant_id = $1 AND u.deleted_at IS NULL ORDER BY u.created_at ASC`,
+      [req.tenant.id]
     );
-
+    const tenantRes = await pool.query(
+      `SELECT name, slug, status, settings, trial_ends_at, created_at FROM tenants WHERE id = $1`,
+      [req.tenant.id]
+    );
     const tenant = tenantRes.rows[0] || {};
     res.json({
-      id: tenant.id,
       name: tenant.name,
       slug: tenant.slug,
       status: tenant.status,
-      customDomain: tenant.custom_domain || null,
+      trialEndsAt: tenant.trial_ends_at,
       createdAt: tenant.created_at,
       members: membersRes.rows,
     });
   } catch (err: any) {
     logger.error('Fetch workspace error:', err);
-    res.status(500).json({ error: 'Failed to fetch workspace' });
+    res.status(500).json({ error: 'Failed to load workspace' });
   }
 });
 
-// POST /api/user/workspace/members - add member to workspace
 router.post('/workspace/members', async (req: any, res) => {
-  if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
+  if (!req.user || !req.tenant) return res.status(401).json({ error: 'Unauthorized' });
   const { email, name, role, password } = req.body;
   if (!email || !name) return res.status(400).json({ error: 'email and name are required' });
   try {
-    const tenantId = req.tenant?.id;
-    if (!tenantId) return res.status(400).json({ error: 'Tenant context required' });
-
-    const bcrypt = await import('bcrypt');
-    const passwordHash = password ? await bcrypt.hash(password, 12) : null;
-    const normalizedRole = (role || 'member').toLowerCase();
-
-    const insertRes = await pool.query(
-      `INSERT INTO users (tenant_id, email, name, role, email_verified, password_hash, created_at)
-       VALUES ($1, $2, $3, $4, true, $5, NOW())
-       RETURNING id, email, name, role, created_at`,
-      [tenantId, email, name, normalizedRole, passwordHash]
+    const existing = await pool.query(
+      `SELECT id FROM users WHERE email = $1 AND tenant_id = $2 AND deleted_at IS NULL`,
+      [email, req.tenant.id]
     );
-
+    if (existing.rows.length > 0) return res.status(409).json({ error: 'User with this email already exists' });
+    const passwordHash = await bcrypt.hash(password || crypto.randomBytes(12).toString('hex'), 10);
+    const insertRes = await pool.query(
+      `INSERT INTO users (tenant_id, email, password_hash, name, role, email_verified, created_at)
+       VALUES ($1, $2, $3, $4, $5, true, NOW()) RETURNING id, name, email, role, created_at`,
+      [req.tenant.id, email, passwordHash, name, role || 'Member']
+    );
     res.status(201).json(insertRes.rows[0]);
   } catch (err: any) {
     logger.error('Add workspace member error:', err);
-    if (err.code === '23505') return res.status(409).json({ error: 'A user with this email already exists' });
-    res.status(500).json({ error: 'Failed to add workspace member' });
+    res.status(500).json({ error: 'Failed to add member' });
   }
 });
 
-// PUT /api/user/workspace/members/:id/role - update member role
 router.put('/workspace/members/:id/role', async (req: any, res) => {
-  if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
+  if (!req.user || !req.tenant) return res.status(401).json({ error: 'Unauthorized' });
   const { id } = req.params;
   const { role } = req.body;
   if (!role) return res.status(400).json({ error: 'role is required' });
   try {
-    const tenantId = req.tenant?.id;
     await pool.query(
-      `UPDATE users SET role = $1, updated_at = NOW() WHERE id = $2 AND tenant_id = $3 AND deleted_at IS NULL`,
-      [role.toLowerCase(), id, tenantId]
+      `UPDATE users SET role = $1, updated_at = NOW() WHERE id = $2 AND tenant_id = $3`,
+      [role, id, req.tenant.id]
     );
-    res.json({ success: true, id, role });
+    res.json({ success: true });
   } catch (err: any) {
-    logger.error('Update member role error:', err);
     res.status(500).json({ error: 'Failed to update member role' });
   }
 });
 
-// DELETE /api/user/workspace/members/:id - remove member from workspace
 router.delete('/workspace/members/:id', async (req: any, res) => {
-  if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
+  if (!req.user || !req.tenant) return res.status(401).json({ error: 'Unauthorized' });
   const { id } = req.params;
-  if (id === req.user.userId) return res.status(400).json({ error: 'Cannot remove yourself from the workspace' });
+  if (id === req.user.userId) return res.status(400).json({ error: 'You cannot remove yourself' });
   try {
-    const tenantId = req.tenant?.id;
     await pool.query(
       `UPDATE users SET deleted_at = NOW() WHERE id = $1 AND tenant_id = $2`,
-      [id, tenantId]
+      [id, req.tenant.id]
     );
-    res.json({ success: true, message: 'Member removed from workspace' });
+    res.json({ success: true });
   } catch (err: any) {
-    logger.error('Remove workspace member error:', err);
-    res.status(500).json({ error: 'Failed to remove workspace member' });
+    res.status(500).json({ error: 'Failed to remove member' });
   }
 });
 
-// GET /api/user/activity - user activity / audit log
+// ── Activity Log ─────────────────────────────────────────────────────────────
 router.get('/activity', async (req: any, res) => {
   if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
   try {
     const logsRes = await pool.query(
-      `SELECT id, action, ip_address, user_agent, details as metadata, created_at
-       FROM activity_logs
-       WHERE user_id = $1
-       ORDER BY created_at DESC
-       LIMIT 50`,
+      `SELECT id, action, ip_address, user_agent, metadata, created_at
+       FROM audit_logs WHERE user_id = $1 ORDER BY created_at DESC LIMIT 100`,
       [req.user.userId]
-    ).catch(() => ({ rows: [] }));
-
-    // Fallback: build from refresh_tokens if activity_logs empty
-    if (logsRes.rows.length === 0) {
-      const sessionsRes = await pool.query(
-        `SELECT 'Signed in' as action, last_ip as ip_address, device_name as user_agent, last_used_at as created_at
-         FROM refresh_tokens WHERE user_id = $1 ORDER BY last_used_at DESC LIMIT 20`,
-        [req.user.userId]
-      ).catch(() => ({ rows: [] }));
-      return res.json(sessionsRes.rows);
-    }
-
-    res.json(logsRes.rows);
+    );
+    res.json({ logs: logsRes.rows });
   } catch (err: any) {
-    logger.error('Fetch activity error:', err);
-    res.status(500).json({ error: 'Failed to fetch activity logs' });
+    // Table may not exist yet
+    logger.warn('Activity log table missing or query failed:', err.message);
+    res.json({ logs: [] });
   }
 });
 
-// GET /api/user/usage - token & query usage stats
-router.get('/usage', async (req: any, res) => {
-  if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
-  try {
-    const days = parseInt(String(req.query.days || '7'), 10) || 7;
-    const tenantId = req.tenant?.id;
-
-    // Try chat_sessions / messages table
-    const usageRes = await pool.query(
-      `SELECT
-         COUNT(*) as total_queries,
-         COALESCE(SUM(tokens_used), 0) as total_tokens,
-         COALESCE(SUM(prompt_tokens), 0) as prompt_tokens,
-         COALESCE(SUM(completion_tokens), 0) as completion_tokens
-       FROM messages
-       WHERE tenant_id = $1 AND created_at >= NOW() - ($2 || ' days')::interval`,
-      [tenantId, days]
-    ).catch(() => ({ rows: [{ total_queries: 0, total_tokens: 0, prompt_tokens: 0, completion_tokens: 0 }] }));
-
-    // Daily breakdown
-    const dailyRes = await pool.query(
-      `SELECT
-         DATE(created_at) as date,
-         COUNT(*) as queries,
-         COALESCE(SUM(tokens_used), 0) as tokens
-       FROM messages
-       WHERE tenant_id = $1 AND created_at >= NOW() - ($2 || ' days')::interval
-       GROUP BY DATE(created_at)
-       ORDER BY date ASC`,
-      [tenantId, days]
-    ).catch(() => ({ rows: [] }));
-
-    const summary = usageRes.rows[0] || {};
-    res.json({
-      totalQueries: Number(summary.total_queries) || 0,
-      totalTokens: Number(summary.total_tokens) || 0,
-      promptTokens: Number(summary.prompt_tokens) || 0,
-      completionTokens: Number(summary.completion_tokens) || 0,
-      dailyBreakdown: dailyRes.rows,
-      periodDays: days,
-      previousPeriodChange: null,
-    });
-  } catch (err: any) {
-    logger.error('Fetch usage error:', err);
-    res.status(500).json({ error: 'Failed to fetch usage data' });
-  }
-});
-
-// GET /api/user/devices - connected devices (from refresh_tokens)
+// ── Devices (active sessions) ─────────────────────────────────────────────────
 router.get('/devices', async (req: any, res) => {
   if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
   try {
-    const devicesRes = await pool.query(
+    const devRes = await pool.query(
       `SELECT id, device_name, device_hash, last_ip, country_code, last_used_at, created_at
-       FROM refresh_tokens
-       WHERE user_id = $1 AND expires_at > NOW()
-       ORDER BY last_used_at DESC`,
+       FROM refresh_tokens WHERE user_id = $1 AND expires_at > NOW() ORDER BY last_used_at DESC`,
       [req.user.userId]
     );
-
-    const devices = devicesRes.rows.map((d) => ({
-      id: d.id,
-      name: d.device_name || 'Unknown Device',
-      ip: d.last_ip || 'Unknown',
-      location: d.country_code || 'Unknown',
-      lastActive: d.last_used_at,
-      createdAt: d.created_at,
-      os: d.device_name || 'Unknown',
-      browser: d.device_name || 'Unknown',
-    }));
-
-    res.json(devices);
+    res.json({ devices: devRes.rows });
   } catch (err: any) {
     logger.error('Fetch devices error:', err);
     res.status(500).json({ error: 'Failed to fetch devices' });
   }
 });
 
-// DELETE /api/user/devices/:id - remove a device session
 router.delete('/devices/:id', async (req: any, res) => {
   if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
   const { id } = req.params;
   try {
-    await pool.query('DELETE FROM refresh_tokens WHERE id = $1 AND user_id = $2', [id, req.user.userId]);
-
-    const devicesRes = await pool.query(
-      `SELECT id, device_name, device_hash, last_ip, country_code, last_used_at, created_at
-       FROM refresh_tokens WHERE user_id = $1 AND expires_at > NOW() ORDER BY last_used_at DESC`,
-      [req.user.userId]
-    );
-
-    res.json({
-      success: true,
-      devices: devicesRes.rows.map((d) => ({
-        id: d.id,
-        name: d.device_name || 'Unknown Device',
-        ip: d.last_ip || 'Unknown',
-        location: d.country_code || 'Unknown',
-        lastActive: d.last_used_at,
-        os: d.device_name || 'Unknown',
-      })),
-    });
-  } catch (err: any) {
-    logger.error('Remove device error:', err);
-    res.status(500).json({ error: 'Failed to remove device' });
-  }
-});
-
-// GET /api/user/presets - prompt library presets
-router.get('/presets', async (req: any, res) => {
-  if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
-  try {
-    const tenantId = req.tenant?.id;
-    // prompt_presets table may not exist yet, return empty array gracefully
-    const presetsRes = await pool.query(
-      `SELECT id, name, description, system_prompt, created_at FROM prompt_presets WHERE tenant_id = $1 ORDER BY created_at DESC`,
-      [tenantId]
-    ).catch(() => ({ rows: [] }));
-    res.json(presetsRes.rows);
-  } catch (err: any) {
-    logger.error('Fetch presets error:', err);
-    res.json([]);
-  }
-});
-
-// POST /api/user/presets - create prompt preset
-router.post('/presets', async (req: any, res) => {
-  if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
-  const { name, description, systemPrompt } = req.body;
-  if (!name || !systemPrompt) return res.status(400).json({ error: 'name and systemPrompt are required' });
-  try {
-    const tenantId = req.tenant?.id;
-    // Ensure table exists
-    await pool.query(`CREATE TABLE IF NOT EXISTS prompt_presets (
-      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-      tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE,
-      user_id UUID REFERENCES users(id) ON DELETE SET NULL,
-      name VARCHAR(255) NOT NULL,
-      description TEXT,
-      system_prompt TEXT NOT NULL,
-      created_at TIMESTAMPTZ DEFAULT NOW()
-    )`);
-    const insertRes = await pool.query(
-      `INSERT INTO prompt_presets (tenant_id, user_id, name, description, system_prompt, created_at)
-       VALUES ($1, $2, $3, $4, $5, NOW()) RETURNING id, name, description, system_prompt, created_at`,
-      [tenantId, req.user.userId, name, description || null, systemPrompt]
-    );
-    res.status(201).json(insertRes.rows[0]);
-  } catch (err: any) {
-    logger.error('Create preset error:', err);
-    res.status(500).json({ error: 'Failed to create preset' });
-  }
-});
-
-// DELETE /api/user/presets/:id
-router.delete('/presets/:id', async (req: any, res) => {
-  if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
-  const { id } = req.params;
-  try {
-    const tenantId = req.tenant?.id;
-    await pool.query(`DELETE FROM prompt_presets WHERE id = $1 AND tenant_id = $2`, [id, tenantId]).catch(() => {});
+    await pool.query(`DELETE FROM refresh_tokens WHERE id = $1 AND user_id = $2`, [id, req.user.userId]);
     res.json({ success: true });
   } catch (err: any) {
-    logger.error('Delete preset error:', err);
-    res.status(500).json({ error: 'Failed to delete preset' });
+    res.status(500).json({ error: 'Failed to revoke device session' });
+  }
+});
+
+// ── User Settings (appearance, language, notifications, etc.) ─────────────────
+router.get('/settings', async (req: any, res) => {
+  if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
+  try {
+    const r = await pool.query(`SELECT settings FROM users WHERE id = $1`, [req.user.userId]);
+    const settings = r.rows[0]?.settings || {};
+    res.json({ settings });
+  } catch (err: any) {
+    logger.error('Fetch user settings error:', err);
+    res.status(500).json({ error: 'Failed to fetch settings' });
+  }
+});
+
+router.put('/settings', async (req: any, res) => {
+  if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
+  const { settings } = req.body;
+  if (!settings) return res.status(400).json({ error: 'settings object required' });
+  try {
+    await pool.query(
+      `UPDATE users SET settings = $1, updated_at = NOW() WHERE id = $2`,
+      [JSON.stringify(settings), req.user.userId]
+    );
+    await invalidateUserCache(req.user.userId);
+    res.json({ success: true });
+  } catch (err: any) {
+    logger.error('Update user settings error:', err);
+    res.status(500).json({ error: 'Failed to update settings' });
+  }
+});
+
+// ── Usage Stats ───────────────────────────────────────────────────────────────
+router.get('/usage', async (req: any, res) => {
+  if (!req.user || !req.tenant) return res.status(401).json({ error: 'Unauthorized' });
+  const days = parseInt(req.query.days as string) || 30;
+  try {
+    // Count conversations per day (no token columns exist in conversations table yet)
+    const usageRes = await pool.query(
+      `SELECT
+         COUNT(c.id) AS total_chats,
+         DATE_TRUNC('day', c.created_at) AS date
+       FROM conversations c
+       WHERE c.tenant_id = $1 AND c.user_id = $2
+         AND c.created_at >= NOW() - ($3::int || ' days')::INTERVAL
+         AND c.deleted_at IS NULL
+       GROUP BY DATE_TRUNC('day', c.created_at)
+       ORDER BY date ASC`,
+      [req.tenant.id, req.user.userId, days]
+    );
+
+    const totalChats = usageRes.rows.reduce((sum: number, r: any) => sum + parseInt(r.total_chats), 0);
+
+    const subRes = await pool.query(
+      `SELECT s.status, s.current_period_start, s.current_period_end, s.amount, s.currency,
+              p.name AS plan_name, p.token_limit, p.features
+       FROM subscriptions s
+       JOIN plans p ON s.plan_id = p.id
+       WHERE s.tenant_id = $1 AND s.status NOT IN ('cancelled','canceled')
+       ORDER BY s.created_at DESC LIMIT 1`,
+      [req.tenant.id]
+    );
+
+    const sub = subRes.rows[0] || {};
+    res.json({
+      totalChats,
+      inputTokens: 0,
+      outputTokens: 0,
+      totalTokens: 0,
+      tokenLimit: sub.token_limit || 100000,
+      plan: sub.plan_name || 'Free',
+      periodStart: sub.current_period_start,
+      periodEnd: sub.current_period_end,
+      dailyBreakdown: usageRes.rows,
+    });
+  } catch (err: any) {
+    logger.error('Fetch usage error:', err);
+    res.status(500).json({ error: 'Failed to fetch usage statistics' });
+  }
+});
+
+// ── Billing Info ──────────────────────────────────────────────────────────────
+router.get('/billing', async (req: any, res) => {
+  if (!req.user || !req.tenant) return res.status(401).json({ error: 'Unauthorized' });
+  try {
+    const subRes = await pool.query(
+      `SELECT s.id, s.status, s.current_period_start, s.current_period_end,
+              s.amount, s.currency, s.cancel_at_period_end, s.trial_end,
+              p.name AS plan_name, p.price, p.billing_interval, p.token_limit, p.features
+       FROM subscriptions s
+       JOIN plans p ON s.plan_id = p.id
+       WHERE s.tenant_id = $1
+       ORDER BY s.created_at DESC LIMIT 1`,
+      [req.tenant.id]
+    );
+
+    if (subRes.rows.length === 0) {
+      return res.json({
+        status: 'Free',
+        plan: 'Free',
+        amount: 0,
+        currency: 'USD',
+        features: {},
+        invoices: [],
+      });
+    }
+
+    const sub = subRes.rows[0];
+    res.json({
+      status: sub.cancel_at_period_end ? 'Canceling' : sub.status,
+      plan: sub.plan_name,
+      amount: sub.amount || sub.price,
+      currency: sub.currency || 'USD',
+      currentPeriodStart: sub.current_period_start,
+      currentPeriodEnd: sub.current_period_end,
+      trialEnd: sub.trial_end,
+      tokenLimit: sub.token_limit,
+      features: sub.features || {},
+      invoices: [],
+    });
+  } catch (err: any) {
+    logger.error('Fetch billing error:', err);
+    res.status(500).json({ error: 'Failed to fetch billing details' });
+  }
+});
+
+router.post('/billing/portal', async (req: any, res) => {
+  if (!req.user || !req.tenant) return res.status(401).json({ error: 'Unauthorized' });
+  // If Stripe is configured, redirect to portal; otherwise return a helpful message
+  try {
+    const tenantRes = await pool.query(
+      `SELECT stripe_customer_id FROM tenants WHERE id = $1`,
+      [req.tenant.id]
+    );
+    const customerId = tenantRes.rows[0]?.stripe_customer_id;
+    if (!customerId) {
+      return res.json({ url: null, message: 'No Stripe customer linked. Please contact support.' });
+    }
+    // Return placeholder - Stripe integration would go here
+    res.json({ url: `https://billing.stripe.com/p/session/${customerId}` });
+  } catch (err: any) {
+    logger.error('Billing portal error:', err);
+    res.status(500).json({ error: 'Failed to access billing portal' });
+  }
+});
+
+router.post('/billing/cancel', async (req: any, res) => {
+  if (!req.user || !req.tenant) return res.status(401).json({ error: 'Unauthorized' });
+  try {
+    await pool.query(
+      `UPDATE subscriptions SET cancel_at_period_end = true, updated_at = NOW()
+       WHERE tenant_id = $1 AND status NOT IN ('cancelled','canceled')`,
+      [req.tenant.id]
+    );
+    res.json({ success: true, message: 'Subscription scheduled for cancellation' });
+  } catch (err: any) {
+    logger.error('Cancel subscription error:', err);
+    res.status(500).json({ error: 'Failed to cancel subscription' });
+  }
+});
+
+// ── Avatar Upload ─────────────────────────────────────────────────────────────
+import multer from 'multer';
+import path from 'path';
+import fs from 'fs';
+
+const avatarStorage = multer.diskStorage({
+  destination: (req: any, file: any, cb: any) => {
+    const dir = process.env.AVATAR_UPLOAD_DIR || '/tmp/avatars';
+    fs.mkdirSync(dir, { recursive: true });
+    cb(null, dir);
+  },
+  filename: (req: any, file: any, cb: any) => {
+    cb(null, `avatar_${(req as any).user?.userId}_${Date.now()}${path.extname(file.originalname)}`);
+  },
+});
+const uploadAvatar = multer({ storage: avatarStorage, limits: { fileSize: 5 * 1024 * 1024 } });
+
+router.post('/avatar', uploadAvatar.single('avatar'), async (req: any, res) => {
+  if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
+  try {
+    const avatarUrl = req.file
+      ? `/avatars/${req.file.filename}`
+      : null;
+
+    if (avatarUrl) {
+      await pool.query(
+        `UPDATE users SET avatar_url = $1, updated_at = NOW() WHERE id = $2`,
+        [avatarUrl, req.user.userId]
+      );
+      await invalidateUserCache(req.user.userId);
+    }
+
+    res.json({ success: true, avatarUrl: avatarUrl || null });
+  } catch (err: any) {
+    logger.error('Avatar upload error:', err);
+    res.status(500).json({ error: 'Failed to upload avatar' });
+  }
+});
+
+// ── Change Password ───────────────────────────────────────────────────────────
+router.post('/security/change-password', async (req: any, res) => {
+  if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
+  const { currentPassword, newPassword } = req.body;
+  if (!currentPassword || !newPassword) {
+    return res.status(400).json({ error: 'currentPassword and newPassword are required' });
+  }
+  if (newPassword.length < 8) {
+    return res.status(400).json({ error: 'New password must be at least 8 characters' });
+  }
+  try {
+    const userRes = await pool.query(
+      `SELECT password_hash FROM users WHERE id = $1 AND deleted_at IS NULL`,
+      [req.user.userId]
+    );
+    if (userRes.rows.length === 0) return res.status(404).json({ error: 'User not found' });
+
+    const isMatch = await bcrypt.compare(currentPassword, userRes.rows[0].password_hash);
+    if (!isMatch) return res.status(401).json({ error: 'Current password is incorrect' });
+
+    const newHash = await bcrypt.hash(newPassword, 12);
+    await pool.query(
+      `UPDATE users SET password_hash = $1, updated_at = NOW() WHERE id = $2`,
+      [newHash, req.user.userId]
+    );
+
+    // Invalidate all refresh tokens (force re-login on other devices)
+    await pool.query(`DELETE FROM refresh_tokens WHERE user_id = $1`, [req.user.userId]);
+    await invalidateUserCache(req.user.userId);
+
+    res.json({ success: true, message: 'Password changed successfully. Please log in again.' });
+  } catch (err: any) {
+    logger.error('Change password error:', err);
+    res.status(500).json({ error: 'Failed to change password' });
   }
 });
 

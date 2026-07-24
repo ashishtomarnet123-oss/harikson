@@ -1,3 +1,4 @@
+import { authenticatedFetch, getApiConfig } from './apiHelper';
 import React, { useState, useEffect } from 'react';
 import { Save } from 'lucide-react';
 import { useRouter } from 'next/router';
@@ -27,12 +28,8 @@ export default function ProfileSettings() {
           router.push('/login');
           return;
         }
-        const apiBase =
-          localStorage.getItem('hk_api_base') ||
-          process.env.NEXT_PUBLIC_API_URL ||
-          'http://localhost:3008';
-        const tenantSlug = localStorage.getItem('hk_tenant') || 'neuravolt';
-        const res = await fetch(`${apiBase}/api/v1/user/profile`, {
+        const { apiBase, tenantSlug } = getApiConfig();
+        const res = await authenticatedFetch(`${apiBase}/api/v1/user/profile`, {
           credentials: 'include',
           headers: {
             'x-tenant-slug': tenantSlug,
@@ -62,12 +59,8 @@ export default function ProfileSettings() {
     setMessage(null);
     try {
       const token = localStorage.getItem('hk_user') ? 'cookie_auth' : null;
-      const apiBase =
-        localStorage.getItem('hk_api_base') ||
-        process.env.NEXT_PUBLIC_API_URL ||
-        'http://localhost:3008';
-      const tenantSlug = localStorage.getItem('hk_tenant') || 'neuravolt';
-      const res = await fetch(`${apiBase}/api/v1/user/profile`, {
+      const { apiBase, tenantSlug } = getApiConfig();
+      const res = await authenticatedFetch(`${apiBase}/api/v1/user/profile`, {
         credentials: 'include',
         method: 'PUT',
         headers: {
@@ -130,13 +123,9 @@ export default function ProfileSettings() {
       const formData = new FormData();
       formData.append('avatar', blob, 'avatar.jpg');
 
-      const apiBase =
-        localStorage.getItem('hk_api_base') ||
-        process.env.NEXT_PUBLIC_API_URL ||
-        'http://localhost:3008';
-      const tenantSlug = localStorage.getItem('hk_tenant') || 'neuravolt';
+      const { apiBase, tenantSlug } = getApiConfig();
 
-      const res = await fetch(`${apiBase}/api/v1/user/avatar`, {
+      const res = await authenticatedFetch(`${apiBase}/api/v1/user/avatar`, {
         credentials: 'include',
         method: 'POST',
         headers: {

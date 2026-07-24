@@ -1,3 +1,4 @@
+import { authenticatedFetch, getApiConfig } from './apiHelper';
 import React, { useState, useEffect } from 'react';
 import {
   AreaChart,
@@ -36,12 +37,8 @@ export default function UsageSettings() {
     try {
       const token = localStorage.getItem('hk_user') ? 'cookie_auth' : null;
       if (!token) return;
-      const apiBase =
-        localStorage.getItem('hk_api_base') ||
-        process.env.NEXT_PUBLIC_API_URL ||
-        'http://localhost:3008';
-      const tenantSlug = localStorage.getItem('hk_tenant') || 'neuravolt';
-      const res = await fetch(`${apiBase}/api/v1/user/usage?days=${days}`, {
+      const { apiBase, tenantSlug } = getApiConfig();
+      const res = await authenticatedFetch(`${apiBase}/api/v1/user/usage?days=${days}`, {
         credentials: 'include',
         headers: {
           'x-tenant-slug': tenantSlug,

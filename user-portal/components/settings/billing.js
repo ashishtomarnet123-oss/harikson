@@ -1,3 +1,4 @@
+import { authenticatedFetch, getApiConfig } from './apiHelper';
 import React, { useState, useEffect } from 'react';
 import { CreditCard, CheckCircle2, Download, XCircle, ExternalLink, Calendar, RefreshCw } from 'lucide-react';
 
@@ -72,13 +73,9 @@ export default function BillingSettings() {
   const fetchBilling = async () => {
     try {
       const token = localStorage.getItem('hk_user') ? 'cookie_auth' : null;
-      const tenantSlug = localStorage.getItem('hk_tenant') || 'neuravolt';
-      const apiBase =
-        localStorage.getItem('hk_api_base') ||
-        process.env.NEXT_PUBLIC_API_URL ||
-        'http://localhost:3008';
+      const { apiBase, tenantSlug } = getApiConfig();
 
-      const res = await fetch(`${apiBase}/api/v1/user/billing`, {
+      const res = await authenticatedFetch(`${apiBase}/api/v1/user/billing`, {
         credentials: 'include',
         headers: {
           'x-tenant-slug': tenantSlug,
@@ -103,13 +100,9 @@ export default function BillingSettings() {
     setActionLoading(true);
     setError(null);
     try {
-      const tenantSlug = localStorage.getItem('hk_tenant') || 'neuravolt';
-      const apiBase =
-        localStorage.getItem('hk_api_base') ||
-        process.env.NEXT_PUBLIC_API_URL ||
-        'http://localhost:3008';
+      const { apiBase, tenantSlug } = getApiConfig();
 
-      const res = await fetch(`${apiBase}/api/v1/user/billing/portal`, {
+      const res = await authenticatedFetch(`${apiBase}/api/v1/user/billing/portal`, {
         method: 'POST',
         credentials: 'include',
         headers: {
@@ -141,13 +134,9 @@ export default function BillingSettings() {
     setError(null);
     setShowCancelModal(false);
     try {
-      const tenantSlug = localStorage.getItem('hk_tenant') || 'neuravolt';
-      const apiBase =
-        localStorage.getItem('hk_api_base') ||
-        process.env.NEXT_PUBLIC_API_URL ||
-        'http://localhost:3008';
+      const { apiBase, tenantSlug } = getApiConfig();
 
-      const res = await fetch(`${apiBase}/api/v1/user/billing/cancel`, {
+      const res = await authenticatedFetch(`${apiBase}/api/v1/user/billing/cancel`, {
         method: 'POST',
         credentials: 'include',
         headers: {
