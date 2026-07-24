@@ -984,8 +984,70 @@ function startIntegrationWorkers(pool) {
   logger.info('[Integration Center] Background workers started.');
 }
 
-async function initIntegrationTables() {
-  logger.info('[Integration Center] Tables initialization checked.');
+async function initIntegrationTables(pool) {
+  if (!pool) return;
+  try {
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS integration_connections (
+          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          tenant_id UUID NOT NULL,
+          provider_id VARCHAR(100) NOT NULL,
+          status VARCHAR(50) NOT NULL DEFAULT 'disconnected',
+          access_token TEXT,
+          refresh_token TEXT,
+          token_expires_at TIMESTAMPTZ,
+          bot_token TEXT,
+          credentials JSONB DEFAULT '{}'::jsonb,
+          settings JSONB DEFAULT '{}'::jsonb,
+          connected_at TIMESTAMPTZ,
+          last_sync_at TIMESTAMPTZ,
+          last_error TEXT,
+          error_type VARCHAR(100),
+          error_count INT DEFAULT 0,
+          created_at TIMESTAMPTZ DEFAULT NOW(),
+          updated_at TIMESTAMPTZ DEFAULT NOW(),
+          CONSTRAINT unique_tenant_provider UNIQUE (tenant_id, provider_id)
+      );
+
+      CREATE TABLE IF NOT EXISTS integration_sync_jobs (
+          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          tenant_id UUID NOT NULL,
+          connection_id UUID REFERENCES integration_connections(id) ON DELETE CASCADE,
+          provider_id VARCHAR(100) NOT NULL,
+          status VARCHAR(50) NOT NULL DEFAULT 'running',
+          started_at TIMESTAMPTZ DEFAULT NOW(),
+          completed_at TIMESTAMPTZ,
+          error_message TEXT,
+          progress JSONB DEFAULT '{}'::jsonb,
+          created_at TIMESTAMPTZ DEFAULT NOW(),
+          updated_at TIMESTAMPTZ DEFAULT NOW()
+      );
+
+      CREATE TABLE IF NOT EXISTS oauth_states (
+          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          tenant_id UUID NOT NULL,
+          provider_id VARCHAR(100) NOT NULL,
+          state VARCHAR(255) NOT NULL UNIQUE,
+          redirect_uri TEXT,
+          expires_at TIMESTAMPTZ NOT NULL,
+          created_at TIMESTAMPTZ DEFAULT NOW()
+      );
+
+      CREATE TABLE IF NOT EXISTS integration_logs (
+          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          tenant_id UUID NOT NULL,
+          provider_id VARCHAR(100) NOT NULL,
+          connection_id UUID,
+          level VARCHAR(20) NOT NULL DEFAULT 'info',
+          message TEXT NOT NULL,
+          metadata JSONB DEFAULT '{}'::jsonb,
+          created_at TIMESTAMPTZ DEFAULT NOW()
+      );
+    `);
+    logger.info('[Integration Center] Tables initialized successfully.');
+  } catch (err) {
+    logger.error('[Integration Center] Error initializing tables:', err.message);
+  }
 }
 
 export { router, initIntegrationTables, startIntegrationWorkers, PROVIDERS };

@@ -745,13 +745,19 @@ export default function IntegrationCenterPage() {
     async (silent = false) => {
       if (!silent) setLoading(true);
       else setRefreshing(true);
+      const t = token();
+      const headers: Record<string, string> = {};
+      if (t) headers['Authorization'] = `Bearer ${t}`;
+
       try {
         const [provRes, sumRes] = await Promise.all([
           fetch(`${apiBase}/v1/admin/integrations/providers`, {
-            headers: { Authorization: `Bearer ${token()}` },
+            headers,
+            credentials: 'include',
           }),
           fetch(`${apiBase}/v1/admin/integrations/status`, {
-            headers: { Authorization: `Bearer ${token()}` },
+            headers,
+            credentials: 'include',
           }),
         ]);
 
