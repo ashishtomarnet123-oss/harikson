@@ -4,20 +4,31 @@ import pg from 'pg';
 
 const { Pool } = pg;
 const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
+  connectionString:
+    process.env.DATABASE_URL ||
+    'postgresql://neuravolt:neuravolt_dev_pwd@harikson-postgres:5432/neuravolt',
 });
+
+const JWT_SECRET =
+  process.env.JWT_SECRET ||
+  process.env.NEXTAUTH_SECRET ||
+  'neuravolt_dev_jwt_secret_key_extremely_long_and_secure_value_12345!';
 
 const parseCookie = (cookieHeader, key) => {
   if (!cookieHeader) return null;
-  const match = cookieHeader.match(new RegExp('(^| )' + key + '=([^;]+)'));
-  return match ? match[2] : null;
+  const match = cookieHeader.match(new RegExp('(?:^|;\\s*)' + key + '=([^;]+)'));
+  return match ? decodeURIComponent(match[1]) : null;
 };
 
 export const adminAuth = async (req, res, next) => {
   try {
+    let token = null;
+
     // 1. Try to get token from Cookies (admin_access_token or admin_token)
     if (req.headers.cookie) {
-      token = parseCookie(req.headers.cookie, 'admin_access_token') || parseCookie(req.headers.cookie, 'admin_token');
+      token =
+        parseCookie(req.headers.cookie, 'admin_access_token') ||
+        parseCookie(req.headers.cookie, 'admin_token');
     }
 
     // 2. Fallback to Authorization header if present
@@ -31,11 +42,9 @@ export const adminAuth = async (req, res, next) => {
         .json({ error: 'Access Denied: No token provided' });
     }
 
-    const jwtSecret = process.env.JWT_SECRET;
     let decoded;
-
     try {
-      decoded = jwt.verify(token, jwtSecret);
+      decoded = jwt.verify(token, JWT_SECRET);
     } catch (jwtErr) {
       return res
         .status(401)
@@ -43,16 +52,30 @@ export const adminAuth = async (req, res, next) => {
     }
 
     // Verify user exists and check role in users table
-    const result = await pool.query(
-      'SELECT id, role, email FROM users WHERE id = $1',
-      [decoded.userId]
-    );
-    if (result.rows.length === 0) {
+    let result;
+    try {
+      result = await pool.query(
+        'SELECT id, role, email FROM users WHERE id = $1 LIMIT 1',
+        [decoded.userId]
+      );
+    } catch (dbErr) {
+      logger.error('Admin Auth Middleware DB query error:', dbErr.message);
+      // Fallback: If DB query fails, trust valid JWT payload if role is admin/superadmin/founder
+      const allowed = ['admin', 'superadmin', 'founder'];
+      if (decoded.role && allowed.includes(decoded.role)) {
+        req.admin = { id: decoded.userId, role: decoded.role };
+        return next();
+      }
+      return res.status(500).json({ error: 'Database service unavailable' });
+    }
+
+    if (!result || result.rows.length === 0) {
       return res.status(401).json({ error: 'Access Denied: User not found' });
     }
 
     const user = result.rows[0];
-    if (user.role !== 'admin' && user.role !== 'superadmin') {
+    const allowedRoles = ['admin', 'superadmin', 'founder'];
+    if (!allowedRoles.includes(user.role)) {
       return res
         .status(403)
         .json({ error: 'Access Denied: Admin privilege required' });
@@ -61,7 +84,7 @@ export const adminAuth = async (req, res, next) => {
     req.admin = { id: user.id, role: user.role, email: user.email };
     next();
   } catch (err) {
-    logger.error('Admin Auth Middleware error:', err);
+    logger.error('Admin Auth Middleware error:', err.message || err);
     return res.status(500).json({ error: 'Internal Server Error' });
   }
 };
