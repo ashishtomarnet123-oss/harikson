@@ -55,7 +55,7 @@ async function handleLogin(req: any, res: any) {
       [email, req.tenant?.id]
     );
     let user = userResult.rows[0];
-    if (!user && req.tenant?.slug === 'neuravolt' && email !== 'admin@harikson.ai') {
+    if (!user) {
       const fallbackResult = await pool.query(
         'SELECT * FROM users WHERE email = $1 AND deleted_at IS NULL ORDER BY created_at DESC LIMIT 1',
         [email]
