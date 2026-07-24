@@ -423,9 +423,9 @@ router.get('/billing', async (req: any, res) => {
     const userRes = await pool.query('SELECT tenant_id FROM users WHERE id = $1', [req.user.userId]).catch(() => ({ rows: [] }));
     const tenantId = userRes.rows[0]?.tenant_id || req.tenant?.id || '00000000-0000-0000-0000-000000000000';
 
-    let currentSub = {
+    let currentSub: any = {
       plan_name: 'Free Plan',
-      status: 'active',
+      status: 'ACTIVE',
       amount: 0,
       currency: 'INR',
       current_period_end: new Date(Date.now() + 30 * 24 * 3600 * 1000).toISOString(),
@@ -454,18 +454,32 @@ router.get('/billing', async (req: any, res) => {
       invoices = invRes.rows || [];
     } catch (e) {}
 
+    const statusUpper = (currentSub.status || 'ACTIVE').toUpperCase();
+    const planName = currentSub.plan_name || 'Free Plan';
+    const priceStr = currentSub.price ? `${currentSub.currency || '₹'} ${currentSub.price}` : '₹0 / month';
+
     res.json({
+      status: statusUpper,
+      planName,
+      price: priceStr,
+      currentPeriodEnd: currentSub.current_period_end,
+      features: {
+        custom_agents: true,
+        unlimited_documents: true,
+        priority_support: true,
+      },
       subscription: currentSub,
       invoices,
     });
   } catch (err: any) {
     res.json({
-      subscription: {
-        plan_name: 'Free Plan',
-        status: 'active',
-        amount: 0,
-        currency: 'INR',
-        current_period_end: new Date(Date.now() + 30 * 24 * 3600 * 1000).toISOString(),
+      status: 'ACTIVE',
+      planName: 'Free Plan',
+      price: '₹0 / month',
+      currentPeriodEnd: new Date(Date.now() + 30 * 24 * 3600 * 1000).toISOString(),
+      features: {
+        custom_agents: true,
+        unlimited_documents: true,
       },
       invoices: [],
     });
