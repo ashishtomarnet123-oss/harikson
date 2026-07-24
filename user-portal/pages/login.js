@@ -96,7 +96,7 @@ export default function LoginPage() {
       const hostname = window.location.hostname;
       if (hostname !== 'localhost' && hostname !== '127.0.0.1') {
         if (window.location.port) {
-          resolvedApiBase = `http://${hostname}:3008`;
+          resolvedApiBase = '';
         } else {
           resolvedApiBase =
             process.env.NEXT_PUBLIC_API_URL ||

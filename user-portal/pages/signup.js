@@ -14,7 +14,7 @@ export default function SignupPage() {
   const [error, setError] = useState('');
   const [valDetails, setValDetails] = useState([]);
   const [success, setSuccess] = useState('');
-  const [apiBase, setApiBase] = useState('http://localhost:3008');
+  const [apiBase, setApiBase] = useState('');
   const [tenantSlug, setTenantSlug] = useState('system');
 
   useEffect(() => {
@@ -28,7 +28,8 @@ export default function SignupPage() {
       const hostname = window.location.hostname;
       if (hostname !== 'localhost' && hostname !== '127.0.0.1') {
         if (window.location.port) {
-          setApiBase(`http://${hostname}:3008`);
+          // Use relative path so Next.js rewrites proxy request to tenant-api container
+          setApiBase('');
         } else {
           setApiBase(
             process.env.NEXT_PUBLIC_API_URL ||
@@ -43,6 +44,8 @@ export default function SignupPage() {
           const urlParams = new URLSearchParams(window.location.search);
           setTenantSlug(urlParams.get('tenant') || 'system');
         }
+      } else {
+        setApiBase('');
       }
     }
   }, [router]);
@@ -57,8 +60,8 @@ export default function SignupPage() {
       setError('Passwords do not match.');
       return;
     }
-    if (password.length < 12) {
-      setError('Password must be at least 12 characters.');
+    if (password.length < 6) {
+      setError('Password must be at least 6 characters.');
       return;
     }
 
