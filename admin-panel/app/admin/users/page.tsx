@@ -56,23 +56,16 @@ export default function UsersPage() {
   const fetchUsers = async () => {
     setLoading(true);
     setError('');
-    const token =
-      getCookie('admin_token') || localStorage.getItem('admin_token');
-    if (!token) {
-      // No token at all — redirect to login
-      router.replace('/admin/login');
-      return;
-    }
+    const token = getCookie('admin_token') || localStorage.getItem('admin_token');
+    const headers: Record<string, string> = {};
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+
     try {
       const res = await fetch(`${apiBase}/v1/admin/users`, {
-        headers: { Authorization: `Bearer ${token}` },
+        headers,
+        credentials: 'include',
       });
       if (res.status === 401 || res.status === 403) {
-        // Token expired or invalid — clear and redirect to login
-        deleteCookie('admin_token');
-        localStorage.removeItem('admin_token');
-        localStorage.removeItem('admin_user');
-        router.replace('/admin/login');
         return;
       }
       if (!res.ok) {
@@ -89,12 +82,14 @@ export default function UsersPage() {
   };
 
   const fetchPlans = async () => {
-    const token =
-      getCookie('admin_token') || localStorage.getItem('admin_token');
-    if (!token) return;
+    const token = getCookie('admin_token') || localStorage.getItem('admin_token');
+    const headers: Record<string, string> = {};
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+
     try {
       const res = await fetch(`${apiBase}/v1/admin/plans`, {
-        headers: { Authorization: `Bearer ${token}` },
+        headers,
+        credentials: 'include',
       });
       if (res.ok) {
         const data = await res.json();
@@ -108,20 +103,20 @@ export default function UsersPage() {
   const handleUserPlanChange = async (planId: string) => {
     if (!selectedUser) return;
     setUpdatingPlan(true);
-    const token =
-      getCookie('admin_token') || localStorage.getItem('admin_token');
-    if (!token) return;
+    const token = getCookie('admin_token') || localStorage.getItem('admin_token');
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+
     try {
       const idempotencyKey = `plan:user:${selectedUser.id}:${planId || 'clear'}:${Date.now()}:${Math.random()}`;
+      headers['Idempotency-Key'] = idempotencyKey;
+
       const res = await fetch(
         `${apiBase}/v1/admin/users/${selectedUser.id}/plan`,
         {
           method: 'PUT',
-          headers: {
-            Authorization: `Bearer ${token}`,
-            'Content-Type': 'application/json',
-            'Idempotency-Key': idempotencyKey,
-          },
+          headers,
+          credentials: 'include',
           body: JSON.stringify({ planId: planId || null }),
         }
       );
@@ -162,13 +157,16 @@ export default function UsersPage() {
     }
     const fetchConversations = async () => {
       setLoadingConvs(true);
-      const token =
-        getCookie('admin_token') || localStorage.getItem('admin_token');
+      const token = getCookie('admin_token') || localStorage.getItem('admin_token');
+      const headers: Record<string, string> = {};
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+
       try {
         const res = await fetch(
           `${apiBase}/v1/admin/users/${selectedUser.id}/conversations`,
           {
-            headers: { Authorization: `Bearer ${token}` },
+            headers,
+            credentials: 'include',
           }
         );
         if (res.ok) {
@@ -198,16 +196,16 @@ export default function UsersPage() {
   const handleImpersonateUser = async (userId: string) => {
     try {
       const token = getCookie('admin_token') || localStorage.getItem('admin_token');
-      if (!token) return;
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000'}/admin/users/${userId}/impersonate`, {
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+
+      const res = await fetch(`${apiBase}/v1/admin/users/${userId}/impersonate`, {
         method: 'POST',
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
+        headers,
+        credentials: 'include',
       });
       const data = await res.json();
-      const userPortalBase = process.env.NEXT_PUBLIC_USER_PORTAL_URL || 'http://localhost:3028';
+      const userPortalBase = process.env.NEXT_PUBLIC_USER_PORTAL_URL || 'http://154.201.127.68:3028';
       const redirectPath = data.redirectUrl || `/impersonate?token=${data.token}`;
       const userPortalUrl = `${userPortalBase}${redirectPath}`;
       window.open(userPortalUrl, '_blank');
@@ -224,13 +222,15 @@ export default function UsersPage() {
     ) {
       return;
     }
-    const token =
-      getCookie('admin_token') || localStorage.getItem('admin_token');
-    if (!token) return;
+    const token = getCookie('admin_token') || localStorage.getItem('admin_token');
+    const headers: Record<string, string> = {};
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+
     try {
       const res = await fetch(`${apiBase}/v1/admin/users/${userId}`, {
         method: 'DELETE',
-        headers: { Authorization: `Bearer ${token}` },
+        headers,
+        credentials: 'include',
       });
       if (res.ok) {
         setUsers((prev) => prev.filter((u) => u.id !== userId));
