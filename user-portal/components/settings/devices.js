@@ -43,11 +43,20 @@ export default function DevicesSettings() {
 
   const fetchDevices = async () => {
     try {
-      const { apiBase } = getApiConfig();
-      const res = await authenticatedFetch(`${apiBase}/api/v1/user/devices`);
+      const token = localStorage.getItem('hk_user') ? 'cookie_auth' : null;
+      if (!token) return;
+      const apiBase =
+        localStorage.getItem('hk_api_base') || 'http://localhost:3008';
+      const tenantSlug = localStorage.getItem('hk_tenant') || 'neuravolt';
+      const res = await fetch(`${apiBase}/api/v1/user/devices`, {
+        credentials: 'include',
+        headers: {
+          'x-tenant-slug': tenantSlug,
+        },
+      });
       if (res.ok) {
         const data = await res.json();
-        setDevices(Array.isArray(data) ? data : data.devices || []);
+        setDevices(data);
       } else {
         throw new Error('Failed to load connected devices');
       }
@@ -62,12 +71,21 @@ export default function DevicesSettings() {
     if (!confirm('Are you sure you want to log out of this device?')) return;
 
     try {
-      const { apiBase } = getApiConfig();
-      const res = await authenticatedFetch(`${apiBase}/api/v1/user/devices/${id}`, {
+      const token = localStorage.getItem('hk_user') ? 'cookie_auth' : null;
+      if (!token) return;
+      const apiBase =
+        localStorage.getItem('hk_api_base') || 'http://localhost:3008';
+      const tenantSlug = localStorage.getItem('hk_tenant') || 'neuravolt';
+      const res = await fetch(`${apiBase}/api/v1/user/devices/${id}`, {
+        credentials: 'include',
         method: 'DELETE',
+        headers: {
+          'x-tenant-slug': tenantSlug,
+        },
       });
       if (res.ok) {
-        fetchDevices();
+        const data = await res.json();
+        setDevices(data.devices);
       } else {
         alert('Failed to log out device');
       }

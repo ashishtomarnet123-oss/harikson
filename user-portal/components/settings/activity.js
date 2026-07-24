@@ -1,8 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { LogIn, Key, Shield, AlertTriangle, Info } from 'lucide-react';
 
-import { authenticatedFetch, getApiConfig } from './apiHelper';
-
 const iconMap = {
   login: LogIn,
   key: Key,
@@ -22,8 +20,17 @@ export default function ActivitySettings() {
 
   const fetchLogs = async () => {
     try {
-      const { apiBase } = getApiConfig();
-      const res = await authenticatedFetch(`${apiBase}/api/v1/user/activity`);
+      const token = localStorage.getItem('hk_user') ? 'cookie_auth' : null;
+      if (!token) return;
+      const apiBase =
+        localStorage.getItem('hk_api_base') || 'http://localhost:3008';
+      const tenantSlug = localStorage.getItem('hk_tenant') || 'neuravolt';
+      const res = await fetch(`${apiBase}/api/v1/user/activity`, {
+        credentials: 'include',
+        headers: {
+          'x-tenant-slug': tenantSlug,
+        },
+      });
       if (res.ok) {
         const data = await res.json();
         setLogs(data);

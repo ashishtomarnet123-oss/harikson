@@ -1,7 +1,6 @@
 import { Router } from 'express';
 import crypto from 'crypto';
 import bcrypt from 'bcrypt';
-import jwt from 'jsonwebtoken';
 import QRCode from 'qrcode';
 import { pool, executeTenantQuery, invalidateUserCache } from '../db/pool.js';
 import logger from '../utils/logger.js';
@@ -13,74 +12,24 @@ import {
   verifyTotpToken,
   generateHashedBackupCodes,
 } from '../services/twoFactorService.js';
-import { setupCustomDomain } from '../services/customDomainService.js';
-import { generatePasskeyRegistrationOptions, savePasskeyCredential } from '../services/webauthnService.js';
 
 const router = Router();
-const jwtSecret = process.env.JWT_SECRET || 'fallback_secret_must_be_overridden';
 
-// Middleware: Extract JWT user if Authorization header or cookie is present
-router.use((req: any, _res: any, next: any) => {
-  try {
-    const authHeader = req.headers.authorization || '';
-    const cookieToken = req.cookies?.hk_access_token;
-    let token = '';
-
-    if (authHeader.startsWith('Bearer ')) {
-      token = authHeader.substring(7);
-    } else if (cookieToken) {
-      token = cookieToken;
-    }
-
-    if (token) {
-      const decoded: any = jwt.verify(token, jwtSecret);
-      req.user = decoded;
-    }
-  } catch (err) {
-    // Leave req.user undefined if token is invalid or expired
-  }
-  next();
-});
-
-// Helper to get active user ID or fallback to tenant admin
-async function resolveActiveUser(req: any) {
-  if (req.user?.userId) return req.user.userId;
-  if (req.tenant?.id) {
-    const res = await pool.query('SELECT id FROM users WHERE tenant_id = $1 AND deleted_at IS NULL ORDER BY created_at ASC LIMIT 1', [req.tenant.id]);
-    return res.rows[0]?.id || null;
-  }
-  return null;
-}
-
-// GET /api/user/profile & GET /api/v1/user/profile
+// GET /api/user/profile
 router.get('/profile', async (req: any, res) => {
-  const userId = await resolveActiveUser(req);
-  if (!userId) return res.status(401).json({ error: 'Unauthorized' });
+  if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
 
   try {
     const userRes = await pool.query(
-      'SELECT id, email, name, role, company, phone, bio, avatar, two_factor_enabled, created_at FROM users WHERE id = $1 AND deleted_at IS NULL',
-      [userId]
+      'SELECT id, email, name, role, two_factor_enabled, created_at FROM users WHERE id = $1 AND deleted_at IS NULL',
+      [req.user.userId]
     );
 
     if (userRes.rows.length === 0) {
       return res.status(404).json({ error: 'User not found' });
     }
 
-    const u = userRes.rows[0];
-    res.json({
-      id: u.id,
-      email: u.email,
-      name: u.name,
-      role: u.role,
-      company: u.company || '',
-      phone: u.phone || '',
-      bio: u.bio || '',
-      avatar: u.avatar || (u.name ? u.name.charAt(0).toUpperCase() : 'U'),
-      twoFactorEnabled: u.two_factor_enabled || false,
-      createdAt: u.created_at,
-      user: u,
-    });
+    res.json({ user: userRes.rows[0] });
   } catch (err: any) {
     logger.error('Fetch user profile error:', err);
     res.status(500).json({ error: 'Failed to fetch user profile' });
@@ -88,26 +37,17 @@ router.get('/profile', async (req: any, res) => {
 });
 
 // PUT /api/user/profile
-router.put('/profile', async (req: any, res) => {
-  const userId = await resolveActiveUser(req);
-  if (!userId) return res.status(401).json({ error: 'Unauthorized' });
+router.put('/profile', validate(profileUpdateSchema), async (req: any, res) => {
+  if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
 
-  const { name, company, phone, bio, avatar } = req.body;
+  const { name } = req.body;
   try {
     const updateRes = await pool.query(
-      `UPDATE users 
-       SET name = COALESCE($1, name), 
-           company = COALESCE($2, company),
-           phone = COALESCE($3, phone),
-           bio = COALESCE($4, bio),
-           avatar = COALESCE($5, avatar),
-           updated_at = NOW() 
-       WHERE id = $6 
-       RETURNING id, email, name, role, company, phone, bio, avatar`,
-      [name, company, phone, bio, avatar, userId]
+      'UPDATE users SET name = COALESCE($1, name), updated_at = NOW() WHERE id = $2 RETURNING id, email, name, role',
+      [name, req.user.userId]
     );
 
-    await invalidateUserCache(userId);
+    await invalidateUserCache(req.user.userId);
 
     res.json({ success: true, user: updateRes.rows[0] });
   } catch (err: any) {
@@ -116,409 +56,53 @@ router.put('/profile', async (req: any, res) => {
   }
 });
 
-// GET /api/v1/user/workspace
-router.get('/workspace', async (req: any, res) => {
-  const userId = await resolveActiveUser(req);
-  if (!userId) return res.status(401).json({ error: 'Unauthorized' });
-
-  try {
-    const userRes = await pool.query('SELECT tenant_id FROM users WHERE id = $1', [userId]);
-    const tenantId = userRes.rows[0]?.tenant_id || req.tenant?.id;
-
-    const tenantRes = await pool.query('SELECT id, name, slug FROM tenants WHERE id = $1', [tenantId]);
-    const tenant = tenantRes.rows[0] || { id: tenantId, name: 'Harikson Workspace', slug: 'neuravolt' };
-
-    const membersRes = await pool.query(
-      'SELECT id, name, email, role, avatar, created_at FROM users WHERE tenant_id = $1 AND deleted_at IS NULL ORDER BY created_at ASC',
-      [tenantId]
-    );
-
-    res.json({
-      id: tenant.id,
-      name: tenant.name,
-      slug: tenant.slug,
-      instanceId: tenant.id,
-      members: membersRes.rows.map((m) => ({
-        id: m.id,
-        name: m.name || m.email.split('@')[0],
-        email: m.email,
-        role: m.role === 'admin' ? 'Admin' : m.role === 'owner' ? 'Owner' : 'Member',
-        avatar: m.avatar || (m.name ? m.name.charAt(0).toUpperCase() : m.email.charAt(0).toUpperCase()),
-        createdAt: m.created_at,
-      })),
-    });
-  } catch (err: any) {
-    logger.error('Fetch workspace details error:', err);
-    res.status(500).json({ error: 'Failed to load workspace details' });
-  }
-});
-
-// POST /api/v1/user/workspace/members
-router.post('/workspace/members', async (req: any, res) => {
-  const userId = await resolveActiveUser(req);
-  if (!userId) return res.status(401).json({ error: 'Unauthorized' });
-
-  const { email, name, role = 'Member', password = 'Welcome123!' } = req.body;
-  if (!email || !name) return res.status(400).json({ error: 'Email and name are required' });
-
-  try {
-    const userRes = await pool.query('SELECT tenant_id FROM users WHERE id = $1', [userId]);
-    const tenantId = userRes.rows[0]?.tenant_id || req.tenant?.id;
-
-    const existing = await pool.query('SELECT id FROM users WHERE email = $1 AND deleted_at IS NULL', [email]);
-    if (existing.rows.length > 0) {
-      return res.status(409).json({ error: 'A member with this email already exists' });
-    }
-
-    const passwordHash = await bcrypt.hash(password, 10);
-    const dbRole = (role || 'Member').toLowerCase();
-
-    const insertRes = await pool.query(
-      `INSERT INTO users (tenant_id, email, password_hash, name, role, email_verified, created_at)
-       VALUES ($1, $2, $3, $4, $5, true, NOW())
-       RETURNING id, name, email, role, created_at`,
-      [tenantId, email, passwordHash, name, dbRole]
-    );
-
-    const m = insertRes.rows[0];
-    res.status(201).json({
-      id: m.id,
-      name: m.name,
-      email: m.email,
-      role: m.role === 'admin' ? 'Admin' : m.role === 'owner' ? 'Owner' : 'Member',
-      avatar: m.name.charAt(0).toUpperCase(),
-    });
-  } catch (err: any) {
-    logger.error('Add workspace member error:', err);
-    res.status(500).json({ error: err?.message || 'Failed to add workspace member' });
-  }
-});
-
-// PUT /api/v1/user/workspace/members/:id/role
-router.put('/workspace/members/:id/role', async (req: any, res) => {
-  const userId = await resolveActiveUser(req);
-  if (!userId) return res.status(401).json({ error: 'Unauthorized' });
-
-  const { id } = req.params;
-  const { role } = req.body;
-  const dbRole = (role || 'Member').toLowerCase();
-
-  try {
-    await pool.query('UPDATE users SET role = $1, updated_at = NOW() WHERE id = $2', [dbRole, id]);
-    res.json({ success: true, message: 'Member role updated successfully' });
-  } catch (err: any) {
-    logger.error('Update member role error:', err);
-    res.status(500).json({ error: 'Failed to update member role' });
-  }
-});
-
-// DELETE /api/v1/user/workspace/members/:id
-router.delete('/workspace/members/:id', async (req: any, res) => {
-  const userId = await resolveActiveUser(req);
-  if (!userId) return res.status(401).json({ error: 'Unauthorized' });
-
-  const { id } = req.params;
-  try {
-    await pool.query('UPDATE users SET deleted_at = NOW() WHERE id = $1', [id]);
-    res.json({ success: true, message: 'Member removed successfully' });
-  } catch (err: any) {
-    logger.error('Remove member error:', err);
-    res.status(500).json({ error: 'Failed to remove member' });
-  }
-});
-
-// GET /api/v1/user/developer/keys & GET /api/v1/user/api-keys
-async function handleGetApiKeys(req: any, res: any) {
-  const userId = await resolveActiveUser(req);
-  if (!userId) return res.status(401).json({ error: 'Unauthorized' });
-
-  try {
-    const userRes = await pool.query('SELECT tenant_id FROM users WHERE id = $1', [userId]);
-    const tenantId = userRes.rows[0]?.tenant_id || req.tenant?.id;
-
-    const keysRes = await pool.query(
-      `SELECT id, name, key_prefix as prefix, scopes, created_at as "createdAt", last_used_at as "lastUsed", status
-       FROM tenant_api_keys 
-       WHERE tenant_id = $1 AND status = 'active' 
-       ORDER BY created_at DESC`,
-      [tenantId]
-    );
-
-    res.json(keysRes.rows);
-  } catch (err: any) {
-    logger.error('Fetch developer API keys error:', err);
-    res.status(500).json({ error: 'Failed to load developer keys' });
-  }
-}
-
-router.get('/developer/keys', handleGetApiKeys);
-router.get('/api-keys', handleGetApiKeys);
-
-// POST /api/v1/user/developer/keys & POST /api/v1/user/api-keys
-async function handleCreateApiKey(req: any, res: any) {
-  const userId = await resolveActiveUser(req);
-  if (!userId) return res.status(401).json({ error: 'Unauthorized' });
-
-  const { name, scopes } = req.body;
-  const rawKey = 'hk_live_' + crypto.randomBytes(24).toString('hex');
-  const prefix = rawKey.substring(0, 12);
-  const keyHash = crypto.createHash('sha256').update(rawKey).digest('hex');
-
-  try {
-    const userRes = await pool.query('SELECT tenant_id FROM users WHERE id = $1', [userId]);
-    const tenantId = userRes.rows[0]?.tenant_id || req.tenant?.id;
-
-    const insertRes = await pool.query(
-      `INSERT INTO tenant_api_keys (tenant_id, user_id, name, key_hash, key_prefix, scopes, status, created_at)
-       VALUES ($1, $2, $3, $4, $5, $6, 'active', NOW())
-       RETURNING id, name, key_prefix as prefix, scopes, created_at as "createdAt"`,
-      [tenantId, userId, name || 'API Key', keyHash, prefix, JSON.stringify(scopes || ['read', 'write'])]
-    );
-
-    res.status(201).json({
-      ...insertRes.rows[0],
-      secretKey: rawKey,
-      rawKey,
-    });
-  } catch (err: any) {
-    logger.error('Create API key error:', err);
-    res.status(500).json({ error: 'Failed to create API key' });
-  }
-}
-
-router.post('/developer/keys', handleCreateApiKey);
-router.post('/api-keys', handleCreateApiKey);
-
-// DELETE /api/v1/user/developer/keys/:id & DELETE /api/v1/user/api-keys/:id
-async function handleDeleteApiKey(req: any, res: any) {
-  const userId = await resolveActiveUser(req);
-  if (!userId) return res.status(401).json({ error: 'Unauthorized' });
-
-  const { id } = req.params;
-  try {
-    await pool.query('UPDATE tenant_api_keys SET status = \'revoked\', revoked_at = NOW() WHERE id = $1', [id]);
-    res.json({ success: true, message: 'API key revoked successfully' });
-  } catch (err: any) {
-    logger.error('Revoke API key error:', err);
-    res.status(500).json({ error: 'Failed to revoke API key' });
-  }
-}
-
-router.delete('/developer/keys/:id', handleDeleteApiKey);
-router.delete('/api-keys/:id', handleDeleteApiKey);
-
-// GET /api/v1/user/usage
-router.get('/usage', async (req: any, res) => {
-  const userId = await resolveActiveUser(req);
-  if (!userId) return res.status(401).json({ error: 'Unauthorized' });
-
-  try {
-    const days = parseInt(req.query.days as string, 10) || 7;
-    res.json({
-      totalTokens: 142500,
-      promptTokens: 98200,
-      completionTokens: 44300,
-      queryCount: 1284,
-      monthlyLimit: 1000000,
-      tokenLimit: 1000000,
-      tokenUsage: 142500,
-      queryUsage: 1284,
-      dailyUsage: [
-        { date: 'Jul 18', tokens: 12400, queries: 110 },
-        { date: 'Jul 19', tokens: 18200, queries: 145 },
-        { date: 'Jul 20', tokens: 21500, queries: 190 },
-        { date: 'Jul 21', tokens: 16800, queries: 132 },
-        { date: 'Jul 22', tokens: 24100, queries: 210 },
-        { date: 'Jul 23', tokens: 28900, queries: 250 },
-        { date: 'Jul 24', tokens: 20600, queries: 247 },
-      ],
-    });
-  } catch (err: any) {
-    logger.error('Fetch usage metrics error:', err);
-    res.status(500).json({ error: 'Failed to load usage data' });
-  }
-});
-
-// GET /api/v1/user/activity
-router.get('/activity', async (req: any, res) => {
-  const userId = await resolveActiveUser(req);
-  if (!userId) return res.status(401).json({ error: 'Unauthorized' });
-
-  try {
-    const logsRes = await pool.query(
-      `SELECT id, action, details, ip_address as ip, created_at as timestamp 
-       FROM activity_logs 
-       ORDER BY created_at DESC 
-       LIMIT 50`
-    );
-
-    if (logsRes.rows.length === 0) {
-      return res.json([
-        {
-          id: '1',
-          action: 'User Logged In',
-          details: 'Successful authentication via password',
-          ip: '154.201.127.68',
-          timestamp: new Date().toISOString(),
-          iconType: 'login',
-        },
-        {
-          id: '2',
-          action: 'API Key Created',
-          details: 'Created Live API Key (hk_live_...)',
-          ip: '154.201.127.68',
-          timestamp: new Date(Date.now() - 3600000).toISOString(),
-          iconType: 'key',
-        },
-      ]);
-    }
-
-    res.json(
-      logsRes.rows.map((l) => ({
-        id: l.id,
-        action: l.action,
-        details: l.details || '',
-        ip: l.ip || '127.0.0.1',
-        timestamp: l.timestamp,
-        iconType: l.action?.toLowerCase().includes('key') ? 'key' : 'login',
-      }))
-    );
-  } catch (err: any) {
-    logger.error('Fetch activity logs error:', err);
-    res.status(500).json({ error: 'Failed to load activity logs' });
-  }
-});
-
-// GET /api/v1/user/devices & GET /api/v1/user/sessions
-async function handleGetDevices(req: any, res: any) {
-  const userId = await resolveActiveUser(req);
-  if (!userId) return res.status(401).json({ error: 'Unauthorized' });
+// GET /api/user/sessions
+router.get('/sessions', async (req: any, res) => {
+  if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
 
   try {
     const sessionsRes = await pool.query(
-      `SELECT id, device_name as name, device_hash, last_ip as ip, country_code, last_used_at as "lastActive", created_at as "createdAt"
+      `SELECT id, device_name, device_hash, last_ip, country_code, last_used_at, created_at 
        FROM refresh_tokens 
        WHERE user_id = $1 AND expires_at > NOW() 
        ORDER BY last_used_at DESC`,
-      [userId]
+      [req.user.userId]
     );
 
-    const devices = sessionsRes.rows.map((s) => ({
-      id: s.id,
-      name: s.name || 'Desktop Browser',
-      ip: s.ip || '127.0.0.1',
-      lastActive: s.lastActive,
-      createdAt: s.createdAt,
-      current: true,
-    }));
-
-    res.json(devices);
+    res.json({ sessions: sessionsRes.rows });
   } catch (err: any) {
-    logger.error('Fetch connected devices error:', err);
-    res.status(500).json({ error: 'Failed to load connected devices' });
+    logger.error('Fetch user sessions error:', err);
+    res.status(500).json({ error: 'Failed to fetch user sessions' });
   }
-}
+});
 
-router.get('/devices', handleGetDevices);
-router.get('/sessions', handleGetDevices);
-
-// DELETE /api/v1/user/devices/:id & DELETE /api/v1/user/sessions/:id
-async function handleDeleteDevice(req: any, res: any) {
-  const userId = await resolveActiveUser(req);
-  if (!userId) return res.status(401).json({ error: 'Unauthorized' });
+// DELETE /api/user/sessions/:id
+router.delete('/sessions/:id', async (req: any, res) => {
+  if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
 
   const { id } = req.params;
   try {
-    await pool.query('DELETE FROM refresh_tokens WHERE id = $1 AND user_id = $2', [id, userId]);
-    res.json({ success: true, message: 'Device logged out successfully', devices: [] });
+    await pool.query('DELETE FROM refresh_tokens WHERE id = $1 AND user_id = $2', [id, req.user.userId]);
+    res.json({ success: true, message: 'Session revoked successfully' });
   } catch (err: any) {
-    logger.error('Revoke device session error:', err);
-    res.status(500).json({ error: 'Failed to revoke device session' });
-  }
-}
-
-router.delete('/devices/:id', handleDeleteDevice);
-router.delete('/sessions/:id', handleDeleteDevice);
-
-// GET /api/v1/user/settings
-router.get('/settings', async (req: any, res) => {
-  const userId = await resolveActiveUser(req);
-  if (!userId) return res.status(401).json({ error: 'Unauthorized' });
-
-  try {
-    res.json({
-      theme: 'dark',
-      language: 'en',
-      timezone: 'UTC',
-      accentColor: '#6366f1',
-      fontSize: 'medium',
-      emailNotifications: true,
-      securityAlerts: true,
-    });
-  } catch (err: any) {
-    logger.error('Fetch user settings error:', err);
-    res.status(500).json({ error: 'Failed to load settings' });
-  }
-});
-
-// PUT /api/v1/user/settings
-router.put('/settings', async (req: any, res) => {
-  const userId = await resolveActiveUser(req);
-  if (!userId) return res.status(401).json({ error: 'Unauthorized' });
-
-  try {
-    res.json({ success: true, message: 'Settings saved successfully', ...req.body });
-  } catch (err: any) {
-    logger.error('Save user settings error:', err);
-    res.status(500).json({ error: 'Failed to save settings' });
-  }
-});
-
-// POST /api/v1/user/security/change-password
-router.post('/security/change-password', async (req: any, res) => {
-  const userId = await resolveActiveUser(req);
-  if (!userId) return res.status(401).json({ error: 'Unauthorized' });
-
-  const { currentPassword, newPassword } = req.body;
-  if (!currentPassword || !newPassword) {
-    return res.status(400).json({ error: 'Current and new password are required' });
-  }
-
-  try {
-    const userRes = await pool.query('SELECT password_hash FROM users WHERE id = $1', [userId]);
-    const currentHash = userRes.rows[0]?.password_hash;
-
-    if (currentHash) {
-      const valid = await bcrypt.compare(currentPassword, currentHash);
-      if (!valid) {
-        return res.status(400).json({ error: 'Current password is incorrect' });
-      }
-    }
-
-    const newHash = await bcrypt.hash(newPassword, 12);
-    await pool.query('UPDATE users SET password_hash = $1, updated_at = NOW() WHERE id = $2', [newHash, userId]);
-
-    res.json({ success: true, message: 'Password changed successfully' });
-  } catch (err: any) {
-    logger.error('Change password error:', err);
-    res.status(500).json({ error: 'Failed to change password' });
+    logger.error('Revoke session error:', err);
+    res.status(500).json({ error: 'Failed to revoke session' });
   }
 });
 
 // POST /api/user/2fa/setup
 router.post('/2fa/setup', async (req: any, res) => {
-  const userId = await resolveActiveUser(req);
-  if (!userId) return res.status(401).json({ error: 'Unauthorized' });
+  if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
 
   try {
-    const userRes = await pool.query('SELECT email FROM users WHERE id = $1', [userId]);
+    const userRes = await pool.query('SELECT email FROM users WHERE id = $1', [req.user.userId]);
     const userEmail = userRes.rows[0]?.email || 'user@neuravolt.cloud';
 
     const secret = generateTotpSecret();
     const otpauthUrl = generateOtpauthUrl(userEmail, secret, 'Neuravolt');
     const qrCodeDataUrl = await QRCode.toDataURL(otpauthUrl);
 
-    await pool.query('UPDATE users SET two_factor_secret_temp = $1 WHERE id = $2', [secret, userId]);
+    await pool.query('UPDATE users SET two_factor_secret_temp = $1 WHERE id = $2', [secret, req.user.userId]);
 
     res.json({
       secret,
@@ -532,14 +116,13 @@ router.post('/2fa/setup', async (req: any, res) => {
 
 // POST /api/user/2fa/verify
 router.post('/2fa/verify', async (req: any, res) => {
-  const userId = await resolveActiveUser(req);
-  if (!userId) return res.status(401).json({ error: 'Unauthorized' });
+  if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
   const { code } = req.body;
 
   if (!code) return res.status(400).json({ error: 'Verification code is required' });
 
   try {
-    const userRes = await pool.query('SELECT two_factor_secret_temp FROM users WHERE id = $1', [userId]);
+    const userRes = await pool.query('SELECT two_factor_secret_temp FROM users WHERE id = $1', [req.user.userId]);
     const tempSecret = userRes.rows[0]?.two_factor_secret_temp;
 
     if (!tempSecret) {
@@ -560,10 +143,10 @@ router.post('/2fa/verify', async (req: any, res) => {
            two_factor_secret_temp = NULL,
            two_factor_backup_codes = $1
        WHERE id = $2`,
-      [JSON.stringify(hashedRecords), userId]
+      [JSON.stringify(hashedRecords), req.user.userId]
     );
 
-    await invalidateUserCache(userId);
+    await invalidateUserCache(req.user.userId);
 
     res.json({
       success: true,
@@ -578,8 +161,7 @@ router.post('/2fa/verify', async (req: any, res) => {
 
 // POST /api/user/2fa/disable
 router.post('/2fa/disable', async (req: any, res) => {
-  const userId = await resolveActiveUser(req);
-  if (!userId) return res.status(401).json({ error: 'Unauthorized' });
+  if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
 
   try {
     await pool.query(
@@ -589,10 +171,10 @@ router.post('/2fa/disable', async (req: any, res) => {
            two_factor_secret_temp = NULL,
            two_factor_backup_codes = NULL
        WHERE id = $1`,
-      [userId]
+      [req.user.userId]
     );
 
-    await invalidateUserCache(userId);
+    await invalidateUserCache(req.user.userId);
 
     res.json({ success: true, message: '2FA disabled successfully' });
   } catch (err: any) {
@@ -600,6 +182,428 @@ router.post('/2fa/disable', async (req: any, res) => {
     res.status(500).json({ error: 'Failed to disable 2FA' });
   }
 });
+
+// API Keys Endpoints
+router.get('/api-keys', async (req: any, res) => {
+  if (!req.tenant) return res.status(401).json({ error: 'Tenant context required' });
+
+  try {
+    const keysRes = await executeTenantQuery(req.tenant.id, (client) =>
+      client.query(
+        'SELECT id, name, key_prefix, scopes, created_at, last_used_at, status FROM tenant_api_keys WHERE status = \'active\' ORDER BY created_at DESC'
+      )
+    );
+
+    res.json({ apiKeys: keysRes.rows });
+  } catch (err: any) {
+    logger.error('Fetch API keys error:', err);
+    res.status(500).json({ error: 'Failed to fetch API keys' });
+  }
+});
+
+router.post('/api-keys', async (req: any, res) => {
+  if (!req.tenant) return res.status(401).json({ error: 'Tenant context required' });
+
+  const { name, scopes } = req.body;
+  const rawKey = 'hk_live_' + crypto.randomBytes(24).toString('hex');
+  const prefix = rawKey.substring(0, 12);
+  const keyHash = crypto.createHash('sha256').update(rawKey).digest('hex');
+
+  try {
+    const insertRes = await executeTenantQuery(req.tenant.id, (client) =>
+      client.query(
+        `INSERT INTO tenant_api_keys (tenant_id, user_id, name, key_hash, key_prefix, scopes, status, created_at)
+         VALUES ($1, $2, $3, $4, $5, $6, 'active', NOW())
+         RETURNING id, name, key_prefix, scopes, created_at`,
+        [req.tenant.id, req.user?.userId || null, name || 'API Key', keyHash, prefix, JSON.stringify(scopes || ['read'])]
+      )
+    );
+
+    res.status(201).json({
+      apiKey: insertRes.rows[0],
+      secretKey: rawKey,
+    });
+  } catch (err: any) {
+    logger.error('Create API key error:', err);
+    res.status(500).json({ error: 'Failed to create API key' });
+  }
+});
+
+router.delete('/api-keys/:id', async (req: any, res) => {
+  if (!req.tenant) return res.status(401).json({ error: 'Tenant context required' });
+
+  const { id } = req.params;
+  try {
+    await executeTenantQuery(req.tenant.id, (client) =>
+      client.query('UPDATE tenant_api_keys SET status = \'revoked\', revoked_at = NOW() WHERE id = $1 AND tenant_id = $2', [
+        id,
+        req.tenant.id,
+      ])
+    );
+
+    res.json({ success: true, message: 'API key revoked successfully' });
+  } catch (err: any) {
+    logger.error('Revoke API key error:', err);
+    res.status(500).json({ error: 'Failed to revoke API key' });
+  }
+});
+
+// GET /api/user/billing - tenant subscription & plan details
+router.get('/billing', async (req: any, res) => {
+  if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
+  try {
+    const tenantId = req.tenant?.id;
+    if (!tenantId) return res.status(400).json({ error: 'Tenant context required' });
+
+    const subRes = await pool.query(
+      `SELECT s.id, s.status, s.current_period_start, s.current_period_end, s.amount, s.currency, s.cancel_at_period_end,
+              p.name as plan_name, p.price, p.billing_period, p.features, p.trial_days
+       FROM subscriptions s
+       LEFT JOIN plans p ON p.id = s.plan_id
+       WHERE s.tenant_id = $1
+       ORDER BY s.created_at DESC LIMIT 1`,
+      [tenantId]
+    );
+
+    const subscription = subRes.rows[0] || null;
+    const invoicesRes = await pool.query(
+      `SELECT id, amount, currency, status, created_at, invoice_url
+       FROM invoices WHERE tenant_id = $1
+       ORDER BY created_at DESC LIMIT 10`,
+      [tenantId]
+    ).catch(() => ({ rows: [] }));
+
+    res.json({
+      subscription,
+      invoices: invoicesRes.rows,
+      paymentMethod: null,
+    });
+  } catch (err: any) {
+    logger.error('Fetch billing error:', err);
+    res.status(500).json({ error: 'Failed to fetch billing data' });
+  }
+});
+
+// POST /api/user/billing/portal - billing portal redirect
+router.post('/billing/portal', async (req: any, res) => {
+  if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
+  res.json({ url: null, message: 'Billing portal not configured' });
+});
+
+// POST /api/user/billing/cancel - cancel subscription
+router.post('/billing/cancel', async (req: any, res) => {
+  if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
+  try {
+    const tenantId = req.tenant?.id;
+    await pool.query(
+      `UPDATE subscriptions SET cancel_at_period_end = true WHERE tenant_id = $1 AND status IN ('active', 'trialing')`,
+      [tenantId]
+    );
+    res.json({ success: true, message: 'Subscription scheduled for cancellation at period end' });
+  } catch (err: any) {
+    logger.error('Cancel subscription error:', err);
+    res.status(500).json({ error: 'Failed to cancel subscription' });
+  }
+});
+
+// GET /api/user/workspace - tenant workspace info & members
+router.get('/workspace', async (req: any, res) => {
+  if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
+  try {
+    const tenantId = req.tenant?.id;
+    if (!tenantId) return res.status(400).json({ error: 'Tenant context required' });
+
+    const tenantRes = await pool.query(
+      `SELECT id, name, slug, status, custom_domain, created_at FROM tenants WHERE id = $1`,
+      [tenantId]
+    );
+
+    const membersRes = await pool.query(
+      `SELECT id, name, email, role, created_at FROM users WHERE tenant_id = $1 AND deleted_at IS NULL ORDER BY created_at ASC`,
+      [tenantId]
+    );
+
+    const tenant = tenantRes.rows[0] || {};
+    res.json({
+      id: tenant.id,
+      name: tenant.name,
+      slug: tenant.slug,
+      status: tenant.status,
+      customDomain: tenant.custom_domain || null,
+      createdAt: tenant.created_at,
+      members: membersRes.rows,
+    });
+  } catch (err: any) {
+    logger.error('Fetch workspace error:', err);
+    res.status(500).json({ error: 'Failed to fetch workspace' });
+  }
+});
+
+// POST /api/user/workspace/members - add member to workspace
+router.post('/workspace/members', async (req: any, res) => {
+  if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
+  const { email, name, role, password } = req.body;
+  if (!email || !name) return res.status(400).json({ error: 'email and name are required' });
+  try {
+    const tenantId = req.tenant?.id;
+    if (!tenantId) return res.status(400).json({ error: 'Tenant context required' });
+
+    const bcrypt = await import('bcrypt');
+    const passwordHash = password ? await bcrypt.hash(password, 12) : null;
+    const normalizedRole = (role || 'member').toLowerCase();
+
+    const insertRes = await pool.query(
+      `INSERT INTO users (tenant_id, email, name, role, email_verified, password_hash, created_at)
+       VALUES ($1, $2, $3, $4, true, $5, NOW())
+       RETURNING id, email, name, role, created_at`,
+      [tenantId, email, name, normalizedRole, passwordHash]
+    );
+
+    res.status(201).json(insertRes.rows[0]);
+  } catch (err: any) {
+    logger.error('Add workspace member error:', err);
+    if (err.code === '23505') return res.status(409).json({ error: 'A user with this email already exists' });
+    res.status(500).json({ error: 'Failed to add workspace member' });
+  }
+});
+
+// PUT /api/user/workspace/members/:id/role - update member role
+router.put('/workspace/members/:id/role', async (req: any, res) => {
+  if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
+  const { id } = req.params;
+  const { role } = req.body;
+  if (!role) return res.status(400).json({ error: 'role is required' });
+  try {
+    const tenantId = req.tenant?.id;
+    await pool.query(
+      `UPDATE users SET role = $1, updated_at = NOW() WHERE id = $2 AND tenant_id = $3 AND deleted_at IS NULL`,
+      [role.toLowerCase(), id, tenantId]
+    );
+    res.json({ success: true, id, role });
+  } catch (err: any) {
+    logger.error('Update member role error:', err);
+    res.status(500).json({ error: 'Failed to update member role' });
+  }
+});
+
+// DELETE /api/user/workspace/members/:id - remove member from workspace
+router.delete('/workspace/members/:id', async (req: any, res) => {
+  if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
+  const { id } = req.params;
+  if (id === req.user.userId) return res.status(400).json({ error: 'Cannot remove yourself from the workspace' });
+  try {
+    const tenantId = req.tenant?.id;
+    await pool.query(
+      `UPDATE users SET deleted_at = NOW() WHERE id = $1 AND tenant_id = $2`,
+      [id, tenantId]
+    );
+    res.json({ success: true, message: 'Member removed from workspace' });
+  } catch (err: any) {
+    logger.error('Remove workspace member error:', err);
+    res.status(500).json({ error: 'Failed to remove workspace member' });
+  }
+});
+
+// GET /api/user/activity - user activity / audit log
+router.get('/activity', async (req: any, res) => {
+  if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
+  try {
+    const logsRes = await pool.query(
+      `SELECT id, action, ip_address, user_agent, details as metadata, created_at
+       FROM activity_logs
+       WHERE user_id = $1
+       ORDER BY created_at DESC
+       LIMIT 50`,
+      [req.user.userId]
+    ).catch(() => ({ rows: [] }));
+
+    // Fallback: build from refresh_tokens if activity_logs empty
+    if (logsRes.rows.length === 0) {
+      const sessionsRes = await pool.query(
+        `SELECT 'Signed in' as action, last_ip as ip_address, device_name as user_agent, last_used_at as created_at
+         FROM refresh_tokens WHERE user_id = $1 ORDER BY last_used_at DESC LIMIT 20`,
+        [req.user.userId]
+      ).catch(() => ({ rows: [] }));
+      return res.json(sessionsRes.rows);
+    }
+
+    res.json(logsRes.rows);
+  } catch (err: any) {
+    logger.error('Fetch activity error:', err);
+    res.status(500).json({ error: 'Failed to fetch activity logs' });
+  }
+});
+
+// GET /api/user/usage - token & query usage stats
+router.get('/usage', async (req: any, res) => {
+  if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
+  try {
+    const days = parseInt(String(req.query.days || '7'), 10) || 7;
+    const tenantId = req.tenant?.id;
+
+    // Try chat_sessions / messages table
+    const usageRes = await pool.query(
+      `SELECT
+         COUNT(*) as total_queries,
+         COALESCE(SUM(tokens_used), 0) as total_tokens,
+         COALESCE(SUM(prompt_tokens), 0) as prompt_tokens,
+         COALESCE(SUM(completion_tokens), 0) as completion_tokens
+       FROM messages
+       WHERE tenant_id = $1 AND created_at >= NOW() - ($2 || ' days')::interval`,
+      [tenantId, days]
+    ).catch(() => ({ rows: [{ total_queries: 0, total_tokens: 0, prompt_tokens: 0, completion_tokens: 0 }] }));
+
+    // Daily breakdown
+    const dailyRes = await pool.query(
+      `SELECT
+         DATE(created_at) as date,
+         COUNT(*) as queries,
+         COALESCE(SUM(tokens_used), 0) as tokens
+       FROM messages
+       WHERE tenant_id = $1 AND created_at >= NOW() - ($2 || ' days')::interval
+       GROUP BY DATE(created_at)
+       ORDER BY date ASC`,
+      [tenantId, days]
+    ).catch(() => ({ rows: [] }));
+
+    const summary = usageRes.rows[0] || {};
+    res.json({
+      totalQueries: Number(summary.total_queries) || 0,
+      totalTokens: Number(summary.total_tokens) || 0,
+      promptTokens: Number(summary.prompt_tokens) || 0,
+      completionTokens: Number(summary.completion_tokens) || 0,
+      dailyBreakdown: dailyRes.rows,
+      periodDays: days,
+      previousPeriodChange: null,
+    });
+  } catch (err: any) {
+    logger.error('Fetch usage error:', err);
+    res.status(500).json({ error: 'Failed to fetch usage data' });
+  }
+});
+
+// GET /api/user/devices - connected devices (from refresh_tokens)
+router.get('/devices', async (req: any, res) => {
+  if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
+  try {
+    const devicesRes = await pool.query(
+      `SELECT id, device_name, device_hash, last_ip, country_code, last_used_at, created_at
+       FROM refresh_tokens
+       WHERE user_id = $1 AND expires_at > NOW()
+       ORDER BY last_used_at DESC`,
+      [req.user.userId]
+    );
+
+    const devices = devicesRes.rows.map((d) => ({
+      id: d.id,
+      name: d.device_name || 'Unknown Device',
+      ip: d.last_ip || 'Unknown',
+      location: d.country_code || 'Unknown',
+      lastActive: d.last_used_at,
+      createdAt: d.created_at,
+      os: d.device_name || 'Unknown',
+      browser: d.device_name || 'Unknown',
+    }));
+
+    res.json(devices);
+  } catch (err: any) {
+    logger.error('Fetch devices error:', err);
+    res.status(500).json({ error: 'Failed to fetch devices' });
+  }
+});
+
+// DELETE /api/user/devices/:id - remove a device session
+router.delete('/devices/:id', async (req: any, res) => {
+  if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
+  const { id } = req.params;
+  try {
+    await pool.query('DELETE FROM refresh_tokens WHERE id = $1 AND user_id = $2', [id, req.user.userId]);
+
+    const devicesRes = await pool.query(
+      `SELECT id, device_name, device_hash, last_ip, country_code, last_used_at, created_at
+       FROM refresh_tokens WHERE user_id = $1 AND expires_at > NOW() ORDER BY last_used_at DESC`,
+      [req.user.userId]
+    );
+
+    res.json({
+      success: true,
+      devices: devicesRes.rows.map((d) => ({
+        id: d.id,
+        name: d.device_name || 'Unknown Device',
+        ip: d.last_ip || 'Unknown',
+        location: d.country_code || 'Unknown',
+        lastActive: d.last_used_at,
+        os: d.device_name || 'Unknown',
+      })),
+    });
+  } catch (err: any) {
+    logger.error('Remove device error:', err);
+    res.status(500).json({ error: 'Failed to remove device' });
+  }
+});
+
+// GET /api/user/presets - prompt library presets
+router.get('/presets', async (req: any, res) => {
+  if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
+  try {
+    const tenantId = req.tenant?.id;
+    // prompt_presets table may not exist yet, return empty array gracefully
+    const presetsRes = await pool.query(
+      `SELECT id, name, description, system_prompt, created_at FROM prompt_presets WHERE tenant_id = $1 ORDER BY created_at DESC`,
+      [tenantId]
+    ).catch(() => ({ rows: [] }));
+    res.json(presetsRes.rows);
+  } catch (err: any) {
+    logger.error('Fetch presets error:', err);
+    res.json([]);
+  }
+});
+
+// POST /api/user/presets - create prompt preset
+router.post('/presets', async (req: any, res) => {
+  if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
+  const { name, description, systemPrompt } = req.body;
+  if (!name || !systemPrompt) return res.status(400).json({ error: 'name and systemPrompt are required' });
+  try {
+    const tenantId = req.tenant?.id;
+    // Ensure table exists
+    await pool.query(`CREATE TABLE IF NOT EXISTS prompt_presets (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE,
+      user_id UUID REFERENCES users(id) ON DELETE SET NULL,
+      name VARCHAR(255) NOT NULL,
+      description TEXT,
+      system_prompt TEXT NOT NULL,
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    )`);
+    const insertRes = await pool.query(
+      `INSERT INTO prompt_presets (tenant_id, user_id, name, description, system_prompt, created_at)
+       VALUES ($1, $2, $3, $4, $5, NOW()) RETURNING id, name, description, system_prompt, created_at`,
+      [tenantId, req.user.userId, name, description || null, systemPrompt]
+    );
+    res.status(201).json(insertRes.rows[0]);
+  } catch (err: any) {
+    logger.error('Create preset error:', err);
+    res.status(500).json({ error: 'Failed to create preset' });
+  }
+});
+
+// DELETE /api/user/presets/:id
+router.delete('/presets/:id', async (req: any, res) => {
+  if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
+  const { id } = req.params;
+  try {
+    const tenantId = req.tenant?.id;
+    await pool.query(`DELETE FROM prompt_presets WHERE id = $1 AND tenant_id = $2`, [id, tenantId]).catch(() => {});
+    res.json({ success: true });
+  } catch (err: any) {
+    logger.error('Delete preset error:', err);
+    res.status(500).json({ error: 'Failed to delete preset' });
+  }
+});
+
+import { setupCustomDomain } from '../services/customDomainService.js';
+import { generatePasskeyRegistrationOptions, savePasskeyCredential } from '../services/webauthnService.js';
 
 // LOW-020: Setup custom domain and verify DNS CNAME record
 router.post('/custom-domain', async (req: any, res) => {
@@ -619,14 +623,13 @@ router.post('/custom-domain', async (req: any, res) => {
 
 // LOW-024: WebAuthn Passkey Registration Options
 router.post('/passkeys/generate-options', async (req: any, res) => {
-  const userId = await resolveActiveUser(req);
-  if (!userId) return res.status(401).json({ error: 'Unauthorized' });
+  if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
 
   try {
-    const userRes = await pool.query('SELECT email FROM users WHERE id = $1', [userId]);
+    const userRes = await pool.query('SELECT email FROM users WHERE id = $1', [req.user.userId]);
     const email = userRes.rows[0]?.email || 'user@neuravolt.cloud';
 
-    const options = await generatePasskeyRegistrationOptions(userId, email);
+    const options = await generatePasskeyRegistrationOptions(req.user.userId, email);
     res.json(options);
   } catch (err: any) {
     logger.error('Generate passkey registration options error:', err);
@@ -636,8 +639,7 @@ router.post('/passkeys/generate-options', async (req: any, res) => {
 
 // LOW-024: WebAuthn Passkey Registration Verification & Storage
 router.post('/passkeys/verify-registration', async (req: any, res) => {
-  const userId = await resolveActiveUser(req);
-  if (!userId) return res.status(401).json({ error: 'Unauthorized' });
+  if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
 
   const { credentialId, publicKey, deviceName = 'Security Key' } = req.body;
   if (!credentialId || !publicKey) {
@@ -645,7 +647,7 @@ router.post('/passkeys/verify-registration', async (req: any, res) => {
   }
 
   try {
-    const passkey = await savePasskeyCredential(userId, credentialId, publicKey, deviceName);
+    const passkey = await savePasskeyCredential(req.user.userId, credentialId, publicKey, deviceName);
     res.json({ success: true, message: 'Passkey registered successfully', passkey });
   } catch (err: any) {
     logger.error('Verify passkey registration error:', err);

@@ -1,13 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { Save } from 'lucide-react';
-import { authenticatedFetch, getApiConfig } from './apiHelper';
 
 export default function AppearanceSettings() {
   const [settings, setSettings] = useState({
-    theme: 'dark',
+    theme: 'system',
+    density: 'comfortable',
+    sidebarState: 'expanded',
     fontSize: 'medium',
-    accentColor: 'indigo',
-    compactView: false,
+    accentColor: 'default',
+    animation: true,
   });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -16,8 +17,19 @@ export default function AppearanceSettings() {
   useEffect(() => {
     const fetchSettings = async () => {
       try {
-        const { apiBase } = getApiConfig();
-        const res = await authenticatedFetch(`${apiBase}/api/v1/user/settings`);
+        const token = localStorage.getItem('hk_user') ? 'cookie_auth' : null;
+        if (!token) return;
+        const apiBase =
+          localStorage.getItem('hk_api_base') ||
+          process.env.NEXT_PUBLIC_API_URL ||
+          'http://localhost:3008';
+        const tenantSlug = localStorage.getItem('hk_tenant') || 'neuravolt';
+        const res = await fetch(`${apiBase}/api/v1/user/settings`, {
+          credentials: 'include',
+          headers: {
+            'x-tenant-slug': tenantSlug,
+          },
+        });
         if (res.ok) {
           const data = await res.json();
           setSettings((prev) => ({ ...prev, ...data }));
@@ -44,10 +56,17 @@ export default function AppearanceSettings() {
     setSaving(true);
     setMessage(null);
     try {
-      const { apiBase } = getApiConfig();
-      const res = await authenticatedFetch(`${apiBase}/api/v1/user/settings`, {
+      const token = localStorage.getItem('hk_user') ? 'cookie_auth' : null;
+      const apiBase =
+        localStorage.getItem('hk_api_base') ||
+        process.env.NEXT_PUBLIC_API_URL ||
+        'http://localhost:3008';
+      const tenantSlug = localStorage.getItem('hk_tenant') || 'neuravolt';
+      const res = await fetch(`${apiBase}/api/v1/user/settings`, {
+        credentials: 'include',
         method: 'PUT',
         headers: {
+          'x-tenant-slug': tenantSlug,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify(settings),

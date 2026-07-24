@@ -17,6 +17,7 @@ import helmet from 'helmet';
 import dotenv from 'dotenv';
 import path from 'path';
 import fs from 'fs';
+import jwt from 'jsonwebtoken';
 import { runMigrations } from './utils/migrate.js';
 import { pool, checkDbHealth } from './db/pool.js';
 import { validateMasterKeyConfig } from './services/documentEncryptionService.js';
@@ -97,7 +98,10 @@ app.use(async (req, _res, next) => {
   try {
     const host = req.headers.host || '';
     const authHeader = req.headers.authorization || '';
-    const tenantHeader = (req.headers['x-tenant-id'] as string) || '';
+    const tenantHeader =
+      (req.headers['x-tenant-slug'] as string) ||
+      (req.headers['x-tenant-id'] as string) ||
+      '';
 
     let tenant: any = null;
 
@@ -137,6 +141,30 @@ app.use(async (req, _res, next) => {
     next();
   }
 });
+
+// Middleware: JWT User Authentication (applied to user routes)
+const jwtAuthMiddleware = (req: any, _res: express.Response, next: express.NextFunction) => {
+  try {
+    const authHeader = req.headers.authorization || '';
+    const cookieToken = req.cookies?.hk_access_token || '';
+    let token = '';
+    if (authHeader.startsWith('Bearer ') && !authHeader.startsWith('Bearer hk_live_')) {
+      token = authHeader.substring(7);
+    } else if (cookieToken) {
+      token = cookieToken;
+    }
+    if (token) {
+      const jwtSecret = process.env.JWT_SECRET || '';
+      const decoded: any = jwt.verify(token, jwtSecret);
+      req.user = decoded;
+    }
+  } catch (err) {
+    // Token invalid or expired — req.user remains undefined (routes will 401)
+  }
+  next();
+};
+
+app.use(jwtAuthMiddleware);
 
 // Register Domain Route Modules
 app.use('/', healthRoutes);
