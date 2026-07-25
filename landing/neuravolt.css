@@ -1213,12 +1213,19 @@ body {
   border: 1px solid var(--border-color);
   border-radius: 20px;
   padding: 24px;
-  box-shadow: 0 4px 15px -3px rgba(0, 0, 0, 0.03);
+  box-shadow: 0 4px 15px -3px rgba(0, 0, 0, 0.02);
   display: flex;
   align-items: center;
   justify-content: space-between;
   position: relative;
   overflow: hidden;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.story-card-item:hover {
+  transform: translateY(-4px);
+  border-color: #BFDBFE;
+  box-shadow: 0 20px 40px -12px rgba(37,99,235,0.08);
 }
 
 .story-card-content {
@@ -1269,6 +1276,11 @@ body {
   object-fit: cover;
   border-radius: 14px;
   z-index: 1;
+  transition: transform 0.3s ease;
+}
+
+.story-card-item:hover .story-portrait-img {
+  transform: scale(1.04);
 }
 
 /* WAITLIST CARD */
@@ -1280,6 +1292,14 @@ body {
   display: flex;
   flex-direction: column;
   justify-content: space-between;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.waitlist-card-item:hover {
+  transform: translateY(-4px);
+  background: #FFFFFF;
+  border-color: #BFDBFE;
+  box-shadow: 0 20px 40px -12px rgba(37,99,235,0.08);
 }
 
 .waitlist-title {
@@ -1305,6 +1325,14 @@ body {
   color: #0F172A;
   cursor: pointer;
   box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+  transition: all 0.2s ease;
+}
+
+.btn-join-waitlist:hover {
+  background: #2563EB;
+  color: #FFFFFF;
+  border-color: #2563EB;
+  box-shadow: 0 4px 12px rgba(37,99,235,0.2);
 }
 
 .waitlist-avatars-row {
