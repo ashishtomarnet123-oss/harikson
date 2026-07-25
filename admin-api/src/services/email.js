@@ -1,9 +1,30 @@
 import logger from '../utils/logger.js';
 import { Resend } from 'resend';
 import Redis from 'ioredis';
+import pg from 'pg';
+
+const { Pool } = pg;
+const pool = new Pool({
+  connectionString:
+    process.env.DATABASE_URL ||
+    'postgresql://neuravolt:neuravolt_dev_pwd@harikson-postgres:5432/neuravolt',
+});
 
 const resend = new Resend(process.env.RESEND_API_KEY || 're_dev_key');
 const redis = new Redis(process.env.REDIS_URL || 'redis://redis:6379');
+
+// Helper to log all email dispatches into email_logs table
+async function logEmailDispatch(recipient, emailType, subject, status, errorMessage = null, resendId = null, metadata = {}) {
+  try {
+    await pool.query(
+      `INSERT INTO email_logs (recipient, email_type, subject, status, error_message, resend_id, metadata, created_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())`,
+      [recipient, emailType, subject, status, errorMessage, resendId, JSON.stringify(metadata)]
+    );
+  } catch (err) {
+    logger.warn('[EMAIL LOG INSERT FAILED]:', err.message);
+  }
+}
 
 // Rate limit: max 3 emails per address per hour
 async function checkEmailRateLimit(email) {
@@ -141,14 +162,17 @@ export const sendAccountApprovalEmail = async (to, name) => {
     });
     if (error) {
       logger.error('[EMAIL SEND ERROR - APPROVAL]:', error.message || error);
+      await logEmailDispatch(to, 'access_approval', 'Your Neuravolt Cloud Access Has Been Approved', 'failed', error.message || String(error));
       return {
         success: false,
         error: error.message || 'Failed to send approval email',
       };
     }
+    await logEmailDispatch(to, 'access_approval', 'Your Neuravolt Cloud Access Has Been Approved', 'sent', null, data?.id);
     return { success: true, data };
   } catch (err) {
     logger.error('[EMAIL SEND ERROR - APPROVAL]:', err.message);
+    await logEmailDispatch(to, 'access_approval', 'Your Neuravolt Cloud Access Has Been Approved', 'failed', err.message);
     return { success: false, error: 'Failed to send approval email' };
   }
 };

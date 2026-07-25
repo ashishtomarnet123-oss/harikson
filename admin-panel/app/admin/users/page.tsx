@@ -16,6 +16,9 @@ import {
   CheckCircle2,
   AlertCircle,
   ShieldAlert,
+  Mail,
+  Send,
+  Key,
 } from 'lucide-react';
 
 interface User {
@@ -57,6 +60,35 @@ export default function UsersPage() {
   // Subscription plan modification state
   const [plans, setPlans] = useState<any[]>([]);
   const [updatingPlan, setUpdatingPlan] = useState(false);
+
+  // Manual transactional email dispatch state
+  const [emailSending, setEmailSending] = useState<string | null>(null);
+
+  const handleSendUserEmail = async (userId: string, emailType: string) => {
+    setEmailSending(emailType);
+    const token = getCookie('admin_token') || localStorage.getItem('admin_token');
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+
+    try {
+      const res = await fetch(`${apiBase}/v1/admin/users/${userId}/send-email`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ emailType }),
+        credentials: 'include'
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        alert(`Success: ${data.message || 'Email dispatched successfully'}`);
+      } else {
+        alert(`Error: ${data.error || 'Failed to dispatch email'}`);
+      }
+    } catch (err: any) {
+      alert(`Error sending email: ${err?.message || err}`);
+    } finally {
+      setEmailSending(null);
+    }
+  };
 
   const fetchUsers = async () => {
     setLoading(true);
@@ -729,6 +761,36 @@ export default function UsersPage() {
                     <BadgeCheck className="w-4 h-4 text-purple-500" />
                     {selectedUser.role}
                   </div>
+                </div>
+              </div>
+
+              {/* Quick Transactional Email Dispatch */}
+              <div className="pt-4 border-t border-gray-200 dark:border-gray-800 space-y-2">
+                <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block mb-2">
+                  Transactional Email Dispatches
+                </span>
+                <div className="grid grid-cols-3 gap-2">
+                  <button
+                    onClick={() => handleSendUserEmail(selectedUser.id, 'approval')}
+                    disabled={!!emailSending}
+                    className="py-2 px-3 bg-indigo-600/10 hover:bg-indigo-600/20 text-indigo-600 dark:text-indigo-400 rounded-xl text-[11px] font-bold border border-indigo-500/20 transition-all flex items-center justify-center gap-1.5"
+                  >
+                    <Mail className="w-3.5 h-3.5" /> Approval
+                  </button>
+                  <button
+                    onClick={() => handleSendUserEmail(selectedUser.id, 'welcome')}
+                    disabled={!!emailSending}
+                    className="py-2 px-3 bg-emerald-600/10 hover:bg-emerald-600/20 text-emerald-600 dark:text-emerald-400 rounded-xl text-[11px] font-bold border border-emerald-500/20 transition-all flex items-center justify-center gap-1.5"
+                  >
+                    <Send className="w-3.5 h-3.5" /> Welcome
+                  </button>
+                  <button
+                    onClick={() => handleSendUserEmail(selectedUser.id, 'password_reset')}
+                    disabled={!!emailSending}
+                    className="py-2 px-3 bg-amber-600/10 hover:bg-amber-600/20 text-amber-600 dark:text-amber-400 rounded-xl text-[11px] font-bold border border-amber-500/20 transition-all flex items-center justify-center gap-1.5"
+                  >
+                    <Key className="w-3.5 h-3.5" /> Reset Pass
+                  </button>
                 </div>
               </div>
 

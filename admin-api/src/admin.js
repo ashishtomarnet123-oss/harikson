@@ -41,7 +41,7 @@ if (!process.env.JWT_SECRET) {
   }
 }
 
-import { sendInvoiceReceipt, sendImpersonationAlert, sendAccountApprovalEmail } from './services/email.js';
+import { sendInvoiceReceipt, sendImpersonationAlert, sendAccountApprovalEmail, sendWelcomeEmail, sendPasswordReset } from './services/email.js';
 import { createInvoice } from './services/invoiceService.js';
 
 if (!process.env.JWT_SECRET || process.env.JWT_SECRET.length < 32) {
@@ -1995,6 +1995,134 @@ app.put(['/admin/users/:userId/status', '/v1/admin/users/:userId/status'], async
   } catch (err) {
     logger.error('Failed to update user status:', err);
     res.status(500).json({ error: 'Failed to update user status' });
+  }
+});
+
+// GET /admin/emails/logs - Retrieve dispatched email telemetry logs
+app.get(['/admin/emails/logs', '/v1/admin/emails/logs'], adminAuth, async (req, res) => {
+  try {
+    const { page = 1, limit = 20, type, status, search } = req.query;
+    const offset = (Math.max(1, parseInt(page)) - 1) * parseInt(limit);
+    
+    let whereConditions = [];
+    let params = [];
+    let paramIdx = 1;
+
+    if (type) {
+      whereConditions.push(`email_type = $${paramIdx++}`);
+      params.push(type);
+    }
+    if (status) {
+      whereConditions.push(`status = $${paramIdx++}`);
+      params.push(status);
+    }
+    if (search) {
+      whereConditions.push(`(recipient ILIKE $${paramIdx} OR subject ILIKE $${paramIdx})`);
+      params.push(`%${search}%`);
+      paramIdx++;
+    }
+
+    const whereClause = whereConditions.length > 0 ? `WHERE ${whereConditions.join(' AND ')}` : '';
+    
+    const countRes = await pool.query(`SELECT COUNT(*) FROM email_logs ${whereClause}`, params);
+    const total = parseInt(countRes.rows[0].count);
+
+    const logsRes = await pool.query(
+      `SELECT id, recipient, email_type, subject, status, error_message, resend_id, created_at
+       FROM email_logs ${whereClause}
+       ORDER BY created_at DESC
+       LIMIT $${paramIdx++} OFFSET $${paramIdx++}`,
+      [...params, parseInt(limit), offset]
+    );
+
+    res.json({
+      success: true,
+      logs: logsRes.rows,
+      pagination: {
+        total,
+        page: parseInt(page),
+        limit: parseInt(limit),
+        totalPages: Math.ceil(total / parseInt(limit))
+      }
+    });
+  } catch (err) {
+    logger.error('Failed to get email logs:', err);
+    res.status(500).json({ error: 'Failed to retrieve email telemetry logs' });
+  }
+});
+
+// GET /admin/emails/stats - Telemetry stats for email system
+app.get(['/admin/emails/stats', '/v1/admin/emails/stats'], adminAuth, async (req, res) => {
+  try {
+    const statsRes = await pool.query(`
+      SELECT 
+        COUNT(*) as total_sent,
+        COUNT(CASE WHEN status = 'sent' THEN 1 END) as successful_count,
+        COUNT(CASE WHEN status = 'failed' THEN 1 END) as failed_count,
+        COUNT(CASE WHEN email_type = 'invoice_receipt' THEN 1 END) as invoices_count,
+        COUNT(CASE WHEN email_type = 'access_approval' THEN 1 END) as approvals_count,
+        COUNT(CASE WHEN created_at >= NOW() - INTERVAL '1 hour' THEN 1 END) as last_hour_count
+      FROM email_logs
+    `);
+    
+    const row = statsRes.rows[0] || {};
+    const total = parseInt(row.total_sent || 0);
+    const successful = parseInt(row.successful_count || 0);
+
+    res.json({
+      success: true,
+      stats: {
+        totalSent: total,
+        successfulCount: successful,
+        failedCount: parseInt(row.failed_count || 0),
+        invoicesCount: parseInt(row.invoices_count || 0),
+        approvalsCount: parseInt(row.approvals_count || 0),
+        lastHourCount: parseInt(row.last_hour_count || 0),
+        successRate: total > 0 ? ((successful / total) * 100).toFixed(1) : '100.0'
+      }
+    });
+  } catch (err) {
+    logger.error('Failed to get email stats:', err);
+    res.status(500).json({ error: 'Failed to retrieve email telemetry stats' });
+  }
+});
+
+// POST /admin/users/:userId/send-email - Dispatch specific transactional email to user manually
+app.post(['/admin/users/:userId/send-email', '/v1/admin/users/:userId/send-email'], adminAuth, async (req, res) => {
+  const { userId } = req.params;
+  const { emailType } = req.body; // 'approval', 'welcome', 'password_reset'
+
+  try {
+    const userRes = await pool.query('SELECT id, email, name, status FROM users WHERE id = $1', [userId]);
+    if (userRes.rows.length === 0) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    const user = userRes.rows[0];
+
+    let result = { success: false };
+    if (emailType === 'approval') {
+      result = await sendAccountApprovalEmail(user.email, user.name);
+    } else if (emailType === 'welcome') {
+      result = await sendWelcomeEmail(user.email, user.name);
+    } else if (emailType === 'password_reset') {
+      const resetUrl = `https://app.neuravolt.cloud/reset-password?email=${encodeURIComponent(user.email)}`;
+      result = await sendPasswordReset(user.email, resetUrl);
+    } else {
+      return res.status(400).json({ error: 'Invalid emailType specified' });
+    }
+
+    if (!result.success) {
+      return res.status(500).json({ error: result.error || 'Failed to dispatch email' });
+    }
+
+    res.json({
+      success: true,
+      message: `Transactional email (${emailType}) sent successfully to ${user.email}`,
+      result
+    });
+  } catch (err) {
+    logger.error('Failed to manually send email to user:', err);
+    res.status(500).json({ error: 'Failed to dispatch email to user' });
   }
 });
 
