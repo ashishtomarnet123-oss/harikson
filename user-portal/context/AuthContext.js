@@ -59,6 +59,13 @@ export function AuthProvider({ children }) {
 
       if (res.status === 200) {
         const data = await res.json();
+        if (data.status === 'pending' || data.status === 'pending_approval') {
+          clearAuthData();
+          if (!isPublicPage && router.pathname !== '/impersonate') {
+            router.replace('/login');
+          }
+          return;
+        }
         setUser(data);
         setIsAuthenticated(true);
         setIsEmailVerified(data.emailVerified !== false);
@@ -66,8 +73,15 @@ export function AuthProvider({ children }) {
         localStorage.setItem('hk_user', JSON.stringify(data));
         localStorage.setItem('hk_tenant', data.tenantSlug || tenantSlug);
       } else if (res.status === 403) {
-        // Email not verified
         const data = await res.json();
+        if (data.pendingApproval || data.code === 'ACCOUNT_PENDING_APPROVAL' || data.status === 'pending') {
+          clearAuthData();
+          if (!isPublicPage && router.pathname !== '/impersonate') {
+            router.replace('/login');
+          }
+          return;
+        }
+        // Email not verified
         setUser(data.user || null);
         setIsAuthenticated(true);
         setIsEmailVerified(false);
@@ -87,8 +101,13 @@ export function AuthProvider({ children }) {
       } else {
         if (storedUser && storedToken) {
           try {
-            setUser(JSON.parse(storedUser));
-            setIsAuthenticated(true);
+            const parsedUser = JSON.parse(storedUser);
+            if (parsedUser.status === 'pending' || parsedUser.status === 'pending_approval') {
+              clearAuthData();
+            } else {
+              setUser(parsedUser);
+              setIsAuthenticated(true);
+            }
           } catch {
             clearAuthData();
           }

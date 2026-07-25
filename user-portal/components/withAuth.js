@@ -5,17 +5,19 @@ import { useAuth } from '../context/AuthContext';
 export function withAuth(WrappedComponent) {
   return function ProtectedRoute(props) {
     const router = useRouter();
-    const { isAuthenticated, isEmailVerified, isLoading } = useAuth();
+    const { user, isAuthenticated, isEmailVerified, isLoading } = useAuth();
+
+    const isPending = user?.status === 'pending' || user?.status === 'pending_approval';
 
     useEffect(() => {
       if (!isLoading) {
-        if (!isAuthenticated) {
+        if (!isAuthenticated || isPending) {
           router.replace('/login');
         } else if (!isEmailVerified && router.pathname !== '/verify-email') {
           router.replace('/verify-email');
         }
       }
-    }, [isLoading, isAuthenticated, isEmailVerified, router]);
+    }, [isLoading, isAuthenticated, isPending, isEmailVerified, router]);
 
     if (isLoading) {
       return (
@@ -48,7 +50,7 @@ export function withAuth(WrappedComponent) {
       );
     }
 
-    if (!isAuthenticated || (!isEmailVerified && router.pathname !== '/verify-email')) {
+    if (!isAuthenticated || isPending || (!isEmailVerified && router.pathname !== '/verify-email')) {
       return null;
     }
 

@@ -219,9 +219,9 @@ export default function LoginPage() {
         return;
       }
 
-      if (res.status === 403 && data.pendingApproval) {
+      if (res.status === 403 && (data.pendingApproval || data.code === 'ACCOUNT_PENDING_APPROVAL' || data.status === 'pending')) {
         setPendingApproval(true);
-        setError(data.error || 'Your account is pending administrator approval. Access will be granted once approved.');
+        setError('');
         setLoading(false);
         return;
       }
@@ -336,6 +336,30 @@ export default function LoginPage() {
               marginBottom: '20px',
             }}>
               ✓ Email verified successfully! You may now sign in to your workspace.
+            </div>
+          )}
+
+          {pendingApproval && (
+            <div style={{
+              backgroundColor: 'rgba(245, 158, 11, 0.1)',
+              border: '1px solid rgba(245, 158, 11, 0.3)',
+              color: '#fbbf24',
+              padding: '16px',
+              borderRadius: '12px',
+              fontSize: '14px',
+              marginBottom: '20px',
+              textAlign: 'left',
+              lineHeight: '1.6'
+            }}>
+              <p style={{ margin: 0, fontWeight: 'bold', fontSize: '15px', color: '#f59e0b' }}>
+                Access Pending
+              </p>
+              <p style={{ margin: '6px 0 0 0', fontSize: '13px', color: '#e5e7eb' }}>
+                Your account is currently awaiting administrator approval.
+              </p>
+              <p style={{ margin: '6px 0 0 0', fontSize: '13px', color: '#9ca3af' }}>
+                We'll notify you as soon as your access has been approved.
+              </p>
             </div>
           )}
 
