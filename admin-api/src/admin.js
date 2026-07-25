@@ -2316,12 +2316,6 @@ const handleSendCustomMail = async (req, res) => {
 
       if (result.success) {
         dispatchedCount++;
-      } else {
-        errors.push({ email, error: result.error });
-      }
-    }
-
-    res.json({
       success: dispatchedCount > 0,
       message: `Dispatched ${dispatchedCount} email(s) out of ${recipients.length} successfully`,
       dispatchedCount,
@@ -2336,8 +2330,8 @@ const handleSendCustomMail = async (req, res) => {
 app.post('/admin/emails/send-custom', adminAuth, handleSendCustomMail);
 app.post('/v1/admin/emails/send-custom', adminAuth, handleSendCustomMail);
 
-// PUT /admin/users/:userId/plan - Assign a specific subscription plan to a user
-app.put('/admin/users/:userId/plan', async (req, res) => {
+// PUT /admin/users/:userId/plan & /v1/admin/users/:userId/plan
+const handleUpdateUserPlan = async (req, res) => {
   const { userId } = req.params;
   const { planId } = req.body; // e.g. 'starter', 'professional', 'enterprise', or null/empty to clear override
 
@@ -2385,6 +2379,7 @@ app.put('/admin/users/:userId/plan', async (req, res) => {
       const currencySymbol = plan.currency === 'INR' ? '₹' : '$';
 
       billingInfo = {
+        planId: plan.id,
         planName: plan.name + ' Plan',
         price: `${currencySymbol}${parseFloat(plan.price).toFixed(2)}`,
         currency: plan.currency,
@@ -2401,7 +2396,7 @@ app.put('/admin/users/:userId/plan', async (req, res) => {
     ]);
 
     await logAdminAction(
-      req.admin.id,
+      req.admin?.id || 'admin',
       'user_update_plan',
       'user',
       userId,

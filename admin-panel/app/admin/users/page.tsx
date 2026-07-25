@@ -60,6 +60,37 @@ export default function UsersPage() {
   // Subscription plan modification state
   const [plans, setPlans] = useState<any[]>([]);
   const [updatingPlan, setUpdatingPlan] = useState(false);
+  const [selectedPlanId, setSelectedPlanId] = useState<string>('starter');
+
+  const handleAssignPlan = async (userId: string, planId: string) => {
+    setUpdatingPlan(true);
+    const token = getCookie('admin_token') || localStorage.getItem('admin_token');
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+
+    try {
+      const res = await fetch(`${apiBase}/v1/admin/users/${userId}/plan`, {
+        method: 'PUT',
+        headers,
+        body: JSON.stringify({ planId }),
+        credentials: 'include'
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        alert(`Success: ${data.message || 'Subscription plan updated successfully'}`);
+        fetchUsers();
+        if (selectedUser?.id === userId) {
+          setSelectedUser((prev: any) => (prev ? { ...prev, billing_info: data.billing_info } : null));
+        }
+      } else {
+        alert(`Error: ${data.error || 'Failed to update plan'}`);
+      }
+    } catch (err: any) {
+      alert(`Error updating plan: ${err?.message || err}`);
+    } finally {
+      setUpdatingPlan(false);
+    }
+  };
 
   // Manual transactional email dispatch state
   const [emailSending, setEmailSending] = useState<string | null>(null);
@@ -773,24 +804,90 @@ export default function UsersPage() {
                   <button
                     onClick={() => handleSendUserEmail(selectedUser.id, 'approval')}
                     disabled={!!emailSending}
-                    className="py-2 px-3 bg-indigo-600/10 hover:bg-indigo-600/20 text-indigo-600 dark:text-indigo-400 rounded-xl text-[11px] font-bold border border-indigo-500/20 transition-all flex items-center justify-center gap-1.5"
+                    className="py-2.5 px-3 bg-indigo-50 border border-indigo-200 text-indigo-700 dark:bg-indigo-500/10 dark:border-indigo-500/30 dark:text-indigo-400 rounded-xl text-[11px] font-extrabold shadow-sm hover:bg-indigo-100 dark:hover:bg-indigo-500/20 transition-all flex items-center justify-center gap-1.5"
                   >
-                    <Mail className="w-3.5 h-3.5" /> Approval
+                    <Mail className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" /> Approval
                   </button>
                   <button
                     onClick={() => handleSendUserEmail(selectedUser.id, 'welcome')}
                     disabled={!!emailSending}
-                    className="py-2 px-3 bg-emerald-600/10 hover:bg-emerald-600/20 text-emerald-600 dark:text-emerald-400 rounded-xl text-[11px] font-bold border border-emerald-500/20 transition-all flex items-center justify-center gap-1.5"
+                    className="py-2.5 px-3 bg-emerald-50 border border-emerald-200 text-emerald-700 dark:bg-emerald-500/10 dark:border-emerald-500/30 dark:text-emerald-400 rounded-xl text-[11px] font-extrabold shadow-sm hover:bg-emerald-100 dark:hover:bg-emerald-500/20 transition-all flex items-center justify-center gap-1.5"
                   >
-                    <Send className="w-3.5 h-3.5" /> Welcome
+                    <Send className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" /> Welcome
                   </button>
                   <button
                     onClick={() => handleSendUserEmail(selectedUser.id, 'password_reset')}
                     disabled={!!emailSending}
-                    className="py-2 px-3 bg-amber-600/10 hover:bg-amber-600/20 text-amber-600 dark:text-amber-400 rounded-xl text-[11px] font-bold border border-amber-500/20 transition-all flex items-center justify-center gap-1.5"
+                    className="py-2.5 px-3 bg-amber-50 border border-amber-200 text-amber-700 dark:bg-amber-500/10 dark:border-amber-500/30 dark:text-amber-400 rounded-xl text-[11px] font-extrabold shadow-sm hover:bg-amber-100 dark:hover:bg-amber-500/20 transition-all flex items-center justify-center gap-1.5"
                   >
-                    <Key className="w-3.5 h-3.5" /> Reset Pass
+                    <Key className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" /> Reset Pass
                   </button>
+                </div>
+              </div>
+
+              {/* Internal Subscription Plan Assignment & Override */}
+              <div className="pt-4 border-t border-gray-200 dark:border-gray-800 space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">
+                    Internal Subscription Plan Override
+                  </span>
+                  <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wide bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-500/20">
+                    {selectedUser.billing_info?.planName || 'Free Guest Plan'}
+                  </span>
+                </div>
+
+                <div className="flex gap-2">
+                  <select
+                    value={selectedPlanId}
+                    onChange={(e) => setSelectedPlanId(e.target.value)}
+                    className="flex-1 px-3 py-2.5 rounded-xl bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-xs font-bold text-gray-900 dark:text-white outline-none"
+                  >
+                    <option value="free">Free / Guest Trial ($0 - 1 Prompt)</option>
+                    <option value="starter">Starter Plan ($19/mo - 100K Tokens)</option>
+                    <option value="professional">Professional Plan ($49/mo - 1M Tokens)</option>
+                    <option value="enterprise">Enterprise AI OS ($199/mo - Unlimited)</option>
+                  </select>
+                  <button
+                    onClick={() => handleAssignPlan(selectedUser.id, selectedPlanId)}
+                    disabled={updatingPlan}
+                    className="px-4 py-2.5 bg-purple-600 hover:bg-purple-700 text-white rounded-xl text-xs font-bold transition-all shadow-sm flex items-center gap-1.5 shrink-0"
+                  >
+                    <Zap className={`w-3.5 h-3.5 ${updatingPlan ? 'animate-spin' : ''}`} /> Assign Plan
+                  </button>
+                </div>
+              </div>
+
+              {/* System Knowledge & Data Identifiers */}
+              <div className="pt-4 border-t border-gray-200 dark:border-gray-800 space-y-3">
+                <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">
+                  System Knowledge & Identifiers
+                </span>
+
+                <div className="bg-gray-50 dark:bg-gray-950/40 p-4 rounded-xl border border-gray-200 dark:border-gray-800/60 space-y-2.5 text-xs">
+                  <div className="flex justify-between items-center">
+                    <span className="text-gray-500 font-medium">User UUID:</span>
+                    <code className="text-[11px] font-mono font-bold text-indigo-600 dark:text-indigo-400 bg-indigo-500/10 px-2 py-0.5 rounded">
+                      {selectedUser.id}
+                    </code>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-gray-500 font-medium">Tenant Workspace:</span>
+                    <span className="font-bold text-gray-800 dark:text-gray-200">
+                      {selectedUser.tenant_name || 'Neuravolt Default Workspace'}
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-gray-500 font-medium">Registration Date:</span>
+                    <span className="font-semibold text-gray-700 dark:text-gray-300">
+                      {new Date(selectedUser.created_at).toLocaleDateString()} ({new Date(selectedUser.created_at).toLocaleTimeString()})
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-gray-500 font-medium">Conversations History:</span>
+                    <span className="font-bold text-gray-900 dark:text-white">
+                      {selectedUser.conversations_count || 0} chats ({selectedUser.messages_count || 0} messages)
+                    </span>
+                  </div>
                 </div>
               </div>
 
