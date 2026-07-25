@@ -1998,8 +1998,8 @@ app.put(['/admin/users/:userId/status', '/v1/admin/users/:userId/status'], async
   }
 });
 
-// GET /admin/emails/logs - Retrieve dispatched email telemetry logs
-app.get(['/admin/emails/logs', '/v1/admin/emails/logs'], adminAuth, async (req, res) => {
+// GET /admin/emails/logs & /v1/admin/emails/logs
+const handleGetEmailLogs = async (req, res) => {
   try {
     const { page = 1, limit = 20, type, status, search } = req.query;
     const offset = (Math.max(1, parseInt(page)) - 1) * parseInt(limit);
@@ -2049,10 +2049,13 @@ app.get(['/admin/emails/logs', '/v1/admin/emails/logs'], adminAuth, async (req, 
     logger.error('Failed to get email logs:', err);
     res.status(500).json({ error: 'Failed to retrieve email telemetry logs' });
   }
-});
+};
 
-// GET /admin/emails/stats - Telemetry stats for email system
-app.get(['/admin/emails/stats', '/v1/admin/emails/stats'], adminAuth, async (req, res) => {
+app.get('/admin/emails/logs', adminAuth, handleGetEmailLogs);
+app.get('/v1/admin/emails/logs', adminAuth, handleGetEmailLogs);
+
+// GET /admin/emails/stats & /v1/admin/emails/stats
+const handleGetEmailStats = async (req, res) => {
   try {
     const statsRes = await pool.query(`
       SELECT 
@@ -2085,10 +2088,13 @@ app.get(['/admin/emails/stats', '/v1/admin/emails/stats'], adminAuth, async (req
     logger.error('Failed to get email stats:', err);
     res.status(500).json({ error: 'Failed to retrieve email telemetry stats' });
   }
-});
+};
 
-// POST /admin/users/:userId/send-email - Dispatch specific transactional email to user manually
-app.post(['/admin/users/:userId/send-email', '/v1/admin/users/:userId/send-email'], adminAuth, async (req, res) => {
+app.get('/admin/emails/stats', adminAuth, handleGetEmailStats);
+app.get('/v1/admin/emails/stats', adminAuth, handleGetEmailStats);
+
+// POST /admin/users/:userId/send-email & /v1/admin/users/:userId/send-email
+const handleSendUserEmail = async (req, res) => {
   const { userId } = req.params;
   const { emailType } = req.body; // 'approval', 'welcome', 'password_reset'
 
@@ -2124,7 +2130,10 @@ app.post(['/admin/users/:userId/send-email', '/v1/admin/users/:userId/send-email
     logger.error('Failed to manually send email to user:', err);
     res.status(500).json({ error: 'Failed to dispatch email to user' });
   }
-});
+};
+
+app.post('/admin/users/:userId/send-email', adminAuth, handleSendUserEmail);
+app.post('/v1/admin/users/:userId/send-email', adminAuth, handleSendUserEmail);
 
 // PUT /admin/users/:userId/plan - Assign a specific subscription plan to a user
 app.put('/admin/users/:userId/plan', async (req, res) => {
