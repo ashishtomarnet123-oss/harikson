@@ -130,6 +130,26 @@ async function handleLogin(req: any, res: any) {
     );
     await redis.del(key).catch(() => {});
 
+    // Invite-only / Admin approval status check
+    const userStatus = user.status || 'active';
+    if (userStatus === 'pending') {
+      return res.status(403).json({
+        error: 'Your account is pending administrator approval. Access will be granted once approved.',
+        pendingApproval: true,
+        status: 'pending',
+        email: user.email,
+      });
+    }
+
+    if (userStatus === 'suspended') {
+      return res.status(403).json({
+        error: 'Your account has been suspended. Please contact platform support.',
+        suspended: true,
+        status: 'suspended',
+        email: user.email,
+      });
+    }
+
     if (user.email_verified === false) {
       return res.status(403).json({
         error: 'Email verification required. Please check your inbox.',
@@ -249,10 +269,10 @@ async function handleRegister(req: any, res: any) {
 
     const newUserRes = await pool.query(
       `INSERT INTO users (
-        tenant_id, email, password_hash, name, role, email_verified, email_verification_token, verification_token, created_at
+        tenant_id, email, password_hash, name, role, email_verified, email_verification_token, verification_token, status, created_at
        )
-       VALUES ($1, $2, $3, $4, 'admin', true, $5, $5, NOW())
-       RETURNING id, email, name, role, created_at`,
+       VALUES ($1, $2, $3, $4, 'admin', true, $5, $5, 'pending', NOW())
+       RETURNING id, email, name, role, status, created_at`,
       [tenantId, email, passwordHash, name, verificationTokenHash]
     );
 
@@ -277,12 +297,16 @@ async function handleRegister(req: any, res: any) {
     );
 
     res.status(201).json({
-      message: 'Registration successful. Please check your email to verify your account.',
+      success: true,
+      requiresApproval: true,
+      status: 'pending',
+      message: 'Account created successfully! Your account is currently pending administrator approval. Access will be granted once approved.',
       user: {
         id: user.id,
         email: user.email,
         name: user.name,
         role: user.role,
+        status: 'pending',
         tenantId,
         tenantSlug: finalSlug,
       },

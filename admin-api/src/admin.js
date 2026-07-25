@@ -1915,13 +1915,14 @@ app.post(['/auth/impersonate/confirm', '/api/auth/impersonate/confirm', '/admin/
 });
 
 // 1.6 GET /admin/users
-app.get('/admin/users', async (req, res) => {
+app.get(['/admin/users', '/v1/admin/users'], async (req, res) => {
   try {
     const query = `
       SELECT 
         u.id, 
         u.email, 
         u.role, 
+        COALESCE(u.status, 'active') as status,
         u.created_at, 
         u.name,
         u.username,
@@ -1945,6 +1946,39 @@ app.get('/admin/users', async (req, res) => {
   } catch (err) {
     logger.error('Failed to get users:', err);
     res.status(500).json({ error: 'Failed to retrieve users' });
+  }
+});
+
+// PUT /admin/users/:userId/status - Approve or update user access status (active, pending, suspended)
+app.put(['/admin/users/:userId/status', '/v1/admin/users/:userId/status'], async (req, res) => {
+  const { userId } = req.params;
+  const { status } = req.body;
+
+  if (!['active', 'pending', 'suspended'].includes(status)) {
+    return res.status(400).json({ error: 'Invalid status value. Must be active, pending, or suspended.' });
+  }
+
+  try {
+    const updateRes = await pool.query(
+      `UPDATE users SET status = $1, updated_at = NOW() WHERE id = $2 RETURNING id, email, status, name`,
+      [status, userId]
+    );
+
+    if (updateRes.rows.length === 0) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    const updatedUser = updateRes.rows[0];
+    logger.info(`Admin updated user status for ${updatedUser.email} to '${status}'`);
+
+    res.status(200).json({
+      success: true,
+      message: `User status updated to ${status} successfully`,
+      user: updatedUser
+    });
+  } catch (err) {
+    logger.error('Failed to update user status:', err);
+    res.status(500).json({ error: 'Failed to update user status' });
   }
 });
 

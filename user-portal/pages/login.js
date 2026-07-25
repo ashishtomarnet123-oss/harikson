@@ -22,6 +22,7 @@ export default function LoginPage() {
   const [unlockMsg, setUnlockMsg] = useState('');
   const [verifiedSuccess, setVerifiedSuccess] = useState(false);
   const [requireVerification, setRequireVerification] = useState(false);
+  const [pendingApproval, setPendingApproval] = useState(false);
   const [userId, setUserId] = useState('');
   const [resendStatus, setResendStatus] = useState('');
 
@@ -214,6 +215,13 @@ export default function LoginPage() {
         setAccountLocked(true);
         setLockoutSeconds(data.retryAfter || 3600);
         setError(data.error || 'Account is temporarily locked due to multiple failed login attempts.');
+        setLoading(false);
+        return;
+      }
+
+      if (res.status === 403 && data.pendingApproval) {
+        setPendingApproval(true);
+        setError(data.error || 'Your account is pending administrator approval. Access will be granted once approved.');
         setLoading(false);
         return;
       }
