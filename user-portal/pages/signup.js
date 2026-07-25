@@ -87,11 +87,11 @@ export default function SignupPage() {
         throw new Error(data.error || 'Registration failed');
       }
 
-      if (data.requiresApproval || data.status === 'pending') {
+      if (data.requiresApproval || data.status === 'pending_approval' || data.success) {
         setIsPendingApproval(true);
-        setSuccess(data.message || 'Account created! Awaiting administrator approval.');
+        setSuccess(data.message || 'Your access request has been received.');
       } else {
-        setSuccess(data.message || 'Registration successful! Please check your email to verify your account.');
+        setSuccess(data.message || 'Registration successful!');
       }
       setLoading(false);
     } catch (err) {
@@ -104,8 +104,8 @@ export default function SignupPage() {
   return (
     <>
       <Head>
-        <title>Sign Up — Neuravolt Cloud</title>
-        <meta name="description" content="Create your Neuravolt Cloud account" />
+        <title>Request Access — Neuravolt Cloud</title>
+        <meta name="description" content="Request access to your Neuravolt Cloud workspace" />
       </Head>
 
       <div className="login-root">
@@ -121,62 +121,64 @@ export default function SignupPage() {
           </div>
 
           {isPendingApproval ? (
-            <div style={{ textAlign: 'center', padding: '10px 0' }}>
+            <div style={{ textAlign: 'center', padding: '8px 0' }}>
               <div style={{
-                width: '64px',
-                height: '64px',
+                width: '60px',
+                height: '60px',
                 margin: '0 auto 16px auto',
                 borderRadius: '50%',
-                background: 'rgba(245, 158, 11, 0.15)',
-                border: '1px solid rgba(245, 158, 11, 0.3)',
+                background: 'rgba(99, 102, 241, 0.15)',
+                border: '1px solid rgba(99, 102, 241, 0.3)',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                fontSize: '2rem'
+                fontSize: '1.8rem'
               }}>
-                ⏳
+                ✨
               </div>
 
-              <h1 className="login-title" style={{ fontSize: '1.4rem', marginBottom: '8px' }}>
-                Account Request Submitted
+              <h1 className="login-title" style={{ fontSize: '1.4rem', marginBottom: '16px', color: '#FFFFFF' }}>
+                Access Request Received
               </h1>
               
               <div style={{
-                fontSize: '0.85rem',
-                color: '#F59E0B',
-                fontWeight: 700,
-                marginBottom: '16px',
-                textTransform: 'uppercase',
-                letterSpacing: '0.05em'
-              }}>
-                Awaiting Admin Approval
-              </div>
-
-              <div style={{
-                padding: '16px',
-                background: 'rgba(245, 158, 11, 0.08)',
-                border: '1px solid rgba(245, 158, 11, 0.2)',
-                borderRadius: '12px',
-                fontSize: '0.85rem',
-                lineHeight: '1.6',
+                padding: '20px',
+                background: 'rgba(255, 255, 255, 0.03)',
+                border: '1px solid rgba(255, 255, 255, 0.08)',
+                borderRadius: '14px',
+                fontSize: '0.88rem',
+                lineHeight: '1.75',
                 color: 'var(--text-secondary)',
                 textAlign: 'left',
                 marginBottom: '24px'
               }}>
-                Your registration request for <strong>{email}</strong> has been successfully recorded.
+                Thanks for requesting access to Neuravolt Cloud.
                 <br /><br />
-                Neuravolt Cloud is an <strong>invite-only platform</strong>. Your account must be approved by an administrator before access can be granted.
+                You have been added to our invitation list. Your account is currently awaiting administrator approval.
+                <br /><br />
+                As soon as an administrator approves your access, you'll be able to sign in and use the platform.
+                <br /><br />
+                We'll notify you once your account has been approved.
               </div>
 
               <Link href="/login" passHref legacyBehavior>
-                <a className="btn-primary" style={{ display: 'inline-flex', textDecoration: 'none', justifyContent: 'center' }}>
-                  Return to Login
+                <a className="btn-primary" style={{ display: 'inline-flex', textDecoration: 'none', justifyContent: 'center', width: '100%', marginBottom: '16px' }}>
+                  Back to Login
                 </a>
               </Link>
+
+              <p style={{ fontSize: '13px', color: 'var(--text-secondary)', textAlign: 'center', margin: 0 }}>
+                Already approved?{' '}
+                <Link href="/login" passHref legacyBehavior>
+                  <a style={{ color: 'var(--accent)', textDecoration: 'none', fontWeight: 500 }}>
+                    Sign in
+                  </a>
+                </Link>
+              </p>
             </div>
           ) : (
             <>
-              <h1 className="login-title">Create your account</h1>
+              <h1 className="login-title">Request Access</h1>
               <p className="login-subtitle">Request access to Neuravolt Cloud AI Platform</p>
 
               <form onSubmit={handleSignup} autoComplete="on">
@@ -258,7 +260,7 @@ export default function SignupPage() {
 
                 <button type="submit" className="btn-primary" disabled={loading}>
                   {loading && <span className="login-spinner" />}
-                  {loading ? 'Submitting request…' : 'Submit Access Request'}
+                  {loading ? 'Submitting request…' : 'Request Access'}
                 </button>
               </form>
 
@@ -286,21 +288,6 @@ export default function SignupPage() {
                   )}
                 </div>
               )}
-              {success && (
-                <div
-                  style={{
-                    marginTop: '14px',
-                    padding: '10px 14px',
-                    background: 'rgba(34,197,94,0.12)',
-                    border: '1px solid rgba(34,197,94,0.25)',
-                    borderRadius: '6px',
-                    color: '#86efac',
-                    fontSize: '13px',
-                  }}
-                >
-                  ✓ {success}
-                </div>
-              )}
 
               <p
                 style={{
@@ -310,7 +297,7 @@ export default function SignupPage() {
                   textAlign: 'center',
                 }}
               >
-                Already have an approved account?{' '}
+                Already approved?{' '}
                 <Link href="/login" passHref legacyBehavior>
                   <a
                     style={{

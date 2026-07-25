@@ -298,18 +298,9 @@ async function handleRegister(req: any, res: any) {
 
     res.status(201).json({
       success: true,
+      status: 'pending_approval',
       requiresApproval: true,
-      status: 'pending',
-      message: 'Account created successfully! Your account is currently pending administrator approval. Access will be granted once approved.',
-      user: {
-        id: user.id,
-        email: user.email,
-        name: user.name,
-        role: user.role,
-        status: 'pending',
-        tenantId,
-        tenantSlug: finalSlug,
-      },
+      message: 'Your access request has been received.',
     });
   } catch (err: any) {
     logger.error('Registration error:', err?.message || err);
