@@ -430,16 +430,31 @@
             <p class="bento-desc">Upload PDFs, docs, URLs and connectors. Encrypted with AES-256-GCM encryption.</p>
             <a href="#" class="bento-link">Explore →</a>
           </div>
-          <div class="bento-preview-box" style="display:flex; flex-direction:column; gap:8px;">
-            <div style="display:flex; gap:6px;">
-              <span style="background:#EF4444; color:#fff; font-size:0.68rem; font-weight:800; padding:2px 8px; border-radius:4px;">PDF</span>
-              <span style="background:#2563EB; color:#fff; font-size:0.68rem; font-weight:800; padding:2px 8px; border-radius:4px;">DOCX</span>
-              <span style="background:#0284C7; color:#fff; font-size:0.68rem; font-weight:800; padding:2px 8px; border-radius:4px;">URL</span>
+          <div class="bento-preview-box" style="display:flex; flex-direction:column; gap:12px;">
+            <div style="display:flex; gap:8px;">
+              <!-- PDF Badge -->
+              <div style="background:rgba(239, 68, 68, 0.06); border:1px solid rgba(239, 68, 68, 0.15); border-radius:6px; padding:4px 8px; display:inline-flex; align-items:center; gap:5px; color:#DC2626; font-size:0.7rem; font-weight:700;">
+                <i data-lucide="file-text" style="width:12px; height:12px; stroke-width:2.5;"></i>
+                PDF
+              </div>
+              
+              <!-- DOCX Badge -->
+              <div style="background:rgba(37, 99, 235, 0.06); border:1px solid rgba(37, 99, 235, 0.15); border-radius:6px; padding:4px 8px; display:inline-flex; align-items:center; gap:5px; color:#1D4ED8; font-size:0.7rem; font-weight:700;">
+                <i data-lucide="file-edit" style="width:12px; height:12px; stroke-width:2.5;"></i>
+                DOCX
+              </div>
+              
+              <!-- URL Badge -->
+              <div style="background:rgba(14, 116, 144, 0.06); border:1px solid rgba(14, 116, 144, 0.15); border-radius:6px; padding:4px 8px; display:inline-flex; align-items:center; gap:5px; color:#0E7490; font-size:0.7rem; font-weight:700;">
+                <i data-lucide="link" style="width:12px; height:12px; stroke-width:2.5;"></i>
+                URL
+              </div>
             </div>
-            <div style="display:flex; gap:6px; margin-top:4px;">
-              <div style="width:24px;height:24px;border-radius:50%;background:#E2E8F0;display:flex;align-items:center;justify-content:center;font-size:0.65rem;"><i data-lucide="cloud" style="width:12px;height:12px;color:#2563EB;"></i></div>
-              <div style="width:24px;height:24px;border-radius:50%;background:#E2E8F0;display:flex;align-items:center;justify-content:center;font-size:0.65rem;"><i data-lucide="hard-drive" style="width:12px;height:12px;color:#2563EB;"></i></div>
-              <div style="width:24px;height:24px;border-radius:50%;background:#E2E8F0;display:flex;align-items:center;justify-content:center;font-size:0.65rem;"><i data-lucide="upload" style="width:12px;height:12px;color:#2563EB;"></i></div>
+            
+            <div style="display:flex; gap:8px; margin-top:2px;">
+              <div style="width:28px; height:28px; border-radius:50%; background:#F1F5F9; border:1px solid #E2E8F0; display:flex; align-items:center; justify-content:center; box-shadow:0 1px 2px rgba(0,0,0,0.02);"><i data-lucide="cloud" style="width:13px; height:13px; color:#64748B;"></i></div>
+              <div style="width:28px; height:28px; border-radius:50%; background:#F1F5F9; border:1px solid #E2E8F0; display:flex; align-items:center; justify-content:center; box-shadow:0 1px 2px rgba(0,0,0,0.02);"><i data-lucide="hard-drive" style="width:13px; height:13px; color:#64748B;"></i></div>
+              <div style="width:28px; height:28px; border-radius:50%; background:#F1F5F9; border:1px solid #E2E8F0; display:flex; align-items:center; justify-content:center; box-shadow:0 1px 2px rgba(0,0,0,0.02);"><i data-lucide="upload" style="width:13px; height:13px; color:#64748B;"></i></div>
             </div>
           </div>
         </div>
