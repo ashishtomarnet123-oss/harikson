@@ -130,11 +130,14 @@ async function handleLogin(req: any, res: any) {
     );
     await redis.del(key).catch(() => {});
 
-    // Invite-only / Admin approval status check
+    // Invite-only / Admin approval status check gate
     const userStatus = user.status || 'active';
-    if (userStatus === 'pending') {
+    if (userStatus === 'pending' || userStatus === 'pending_approval') {
       return res.status(403).json({
-        error: 'Your account is pending administrator approval. Access will be granted once approved.',
+        success: false,
+        code: 'ACCOUNT_PENDING_APPROVAL',
+        error: 'Your account is awaiting administrator approval.',
+        message: 'Your account is awaiting administrator approval.',
         pendingApproval: true,
         status: 'pending',
         email: user.email,
@@ -143,7 +146,10 @@ async function handleLogin(req: any, res: any) {
 
     if (userStatus === 'suspended') {
       return res.status(403).json({
+        success: false,
+        code: 'ACCOUNT_SUSPENDED',
         error: 'Your account has been suspended. Please contact platform support.',
+        message: 'Your account has been suspended. Please contact platform support.',
         suspended: true,
         status: 'suspended',
         email: user.email,
@@ -325,7 +331,24 @@ router.post('/login/2fa', async (req, res) => {
     const userRes = await pool.query('SELECT * FROM users WHERE id = $1 AND deleted_at IS NULL', [userId]);
     const user = userRes.rows[0];
 
-    if (!user || !user.two_factor_enabled || !user.two_factor_secret) {
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    const userStatus = user.status || 'active';
+    if (userStatus === 'pending' || userStatus === 'pending_approval') {
+      return res.status(403).json({
+        success: false,
+        code: 'ACCOUNT_PENDING_APPROVAL',
+        error: 'Your account is awaiting administrator approval.',
+        message: 'Your account is awaiting administrator approval.',
+        pendingApproval: true,
+        status: 'pending',
+        email: user.email,
+      });
+    }
+
+    if (!user.two_factor_enabled || !user.two_factor_secret) {
       return res.status(400).json({ error: '2FA is not enabled for this user' });
     }
 

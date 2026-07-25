@@ -387,7 +387,7 @@ export default function NeuravoltLandingPage() {
 
           <div class="header-ctas">
             <Link href="/login" class="btn-demo">Book a Demo</Link>
-            <Link href="/signup" class="btn-trial">Start Free Trial</Link>
+            <Link href="/signup" class="btn-trial">Request Access</Link>
           </div>
         </div>
       </header>
@@ -427,12 +427,12 @@ export default function NeuravoltLandingPage() {
             </div>
 
             <div class="hero-buttons-row">
-              <Link href="/signup" class="btn-hero-primary">Start Free for 14 Days</Link>
+              <Link href="/signup" class="btn-hero-primary">Request Access</Link>
               <Link href="/login" class="btn-hero-secondary">Book Live Demo</Link>
             </div>
 
             <div class="microcopy-row">
-              <span>No credit card required</span>
+              <span>Join the invitation list</span>
               <span>Talk to our India team</span>
             </div>
           </div>
@@ -1178,8 +1178,8 @@ export default function NeuravoltLandingPage() {
                 </ul>
               </div>
               <div>
-                <Link href="/signup" class="btn-hero-primary" style={{ width: '100%' }}>Start Free Trial</Link>
-                <div class="sub-trial-label">14 Days Free</div>
+                <Link href="/signup" class="btn-hero-primary" style={{ width: '100%' }}>Request Access</Link>
+                <div class="sub-trial-label">Join Invitation List</div>
               </div>
             </div>
 
@@ -1204,8 +1204,8 @@ export default function NeuravoltLandingPage() {
                 </ul>
               </div>
               <div>
-                <Link href="/signup" class="btn-hero-primary" style={{ width: '100%' }}>Start Free Trial</Link>
-                <div class="sub-trial-label">14 Days Free</div>
+                <Link href="/signup" class="btn-hero-primary" style={{ width: '100%' }}>Request Access</Link>
+                <div class="sub-trial-label">Join Invitation List</div>
               </div>
             </div>
 
@@ -1256,7 +1256,7 @@ export default function NeuravoltLandingPage() {
 
           <div class="pricing-guarantees-bar">
             <span><ShieldCheck style={{ width: 14, height: 14, color: '#2563EB' }} /> No Credit Card Required</span>
-            <span><Clock style={{ width: 14, height: 14, color: '#2563EB' }} /> Cancel Anytime</span>
+            <span><Clock style={{ width: 14, height: 14, color: '#2563EB' }} /> Instant Invitation List</span>
             <span><FileText style={{ width: 14, height: 14, color: '#2563EB' }} /> GST Invoice Provided</span>
           </div>
 
@@ -1271,7 +1271,7 @@ export default function NeuravoltLandingPage() {
               </div>
 
               <div class="final-cta-btns">
-                <Link href="/signup" class="btn-cta-white">Start Free for 14 Days</Link>
+                <Link href="/signup" class="btn-cta-white">Request Access</Link>
                 <Link href="/login" class="btn-cta-outline">Book Live Demo</Link>
               </div>
             </div>

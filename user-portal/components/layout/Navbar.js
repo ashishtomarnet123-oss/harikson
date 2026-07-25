@@ -105,7 +105,7 @@ export default function Navbar() {
                   boxShadow: '0 4px 14px rgba(168, 85, 247, 0.35)'
                 }}
               >
-                Deploy Free AI
+                Request Access
                 <ArrowRight size={16} />
               </Link>
             </>
