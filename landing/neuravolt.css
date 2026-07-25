@@ -1062,9 +1062,18 @@ body {
 }
 
 .flag-line {
-  display: inline-block;
-  font-size: 1rem;
+  display: flex;
+  align-items: center;
+  margin-top: 8px;
   margin-bottom: 16px;
+}
+
+.flag-line img {
+  width: 36px;
+  height: 24px;
+  border-radius: 4px;
+  object-fit: cover;
+  box-shadow: 0 1.5px 4px rgba(0,0,0,0.12);
 }
 
 .india-left-desc {
@@ -1112,17 +1121,30 @@ body {
 .sec-feature-item {
   display: flex;
   align-items: flex-start;
-  gap: 10px;
+  gap: 12px;
+  background: rgba(255, 255, 255, 0.6);
+  border: 1px solid rgba(226, 232, 240, 0.8);
+  border-radius: 12px;
+  padding: 12px 14px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.01);
+  transition: all 0.25s ease;
+}
+
+.sec-feature-item:hover {
+  background: #fff;
+  border-color: #BFDBFE;
+  box-shadow: 0 10px 25px -5px rgba(37,99,235,0.06);
+  transform: translateY(-2px);
 }
 
 .sec-feature-icon {
-  width: 22px;
-  height: 22px;
-  border-radius: 6px;
+  width: 26px;
+  height: 26px;
+  border-radius: 8px;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 0.8rem;
+  font-size: 0.85rem;
   flex-shrink: 0;
 }
 
@@ -1146,7 +1168,7 @@ body {
 .sec-feature-desc {
   font-size: 0.78rem;
   color: var(--text-dim);
-  margin-top: 2px;
+  margin-top: 3px;
 }
 
 .shield-3d-visual {
