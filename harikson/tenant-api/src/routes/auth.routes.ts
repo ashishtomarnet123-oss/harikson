@@ -691,7 +691,7 @@ async function handleMe(req: any, res: any) {
 
     const decoded: any = jwt.verify(token, getJwtSecret());
     const userRes = await pool.query(
-      'SELECT id, email, name, role, tenant_id, email_verified, created_at FROM users WHERE id = $1 AND deleted_at IS NULL',
+      'SELECT id, email, name, role, tenant_id, email_verified, COALESCE(status, \'active\') as status, created_at FROM users WHERE id = $1 AND deleted_at IS NULL',
       [decoded.userId]
     );
 
@@ -700,6 +700,16 @@ async function handleMe(req: any, res: any) {
     }
 
     const user = userRes.rows[0];
+    if (user.status === 'pending' || user.status === 'pending_approval') {
+      return res.status(403).json({
+        success: false,
+        code: 'ACCOUNT_PENDING_APPROVAL',
+        error: 'Your account is awaiting administrator approval.',
+        message: 'Your account is awaiting administrator approval.',
+        pendingApproval: true,
+        status: 'pending',
+      });
+    }
     const tenantRes = await pool.query('SELECT slug FROM tenants WHERE id = $1', [user.tenant_id]);
     const tenantSlug = tenantRes.rows[0]?.slug || req.tenant?.slug || 'neuravolt';
 
