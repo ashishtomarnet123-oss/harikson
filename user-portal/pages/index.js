@@ -29,8 +29,12 @@ export default function LandingPage() {
   const { isAuthenticated, isLoading } = useAuth();
 
   useEffect(() => {
-    if (!isLoading && isAuthenticated) {
-      router.replace('/chat');
+    if (!isLoading) {
+      if (isAuthenticated) {
+        router.replace('/chat');
+      } else {
+        router.replace('/login');
+      }
     }
   }, [isLoading, isAuthenticated, router]);
 
