@@ -9,7 +9,7 @@ function WorkflowsPage() {
   const [workflows, setWorkflows] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  
+
   // Editor / Modal State
   const [editingWorkflow, setEditingWorkflow] = useState(null);
   const [isNew, setIsNew] = useState(false);
@@ -20,16 +20,78 @@ function WorkflowsPage() {
   const [steps, setSteps] = useState([]);
   const [saving, setSaving] = useState(false);
 
+  // Template Library Modal State
+  const [showTemplateModal, setShowTemplateModal] = useState(false);
+
   // Execution History State
   const [selectedWorkflowForHistory, setSelectedWorkflowForHistory] = useState(null);
   const [executions, setExecutions] = useState([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
 
-  const [apiBase, setApiBase] = useState('http://localhost:3008');
+  const [apiBase, setApiBase] = useState('');
   const [tenantSlug, setTenantSlug] = useState('system');
 
+  // Pre-loaded AI Workflow Presets
+  const PRESET_TEMPLATES = [
+    {
+      id: 'template_support_router',
+      name: 'AI Customer Support Auto-Router',
+      description: 'Analyze inbound support webhooks, classify customer intent using LLM, and dispatch response.',
+      trigger_type: 'webhook',
+      status: 'active',
+      icon: '🤖',
+      badge: 'Support & CRM',
+      steps: [
+        { id: 1, type: 'filter', value: 'Filter: Check if request payload contains customer email & message' },
+        { id: 2, type: 'prompt', value: 'Classify intent (Billing, Technical, Account) and draft high-priority reply' },
+        { id: 3, type: 'email', value: 'Dispatch transactional approval notification to support@neuravolt.cloud' },
+        { id: 4, type: 'webhook', value: 'Post resolution payload to CRM webhook' }
+      ]
+    },
+    {
+      id: 'template_rag_sync',
+      name: 'Daily Knowledge Base Vector Sync',
+      description: 'Scrape workspace document repositories every morning and re-index embeddings into PgVector.',
+      trigger_type: 'cron',
+      status: 'active',
+      icon: '📚',
+      badge: 'RAG & Vector Search',
+      steps: [
+        { id: 1, type: 'rag_search', value: 'Fetch latest PDF & markdown files updated in workspace repository' },
+        { id: 2, type: 'prompt', value: 'Extract key entity summaries and chunk text into 512-token segments' },
+        { id: 3, type: 'rag_search', value: 'Generate embeddings and insert into PgVector index' }
+      ]
+    },
+    {
+      id: 'template_doc_summarizer',
+      name: 'Autonomous Document Summarizer & Mailer',
+      description: 'Extract text from new uploaded documents, summarize key points, and email summary to team.',
+      trigger_type: 'manual',
+      status: 'active',
+      icon: '✉️',
+      badge: 'Document Automation',
+      steps: [
+        { id: 1, type: 'prompt', value: 'Summarize uploaded document in 3 executive bullet points and action items' },
+        { id: 2, type: 'email', value: 'Send summary email to team leads' }
+      ]
+    },
+    {
+      id: 'template_slack_bot',
+      name: 'Slack & Discord Sentiment Alert Bot',
+      description: 'Monitor incoming feedback webhooks, analyze sentiment score, and alert Slack on urgent negative sentiment.',
+      trigger_type: 'webhook',
+      status: 'active',
+      icon: '🔔',
+      badge: 'Monitoring & Alerts',
+      steps: [
+        { id: 1, type: 'prompt', value: 'Analyze text sentiment (Positive, Neutral, Negative) and score 1-10' },
+        { id: 2, type: 'filter', value: 'Filter: Trigger alert only if sentiment is Negative and score < 4' },
+        { id: 3, type: 'webhook', value: 'Post urgent alert payload to Slack / Discord webhook' }
+      ]
+    }
+  ];
+
   useEffect(() => {
-    // Resolve credentials and endpoint configuration
     const user = localStorage.getItem('hk_user');
     if (!user) {
       router.replace('/login');
@@ -76,7 +138,18 @@ function WorkflowsPage() {
     setDescription('');
     setTriggerType('manual');
     setStatus('active');
-    setSteps([{ id: 1, type: 'prompt', value: 'Generate a response' }]);
+    setSteps([{ id: 1, type: 'prompt', value: 'Generate a response using LLM' }]);
+  };
+
+  const handleApplyTemplate = (template) => {
+    setIsNew(true);
+    setEditingWorkflow({});
+    setName(template.name);
+    setDescription(template.description);
+    setTriggerType(template.trigger_type);
+    setStatus(template.status);
+    setSteps(template.steps);
+    setShowTemplateModal(false);
   };
 
   const handleOpenEdit = (wf) => {
@@ -84,8 +157,8 @@ function WorkflowsPage() {
     setEditingWorkflow(wf);
     setName(wf.name);
     setDescription(wf.description || '');
-    setTriggerType(wf.trigger_type);
-    setStatus(wf.status);
+    setTriggerType(wf.trigger_type || 'manual');
+    setStatus(wf.status || 'active');
     setSteps(wf.steps || []);
   };
 
@@ -104,19 +177,18 @@ function WorkflowsPage() {
   const handleSave = async (e) => {
     e.preventDefault();
     setSaving(true);
-    setError('');
     try {
       const url = isNew 
-        ? `${apiBase}/api/v1/workflows` 
-        : `${apiBase}/api/v1/workflows/${editingWorkflow.id}`;
+        ? `${apiBase}/api/workflows` 
+        : `${apiBase}/api/workflows/${editingWorkflow.id}`;
       const method = isNew ? 'POST' : 'PUT';
 
       const res = await fetch(url, {
         method,
         credentials: 'include',
         headers: {
-          'x-tenant-slug': tenantSlug,
           'Content-Type': 'application/json',
+          'x-tenant-slug': tenantSlug,
         },
         body: JSON.stringify({
           name,
@@ -127,15 +199,15 @@ function WorkflowsPage() {
         }),
       });
 
-      const data = await res.json();
       if (!res.ok) {
+        const data = await res.json();
         throw new Error(data.error || 'Failed to save workflow');
       }
 
       setEditingWorkflow(null);
       fetchWorkflows(apiBase, tenantSlug);
     } catch (err) {
-      setError(err.message);
+      alert(err.message);
     } finally {
       setSaving(false);
     }
@@ -144,7 +216,7 @@ function WorkflowsPage() {
   const handleDelete = async (id) => {
     if (!confirm('Are you sure you want to delete this workflow?')) return;
     try {
-      const res = await fetch(`${apiBase}/api/v1/workflows/${id}`, {
+      const res = await fetch(`${apiBase}/api/workflows/${id}`, {
         method: 'DELETE',
         credentials: 'include',
         headers: {
@@ -157,16 +229,15 @@ function WorkflowsPage() {
       }
       fetchWorkflows(apiBase, tenantSlug);
     } catch (err) {
-      setError(err.message);
+      alert(err.message);
     }
   };
 
-  const handleViewHistory = async (wf) => {
+  const handleFetchExecutions = async (wf) => {
     setSelectedWorkflowForHistory(wf);
     setLoadingHistory(true);
-    setExecutions([]);
     try {
-      const res = await fetch(`${apiBase}/api/v1/workflows/${wf.id}/executions`, {
+      const res = await fetch(`${apiBase}/api/workflows/${wf.id}/executions`, {
         credentials: 'include',
         headers: {
           'x-tenant-slug': tenantSlug,
@@ -185,118 +256,212 @@ function WorkflowsPage() {
     }
   };
 
+  const getStepBadgeColor = (type) => {
+    switch (type) {
+      case 'prompt': return { bg: '#e0e7ff', color: '#3730a3', border: '#c7d2fe', label: 'AI Model' };
+      case 'webhook': return { bg: '#fef3c7', color: '#92400e', border: '#fde68a', label: 'Webhook POST' };
+      case 'email': return { bg: '#d1fae5', color: '#065f46', border: '#a7f3d0', label: 'Email Dispatch' };
+      case 'rag_search': return { bg: '#f3e8ff', color: '#6b21a8', border: '#e9d5ff', label: 'Vector RAG' };
+      case 'filter': return { bg: '#fee2e2', color: '#991b1b', border: '#fecaca', label: 'Logic Filter' };
+      default: return { bg: '#f1f5f9', color: '#475569', border: '#cbd5e1', label: 'Action' };
+    }
+  };
+
   return (
     <>
       <Head>
-        <title>Workflow Builder — Harikson AI</title>
-        <meta name="description" content="Build and monitor autonomous workflows" />
+        <title>Workflow Builder — Neuravolt Cloud</title>
+        <meta name="description" content="Build, test, and automate complex AI workflows" />
       </Head>
 
-      <div className="workflows-root" style={{
+      <div style={{
         minHeight: '100vh',
-        background: '#0b0f19',
-        color: '#f8fafc',
-        fontFamily: 'Inter, sans-serif',
-        padding: '40px 20px',
+        background: '#f8fafc',
+        color: '#0f172a',
+        fontFamily: 'Inter, system-ui, -apple-system, sans-serif',
+        padding: '36px 24px',
         boxSizing: 'border-box'
       }}>
-        <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
+        <div style={{ maxWidth: '1240px', margin: '0 auto' }}>
           {/* Header */}
           <div style={{
             display: 'flex',
             justifyContent: 'space-between',
             alignItems: 'center',
-            marginBottom: '40px',
-            borderBottom: '1px solid #1e293b',
-            paddingBottom: '20px'
+            marginBottom: '32px',
+            background: '#ffffff',
+            padding: '24px 32px',
+            borderRadius: '20px',
+            border: '1px solid #e2e8f0',
+            boxShadow: '0 4px 20px -2px rgba(0, 0, 0, 0.03)'
           }}>
             <div>
-              <h1 style={{ fontSize: '28px', fontWeight: 'bold', margin: '0 0 8px 0', color: 'white' }}>
-                Workflow Builder
-              </h1>
-              <p style={{ margin: 0, color: '#94a3b8', fontSize: '14px' }}>
-                Create, test, and manage complex autonomous integrations.
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <span style={{ fontSize: '24px' }}>⚡</span>
+                <h1 style={{ fontSize: '24px', fontWeight: '900', margin: 0, color: '#0f172a', letterSpacing: '-0.02em' }}>
+                  Autonomous Workflow Builder
+                </h1>
+              </div>
+              <p style={{ margin: '6px 0 0 0', color: '#64748b', fontSize: '13px', fontWeight: '500' }}>
+                Design multi-step AI automation pipelines, webhook triggers, RAG indexers, and transactional dispatches.
               </p>
             </div>
-            <div style={{ display: 'flex', gap: '15px' }}>
-              <Link href="/chat" passHref legacyBehavior>
-                <a style={{
-                  padding: '10px 20px',
-                  borderRadius: '8px',
-                  background: 'transparent',
-                  border: '1px solid #334155',
-                  color: '#94a3b8',
-                  textDecoration: 'none',
-                  fontSize: '14px',
-                  fontWeight: '500'
-                }}>
-                  Back to Chat
-                </a>
-              </Link>
+            
+            <div style={{ display: 'flex', gap: '12px' }}>
+              <button
+                onClick={() => setShowTemplateModal(true)}
+                style={{
+                  padding: '10px 18px',
+                  borderRadius: '12px',
+                  background: '#f1f5f9',
+                  border: '1px solid #cbd5e1',
+                  color: '#334155',
+                  fontSize: '13px',
+                  fontWeight: '700',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  transition: 'all 0.2s'
+                }}
+              >
+                ✨ Browse Templates
+              </button>
+
               <button
                 onClick={handleOpenNew}
                 style={{
                   padding: '10px 20px',
-                  borderRadius: '8px',
-                  background: '#3b82f6',
+                  borderRadius: '12px',
+                  background: '#4f46e5',
                   color: 'white',
                   border: 'none',
-                  fontSize: '14px',
-                  fontWeight: 'bold',
-                  cursor: 'pointer'
+                  fontSize: '13px',
+                  fontWeight: '800',
+                  cursor: 'pointer',
+                  boxShadow: '0 2px 10px rgba(79, 70, 229, 0.25)',
+                  transition: 'all 0.2s'
                 }}
               >
-                Create Workflow
+                + Create Workflow
               </button>
+
+              <Link href="/chat" passHref legacyBehavior>
+                <a style={{
+                  padding: '10px 18px',
+                  borderRadius: '12px',
+                  background: '#ffffff',
+                  border: '1px solid #cbd5e1',
+                  color: '#475569',
+                  textDecoration: 'none',
+                  fontSize: '13px',
+                  fontWeight: '600',
+                  display: 'flex',
+                  alignItems: 'center'
+                }}>
+                  Back to Workspace
+                </a>
+              </Link>
             </div>
           </div>
 
           {error && (
             <div style={{
-              background: '#7f1d1d',
-              border: '1px solid #f87171',
-              borderRadius: '8px',
-              padding: '15px',
-              marginBottom: '30px',
-              color: '#fca5a5',
-              fontSize: '14px'
+              padding: '16px 20px',
+              borderRadius: '14px',
+              background: '#fef2f2',
+              border: '1px solid #fecaca',
+              color: '#991b1b',
+              fontSize: '14px',
+              fontWeight: '600',
+              marginBottom: '24px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between'
             }}>
-              ⚠️ {error}
-            </div>
-          )}
-
-          {/* Workflow List */}
-          {loading ? (
-            <div style={{ textAlign: 'center', padding: '60px', color: '#94a3b8' }}>
-              Loading workflows...
-            </div>
-          ) : workflows.length === 0 ? (
-            <div style={{
-              background: '#0f172a',
-              border: '1px dashed #334155',
-              borderRadius: '12px',
-              padding: '60px 20px',
-              textAlign: 'center'
-            }}>
-              <h3 style={{ fontSize: '18px', margin: '0 0 10px 0', color: '#94a3b8' }}>No workflows built yet</h3>
-              <p style={{ color: '#64748b', fontSize: '14px', marginBottom: '20px' }}>
-                Get started by creating your first autonomous workflow mapping webhook inputs or schedules to custom steps.
-              </p>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span>⚠️</span> {error}
+              </div>
               <button
-                onClick={handleOpenNew}
+                onClick={() => fetchWorkflows(apiBase, tenantSlug)}
                 style={{
-                  padding: '10px 20px',
-                  borderRadius: '8px',
-                  background: '#3b82f6',
+                  padding: '6px 14px',
+                  background: '#991b1b',
                   color: 'white',
                   border: 'none',
-                  fontSize: '14px',
+                  borderRadius: '8px',
+                  fontSize: '12px',
                   fontWeight: 'bold',
                   cursor: 'pointer'
                 }}
               >
-                Create Workflow
+                Retry
               </button>
+            </div>
+          )}
+
+          {/* Workflow Cards Grid */}
+          {loading ? (
+            <div style={{
+              background: '#ffffff',
+              padding: '60px',
+              borderRadius: '20px',
+              border: '1px solid #e2e8f0',
+              textAlign: 'center',
+              color: '#64748b',
+              fontWeight: '600'
+            }}>
+              Loading active workflows...
+            </div>
+          ) : workflows.length === 0 ? (
+            <div style={{
+              background: '#ffffff',
+              padding: '60px 40px',
+              borderRadius: '20px',
+              border: '2px dashed #cbd5e1',
+              textAlign: 'center',
+              boxShadow: '0 4px 20px -2px rgba(0, 0, 0, 0.02)'
+            }}>
+              <div style={{ fontSize: '48px', marginBottom: '16px' }}>⚡</div>
+              <h3 style={{ fontSize: '20px', fontWeight: '800', margin: '0 0 8px 0', color: '#0f172a' }}>
+                No active workflows built yet
+              </h3>
+              <p style={{ color: '#64748b', fontSize: '14px', maxWidth: '500px', margin: '0 auto 24px auto' }}>
+                Get started by choosing a pre-configured template or create a custom multi-step pipeline connecting webhooks, LLMs, and email dispatches.
+              </p>
+              <div style={{ display: 'flex', justify: 'center', gap: '12px' }}>
+                <button
+                  onClick={() => setShowTemplateModal(true)}
+                  style={{
+                    padding: '12px 24px',
+                    borderRadius: '12px',
+                    background: '#f1f5f9',
+                    border: '1px solid #cbd5e1',
+                    color: '#334155',
+                    fontSize: '14px',
+                    fontWeight: '700',
+                    cursor: 'pointer'
+                  }}
+                >
+                  ✨ Browse Presets
+                </button>
+                <button
+                  onClick={handleOpenNew}
+                  style={{
+                    padding: '12px 24px',
+                    borderRadius: '12px',
+                    background: '#4f46e5',
+                    color: 'white',
+                    border: 'none',
+                    fontSize: '14px',
+                    fontWeight: '800',
+                    cursor: 'pointer',
+                    boxShadow: '0 4px 14px rgba(79, 70, 229, 0.3)'
+                  }}
+                >
+                  + Create Blank Workflow
+                </button>
+              </div>
             </div>
           ) : (
             <div style={{
@@ -305,427 +470,582 @@ function WorkflowsPage() {
               gap: '20px'
             }}>
               {workflows.map((wf) => (
-                <div key={wf.id} style={{
-                  background: '#0f172a',
-                  border: '1px solid #1e293b',
-                  borderRadius: '12px',
-                  padding: '24px',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  justifyContent: 'space-between',
-                  minHeight: '220px'
-                }}>
+                <div
+                  key={wf.id}
+                  style={{
+                    background: '#ffffff',
+                    borderRadius: '20px',
+                    border: '1px solid #e2e8f0',
+                    padding: '24px',
+                    boxShadow: '0 4px 20px -2px rgba(0, 0, 0, 0.04)',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    justifyContent: 'space-between',
+                    transition: 'all 0.2s'
+                  }}
+                >
                   <div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '12px' }}>
-                      <h3 style={{ fontSize: '18px', fontWeight: 'bold', color: 'white', margin: 0 }}>
-                        {wf.name}
-                      </h3>
+                    <div style={{ display: 'flex', justify: 'space-between', alignItems: 'flex-start', marginBottom: '14px' }}>
                       <span style={{
-                        padding: '3px 8px',
-                        borderRadius: '12px',
+                        padding: '4px 10px',
+                        borderRadius: '20px',
                         fontSize: '11px',
-                        fontWeight: 'bold',
-                        background: wf.status === 'active' ? '#065f46' : '#1e293b',
-                        color: wf.status === 'active' ? '#34d399' : '#94a3b8'
+                        fontWeight: '800',
+                        textTransform: 'uppercase',
+                        letterSpacing: '0.05em',
+                        background: wf.status === 'active' ? '#d1fae5' : '#f1f5f9',
+                        color: wf.status === 'active' ? '#065f46' : '#64748b',
+                        border: wf.status === 'active' ? '1px solid #a7f3d0' : '1px solid #cbd5e1'
                       }}>
-                        {wf.status}
+                        {wf.status || 'Active'}
+                      </span>
+
+                      <span style={{
+                        padding: '4px 10px',
+                        borderRadius: '20px',
+                        fontSize: '11px',
+                        fontWeight: '700',
+                        background: '#e0e7ff',
+                        color: '#3730a3',
+                        border: '1px solid #c7d2fe'
+                      }}>
+                        Trigger: {wf.trigger_type?.toUpperCase() || 'MANUAL'}
                       </span>
                     </div>
-                    <p style={{ color: '#94a3b8', fontSize: '13.5px', margin: '0 0 16px 0', lineHeight: '1.5' }}>
+
+                    <h3 style={{ fontSize: '18px', fontWeight: '800', margin: '0 0 8px 0', color: '#0f172a' }}>
+                      {wf.name}
+                    </h3>
+                    <p style={{ fontSize: '13px', color: '#64748b', margin: '0 0 16px 0', minHeight: '38px', lineHeight: '1.5' }}>
                       {wf.description || 'No description provided.'}
                     </p>
-                    <div style={{ display: 'flex', gap: '15px', color: '#64748b', fontSize: '12px', marginBottom: '20px' }}>
-                      <div>Trigger: <strong style={{ color: '#94a3b8' }}>{wf.trigger_type}</strong></div>
-                      <div>Steps: <strong style={{ color: '#94a3b8' }}>{wf.steps?.length || 0}</strong></div>
+
+                    {/* Step Visualizer Sequence */}
+                    <div style={{ background: '#f8fafc', padding: '12px', borderRadius: '12px', border: '1px solid #f1f5f9', marginBottom: '16px' }}>
+                      <span style={{ fontSize: '11px', fontWeight: '700', color: '#94a3b8', textTransform: 'uppercase', display: 'block', marginBottom: '8px' }}>
+                        Step Pipeline ({wf.steps?.length || 0} Steps)
+                      </span>
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                        {(wf.steps || []).map((step, idx) => {
+                          const badge = getStepBadgeColor(step.type);
+                          return (
+                            <span key={idx} style={{
+                              fontSize: '11px',
+                              fontWeight: '700',
+                              padding: '3px 8px',
+                              borderRadius: '6px',
+                              background: badge.bg,
+                              color: badge.color,
+                              border: `1px solid ${badge.border}`
+                            }}>
+                              {idx + 1}. {badge.label}
+                            </span>
+                          );
+                        })}
+                      </div>
                     </div>
                   </div>
+
                   <div style={{
                     display: 'flex',
-                    justifyContent: 'space-between',
-                    borderTop: '1px solid #1e293b',
-                    paddingTop: '15px',
-                    gap: '10px'
+                    gap: '8px',
+                    borderTop: '1px solid #f1f5f9',
+                    paddingTop: '16px',
+                    marginTop: '8px'
                   }}>
                     <button
-                      onClick={() => handleViewHistory(wf)}
+                      onClick={() => handleOpenEdit(wf)}
                       style={{
-                        background: 'transparent',
-                        border: 'none',
-                        color: '#60a5fa',
-                        fontSize: '13px',
-                        cursor: 'pointer',
-                        padding: 0
+                        flex: 1,
+                        padding: '8px 12px',
+                        borderRadius: '10px',
+                        background: '#f1f5f9',
+                        border: '1px solid #cbd5e1',
+                        color: '#334155',
+                        fontSize: '12px',
+                        fontWeight: '700',
+                        cursor: 'pointer'
                       }}
                     >
-                      History
+                      ✏️ Edit
                     </button>
-                    <div style={{ display: 'flex', gap: '10px' }}>
-                      <button
-                        onClick={() => handleOpenEdit(wf)}
-                        style={{
-                          background: 'transparent',
-                          border: 'none',
-                          color: '#38bdf8',
-                          fontSize: '13px',
-                          cursor: 'pointer'
-                        }}
-                      >
-                        Edit
-                      </button>
-                      <button
-                        onClick={() => handleDelete(wf.id)}
-                        style={{
-                          background: 'transparent',
-                          border: 'none',
-                          color: '#f87171',
-                          fontSize: '13px',
-                          cursor: 'pointer'
-                        }}
-                      >
-                        Delete
-                      </button>
-                    </div>
+                    <button
+                      onClick={() => handleFetchExecutions(wf)}
+                      style={{
+                        flex: 1,
+                        padding: '8px 12px',
+                        borderRadius: '10px',
+                        background: '#e0e7ff',
+                        border: '1px solid #c7d2fe',
+                        color: '#3730a3',
+                        fontSize: '12px',
+                        fontWeight: '700',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      📜 History
+                    </button>
+                    <button
+                      onClick={() => handleDelete(wf.id)}
+                      style={{
+                        padding: '8px 12px',
+                        borderRadius: '10px',
+                        background: '#fef2f2',
+                        border: '1px solid #fecaca',
+                        color: '#991b1b',
+                        fontSize: '12px',
+                        fontWeight: '700',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      🗑️
+                    </button>
                   </div>
                 </div>
               ))}
             </div>
           )}
+        </div>
+      </div>
 
-          {/* Workflow Creation & Editing Panel */}
-          {editingWorkflow && (
-            <div style={{
-              position: 'fixed',
-              top: 0,
-              left: 0,
-              width: '100%',
-              height: '100%',
-              background: 'rgba(15, 23, 42, 0.85)',
-              display: 'flex',
-              justifyContent: 'center',
-              alignItems: 'center',
-              zIndex: 9999
-            }}>
-              <div style={{
-                background: '#0f172a',
-                border: '1px solid #334155',
-                borderRadius: '16px',
-                width: '100%',
-                maxWidth: '640px',
-                padding: '30px',
-                maxHeight: '90vh',
-                overflowY: 'auto'
-              }}>
-                <h2 style={{ fontSize: '20px', fontWeight: 'bold', color: 'white', margin: '0 0 20px 0' }}>
-                  {isNew ? 'New Workflow' : 'Edit Workflow'}
+      {/* TEMPLATE LIBRARY MODAL */}
+      {showTemplateModal && (
+        <div style={{
+          position: 'fixed',
+          top: 0, left: 0, right: 0, bottom: 0,
+          background: 'rgba(15, 23, 42, 0.6)',
+          backdropFilter: 'blur(4px)',
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          zIndex: 1000,
+          padding: '20px'
+        }}>
+          <div style={{
+            background: '#ffffff',
+            borderRadius: '24px',
+            width: '100%',
+            maxWidth: '800px',
+            maxHeight: '90vh',
+            overflowY: 'auto',
+            padding: '32px',
+            border: '1px solid #e2e8f0',
+            boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)'
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+              <div>
+                <h2 style={{ fontSize: '22px', fontWeight: '900', margin: 0, color: '#0f172a' }}>
+                  ✨ Preset Workflow Templates Library
                 </h2>
-                <form onSubmit={handleSave}>
-                  <div style={{ marginBottom: '15px' }}>
-                    <label style={{ display: 'block', fontSize: '13px', color: '#94a3b8', marginBottom: '6px' }}>Name</label>
-                    <input
-                      type="text"
-                      required
-                      placeholder="E.g., Automated Lead Responder"
-                      value={name}
-                      onChange={(e) => setName(e.target.value)}
-                      style={{
-                        width: '100%',
-                        background: '#1e293b',
-                        border: '1px solid #334155',
-                        borderRadius: '8px',
-                        padding: '10px',
-                        color: 'white',
-                        boxSizing: 'border-box'
-                      }}
-                    />
-                  </div>
-
-                  <div style={{ marginBottom: '15px' }}>
-                    <label style={{ display: 'block', fontSize: '13px', color: '#94a3b8', marginBottom: '6px' }}>Description</label>
-                    <textarea
-                      placeholder="Describe what this workflow integrates..."
-                      value={description}
-                      onChange={(e) => setDescription(e.target.value)}
-                      rows={3}
-                      style={{
-                        width: '100%',
-                        background: '#1e293b',
-                        border: '1px solid #334155',
-                        borderRadius: '8px',
-                        padding: '10px',
-                        color: 'white',
-                        boxSizing: 'border-box',
-                        resize: 'none'
-                      }}
-                    />
-                  </div>
-
-                  <div style={{ display: 'flex', gap: '20px', marginBottom: '20px' }}>
-                    <div style={{ flex: 1 }}>
-                      <label style={{ display: 'block', fontSize: '13px', color: '#94a3b8', marginBottom: '6px' }}>Trigger Type</label>
-                      <select
-                        value={triggerType}
-                        onChange={(e) => setTriggerType(e.target.value)}
-                        style={{
-                          width: '100%',
-                          background: '#1e293b',
-                          border: '1px solid #334155',
-                          borderRadius: '8px',
-                          padding: '10px',
-                          color: 'white',
-                          boxSizing: 'border-box'
-                        }}
-                      >
-                        <option value="manual">Manual Trigger</option>
-                        <option value="scheduled">Scheduled Interval</option>
-                        <option value="webhook">Webhook Callback</option>
-                        <option value="event">Chat Command / Event</option>
-                      </select>
-                    </div>
-                    <div style={{ flex: 1 }}>
-                      <label style={{ display: 'block', fontSize: '13px', color: '#94a3b8', marginBottom: '6px' }}>Status</label>
-                      <select
-                        value={status}
-                        onChange={(e) => setStatus(e.target.value)}
-                        style={{
-                          width: '100%',
-                          background: '#1e293b',
-                          border: '1px solid #334155',
-                          borderRadius: '8px',
-                          padding: '10px',
-                          color: 'white',
-                          boxSizing: 'border-box'
-                        }}
-                      >
-                        <option value="active">Active</option>
-                        <option value="disabled">Disabled</option>
-                      </select>
-                    </div>
-                  </div>
-
-                  {/* Steps Editor */}
-                  <div style={{ marginBottom: '25px', borderTop: '1px solid #1e293b', paddingTop: '20px' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
-                      <h4 style={{ margin: 0, color: 'white', fontSize: '15px' }}>Steps Config</h4>
-                      <button
-                        type="button"
-                        onClick={handleAddStep}
-                        style={{
-                          background: 'transparent',
-                          border: '1px solid #3b82f6',
-                          color: '#60a5fa',
-                          borderRadius: '6px',
-                          padding: '4px 10px',
-                          fontSize: '12px',
-                          cursor: 'pointer'
-                        }}
-                      >
-                        + Add Step
-                      </button>
-                    </div>
-
-                    {steps.length === 0 ? (
-                      <p style={{ color: '#64748b', fontSize: '13px', textAlign: 'center' }}>
-                        No execution steps defined yet.
-                      </p>
-                    ) : (
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                        {steps.map((step, idx) => (
-                          <div key={step.id} style={{
-                            background: '#1e293b',
-                            borderRadius: '8px',
-                            padding: '12px',
-                            display: 'flex',
-                            gap: '10px',
-                            alignItems: 'center'
-                          }}>
-                            <span style={{ fontSize: '12px', color: '#64748b', fontWeight: 'bold' }}>#{idx+1}</span>
-                            <select
-                              value={step.type}
-                              onChange={(e) => handleStepChange(step.id, 'type', e.target.value)}
-                              style={{
-                                background: '#0f172a',
-                                border: '1px solid #334155',
-                                color: 'white',
-                                borderRadius: '4px',
-                                padding: '4px 8px',
-                                fontSize: '12px'
-                              }}
-                            >
-                              <option value="prompt">Prompt LLM</option>
-                              <option value="api_call">API Call</option>
-                              <option value="conditional">Conditional Branch</option>
-                            </select>
-                            <input
-                              type="text"
-                              required
-                              placeholder={step.type === 'api_call' ? 'https://api.endpoint.com' : 'Instructions or prompt content...'}
-                              value={step.value}
-                              onChange={(e) => handleStepChange(step.id, 'value', e.target.value)}
-                              style={{
-                                flex: 1,
-                                background: '#0f172a',
-                                border: '1px solid #334155',
-                                color: 'white',
-                                borderRadius: '4px',
-                                padding: '4px 8px',
-                                fontSize: '12px'
-                              }}
-                            />
-                            <button
-                              type="button"
-                              onClick={() => handleRemoveStep(step.id)}
-                              style={{
-                                background: 'transparent',
-                                border: 'none',
-                                color: '#ef4444',
-                                fontSize: '16px',
-                                cursor: 'pointer'
-                              }}
-                            >
-                              ×
-                            </button>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-
-                  <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
-                    <button
-                      type="button"
-                      onClick={() => setEditingWorkflow(null)}
-                      style={{
-                        padding: '10px 20px',
-                        borderRadius: '8px',
-                        background: 'transparent',
-                        border: '1px solid #334155',
-                        color: '#94a3b8',
-                        cursor: 'pointer'
-                      }}
-                    >
-                      Cancel
-                    </button>
-                    <button
-                      type="submit"
-                      disabled={saving}
-                      style={{
-                        padding: '10px 20px',
-                        borderRadius: '8px',
-                        background: '#3b82f6',
-                        color: 'white',
-                        border: 'none',
-                        fontWeight: 'bold',
-                        cursor: 'pointer'
-                      }}
-                    >
-                      {saving ? 'Saving...' : 'Save'}
-                    </button>
-                  </div>
-                </form>
+                <p style={{ color: '#64748b', fontSize: '13px', margin: '4px 0 0 0' }}>
+                  Select a pre-built autonomous AI template to instantly populate your step canvas.
+                </p>
               </div>
+              <button
+                onClick={() => setShowTemplateModal(false)}
+                style={{ background: 'none', border: 'none', fontSize: '20px', cursor: 'pointer', color: '#94a3b8' }}
+              >
+                ✕
+              </button>
             </div>
-          )}
 
-          {/* Execution History Modal */}
-          {selectedWorkflowForHistory && (
-            <div style={{
-              position: 'fixed',
-              top: 0,
-              left: 0,
-              width: '100%',
-              height: '100%',
-              background: 'rgba(15, 23, 42, 0.85)',
-              display: 'flex',
-              justifyContent: 'center',
-              alignItems: 'center',
-              zIndex: 9999
-            }}>
-              <div style={{
-                background: '#0f172a',
-                border: '1px solid #334155',
-                borderRadius: '16px',
-                width: '100%',
-                maxWidth: '720px',
-                padding: '30px',
-                maxHeight: '80vh',
-                overflowY: 'auto'
-              }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-                  <h2 style={{ fontSize: '20px', fontWeight: 'bold', color: 'white', margin: 0 }}>
-                    Execution History: {selectedWorkflowForHistory.name}
-                  </h2>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))', gap: '16px' }}>
+              {PRESET_TEMPLATES.map((tmpl) => (
+                <div key={tmpl.id} style={{
+                  background: '#f8fafc',
+                  border: '1px solid #e2e8f0',
+                  borderRadius: '16px',
+                  padding: '20px',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  justifyContent: 'space-between'
+                }}>
+                  <div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                      <span style={{ fontSize: '24px' }}>{tmpl.icon}</span>
+                      <span style={{
+                        fontSize: '11px',
+                        fontWeight: '800',
+                        padding: '3px 8px',
+                        borderRadius: '6px',
+                        background: '#e0e7ff',
+                        color: '#3730a3'
+                      }}>
+                        {tmpl.badge}
+                      </span>
+                    </div>
+                    <h4 style={{ fontSize: '16px', fontWeight: '800', margin: '0 0 6px 0', color: '#0f172a' }}>
+                      {tmpl.name}
+                    </h4>
+                    <p style={{ fontSize: '12px', color: '#64748b', margin: '0 0 14px 0', lineHeight: '1.5' }}>
+                      {tmpl.description}
+                    </p>
+                  </div>
                   <button
-                    onClick={() => setSelectedWorkflowForHistory(null)}
+                    onClick={() => handleApplyTemplate(tmpl)}
                     style={{
-                      background: 'transparent',
+                      width: '100%',
+                      padding: '10px',
+                      borderRadius: '10px',
+                      background: '#4f46e5',
+                      color: 'white',
                       border: 'none',
-                      color: '#94a3b8',
-                      fontSize: '24px',
+                      fontSize: '13px',
+                      fontWeight: '800',
                       cursor: 'pointer'
                     }}
                   >
-                    ×
+                    Use Template →
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* WORKFLOW EDIT / CREATE MODAL */}
+      {editingWorkflow && (
+        <div style={{
+          position: 'fixed',
+          top: 0, left: 0, right: 0, bottom: 0,
+          background: 'rgba(15, 23, 42, 0.6)',
+          backdropFilter: 'blur(4px)',
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          zIndex: 1000,
+          padding: '20px'
+        }}>
+          <div style={{
+            background: '#ffffff',
+            borderRadius: '24px',
+            width: '100%',
+            maxWidth: '680px',
+            maxHeight: '90vh',
+            overflowY: 'auto',
+            padding: '32px',
+            border: '1px solid #e2e8f0',
+            boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)'
+          }}>
+            <h2 style={{ fontSize: '20px', fontWeight: '900', margin: '0 0 20px 0', color: '#0f172a' }}>
+              {isNew ? 'Create New Autonomous Workflow' : 'Edit Workflow Configuration'}
+            </h2>
+
+            <form onSubmit={handleSave} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              <div>
+                <label style={{ display: 'block', fontSize: '12px', fontWeight: '800', marginBottom: '6px', color: '#334155' }}>
+                  Workflow Name
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  style={{
+                    width: '100%',
+                    padding: '12px 14px',
+                    borderRadius: '10px',
+                    background: '#f8fafc',
+                    border: '1px solid #cbd5e1',
+                    color: '#0f172a',
+                    fontSize: '14px',
+                    fontWeight: '600',
+                    outline: 'none',
+                    boxSizing: 'border-box'
+                  }}
+                  placeholder="e.g. AI Customer Support Auto-Router"
+                />
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: '12px', fontWeight: '800', marginBottom: '6px', color: '#334155' }}>
+                  Description
+                </label>
+                <input
+                  type="text"
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  style={{
+                    width: '100%',
+                    padding: '12px 14px',
+                    borderRadius: '10px',
+                    background: '#f8fafc',
+                    border: '1px solid #cbd5e1',
+                    color: '#0f172a',
+                    fontSize: '14px',
+                    fontWeight: '500',
+                    outline: 'none',
+                    boxSizing: 'border-box'
+                  }}
+                  placeholder="Describe what this workflow automates..."
+                />
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '12px', fontWeight: '800', marginBottom: '6px', color: '#334155' }}>
+                    Trigger Event
+                  </label>
+                  <select
+                    value={triggerType}
+                    onChange={(e) => setTriggerType(e.target.value)}
+                    style={{
+                      width: '100%',
+                      padding: '12px 14px',
+                      borderRadius: '10px',
+                      background: '#f8fafc',
+                      border: '1px solid #cbd5e1',
+                      color: '#0f172a',
+                      fontSize: '13px',
+                      fontWeight: '700',
+                      outline: 'none',
+                      boxSizing: 'border-box'
+                    }}
+                  >
+                    <option value="manual">Manual Trigger (On Demand)</option>
+                    <option value="webhook">Webhook HTTP Endpoint</option>
+                    <option value="cron">Scheduled Cron Job</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label style={{ display: 'block', fontSize: '12px', fontWeight: '800', marginBottom: '6px', color: '#334155' }}>
+                    Status
+                  </label>
+                  <select
+                    value={status}
+                    onChange={(e) => setStatus(e.target.value)}
+                    style={{
+                      width: '100%',
+                      padding: '12px 14px',
+                      borderRadius: '10px',
+                      background: '#f8fafc',
+                      border: '1px solid #cbd5e1',
+                      color: '#0f172a',
+                      fontSize: '13px',
+                      fontWeight: '700',
+                      outline: 'none',
+                      boxSizing: 'border-box'
+                    }}
+                  >
+                    <option value="active">Active (Enabled)</option>
+                    <option value="paused">Paused (Disabled)</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Webhook Endpoint Info Box */}
+              {triggerType === 'webhook' && editingWorkflow?.id && (
+                <div style={{ background: '#f0fdf4', padding: '12px 16px', borderRadius: '12px', border: '1px solid #bbf7d0' }}>
+                  <span style={{ fontSize: '11px', fontWeight: '800', color: '#166534', display: 'block', marginBottom: '4px' }}>
+                    🔗 Webhook Endpoint URL:
+                  </span>
+                  <code style={{ fontSize: '11px', fontFamily: 'monospace', color: '#15803d', wordBreak: 'break-all' }}>
+                    {typeof window !== 'undefined' ? `${window.location.origin}/api/workflows/${editingWorkflow.id}/trigger` : `/api/workflows/${editingWorkflow.id}/trigger`}
+                  </code>
+                </div>
+              )}
+
+              {/* Steps Sequence Canvas */}
+              <div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                  <label style={{ fontSize: '12px', fontWeight: '800', color: '#334155' }}>
+                    Step Pipeline Canvas ({steps.length})
+                  </label>
+                  <button
+                    type="button"
+                    onClick={handleAddStep}
+                    style={{
+                      padding: '4px 10px',
+                      borderRadius: '6px',
+                      background: '#e0e7ff',
+                      color: '#3730a3',
+                      border: '1px solid #c7d2fe',
+                      fontSize: '12px',
+                      fontWeight: '700',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    + Add Step Node
                   </button>
                 </div>
 
-                {loadingHistory ? (
-                  <div style={{ textAlign: 'center', padding: '40px', color: '#94a3b8' }}>
-                    Loading execution logs...
-                  </div>
-                ) : executions.length === 0 ? (
-                  <p style={{ color: '#64748b', fontSize: '14px', textAlign: 'center', padding: '30px' }}>
-                    No executions recorded for this workflow yet.
-                  </p>
-                ) : (
-                  <div style={{ overflowX: 'auto' }}>
-                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13.5px', textAlign: 'left' }}>
-                      <thead>
-                        <tr style={{ borderBottom: '1px solid #1e293b', color: '#94a3b8' }}>
-                          <th style={{ padding: '10px' }}>Execution ID</th>
-                          <th style={{ padding: '10px' }}>Status</th>
-                          <th style={{ padding: '10px' }}>Started At</th>
-                          <th style={{ padding: '10px' }}>Duration (ms)</th>
-                          <th style={{ padding: '10px' }}>Logs</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {executions.map((exec) => (
-                          <tr key={exec.id} style={{ borderBottom: '1px solid #1e293b' }}>
-                            <td style={{ padding: '10px', color: '#60a5fa', fontFamily: 'monospace' }}>
-                              {exec.id.substring(0, 8)}...
-                            </td>
-                            <td style={{ padding: '10px' }}>
-                              <span style={{
-                                padding: '2px 6px',
-                                borderRadius: '4px',
-                                fontSize: '11px',
-                                fontWeight: 'bold',
-                                background: exec.status === 'completed' ? '#065f46' : exec.status === 'failed' ? '#7f1d1d' : '#1e293b',
-                                color: exec.status === 'completed' ? '#34d399' : exec.status === 'failed' ? '#fca5a5' : '#94a3b8'
-                              }}>
-                                {exec.status}
-                              </span>
-                            </td>
-                            <td style={{ padding: '10px', color: '#94a3b8' }}>
-                              {new Date(exec.started_at).toLocaleString()}
-                            </td>
-                            <td style={{ padding: '10px', color: '#94a3b8' }}>
-                              {exec.duration_ms || '0'}
-                            </td>
-                            <td style={{ padding: '10px', color: '#64748b', fontSize: '12px' }}>
-                              {exec.logs || exec.error_message || 'None'}
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', maxHeight: '240px', overflowY: 'auto' }}>
+                  {steps.map((step, idx) => (
+                    <div key={step.id || idx} style={{
+                      display: 'flex',
+                      gap: '8px',
+                      alignItems: 'center',
+                      background: '#f8fafc',
+                      padding: '10px',
+                      borderRadius: '10px',
+                      border: '1px solid #e2e8f0'
+                    }}>
+                      <span style={{ fontSize: '12px', fontWeight: '800', color: '#94a3b8', width: '20px' }}>
+                        #{idx + 1}
+                      </span>
+                      <select
+                        value={step.type}
+                        onChange={(e) => handleStepChange(step.id, 'type', e.target.value)}
+                        style={{
+                          padding: '8px',
+                          borderRadius: '8px',
+                          background: '#ffffff',
+                          border: '1px solid #cbd5e1',
+                          fontSize: '12px',
+                          fontWeight: '700',
+                          color: '#0f172a'
+                        }}
+                      >
+                        <option value="prompt">AI Prompt / LLM Call</option>
+                        <option value="webhook">Webhook HTTP POST</option>
+                        <option value="email">Transactional Email</option>
+                        <option value="rag_search">Vector RAG Search</option>
+                        <option value="filter">Data Logic Filter</option>
+                      </select>
+                      <input
+                        type="text"
+                        value={step.value}
+                        onChange={(e) => handleStepChange(step.id, 'value', e.target.value)}
+                        placeholder="Instruction / payload configuration..."
+                        style={{
+                          flex: 1,
+                          padding: '8px 10px',
+                          borderRadius: '8px',
+                          background: '#ffffff',
+                          border: '1px solid #cbd5e1',
+                          fontSize: '12px',
+                          color: '#0f172a',
+                          outline: 'none'
+                        }}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveStep(step.id)}
+                        style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', fontWeight: 'bold' }}
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  ))}
+                </div>
               </div>
-            </div>
-          )}
+
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '16px' }}>
+                <button
+                  type="button"
+                  onClick={() => setEditingWorkflow(null)}
+                  style={{
+                    padding: '10px 18px',
+                    borderRadius: '10px',
+                    background: '#f1f5f9',
+                    border: '1px solid #cbd5e1',
+                    color: '#475569',
+                    fontSize: '13px',
+                    fontWeight: '700',
+                    cursor: 'pointer'
+                  }}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={saving}
+                  style={{
+                    padding: '10px 22px',
+                    borderRadius: '10px',
+                    background: '#4f46e5',
+                    color: 'white',
+                    border: 'none',
+                    fontSize: '13px',
+                    fontWeight: '800',
+                    cursor: 'pointer',
+                    boxShadow: '0 2px 10px rgba(79, 70, 229, 0.3)'
+                  }}
+                >
+                  {saving ? 'Saving...' : 'Save Workflow'}
+                </button>
+              </div>
+            </form>
+          </div>
         </div>
-      </div>
+      )}
+
+      {/* EXECUTION HISTORY MODAL */}
+      {selectedWorkflowForHistory && (
+        <div style={{
+          position: 'fixed',
+          top: 0, left: 0, right: 0, bottom: 0,
+          background: 'rgba(15, 23, 42, 0.6)',
+          backdropFilter: 'blur(4px)',
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          zIndex: 1000,
+          padding: '20px'
+        }}>
+          <div style={{
+            background: '#ffffff',
+            borderRadius: '24px',
+            width: '100%',
+            maxWidth: '680px',
+            maxHeight: '90vh',
+            overflowY: 'auto',
+            padding: '32px',
+            border: '1px solid #e2e8f0',
+            boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)'
+          }}>
+            <div style={{ display: 'flex', justify: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+              <h2 style={{ fontSize: '18px', fontWeight: '900', margin: 0, color: '#0f172a' }}>
+                📜 Execution Logs — {selectedWorkflowForHistory.name}
+              </h2>
+              <button
+                onClick={() => setSelectedWorkflowForHistory(null)}
+                style={{ background: 'none', border: 'none', fontSize: '20px', cursor: 'pointer', color: '#94a3b8' }}
+              >
+                ✕
+              </button>
+            </div>
+
+            {loadingHistory ? (
+              <p style={{ textAlign: 'center', color: '#64748b', padding: '40px' }}>Fetching execution telemetry...</p>
+            ) : executions.length === 0 ? (
+              <p style={{ textAlign: 'center', color: '#94a3b8', padding: '40px' }}>No execution telemetry recorded for this workflow yet.</p>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                {executions.map((ex) => (
+                  <div key={ex.id} style={{
+                    background: '#f8fafc',
+                    border: '1px solid #e2e8f0',
+                    borderRadius: '12px',
+                    padding: '14px',
+                    fontSize: '12px'
+                  }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}>
+                      <span style={{
+                        fontWeight: 'bold',
+                        color: ex.status === 'SUCCESS' ? '#166534' : '#991b1b',
+                        background: ex.status === 'SUCCESS' ? '#d1fae5' : '#fee2e2',
+                        padding: '2px 8px',
+                        borderRadius: '6px'
+                      }}>
+                        {ex.status}
+                      </span>
+                      <span style={{ color: '#94a3b8', fontWeight: '500' }}>
+                        {new Date(ex.created_at).toLocaleString()}
+                      </span>
+                    </div>
+                    <p style={{ margin: '4px 0 0 0', color: '#334155', fontFamily: 'monospace' }}>
+                      Duration: {ex.duration_ms || 120}ms
+                    </p>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </>
   );
 }
