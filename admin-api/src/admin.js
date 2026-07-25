@@ -2424,6 +2424,8 @@ const handleUpdateUserPlan = async (req, res) => {
       await redis.del(dedupKey);
     }
     logger.error('Failed to update user plan:', err);
+    res.status(500).json({ error: 'Failed to update user plan' });
+  }
 };
 
 app.put('/admin/users/:userId/plan', adminAuth, handleUpdateUserPlan);
