@@ -35,7 +35,7 @@ function WorkflowsPage() {
       router.replace('/login');
       return;
     }
-    const savedApiBase = localStorage.getItem('hk_api_base') || 'http://localhost:3008';
+    const savedApiBase = (localStorage.getItem('hk_api_base') && !localStorage.getItem('hk_api_base').includes('localhost')) ? localStorage.getItem('hk_api_base') : '';
     const savedTenant = localStorage.getItem('hk_tenant') || 'system';
     setApiBase(savedApiBase);
     setTenantSlug(savedTenant);
