@@ -62,6 +62,66 @@ export default function UsersPage() {
   const [updatingPlan, setUpdatingPlan] = useState(false);
   const [selectedPlanId, setSelectedPlanId] = useState<string>('starter');
 
+  // Profile Edit State
+  const [editingProfile, setEditingProfile] = useState(false);
+  const [savingProfile, setSavingProfile] = useState(false);
+  const [profileForm, setProfileForm] = useState({
+    name: '',
+    phone: '',
+    company: '',
+    job_title: '',
+    department: '',
+    country: '',
+    bio: '',
+    role: 'user'
+  });
+
+  const handleOpenEditProfile = (user: any) => {
+    setProfileForm({
+      name: user.name || '',
+      phone: user.phone || '',
+      company: user.company || '',
+      job_title: user.job_title || '',
+      department: user.department || '',
+      country: user.country || '',
+      bio: user.bio || '',
+      role: user.role || 'user'
+    });
+    setEditingProfile(true);
+  };
+
+  const handleSaveProfile = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedUser) return;
+    setSavingProfile(true);
+
+    const token = getCookie('admin_token') || localStorage.getItem('admin_token');
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+
+    try {
+      const res = await fetch(`${apiBase}/v1/admin/users/${selectedUser.id}`, {
+        method: 'PUT',
+        headers,
+        body: JSON.stringify(profileForm),
+        credentials: 'include'
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        alert('User profile and business details updated successfully!');
+        setEditingProfile(false);
+        fetchUsers();
+        setSelectedUser(data.user);
+      } else {
+        alert(`Error: ${data.error || 'Failed to update user profile'}`);
+      }
+    } catch (err: any) {
+      alert(`Error updating profile: ${err?.message || err}`);
+    } finally {
+      setSavingProfile(false);
+    }
+  };
+
   const handleAssignPlan = async (userId: string, planId: string) => {
     setUpdatingPlan(true);
     const token = getCookie('admin_token') || localStorage.getItem('admin_token');
@@ -804,24 +864,83 @@ export default function UsersPage() {
                   <button
                     onClick={() => handleSendUserEmail(selectedUser.id, 'approval')}
                     disabled={!!emailSending}
-                    className="py-2.5 px-3 bg-indigo-50 border border-indigo-200 text-indigo-700 dark:bg-indigo-500/10 dark:border-indigo-500/30 dark:text-indigo-400 rounded-xl text-[11px] font-extrabold shadow-sm hover:bg-indigo-100 dark:hover:bg-indigo-500/20 transition-all flex items-center justify-center gap-1.5"
+                    style={{ color: '#3730a3', backgroundColor: '#e0e7ff', borderColor: '#818cf8', fontWeight: 800 }}
+                    className="py-2.5 px-3 rounded-xl text-[11px] font-extrabold border shadow-sm transition-all flex items-center justify-center gap-1.5 hover:opacity-90"
                   >
-                    <Mail className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" /> Approval
+                    <Mail className="w-3.5 h-3.5" style={{ color: '#3730a3' }} /> Approval
                   </button>
                   <button
                     onClick={() => handleSendUserEmail(selectedUser.id, 'welcome')}
                     disabled={!!emailSending}
-                    className="py-2.5 px-3 bg-emerald-50 border border-emerald-200 text-emerald-700 dark:bg-emerald-500/10 dark:border-emerald-500/30 dark:text-emerald-400 rounded-xl text-[11px] font-extrabold shadow-sm hover:bg-emerald-100 dark:hover:bg-emerald-500/20 transition-all flex items-center justify-center gap-1.5"
+                    style={{ color: '#065f46', backgroundColor: '#d1fae5', borderColor: '#34d399', fontWeight: 800 }}
+                    className="py-2.5 px-3 rounded-xl text-[11px] font-extrabold border shadow-sm transition-all flex items-center justify-center gap-1.5 hover:opacity-90"
                   >
-                    <Send className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" /> Welcome
+                    <Send className="w-3.5 h-3.5" style={{ color: '#065f46' }} /> Welcome
                   </button>
                   <button
                     onClick={() => handleSendUserEmail(selectedUser.id, 'password_reset')}
                     disabled={!!emailSending}
-                    className="py-2.5 px-3 bg-amber-50 border border-amber-200 text-amber-700 dark:bg-amber-500/10 dark:border-amber-500/30 dark:text-amber-400 rounded-xl text-[11px] font-extrabold shadow-sm hover:bg-amber-100 dark:hover:bg-amber-500/20 transition-all flex items-center justify-center gap-1.5"
+                    style={{ color: '#92400e', backgroundColor: '#fef3c7', borderColor: '#fbbf24', fontWeight: 800 }}
+                    className="py-2.5 px-3 rounded-xl text-[11px] font-extrabold shadow-sm transition-all flex items-center justify-center gap-1.5 hover:opacity-90"
                   >
-                    <Key className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" /> Reset Pass
+                    <Key className="w-3.5 h-3.5" style={{ color: '#92400e' }} /> Reset Pass
                   </button>
+                </div>
+              </div>
+
+              {/* User Profile & Business Details Suite */}
+              <div className="pt-4 border-t border-gray-200 dark:border-gray-800 space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">
+                    User Contact & Business Profile
+                  </span>
+                  <button
+                    onClick={() => handleOpenEditProfile(selectedUser)}
+                    className="px-2.5 py-1 text-[11px] font-bold text-indigo-600 dark:text-indigo-400 bg-indigo-500/10 hover:bg-indigo-500/20 rounded-lg transition-all flex items-center gap-1"
+                  >
+                    <Edit3 className="w-3 h-3" /> Edit Profile
+                  </button>
+                </div>
+
+                <div className="bg-gray-50 dark:bg-gray-950/40 p-4 rounded-xl border border-gray-200 dark:border-gray-800/60 space-y-2.5 text-xs">
+                  <div className="flex justify-between items-center">
+                    <span className="text-gray-500 font-medium flex items-center gap-1.5">
+                      <Phone className="w-3.5 h-3.5 text-gray-400" /> Phone Number:
+                    </span>
+                    <span className="font-bold text-gray-800 dark:text-gray-200">
+                      {selectedUser.phone || 'Not Provided'}
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-gray-500 font-medium flex items-center gap-1.5">
+                      <Building2 className="w-3.5 h-3.5 text-gray-400" /> Organization / Company:
+                    </span>
+                    <span className="font-bold text-gray-800 dark:text-gray-200">
+                      {selectedUser.company || 'Not Provided'}
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-gray-500 font-medium flex items-center gap-1.5">
+                      <Briefcase className="w-3.5 h-3.5 text-gray-400" /> Job Title & Dept:
+                    </span>
+                    <span className="font-bold text-gray-800 dark:text-gray-200">
+                      {selectedUser.job_title || 'N/A'} {selectedUser.department ? `(${selectedUser.department})` : ''}
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-gray-500 font-medium flex items-center gap-1.5">
+                      <Globe className="w-3.5 h-3.5 text-gray-400" /> Country / Region:
+                    </span>
+                    <span className="font-bold text-gray-800 dark:text-gray-200">
+                      {selectedUser.country || 'Global'}
+                    </span>
+                  </div>
+                  {selectedUser.bio && (
+                    <div className="pt-2 border-t border-gray-200 dark:border-gray-800/80">
+                      <span className="text-gray-500 font-medium block mb-1">User Notes / Bio:</span>
+                      <p className="text-[11px] text-gray-700 dark:text-gray-300 italic">{selectedUser.bio}</p>
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -931,6 +1050,115 @@ export default function UsersPage() {
                 </button>
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Profile Modal */}
+      {editingProfile && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl p-6 max-w-lg w-full space-y-4 shadow-xl">
+            <div className="flex items-center justify-between border-b border-gray-200 dark:border-gray-800 pb-3">
+              <h3 className="text-base font-black text-gray-900 dark:text-white flex items-center gap-2">
+                <Edit3 className="w-4 h-4 text-indigo-500" /> Edit Profile & Business Details
+              </h3>
+              <button onClick={() => setEditingProfile(false)} className="text-gray-400 hover:text-gray-600">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveProfile} className="space-y-3 text-xs">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-bold text-gray-700 dark:text-gray-300 mb-1">Full Name</label>
+                  <input
+                    type="text"
+                    value={profileForm.name}
+                    onChange={(e) => setProfileForm({ ...profileForm, name: e.target.value })}
+                    className="w-full px-3 py-2 rounded-xl bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block font-bold text-gray-700 dark:text-gray-300 mb-1">Phone Number</label>
+                  <input
+                    type="text"
+                    value={profileForm.phone}
+                    onChange={(e) => setProfileForm({ ...profileForm, phone: e.target.value })}
+                    className="w-full px-3 py-2 rounded-xl bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white outline-none"
+                    placeholder="+1 555-0199"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-bold text-gray-700 dark:text-gray-300 mb-1">Company / Org</label>
+                  <input
+                    type="text"
+                    value={profileForm.company}
+                    onChange={(e) => setProfileForm({ ...profileForm, company: e.target.value })}
+                    className="w-full px-3 py-2 rounded-xl bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block font-bold text-gray-700 dark:text-gray-300 mb-1">Job Title</label>
+                  <input
+                    type="text"
+                    value={profileForm.job_title}
+                    onChange={(e) => setProfileForm({ ...profileForm, job_title: e.target.value })}
+                    className="w-full px-3 py-2 rounded-xl bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white outline-none"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-bold text-gray-700 dark:text-gray-300 mb-1">Department</label>
+                  <input
+                    type="text"
+                    value={profileForm.department}
+                    onChange={(e) => setProfileForm({ ...profileForm, department: e.target.value })}
+                    className="w-full px-3 py-2 rounded-xl bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block font-bold text-gray-700 dark:text-gray-300 mb-1">Country / Region</label>
+                  <input
+                    type="text"
+                    value={profileForm.country}
+                    onChange={(e) => setProfileForm({ ...profileForm, country: e.target.value })}
+                    className="w-full px-3 py-2 rounded-xl bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white outline-none"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block font-bold text-gray-700 dark:text-gray-300 mb-1">User Notes / Bio</label>
+                <textarea
+                  rows={2}
+                  value={profileForm.bio}
+                  onChange={(e) => setProfileForm({ ...profileForm, bio: e.target.value })}
+                  className="w-full px-3 py-2 rounded-xl bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white outline-none"
+                />
+              </div>
+
+              <div className="pt-3 border-t border-gray-200 dark:border-gray-800 flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setEditingProfile(false)}
+                  className="px-4 py-2 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 rounded-xl font-bold"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={savingProfile}
+                  className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold flex items-center gap-1.5"
+                >
+                  {savingProfile ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle2 className="w-3.5 h-3.5" />} Save Changes
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

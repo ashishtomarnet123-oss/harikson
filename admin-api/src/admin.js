@@ -2424,9 +2424,64 @@ const handleUpdateUserPlan = async (req, res) => {
       await redis.del(dedupKey);
     }
     logger.error('Failed to update user plan:', err);
-    res.status(500).json({ error: 'Failed to update user plan' });
+};
+
+app.put('/admin/users/:userId/plan', adminAuth, handleUpdateUserPlan);
+app.put('/v1/admin/users/:userId/plan', adminAuth, handleUpdateUserPlan);
+
+// PUT /admin/users/:userId & /v1/admin/users/:userId - Update user profile & business details
+const handleUpdateUserProfile = async (req, res) => {
+  const { userId } = req.params;
+  const { name, phone, company, job_title, department, country, bio, role } = req.body;
+
+  try {
+    const userCheck = await pool.query('SELECT * FROM users WHERE id = $1', [userId]);
+    if (userCheck.rows.length === 0) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    const currentUser = userCheck.rows[0];
+
+    const updatedName = name !== undefined ? name : currentUser.name;
+    const updatedPhone = phone !== undefined ? phone : currentUser.phone;
+    const updatedCompany = company !== undefined ? company : currentUser.company;
+    const updatedJobTitle = job_title !== undefined ? job_title : currentUser.job_title;
+    const updatedDepartment = department !== undefined ? department : currentUser.department;
+    const updatedCountry = country !== undefined ? country : currentUser.country;
+    const updatedBio = bio !== undefined ? bio : currentUser.bio;
+    const updatedRole = role !== undefined ? role : currentUser.role;
+
+    const result = await pool.query(
+      `UPDATE users
+       SET name = $1, phone = $2, company = $3, job_title = $4, department = $5, country = $6, bio = $7, role = $8, updated_at = NOW()
+       WHERE id = $9
+       RETURNING *`,
+      [updatedName, updatedPhone, updatedCompany, updatedJobTitle, updatedDepartment, updatedCountry, updatedBio, updatedRole, userId]
+    );
+
+    await logAdminAction(
+      req.admin?.id || 'admin',
+      'user_update_profile',
+      'user',
+      userId,
+      null,
+      { name: updatedName, phone: updatedPhone, company: updatedCompany, job_title: updatedJobTitle, department: updatedDepartment, country: updatedCountry, bio: updatedBio, role: updatedRole },
+      req
+    );
+
+    res.json({
+      success: true,
+      message: 'User profile and business details updated successfully',
+      user: result.rows[0]
+    });
+  } catch (err) {
+    logger.error('Failed to update user profile:', err);
+    res.status(500).json({ error: 'Failed to update user profile' });
   }
 };
+
+app.put('/admin/users/:userId', adminAuth, handleUpdateUserProfile);
+app.put('/v1/admin/users/:userId', adminAuth, handleUpdateUserProfile);
 
 // DELETE /admin/users/:userId - Permanently delete a user
 app.delete('/admin/users/:userId', async (req, res) => {
