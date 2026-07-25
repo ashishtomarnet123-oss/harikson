@@ -1,6 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { pool } from '../db/pool.js';
-import { logger } from '../utils/logger.js';
+import logger from '../utils/logger.js';
 
 const router = Router();
 
