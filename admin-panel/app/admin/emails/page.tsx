@@ -320,6 +320,38 @@ export default function AdminEmailsPage() {
     }
   };
 
+  // Tab Navigation Definitions
+  const tabItems = [
+    {
+      id: 'telemetry',
+      label: 'Telemetry & Logs',
+      icon: TrendingUp,
+      badge: `${stats.totalSent} Dispatched`,
+      bgColor: 'bg-indigo-500/10 text-indigo-600 dark:text-indigo-400'
+    },
+    {
+      id: 'templates',
+      label: 'Template Editor',
+      icon: FileText,
+      badge: `${templates.length} Templates`,
+      bgColor: 'bg-purple-500/10 text-purple-600 dark:text-purple-400'
+    },
+    {
+      id: 'smtp',
+      label: 'SMTP Settings',
+      icon: Server,
+      badge: (smtpConfig.provider || 'resend').toUpperCase(),
+      bgColor: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
+    },
+    {
+      id: 'mailer',
+      label: 'Custom Mailer',
+      icon: Send,
+      badge: 'Broadcast / Direct',
+      bgColor: 'bg-amber-500/10 text-amber-600 dark:text-amber-400'
+    }
+  ];
+
   const getBadgeForType = (type: string) => {
     switch (type) {
       case 'access_approval':
@@ -349,49 +381,51 @@ export default function AdminEmailsPage() {
           </p>
         </div>
 
-        {/* Tab Navigation Controls */}
-        <div className="flex items-center gap-1.5 bg-slate-200/80 dark:bg-slate-800/80 p-1.5 rounded-2xl border border-slate-300 dark:border-slate-700/80 shadow-inner">
-          <button
-            onClick={() => setActiveTab('telemetry')}
-            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 ${
-              activeTab === 'telemetry'
-                ? 'bg-white dark:bg-slate-900 text-indigo-600 dark:text-indigo-400 shadow-md font-black border border-slate-200 dark:border-slate-800'
-                : 'text-slate-800 dark:text-slate-200 hover:text-slate-950 dark:hover:text-white hover:bg-slate-300/60 dark:hover:bg-slate-700/60'
-            }`}
-          >
-            <TrendingUp className="w-3.5 h-3.5" /> Telemetry & Logs
-          </button>
-          <button
-            onClick={() => setActiveTab('templates')}
-            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 ${
-              activeTab === 'templates'
-                ? 'bg-white dark:bg-slate-900 text-indigo-600 dark:text-indigo-400 shadow-md font-black border border-slate-200 dark:border-slate-800'
-                : 'text-slate-800 dark:text-slate-200 hover:text-slate-950 dark:hover:text-white hover:bg-slate-300/60 dark:hover:bg-slate-700/60'
-            }`}
-          >
-            <FileText className="w-3.5 h-3.5" /> Template Editor
-          </button>
-          <button
-            onClick={() => setActiveTab('smtp')}
-            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 ${
-              activeTab === 'smtp'
-                ? 'bg-white dark:bg-slate-900 text-indigo-600 dark:text-indigo-400 shadow-md font-black border border-slate-200 dark:border-slate-800'
-                : 'text-slate-800 dark:text-slate-200 hover:text-slate-950 dark:hover:text-white hover:bg-slate-300/60 dark:hover:bg-slate-700/60'
-            }`}
-          >
-            <Server className="w-3.5 h-3.5" /> SMTP Settings
-          </button>
-          <button
-            onClick={() => setActiveTab('mailer')}
-            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 ${
-              activeTab === 'mailer'
-                ? 'bg-white dark:bg-slate-900 text-indigo-600 dark:text-indigo-400 shadow-md font-black border border-slate-200 dark:border-slate-800'
-                : 'text-slate-800 dark:text-slate-200 hover:text-slate-950 dark:hover:text-white hover:bg-slate-300/60 dark:hover:bg-slate-700/60'
-            }`}
-          >
-            <Send className="w-3.5 h-3.5" /> Custom Mailer
-          </button>
-        </div>
+        <button
+          onClick={fetchEmailData}
+          className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition-all shadow-sm flex items-center gap-2 self-start md:self-auto"
+        >
+          <RefreshCw className={`w-3.5 h-3.5 ${loadingLogs ? 'animate-spin' : ''}`} /> Refresh Telemetry
+        </button>
+      </div>
+
+      {/* Redesigned Premium Segmented Tab Navigation Cards */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3.5 bg-slate-200/70 dark:bg-slate-900/90 p-2.5 rounded-2xl border border-slate-300 dark:border-slate-800 shadow-sm">
+        {tabItems.map((tab) => {
+          const Icon = tab.icon;
+          const isActive = activeTab === tab.id;
+          return (
+            <button
+              key={tab.id}
+              type="button"
+              onClick={() => setActiveTab(tab.id as any)}
+              className={`p-3.5 rounded-xl transition-all duration-200 text-left flex items-center justify-between border ${
+                isActive
+                  ? 'bg-white dark:bg-slate-950 border-indigo-500/80 shadow-md ring-2 ring-indigo-500/30 text-slate-900 dark:text-white font-black'
+                  : 'bg-white dark:bg-slate-800/90 border-slate-300 dark:border-slate-700 text-slate-900 dark:text-slate-100 hover:bg-slate-50 dark:hover:bg-slate-700/80 hover:border-slate-400 dark:hover:border-slate-600 font-bold'
+              }`}
+            >
+              <div className="flex items-center gap-3">
+                <div className={`p-2.5 rounded-xl ${tab.bgColor}`}>
+                  <Icon className="w-4 h-4" />
+                </div>
+                <div>
+                  <span className="text-xs font-black block tracking-tight text-slate-900 dark:text-white">
+                    {tab.label}
+                  </span>
+                  <span className="text-[10px] text-slate-500 dark:text-slate-400 font-medium">
+                    {tab.badge}
+                  </span>
+                </div>
+              </div>
+              <ChevronRight
+                className={`w-4 h-4 transition-transform ${
+                  isActive ? 'text-indigo-500 translate-x-0.5' : 'text-slate-400 opacity-60'
+                }`}
+              />
+            </button>
+          );
+        })}
       </div>
 
       {/* TAB 1: TELEMETRY & LOGS */}
