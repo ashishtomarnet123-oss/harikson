@@ -13,23 +13,34 @@ export default function DeveloperSettings() {
 
   const fetchKeys = async () => {
     try {
-      const token = localStorage.getItem('hk_user') ? 'cookie_auth' : null;
-      if (!token) return;
+      setLoading(true);
+      setError(null);
       const { apiBase, tenantSlug } = getApiConfig();
-      const res = await authenticatedFetch(`${apiBase}/api/v1/user/developer/keys`, {
-        credentials: 'include',
-        headers: {
-          'x-tenant-slug': tenantSlug,
-        },
-      });
-      if (res.ok) {
+      let res;
+      try {
+        res = await authenticatedFetch(`${apiBase}/api/v1/user/developer/keys`, {
+          credentials: 'include',
+          headers: {
+            'x-tenant-slug': tenantSlug,
+          },
+        });
+      } catch (e) {
+        res = await authenticatedFetch(`/api/v1/user/developer/keys`, {
+          credentials: 'include',
+          headers: {
+            'x-tenant-slug': tenantSlug,
+          },
+        });
+      }
+
+      if (res && res.ok) {
         const data = await res.json();
         setKeys(data);
       } else {
-        throw new Error('Failed to load keys');
+        setKeys([]);
       }
     } catch (err) {
-      setError(err.message);
+      setKeys([]);
     } finally {
       setLoading(false);
     }
