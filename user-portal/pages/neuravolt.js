@@ -451,7 +451,7 @@ export default function NeuravoltLandingPage() {
                   <div class="dash-user-info">
                     <RotateCw style={{ width: 13, height: 13, cursor: 'pointer' }} />
                     <Bell style={{ width: 13, height: 13, cursor: 'pointer' }} />
-                    <img src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=80" class="avatar-img" alt="User" />
+                    <img src="/assets/user-avatar.jpg" class="avatar-img" alt="User" />
                     <span style={{ fontWeight: 600, fontSize: '0.78rem', color: '#0F172A' }}>Team Neuravolt <ChevronDown style={{ width: 12, height: 12 }} /></span>
                   </div>
                 </div>
@@ -705,7 +705,7 @@ export default function NeuravoltLandingPage() {
 
                   <div class="user-msg-row">
                     <div class="user-bubble">{currentDemo.userPrompt}</div>
-                    <img src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=80" class="user-avatar-sm" alt="User" />
+                    <img src="/assets/user-avatar.jpg" class="user-avatar-sm" alt="User" />
                   </div>
 
                   <div class="ai-response-card">
@@ -1020,7 +1020,7 @@ export default function NeuravoltLandingPage() {
                 </div>
                 <Link href="/signup" class="story-case-link">Read Case Study →</Link>
               </div>
-              <img src="https://images.unsplash.com/photo-1560250097-0b93528c311a?w=300&auto=format&fit=crop&q=80" class="story-portrait-img" alt="Legal Executive" />
+              <img src="/assets/legal-executive.jpg" class="story-portrait-img" alt="Legal Executive" />
             </div>
 
             {/* Story 2 */}
@@ -1035,7 +1035,7 @@ export default function NeuravoltLandingPage() {
                 </div>
                 <Link href="/signup" class="story-case-link">Read Case Study →</Link>
               </div>
-              <img src="https://images.unsplash.com/photo-1622253692010-333f2da6031d?w=300&auto=format&fit=crop&q=80" class="story-portrait-img" alt="Healthcare Doctor" />
+              <img src="/assets/doctor.jpg" class="story-portrait-img" alt="Healthcare Doctor" />
             </div>
 
             {/* Story 3 */}
@@ -1050,7 +1050,7 @@ export default function NeuravoltLandingPage() {
                 </div>
                 <Link href="/signup" class="story-case-link">Read Case Study →</Link>
               </div>
-              <img src="https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?w=300&auto=format&fit=crop&q=80" class="story-portrait-img" alt="Fintech Executive" />
+              <img src="/assets/fintech-executive.jpg" class="story-portrait-img" alt="Fintech Executive" />
             </div>
 
             {/* Waitlist Card */}
@@ -1063,9 +1063,9 @@ export default function NeuravoltLandingPage() {
 
               <div class="waitlist-avatars-row">
                 <div class="avatar-stack">
-                  <img src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=50&auto=format&fit=crop&q=80" alt="Avatar" />
-                  <img src="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=50&auto=format&fit=crop&q=80" alt="Avatar" />
-                  <img src="https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=50&auto=format&fit=crop&q=80" alt="Avatar" />
+                  <img src="/assets/user-avatar.jpg" alt="Avatar" />
+                  <img src="/assets/avatar2.jpg" alt="Avatar" />
+                  <img src="/assets/avatar3.jpg" alt="Avatar" />
                 </div>
                 <div class="waitlist-count-pill">
                   <strong>+1.2K</strong> Join 1,200+ others
@@ -1202,9 +1202,9 @@ export default function NeuravoltLandingPage() {
                 <a href="mailto:sales@neuravolt.cloud" class="btn-hero-primary" style={{ width: '100%' }}>Talk to Sales Team</a>
                 <div class="waitlist-avatars-row" style={{ justifyContent: 'center', marginTop: 8 }}>
                   <div class="avatar-stack">
-                    <img src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=50&auto=format&fit=crop&q=80" alt="Team" />
-                    <img src="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=50&auto=format&fit=crop&q=80" alt="Team" />
-                    <img src="https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=50&auto=format&fit=crop&q=80" alt="Team" />
+                    <img src="/assets/user-avatar.jpg" alt="Team" />
+                    <img src="/assets/avatar2.jpg" alt="Team" />
+                    <img src="/assets/avatar3.jpg" alt="Team" />
                   </div>
                   <span style={{ fontSize: '0.72rem', color: 'var(--text-dim)' }}>India based team</span>
                 </div>
