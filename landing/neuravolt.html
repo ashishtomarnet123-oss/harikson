@@ -284,34 +284,37 @@
       <div class="trust-outer-card">
         <div class="trust-title">Trusted by businesses across India</div>
 
-        <div class="trust-logos-exact-row">
+        <div class="trust-logos-exact-row" style="display:flex; align-items:center; justify-content:space-around; gap:32px; flex-wrap:wrap; max-width:1080px; margin:0 auto;">
           <!-- 1. DPDP COMPLIANT -->
-          <div class="trust-badge-exact dpdp-badge">
-            <i data-lucide="shield-check" style="color:#16A34A;width:32px;height:32px;"></i>
-            <div class="dpdp-text-col">
-              <span class="dpdp-bold-title">DPDP</span>
-              <span class="dpdp-sub-label">COMPLIANT</span>
+          <div class="trust-badge-exact dpdp-badge" style="display:flex; align-items:center; gap:12px; height:48px;">
+            <i data-lucide="shield-check" style="color:#16A34A;width:32px;height:32px;flex-shrink:0;"></i>
+            <div class="dpdp-text-col" style="display:flex; flex-direction:column; line-height:1.1;">
+              <span class="dpdp-bold-title" style="font-size:0.95rem; font-weight:800; color:#0F172A;">DPDP</span>
+              <span class="dpdp-sub-label" style="font-size:0.68rem; font-weight:700; color:var(--text-dim); letter-spacing:0.05em;">COMPLIANT</span>
             </div>
           </div>
 
-          <!-- 2. Built in INDIA + Flag Image -->
-          <div class="trust-badge-exact india-badge-flex">
-            <div class="dpdp-text-col" style="align-items:flex-start;">
-              <span style="font-size:0.75rem; font-weight:600; color:var(--text-dim);">Built in</span>
-              <span style="font-size:1.05rem; font-weight:800; color:#0F172A; letter-spacing:0.04em;">INDIA</span>
+          <!-- 2. Built in INDIA -->
+          <div class="trust-badge-exact india-badge-flex" style="display:flex; align-items:center; gap:12px; height:48px;">
+            <img src="assets/india-flag.jpg" class="flag-img-thumb" alt="India Flag" style="width:30px; height:20px; border-radius:4px; object-fit:cover; box-shadow:0 1px 3px rgba(0,0,0,0.12); flex-shrink:0;">
+            <div class="dpdp-text-col" style="display:flex; flex-direction:column; line-height:1.1;">
+              <span style="font-size:0.68rem; font-weight:600; color:var(--text-dim);">Built in</span>
+              <span style="font-size:0.95rem; font-weight:800; color:#0F172A; letter-spacing:0.04em;">INDIA</span>
             </div>
-            <img src="assets/india-flag.jpg" class="flag-img-thumb" alt="India Flag">
           </div>
 
-          <!-- 3. Razorpay SECURED PAYMENTS Logo -->
-          <div class="trust-badge-exact" style="flex-direction:column; align-items:flex-start;">
-            <img src="assets/razorpay.png" class="razorpay-logo-img" alt="Razorpay">
-            <span style="font-size:0.65rem; font-weight:700; color:var(--text-dim); letter-spacing:0.04em; margin-top:2px;">SECURED PAYMENTS</span>
+          <!-- 3. Razorpay SECURED PAYMENTS -->
+          <div class="trust-badge-exact" style="display:flex; align-items:center; gap:12px; height:48px;">
+            <img src="assets/razorpay.png" class="razorpay-logo-img" alt="Razorpay" style="height:20px; object-fit:contain; flex-shrink:0;">
+            <div class="dpdp-text-col" style="display:flex; flex-direction:column; line-height:1.1;">
+              <span style="font-size:0.68rem; font-weight:600; color:var(--text-dim);">Secured by</span>
+              <span style="font-size:0.95rem; font-weight:800; color:#0F172A; letter-spacing:0.04em;">RAZORPAY</span>
+            </div>
           </div>
 
-          <!-- 4. Startup India Logo -->
-          <div class="trust-badge-exact">
-            <img src="assets/startup-india.png" class="startup-india-logo-img" alt="Startup India">
+          <!-- 4. Startup India -->
+          <div class="trust-badge-exact" style="display:flex; align-items:center; height:48px;">
+            <img src="assets/startup-india.png" class="startup-india-logo-img" alt="Startup India" style="height:32px; object-fit:contain; flex-shrink:0;">
           </div>
         </div>
       </div>
