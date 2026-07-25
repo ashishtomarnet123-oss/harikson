@@ -1121,30 +1121,17 @@ body {
 .sec-feature-item {
   display: flex;
   align-items: flex-start;
-  gap: 12px;
-  background: rgba(255, 255, 255, 0.6);
-  border: 1px solid rgba(226, 232, 240, 0.8);
-  border-radius: 12px;
-  padding: 12px 14px;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.01);
-  transition: all 0.25s ease;
-}
-
-.sec-feature-item:hover {
-  background: #fff;
-  border-color: #BFDBFE;
-  box-shadow: 0 10px 25px -5px rgba(37,99,235,0.06);
-  transform: translateY(-2px);
+  gap: 10px;
 }
 
 .sec-feature-icon {
-  width: 26px;
-  height: 26px;
-  border-radius: 8px;
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 0.85rem;
+  font-size: 0.8rem;
   flex-shrink: 0;
 }
 
@@ -1168,7 +1155,7 @@ body {
 .sec-feature-desc {
   font-size: 0.78rem;
   color: var(--text-dim);
-  margin-top: 3px;
+  margin-top: 2px;
 }
 
 .shield-3d-visual {
