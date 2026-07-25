@@ -430,31 +430,39 @@
             <p class="bento-desc">Upload PDFs, docs, URLs and connectors. Encrypted with AES-256-GCM encryption.</p>
             <a href="#" class="bento-link">Explore →</a>
           </div>
-          <div class="bento-preview-box" style="display:flex; flex-direction:column; gap:12px;">
-            <div style="display:flex; gap:8px;">
-              <!-- PDF Badge -->
-              <div style="background:rgba(239, 68, 68, 0.06); border:1px solid rgba(239, 68, 68, 0.15); border-radius:6px; padding:4px 8px; display:inline-flex; align-items:center; gap:5px; color:#DC2626; font-size:0.7rem; font-weight:700;">
-                <i data-lucide="file-text" style="width:12px; height:12px; stroke-width:2.5;"></i>
-                PDF
-              </div>
-              
-              <!-- DOCX Badge -->
-              <div style="background:rgba(37, 99, 235, 0.06); border:1px solid rgba(37, 99, 235, 0.15); border-radius:6px; padding:4px 8px; display:inline-flex; align-items:center; gap:5px; color:#1D4ED8; font-size:0.7rem; font-weight:700;">
-                <i data-lucide="file-edit" style="width:12px; height:12px; stroke-width:2.5;"></i>
-                DOCX
-              </div>
-              
-              <!-- URL Badge -->
-              <div style="background:rgba(14, 116, 144, 0.06); border:1px solid rgba(14, 116, 144, 0.15); border-radius:6px; padding:4px 8px; display:inline-flex; align-items:center; gap:5px; color:#0E7490; font-size:0.7rem; font-weight:700;">
-                <i data-lucide="link" style="width:12px; height:12px; stroke-width:2.5;"></i>
-                URL
-              </div>
+          <div class="bento-preview-box" style="position:relative; height:95px; width:100%; overflow:hidden;">
+            <!-- SVG connection lines (HD crisp coordinates) -->
+            <svg width="100%" height="100%" viewBox="0 0 300 95" preserveAspectRatio="none" style="position:absolute; top:0; left:0; pointer-events:none; z-index:1;">
+              <!-- PDF to DB -->
+              <path d="M 55,25 Q 90,75 150,75" fill="none" stroke="#EF4444" stroke-width="1.5" stroke-dasharray="3,4" opacity="0.5" />
+              <!-- DOCX to DB -->
+              <path d="M 150,25 L 150,75" fill="none" stroke="#3B82F6" stroke-width="1.5" stroke-dasharray="3,4" opacity="0.5" />
+              <!-- URL to DB -->
+              <path d="M 245,25 Q 210,75 150,75" fill="none" stroke="#0E7490" stroke-width="1.5" stroke-dasharray="3,4" opacity="0.5" />
+            </svg>
+            
+            <!-- Nodes -->
+            <!-- PDF Badge (Top Left) -->
+            <div style="position:absolute; left:18%; top:25px; transform:translate(-50%, -50%); z-index:2; background:rgba(239, 68, 68, 0.06); border:1px solid rgba(239, 68, 68, 0.15); border-radius:6px; padding:4px 8px; display:inline-flex; align-items:center; gap:5px; color:#DC2626; font-size:0.7rem; font-weight:700; box-shadow:0 2px 6px rgba(239,68,68,0.05);">
+              <i data-lucide="file-text" style="width:12px; height:12px; stroke-width:2.5;"></i>
+              PDF
             </div>
             
-            <div style="display:flex; gap:8px; margin-top:2px;">
-              <div style="width:28px; height:28px; border-radius:50%; background:#F1F5F9; border:1px solid #E2E8F0; display:flex; align-items:center; justify-content:center; box-shadow:0 1px 2px rgba(0,0,0,0.02);"><i data-lucide="cloud" style="width:13px; height:13px; color:#64748B;"></i></div>
-              <div style="width:28px; height:28px; border-radius:50%; background:#F1F5F9; border:1px solid #E2E8F0; display:flex; align-items:center; justify-content:center; box-shadow:0 1px 2px rgba(0,0,0,0.02);"><i data-lucide="hard-drive" style="width:13px; height:13px; color:#64748B;"></i></div>
-              <div style="width:28px; height:28px; border-radius:50%; background:#F1F5F9; border:1px solid #E2E8F0; display:flex; align-items:center; justify-content:center; box-shadow:0 1px 2px rgba(0,0,0,0.02);"><i data-lucide="upload" style="width:13px; height:13px; color:#64748B;"></i></div>
+            <!-- DOCX Badge (Top Center) -->
+            <div style="position:absolute; left:50%; top:25px; transform:translate(-50%, -50%); z-index:2; background:rgba(37, 99, 235, 0.06); border:1px solid rgba(37, 99, 235, 0.15); border-radius:6px; padding:4px 8px; display:inline-flex; align-items:center; gap:5px; color:#1D4ED8; font-size:0.7rem; font-weight:700; box-shadow:0 2px 6px rgba(37,99,235,0.05);">
+              <i data-lucide="file-edit" style="width:12px; height:12px; stroke-width:2.5;"></i>
+              DOCX
+            </div>
+            
+            <!-- URL Badge (Top Right) -->
+            <div style="position:absolute; left:82%; top:25px; transform:translate(-50%, -50%); z-index:2; background:rgba(14, 116, 144, 0.06); border:1px solid rgba(14, 116, 144, 0.15); border-radius:6px; padding:4px 8px; display:inline-flex; align-items:center; gap:5px; color:#0E7490; font-size:0.7rem; font-weight:700; box-shadow:0 2px 6px rgba(14,116,144,0.05);">
+              <i data-lucide="link" style="width:12px; height:12px; stroke-width:2.5;"></i>
+              URL
+            </div>
+            
+            <!-- Central Vector DB Node (Bottom Center) -->
+            <div style="position:absolute; left:50%; top:75px; transform:translate(-50%, -50%); z-index:2; width:34px; height:34px; background:#EFF6FF; border:1.5px solid #BFDBFE; border-radius:50%; display:flex; align-items:center; justify-content:center; box-shadow:0 4px 12px rgba(37,99,235,0.15);">
+              <i data-lucide="database" style="width:16px;height:16px;color:#2563EB;"></i>
             </div>
           </div>
         </div>
