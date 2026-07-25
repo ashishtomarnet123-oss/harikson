@@ -2426,7 +2426,7 @@ const handleUpdateUserPlan = async (req, res) => {
     logger.error('Failed to update user plan:', err);
     res.status(500).json({ error: 'Failed to update user plan' });
   }
-});
+};
 
 // DELETE /admin/users/:userId - Permanently delete a user
 app.delete('/admin/users/:userId', async (req, res) => {
