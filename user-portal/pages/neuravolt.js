@@ -246,8 +246,22 @@ export default function NeuravoltLandingPage() {
         .sec-feature-title { font-size: 0.88rem; font-weight: 700; color: #0F172A; line-height: 1.2; }
         .sec-feature-desc { font-size: 0.75rem; color: var(--text-dim); margin-top: 2px; }
 
-        .shield-3d-visual { width: 110px; height: 130px; background: linear-gradient(135deg, #2563EB, #1D4ED8); border-radius: 20px; display: flex; flex-direction: column; align-items: center; justify-content: center; color: #fff; box-shadow: 0 10px 25px rgba(37,99,235,0.3); flex-shrink: 0; }
-        .shield-badge-3d { font-size: 2.2rem; font-weight: 900; }
+        /* CREATIVE 3D SHIELD EMBLEM */
+        .shield-3d-visual { position: relative; width: 190px; height: 210px; display: flex; align-items: center; justify-content: center; perspective: 1000px; flex-shrink: 0; }
+        .shield-aura-glow { position: absolute; width: 200px; height: 200px; border-radius: 50%; background: radial-gradient(circle, rgba(37, 99, 235, 0.35) 0%, rgba(37, 99, 235, 0) 70%); animation: auraPulse 3s infinite alternate ease-in-out; pointer-events: none; }
+        @keyframes auraPulse { 0% { transform: scale(0.9); opacity: 0.5; } 100% { transform: scale(1.15); opacity: 0.95; } }
+        .shield-card-3d { width: 145px; height: 165px; background: linear-gradient(145deg, #3B82F6 0%, #1D4ED8 55%, #1E3A8A 100%); border-radius: 24px; display: flex; flex-direction: column; align-items: center; justify-content: space-between; padding: 16px 12px; color: #FFFFFF; box-shadow: 0 20px 45px -10px rgba(29, 78, 216, 0.45), 0 8px 16px rgba(0, 0, 0, 0.1), inset 0 2px 3px rgba(255, 255, 255, 0.45), inset 0 -4px 10px rgba(0, 0, 0, 0.25); border: 1px solid rgba(255, 255, 255, 0.25); position: relative; z-index: 2; transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); transform-style: preserve-3d; }
+        .shield-3d-visual:hover .shield-card-3d { transform: rotateY(-10deg) rotateX(8deg) translateY(-6px); box-shadow: 0 30px 60px -12px rgba(29, 78, 216, 0.55), inset 0 3px 4px rgba(255, 255, 255, 0.6), inset 0 -4px 12px rgba(0, 0, 0, 0.3); }
+        .shield-top-pill { display: inline-flex; align-items: center; gap: 5px; background: rgba(255, 255, 255, 0.18); backdrop-filter: blur(8px); border: 1px solid rgba(255, 255, 255, 0.3); border-radius: 20px; padding: 3px 8px; font-size: 0.62rem; font-weight: 800; letter-spacing: 0.05em; color: #FFFFFF; }
+        .shield-live-dot { width: 6px; height: 6px; background: #10B981; border-radius: 50%; box-shadow: 0 0 8px #10B981; }
+        .shield-center-circle { width: 58px; height: 58px; border-radius: 50%; background: linear-gradient(135deg, #10B981 0%, #059669 100%); display: flex; align-items: center; justify-content: center; box-shadow: 0 8px 20px rgba(16, 185, 129, 0.4), inset 0 2px 2px rgba(255, 255, 255, 0.5); border: 2px solid rgba(255, 255, 255, 0.4); margin: 6px 0; position: relative; }
+        .shield-check-icon { width: 30px; height: 30px; color: #FFFFFF; filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.15)); }
+        .shield-bottom-label { font-size: 0.68rem; font-weight: 800; letter-spacing: 0.08em; color: rgba(255, 255, 255, 0.95); text-transform: uppercase; }
+        .shield-float-tag { position: absolute; background: #FFFFFF; border: 1px solid #E2E8F0; border-radius: 10px; padding: 5px 9px; font-size: 0.65rem; font-weight: 700; color: #0F172A; display: flex; align-items: center; gap: 5px; box-shadow: 0 8px 20px rgba(0, 0, 0, 0.08); z-index: 3; transition: transform 0.3s ease; }
+        .shield-float-tag.top-right { top: 10px; right: -10px; transform: translateZ(20px); }
+        .shield-float-tag.bottom-left { bottom: 12px; left: -12px; transform: translateZ(20px); }
+        .shield-3d-visual:hover .shield-float-tag.top-right { transform: translateZ(35px) translateY(-3px); }
+        .shield-3d-visual:hover .shield-float-tag.bottom-left { transform: translateZ(35px) translateY(3px); }
 
         /* CUSTOMER STORIES */
         .stories-section { padding: 40px 0; }
@@ -995,7 +1009,32 @@ export default function NeuravoltLandingPage() {
               </div>
 
               <div class="shield-3d-visual">
-                <div class="shield-badge-3d">✓</div>
+                <div class="shield-aura-glow"></div>
+                
+                <div class="shield-float-tag top-right">
+                  <Lock style={{ width: 12, height: 12, color: '#2563EB' }} />
+                  <span>AES-256</span>
+                </div>
+                
+                <div class="shield-card-3d">
+                  <div class="shield-top-pill">
+                    <span class="shield-live-dot"></span>
+                    <span>DPDP 100%</span>
+                  </div>
+                  
+                  <div class="shield-center-circle">
+                    <svg class="shield-check-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round">
+                      <polyline points="20 6 9 17 4 12"></polyline>
+                    </svg>
+                  </div>
+                  
+                  <div class="shield-bottom-label">Verified Data</div>
+                </div>
+
+                <div class="shield-float-tag bottom-left">
+                  <ShieldCheck style={{ width: 12, height: 12, color: '#10B981' }} />
+                  <span>RLS Active</span>
+                </div>
               </div>
             </div>
           </div>
