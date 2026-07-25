@@ -918,10 +918,14 @@
         <div class="pricing-sub">All plans include DPDP compliance, encryption, RLS and 24/7 support.</div>
       </div>
 
-      <!-- Billing Toggle -->
+      <!-- Billing Toggle Switch -->
       <div class="billing-toggle-container">
-        <span class="toggle-pill-active">Monthly</span>
-        <span class="toggle-pill-inactive">Yearly (Save 20%)</span>
+        <div class="billing-switch-bg">
+          <button id="toggle-monthly" class="billing-switch-btn active">Monthly</button>
+          <button id="toggle-yearly" class="billing-switch-btn inactive">
+            Yearly <span class="save-badge">Save 20%</span>
+          </button>
+        </div>
       </div>
 
       <!-- 4 Cards Grid -->
@@ -931,7 +935,7 @@
           <div>
             <div class="plan-title">Starter</div>
             <div class="plan-sub">Perfect for startups and small teams</div>
-            <div class="plan-amount">₹999 <span>/month</span></div>
+            <div class="plan-amount"><span id="starter-price">₹999</span> <span id="starter-period" style="font-size:0.9rem; font-weight:500; color:var(--text-muted);">/month</span></div>
             <div class="tax-label">GST included</div>
             <ul class="plan-feature-list">
               <li><span class="check-blue">✓</span> 5 AI Agents</li>
@@ -952,7 +956,7 @@
           <div>
             <div class="plan-title">Growth</div>
             <div class="plan-sub">For growing businesses and teams</div>
-            <div class="plan-amount">₹4,999 <span>/month</span></div>
+            <div class="plan-amount"><span id="growth-price">₹4,999</span> <span id="growth-period" style="font-size:0.9rem; font-weight:500; color:var(--text-muted);">/month</span></div>
             <div class="tax-label">GST included</div>
             <ul class="plan-feature-list">
               <li><span class="check-blue">✓</span> 25 AI Agents</li>
@@ -1226,6 +1230,38 @@
           </div>
         `;
       }
+      
+      // Billing Toggle Logic
+      const btnMonthly = document.getElementById('toggle-monthly');
+      const btnYearly = document.getElementById('toggle-yearly');
+
+      const starterPrice = document.getElementById('starter-price');
+      const growthPrice = document.getElementById('growth-price');
+      const starterPeriod = document.getElementById('starter-period');
+      const growthPeriod = document.getElementById('growth-period');
+
+      if (btnMonthly && btnYearly) {
+        btnMonthly.addEventListener('click', () => {
+          btnMonthly.className = 'billing-switch-btn active';
+          btnYearly.className = 'billing-switch-btn inactive';
+          
+          starterPrice.innerText = '₹999';
+          growthPrice.innerText = '₹4,999';
+          starterPeriod.innerHTML = '/month';
+          growthPeriod.innerHTML = '/month';
+        });
+
+        btnYearly.addEventListener('click', () => {
+          btnYearly.className = 'billing-switch-btn active';
+          btnMonthly.className = 'billing-switch-btn inactive';
+          
+          starterPrice.innerText = '₹799';
+          growthPrice.innerText = '₹3,999';
+          starterPeriod.innerHTML = '/month <span style="font-size:0.62rem; display:block; color:var(--text-dim); font-weight:normal; margin-top:2px;">(billed ₹9,588 annually)</span>';
+          growthPeriod.innerHTML = '/month <span style="font-size:0.62rem; display:block; color:var(--text-dim); font-weight:normal; margin-top:2px;">(billed ₹47,988 annually)</span>';
+        });
+      }
+
       lucide.createIcons();
     }
   </script>

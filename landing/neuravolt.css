@@ -1427,24 +1427,53 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 12px;
   margin-bottom: 40px;
 }
 
-.toggle-pill-active {
-  background: #EFF6FF;
-  border: 1px solid #BFDBFE;
-  color: #2563EB;
-  padding: 6px 16px;
-  border-radius: 20px;
-  font-size: 0.88rem;
-  font-weight: 700;
+.billing-switch-bg {
+  background: #F1F5F9;
+  border-radius: 30px;
+  padding: 4px;
+  display: inline-flex;
+  align-items: center;
+  position: relative;
+  cursor: pointer;
+  user-select: none;
 }
 
-.toggle-pill-inactive {
-  font-size: 0.88rem;
-  font-weight: 600;
-  color: var(--text-muted);
+.billing-switch-btn {
+  border: none;
+  border-radius: 26px;
+  padding: 6px 18px;
+  font-size: 0.85rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.25s ease;
+}
+
+.billing-switch-btn.active {
+  background: #FFFFFF;
+  color: #2563EB;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+}
+
+.billing-switch-btn.inactive {
+  background: transparent;
+  color: #64748B;
+}
+
+.billing-switch-btn.inactive:hover {
+  color: #0F172A;
+}
+
+.save-badge {
+  background: #EFF6FF;
+  color: #2563EB;
+  font-size: 0.65rem;
+  font-weight: 800;
+  padding: 2px 6px;
+  border-radius: 4px;
+  margin-left: 6px;
 }
 
 .pricing-cards-grid {
@@ -1463,13 +1492,25 @@ body {
   flex-direction: column;
   justify-content: space-between;
   position: relative;
-  box-shadow: 0 4px 15px -3px rgba(0, 0, 0, 0.03);
+  box-shadow: 0 4px 15px -3px rgba(0, 0, 0, 0.02);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.price-card:hover {
+  transform: translateY(-6px);
+  box-shadow: 0 20px 40px -15px rgba(0, 0, 0, 0.06);
+  border-color: #BFDBFE;
 }
 
 .price-card.popular {
   border-color: #2563EB;
   border-width: 2px;
   box-shadow: 0 10px 30px rgba(37, 99, 235, 0.12);
+}
+
+.price-card.popular:hover {
+  border-color: #2563EB;
+  box-shadow: 0 25px 50px -12px rgba(37, 99, 235, 0.18);
 }
 
 .most-popular-badge {
