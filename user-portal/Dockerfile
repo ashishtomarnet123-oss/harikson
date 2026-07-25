@@ -21,6 +21,7 @@ WORKDIR /usr/src/app
 COPY --from=builder /usr/src/app/package*.json ./
 RUN rm -f package-lock.json && npm install --omit=dev --no-audit --no-fund
 
+COPY --from=builder /usr/src/app/public ./public
 COPY --from=builder /usr/src/app/.next ./.next
 
 EXPOSE 3002
