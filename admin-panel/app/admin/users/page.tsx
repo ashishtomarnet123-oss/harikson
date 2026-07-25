@@ -24,6 +24,7 @@ import {
   Building2,
   Briefcase,
   Globe,
+  RefreshCw,
 } from 'lucide-react';
 
 interface User {
