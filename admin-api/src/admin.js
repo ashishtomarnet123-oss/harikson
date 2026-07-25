@@ -2316,6 +2316,12 @@ const handleSendCustomMail = async (req, res) => {
 
       if (result.success) {
         dispatchedCount++;
+      } else {
+        errors.push({ email, error: result.error });
+      }
+    }
+
+    res.json({
       success: dispatchedCount > 0,
       message: `Dispatched ${dispatchedCount} email(s) out of ${recipients.length} successfully`,
       dispatchedCount,
