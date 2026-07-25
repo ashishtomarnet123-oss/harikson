@@ -2,6 +2,7 @@ import logger from '../utils/logger.js';
 import { Resend } from 'resend';
 import Redis from 'ioredis';
 import pg from 'pg';
+import nodemailer from 'nodemailer';
 
 const { Pool } = pg;
 const pool = new Pool({
@@ -14,7 +15,7 @@ const resend = new Resend(process.env.RESEND_API_KEY || 're_dev_key');
 const redis = new Redis(process.env.REDIS_URL || 'redis://redis:6379');
 
 // Helper to log all email dispatches into email_logs table
-async function logEmailDispatch(recipient, emailType, subject, status, errorMessage = null, resendId = null, metadata = {}) {
+export async function logEmailDispatch(recipient, emailType, subject, status, errorMessage = null, resendId = null, metadata = {}) {
   try {
     await pool.query(
       `INSERT INTO email_logs (recipient, email_type, subject, status, error_message, resend_id, metadata, created_at)
@@ -23,6 +24,157 @@ async function logEmailDispatch(recipient, emailType, subject, status, errorMess
     );
   } catch (err) {
     logger.warn('[EMAIL LOG INSERT FAILED]:', err.message);
+  }
+}
+
+// Helper to fetch active SMTP config from database
+export async function getActiveSmtpConfig() {
+  try {
+    const res = await pool.query('SELECT * FROM smtp_configs WHERE is_active = true ORDER BY updated_at DESC LIMIT 1');
+    if (res.rows.length > 0) {
+      return res.rows[0];
+    }
+  } catch (err) {
+    logger.warn('[SMTP CONFIG FETCH FAILED]:', err.message);
+  }
+  return {
+    provider: 'resend',
+    resend_api_key: process.env.RESEND_API_KEY || 're_dev_key',
+    from_email: 'noreply@neuravolt.cloud',
+    from_name: 'Neuravolt Cloud'
+  };
+}
+
+// Helper to test SMTP connection
+export async function verifySmtpConnection(config) {
+  if (config.provider === 'resend') {
+    if (!config.resend_api_key || config.resend_api_key === 're_dev_key') {
+      return { success: false, error: 'Invalid or default dev Resend API key provided' };
+    }
+    return { success: true, message: 'Resend API key configured' };
+  }
+
+  try {
+    const transporter = nodemailer.createTransport({
+      host: config.smtp_host,
+      port: parseInt(config.smtp_port || 587),
+      secure: config.smtp_secure !== false && parseInt(config.smtp_port) === 465,
+      auth: config.smtp_user ? {
+        user: config.smtp_user,
+        pass: config.smtp_pass
+      } : undefined,
+      tls: {
+        rejectUnauthorized: false
+      }
+    });
+
+    await transporter.verify();
+    return { success: true, message: 'SMTP server connection verified successfully!' };
+  } catch (err) {
+    logger.error('[SMTP VERIFICATION ERROR]:', err.message);
+    return { success: false, error: err.message || 'Failed to connect to SMTP server' };
+  }
+}
+
+// Universal Email Dispatcher (Supports both Resend & Custom SMTP)
+export async function sendEmail({ to, subject, html, text, emailType = 'custom', metadata = {} }) {
+  if (!(await checkEmailRateLimit(to))) {
+    await logEmailDispatch(to, emailType, subject, 'failed', 'Rate limit exceeded. Max 3 emails per hour.');
+    return { success: false, error: 'Rate limit exceeded. Max 3 emails per hour.' };
+  }
+
+  const config = await getActiveSmtpConfig();
+  const fromAddress = `"${config.from_name || 'Neuravolt Cloud'}" <${config.from_email || 'noreply@neuravolt.cloud'}>`;
+
+  if (config.provider === 'smtp') {
+    try {
+      const transporter = nodemailer.createTransport({
+        host: config.smtp_host,
+        port: parseInt(config.smtp_port || 587),
+        secure: config.smtp_secure !== false && parseInt(config.smtp_port) === 465,
+        auth: config.smtp_user ? {
+          user: config.smtp_user,
+          pass: config.smtp_pass
+        } : undefined,
+        tls: {
+          rejectUnauthorized: false
+        }
+      });
+
+      const info = await transporter.sendMail({
+        from: fromAddress,
+        to,
+        subject,
+        html,
+        text
+      });
+
+      await logEmailDispatch(to, emailType, subject, 'sent', null, info.messageId, metadata);
+      return { success: true, messageId: info.messageId };
+    } catch (err) {
+      logger.error(`[SMTP SEND ERROR - ${emailType}]:`, err.message);
+      await logEmailDispatch(to, emailType, subject, 'failed', err.message, null, metadata);
+      return { success: false, error: err.message || 'Failed to send email via SMTP' };
+    }
+  } else {
+    // Fallback to Resend SDK
+    const resendClient = config.resend_api_key ? new Resend(config.resend_api_key) : resend;
+    try {
+      const { data, error } = await resendClient.emails.send({
+        from: fromAddress,
+        to,
+        subject,
+        html
+      });
+
+      if (error) {
+        logger.error(`[RESEND ERROR - ${emailType}]:`, error.message || error);
+        await logEmailDispatch(to, emailType, subject, 'failed', error.message || String(error), null, metadata);
+        return { success: false, error: error.message || 'Failed to send email via Resend' };
+      }
+
+      await logEmailDispatch(to, emailType, subject, 'sent', null, data?.id, metadata);
+      return { success: true, data };
+    } catch (err) {
+      logger.error(`[RESEND ERROR - ${emailType}]:`, err.message);
+      await logEmailDispatch(to, emailType, subject, 'failed', err.message, null, metadata);
+      return { success: false, error: err.message || 'Failed to send email via Resend' };
+    }
+  }
+}
+
+// Render dynamic email template replacing placeholders {{key}}
+export async function renderAndSendTemplate(templateKey, recipient, variables = {}) {
+  try {
+    const templateRes = await pool.query('SELECT * FROM email_templates WHERE template_key = $1 AND is_active = true', [templateKey]);
+    if (templateRes.rows.length === 0) {
+      return { success: false, error: `Email template '${templateKey}' not found or inactive` };
+    }
+
+    const template = templateRes.rows[0];
+    let subject = template.subject;
+    let html = template.body_html;
+    let text = template.body_text || '';
+
+    // Replace variables
+    Object.keys(variables).forEach((key) => {
+      const regex = new RegExp(`\\{\\{${key}\\}\\}`, 'g');
+      subject = subject.replace(regex, variables[key] || '');
+      html = html.replace(regex, variables[key] || '');
+      text = text.replace(regex, variables[key] || '');
+    });
+
+    return await sendEmail({
+      to: recipient,
+      subject,
+      html,
+      text,
+      emailType: templateKey,
+      metadata: { templateKey, variables }
+    });
+  } catch (err) {
+    logger.error(`[TEMPLATE RENDER ERROR - ${templateKey}]:`, err.message);
+    return { success: false, error: 'Failed to render and send email template' };
   }
 }
 
@@ -132,49 +284,29 @@ export const sendWelcomeEmail = async (to, name) => {
 };
 
 export const sendAccountApprovalEmail = async (to, name) => {
-  if (!(await checkEmailRateLimit(to))) {
-    return {
-      success: false,
-      error: 'Rate limit exceeded. Max 3 emails per hour.',
-    };
-  }
-
   const loginUrl = process.env.USER_PORTAL_URL || 'https://app.neuravolt.cloud/login';
+  const result = await renderAndSendTemplate('access_approval', to, { name: name || 'there', email: to, loginUrl });
+  if (result.success) return result;
 
-  try {
-    const { data, error } = await resend.emails.send({
-      from: 'Neuravolt Cloud <noreply@neuravolt.cloud>',
-      to,
-      subject: 'Your Neuravolt Cloud Access Has Been Approved',
-      html: `
-        <div style="font-family: system-ui, -apple-system, sans-serif; padding: 24px; color: #1e293b; max-width: 600px; margin: 0 auto; border: 1px solid #e2e8f0; border-radius: 12px; background: #ffffff;">
-          <h2 style="color: #6366f1; border-bottom: 2px solid #6366f1; padding-bottom: 12px; margin-top: 0;">Access Approved</h2>
-          <p>Hi ${name || 'there'},</p>
-          <p>Your access to Neuravolt Cloud has been approved.</p>
-          <p>You can now sign in using the email address and password you used when requesting access.</p>
-          <div style="text-align: center; margin: 32px 0;">
-            <a href="${loginUrl}" style="display: inline-block; padding: 14px 28px; background-color: #6366f1; color: white; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 15px;">Sign In to Neuravolt Cloud</a>
-          </div>
-          <hr style="border: 0; border-top: 1px solid #e2e8f0; margin: 24px 0;" />
-          <p style="font-size: 12px; color: #94a3b8;">Neuravolt Cloud · Sovereign Enterprise AI Platform</p>
+  // Fallback if template rendering fails
+  return await sendEmail({
+    to,
+    subject: 'Your Neuravolt Cloud Access Has Been Approved',
+    html: `
+      <div style="font-family: system-ui, -apple-system, sans-serif; padding: 24px; color: #1e293b; max-width: 600px; margin: 0 auto; border: 1px solid #e2e8f0; border-radius: 12px; background: #ffffff;">
+        <h2 style="color: #6366f1; border-bottom: 2px solid #6366f1; padding-bottom: 12px; margin-top: 0;">Access Approved</h2>
+        <p>Hi ${name || 'there'},</p>
+        <p>Your access to Neuravolt Cloud has been approved.</p>
+        <p>You can now sign in using the email address and password you used when requesting access.</p>
+        <div style="text-align: center; margin: 32px 0;">
+          <a href="${loginUrl}" style="display: inline-block; padding: 14px 28px; background-color: #6366f1; color: white; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 15px;">Sign In to Neuravolt Cloud</a>
         </div>
-      `,
-    });
-    if (error) {
-      logger.error('[EMAIL SEND ERROR - APPROVAL]:', error.message || error);
-      await logEmailDispatch(to, 'access_approval', 'Your Neuravolt Cloud Access Has Been Approved', 'failed', error.message || String(error));
-      return {
-        success: false,
-        error: error.message || 'Failed to send approval email',
-      };
-    }
-    await logEmailDispatch(to, 'access_approval', 'Your Neuravolt Cloud Access Has Been Approved', 'sent', null, data?.id);
-    return { success: true, data };
-  } catch (err) {
-    logger.error('[EMAIL SEND ERROR - APPROVAL]:', err.message);
-    await logEmailDispatch(to, 'access_approval', 'Your Neuravolt Cloud Access Has Been Approved', 'failed', err.message);
-    return { success: false, error: 'Failed to send approval email' };
-  }
+        <hr style="border: 0; border-top: 1px solid #e2e8f0; margin: 24px 0;" />
+        <p style="font-size: 12px; color: #94a3b8;">Neuravolt Cloud · Sovereign Enterprise AI Platform</p>
+      </div>
+    `,
+    emailType: 'access_approval'
+  });
 };
 
 export const sendInvoiceReceipt = async (to, invoiceDetails) => {

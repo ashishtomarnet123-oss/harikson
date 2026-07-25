@@ -41,7 +41,7 @@ if (!process.env.JWT_SECRET) {
   }
 }
 
-import { sendInvoiceReceipt, sendImpersonationAlert, sendAccountApprovalEmail, sendWelcomeEmail, sendPasswordReset } from './services/email.js';
+import { sendInvoiceReceipt, sendImpersonationAlert, sendAccountApprovalEmail, sendWelcomeEmail, sendPasswordReset, getActiveSmtpConfig, verifySmtpConnection, sendEmail, renderAndSendTemplate } from './services/email.js';
 import { createInvoice } from './services/invoiceService.js';
 
 if (!process.env.JWT_SECRET || process.env.JWT_SECRET.length < 32) {
@@ -2134,6 +2134,207 @@ const handleSendUserEmail = async (req, res) => {
 
 app.post('/admin/users/:userId/send-email', adminAuth, handleSendUserEmail);
 app.post('/v1/admin/users/:userId/send-email', adminAuth, handleSendUserEmail);
+
+// --- EMAIL TEMPLATES CRUD ---
+
+// GET /admin/emails/templates & /v1/admin/emails/templates
+const handleGetTemplates = async (req, res) => {
+  try {
+    const templatesRes = await pool.query('SELECT * FROM email_templates ORDER BY created_at ASC');
+    res.json({ success: true, templates: templatesRes.rows });
+  } catch (err) {
+    logger.error('Failed to fetch email templates:', err);
+    res.status(500).json({ error: 'Failed to fetch email templates' });
+  }
+};
+app.get('/admin/emails/templates', adminAuth, handleGetTemplates);
+app.get('/v1/admin/emails/templates', adminAuth, handleGetTemplates);
+
+// POST /admin/emails/templates & /v1/admin/emails/templates - Create template
+const handleCreateTemplate = async (req, res) => {
+  const { template_key, name, subject, body_html, body_text, available_variables } = req.body;
+  if (!template_key || !name || !subject || !body_html) {
+    return res.status(400).json({ error: 'template_key, name, subject, and body_html are required' });
+  }
+
+  try {
+    const insertRes = await pool.query(
+      `INSERT INTO email_templates (template_key, name, subject, body_html, body_text, available_variables)
+       VALUES ($1, $2, $3, $4, $5, $6)
+       RETURNING *`,
+      [template_key, name, subject, body_html, body_text || '', JSON.stringify(available_variables || [])]
+    );
+    res.status(201).json({ success: true, template: insertRes.rows[0] });
+  } catch (err) {
+    logger.error('Failed to create email template:', err);
+    res.status(500).json({ error: err.message || 'Failed to create email template' });
+  }
+};
+app.post('/admin/emails/templates', adminAuth, handleCreateTemplate);
+app.post('/v1/admin/emails/templates', adminAuth, handleCreateTemplate);
+
+// PUT /admin/emails/templates/:id & /v1/admin/emails/templates/:id - Update template
+const handleUpdateTemplate = async (req, res) => {
+  const { id } = req.params;
+  const { name, subject, body_html, body_text, available_variables, is_active } = req.body;
+
+  try {
+    const updateRes = await pool.query(
+      `UPDATE email_templates
+       SET name = COALESCE($1, name),
+           subject = COALESCE($2, subject),
+           body_html = COALESCE($3, body_html),
+           body_text = COALESCE($4, body_text),
+           available_variables = COALESCE($5, available_variables),
+           is_active = COALESCE($6, is_active),
+           updated_at = NOW()
+       WHERE id = $7
+       RETURNING *`,
+      [name, subject, body_html, body_text, available_variables ? JSON.stringify(available_variables) : null, is_active, id]
+    );
+    if (updateRes.rows.length === 0) {
+      return res.status(404).json({ error: 'Template not found' });
+    }
+    res.json({ success: true, template: updateRes.rows[0] });
+  } catch (err) {
+    logger.error('Failed to update email template:', err);
+    res.status(500).json({ error: 'Failed to update email template' });
+  }
+};
+app.put('/admin/emails/templates/:id', adminAuth, handleUpdateTemplate);
+app.put('/v1/admin/emails/templates/:id', adminAuth, handleUpdateTemplate);
+
+// DELETE /admin/emails/templates/:id & /v1/admin/emails/templates/:id - Delete template
+const handleDeleteTemplate = async (req, res) => {
+  const { id } = req.params;
+  try {
+    const delRes = await pool.query('DELETE FROM email_templates WHERE id = $1 RETURNING *', [id]);
+    if (delRes.rows.length === 0) {
+      return res.status(404).json({ error: 'Template not found' });
+    }
+    res.json({ success: true, message: 'Template deleted successfully' });
+  } catch (err) {
+    logger.error('Failed to delete email template:', err);
+    res.status(500).json({ error: 'Failed to delete email template' });
+  }
+};
+app.delete('/admin/emails/templates/:id', adminAuth, handleDeleteTemplate);
+app.delete('/v1/admin/emails/templates/:id', adminAuth, handleDeleteTemplate);
+
+// --- SMTP CONFIGURATION & TESTING ---
+
+// GET /admin/emails/smtp & /v1/admin/emails/smtp
+const handleGetSmtpConfig = async (req, res) => {
+  try {
+    const config = await getActiveSmtpConfig();
+    res.json({ success: true, config });
+  } catch (err) {
+    logger.error('Failed to get SMTP config:', err);
+    res.status(500).json({ error: 'Failed to retrieve SMTP configuration' });
+  }
+};
+app.get('/admin/emails/smtp', adminAuth, handleGetSmtpConfig);
+app.get('/v1/admin/emails/smtp', adminAuth, handleGetSmtpConfig);
+
+// PUT /admin/emails/smtp & /v1/admin/emails/smtp - Update SMTP config
+const handleUpdateSmtpConfig = async (req, res) => {
+  const { provider, resend_api_key, smtp_host, smtp_port, smtp_user, smtp_pass, smtp_secure, from_email, from_name } = req.body;
+
+  try {
+    // Deactivate previous active configs
+    await pool.query('UPDATE smtp_configs SET is_active = false WHERE is_active = true');
+
+    const insertRes = await pool.query(
+      `INSERT INTO smtp_configs (provider, resend_api_key, smtp_host, smtp_port, smtp_user, smtp_pass, smtp_secure, from_email, from_name, is_active)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, true)
+       RETURNING *`,
+      [provider || 'resend', resend_api_key, smtp_host, smtp_port ? parseInt(smtp_port) : 587, smtp_user, smtp_pass, smtp_secure !== false, from_email || 'noreply@neuravolt.cloud', from_name || 'Neuravolt Cloud']
+    );
+
+    res.json({ success: true, message: 'SMTP settings updated and activated successfully', config: insertRes.rows[0] });
+  } catch (err) {
+    logger.error('Failed to update SMTP config:', err);
+    res.status(500).json({ error: 'Failed to update SMTP configuration' });
+  }
+};
+app.put('/admin/emails/smtp', adminAuth, handleUpdateSmtpConfig);
+app.put('/v1/admin/emails/smtp', adminAuth, handleUpdateSmtpConfig);
+
+// POST /admin/emails/smtp/test & /v1/admin/emails/smtp/test - Test connection
+const handleTestSmtpConfig = async (req, res) => {
+  const config = req.body;
+  try {
+    const testResult = await verifySmtpConnection(config);
+    if (!testResult.success) {
+      return res.status(400).json({ success: false, error: testResult.error });
+    }
+    res.json({ success: true, message: testResult.message || 'SMTP Server Connection Verified Successfully!' });
+  } catch (err) {
+    logger.error('SMTP Test Failed:', err);
+    res.status(500).json({ error: err.message || 'Failed to verify SMTP server connection' });
+  }
+};
+app.post('/admin/emails/smtp/test', adminAuth, handleTestSmtpConfig);
+app.post('/v1/admin/emails/smtp/test', adminAuth, handleTestSmtpConfig);
+
+// POST /admin/emails/send-custom & /v1/admin/emails/send-custom - Send broadcast/custom mail
+const handleSendCustomMail = async (req, res) => {
+  const { recipientType, recipientEmail, templateKey, subject, body_html, variables } = req.body;
+
+  try {
+    let recipients = [];
+    if (recipientType === 'all') {
+      const usersRes = await pool.query("SELECT email FROM users WHERE status = 'active'");
+      recipients = usersRes.rows.map(u => u.email);
+    } else {
+      if (!recipientEmail) {
+        return res.status(400).json({ error: 'recipientEmail is required for individual mail' });
+      }
+      recipients = [recipientEmail];
+    }
+
+    if (recipients.length === 0) {
+      return res.status(400).json({ error: 'No recipients found to dispatch mail' });
+    }
+
+    let dispatchedCount = 0;
+    let errors = [];
+
+    for (const email of recipients) {
+      let result;
+      if (templateKey) {
+        result = await renderAndSendTemplate(templateKey, email, { email, ...(variables || {}) });
+      } else {
+        result = await sendEmail({
+          to: email,
+          subject,
+          html: body_html,
+          emailType: 'custom_broadcast',
+          metadata: { recipientType }
+        });
+      }
+
+      if (result.success) {
+        dispatchedCount++;
+      } else {
+        errors.push({ email, error: result.error });
+      }
+    }
+
+    res.json({
+      success: dispatchedCount > 0,
+      message: `Dispatched ${dispatchedCount} email(s) out of ${recipients.length} successfully`,
+      dispatchedCount,
+      totalRecipients: recipients.length,
+      errors
+    });
+  } catch (err) {
+    logger.error('Failed to send custom mail:', err);
+    res.status(500).json({ error: 'Failed to dispatch custom email' });
+  }
+};
+app.post('/admin/emails/send-custom', adminAuth, handleSendCustomMail);
+app.post('/v1/admin/emails/send-custom', adminAuth, handleSendCustomMail);
 
 // PUT /admin/users/:userId/plan - Assign a specific subscription plan to a user
 app.put('/admin/users/:userId/plan', async (req, res) => {
