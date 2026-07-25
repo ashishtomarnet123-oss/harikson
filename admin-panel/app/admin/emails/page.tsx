@@ -1067,7 +1067,7 @@ export default function AdminEmailsPage() {
 
               <div>
                 <label className="block text-gray-700 dark:text-gray-300 font-bold mb-1">
-                  HTML Body (Supports placeholders {{name}}, {{email}}, {{loginUrl}})
+                  HTML Body (Supports placeholders {'{{name}}'}, {'{{email}}'}, {'{{loginUrl}}'})
                 </label>
                 <textarea
                   rows={6}
