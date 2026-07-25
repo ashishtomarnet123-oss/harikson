@@ -19,6 +19,11 @@ import {
   Mail,
   Send,
   Key,
+  Edit3,
+  Phone,
+  Building2,
+  Briefcase,
+  Globe,
 } from 'lucide-react';
 
 interface User {
