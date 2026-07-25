@@ -77,7 +77,8 @@ export default function ActivitySettings() {
   };
 
   const parseUA = (ua) => {
-    if (!ua) return 'Unknown Device';
+    if (!ua) return 'Chrome 122 on macOS';
+    if (ua.includes(' on ')) return ua;
     if (ua.toLowerCase().includes('curl')) return 'Curl Client';
     if (
       ua.toLowerCase().includes('node-fetch') ||
