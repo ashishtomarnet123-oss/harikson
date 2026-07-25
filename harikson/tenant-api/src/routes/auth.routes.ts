@@ -241,8 +241,18 @@ async function handleLogin(req: any, res: any) {
 async function handleRegister(req: any, res: any) {
   const { email, password, name, companyName, tenantSlug } = req.body;
   try {
-    const existing = await pool.query('SELECT id FROM users WHERE email = $1 AND deleted_at IS NULL', [email]);
+    const existing = await pool.query('SELECT id, status FROM users WHERE email = $1 AND deleted_at IS NULL', [email]);
     if (existing.rows.length > 0) {
+      const existingUser = existing.rows[0];
+      if (existingUser.status === 'pending' || existingUser.status === 'pending_approval') {
+        return res.status(200).json({
+          success: true,
+          status: 'pending_approval',
+          alreadyRequested: true,
+          requiresApproval: true,
+          message: 'Your access request has already been received and is awaiting approval.',
+        });
+      }
       return res.status(409).json({ error: 'User with this email already exists' });
     }
 
@@ -277,7 +287,7 @@ async function handleRegister(req: any, res: any) {
       `INSERT INTO users (
         tenant_id, email, password_hash, name, role, email_verified, email_verification_token, verification_token, status, created_at
        )
-       VALUES ($1, $2, $3, $4, 'admin', true, $5, $5, 'pending', NOW())
+       VALUES ($1, $2, $3, $4, 'user', true, $5, $5, 'pending', NOW())
        RETURNING id, email, name, role, status, created_at`,
       [tenantId, email, passwordHash, name, verificationTokenHash]
     );
