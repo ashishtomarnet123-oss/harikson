@@ -41,7 +41,7 @@ if (!process.env.JWT_SECRET) {
   }
 }
 
-import { sendInvoiceReceipt, sendImpersonationAlert } from './services/email.js';
+import { sendInvoiceReceipt, sendImpersonationAlert, sendAccountApprovalEmail } from './services/email.js';
 import { createInvoice } from './services/invoiceService.js';
 
 if (!process.env.JWT_SECRET || process.env.JWT_SECRET.length < 32) {
@@ -1959,21 +1959,37 @@ app.put(['/admin/users/:userId/status', '/v1/admin/users/:userId/status'], async
   }
 
   try {
+    const prevRes = await pool.query('SELECT id, email, name, COALESCE(status, \'active\') as status FROM users WHERE id = $1', [userId]);
+    if (prevRes.rows.length === 0) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    const previousStatus = prevRes.rows[0].status;
+
     const updateRes = await pool.query(
       `UPDATE users SET status = $1, updated_at = NOW() WHERE id = $2 RETURNING id, email, status, name`,
       [status, userId]
     );
 
-    if (updateRes.rows.length === 0) {
-      return res.status(404).json({ error: 'User not found' });
+    const updatedUser = updateRes.rows[0];
+    logger.info(`Admin updated user status for ${updatedUser.email} from '${previousStatus}' to '${status}'`);
+
+    // If approving a pending user, send access approval transactional email
+    if (status === 'active' && previousStatus === 'pending') {
+      sendAccountApprovalEmail(updatedUser.email, updatedUser.name).catch((emailErr) => {
+        logger.error(`[APPROVAL EMAIL FAILED]: ${emailErr?.message || emailErr}`);
+      });
     }
 
-    const updatedUser = updateRes.rows[0];
-    logger.info(`Admin updated user status for ${updatedUser.email} to '${status}'`);
+    // Write audit log to activity_logs
+    await pool.query(
+      `INSERT INTO activity_logs (user_id, action, details, created_at)
+       VALUES ($1, $2, $3, NOW())`,
+      [userId, status === 'active' ? 'user_access_approved' : 'user_status_updated', JSON.stringify({ previousStatus, newStatus: status })]
+    ).catch(() => {});
 
     res.status(200).json({
       success: true,
-      message: `User status updated to ${status} successfully`,
+      message: status === 'active' ? `User access allowed and approved successfully` : `User status updated to ${status} successfully`,
       user: updatedUser
     });
   } catch (err) {

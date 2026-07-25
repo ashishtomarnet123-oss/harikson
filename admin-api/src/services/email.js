@@ -110,6 +110,49 @@ export const sendWelcomeEmail = async (to, name) => {
   }
 };
 
+export const sendAccountApprovalEmail = async (to, name) => {
+  if (!(await checkEmailRateLimit(to))) {
+    return {
+      success: false,
+      error: 'Rate limit exceeded. Max 3 emails per hour.',
+    };
+  }
+
+  const loginUrl = process.env.USER_PORTAL_URL || 'https://app.neuravolt.cloud/login';
+
+  try {
+    const { data, error } = await resend.emails.send({
+      from: 'Neuravolt Cloud <noreply@neuravolt.cloud>',
+      to,
+      subject: 'Your Neuravolt Cloud Access Has Been Approved',
+      html: `
+        <div style="font-family: system-ui, -apple-system, sans-serif; padding: 24px; color: #1e293b; max-width: 600px; margin: 0 auto; border: 1px solid #e2e8f0; border-radius: 12px; background: #ffffff;">
+          <h2 style="color: #6366f1; border-bottom: 2px solid #6366f1; padding-bottom: 12px; margin-top: 0;">Access Approved</h2>
+          <p>Hi ${name || 'there'},</p>
+          <p>Your access to Neuravolt Cloud has been approved.</p>
+          <p>You can now sign in using the email address and password you used when requesting access.</p>
+          <div style="text-align: center; margin: 32px 0;">
+            <a href="${loginUrl}" style="display: inline-block; padding: 14px 28px; background-color: #6366f1; color: white; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 15px;">Sign In to Neuravolt Cloud</a>
+          </div>
+          <hr style="border: 0; border-top: 1px solid #e2e8f0; margin: 24px 0;" />
+          <p style="font-size: 12px; color: #94a3b8;">Neuravolt Cloud · Sovereign Enterprise AI Platform</p>
+        </div>
+      `,
+    });
+    if (error) {
+      logger.error('[EMAIL SEND ERROR - APPROVAL]:', error.message || error);
+      return {
+        success: false,
+        error: error.message || 'Failed to send approval email',
+      };
+    }
+    return { success: true, data };
+  } catch (err) {
+    logger.error('[EMAIL SEND ERROR - APPROVAL]:', err.message);
+    return { success: false, error: 'Failed to send approval email' };
+  }
+};
+
 export const sendInvoiceReceipt = async (to, invoiceDetails) => {
   if (!(await checkEmailRateLimit(to))) {
     return {

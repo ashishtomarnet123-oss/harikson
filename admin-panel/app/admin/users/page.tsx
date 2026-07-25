@@ -611,7 +611,7 @@ export default function UsersPage() {
                             onClick={() => handleUpdateStatus(user.id, 'active')}
                             className="px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all duration-200 shadow-sm bg-emerald-600 hover:bg-emerald-700 text-white active:scale-95 flex items-center gap-1 inline-flex"
                           >
-                            <CheckCircle2 className="w-3 h-3" /> Approve
+                            <CheckCircle2 className="w-3 h-3" /> ALLOW ACCESS
                           </button>
                         ) : currentStatus === 'suspended' ? (
                           <button
@@ -693,7 +693,7 @@ export default function UsersPage() {
                     onClick={() => handleUpdateStatus(selectedUser.id, 'active')}
                     className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition-all shadow-sm shrink-0 flex items-center gap-1.5"
                   >
-                    <CheckCircle2 className="w-4 h-4" /> Approve User Access
+                    <CheckCircle2 className="w-4 h-4" /> ALLOW ACCESS
                   </button>
                 </div>
               )}
@@ -739,7 +739,7 @@ export default function UsersPage() {
                     onClick={() => handleUpdateStatus(selectedUser.id, 'active')}
                     className="flex-1 py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider transition-all duration-200 shadow-sm bg-emerald-600 hover:bg-emerald-700 text-white flex items-center justify-center gap-1.5"
                   >
-                    <CheckCircle2 className="w-4 h-4" /> Approve Access
+                    <CheckCircle2 className="w-4 h-4" /> ALLOW ACCESS
                   </button>
                 ) : (
                   <button
