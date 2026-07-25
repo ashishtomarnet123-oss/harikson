@@ -31,9 +31,9 @@ export default function PrivacyPolicyPage() {
   }
 
   const sectionsData = [
-    { num: 1, cat: 'intro', title: 'Introduction', content: 'This Privacy Policy describes how Harikson AI Technologies Private Limited ("Harikson", "Company", "we", "us", or "our") processes, collects, stores, and protects personal data obtained from users of our Platform.' },
-    { num: 2, cat: 'intro', title: 'About Us', content: 'Company: Harikson AI Technologies Private Limited. Registered Office Address: Sector 62, Noida, Uttar Pradesh, India - 201301. CIN: U72900UP2026PTC123456. Support Email: support@harikson.ai. Privacy Email: privacy@harikson.ai.' },
-    { num: 3, cat: 'intro', title: 'Definitions', content: 'Personal Data: Data about an individual who is identifiable. Sensitive Personal Data: Passwords, financial or biometric credentials. Processing: Automated operations performed on data. Data Principal: The individual whose data is processed. Data Fiduciary: Entity determining processing purposes (Harikson).' },
+    { num: 1, cat: 'intro', title: 'Introduction', content: 'This Privacy Policy describes how Neuravolt Technologies Private Limited ("Neuravolt", "Company", "we", "us", or "our") processes, collects, stores, and protects personal data obtained from users of our Platform.' },
+    { num: 2, cat: 'intro', title: 'About Us', content: 'Company: Neuravolt Technologies Private Limited. Registered Office Address: Sector 62, Noida, Uttar Pradesh, India - 201301. CIN: U72900UP2026PTC123456. Support Email: support@neuravolt.cloud. Privacy Email: privacy@neuravolt.cloud.' },
+    { num: 3, cat: 'intro', title: 'Definitions', content: 'Personal Data: Data about an individual who is identifiable. Sensitive Personal Data: Passwords, financial or biometric credentials. Processing: Automated operations performed on data. Data Principal: The individual whose data is processed. Data Fiduciary: Entity determining processing purposes (Neuravolt).' },
     { num: 4, cat: 'intro', title: 'Scope of this Policy', content: 'This policy applies to our websites, dashboards, user portals, developer APIs, SDKs, mobile systems, browser extensions, and collaborative workspaces.' },
     
     { num: 5, cat: 'collection', title: 'Information We Collect', content: 'We collect: 1. Identity & Profile: Names, login credentials, dates of birth. 2. Contact & Billing: Corporate email, address, tax records (GSTIN), subscription history. 3. Metadata: IP addresses, timezone, language. 4. Prompt Data: Prompts, vector index documents, chat histories. 5. Telemetry Logs: Token counts, CPU usage, GPU latency.' },
@@ -44,7 +44,7 @@ export default function PrivacyPolicyPage() {
     { num: 9, cat: 'legal', title: 'Purpose of Processing', content: 'Your data is used for user account authentication, running RAG search pipelines, subscription renewals, security safety logs (preventing jailbreaks), system diagnostic optimizations, and support communications.' },
     
     { num: 10, cat: 'ai', title: 'AI-Specific Data Processing', content: 'During model inference, prompt inputs are vectorized and processed by baseline AI nodes. Prompts are also dynamically parsed through content moderation layers to identify malicious boundaries or illegal content.' },
-    { num: 11, cat: 'ai', title: 'AI Training Policy', content: 'Harikson does NOT use prompt inputs, RAG documents, or generated outputs to train public baseline AI models. All workspace assets are isolated from public training runs. Opt-in consent is required for custom model refinements.' },
+    { num: 11, cat: 'ai', title: 'AI Training Policy', content: 'Neuravolt does NOT use prompt inputs, RAG documents, or generated outputs to train public baseline AI models. All workspace assets are isolated from public training runs. Opt-in consent is required for custom model refinements.' },
     { num: 12, cat: 'ai', title: 'Conversation History', content: 'We store history to display past queries. Users can delete chats to purge entries from active databases. History metrics can be exported in JSON format, and workspace owners can turn history logging off.' },
     { num: 13, cat: 'ai', title: 'Uploaded Files', content: 'Files uploaded to RAG vectors are parsed and stored in logically separated databases. Uploaded files are encrypted at rest using AES-256 and scanned for malware.' },
     
@@ -64,13 +64,13 @@ export default function PrivacyPolicyPage() {
     { num: 24, cat: 'thirdparty', title: 'Marketing Communications', content: 'Users can opt-out of promotional alerts or email newsletters using the unsubscribe link at the footer of emails.' },
     { num: 25, cat: 'thirdparty', title: 'Automated Decision-Making', content: 'We do not perform decisions carrying legally binding or significant consequences solely based on automated AI processing. Human review is implemented for operational choices.' },
     { num: 26, cat: 'thirdparty', title: 'Data Accuracy', content: 'You must ensure that the personal details you submit are correct and complete. Update records using the Account Settings page.' },
-    { num: 27, cat: 'thirdparty', title: 'Data Deletion Requests', content: 'Deletion requests sent to privacy@harikson.ai are verified and processed within 30 days, subject to legal auditing requirements.' },
+    { num: 27, cat: 'thirdparty', title: 'Data Deletion Requests', content: 'Deletion requests sent to privacy@neuravolt.cloud are verified and processed within 30 days, subject to legal auditing requirements.' },
     
-    { num: 28, cat: 'governance', title: 'Grievance Redressal', content: 'Grievances can be submitted to our designated Grievance Officer: Ashish Pratap Singh Tomar, Email: grievance@harikson.ai, Address: Sector 62, Noida, Uttar Pradesh, India - 201301. We reply within 72 hours.' },
+    { num: 28, cat: 'governance', title: 'Grievance Redressal', content: 'Grievances can be submitted to our designated Grievance Officer: Ashish Pratap Singh Tomar, Email: grievance@neuravolt.cloud, Address: Sector 62, Noida, Uttar Pradesh, India - 201301. We reply within 72 hours.' },
     { num: 29, cat: 'governance', title: 'Changes to Privacy Policy', content: 'Policy revisions are posted on this page with updated version numbers. Users are notified of significant changes via email.' },
-    { num: 30, cat: 'governance', title: 'Contact Us', content: 'Company: Harikson AI Technologies Private Limited. Office: Sector 62, Noida, UP, India. Email: privacy@harikson.ai.' },
+    { num: 30, cat: 'governance', title: 'Contact Us', content: 'Company: Neuravolt Technologies Private Limited. Office: Sector 62, Noida, UP, India. Email: privacy@neuravolt.cloud.' },
     { num: 31, cat: 'governance', title: 'Governing Law', content: 'This policy is governed by the laws of India. Legal disputes are subject to the exclusive jurisdiction of the courts of Noida, Uttar Pradesh, India.' },
-    { num: 32, cat: 'governance', title: 'Definitions Appendix', content: 'Data Fiduciary: Harikson AI. Data Principal: User. Processing: Any operation performed on personal data.' },
+    { num: 32, cat: 'governance', title: 'Definitions Appendix', content: 'Data Fiduciary: Neuravolt. Data Principal: User. Processing: Any operation performed on personal data.' },
     { num: 33, cat: 'governance', title: 'Annexures', content: 'Annexure A: Categories of Personal Data.\nAnnexure B: Retention Schedule.\nAnnexure C: Third-Party Service Providers.\nAnnexure D: International Transfers.\nAnnexure E: Security Measures.' }
   ];
 
@@ -92,8 +92,8 @@ export default function PrivacyPolicyPage() {
       fontFamily: "'Outfit', sans-serif"
     }}>
       <Head>
-        <title>Privacy Policy | Harikson AI Platform</title>
-        <meta name="description" content="Harikson AI Privacy Policy - comprehensive data disclosures compliant with Indian and global regulations." />
+        <title>Privacy Policy | Neuravolt Cloud Platform</title>
+        <meta name="description" content="Neuravolt Cloud Privacy Policy - comprehensive data disclosures compliant with Indian DPDP Act 2023 and global regulations." />
         <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
       </Head>
 
@@ -152,7 +152,7 @@ export default function PrivacyPolicyPage() {
           lineHeight: '1.6',
           fontWeight: '300'
         }}>
-          Comprehensive data processing guidelines, model inference boundaries, and DPDP Act 2023 regulations on Harikson.
+          Comprehensive data processing guidelines, model inference boundaries, and DPDP Act 2023 regulations on Neuravolt.
         </p>
 
         {/* Floating Search Container */}
@@ -301,7 +301,7 @@ export default function PrivacyPolicyPage() {
             <div>
               <span style={{ color: '#64748b', fontSize: '13px' }}>Corporate Registry:</span>
               <div style={{ fontSize: '14px', fontWeight: '600', color: '#1e293b', marginTop: '2px' }}>
-                Harikson AI Technologies Pvt. Ltd. (CIN: U72900UP2026PTC123456)
+                Neuravolt Technologies Pvt. Ltd. (CIN: U72900UP2026PTC123456)
               </div>
             </div>
             <div style={{ textAlign: 'right' }}>
