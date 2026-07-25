@@ -81,7 +81,18 @@ export async function authenticatedFetch(url, options = {}) {
     headers.set('Authorization', `Bearer ${token}`);
   }
 
-  let res = await fetch(url, { ...options, headers, credentials: 'include' });
+  // Rewrite unreachable localhost:3008 URLs to relative paths on remote host
+  let targetUrl = url;
+  if (
+    typeof window !== 'undefined' &&
+    window.location.hostname !== 'localhost' &&
+    window.location.hostname !== '127.0.0.1' &&
+    targetUrl.startsWith('http://localhost:3008')
+  ) {
+    targetUrl = targetUrl.replace('http://localhost:3008', '');
+  }
+
+  let res = await fetch(targetUrl, { ...options, headers, credentials: 'include' });
 
   // If 401 Unauthenticated, attempt token refresh once
   if (res.status === 401) {
