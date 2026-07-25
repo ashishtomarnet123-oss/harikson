@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import Head from 'next/head';
 import Link from 'next/link';
 import { ArrowLeft, Search, BookOpen, ShieldAlert, Cpu, Code2, CreditCard, ShieldCheck, AlertOctagon, Scale, Landmark, ChevronRight } from 'lucide-react';
+import FooterSection from '../components/FooterSection';
 
 export default function TermsOfServicePage() {
   const [searchQuery, setSearchQuery] = useState('');
@@ -450,6 +451,7 @@ export default function TermsOfServicePage() {
           </div>
         </div>
       </div>
+      <FooterSection />
     </div>
   );
 }

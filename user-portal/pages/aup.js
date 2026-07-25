@@ -2,6 +2,7 @@ import { useState } from 'react';
 import Head from 'next/head';
 import Link from 'next/link';
 import { ArrowLeft, Search, HelpCircle, Shield, AlertOctagon, Scale, BookOpen, ChevronRight } from 'lucide-react';
+import FooterSection from '../components/FooterSection';
 
 export default function AcceptableUsePolicyPage() {
   const [searchQuery, setSearchQuery] = useState('');
@@ -380,6 +381,7 @@ export default function AcceptableUsePolicyPage() {
           </div>
         </div>
       </div>
+      <FooterSection />
     </div>
   );
 }

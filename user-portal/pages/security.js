@@ -2,6 +2,7 @@ import { useState } from 'react';
 import Head from 'next/head';
 import Link from 'next/link';
 import { ArrowLeft, Search, Shield, Eye, ShieldAlert, Cpu, Database, RefreshCw, AlertCircle, HelpCircle, ChevronRight } from 'lucide-react';
+import FooterSection from '../components/FooterSection';
 
 export default function SecurityPolicyPage() {
   const [searchQuery, setSearchQuery] = useState('');
@@ -404,6 +405,7 @@ export default function SecurityPolicyPage() {
           </div>
         </div>
       </div>
+      <FooterSection />
     </div>
   );
 }
