@@ -6,7 +6,7 @@ import {
   Search, MessageSquare, ThumbsUp, ThumbsDown, Copy, Sparkles, Terminal,
   Package, Webhook, Share2, Lock, Leaf, ShieldAlert, CheckCircle2,
   Clock, LayoutDashboard, Bot, Database, GitBranch, BarChart2, Key, Blocks,
-  Settings, RotateCw, Bell, MapPin, Target, Cpu, Sliders, CheckCircle, Send, Plus, Minus, X
+  Settings, RotateCw, Bell, MapPin, Target, Cpu, Sliders, CheckCircle, Send, Plus, Minus, X, Layers
 } from 'lucide-react';
 
 export default function NeuravoltLandingPage() {
