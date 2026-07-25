@@ -35,7 +35,10 @@ function WorkflowsPage() {
       router.replace('/login');
       return;
     }
-    const savedApiBase = (localStorage.getItem('hk_api_base') && !localStorage.getItem('hk_api_base').includes('localhost')) ? localStorage.getItem('hk_api_base') : '';
+    let savedApiBase = localStorage.getItem('hk_api_base');
+    if (!savedApiBase || (savedApiBase === 'http://localhost:3008' && typeof window !== 'undefined' && window.location.hostname !== 'localhost')) {
+      savedApiBase = '';
+    }
     const savedTenant = localStorage.getItem('hk_tenant') || 'system';
     setApiBase(savedApiBase);
     setTenantSlug(savedTenant);

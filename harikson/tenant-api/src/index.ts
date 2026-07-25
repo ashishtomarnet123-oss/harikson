@@ -32,7 +32,6 @@ import billingRoutes from './routes/billing.routes.js';
 import agentRoutes from './routes/agent.routes.js';
 import widgetRoutes from './routes/widget.routes.js';
 import adminRoutes from './routes/admin.routes.js';
-import workflowRoutes from './routes/workflow.routes.js';
 
 // Import existing API sub-routers
 import chatRouter from './routes/chat.js';
@@ -153,8 +152,6 @@ app.use('/api/billing', billingRoutes);
 app.use('/api/v1/billing', billingRoutes);
 app.use('/api/agents', agentRoutes);
 app.use('/api/v1/agents', agentRoutes);
-app.use('/api/workflows', workflowRoutes);
-app.use('/api/v1/workflows', workflowRoutes);
 app.use('/api/widget', widgetRoutes);
 app.use('/api/admin', adminRoutes);
 

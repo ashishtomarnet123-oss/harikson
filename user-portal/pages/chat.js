@@ -924,8 +924,10 @@ function ChatPage() {
       router.replace('/login');
       return;
     }
-    const savedBase =
-      localStorage.getItem('hk_api_base') || 'http://localhost:3008';
+    let savedBase = localStorage.getItem('hk_api_base');
+    if (!savedBase || (savedBase === 'http://localhost:3008' && typeof window !== 'undefined' && window.location.hostname !== 'localhost')) {
+      savedBase = '';
+    }
     const savedTenant = localStorage.getItem('hk_tenant') || 'system';
     setToken(true);
     setUser(savedUser);

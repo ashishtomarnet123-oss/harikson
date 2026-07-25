@@ -6,32 +6,22 @@ export function getApiBaseUrl(): string {
   // 1. Explicit Environment Variable Override
   const envUrl = process.env.NEXT_PUBLIC_API_BASE_URL;
   if (envUrl && envUrl.trim()) {
-    const trimmed = envUrl.trim();
-    if (!trimmed.startsWith('http://') && !trimmed.startsWith('https://') && !trimmed.startsWith('/')) {
-      console.error(
-        `❌ [API Config Error] Invalid NEXT_PUBLIC_API_BASE_URL "${trimmed}": must start with http://, https://, or /`
-      );
-    }
-    return trimmed;
+    return envUrl.trim();
   }
 
-  // 2. Subdomain Pattern matching (e.g. app.neuravolt.cloud -> api.neuravolt.cloud)
+  // 2. Browser Environment Resolution
   if (typeof window !== 'undefined') {
-    const { protocol, hostname } = window.location;
-    if (hostname.includes('.') && !hostname.startsWith('localhost') && !/^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(hostname)) {
-      const parts = hostname.split('.');
-      if (parts.length >= 2) {
-        const domain = parts.slice(-2).join('.');
-        return `${protocol}//api.${domain}`;
-      }
+    const saved = localStorage.getItem('hk_api_base');
+    if (saved && saved.trim() && saved !== 'http://localhost:3008') {
+      return saved.trim();
     }
-    // 3. Same-origin proxy fallback
-    if (window.location.origin) {
+    // For non-localhost IP/domain, use relative path '' so Next.js proxies /api/*
+    if (window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
       return '';
     }
   }
 
-  // 4. Local Development Fallback
+  // 3. Local Development Fallback
   return 'http://localhost:3008';
 }
 
