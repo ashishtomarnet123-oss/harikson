@@ -342,6 +342,9 @@ export default function NeuravoltLandingPage() {
         /* FOOTER */
         .footer-container { padding: 60px 0 30px 0; border-top: 1px solid var(--border-color); background: #FFFFFF; }
         .footer-grid-6col { display: grid; grid-template-columns: 2.2fr repeat(6, 1fr); gap: 24px; margin-bottom: 44px; }
+        .footer-brand-desc { font-size: 0.82rem; color: var(--text-muted); line-height: 1.55; margin-top: 12px; margin-bottom: 18px; max-width: 260px; }
+        .social-icons-row { display: flex; gap: 14px; font-size: 1.1rem; color: var(--text-muted); }
+        .social-icons-row a:hover { color: #2563EB; }
         .footer-col-title { font-size: 0.82rem; font-weight: 700; color: #0F172A; text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 16px; }
         .footer-links { list-style: none; display: flex; flex-direction: column; gap: 10px; }
         .footer-links a { text-decoration: none; font-size: 0.82rem; color: var(--text-muted); transition: color 0.2s; }
@@ -1292,6 +1295,15 @@ export default function NeuravoltLandingPage() {
                 <span class="logo-text">NEURAVOLT</span>
               </div>
               <div style={{ fontSize: '0.72rem', color: 'var(--text-dim)', marginBottom: 10 }}>AI Cloud Platform</div>
+              <p class="footer-brand-desc">
+                India's DPDP-compliant AI cloud platform for AI Agents, Workflows, Multi-Language LLMs and Enterprise AI applications.
+              </p>
+              <div class="social-icons-row">
+                <a href="#" style={{ color: 'var(--text-muted)', textDecoration: 'none', fontSize: '1.1rem' }}>𝕏</a>
+                <a href="#" style={{ color: 'var(--text-muted)', textDecoration: 'none', fontSize: '1.1rem', fontWeight: 'bold' }}>in</a>
+                <a href="#" style={{ color: 'var(--text-muted)', textDecoration: 'none', fontSize: '1.1rem' }}>▶</a>
+                <a href="#" style={{ color: 'var(--text-muted)', textDecoration: 'none', fontSize: '1.1rem' }}>🐙</a>
+              </div>
             </div>
 
             <div>
