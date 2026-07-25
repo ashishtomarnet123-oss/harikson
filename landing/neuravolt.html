@@ -451,11 +451,27 @@
             <p class="bento-desc">Visual workflow builder powered by n8n. Automate complex business processes.</p>
             <a href="#" class="bento-link">Explore →</a>
           </div>
-          <div class="bento-preview-box" style="text-align:center;">
-            <div style="width:28px;height:28px;background:#DCFCE7;border:1px solid #86EFAC;color:#166534;border-radius:8px;margin:0 auto 8px auto;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:0.8rem;"><i data-lucide="git-branch" style="width:14px;height:14px;"></i></div>
-            <div style="display:flex; justify-content:space-around;">
-              <div style="width:22px;height:22px;background:#EFF6FF;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:0.65rem;"><i data-lucide="cpu" style="width:12px;height:12px;color:#2563EB;"></i></div>
-              <div style="width:22px;height:22px;background:#EFF6FF;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:0.65rem;"><i data-lucide="database" style="width:12px;height:12px;color:#2563EB;"></i></div>
+          <div class="bento-preview-box" style="position:relative; height:90px; width:100%; overflow:hidden;">
+            <!-- SVG connection lines -->
+            <svg width="100%" height="100%" viewBox="0 0 100 100" preserveAspectRatio="none" style="position:absolute; top:0; left:0; pointer-events:none; z-index:1;">
+              <path d="M 20,72 Q 35,27 50,27" fill="none" stroke="#93C5FD" stroke-width="2" stroke-dasharray="3,3" />
+              <path d="M 50,27 Q 65,27 80,72" fill="none" stroke="#86EFAC" stroke-width="2" stroke-dasharray="3,3" />
+            </svg>
+            
+            <!-- Nodes -->
+            <!-- Node 1 (CPU) -->
+            <div style="position:absolute; left:20%; top:72%; transform:translate(-50%, -50%); z-index:2; width:30px; height:30px; background:#EFF6FF; border:1.5px solid #BFDBFE; border-radius:8px; display:flex; align-items:center; justify-content:center; box-shadow:0 4px 12px rgba(37,99,235,0.1);">
+              <i data-lucide="cpu" style="width:14px;height:14px;color:#2563EB;"></i>
+            </div>
+            
+            <!-- Node 2 (Git Branch) -->
+            <div style="position:absolute; left:50%; top:27%; transform:translate(-50%, -50%); z-index:2; width:34px; height:34px; background:#DCFCE7; border:1.5px solid #BBF7D0; border-radius:50%; display:flex; align-items:center; justify-content:center; box-shadow:0 4px 12px rgba(16,185,129,0.15);">
+              <i data-lucide="git-branch" style="width:16px;height:16px;color:#166534;"></i>
+            </div>
+            
+            <!-- Node 3 (Database) -->
+            <div style="position:absolute; left:80%; top:72%; transform:translate(-50%, -50%); z-index:2; width:30px; height:30px; background:#EFF6FF; border:1.5px solid #BFDBFE; border-radius:8px; display:flex; align-items:center; justify-content:center; box-shadow:0 4px 12px rgba(37,99,235,0.1);">
+              <i data-lucide="database" style="width:14px;height:14px;color:#2563EB;"></i>
             </div>
           </div>
         </div>
