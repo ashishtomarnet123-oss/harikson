@@ -2188,13 +2188,32 @@ If any check fails, revise the relevant section before output.`;
 
             {/* Messages Area */}
             <div className="messages-area">
-              <div className="workspace-hero-bg" />
+              <div className="workspace-wave-overlay">
+                <svg viewBox="0 0 800 600" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M350 0C480 120 600 200 800 240V0H350Z" fill="url(#wave-grad-1)" opacity="0.05"/>
+                  <path d="M250 0C420 160 550 280 800 340V0H250Z" fill="url(#wave-grad-2)" opacity="0.04"/>
+                  <path d="M380 40Q540 180 780 220" stroke="#3b82f6" strokeWidth="1.5" strokeDasharray="3 3" opacity="0.2"/>
+                  <path d="M410 80Q570 220 790 280" stroke="#3b82f6" strokeWidth="1" opacity="0.16"/>
+                  <path d="M440 120Q600 260 800 340" stroke="#3b82f6" strokeWidth="1" opacity="0.12"/>
+                  <path d="M470 160Q630 300 810 400" stroke="#3b82f6" strokeWidth="1" opacity="0.08"/>
+                  <defs>
+                    <linearGradient id="wave-grad-1" x1="350" y1="0" x2="800" y2="240" gradientUnits="userSpaceOnUse">
+                      <stop stopColor="#3b82f6"/>
+                      <stop offset="1" stopColor="#60a5fa" stopOpacity="0"/>
+                    </linearGradient>
+                    <linearGradient id="wave-grad-2" x1="250" y1="0" x2="800" y2="340" gradientUnits="userSpaceOnUse">
+                      <stop stopColor="#2563eb"/>
+                      <stop offset="1" stopColor="#93c5fd" stopOpacity="0"/>
+                    </linearGradient>
+                  </defs>
+                </svg>
+              </div>
 
               {/* Central Empty State Hero & 2x2 Quick Action Cards */}
               {messages.length === 0 && !loading && (
                 <div className="messages-empty">
                   <div className="hero-icon-container">
-                    <Zap size={32} color="#3b82f6" />
+                    <Zap size={26} color="#3b82f6" />
                   </div>
                   <h2 className="hero-title">Harikson AI</h2>
                   <p className="hero-description">
