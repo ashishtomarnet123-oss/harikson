@@ -997,9 +997,10 @@ function ChatPage() {
 
   const authHeaders = useCallback(
     () => {
+      const slug = tenantSlug || (typeof window !== 'undefined' ? localStorage.getItem('hk_tenant') : null) || 'neuravolt';
       const headers = {
         'Content-Type': 'application/json',
-        'x-tenant-slug': tenantSlug,
+        'x-tenant-slug': slug,
       };
       return headers;
     },

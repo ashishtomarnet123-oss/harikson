@@ -102,26 +102,30 @@ app.use(async (req, _res, next) => {
     let tenant: any = null;
 
     if (tenantHeader) {
-      const tenantRes = await pool.query('SELECT * FROM tenants WHERE id = $1 OR slug = $1', [tenantHeader]);
+      const tenantRes = await pool.query('SELECT * FROM tenants WHERE id = $1 OR slug = $1', [tenantHeader]).catch(() => ({ rows: [] }));
       tenant = tenantRes.rows[0];
-    } else if (authHeader.startsWith('Bearer hk_live_')) {
+    }
+    
+    if (!tenant && authHeader.startsWith('Bearer hk_live_')) {
       const apiKey = authHeader.substring(7);
       const keyRes = await pool.query(
         'SELECT t.* FROM tenants t JOIN tenant_api_keys k ON k.tenant_id = t.id WHERE k.key_prefix = $1 AND k.status = \'active\'',
         [apiKey.substring(0, 12)]
-      );
+      ).catch(() => ({ rows: [] }));
       tenant = keyRes.rows[0];
-    } else {
+    }
+    
+    if (!tenant) {
       const parts = host.split('.');
       if (parts.length > 2 && parts[0] !== 'app' && parts[0] !== 'api' && parts[0] !== 'www') {
         const slug = parts[0];
-        const tenantRes = await pool.query('SELECT * FROM tenants WHERE slug = $1', [slug]);
+        const tenantRes = await pool.query('SELECT * FROM tenants WHERE slug = $1', [slug]).catch(() => ({ rows: [] }));
         tenant = tenantRes.rows[0];
       }
     }
 
     if (!tenant) {
-      const defaultTenantRes = await pool.query("SELECT * FROM tenants WHERE slug = 'neuravolt' LIMIT 1");
+      const defaultTenantRes = await pool.query("SELECT * FROM tenants ORDER BY created_at ASC LIMIT 1").catch(() => ({ rows: [] }));
       tenant = defaultTenantRes.rows[0] || {
         id: '00000000-0000-0000-0000-000000000000',
         name: 'Neuravolt Default',
@@ -134,6 +138,12 @@ app.use(async (req, _res, next) => {
     next();
   } catch (err) {
     logger.error('Tenant resolution error:', err);
+    req.tenant = {
+      id: '00000000-0000-0000-0000-000000000000',
+      name: 'Neuravolt Default',
+      slug: 'neuravolt',
+      status: 'active',
+    };
     next();
   }
 });
