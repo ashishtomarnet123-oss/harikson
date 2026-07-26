@@ -2367,21 +2367,23 @@ If any check fails, revise the relevant section before output.`;
                     <div className="message-bubble-user">{msg.text}</div>
                   </div>
                 ) : (
-                  <div key={idx} className="message-row assistant">
-                    <div className="message-bubble-assistant">
-                      <div className="assistant-avatar">
-                        <Zap size={16} color="white" />
-                      </div>
-                      <div className="assistant-content">
-                        {renderMarkdown(msg.text, setActiveArtifact)}
+                  msg.text && (
+                    <div key={idx} className="message-row assistant">
+                      <div className="message-bubble-assistant">
+                        <div className="assistant-avatar">
+                          <Zap size={16} color="white" />
+                        </div>
+                        <div className="assistant-content">
+                          {renderMarkdown(msg.text, setActiveArtifact)}
+                        </div>
                       </div>
                     </div>
-                  </div>
+                  )
                 )
               )}
 
-              {/* Thinking indicator */}
-              {loading && (
+              {/* Thinking indicator (only shown while waiting for first response chunk) */}
+              {loading && (!messages.length || messages[messages.length - 1]?.sender !== 'bot' || !messages[messages.length - 1]?.text) && (
                 <div
                   className="thinking-row"
                   style={{ display: 'flex', alignItems: 'center', gap: '12px' }}
