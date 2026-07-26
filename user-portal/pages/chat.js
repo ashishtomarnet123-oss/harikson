@@ -2565,11 +2565,12 @@ If any check fails, revise the relevant section before output.`;
                         <button
                           type="button"
                           className="send-btn stop-btn"
+                          style={{ background: '#ef4444', color: '#ffffff' }}
                           onClick={stopGeneration}
                           title="Stop generation"
                           aria-label="Stop generation"
                         >
-                          <Square fill="currentColor" size={14} />
+                          <Square fill="currentColor" size={12} />
                         </button>
                       ) : (
                         <button
