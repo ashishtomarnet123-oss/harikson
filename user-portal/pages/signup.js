@@ -116,8 +116,8 @@ export default function SignupPage() {
         <div className="login-card" style={{ maxWidth: '460px' }}>
           {/* Logo */}
           <div className="login-logo">
-            <div className="login-logo-icon">N</div>
-            <div className="login-logo-text">NEURAVOLT</div>
+            <div className="login-logo-icon">⚡</div>
+            <div className="login-logo-text">Harikson AI</div>
           </div>
 
           {isPendingApproval ? (
@@ -127,8 +127,8 @@ export default function SignupPage() {
                 height: '60px',
                 margin: '0 auto 16px auto',
                 borderRadius: '50%',
-                background: 'rgba(99, 102, 241, 0.15)',
-                border: '1px solid rgba(99, 102, 241, 0.3)',
+                background: 'rgba(59, 130, 246, 0.12)',
+                border: '1px solid rgba(59, 130, 246, 0.3)',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
@@ -137,7 +137,7 @@ export default function SignupPage() {
                 ✨
               </div>
 
-              <h1 className="login-title" style={{ fontSize: '1.4rem', marginBottom: '16px', color: '#FFFFFF' }}>
+              <h1 className="login-title" style={{ fontSize: '1.4rem', marginBottom: '16px', color: '#0f172a' }}>
                 Access Request Received
               </h1>
               

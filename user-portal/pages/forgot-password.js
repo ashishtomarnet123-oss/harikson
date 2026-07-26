@@ -70,15 +70,18 @@ export default function ForgotPasswordPage() {
   return (
     <>
       <Head>
-        <title>Forgot Password - Neuravolt</title>
-        <meta name="description" content="Reset your Neuravolt AI account password" />
+        <title>Forgot Password — Harikson AI</title>
+        <meta name="description" content="Reset your Harikson AI account password" />
       </Head>
 
-      <div className="login-container">
+      <div className="login-root">
+        <div className="login-orb login-orb-1" />
+        <div className="login-orb login-orb-2" />
+
         <div className="login-card">
           <div className="login-logo">
-            <div className="logo-icon">⚡</div>
-            <span className="logo-text">Neuravolt</span>
+            <div className="login-logo-icon">⚡</div>
+            <div className="login-logo-text">Harikson AI</div>
           </div>
 
           <h1 className="login-title">Reset Your Password</h1>
@@ -91,9 +94,9 @@ export default function ForgotPasswordPage() {
               style={{
                 backgroundColor: 'rgba(16, 185, 129, 0.1)',
                 border: '1px solid rgba(16, 185, 129, 0.3)',
-                color: '#34d399',
+                color: '#059669',
                 padding: '16px',
-                borderRadius: '8px',
+                borderRadius: '10px',
                 fontSize: '14px',
                 marginBottom: '20px',
                 lineHeight: '1.5',
@@ -127,18 +130,18 @@ export default function ForgotPasswordPage() {
             </form>
           )}
 
-          {error && <div className="login-error" style={{ marginTop: '16px' }}>⚠ {error}</div>}
+          {error && <div className="login-error">⚠ {error}</div>}
 
           <p
             style={{
               marginTop: '24px',
               fontSize: '13px',
-              color: 'var(--text-muted, #94a3b8)',
+              color: '#64748b',
               textAlign: 'center',
             }}
           >
             Remember your password?{' '}
-            <Link href="/login" style={{ color: 'var(--accent, #6366f1)', textDecoration: 'none', fontWeight: '600' }}>
+            <Link href="/login" style={{ color: '#3b82f6', textDecoration: 'none', fontWeight: '600' }}>
               Sign in
             </Link>
           </p>
