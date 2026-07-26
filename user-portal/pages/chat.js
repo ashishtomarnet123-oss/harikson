@@ -1029,20 +1029,41 @@ function ChatPage() {
 
   /* ── Fetch conversation list ── */
   const fetchConversations = async () => {
+    let localConvs = [];
+    if (typeof window !== 'undefined') {
+      try {
+        localConvs = JSON.parse(localStorage.getItem('hk_recent_conversations') || '[]');
+      } catch (e) {}
+    }
+
     try {
       const res = await fetch(`${apiBase}/api/v1/conversations`, {
         headers: authHeaders(),
         credentials: 'include',
       });
       if (res.status === 401) {
-        // Session expired — redirect to login without wiping localStorage aggressively
         router.replace('/login');
         return;
       }
       const data = await res.json();
-      setConversations(data.conversations || []);
+      const serverConvs = data.conversations || [];
+
+      // Merge server + local conversations uniquely by ID
+      const map = new Map();
+      [...localConvs, ...serverConvs].forEach((c) => {
+        if (c && c.id) map.set(c.id, c);
+      });
+      const merged = Array.from(map.values()).sort(
+        (a, b) => new Date(b.updated_at || b.createdAt || 0) - new Date(a.updated_at || a.createdAt || 0)
+      );
+
+      setConversations(merged);
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('hk_recent_conversations', JSON.stringify(merged));
+      }
     } catch (err) {
-      console.error('Failed to fetch conversations', err);
+      console.error('Failed to fetch conversations from API, using local fallback:', err);
+      setConversations(localConvs);
     }
   };
 
@@ -1054,31 +1075,51 @@ function ChatPage() {
     router.replace(`/chat?conversation=${convId}`, undefined, {
       shallow: true,
     });
+
+    let localMsgs = [];
+    if (typeof window !== 'undefined') {
+      try {
+        localMsgs = JSON.parse(localStorage.getItem(`hk_conv_msgs_${convId}`) || '[]');
+      } catch (e) {}
+    }
+
     try {
       const res = await fetch(
         `${apiBase}/api/v1/conversations/${convId}/messages`,
         { headers: authHeaders(), credentials: 'include' }
       );
-      const data = await res.json();
-      const loaded = (data.messages || []).map((m) => ({
-        id: m.id,
-        sender: m.role === 'user' ? 'user' : 'bot',
-        text: m.content,
-        role: m.role,
-      }));
-      setMessages(loaded);
+      if (res.ok) {
+        const data = await res.json();
+        const loaded = (data.messages || []).map((m) => ({
+          id: m.id,
+          sender: m.role === 'user' ? 'user' : 'bot',
+          text: m.content,
+          role: m.role,
+        }));
+        if (loaded.length > 0) {
+          setMessages(loaded);
+          if (typeof window !== 'undefined') {
+            localStorage.setItem(`hk_conv_msgs_${convId}`, JSON.stringify(loaded));
+          }
+          return;
+        }
+      }
+      if (localMsgs.length > 0) {
+        setMessages(localMsgs);
+      }
     } catch (err) {
-      setError('Failed to load conversation messages.');
+      if (localMsgs.length > 0) {
+        setMessages(localMsgs);
+      } else {
+        setError('Failed to load conversation messages.');
+      }
     }
   };
 
   /* ── New chat ── */
   const startNewChat = () => {
-    // Set flag BEFORE any state changes so the URL effect ignores
-    // the interim state where activeConvId=null but URL still has old convId
     isNewChatMode.current = true;
 
-    // Abort any ongoing generation first
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
       abortControllerRef.current = null;
@@ -1092,7 +1133,10 @@ function ChatPage() {
     setLoadingStatus('');
     setActiveArtifact(null);
     router.replace(`/chat`, undefined, { shallow: true });
-    // Focus the input so the user can start typing immediately
+
+    // Refresh conversation list so all previous chats remain visible
+    fetchConversations();
+
     setTimeout(() => {
       textareaRef.current?.focus();
     }, 50);
@@ -1589,8 +1633,32 @@ If any check fails, revise the relevant section before output.`;
     abortControllerRef.current = controller;
 
     try {
-      const conversationId = activeConvId || 'new';
-      const idempotencyKey = `${conversationId}:${Date.now()}:${Math.random()}`;
+      let currentConvId = activeConvId;
+      const conversationIdParam = activeConvId || 'new';
+      const idempotencyKey = `${conversationIdParam}:${Date.now()}:${Math.random()}`;
+
+      const updateConvStateAndCache = (cId, textSnippet) => {
+        if (!cId) return;
+        currentConvId = cId;
+        setActiveConvId(cId);
+        const convTitle = (textSnippet || userText || 'New Conversation').substring(0, 45);
+        const newObj = {
+          id: cId,
+          title: convTitle,
+          model,
+          updated_at: new Date().toISOString(),
+        };
+        setConversations((prev) => {
+          const filtered = (prev || []).filter((c) => c.id !== cId);
+          const updated = [newObj, ...filtered];
+          if (typeof window !== 'undefined') {
+            localStorage.setItem('hk_recent_conversations', JSON.stringify(updated));
+          }
+          return updated;
+        });
+        router.replace(`/chat?conversation=${cId}`, undefined, { shallow: true });
+      };
+
       const res = await fetch(`${apiBase}/api/v1/chat`, {
         method: 'POST',
         headers: {
@@ -1612,20 +1680,11 @@ If any check fails, revise the relevant section before output.`;
         throw new Error(err.error || `Server error ${res.status}`);
       }
 
-      const convId =
+      const headerConvId =
         res.headers.get('x-conversation-id') ||
         res.headers.get('X-Conversation-Id');
-      if (convId && !activeConvId) {
-        setActiveConvId(convId);
-        setConversations((prev) => [
-          {
-            id: convId,
-            title: userText.substring(0, 50),
-            model,
-            updated_at: new Date().toISOString(),
-          },
-          ...prev.filter((c) => c.id !== convId),
-        ]);
+      if (headerConvId) {
+        updateConvStateAndCache(headerConvId, userText);
       }
 
       // Check if response is a plain JSON fallback (non-streaming)
@@ -1633,7 +1692,7 @@ If any check fails, revise the relevant section before output.`;
       if (contentType.includes('application/json')) {
         const data = await res.json().catch(() => ({}));
         const text = data.message || data.content || data.error || 'No response received.';
-        if (data.conversationId && !activeConvId) setActiveConvId(data.conversationId);
+        if (data.conversationId) updateConvStateAndCache(data.conversationId, userText);
         setMessages((prev) => [...prev, { sender: 'bot', text, model }]);
         fetchConversations();
         setLoading(false);
@@ -1667,8 +1726,8 @@ If any check fails, revise the relevant section before output.`;
             try {
               const parsed = JSON.parse(jsonStr);
               // Extract conversation ID from first chunk
-              if (parsed.conversationId && !activeConvId) {
-                setActiveConvId(parsed.conversationId);
+              if (parsed.conversationId && !currentConvId) {
+                updateConvStateAndCache(parsed.conversationId, userText);
               }
               // Append only the text content
               if (parsed.content) {
@@ -1713,7 +1772,17 @@ If any check fails, revise the relevant section before output.`;
         }
       }
 
-      // Refresh conversation list
+      // Cache full messages locally for instant persistence
+      if (typeof window !== 'undefined' && currentConvId) {
+        const fullHistory = [
+          ...messages,
+          { sender: 'user', text: userText },
+          { sender: 'bot', text: fullText, model },
+        ];
+        localStorage.setItem(`hk_conv_msgs_${currentConvId}`, JSON.stringify(fullHistory));
+      }
+
+      // Refresh conversation list from backend / localStorage
       fetchConversations();
     } catch (err) {
       if (err.name === 'AbortError') {
