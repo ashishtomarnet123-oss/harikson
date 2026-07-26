@@ -925,10 +925,26 @@ function ChatPage() {
       return;
     }
     let savedBase = localStorage.getItem('hk_api_base');
-    if (!savedBase || (savedBase === 'http://localhost:3008' && typeof window !== 'undefined' && window.location.hostname !== 'localhost')) {
-      savedBase = '';
+    // Auto-detect API base: use env var, or derive from current hostname
+    const envApiUrl = process.env.NEXT_PUBLIC_API_URL || '';
+    const currentHost = typeof window !== 'undefined' ? window.location.hostname : 'localhost';
+    const currentPort = typeof window !== 'undefined' ? window.location.port : '';
+    
+    if (!savedBase || savedBase === 'http://localhost:3008') {
+      if (envApiUrl && !envApiUrl.includes('neuravolt.cloud')) {
+        // Use configured env API URL if it's not the production cloud domain
+        savedBase = envApiUrl;
+      } else if (currentHost !== 'localhost') {
+        // On a real server: API is on same IP but port 3008
+        const protocol = typeof window !== 'undefined' ? window.location.protocol : 'http:';
+        savedBase = `${protocol}//${currentHost}:3008`;
+      } else {
+        savedBase = 'http://localhost:3008';
+      }
+      // Persist the resolved base URL
+      localStorage.setItem('hk_api_base', savedBase);
     }
-    const savedTenant = localStorage.getItem('hk_tenant') || 'system';
+    const savedTenant = localStorage.getItem('hk_tenant') || 'neuravolt';
     setToken(true);
     setUser(savedUser);
     setApiBase(savedBase);

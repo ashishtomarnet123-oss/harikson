@@ -134,7 +134,7 @@ async function handleChat(req: any, res: any) {
     });
   }
 
-  const { message, conversationId, agentId, model: rawModel = 'harikson-plus', stream = true } = req.body;
+  const { message, conversationId, agentId, model: rawModel = 'harikson-plus', stream = true, clientHistory } = req.body;
   if (!message) return res.status(400).json({ error: 'Message text is required' });
 
   // Map Harikson brand model names to real Ollama model names
@@ -194,18 +194,40 @@ async function handleChat(req: any, res: any) {
       const ollamaUrl = process.env.OLLAMA_URL || 'http://ollama:11434';
       let fullResponseText = '';
 
+      // Build Ollama message list — include conversation history for context
+      const systemContent = ragContext && ragContext !== 'No matching context found in knowledge base.'
+        ? `You are Harikson AI, a helpful enterprise AI assistant. Use this context to answer:\n\n${ragContext}`
+        : `You are Harikson AI, a helpful and knowledgeable enterprise AI assistant. Answer questions accurately and helpfully.`;
+
+      let ollamaMessages: Array<{ role: string; content: string }> = [
+        { role: 'system', content: systemContent },
+      ];
+
+      // Inject prior conversation turns from clientHistory (skip system messages)
+      if (Array.isArray(clientHistory) && clientHistory.length > 0) {
+        const historyMessages = clientHistory
+          .filter((m: any) => m.role !== 'system' && m.content?.trim())
+          .slice(-10); // Last 10 turns to stay within token budget
+        ollamaMessages = [...ollamaMessages, ...historyMessages];
+      } else {
+        // Fallback: add just the current user message
+        ollamaMessages.push({ role: 'user', content: message });
+      }
+
+      // Ensure last message is the current user message
+      if (!clientHistory || ollamaMessages[ollamaMessages.length - 1]?.content !== message) {
+        ollamaMessages.push({ role: 'user', content: message });
+      }
+
       try {
         const ollamaRes = await axios.post(
           `${ollamaUrl}/api/chat`,
           {
             model,
-            messages: [
-              { role: 'system', content: `Context:\n${ragContext}` },
-              { role: 'user', content: message },
-            ],
+            messages: ollamaMessages,
             stream: true,
           },
-          { responseType: 'stream', timeout: 30000 }
+          { responseType: 'stream', timeout: 60000 }
         );
 
         ollamaRes.data.on('data', (chunk: Buffer) => {
@@ -259,18 +281,25 @@ async function handleChat(req: any, res: any) {
   } catch (err: any) {
     logger.error('Chat processing error:', err);
     const fallback = getMockResponse([], req.body?.message || 'hello', req.body?.model || 'harikson-plus');
-    if (req.body?.stream !== false && !res.headersSent) {
-      res.setHeader('Content-Type', 'text/event-stream');
-      res.setHeader('Cache-Control', 'no-cache');
-      res.write(`data: ${JSON.stringify({ content: fallback, conversationId: 'conv_fallback' })}\n\n`);
-      res.write(`data: [DONE]\n\n`);
-      return res.end();
+    try {
+      if (res.headersSent) {
+        // Headers already sent in stream — just close the connection
+        try { res.write(`data: [DONE]\n\n`); res.end(); } catch (_) {}
+        return;
+      }
+      if (req.body?.stream !== false) {
+        res.setHeader('Content-Type', 'text/event-stream');
+        res.setHeader('Cache-Control', 'no-cache');
+        res.setHeader('Connection', 'keep-alive');
+        res.write(`data: ${JSON.stringify({ content: fallback, conversationId: 'conv_fallback' })}\n\n`);
+        res.write(`data: [DONE]\n\n`);
+        res.end();
+      } else {
+        res.json({ conversationId: 'conv_fallback', message: fallback, tokensUsed: 150 });
+      }
+    } catch (writeErr) {
+      logger.error('Failed to write error response:', writeErr);
     }
-    res.json({
-      conversationId: 'conv_fallback',
-      message: fallback,
-      tokensUsed: 150,
-    });
   }
 }
 
