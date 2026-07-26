@@ -585,20 +585,24 @@ router.post(['/billing/change-plan', '/user/billing/change-plan'], async (req: a
 router.get('/usage', async (req: any, res) => {
   if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
 
+  const tenantId = req.tenant?.id || req.user?.tenantId || '00000000-0000-0000-0000-000000000001';
+
   try {
     const days = parseInt(req.query.days as string, 10) || 7;
     let realUsage: any[] = [];
     try {
-      const dbRes = await pool.query(
-        `SELECT DATE(m.created_at) as date_val, 
-                COUNT(DISTINCT m.id) as queries_count, 
-                COALESCE(SUM(m.tokens_used), 0) as total_tokens
-         FROM messages m
-         JOIN conversations c ON m.conversation_id = c.id
-         WHERE c.user_id = $1 AND m.created_at >= NOW() - ($2 || ' days')::INTERVAL
-         GROUP BY DATE(m.created_at)
-         ORDER BY DATE(m.created_at) ASC`,
-        [req.user.userId, days]
+      const dbRes = await executeTenantQuery(tenantId, (client) =>
+        client.query(
+          `SELECT DATE(m.created_at) as date_val, 
+                  COUNT(DISTINCT m.id) as queries_count, 
+                  COALESCE(SUM(m.tokens_used), 0) as total_tokens
+           FROM messages m
+           JOIN conversations c ON m.conversation_id = c.id
+           WHERE c.user_id = $1 AND m.created_at >= NOW() - ($2 || ' days')::INTERVAL
+           GROUP BY DATE(m.created_at)
+           ORDER BY DATE(m.created_at) ASC`,
+          [req.user.userId, days]
+        )
       );
       realUsage = dbRes.rows || [];
     } catch (e) {
