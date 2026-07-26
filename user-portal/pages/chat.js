@@ -29,6 +29,10 @@ import {
   Folder,
   Bug,
   FileText,
+  ChevronRight,
+  MoreVertical,
+  Shield,
+  Sparkles,
 } from 'lucide-react';
 import SettingsModal from '../components/SettingsModal';
 
@@ -1920,127 +1924,90 @@ If any check fails, revise the relevant section before output.`;
           {/* Logo */}
           <div className="sidebar-header">
             <div className="sidebar-logo-icon">
-              <Zap size={20} color="var(--accent)" />
+              <Zap size={18} fill="white" color="white" />
             </div>
             <div className="sidebar-logo-text">Harikson AI</div>
           </div>
 
-          {/* New Chat */}
-          <button className="new-chat-btn" onClick={startNewChat}>
-            <Plus size={16} />
-            <span>New conversation</span>
-          </button>
+          {/* Sidebar Primary Actions */}
+          <div className="sidebar-actions-group">
+            <button className="new-chat-btn" onClick={startNewChat}>
+              <Plus size={16} />
+              <span>New Conversation</span>
+            </button>
 
-          <NextLink href="/workflows" passHref legacyBehavior>
-            <a className="new-chat-btn" style={{
-              marginTop: '10px',
-              background: 'transparent',
-              border: '1px solid var(--border)',
-              color: 'var(--text-secondary)',
-              textDecoration: 'none',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '8px'
-            }}>
-              <Zap size={16} />
+            <button
+              className="sidebar-btn-secondary"
+              onClick={() => router.push('/workflows')}
+            >
+              <Zap size={16} color="var(--accent)" />
               <span>Workflow Builder</span>
-            </a>
-          </NextLink>
-
-          {/* Conversation List */}
-          <div className="conv-list">
-            {conversations.length === 0 && (
-              <div
-                style={{
-                  padding: '12px 16px',
-                  color: 'var(--text-muted)',
-                  fontSize: '12.5px',
-                }}
-              >
-                No conversations yet. Start chatting!
-              </div>
-            )}
-            {conversations.length > 0 && (
-              <div className="conv-section-label">Recent</div>
-            )}
-            {conversations.map((conv) => (
-              <div
-                key={conv.id}
-                className={`conv-item${activeConvId === conv.id ? ' active' : ''}`}
-                onClick={() => loadConversation(conv.id)}
-              >
-                {renamingId === conv.id ? (
-                  <input
-                    className="conv-rename-input"
-                    value={renameValue}
-                    autoFocus
-                    onChange={(e) => setRenameValue(e.target.value)}
-                    onBlur={() => commitRename(conv.id)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') commitRename(conv.id);
-                      if (e.key === 'Escape') setRenamingId(null);
-                      e.stopPropagation();
-                    }}
-                    onClick={(e) => e.stopPropagation()}
-                  />
-                ) : (
-                  <span className="conv-title">{conv.title || 'Untitled'}</span>
-                )}
-                <div className="conv-actions">
-                  <button
-                    className="conv-action-btn"
-                    title="Rename"
-                    aria-label="Rename conversation"
-                    onClick={(e) => startRename(conv, e)}
-                  >
-                    <Edit3 size={14} />
-                  </button>
-                  <button
-                    className="conv-action-btn danger"
-                    title="Delete"
-                    aria-label="Delete conversation"
-                    onClick={(e) => deleteConversation(conv.id, e)}
-                  >
-                    <X size={14} />
-                  </button>
-                </div>
-              </div>
-            ))}
+            </button>
           </div>
 
-          {/* User Info / Logout */}
+          {/* Conversation List */}
+          <div className="conv-section-label">Recent</div>
+          <div className="conv-list">
+            {conversations.length === 0 ? (
+              <div className="conv-empty-state">
+                No conversations yet.<br />
+                Start a new conversation.
+              </div>
+            ) : (
+              conversations.map((conv) => (
+                <div
+                  key={conv.id}
+                  className={`conv-item${activeConvId === conv.id ? ' active' : ''}`}
+                  onClick={() => loadConversation(conv.id)}
+                >
+                  {renamingId === conv.id ? (
+                    <input
+                      className="conv-rename-input"
+                      value={renameValue}
+                      autoFocus
+                      onChange={(e) => setRenameValue(e.target.value)}
+                      onBlur={() => commitRename(conv.id)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') commitRename(conv.id);
+                        if (e.key === 'Escape') setRenamingId(null);
+                        e.stopPropagation();
+                      }}
+                      onClick={(e) => e.stopPropagation()}
+                    />
+                  ) : (
+                    <span className="conv-title">{conv.title || 'Untitled'}</span>
+                  )}
+                  <div className="conv-actions">
+                    <button
+                      className="conv-action-btn"
+                      title="Rename"
+                      aria-label="Rename conversation"
+                      onClick={(e) => startRename(conv, e)}
+                    >
+                      <Edit3 size={13} />
+                    </button>
+                    <button
+                      className="conv-action-btn danger"
+                      title="Delete"
+                      aria-label="Delete conversation"
+                      onClick={(e) => deleteConversation(conv.id, e)}
+                    >
+                      <X size={13} />
+                    </button>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+
+          {/* User Account Section */}
           <div className="sidebar-footer">
             <div
-              className="user-info"
+              className="account-pill"
               onClick={() => setShowSettingsModal(true)}
-              style={{
-                cursor: 'pointer',
-                transition: 'background 0.2s',
-                padding: '8px',
-                borderRadius: 'var(--radius-md)',
-              }}
-              onMouseOver={(e) =>
-                (e.currentTarget.style.background = 'var(--bg-hover)')
-              }
-              onMouseOut={(e) =>
-                (e.currentTarget.style.background = 'transparent')
-              }
+              title="Manage Account Settings"
             >
-              <div className="user-avatar" style={{
-                width: '32px',
-                height: '32px',
-                borderRadius: '50%',
-                background: 'var(--accent)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                fontSize: '14px',
-                fontWeight: 'bold',
-                color: 'white',
-                overflow: 'hidden',
-                position: 'relative'
-              }}>
+              <div className="user-avatar-circle">
                 {user?.avatarUrl ? (
                   <img
                     src={user.avatarUrl}
@@ -2051,29 +2018,39 @@ If any check fails, revise the relevant section before output.`;
                   userInitial
                 )}
               </div>
-              <div
-                style={{ flex: 1, display: 'flex', flexDirection: 'column' }}
-              >
-                <span
-                  className="user-email"
-                  style={{ fontSize: '13px', fontWeight: '500' }}
-                >
-                  {user?.name || user?.email?.split('@')[0] || 'User'}
+              <div className="account-details">
+                <span className="account-name">
+                  {user?.name || user?.email?.split('@')[0] || 'Ashish Tomar'}
                 </span>
-                <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
-                  Manage Account
-                </span>
+                <span className="account-subtitle">Manage Account</span>
+              </div>
+              <div className="account-more-icon">
+                <MoreVertical size={16} />
               </div>
             </div>
           </div>
         </aside>
 
-        {/* ─── Main area ───────────────────────────────────── */}
+        {/* ─── Main Workspace Area ─────────────────────────── */}
         <div className="workspace">
+          {/* Top-Right Workspace Profile Badge (Matching Reference Screenshot) */}
+          <div className="workspace-top-user">
+            <div className="user-badge-green" title={user?.email || 'Authenticated User'}>
+              {userInitial || 'IM'}
+            </div>
+            <button
+              className="workspace-grid-btn"
+              onClick={() => setShowSettingsModal(true)}
+              title="Account & Settings"
+            >
+              <MoreVertical size={16} />
+            </button>
+          </div>
+
           <main
             className={`main-area ${activeArtifact ? 'with-artifact' : ''}`}
           >
-            {/* Top bar */}
+            {/* Topbar Header */}
             <div className="topbar">
               <span className="topbar-title">
                 {activeConvId
@@ -2081,21 +2058,16 @@ If any check fails, revise the relevant section before output.`;
                     'Conversation'
                   : 'New Conversation'}
               </span>
-              <div
-                className="topbar-actions"
-                style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
-              >
+              <div className="topbar-actions">
                 {/* Export Menu Dropdown */}
                 <div style={{ position: 'relative' }}>
                   <button
-                    className="share-btn"
+                    className="topbar-btn"
                     onClick={() => setShowExportMenu(!showExportMenu)}
                     title="Export conversation"
                   >
-                    <span style={{ marginRight: '6px' }}>
-                      <FolderUp size={14} />
-                    </span>{' '}
-                    Export
+                    <FolderUp size={14} />
+                    <span>Export</span>
                   </button>
                   {showExportMenu && (
                     <div
@@ -2104,31 +2076,30 @@ If any check fails, revise the relevant section before output.`;
                         right: 0,
                         top: '100%',
                         marginTop: '6px',
-                        background: 'var(--surface)',
-                        border: '1px solid var(--border)',
+                        background: '#ffffff',
+                        border: '1px solid #e2e8f0',
                         borderRadius: '8px',
-                        boxShadow: '0 4px 16px rgba(0,0,0,0.15)',
+                        boxShadow: '0 4px 16px rgba(0,0,0,0.08)',
                         zIndex: 999,
                         display: 'flex',
                         flexDirection: 'column',
-                        minWidth: '130px',
+                        minWidth: '140px',
                         overflow: 'hidden',
                       }}
                     >
                       <button
                         onClick={exportAsMarkdown}
                         style={{
-                          padding: '8px 12px',
-                          fontSize: '11.5px',
+                          padding: '8px 14px',
+                          fontSize: '12px',
                           textAlign: 'left',
                           background: 'transparent',
                           border: 'none',
-                          color: 'var(--text)',
+                          color: '#0f172a',
                           cursor: 'pointer',
-                          transition: 'background 0.2s',
                         }}
                         onMouseOver={(e) =>
-                          (e.currentTarget.style.background = 'var(--bg-hover)')
+                          (e.currentTarget.style.background = '#f1f5f9')
                         }
                         onMouseOut={(e) =>
                           (e.currentTarget.style.background = 'transparent')
@@ -2139,17 +2110,16 @@ If any check fails, revise the relevant section before output.`;
                       <button
                         onClick={exportAsJSON}
                         style={{
-                          padding: '8px 12px',
-                          fontSize: '11.5px',
+                          padding: '8px 14px',
+                          fontSize: '12px',
                           textAlign: 'left',
                           background: 'transparent',
                           border: 'none',
-                          color: 'var(--text)',
+                          color: '#0f172a',
                           cursor: 'pointer',
-                          transition: 'background 0.2s',
                         }}
                         onMouseOver={(e) =>
-                          (e.currentTarget.style.background = 'var(--bg-hover)')
+                          (e.currentTarget.style.background = '#f1f5f9')
                         }
                         onMouseOut={(e) =>
                           (e.currentTarget.style.background = 'transparent')
@@ -2160,17 +2130,16 @@ If any check fails, revise the relevant section before output.`;
                       <button
                         onClick={exportAsPDF}
                         style={{
-                          padding: '8px 12px',
-                          fontSize: '11.5px',
+                          padding: '8px 14px',
+                          fontSize: '12px',
                           textAlign: 'left',
                           background: 'transparent',
                           border: 'none',
-                          color: 'var(--text)',
+                          color: '#0f172a',
                           cursor: 'pointer',
-                          transition: 'background 0.2s',
                         }}
                         onMouseOver={(e) =>
-                          (e.currentTarget.style.background = 'var(--bg-hover)')
+                          (e.currentTarget.style.background = '#f1f5f9')
                         }
                         onMouseOut={(e) =>
                           (e.currentTarget.style.background = 'transparent')
@@ -2183,18 +2152,16 @@ If any check fails, revise the relevant section before output.`;
                 </div>
 
                 <button
-                  className="share-btn"
+                  className="topbar-btn"
                   onClick={handleShareChat}
                   title="Share conversation link"
                 >
-                  <span style={{ marginRight: '6px' }}>
-                    <Link size={14} />
-                  </span>{' '}
-                  Share
+                  <Link size={14} />
+                  <span>Share</span>
                 </button>
 
                 <select
-                  className="model-select"
+                  className="topbar-select"
                   value={systemPreset}
                   onChange={(e) => setSystemPreset(e.target.value)}
                 >
@@ -2209,7 +2176,7 @@ If any check fails, revise the relevant section before output.`;
                   ))}
                 </select>
                 <select
-                  className="model-select"
+                  className="topbar-select"
                   value={model}
                   onChange={(e) => setModel(e.target.value)}
                 >
@@ -2219,88 +2186,107 @@ If any check fails, revise the relevant section before output.`;
               </div>
             </div>
 
-            {/* Messages */}
+            {/* Messages Area */}
             <div className="messages-area">
+              <div className="workspace-hero-bg" />
+
+              {/* Central Empty State Hero & 2x2 Quick Action Cards */}
               {messages.length === 0 && !loading && (
                 <div className="messages-empty">
-                  <div className="messages-empty-icon">
-                    <Zap size={40} color="var(--accent)" />
+                  <div className="hero-icon-container">
+                    <Zap size={32} color="#3b82f6" />
                   </div>
-                  <h2>Harikson AI</h2>
-                  <p>
+                  <h2 className="hero-title">Harikson AI</h2>
+                  <p className="hero-description">
                     Your enterprise AI coding assistant. Ask anything about your
                     codebase, architecture, or software.
                   </p>
 
-                  <div className="prompt-suggestions-grid">
+                  <div className="quick-actions-grid">
                     <div
-                      className="suggestion-card"
+                      className="quick-action-card"
                       onClick={() =>
                         handleSuggestionClick(
                           'Create a private LLM deployment template with Harikson.'
                         )
                       }
                     >
-                      <div className="suggestion-icon">
-                        <Rocket size={24} color="var(--accent)" />
+                      <div className="card-icon-pill">
+                        <Rocket size={20} color="#3b82f6" />
                       </div>
-                      <div className="suggestion-text">
-                        <strong>Deploy Private LLM</strong>
-                        <span>Create a sovereign deployment template</span>
+                      <div className="card-text-group">
+                        <span className="card-text-title">Deploy Private LLM</span>
+                        <span className="card-text-subtitle">
+                          Create a sovereign deployment template
+                        </span>
                       </div>
+                      <ChevronRight size={16} className="card-arrow-icon" />
                     </div>
+
                     <div
-                      className="suggestion-card"
+                      className="quick-action-card"
                       onClick={() =>
                         handleSuggestionClick(
                           'Auditing my code for DPDP compliance rules.'
                         )
                       }
                     >
-                      <div className="suggestion-icon">
-                        <ShieldCheck size={24} color="var(--accent)" />
+                      <div className="card-icon-pill">
+                        <Shield size={20} color="#3b82f6" />
                       </div>
-                      <div className="suggestion-text">
-                        <strong>DPDP Audit</strong>
-                        <span>Check code compliance on Indian soil</span>
+                      <div className="card-text-group">
+                        <span className="card-text-title">DPDP Audit</span>
+                        <span className="card-text-subtitle">
+                          Check code compliance on Indian soil
+                        </span>
                       </div>
+                      <ChevronRight size={16} className="card-arrow-icon" />
                     </div>
+
                     <div
-                      className="suggestion-card"
+                      className="quick-action-card"
                       onClick={() =>
                         handleSuggestionClick(
                           'Optimize this query for active tenant indexes.'
                         )
                       }
                     >
-                      <div className="suggestion-icon">
-                        <Zap size={24} color="var(--accent)" />
+                      <div className="card-icon-pill">
+                        <Zap size={20} color="#3b82f6" />
                       </div>
-                      <div className="suggestion-text">
-                        <strong>Optimize SQL Index</strong>
-                        <span>DBA schema indexing assistant</span>
+                      <div className="card-text-group">
+                        <span className="card-text-title">Optimize SQL Index</span>
+                        <span className="card-text-subtitle">
+                          DBA schema indexing assistant
+                        </span>
                       </div>
+                      <ChevronRight size={16} className="card-arrow-icon" />
                     </div>
+
                     <div
-                      className="suggestion-card"
+                      className="quick-action-card"
                       onClick={() =>
                         handleSuggestionClick(
                           'Write a robust RAG data pipeline configuration.'
                         )
                       }
                     >
-                      <div className="suggestion-icon">
-                        <Folder size={24} color="var(--accent)" />
+                      <div className="card-icon-pill">
+                        <Folder size={20} color="#3b82f6" />
                       </div>
-                      <div className="suggestion-text">
-                        <strong>RAG Data Pipeline</strong>
-                        <span>Inject documents for vector search</span>
+                      <div className="card-text-group">
+                        <span className="card-text-title">RAG Data Pipeline</span>
+                        <span className="card-text-subtitle">
+                          Inject documents for vector search
+                        </span>
                       </div>
+                      <ChevronRight size={16} className="card-arrow-icon" />
                     </div>
                   </div>
                 </div>
               )}
 
+              {/* Message List */}
               {messages.map((msg, idx) =>
                 msg.sender === 'user' ? (
                   <div key={idx} className="message-row user">
@@ -2359,8 +2345,8 @@ If any check fails, revise the relevant section before output.`;
               <div ref={chatEndRef} />
             </div>
 
-            {/* Input bar */}
-            <div className="input-bar">
+            {/* Bottom Composer */}
+            <div className="composer-area">
               {attachedFiles.length > 0 && (
                 <div
                   style={{
@@ -2368,7 +2354,7 @@ If any check fails, revise the relevant section before output.`;
                     gap: '8px',
                     flexWrap: 'wrap',
                     marginBottom: '8px',
-                    padding: '0 12px',
+                    padding: '0 4px',
                   }}
                 >
                   {attachedFiles.map((file, i) => (
@@ -2424,7 +2410,7 @@ If any check fails, revise the relevant section before output.`;
                 </div>
               )}
               <form onSubmit={sendMessage}>
-                <div className="input-wrapper">
+                <div className="composer-container">
                   {showSlashMenu && (
                     <div className="slash-command-popup">
                       {SLASH_COMMANDS.map((cmd, idx) => (
@@ -2457,24 +2443,12 @@ If any check fails, revise the relevant section before output.`;
                     placeholder="Message Harikson…"
                     disabled={loading}
                   />
-                  <div className="input-toolbar">
-                    <div className="input-toolbar-left">
+                  <div className="composer-toolbar">
+                    <div className="composer-toolbar-left">
                       <button
                         type="button"
+                        className="toolbar-icon-btn"
                         onClick={toggleVoiceMode}
-                        style={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          width: '32px',
-                          height: '32px',
-                          borderRadius: '8px',
-                          background: 'transparent',
-                          border: '2px solid var(--accent, #0070f3)',
-                          color: 'var(--text-secondary, #4b5563)',
-                          cursor: 'pointer',
-                          transition: 'background 0.2s, border-color 0.2s',
-                        }}
                         title="Voice Mode Assistant"
                       >
                         <Mic size={18} />
@@ -2488,8 +2462,9 @@ If any check fails, revise the relevant section before output.`;
                       />
                       <label
                         htmlFor="file-upload"
-                        className="toolbar-btn"
+                        className="toolbar-icon-btn"
                         title="Attach Files"
+                        style={{ cursor: 'pointer' }}
                       >
                         <Paperclip size={18} />
                       </label>
@@ -2509,7 +2484,7 @@ If any check fails, revise the relevant section before output.`;
                         <BrainCircuit size={14} /> Reason
                       </button>
                     </div>
-                    <div className="input-toolbar-right">
+                    <div className="composer-toolbar-right">
                       {loading ? (
                         <button
                           type="button"
@@ -2538,9 +2513,8 @@ If any check fails, revise the relevant section before output.`;
                   </div>
                 </div>
               </form>
-              <p className="input-hint">
-                Press Enter to send · Shift+Enter for new line · Attach code
-                files
+              <p className="composer-hint">
+                Press Enter to send · Shift+Enter for new line · Attach code files
               </p>
             </div>
           </main>
