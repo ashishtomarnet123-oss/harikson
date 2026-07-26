@@ -29,6 +29,7 @@ import BillingSettings from './settings/billing';
 import ActivitySettings from './settings/activity';
 import DevicesSettings from './settings/devices';
 import SecuritySettings from './settings/security';
+import DataPrivacySettings from './settings/privacy';
 import DeveloperSettings from './settings/developer';
 import AppearanceSettings from './settings/appearance';
 import LanguageSettings from './settings/language';
@@ -659,7 +660,7 @@ const navSections = [
         id: 'privacy',
         name: 'Data & Privacy',
         icon: Lock,
-        Component: SecuritySettings,
+        Component: DataPrivacySettings,
       },
     ],
   },
