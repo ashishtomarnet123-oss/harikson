@@ -58,39 +58,24 @@ export default function UsageSettings() {
         const data = await res.json();
         setUsage(data);
       } else {
-        // Safe analytics fallback
         setUsage({
-          totalTokens: 14250,
-          totalQueries: 185,
-          tokensChangePct: 12.5,
-          queriesChangePct: 8.3,
+          totalTokens: 0,
+          totalQueries: 0,
+          tokensChangePct: 0,
+          queriesChangePct: 0,
           limitTokens: 100000,
-          daily: [
-            { day: 'Mon', date: '2026-07-20', tokens: 1200, queries: 15 },
-            { day: 'Tue', date: '2026-07-21', tokens: 2400, queries: 28 },
-            { day: 'Wed', date: '2026-07-22', tokens: 1800, queries: 22 },
-            { day: 'Thu', date: '2026-07-23', tokens: 3100, queries: 35 },
-            { day: 'Fri', date: '2026-07-24', tokens: 4200, queries: 48 },
-            { day: 'Sat', date: '2026-07-25', tokens: 1550, queries: 37 }
-          ]
+          daily: []
         });
       }
     } catch (err) {
       console.error('Fetch usage error:', err);
       setUsage({
-        totalTokens: 14250,
-        totalQueries: 185,
-        tokensChangePct: 12.5,
-        queriesChangePct: 8.3,
+        totalTokens: 0,
+        totalQueries: 0,
+        tokensChangePct: 0,
+        queriesChangePct: 0,
         limitTokens: 100000,
-        daily: [
-          { day: 'Mon', date: '2026-07-20', tokens: 1200, queries: 15 },
-          { day: 'Tue', date: '2026-07-21', tokens: 2400, queries: 28 },
-          { day: 'Wed', date: '2026-07-22', tokens: 1800, queries: 22 },
-          { day: 'Thu', date: '2026-07-23', tokens: 3100, queries: 35 },
-          { day: 'Fri', date: '2026-07-24', tokens: 4200, queries: 48 },
-          { day: 'Sat', date: '2026-07-25', tokens: 1550, queries: 37 }
-        ]
+        daily: []
       });
     } finally {
       setLoading(false);

@@ -617,8 +617,8 @@ router.get('/usage', async (req: any, res) => {
       const dayName = dayNames[d.getDay()];
 
       const match = realUsage.find((r) => r.date_val && new Date(r.date_val).toISOString().split('T')[0] === isoDate);
-      const tokens = match ? parseInt(match.total_tokens, 10) : Math.floor(1100 + Math.random() * 2200);
-      const queries = match ? parseInt(match.queries_count, 10) : Math.floor(14 + Math.random() * 32);
+      const tokens = match ? parseInt(match.total_tokens, 10) : 0;
+      const queries = match ? parseInt(match.queries_count, 10) : 0;
 
       sumTokens += tokens;
       sumQueries += queries;
@@ -635,8 +635,8 @@ router.get('/usage', async (req: any, res) => {
       daily: dailyList,
       totalTokens: sumTokens,
       totalQueries: sumQueries,
-      tokensChangePct: 14.2,
-      queriesChangePct: 9.8,
+      tokensChangePct: 0,
+      queriesChangePct: 0,
       limitTokens: 100000,
       tokenUsage: dailyList.map(d => ({ date: d.date, tokens: d.tokens })),
       apiRequests: dailyList.map(d => ({ date: d.date, count: d.queries }))
