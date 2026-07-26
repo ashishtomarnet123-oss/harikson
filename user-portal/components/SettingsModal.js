@@ -28,6 +28,7 @@ import UsageSettings from './settings/usage';
 import BillingSettings from './settings/billing';
 import ActivitySettings from './settings/activity';
 import DevicesSettings from './settings/devices';
+import ConnectedAppsSettings from './settings/apps';
 import SecuritySettings from './settings/security';
 import DataPrivacySettings from './settings/privacy';
 import DeveloperSettings from './settings/developer';
@@ -614,7 +615,7 @@ const navSections = [
         id: 'connected_apps',
         name: 'Connected Apps',
         icon: Link2,
-        Component: DevicesSettings,
+        Component: ConnectedAppsSettings,
       },
       {
         id: 'devices',
