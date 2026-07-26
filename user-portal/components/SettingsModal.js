@@ -15,6 +15,10 @@ import {
   X,
   LogOut,
   FileText,
+  Link2,
+  Key,
+  Lock,
+  Zap,
 } from 'lucide-react';
 import { useRouter } from 'next/router';
 
@@ -557,7 +561,7 @@ function RagDriveSettings() {
 
 const navSections = [
   {
-    title: 'Personal',
+    title: 'ACCOUNT',
     items: [
       {
         id: 'profile',
@@ -572,12 +576,6 @@ const navSections = [
         Component: WorkspaceSettings,
       },
       {
-        id: 'usage',
-        name: 'Usage & Analytics',
-        icon: Activity,
-        Component: UsageSettings,
-      },
-      {
         id: 'billing',
         name: 'Billing & Subscription',
         icon: CreditCard,
@@ -586,19 +584,36 @@ const navSections = [
     ],
   },
   {
-    title: 'Data & Activity',
+    title: 'AI & DATA',
     items: [
-      {
-        id: 'activity',
-        name: 'Activity Timeline',
-        icon: Clock,
-        Component: ActivitySettings,
-      },
       {
         id: 'storage',
         name: 'My RAG Drive',
         icon: HardDrive,
         Component: RagDriveSettings,
+      },
+      {
+        id: 'custom_presets',
+        name: 'Prompt Library',
+        icon: Code,
+        Component: PromptLibrarySettings,
+      },
+      {
+        id: 'usage',
+        name: 'Usage & Analytics',
+        icon: Activity,
+        Component: UsageSettings,
+      },
+    ],
+  },
+  {
+    title: 'CONNECTIONS',
+    items: [
+      {
+        id: 'connected_apps',
+        name: 'Connected Apps',
+        icon: Link2,
+        Component: DevicesSettings,
       },
       {
         id: 'devices',
@@ -609,7 +624,24 @@ const navSections = [
     ],
   },
   {
-    title: 'Configuration',
+    title: 'DEVELOPER',
+    items: [
+      {
+        id: 'api_keys',
+        name: 'API Keys',
+        icon: Key,
+        Component: DeveloperSettings,
+      },
+      {
+        id: 'developer',
+        name: 'Developer Settings',
+        icon: Code,
+        Component: DeveloperSettings,
+      },
+    ],
+  },
+  {
+    title: 'SECURITY & PRIVACY',
     items: [
       {
         id: 'security',
@@ -618,39 +650,16 @@ const navSections = [
         Component: SecuritySettings,
       },
       {
-        id: 'custom_presets',
-        name: 'Prompt Library',
-        icon: Code,
-        Component: PromptLibrarySettings,
+        id: 'sessions',
+        name: 'Sessions',
+        icon: Clock,
+        Component: ActivitySettings,
       },
       {
-        id: 'developer',
-        name: 'Developer Settings',
-        icon: Code,
-        Component: DeveloperSettings,
-      },
-      {
-        id: 'appearance',
-        name: 'Appearance',
-        icon: Palette,
-        Component: AppearanceSettings,
-      },
-      {
-        id: 'language',
-        name: 'Language',
-        icon: Globe,
-        Component: LanguageSettings,
-      },
-    ],
-  },
-  {
-    title: 'Support',
-    items: [
-      {
-        id: 'help',
-        name: 'Help Center',
-        icon: HelpCircle,
-        Component: HelpSettings,
+        id: 'privacy',
+        name: 'Data & Privacy',
+        icon: Lock,
+        Component: SecuritySettings,
       },
     ],
   },
@@ -706,7 +715,10 @@ export default function SettingsModal({
           {/* ── Sidebar ── */}
           <div className="settings-sidebar">
             <div className="settings-sidebar-header">
-              <h2>Settings</h2>
+              <div className="settings-brand-pill">
+                <Zap size={15} fill="white" color="white" />
+              </div>
+              <h2 className="settings-brand-title">Harikson AI</h2>
             </div>
 
             <nav className="settings-nav" aria-label="Settings navigation">
@@ -720,7 +732,7 @@ export default function SettingsModal({
                       className={`settings-nav-item${activeTab === item.id ? ' active' : ''}`}
                     >
                       <item.icon size={15} />
-                      {item.name}
+                      <span>{item.name}</span>
                     </button>
                   ))}
                 </div>
@@ -741,7 +753,7 @@ export default function SettingsModal({
                   }
                 }}
               >
-                <LogOut size={15} /> Log Out
+                <LogOut size={15} /> <span>Log Out</span>
               </button>
             </div>
           </div>
@@ -749,7 +761,7 @@ export default function SettingsModal({
           {/* ── Content ── */}
           <div className="settings-content-wrapper">
             <div className="settings-content">
-              <ActiveComponent />
+              <ActiveComponent onClose={onClose} />
             </div>
           </div>
         </div>
