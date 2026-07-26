@@ -459,13 +459,14 @@ router.get('/billing', async (req: any, res) => {
     const tenantId = userRes.rows[0]?.tenant_id || req.tenant?.id || '00000000-0000-0000-0000-000000000000';
 
     let currentSub: any = {
-      plan_name: 'Professional Plan',
+      plan_name: 'Professional Plan (14-Day Free Trial)',
       status: 'active',
-      price: '$49.00 / month',
-      billingCycle: 'Monthly',
-      nextBillingDate: 'August 24, 2026',
+      price: '$0.00 (Free Trial)',
+      billingCycle: '14-Day Trial',
+      nextBillingDate: 'August 09, 2026',
       paymentMethod: { brand: 'Visa', last4: '4242' },
-      current_period_end: new Date(Date.now() + 30 * 24 * 3600 * 1000).toISOString(),
+      current_period_end: new Date(Date.now() + 14 * 24 * 3600 * 1000).toISOString(),
+      isTrial: true,
     };
 
     try {

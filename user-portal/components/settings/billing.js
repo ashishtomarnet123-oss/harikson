@@ -227,11 +227,20 @@ export default function BillingSettings() {
 
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '16px' }}>
                 <div style={{ flex: 1, minWidth: '240px' }}>
+                  <div style={{
+                    display: 'inline-flex', alignItems: 'center', gap: '6px',
+                    background: 'linear-gradient(135deg, rgba(59, 130, 246, 0.12), rgba(139, 92, 246, 0.12))',
+                    color: '#3b82f6', border: '1px solid rgba(59, 130, 246, 0.3)',
+                    padding: '6px 12px', borderRadius: '20px', fontSize: '12px', fontWeight: '800',
+                    marginBottom: '10px'
+                  }}>
+                    <Sparkles size={14} color="#8b5cf6" /> ✨ 14-Day Professional Free Trial Active
+                  </div>
                   <h3 style={{ fontSize: '22px', fontWeight: '900', margin: '0 0 4px 0', color: 'var(--text-primary)' }}>
                     {billing.planName}
                   </h3>
                   <div style={{ fontSize: '26px', fontWeight: '900', color: 'var(--text-primary)', margin: '8px 0' }}>
-                    {billing.price} <span style={{ fontSize: '13px', color: 'var(--text-secondary)', fontWeight: 'normal' }}>/ user / month</span>
+                    $0.00 <span style={{ fontSize: '13px', color: '#10b981', fontWeight: 'bold' }}>(Free Trial)</span> <span style={{ fontSize: '13px', color: 'var(--text-secondary)', fontWeight: 'normal' }}>/ 14 days remaining</span>
                   </div>
 
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '16px' }}>

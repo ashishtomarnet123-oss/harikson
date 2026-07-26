@@ -294,18 +294,14 @@ async function handleRegister(req: any, res: any) {
 
     const user = newUserRes.rows[0];
 
-    // LOW-015: Create trialing subscription record
-    const planRes = await pool.query(`SELECT id, trial_days FROM plans ORDER BY price ASC LIMIT 1`);
-    const plan = planRes.rows[0];
-    const trialDays = plan?.trial_days || 14;
-
+    // Assign active 14-day Professional Plan Free Trial
     await pool.query(
       `INSERT INTO subscriptions (
         tenant_id, plan_id, provider, provider_subscription_id, status, current_period_start, current_period_end, amount, currency, created_at
        )
-       VALUES ($1, $2, 'system', $4, 'trialing', NOW(), NOW() + ($3 || '14')::int * INTERVAL '1 day', 0, 'INR', NOW())`,
-      [tenantId, plan?.id || 'free', trialDays, 'sub_trial_' + crypto.randomBytes(8).toString('hex')]
-    );
+       VALUES ($1, 'pro', 'system', $2, 'active', NOW(), NOW() + INTERVAL '14 days', 0, 'USD', NOW())`,
+      [tenantId, 'sub_trial_' + crypto.randomBytes(8).toString('hex')]
+    ).catch(() => {});
 
     const verifyUrl = `https://app.neuravolt.cloud/verify-email?token=${verificationToken}`;
     sendVerificationEmail(user.email, verifyUrl).catch((err) =>
