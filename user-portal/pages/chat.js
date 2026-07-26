@@ -2102,20 +2102,6 @@ If any check fails, revise the relevant section before output.`;
 
         {/* ─── Main Workspace Area ─────────────────────────── */}
         <div className="workspace">
-          {/* Top-Right Workspace Profile Badge (Matching Reference Screenshot) */}
-          <div className="workspace-top-user">
-            <div className="user-badge-green" title={user?.email || 'Authenticated User'}>
-              {userInitial || 'IM'}
-            </div>
-            <button
-              className="workspace-grid-btn"
-              onClick={() => setShowSettingsModal(true)}
-              title="Account & Settings"
-            >
-              <MoreVertical size={16} />
-            </button>
-          </div>
-
           <main
             className={`main-area ${activeArtifact ? 'with-artifact' : ''}`}
           >
