@@ -1614,10 +1614,41 @@ If any check fails, revise the relevant section before output.`;
 
       let fullText = '';
       let spokenOffset = 0;
+      let buffer = '';
+
       while (true) {
         const { value, done } = await reader.read();
         if (done) break;
-        fullText += decoder.decode(value, { stream: true });
+
+        buffer += decoder.decode(value, { stream: true });
+
+        // Parse SSE lines from buffer
+        const lines = buffer.split('\n');
+        buffer = lines.pop() || ''; // keep incomplete last line in buffer
+
+        for (const line of lines) {
+          const trimmed = line.trim();
+          if (!trimmed || trimmed === 'data: [DONE]') continue;
+
+          if (trimmed.startsWith('data: ')) {
+            const jsonStr = trimmed.slice(6).trim();
+            try {
+              const parsed = JSON.parse(jsonStr);
+              // Extract conversation ID from first chunk
+              if (parsed.conversationId && !activeConvId) {
+                setActiveConvId(parsed.conversationId);
+              }
+              // Append only the text content
+              if (parsed.content) {
+                fullText += parsed.content;
+              }
+            } catch (e) {
+              // If not JSON, treat as raw text
+              fullText += jsonStr;
+            }
+          }
+        }
+
         setMessages((prev) => {
           const updated = [...prev];
           const last = updated[updated.length - 1];
