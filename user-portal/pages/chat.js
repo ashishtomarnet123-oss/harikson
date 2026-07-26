@@ -1608,6 +1608,18 @@ If any check fails, revise the relevant section before output.`;
         ]);
       }
 
+      // Check if response is a plain JSON fallback (non-streaming)
+      const contentType = res.headers.get('content-type') || '';
+      if (contentType.includes('application/json')) {
+        const data = await res.json().catch(() => ({}));
+        const text = data.message || data.content || data.error || 'No response received.';
+        if (data.conversationId && !activeConvId) setActiveConvId(data.conversationId);
+        setMessages((prev) => [...prev, { sender: 'bot', text, model }]);
+        fetchConversations();
+        setLoading(false);
+        return;
+      }
+
       const reader = res.body.getReader();
       const decoder = new TextDecoder('utf-8');
       setMessages((prev) => [...prev, { sender: 'bot', text: '', model }]);
