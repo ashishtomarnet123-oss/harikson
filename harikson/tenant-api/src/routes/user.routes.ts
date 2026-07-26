@@ -590,17 +590,20 @@ router.get('/usage', async (req: any, res) => {
     let realUsage: any[] = [];
     try {
       const dbRes = await pool.query(
-        `SELECT DATE(created_at) as date_val, 
-                COUNT(*) as queries_count, 
-                COALESCE(SUM(tokens_used), COUNT(*) * 140) as total_tokens
-         FROM messages 
-         WHERE user_id = $1 AND created_at >= NOW() - ($2 || ' days')::INTERVAL
-         GROUP BY DATE(created_at)
-         ORDER BY DATE(created_at) ASC`,
+        `SELECT DATE(m.created_at) as date_val, 
+                COUNT(DISTINCT m.id) as queries_count, 
+                COALESCE(SUM(m.tokens_used), 0) as total_tokens
+         FROM messages m
+         JOIN conversations c ON m.conversation_id = c.id
+         WHERE c.user_id = $1 AND m.created_at >= NOW() - ($2 || ' days')::INTERVAL
+         GROUP BY DATE(m.created_at)
+         ORDER BY DATE(m.created_at) ASC`,
         [req.user.userId, days]
       );
       realUsage = dbRes.rows || [];
-    } catch (e) {}
+    } catch (e) {
+      logger.error('Error querying real usage stats:', e);
+    }
 
     const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
     const dailyList: any[] = [];
