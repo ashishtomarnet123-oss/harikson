@@ -121,9 +121,11 @@ export default function DeveloperSettings() {
 
   return (
     <>
-      <div className="settings-page-header">
-        <h1>Developer Settings</h1>
-        <p>Manage your API keys and developer resources.</p>
+      <div className="settings-header-group">
+        <h1 className="settings-main-title">API Keys</h1>
+        <p className="settings-main-subtitle">
+          Manage your secret API keys and authentication tokens for programmatic API access.
+        </p>
       </div>
 
       <div className="settings-section">

@@ -32,6 +32,7 @@ import ConnectedAppsSettings from './settings/apps';
 import SecuritySettings from './settings/security';
 import DataPrivacySettings from './settings/privacy';
 import DeveloperSettings from './settings/developer';
+import DeveloperConfigSettings from './settings/developerConfig';
 import AppearanceSettings from './settings/appearance';
 import LanguageSettings from './settings/language';
 import HelpSettings from './settings/help';
@@ -638,7 +639,7 @@ const navSections = [
         id: 'developer',
         name: 'Developer Settings',
         icon: Code,
-        Component: DeveloperSettings,
+        Component: DeveloperConfigSettings,
       },
     ],
   },
