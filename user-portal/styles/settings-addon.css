@@ -1486,7 +1486,7 @@
 }
 
 /* ═══════════════════════════════════════════════════════════════════
-   BILLING & SUBSCRIPTION – Match Figma Reference UI 1:1
+   BILLING & SUBSCRIPTION – Refined Alignment & Responsive Layout
    ═══════════════════════════════════════════════════════════════════ */
 
 .billing-settings-container {
@@ -1494,27 +1494,43 @@
   flex-direction: column;
   gap: 20px;
   width: 100%;
+  box-sizing: border-box;
 }
 
 .billing-plan-card {
-  position: relative;
   background: #ffffff;
   border: 1.5px solid #3b82f6;
   border-radius: 16px;
-  padding: 24px 28px;
+  padding: 22px 24px;
   box-shadow: 0 4px 14px rgba(59, 130, 246, 0.05);
+  box-sizing: border-box;
+}
+
+.plan-card-header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+}
+
+.plan-name-heading {
+  font-size: 22px;
+  font-weight: 700;
+  color: #0f172a;
+  margin: 0;
+  letter-spacing: -0.01em;
 }
 
 .billing-status-badge {
-  position: absolute;
-  top: 24px;
-  right: 28px;
-  padding: 3px 10px;
+  padding: 4px 12px;
   border-radius: 20px;
   font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.05em;
   text-transform: uppercase;
+  flex-shrink: 0;
 }
 .billing-status-badge.active {
   background: #ecfdf5;
@@ -1546,14 +1562,6 @@
   flex-direction: column;
 }
 
-.plan-name-heading {
-  font-size: 22px;
-  font-weight: 700;
-  color: #0f172a;
-  margin: 0 0 10px 0;
-  letter-spacing: -0.01em;
-}
-
 .trial-pill-badge {
   display: inline-flex;
   align-items: center;
@@ -1574,12 +1582,14 @@
   align-items: baseline;
   gap: 8px;
   margin-bottom: 6px;
+  flex-wrap: wrap;
 }
 
 .price-bold {
   font-size: 28px;
   font-weight: 800;
   color: #0f172a;
+  line-height: 1.2;
 }
 .free-trial-tag {
   font-size: 13px;
@@ -1598,6 +1608,7 @@
   font-size: 13px;
   color: #475569;
   margin-bottom: 16px;
+  flex-wrap: wrap;
 }
 .plan-subtext svg {
   color: #64748b;
@@ -1617,6 +1628,7 @@
   gap: 8px;
   font-size: 13px;
   color: #334155;
+  line-height: 1.4;
 }
 .feature-check-icon {
   color: #2563eb;
@@ -1627,6 +1639,7 @@
   width: 1px;
   background: #f1f5f9;
   align-self: stretch;
+  flex-shrink: 0;
 }
 
 .billing-right-col {
@@ -1635,19 +1648,21 @@
   display: flex;
   flex-direction: column;
   justify-content: space-between;
+  gap: 16px;
 }
 
 .usage-metric-block {
   display: flex;
   flex-direction: column;
   gap: 6px;
-  margin-bottom: 16px;
 }
 
 .metric-header-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
 }
 
 .metric-title {
@@ -1669,6 +1684,7 @@
   border-radius: 12px;
   background: #eff6ff;
   color: #2563eb;
+  flex-shrink: 0;
 }
 
 .progress-track {
@@ -1691,10 +1707,12 @@
   align-items: center;
   gap: 12px;
   margin-top: auto;
+  flex-wrap: wrap;
 }
 
 .btn-manage-billing {
   flex: 1;
+  min-width: 130px;
   height: 38px;
   display: flex;
   align-items: center;
@@ -1716,6 +1734,7 @@
 
 .btn-change-plan-outline {
   flex: 1;
+  min-width: 120px;
   height: 38px;
   display: flex;
   align-items: center;
@@ -1748,12 +1767,14 @@
   display: flex;
   flex-direction: column;
   justify-content: space-between;
+  box-sizing: border-box;
 }
 
 .sub-card-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 12px;
   margin-bottom: 12px;
 }
 
@@ -1775,6 +1796,7 @@
   font-weight: 600;
   cursor: pointer;
   transition: all 0.15s ease;
+  flex-shrink: 0;
 }
 .btn-update-outline:hover {
   background: #eff6ff;
@@ -1799,6 +1821,7 @@
   font-weight: 800;
   color: #1e3a8a;
   letter-spacing: 0.05em;
+  flex-shrink: 0;
 }
 
 .card-info {
@@ -1829,6 +1852,7 @@
   justify-content: space-between;
   gap: 16px;
   margin-top: 8px;
+  flex-wrap: wrap;
 }
 
 .next-payment-left {
@@ -1854,6 +1878,7 @@
   font-size: 22px;
   font-weight: 800;
   color: #0f172a;
+  line-height: 1.2;
 }
 
 .next-payment-due {
@@ -1887,6 +1912,7 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 12px;
   margin-bottom: 12px;
 }
 
@@ -1895,6 +1921,7 @@
   font-weight: 500;
   color: #2563eb;
   text-decoration: none;
+  flex-shrink: 0;
 }
 .view-all-invoices-link:hover {
   text-decoration: underline;
@@ -1903,7 +1930,7 @@
 .invoices-table-wrapper {
   border: 1px solid #e2e8f0;
   border-radius: 12px;
-  overflow: hidden;
+  overflow-x: auto;
   background: #ffffff;
 }
 
@@ -1912,6 +1939,7 @@
   border-collapse: collapse;
   text-align: left;
   font-size: 13px;
+  min-width: 500px;
 }
 
 .invoices-table th {
@@ -1987,6 +2015,7 @@
   gap: 12px;
   cursor: pointer;
   transition: all 0.15s ease;
+  box-sizing: border-box;
 }
 
 .action-card.primary-action {
@@ -2041,17 +2070,26 @@
   color: #b91c1c;
 }
 
-/* ── RESPONSIVE ── */
-@media (max-width: 768px) {
+/* ── RESPONSIVE MEDIA QUERIES ── */
+@media (max-width: 850px) {
   .billing-card-split {
     flex-direction: column;
+    gap: 16px;
   }
   .billing-card-divider {
     width: 100%;
     height: 1px;
   }
-  .billing-two-col-grid,
+  .billing-two-col-grid {
+    grid-template-columns: 1fr;
+  }
   .billing-bottom-actions-grid {
     grid-template-columns: 1fr;
+  }
+  .next-payment-meta {
+    text-align: left;
+  }
+  .meta-row {
+    justify-content: flex-start;
   }
 }

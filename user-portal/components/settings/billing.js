@@ -333,15 +333,16 @@ export default function BillingSettings() {
         <>
           {/* ── Main Current Plan Card ── */}
           <div className="billing-plan-card">
-            <span className={`billing-status-badge ${billing.status?.toLowerCase()}`}>
-              {billing.status || 'ACTIVE'}
-            </span>
+            <div className="plan-card-header-row">
+              <h2 className="plan-name-heading">{billing.planName || 'Professional Plan'}</h2>
+              <span className={`billing-status-badge ${billing.status?.toLowerCase()}`}>
+                {billing.status || 'ACTIVE'}
+              </span>
+            </div>
 
             <div className="billing-card-split">
               {/* Left Side (~55%) */}
               <div className="billing-left-col">
-                <h2 className="plan-name-heading">{billing.planName || 'Professional Plan'}</h2>
-
                 {billing.isTrial && (
                   <div className="trial-pill-badge">
                     <Sparkles size={13} color="#2563eb" />
