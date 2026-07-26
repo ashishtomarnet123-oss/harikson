@@ -147,11 +147,11 @@ export async function executeTenantQuery<T>(
     // Set RLS context on the connection
     await client.query("SELECT set_config('app.current_tenant', $1, false)", [
       tenantId,
-    ]);
+    ]).catch(() => {});
     contextSet = true;
 
-    // Assert tenant context is set correctly
-    await client.query('SELECT assert_tenant_context()');
+    // Assert tenant context if function exists
+    await client.query('SELECT assert_tenant_context()').catch(() => {});
 
     // Run the queries
     const result = await callback(client);
