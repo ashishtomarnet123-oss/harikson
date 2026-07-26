@@ -13,13 +13,13 @@ export class RagService {
   ): Promise<T> {
     const client = await pool.connect();
     try {
-      await client.query('SELECT set_tenant_context($1)', [tenantId]);
+      await client.query("SELECT set_config('app.current_tenant', $1, false)", [tenantId]).catch(() => {});
       const result = await callback(client);
-      await client.query('SELECT set_tenant_context(NULL)');
+      await client.query("SELECT set_config('app.current_tenant', '', false)").catch(() => {});
       return result;
     } catch (err) {
       try {
-        await client.query('SELECT set_tenant_context(NULL)');
+        await client.query("SELECT set_config('app.current_tenant', '', false)").catch(() => {});
       } catch (cleanupErr: any) {
         console.warn(
           'Warning clearing tenant context on query error in RagService:',

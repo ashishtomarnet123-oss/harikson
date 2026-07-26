@@ -102,7 +102,10 @@ app.use(async (req, _res, next) => {
     let tenant: any = null;
 
     if (tenantHeader) {
-      const tenantRes = await pool.query('SELECT * FROM tenants WHERE id = $1 OR slug = $1', [tenantHeader]).catch(() => ({ rows: [] }));
+      const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(tenantHeader);
+      const tenantRes = isUuid
+        ? await pool.query('SELECT * FROM tenants WHERE id = $1 OR slug = $2', [tenantHeader, tenantHeader]).catch(() => ({ rows: [] }))
+        : await pool.query('SELECT * FROM tenants WHERE slug = $1', [tenantHeader]).catch(() => ({ rows: [] }));
       tenant = tenantRes.rows[0];
     }
     
