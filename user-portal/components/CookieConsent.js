@@ -152,7 +152,6 @@ export default function CookieConsent() {
         <div style={styles.bannerContainer}>
           <div style={styles.bannerCard}>
             <div style={styles.bannerContent}>
-              <div style={styles.iconBox}>🍪</div>
               <div style={styles.textContainer}>
                 <h3 style={styles.bannerTitle}>We value your privacy</h3>
                 <p style={styles.bannerText}>
@@ -296,10 +295,10 @@ const styles = {
     maxWidth: '960px',
     width: '100%',
     backgroundColor: '#0f172a',
-    border: '1px solid #1e293b',
+    border: '1px solid rgba(59, 130, 246, 0.25)',
     borderRadius: '16px',
     padding: '20px 24px',
-    boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.5), 0 10px 10px -5px rgba(0, 0, 0, 0.4)',
+    boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.5), 0 10px 10px -5px rgba(0, 0, 0, 0.4), 0 0 15px rgba(59, 130, 246, 0.08)',
     display: 'flex',
     flexDirection: 'row',
     alignItems: 'center',
@@ -332,8 +331,9 @@ const styles = {
     lineHeight: '1.5',
   },
   link: {
-    color: '#38bdf8',
+    color: '#60a5fa',
     textDecoration: 'underline',
+    fontWeight: '500',
   },
   buttonGroup: {
     display: 'flex',
@@ -342,7 +342,8 @@ const styles = {
     flexShrink: 0,
   },
   btnPrimary: {
-    backgroundColor: '#0284c7',
+    backgroundColor: '#3b82f6',
+    backgroundImage: 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)',
     color: '#ffffff',
     border: 'none',
     borderRadius: '8px',
@@ -350,6 +351,8 @@ const styles = {
     fontSize: '13px',
     fontWeight: '600',
     cursor: 'pointer',
+    boxShadow: '0 2px 10px rgba(59, 130, 246, 0.3)',
+    transition: 'all 0.15s ease',
   },
   btnSecondary: {
     backgroundColor: '#1e293b',
@@ -360,6 +363,7 @@ const styles = {
     fontSize: '13px',
     fontWeight: '500',
     cursor: 'pointer',
+    transition: 'all 0.15s ease',
   },
   modalOverlay: {
     position: 'fixed',
@@ -374,12 +378,12 @@ const styles = {
   },
   modalCard: {
     backgroundColor: '#0f172a',
-    border: '1px solid #1e293b',
+    border: '1px solid rgba(59, 130, 246, 0.25)',
     borderRadius: '20px',
     maxWidth: '560px',
     width: '100%',
     padding: '28px',
-    boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.7)',
+    boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.7), 0 0 20px rgba(59, 130, 246, 0.1)',
   },
   modalHeader: {
     display: 'flex',
@@ -434,7 +438,7 @@ const styles = {
   checkbox: {
     width: '18px',
     height: '18px',
-    accentColor: '#0284c7',
+    accentColor: '#3b82f6',
     cursor: 'pointer',
   },
   modalFooter: {

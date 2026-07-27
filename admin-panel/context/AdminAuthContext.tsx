@@ -10,7 +10,6 @@ export interface AdminUser {
   role: string;
   name?: string;
   isAdmin: boolean;
-  isFounder: boolean;
 }
 
 interface AdminAuthContextType {
@@ -18,7 +17,6 @@ interface AdminAuthContextType {
   loading: boolean;
   isAuthenticated: boolean;
   isAdmin: boolean;
-  isFounder: boolean;
   login: (email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
 }
@@ -28,7 +26,6 @@ const AdminAuthContext = createContext<AdminAuthContextType>({
   loading: true,
   isAuthenticated: false,
   isAdmin: false,
-  isFounder: false,
   login: async () => {},
   logout: async () => {},
 });
@@ -83,11 +80,6 @@ function parseUser(data: any): AdminUser | null {
 
   const isAdmin =
     u.role === 'admin' || u.role === 'superadmin' || u.role === 'founder' || u.isAdmin === true;
-  const isFounder =
-    u.role === 'founder' ||
-    u.role === 'superadmin' ||
-    u.email === 'founder@neuravolt.cloud' ||
-    u.isFounder === true;
 
   return {
     id: u.id,
@@ -95,7 +87,6 @@ function parseUser(data: any): AdminUser | null {
     role: u.role,
     name: u.email ? u.email.split('@')[0] : 'Administrator',
     isAdmin,
-    isFounder,
   };
 }
 
@@ -217,10 +208,18 @@ export const AdminAuthProvider = ({ children }: { children: React.ReactNode }) =
 
   const isAuthenticated = !!user;
   const isAdmin = user?.isAdmin || false;
-  const isFounder = user?.isFounder || false;
 
   return (
-    <AdminAuthContext.Provider value={{ user, loading, isAuthenticated, isAdmin, isFounder, login, logout }}>
+    <AdminAuthContext.Provider
+      value={{
+        user,
+        loading,
+        isAuthenticated,
+        isAdmin,
+        login,
+        logout,
+      }}
+    >
       {children}
     </AdminAuthContext.Provider>
   );

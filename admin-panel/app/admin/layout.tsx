@@ -86,7 +86,7 @@ export default function AdminLayout({
 }) {
   const router = useRouter();
   const pathname = usePathname();
-  const { user, loading: authLoading, isAuthenticated, isFounder, logout } = useAdminAuth();
+  const { user, loading: authLoading, isAuthenticated, logout } = useAdminAuth();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const apiBase = '/api-proxy';
 

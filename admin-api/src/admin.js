@@ -16,7 +16,6 @@ import crypto from 'crypto';
 import { requestContext } from './utils/context.js';
 import Stripe from 'stripe';
 import Razorpay from 'razorpay';
-import founderRouter from './routers/founder.js';
 import agentsRouter from './routers/agents.js';
 import operationsRouter from './routers/operations.js';
 import {
@@ -153,36 +152,9 @@ async function initDb() {
     logger.warn('[DB] payment_providers table check failed (may not exist yet):', err.message);
   }
   try {
-    // Seed dummy threats if empty
-    const tCount = await pool.query('SELECT COUNT(*) FROM founder_threats');
-    if (parseInt(tCount.rows[0].count) === 0) {
-      await pool.query(`
-        INSERT INTO founder_threats (title, description, severity, source) VALUES 
-        ('@amit quit', 'tokenizer docs? bus factor: 🔴', 'critical', 'manual'),
-        ('GPU at 89% for 2h', 'Mumbai region auto-restart failed', 'high', 'auto'),
-        ('1 tenant payment failed 3x', 'razorpay_xxx risk: churn', 'medium', 'auto')
-      `);
-
-      await pool.query(`
-        INSERT INTO founder_opportunities (title, description, estimated_value, probability, status) VALUES 
-        ('Karnataka govt tender', 'closes in 14 days', 5000000, 40, 'open'),
-        ('Y Combinator W27 deadline', '9 days left, need demo video', 0, 80, 'open')
-      `);
-
-      await pool.query(`
-        INSERT INTO founder_hypotheses (hypothesis, test_method, result, decision, owner, status) VALUES 
-        ('Lawyers will pay ₹499/month for legal AI', 'Landing page + 10 interviews', '3/10 yes, but want ₹199', 'Pivot to ₹199', '@founder', 'revised'),
-        ('32B model worth 4x cost of 8B', 'A/B test, 20% traffic to 32B', '8% better satisfaction, 3.5x cost', 'Route enterprise only to 32B', '@rahul', 'testing')
-      `);
-
-      await pool.query(`
-        INSERT INTO founder_narrative_mentions (source, title, sentiment, excerpt) VALUES 
-        ('TechCrunch', 'New Indian AI startup challenges Sarvam', 'positive', 'Bharat AI is...'),
-        ('HN', 'Another Qwen fine-tuner, not real AI', 'negative', 'Why not just use ChatGPT?')
-      `);
-    }
+    // Schema check complete
   } catch (err) {
-    logger.warn('[DB] founder seed data check failed (tables may not exist yet):', err.message);
+    logger.warn('[DB] initDb check error:', err.message);
   }
 }
 
@@ -748,18 +720,12 @@ app.post(['/admin/first-login/reset', '/v1/admin/auth/first-login-reset'], async
 
 // GET /admin/auth/me - Validate Admin Session
 app.get(['/admin/auth/me', '/admin/me'], adminAuth, (req, res) => {
-  const isFounder =
-    req.admin.role === 'founder' ||
-    req.admin.role === 'superadmin' ||
-    req.admin.email === 'founder@neuravolt.cloud';
-
   res.status(200).json({
     user: {
       id: req.admin.id,
       email: req.admin.email,
       role: req.admin.role,
       isAdmin: true,
-      isFounder,
     },
   });
 });
@@ -1423,7 +1389,6 @@ app.get('/admin/legal-holds/audit-logs', adminAuth, async (req, res) => {
 // ────────────────────────────────────────────────────────────
 // PROTECTED ROUTES (Admin Authorization required)
 // ────────────────────────────────────────────────────────────
-app.use('/admin/founder', founderRouter);
 app.use('/admin/agents', agentsRouter);
 app.use('/admin', operationsRouter); // Phase 1-5 operations
 // Integration Center — inject pool into req then mount

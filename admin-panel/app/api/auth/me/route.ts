@@ -87,7 +87,6 @@ export async function GET(req: NextRequest) {
         email: user.email,
         role: user.role,
         isAdmin: true,
-        isFounder: user.role === 'founder' || user.role === 'superadmin',
       },
     });
   } catch (err: any) {
