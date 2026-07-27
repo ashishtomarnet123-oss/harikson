@@ -147,11 +147,16 @@ export default function CookieConsent() {
 
   return (
     <>
-      {/* Floating Bottom Banner */}
+      {/* Sleek Modern Floating Bottom Card */}
       {showBanner && !showModal && (
         <div style={styles.bannerContainer}>
           <div style={styles.bannerCard}>
             <div style={styles.bannerContent}>
+              <div style={styles.iconWrapper}>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#2563eb" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+                </svg>
+              </div>
               <div style={styles.textContainer}>
                 <h3 style={styles.bannerTitle}>We value your privacy</h3>
                 <p style={styles.bannerText}>
@@ -172,7 +177,7 @@ export default function CookieConsent() {
             <div style={styles.buttonGroup}>
               <button
                 onClick={() => setShowModal(true)}
-                style={styles.btnSecondary}
+                style={styles.btnGhost}
               >
                 Customize
               </button>
@@ -198,7 +203,14 @@ export default function CookieConsent() {
         <div style={styles.modalOverlay}>
           <div style={styles.modalCard}>
             <div style={styles.modalHeader}>
-              <h2 style={styles.modalTitle}>Cookie Preferences</h2>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <div style={styles.iconWrapper}>
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#2563eb" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+                  </svg>
+                </div>
+                <h2 style={styles.modalTitle}>Cookie Preferences</h2>
+              </div>
               <button
                 onClick={() => setShowModal(false)}
                 style={styles.closeBtn}
@@ -282,9 +294,9 @@ export default function CookieConsent() {
 const styles = {
   bannerContainer: {
     position: 'fixed',
-    bottom: '20px',
-    left: '20px',
-    right: '20px',
+    bottom: '24px',
+    left: '24px',
+    right: '24px',
     zIndex: 9999,
     display: 'flex',
     justifyContent: 'center',
@@ -292,13 +304,15 @@ const styles = {
   },
   bannerCard: {
     pointerEvents: 'auto',
-    maxWidth: '960px',
+    maxWidth: '920px',
     width: '100%',
-    backgroundColor: '#ffffff',
-    border: '1px solid #e2e8f0',
+    backgroundColor: 'rgba(255, 255, 255, 0.96)',
+    backdropFilter: 'blur(16px)',
+    WebkitBackdropFilter: 'blur(16px)',
+    border: '1px solid rgba(226, 232, 240, 0.9)',
     borderRadius: '16px',
-    padding: '20px 24px',
-    boxShadow: '0 10px 30px rgba(15, 23, 42, 0.12), 0 2px 8px rgba(15, 23, 42, 0.04)',
+    padding: '18px 24px',
+    boxShadow: '0 20px 40px -12px rgba(15, 23, 42, 0.12), 0 0 1px rgba(15, 23, 42, 0.08)',
     display: 'flex',
     flexDirection: 'row',
     alignItems: 'center',
@@ -307,29 +321,41 @@ const styles = {
   },
   bannerContent: {
     display: 'flex',
-    alignItems: 'flex-start',
-    gap: '16px',
+    alignItems: 'center',
+    gap: '14px',
     flex: 1,
+  },
+  iconWrapper: {
+    width: '40px',
+    height: '40px',
+    borderRadius: '10px',
+    backgroundColor: '#eff6ff',
+    border: '1px solid #dbeafe',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
   },
   textContainer: {
     flex: 1,
   },
   bannerTitle: {
-    fontSize: '15px',
+    fontSize: '14px',
     fontWeight: '700',
     color: '#0f172a',
-    margin: '0 0 4px 0',
+    margin: '0 0 2px 0',
+    letterSpacing: '-0.01em',
   },
   bannerText: {
     fontSize: '13px',
     color: '#475569',
     margin: 0,
-    lineHeight: '1.5',
+    lineHeight: '1.45',
   },
   link: {
     color: '#2563eb',
     textDecoration: 'underline',
-    fontWeight: '600',
+    fontWeight: '500',
   },
   buttonGroup: {
     display: 'flex',
@@ -338,26 +364,37 @@ const styles = {
     flexShrink: 0,
   },
   btnPrimary: {
-    backgroundColor: '#3b82f6',
-    backgroundImage: 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)',
+    backgroundColor: '#0f172a',
+    backgroundImage: 'linear-gradient(135deg, #1e293b 0%, #0f172a 100%)',
     color: '#ffffff',
     border: 'none',
-    borderRadius: '8px',
+    borderRadius: '10px',
     padding: '10px 18px',
     fontSize: '13px',
     fontWeight: '600',
     cursor: 'pointer',
-    boxShadow: '0 2px 8px rgba(59, 130, 246, 0.25)',
+    boxShadow: '0 2px 8px rgba(15, 23, 42, 0.18)',
     transition: 'all 0.15s ease',
   },
   btnSecondary: {
-    backgroundColor: '#f8fafc',
-    color: '#0f172a',
+    backgroundColor: '#ffffff',
+    color: '#334155',
     border: '1px solid #cbd5e1',
-    borderRadius: '8px',
+    borderRadius: '10px',
     padding: '10px 16px',
     fontSize: '13px',
     fontWeight: '600',
+    cursor: 'pointer',
+    boxShadow: '0 1px 2px rgba(0, 0, 0, 0.03)',
+    transition: 'all 0.15s ease',
+  },
+  btnGhost: {
+    backgroundColor: 'transparent',
+    color: '#64748b',
+    border: 'none',
+    padding: '10px 12px',
+    fontSize: '13px',
+    fontWeight: '500',
     cursor: 'pointer',
     transition: 'all 0.15s ease',
   },
