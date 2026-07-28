@@ -129,12 +129,18 @@ export default function NeuravoltLandingPage() {
 
         .container { max-width: 1360px; margin: 0 auto; padding: 0 24px; }
 
+        /* ANNOUNCEMENT BAR */
+        .announcement-bar { background: linear-gradient(90deg, #eff6ff 0%, #dbeafe 50%, #eff6ff 100%); border-bottom: 1px solid #bfdbfe; padding: 9px 16px; font-size: 0.83rem; font-weight: 600; color: #1e40af; text-align: center; display: flex; align-items: center; justify-content: center; gap: 8px; position: relative; z-index: 101; }
+        .announcement-link { color: #2563eb; font-weight: 700; text-decoration: none; display: inline-flex; align-items: center; gap: 4px; margin-left: 6px; transition: all 0.2s; }
+        .announcement-link:hover { color: #1d4ed8; text-decoration: underline; }
+
         /* HEADER WITH GLASSMORPHISM */
-        .header { position: sticky; top: 0; z-index: 100; background: rgba(255, 255, 255, 0.82) !important; backdrop-filter: blur(16px) saturate(180%); -webkit-backdrop-filter: blur(16px) saturate(180%); border-bottom: 1px solid rgba(226, 232, 240, 0.8) !important; box-shadow: 0 4px 24px rgba(15, 23, 42, 0.04); padding: 14px 0; }
+        .header { position: sticky; top: 0; z-index: 100; background: rgba(255, 255, 255, 0.85) !important; backdrop-filter: blur(16px) saturate(180%); -webkit-backdrop-filter: blur(16px) saturate(180%); border-bottom: 1px solid rgba(226, 232, 240, 0.8) !important; box-shadow: 0 4px 24px rgba(15, 23, 42, 0.04); padding: 14px 0; }
         .header-inner { display: flex; align-items: center; justify-content: space-between; }
         .logo-container { display: flex; align-items: center; gap: 10px; text-decoration: none; }
-        .logo-icon { width: 32px; height: 32px; background: #2563EB; border-radius: 8px; color: #fff; font-weight: 800; font-size: 1.1rem; display: flex; align-items: center; justify-content: center; }
-        .logo-text { font-family: var(--font-heading); font-size: 1.25rem; font-weight: 800; letter-spacing: 0.03em; color: #0F172A; }
+        .logo-icon { width: 34px; height: 34px; background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%); border-radius: 9px; color: #fff; font-weight: 800; font-size: 1.15rem; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3); }
+        .logo-text { font-family: var(--font-heading); font-size: 1.3rem; font-weight: 800; letter-spacing: -0.01em; color: #0F172A; }
+        .logo-subtext { font-size: 0.68rem; font-weight: 600; color: #64748b; margin-left: -4px; }
         .logo-badge { display: inline-flex; align-items: center; gap: 4px; padding: 3px 10px; border-radius: 20px; background: rgba(239, 246, 255, 0.85); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); border: 1px solid rgba(191, 219, 254, 0.9); font-size: 0.72rem; font-weight: 600; color: #2563EB; box-shadow: 0 2px 8px rgba(37, 99, 235, 0.06); }
         .nav-menu { display: flex; align-items: center; gap: 28px; list-style: none; }
         .nav-menu a { text-decoration: none; font-size: 0.92rem; font-weight: 500; color: var(--text-muted); display: flex; align-items: center; gap: 4px; transition: color 0.2s; }
@@ -142,7 +148,7 @@ export default function NeuravoltLandingPage() {
         .header-ctas { display: flex; align-items: center; gap: 12px; }
         .btn-demo { background: rgba(255, 255, 255, 0.85); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border: 1px solid rgba(203, 213, 225, 0.9); padding: 10px 20px; border-radius: 10px; font-size: 0.9rem; font-weight: 600; color: #0F172A; text-decoration: none; box-shadow: 0 2px 6px rgba(0,0,0,0.03); transition: all 0.2s; }
         .btn-demo:hover { background: rgba(255, 255, 255, 0.98); border-color: #93c5fd; box-shadow: 0 4px 14px rgba(37, 99, 235, 0.12); }
-        .btn-trial { background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%); border: none; padding: 10px 20px; border-radius: 10px; font-size: 0.9rem; font-weight: 600; color: #FFFFFF; text-decoration: none; box-shadow: 0 4px 14px rgba(37, 99, 235, 0.35); transition: all 0.2s; }
+        .btn-trial { background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%); border: none; padding: 10px 22px; border-radius: 10px; font-size: 0.9rem; font-weight: 700; color: #FFFFFF; text-decoration: none; box-shadow: 0 4px 14px rgba(37, 99, 235, 0.35); transition: all 0.2s; }
         .btn-trial:hover { background: linear-gradient(135deg, #1d4ed8 0%, #1e40af 100%); box-shadow: 0 6px 20px rgba(37, 99, 235, 0.45); transform: translateY(-1px); }
 
         /* HERO SECTION WITH AMBIENT GLASS BACKGROUND */
