@@ -147,16 +147,12 @@ export default function CookieConsent() {
 
   return (
     <>
-      {/* Sleek Modern Floating Bottom Card */}
+      {/* Floating Bottom Banner */}
       {showBanner && !showModal && (
         <div style={styles.bannerContainer}>
           <div style={styles.bannerCard}>
             <div style={styles.bannerContent}>
-              <div style={styles.iconWrapper}>
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#2563eb" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
-                </svg>
-              </div>
+              <div style={styles.iconBox}>🍪</div>
               <div style={styles.textContainer}>
                 <h3 style={styles.bannerTitle}>We value your privacy</h3>
                 <p style={styles.bannerText}>
@@ -177,7 +173,7 @@ export default function CookieConsent() {
             <div style={styles.buttonGroup}>
               <button
                 onClick={() => setShowModal(true)}
-                style={styles.btnGhost}
+                style={styles.btnSecondary}
               >
                 Customize
               </button>
@@ -203,14 +199,7 @@ export default function CookieConsent() {
         <div style={styles.modalOverlay}>
           <div style={styles.modalCard}>
             <div style={styles.modalHeader}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <div style={styles.iconWrapper}>
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#2563eb" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
-                  </svg>
-                </div>
-                <h2 style={styles.modalTitle}>Cookie Preferences</h2>
-              </div>
+              <h2 style={styles.modalTitle}>Cookie Preferences</h2>
               <button
                 onClick={() => setShowModal(false)}
                 style={styles.closeBtn}
@@ -294,9 +283,9 @@ export default function CookieConsent() {
 const styles = {
   bannerContainer: {
     position: 'fixed',
-    bottom: '24px',
-    left: '24px',
-    right: '24px',
+    bottom: '20px',
+    left: '20px',
+    right: '20px',
     zIndex: 9999,
     display: 'flex',
     justifyContent: 'center',
@@ -304,15 +293,13 @@ const styles = {
   },
   bannerCard: {
     pointerEvents: 'auto',
-    maxWidth: '920px',
+    maxWidth: '960px',
     width: '100%',
-    backgroundColor: 'rgba(255, 255, 255, 0.96)',
-    backdropFilter: 'blur(16px)',
-    WebkitBackdropFilter: 'blur(16px)',
-    border: '1px solid rgba(226, 232, 240, 0.9)',
+    backgroundColor: '#0f172a',
+    border: '1px solid #1e293b',
     borderRadius: '16px',
-    padding: '18px 24px',
-    boxShadow: '0 20px 40px -12px rgba(15, 23, 42, 0.12), 0 0 1px rgba(15, 23, 42, 0.08)',
+    padding: '20px 24px',
+    boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.5), 0 10px 10px -5px rgba(0, 0, 0, 0.4)',
     display: 'flex',
     flexDirection: 'row',
     alignItems: 'center',
@@ -321,41 +308,32 @@ const styles = {
   },
   bannerContent: {
     display: 'flex',
-    alignItems: 'center',
-    gap: '14px',
+    alignItems: 'flex-start',
+    gap: '16px',
     flex: 1,
   },
-  iconWrapper: {
-    width: '40px',
-    height: '40px',
-    borderRadius: '10px',
-    backgroundColor: '#eff6ff',
-    border: '1px solid #dbeafe',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    flexShrink: 0,
+  iconBox: {
+    fontSize: '28px',
+    lineHeight: '1',
   },
   textContainer: {
     flex: 1,
   },
   bannerTitle: {
-    fontSize: '14px',
+    fontSize: '15px',
     fontWeight: '700',
-    color: '#0f172a',
-    margin: '0 0 2px 0',
-    letterSpacing: '-0.01em',
+    color: '#f8fafc',
+    margin: '0 0 4px 0',
   },
   bannerText: {
     fontSize: '13px',
-    color: '#475569',
+    color: '#94a3b8',
     margin: 0,
-    lineHeight: '1.45',
+    lineHeight: '1.5',
   },
   link: {
-    color: '#2563eb',
+    color: '#38bdf8',
     textDecoration: 'underline',
-    fontWeight: '500',
   },
   buttonGroup: {
     display: 'flex',
@@ -364,44 +342,29 @@ const styles = {
     flexShrink: 0,
   },
   btnPrimary: {
-    backgroundColor: '#0f172a',
-    backgroundImage: 'linear-gradient(135deg, #1e293b 0%, #0f172a 100%)',
+    backgroundColor: '#0284c7',
     color: '#ffffff',
     border: 'none',
-    borderRadius: '10px',
+    borderRadius: '8px',
     padding: '10px 18px',
     fontSize: '13px',
     fontWeight: '600',
     cursor: 'pointer',
-    boxShadow: '0 2px 8px rgba(15, 23, 42, 0.18)',
-    transition: 'all 0.15s ease',
   },
   btnSecondary: {
-    backgroundColor: '#ffffff',
-    color: '#334155',
-    border: '1px solid #cbd5e1',
-    borderRadius: '10px',
+    backgroundColor: '#1e293b',
+    color: '#cbd5e1',
+    border: '1px solid #334155',
+    borderRadius: '8px',
     padding: '10px 16px',
-    fontSize: '13px',
-    fontWeight: '600',
-    cursor: 'pointer',
-    boxShadow: '0 1px 2px rgba(0, 0, 0, 0.03)',
-    transition: 'all 0.15s ease',
-  },
-  btnGhost: {
-    backgroundColor: 'transparent',
-    color: '#64748b',
-    border: 'none',
-    padding: '10px 12px',
     fontSize: '13px',
     fontWeight: '500',
     cursor: 'pointer',
-    transition: 'all 0.15s ease',
   },
   modalOverlay: {
     position: 'fixed',
     inset: 0,
-    backgroundColor: 'rgba(15, 23, 42, 0.35)',
+    backgroundColor: 'rgba(15, 23, 42, 0.8)',
     backdropFilter: 'blur(4px)',
     zIndex: 10000,
     display: 'flex',
@@ -410,13 +373,13 @@ const styles = {
     padding: '20px',
   },
   modalCard: {
-    backgroundColor: '#ffffff',
-    border: '1px solid #e2e8f0',
+    backgroundColor: '#0f172a',
+    border: '1px solid #1e293b',
     borderRadius: '20px',
     maxWidth: '560px',
     width: '100%',
     padding: '28px',
-    boxShadow: '0 20px 50px rgba(15, 23, 42, 0.15), 0 1px 3px rgba(0, 0, 0, 0.02)',
+    boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.7)',
   },
   modalHeader: {
     display: 'flex',
@@ -427,7 +390,7 @@ const styles = {
   modalTitle: {
     fontSize: '18px',
     fontWeight: '700',
-    color: '#0f172a',
+    color: '#f8fafc',
     margin: 0,
   },
   closeBtn: {
@@ -439,7 +402,7 @@ const styles = {
   },
   modalDesc: {
     fontSize: '13px',
-    color: '#475569',
+    color: '#94a3b8',
     margin: '0 0 20px 0',
     lineHeight: '1.5',
   },
@@ -453,8 +416,7 @@ const styles = {
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: '#f8fafc',
-    border: '1px solid #e2e8f0',
+    backgroundColor: '#1e293b',
     padding: '14px 16px',
     borderRadius: '12px',
     gap: '16px',
@@ -462,17 +424,17 @@ const styles = {
   categoryName: {
     fontSize: '14px',
     fontWeight: '600',
-    color: '#0f172a',
+    color: '#f1f5f9',
   },
   categoryDesc: {
     fontSize: '12px',
-    color: '#64748b',
+    color: '#94a3b8',
     marginTop: '2px',
   },
   checkbox: {
     width: '18px',
     height: '18px',
-    accentColor: '#3b82f6',
+    accentColor: '#0284c7',
     cursor: 'pointer',
   },
   modalFooter: {

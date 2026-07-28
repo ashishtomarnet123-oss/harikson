@@ -325,34 +325,30 @@ export default function AdminEmailsPage() {
     {
       id: 'telemetry',
       label: 'Telemetry & Logs',
-      subtitle: `${stats.totalSent || 0} Dispatched`,
       icon: TrendingUp,
-      iconBg: 'bg-indigo-500/10 text-indigo-600 dark:text-indigo-400',
-      activeBorder: 'border-indigo-500/50 dark:border-indigo-500/60 ring-2 ring-indigo-500/20 text-indigo-600 dark:text-indigo-400'
+      badge: `${stats.totalSent} Dispatched`,
+      bgColor: 'bg-indigo-500/10 text-indigo-600 dark:text-indigo-400'
     },
     {
       id: 'templates',
       label: 'Template Editor',
-      subtitle: `${templates.length || 0} Templates`,
       icon: FileText,
-      iconBg: 'bg-purple-500/10 text-purple-600 dark:text-purple-400',
-      activeBorder: 'border-purple-500/50 dark:border-purple-500/60 ring-2 ring-purple-500/20 text-purple-600 dark:text-purple-400'
+      badge: `${templates.length} Templates`,
+      bgColor: 'bg-purple-500/10 text-purple-600 dark:text-purple-400'
     },
     {
       id: 'smtp',
       label: 'SMTP Settings',
-      subtitle: (smtpConfig.provider || 'Resend').toUpperCase(),
       icon: Server,
-      iconBg: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400',
-      activeBorder: 'border-emerald-500/50 dark:border-emerald-500/60 ring-2 ring-emerald-500/20 text-emerald-600 dark:text-emerald-400'
+      badge: (smtpConfig.provider || 'resend').toUpperCase(),
+      bgColor: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
     },
     {
       id: 'mailer',
       label: 'Custom Mailer',
-      subtitle: 'Direct & Broadcast',
       icon: Send,
-      iconBg: 'bg-amber-500/10 text-amber-600 dark:text-amber-400',
-      activeBorder: 'border-amber-500/50 dark:border-amber-500/60 ring-2 ring-amber-500/20 text-amber-600 dark:text-amber-400'
+      badge: 'Broadcast / Direct',
+      bgColor: 'bg-amber-500/10 text-amber-600 dark:text-amber-400'
     }
   ];
 
@@ -393,48 +389,43 @@ export default function AdminEmailsPage() {
         </button>
       </div>
 
-      {/* Redesigned Sleek Aligned Tab Navigation Grid */}
-      <div className="bg-slate-100 dark:bg-slate-900 p-2 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5">
-          {tabItems.map((tab) => {
-            const Icon = tab.icon;
-            const isActive = activeTab === tab.id;
-            return (
-              <button
-                key={tab.id}
-                type="button"
-                onClick={() => setActiveTab(tab.id as any)}
-                className={`group relative min-h-[64px] px-4 py-3 rounded-xl transition-all duration-200 flex items-center justify-between gap-3 text-left border ${
-                  isActive
-                    ? `bg-white dark:bg-slate-800 ${tab.activeBorder} shadow-md`
-                    : 'bg-white/80 dark:bg-slate-950/50 border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-800/80 hover:border-slate-300 dark:hover:border-slate-700'
-                }`}
-              >
-                <div className="flex items-center gap-3.5 min-w-0 flex-1">
-                  <div className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 transition-transform duration-200 group-hover:scale-105 ${tab.iconBg}`}>
-                    <Icon className="w-4.5 h-4.5" />
-                  </div>
-                  <div className="min-w-0 flex flex-col justify-center">
-                    <span className={`text-xs font-black truncate tracking-tight ${isActive ? 'text-slate-900 dark:text-white' : 'text-slate-800 dark:text-slate-200'}`}>
-                      {tab.label}
-                    </span>
-                    <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 truncate mt-0.5">
-                      {tab.subtitle}
-                    </span>
-                  </div>
+      {/* Redesigned Premium Segmented Tab Navigation Cards */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3.5 bg-slate-200/70 dark:bg-slate-900/90 p-2.5 rounded-2xl border border-slate-300 dark:border-slate-800 shadow-sm">
+        {tabItems.map((tab) => {
+          const Icon = tab.icon;
+          const isActive = activeTab === tab.id;
+          return (
+            <button
+              key={tab.id}
+              type="button"
+              onClick={() => setActiveTab(tab.id as any)}
+              className={`p-3.5 rounded-xl transition-all duration-200 text-left flex items-center justify-between border ${
+                isActive
+                  ? 'bg-white dark:bg-slate-950 border-indigo-500/80 shadow-md ring-2 ring-indigo-500/30 text-slate-900 dark:text-white font-black'
+                  : 'bg-white dark:bg-slate-800/90 border-slate-300 dark:border-slate-700 text-slate-900 dark:text-slate-100 hover:bg-slate-50 dark:hover:bg-slate-700/80 hover:border-slate-400 dark:hover:border-slate-600 font-bold'
+              }`}
+            >
+              <div className="flex items-center gap-3">
+                <div className={`p-2.5 rounded-xl ${tab.bgColor}`}>
+                  <Icon className="w-4 h-4" />
                 </div>
-
-                <ChevronRight
-                  className={`w-4 h-4 shrink-0 transition-transform duration-200 ${
-                    isActive
-                      ? 'text-indigo-600 dark:text-indigo-400 translate-x-0.5'
-                      : 'text-slate-400 opacity-50 group-hover:opacity-100 group-hover:translate-x-0.5'
-                  }`}
-                />
-              </button>
-            );
-          })}
-        </div>
+                <div>
+                  <span className="text-xs font-black block tracking-tight text-slate-900 dark:text-white">
+                    {tab.label}
+                  </span>
+                  <span className="text-[10px] text-slate-500 dark:text-slate-400 font-medium">
+                    {tab.badge}
+                  </span>
+                </div>
+              </div>
+              <ChevronRight
+                className={`w-4 h-4 transition-transform ${
+                  isActive ? 'text-indigo-500 translate-x-0.5' : 'text-slate-400 opacity-60'
+                }`}
+              />
+            </button>
+          );
+        })}
       </div>
 
       {/* TAB 1: TELEMETRY & LOGS */}
