@@ -433,243 +433,174 @@ export default function NeuravoltLandingPage() {
       </header>
 
       {/* HERO SECTION */}
-      <section class="hero-section">
-        <div class="container hero-grid">
-          <div class="hero-left">
-            <div class="dpdp-pill">
-              <span class="dpdp-icon-dot"><Zap style={{ width: 10, height: 10 }} /></span>
-              <span>India's First DPDP-Compliant AI Platform</span>
+      <section className="hero-section">
+        <div className="container hero-grid">
+          <div className="hero-left">
+            <div className="dpdp-pill">
+              <span className="dpdp-icon-dot"><Zap style={{ width: 10, height: 10 }} /></span>
+              <span>🇮🇳 India's First DPDP-Compliant AI Agent Platform 🇮🇳</span>
             </div>
 
-            <h1 class="hero-title">
-              Build AI Agents. <br />
-              Keep Data in <span class="blue-text">India</span>. <br />
-              Stay Compliant.
+            <h1 className="hero-title">
+              The Future of <br />
+              Enterprise AI is <span className="blue-text">Private</span>
             </h1>
 
-            <p class="hero-subtitle">
-              Deploy AI Agents, RAG, Workflows and Multi-Language LLMs on India's most trusted AI Infrastructure.
+            <p className="hero-subtitle">
+              Build, deploy and scale AI agents with complete data privacy and enterprise-grade security.
             </p>
 
-            <div class="hero-checks">
-              <div class="check-item">
-                <span class="check-circle">✓</span>
-                <span>DPDP Ready</span>
+            <div className="hero-checks" style={{ flexWrap: 'wrap', gap: '14px', marginBottom: '24px' }}>
+              <div className="check-item">
+                <span className="check-circle" style={{ background: '#eff6ff', borderColor: '#3b82f6', color: '#2563eb' }}>🛡️</span>
+                <span>No Credit Card</span>
               </div>
-              <div class="check-item">
-                <span class="check-circle">✓</span>
-                <span>Data Stays in India</span>
-              </div>
-              <div class="check-item">
-                <span class="check-circle">✓</span>
+              <div className="check-item">
+                <span className="check-circle" style={{ background: '#eff6ff', borderColor: '#3b82f6', color: '#2563eb' }}>⚡</span>
                 <span>Deploy in 5 Minutes</span>
               </div>
+              <div className="check-item">
+                <span className="check-circle" style={{ background: '#eff6ff', borderColor: '#3b82f6', color: '#2563eb' }}>🛡️</span>
+                <span>Built for India</span>
+              </div>
             </div>
 
-            <div class="hero-buttons-row">
-              <Link href="/signup" class="btn-hero-primary">Request Access</Link>
-              <Link href="/login" class="btn-hero-secondary">Book Live Demo</Link>
+            <div className="hero-buttons-row">
+              <Link href="/signup" className="btn-hero-primary">Start Free for 14 Days</Link>
+              <Link href="/login" className="btn-hero-secondary">Book a Demo</Link>
             </div>
 
-            <div class="microcopy-row">
-              <span>Join the invitation list</span>
-              <span>Talk to our India team</span>
+            {/* 4 STAT METRICS CARDS BELOW HERO */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '10px', marginTop: '28px', width: '100%', maxWidth: '440px' }}>
+              <div style={{ background: 'rgba(255,255,255,0.85)', backdropFilter: 'blur(10px)', border: '1px solid rgba(226,232,240,0.8)', borderRadius: '12px', padding: '10px 8px', textAlign: 'center', boxShadow: '0 2px 8px rgba(0,0,0,0.03)' }}>
+                <div style={{ fontSize: '1.15rem', fontWeight: 800, color: '#0F172A' }}>128.4K+</div>
+                <div style={{ fontSize: '0.65rem', color: '#64748b', fontWeight: 600 }}>Conversations</div>
+              </div>
+              <div style={{ background: 'rgba(255,255,255,0.85)', backdropFilter: 'blur(10px)', border: '1px solid rgba(226,232,240,0.8)', borderRadius: '12px', padding: '10px 8px', textAlign: 'center', boxShadow: '0 2px 8px rgba(0,0,0,0.03)' }}>
+                <div style={{ fontSize: '1.15rem', fontWeight: 800, color: '#0F172A' }}>98.6%</div>
+                <div style={{ fontSize: '0.65rem', color: '#64748b', fontWeight: 600 }}>Success Rate</div>
+              </div>
+              <div style={{ background: 'rgba(255,255,255,0.85)', backdropFilter: 'blur(10px)', border: '1px solid rgba(226,232,240,0.8)', borderRadius: '12px', padding: '10px 8px', textAlign: 'center', boxShadow: '0 2px 8px rgba(0,0,0,0.03)' }}>
+                <div style={{ fontSize: '1.15rem', fontWeight: 800, color: '#0F172A' }}>1.2K+</div>
+                <div style={{ fontSize: '0.65rem', color: '#64748b', fontWeight: 600 }}>Teams in India</div>
+              </div>
+              <div style={{ background: 'rgba(255,255,255,0.85)', backdropFilter: 'blur(10px)', border: '1px solid rgba(226,232,240,0.8)', borderRadius: '12px', padding: '10px 8px', textAlign: 'center', boxShadow: '0 2px 8px rgba(0,0,0,0.03)' }}>
+                <div style={{ fontSize: '1.15rem', fontWeight: 800, color: '#0F172A' }}>22+</div>
+                <div style={{ fontSize: '0.65rem', color: '#64748b', fontWeight: 600 }}>Languages</div>
+              </div>
             </div>
           </div>
 
-          {/* HERO DASHBOARD CARD VISUAL */}
-          <div class="dashboard-card">
-            <div class="dash-grid">
-              {/* Sidebar */}
-              <div class="dash-sidebar">
-                <div class="sidebar-logo">
-                  <div class="logo-icon" style={{ width: 20, height: 20, fontSize: '0.75rem' }}>N</div>
-                  <span>NEURAVOLT</span>
-                </div>
+          {/* HERO DASHBOARD CARD VISUAL MATCHING REFERENCE IMAGE */}
+          <div className="dashboard-card" style={{ padding: '20px' }}>
+            {/* Top Bar */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
+              <div>
+                <h3 style={{ fontSize: '1.1rem', fontWeight: 800, color: '#0F172A' }}>Overview</h3>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.72rem', color: '#64748b' }}>
+                <span style={{ cursor: 'pointer', padding: '2px 8px', borderRadius: '6px', background: '#f1f5f9' }}>This Month ▾</span>
+              </div>
+            </div>
 
-                <div class="nav-item active"><LayoutDashboard style={{ width: 14, height: 14 }} /> Overview</div>
-                <div class="nav-item"><Bot style={{ width: 14, height: 14 }} /> AI Agents</div>
-                <div class="nav-item"><Database style={{ width: 14, height: 14 }} /> Knowledge Base</div>
-                <div class="nav-item"><GitBranch style={{ width: 14, height: 14 }} /> Workflows</div>
-                <div class="nav-item"><BarChart2 style={{ width: 14, height: 14 }} /> Analytics</div>
-                <div class="nav-item"><Key style={{ width: 14, height: 14 }} /> API Keys</div>
-                <div class="nav-item"><Blocks style={{ width: 14, height: 14 }} /> Integrations</div>
-                <div class="nav-item"><Settings style={{ width: 14, height: 14 }} /> Settings</div>
+            {/* 4 Stat Boxes Row */}
+            <div className="stats-row" style={{ gridTemplateColumns: 'repeat(4, 1fr)', gap: '10px', marginBottom: '16px' }}>
+              <div className="stat-box" style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '12px', padding: '10px' }}>
+                <div className="stat-label" style={{ fontSize: '0.68rem', color: '#64748b' }}>Total Agents</div>
+                <div className="stat-val-row">
+                  <span className="stat-num" style={{ fontSize: '1.25rem' }}>32</span>
+                  <span className="stat-green" style={{ background: '#dcfce7', color: '#166534', padding: '2px 6px', borderRadius: '6px', fontSize: '0.65rem' }}>↑ 12%</span>
+                </div>
               </div>
 
-              {/* Main Content */}
-              <div class="dash-main">
-                <div class="dash-header-row">
+              <div className="stat-box" style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '12px', padding: '10px' }}>
+                <div className="stat-label" style={{ fontSize: '0.68rem', color: '#64748b' }}>Active Workflows</div>
+                <div className="stat-val-row">
+                  <span className="stat-num" style={{ fontSize: '1.25rem' }}>156</span>
+                  <span className="stat-green" style={{ background: '#dcfce7', color: '#166534', padding: '2px 6px', borderRadius: '6px', fontSize: '0.65rem' }}>↑ 9%</span>
+                </div>
+              </div>
+
+              <div className="stat-box" style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '12px', padding: '10px' }}>
+                <div className="stat-label" style={{ fontSize: '0.68rem', color: '#64748b' }}>Conversations</div>
+                <div className="stat-val-row">
+                  <span className="stat-num" style={{ fontSize: '1.25rem' }}>128.4K</span>
+                  <span className="stat-green" style={{ background: '#dcfce7', color: '#166534', padding: '2px 6px', borderRadius: '6px', fontSize: '0.65rem' }}>↑ 54%</span>
+                </div>
+              </div>
+
+              <div className="stat-box" style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '12px', padding: '10px' }}>
+                <div className="stat-label" style={{ fontSize: '0.68rem', color: '#64748b' }}>Resolution Rate</div>
+                <div className="stat-val-row">
+                  <span className="stat-num" style={{ fontSize: '1.25rem' }}>98.6%</span>
+                  <span className="stat-green" style={{ background: '#dcfce7', color: '#166534', padding: '2px 6px', borderRadius: '6px', fontSize: '0.65rem' }}>↑ 6%</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Conversations Smooth Line Graph Visual */}
+            <div style={{ background: '#fafafa', border: '1px solid #e2e8f0', borderRadius: '14px', padding: '16px', marginBottom: '16px', position: 'relative' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px', fontSize: '0.75rem', fontWeight: 700, color: '#0F172A' }}>
+                <span>Conversations Trend</span>
+                <span style={{ fontSize: '0.68rem', color: '#64748b' }}>100K Peak</span>
+              </div>
+
+              <div style={{ position: 'relative', width: '100%', height: '110px' }}>
+                <svg viewBox="0 0 500 110" style={{ width: '100%', height: '100%', overflow: 'visible' }}>
+                  <defs>
+                    <linearGradient id="chartGrad" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="#3b82f6" stopOpacity="0.25" />
+                      <stop offset="100%" stopColor="#3b82f6" stopOpacity="0.0" />
+                    </linearGradient>
+                  </defs>
+                  <path d="M 0,80 Q 70,20 140,65 T 280,30 T 420,50 T 500,20 L 500,110 L 0,110 Z" fill="url(#chartGrad)" />
+                  <path d="M 0,80 Q 70,20 140,65 T 280,30 T 420,50 T 500,20" fill="none" stroke="#2563eb" strokeWidth="3.5" strokeLinecap="round" />
+                  <circle cx="280" cy="30" r="5" fill="#2563eb" stroke="#ffffff" strokeWidth="2.5" />
+                </svg>
+
+                {/* Tooltip Badge */}
+                <div style={{ position: 'absolute', top: '10px', left: '50%', transform: 'translateX(-50%)', background: '#0F172A', color: '#ffffff', padding: '4px 10px', borderRadius: '8px', fontSize: '0.68rem', fontWeight: 700, boxShadow: '0 4px 12px rgba(0,0,0,0.15)' }}>
+                  May 18: <span style={{ color: '#60a5fa' }}>4,202</span> <span style={{ color: '#4ade80' }}>+12.4%</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Top Agents Row */}
+            <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '12px', padding: '12px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', fontWeight: 800, color: '#0F172A', marginBottom: '10px' }}>
+                <span>Top Performing Agents</span>
+                <span style={{ fontSize: '0.7rem', color: '#2563eb', cursor: 'pointer' }}>View All →</span>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', background: '#f8fafc', padding: '6px 8px', borderRadius: '8px', border: '1px solid #f1f5f9' }}>
+                  <div style={{ width: '24px', height: '24px', borderRadius: '50%', background: '#3b82f6', color: '#fff', fontSize: '0.65rem', fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>S</div>
                   <div>
-                    <h3 style={{ fontSize: '1.05rem', fontWeight: 800, color: '#0F172A' }}>Dashboard</h3>
-                    <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>Welcome back!</div>
-                  </div>
-
-                  <div class="dash-user-info">
-                    <RotateCw style={{ width: 13, height: 13, cursor: 'pointer' }} />
-                    <Bell style={{ width: 13, height: 13, cursor: 'pointer' }} />
-                    <img src="/assets/user-avatar.jpg" class="avatar-img" alt="User" />
-                    <span style={{ fontWeight: 600, fontSize: '0.78rem', color: '#0F172A' }}>Team Neuravolt <ChevronDown style={{ width: 12, height: 12 }} /></span>
+                    <div style={{ fontSize: '0.7rem', fontWeight: 700, color: '#0F172A' }}>Support Agent</div>
+                    <div style={{ fontSize: '0.62rem', color: '#16a34a', fontWeight: 700 }}>24.5K ↑ 99.1%</div>
                   </div>
                 </div>
 
-                {/* Stats Row */}
-                <div class="stats-row">
-                  <div class="stat-box">
-                    <div class="stat-label">Total Agents</div>
-                    <div class="stat-val-row">
-                      <span class="stat-num">24</span>
-                      <span class="stat-green">↑ 18%</span>
-                    </div>
-                    <div class="stat-subtext">vs last month</div>
-                  </div>
-
-                  <div class="stat-box">
-                    <div class="stat-label">Total Conversations</div>
-                    <div class="stat-val-row">
-                      <span class="stat-num">128.4K</span>
-                      <span class="stat-green">↑ 24%</span>
-                    </div>
-                    <div class="stat-subtext">vs last month</div>
-                  </div>
-
-                  <div class="stat-box">
-                    <div class="stat-label">Knowledge Bases</div>
-                    <div class="stat-val-row">
-                      <span class="stat-num">16</span>
-                      <span class="stat-green">↑ 12%</span>
-                    </div>
-                    <div class="stat-subtext">vs last month</div>
-                  </div>
-
-                  <div class="stat-box">
-                    <div class="stat-label">Success Rate</div>
-                    <div class="stat-val-row">
-                      <span class="stat-num">98.6%</span>
-                      <span class="stat-green">↑ 2.7%</span>
-                    </div>
-                    <div class="stat-subtext">vs last month</div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', background: '#f8fafc', padding: '6px 8px', borderRadius: '8px', border: '1px solid #f1f5f9' }}>
+                  <div style={{ width: '24px', height: '24px', borderRadius: '50%', background: '#8b5cf6', color: '#fff', fontSize: '0.65rem', fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>R</div>
+                  <div>
+                    <div style={{ fontSize: '0.7rem', fontWeight: 700, color: '#0F172A' }}>Refund Agent</div>
+                    <div style={{ fontSize: '0.62rem', color: '#16a34a', fontWeight: 700 }}>18.2K ↑ 97.3%</div>
                   </div>
                 </div>
 
-                {/* Main Content Split */}
-                <div class="main-split">
-                  {/* AI Agent Builder Diagram */}
-                  <div class="builder-box">
-                    <div>
-                      <div class="builder-title">
-                        <Zap style={{ width: 15, height: 15, color: '#2563EB' }} /> AI Agent Builder
-                      </div>
-                      <div class="diagram-flow-exact">
-                        {/* Node 1 */}
-                        <div class="diagram-node-card blue-node">
-                          <div class="diagram-icon-circle" style={{ background: '#DBEAFE', color: '#2563EB', borderRadius: '50%', width: 22, height: 22, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                            <MapPin style={{ width: 14, height: 14 }} />
-                          </div>
-                          <span class="node-label-text" style={{ color: '#1E40AF' }}>User Query</span>
-                        </div>
-
-                        <span class="connector-arrow">→</span>
-
-                        {/* Node 2 */}
-                        <div class="diagram-node-card green-node">
-                          <div class="diagram-icon-circle" style={{ background: '#DCFCE7', color: '#166534', borderRadius: '50%', width: 22, height: 22, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                            <Target style={{ width: 14, height: 14 }} />
-                          </div>
-                          <span class="node-label-text" style={{ color: '#166534' }}>Knowledge Base</span>
-                        </div>
-
-                        <span class="connector-arrow">→</span>
-
-                        {/* Node 3 */}
-                        <div class="diagram-node-card purple-node">
-                          <div class="diagram-icon-circle" style={{ background: '#F3E8FF', color: '#6B21A8', borderRadius: '50%', width: 22, height: 22, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                            <Cpu style={{ width: 14, height: 14 }} />
-                          </div>
-                          <span class="node-label-text" style={{ color: '#6B21A8' }}>LLM (GPT-4o)</span>
-                        </div>
-
-                        <span class="connector-arrow">→</span>
-
-                        {/* Branch Split */}
-                        <div class="branch-split-col">
-                          <div class="diagram-node-card white-node" style={{ height: 32, padding: '4px 8px', flexDirection: 'row', gap: 4, width: 58 }}>
-                            <Sliders style={{ width: 11, height: 11, color: '#2563EB' }} />
-                            <span class="node-label-text" style={{ color: '#0F172A' }}>API</span>
-                          </div>
-
-                          <div class="diagram-node-card purple-node" style={{ height: 32, padding: '4px 8px', flexDirection: 'row', gap: 4, width: 58 }}>
-                            <CheckCircle style={{ width: 11, height: 11, color: '#6B21A8' }} />
-                            <span class="node-label-text" style={{ color: '#6B21A8' }}>Response</span>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* LIVE EXECUTIONS STREAM */}
-                    <div class="builder-metrics-box">
-                      <div class="metrics-box-title">
-                        <span>Recent Agent Executions</span>
-                        <span style={{ color: '#2563EB', fontWeight: 600, cursor: 'pointer' }}>View All →</span>
-                      </div>
-
-                      <div class="activity-row">
-                        <span class="act-name">Document Summarizer</span>
-                        <span class="act-badge">Success</span>
-                        <span class="act-meta">GPT-4o • 420ms</span>
-                      </div>
-
-                      <div class="activity-row">
-                        <span class="act-name">Support Ticket Router</span>
-                        <span class="act-badge">Success</span>
-                        <span class="act-meta">Claude 3.5 • 310ms</span>
-                      </div>
-
-                      <div class="activity-row">
-                        <span class="act-name">Invoice Extractor RAG</span>
-                        <span class="act-badge">Success</span>
-                        <span class="act-meta">DeepSeek V3 • 580ms</span>
-                      </div>
-                    </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', background: '#f8fafc', padding: '6px 8px', borderRadius: '8px', border: '1px solid #f1f5f9' }}>
+                  <div style={{ width: '24px', height: '24px', borderRadius: '50%', background: '#10b981', color: '#fff', fontSize: '0.65rem', fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>S</div>
+                  <div>
+                    <div style={{ fontSize: '0.7rem', fontWeight: 700, color: '#0F172A' }}>Sales Agent</div>
+                    <div style={{ fontSize: '0.62rem', color: '#16a34a', fontWeight: 700 }}>15.5K ↑ 99.3%</div>
                   </div>
-
-                  {/* Live Agent Preview Chat */}
-                  <div class="preview-box">
-                    <div>
-                      <div class="preview-title">Live Agent Preview</div>
-
-                      <div class="chat-bubble-sys">
-                        Hello! I am your AI Agent. How can I help you today?
-                      </div>
-
-                      <div class="chat-bubble-user">
-                        Summarize this contract
-                      </div>
-
-                      <div class="chat-card-ai">
-                        <div style={{ fontWeight: 700, color: '#0F172A', marginBottom: 4 }}>Here is a summary of the contract:</div>
-                        <div style={{ fontSize: '0.68rem', color: '#475569', lineHeight: 1.45 }}>
-                          • Agreement between ABC Corp and XYZ Pvt. Ltd.<br />
-                          • Duration: 12 months<br />
-                          • Payment: 30 days from invoice date<br />
-                          • Termination: 30 days notice
-                        </div>
-                      </div>
-                    </div>
-
-                    <div class="chat-input-bar">
-                      <input type="text" class="chat-input-field" placeholder="Ask anything..." readOnly />
-                      <button class="send-sq-btn">
-                        <Send style={{ width: 12, height: 12 }} />
-                      </button>
-                    </div>
-                  </div>
-                </div>
               </div>
             </div>
           </div>
         </div>
-      </section>
+      </div>
+    </section>
 
       {/* TRUST BADGES STRIP */}
       <section class="trust-strip">
