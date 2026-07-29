@@ -9,7 +9,7 @@ test.describe('Neuravolt Platform E2E Flow', () => {
 
     // 2. Perform Login
     await page.fill('input[type="email"]', 'admin@neuravolt.cloud');
-    await page.fill('input[type="password"]', 'StrongP@ssword2026!');
+    await page.fill('input[type="password"]', 'Admin@neurovalt@2620');
     await page.click('button[type="submit"]');
 
     // 3. Verify Navigation to Dashboard / Chat
