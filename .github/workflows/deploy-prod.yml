@@ -82,12 +82,28 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
+      - name: Sync deploy config to server
+        # docker compose pull/up on the server only ever use whatever
+        # docker-compose.yml (and mounted config files) already happen to be
+        # sitting in /mnt/docker-data/harikson — this workflow never used to
+        # update them, so fixes made here (e.g. removing container_name,
+        # adding image: refs) never actually reached production.
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.PROD_HOST }}
+          username: ${{ secrets.PROD_USER || 'ubuntu' }}
+          key: ${{ secrets.PROD_SSH_KEY }}
+          source: "docker-compose.yml,traefik/dynamic.yml,monitoring/prometheus.yml,init.sql"
+          target: "/mnt/docker-data/harikson"
+          strip_components: 0
+
       - name: Execute Production Blue-Green Switch
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.PROD_HOST }}
           username: ${{ secrets.PROD_USER || 'ubuntu' }}
           key: ${{ secrets.PROD_SSH_KEY }}
+          envs: REGISTRY,IMAGE_PREFIX
           script: |
             set -e
             cd /mnt/docker-data/harikson || exit 1

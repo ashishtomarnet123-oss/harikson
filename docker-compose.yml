@@ -142,6 +142,10 @@ services:
   tenant-api:
     build:
       context: ./harikson/tenant-api
+    # Must match the tag deploy-prod.yml builds & pushes, or `docker compose
+    # pull` on the server has nothing to fetch and silently keeps running
+    # whatever was last built locally there, ignoring new deploys entirely.
+    image: ${REGISTRY:-ghcr.io}/${IMAGE_PREFIX:-ashishtomarnet123-oss/harikson}-tenant-api:latest
     restart: unless-stopped
     ports:
       # No fixed host port: a fixed mapping blocks blue-green's
@@ -192,6 +196,7 @@ services:
   admin-api:
     build:
       context: ./admin-api
+    image: ${REGISTRY:-ghcr.io}/${IMAGE_PREFIX:-ashishtomarnet123-oss/harikson}-admin-api:latest
     restart: unless-stopped
     ports:
       # See tenant-api's port comment above — same reason, no fixed host
@@ -240,7 +245,7 @@ services:
       context: ./admin-panel
       args:
         - NEXT_PUBLIC_API_URL=https://api.neuravolt.cloud
-    container_name: harikson-admin-panel
+    image: ${REGISTRY:-ghcr.io}/${IMAGE_PREFIX:-ashishtomarnet123-oss/harikson}-admin-panel:latest
     restart: unless-stopped
     command: npx next start -p 3001
     ports:
@@ -271,7 +276,7 @@ services:
       context: ./user-portal
       args:
         - NEXT_PUBLIC_API_URL=https://api.neuravolt.cloud
-    container_name: harikson-user-portal
+    image: ${REGISTRY:-ghcr.io}/${IMAGE_PREFIX:-ashishtomarnet123-oss/harikson}-user-portal:latest
     restart: unless-stopped
     command: npx next start -p 3002
     ports:
