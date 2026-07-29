@@ -49,14 +49,12 @@ function PromptLibrarySettings() {
     localStorage.getItem('hk_api_base') ||
     process.env.NEXT_PUBLIC_API_URL ||
     'http://localhost:3008';
-  const getToken = () =>
-    localStorage.getItem('hk_user') ? 'cookie_auth' : null;
+  const isLoggedIn = () => !!localStorage.getItem('hk_user');
   const getTenant = () => localStorage.getItem('hk_tenant') || 'neuravolt';
 
   useEffect(() => {
     const fetchPresets = async () => {
-      const token = getToken();
-      if (!token) return;
+      if (!isLoggedIn()) return;
       try {
         const res = await fetch(`${getApiBase()}/api/v1/user/presets`, {
           headers: { 'x-tenant-slug': getTenant() },
@@ -250,14 +248,12 @@ function RagDriveSettings() {
     localStorage.getItem('hk_api_base') ||
     process.env.NEXT_PUBLIC_API_URL ||
     'http://localhost:3008';
-  const getToken = () =>
-    localStorage.getItem('hk_user') ? 'cookie_auth' : null;
+  const isLoggedIn = () => !!localStorage.getItem('hk_user');
   const getTenant = () => localStorage.getItem('hk_tenant') || 'neuravolt';
 
   useEffect(() => {
     const fetchFiles = async () => {
-      const token = getToken();
-      if (!token) return;
+      if (!isLoggedIn()) return;
       try {
         const res = await fetch(`${getApiBase()}/api/v1/user/rag-files`, {
           headers: { 'x-tenant-slug': getTenant() },

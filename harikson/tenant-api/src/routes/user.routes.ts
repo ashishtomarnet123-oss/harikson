@@ -894,4 +894,168 @@ router.delete('/developer/keys/:id', async (req: any, res) => {
   }
 });
 
+// GET /api/user/developer/config & /api/v1/user/developer/config
+router.get('/developer/config', async (req: any, res) => {
+  if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
+
+  try {
+    const result = await pool.query(
+      `SELECT webhook_url as "webhookUrl", webhook_signing_secret as "signingSecret",
+              api_version as "apiVersion", cors_origins as "corsOrigins",
+              verbose_logs as "verboseLogs", sandbox_mode as "sandboxMode"
+       FROM user_developer_configs WHERE user_id = $1`,
+      [req.user.userId]
+    );
+
+    if (result.rows.length === 0) {
+      return res.json({
+        webhookUrl: '',
+        signingSecret: null,
+        apiVersion: 'v1',
+        corsOrigins: '*',
+        verboseLogs: true,
+        sandboxMode: false,
+      });
+    }
+    res.json(result.rows[0]);
+  } catch (err: any) {
+    logger.error('Fetch developer config error:', err);
+    res.status(500).json({ error: 'Failed to load developer configuration' });
+  }
+});
+
+// PUT /api/user/developer/config & /api/v1/user/developer/config
+router.put('/developer/config', async (req: any, res) => {
+  if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
+
+  const { webhookUrl, apiVersion, corsOrigins, verboseLogs, sandboxMode } = req.body || {};
+  try {
+    const result = await pool.query(
+      `INSERT INTO user_developer_configs (user_id, webhook_url, api_version, cors_origins, verbose_logs, sandbox_mode, updated_at)
+       VALUES ($1, $2, COALESCE($3, 'v1'), COALESCE($4, '*'), COALESCE($5, true), COALESCE($6, false), NOW())
+       ON CONFLICT (user_id) DO UPDATE SET
+         webhook_url = EXCLUDED.webhook_url,
+         api_version = EXCLUDED.api_version,
+         cors_origins = EXCLUDED.cors_origins,
+         verbose_logs = EXCLUDED.verbose_logs,
+         sandbox_mode = EXCLUDED.sandbox_mode,
+         updated_at = NOW()
+       RETURNING webhook_url as "webhookUrl", webhook_signing_secret as "signingSecret",
+                 api_version as "apiVersion", cors_origins as "corsOrigins",
+                 verbose_logs as "verboseLogs", sandbox_mode as "sandboxMode"`,
+      [req.user.userId, webhookUrl || null, apiVersion, corsOrigins, verboseLogs, sandboxMode]
+    );
+    res.json({ success: true, config: result.rows[0] });
+  } catch (err: any) {
+    logger.error('Save developer config error:', err);
+    res.status(500).json({ error: 'Failed to save developer configuration' });
+  }
+});
+
+// POST /api/user/developer/config/rotate-secret & /api/v1/user/developer/config/rotate-secret
+router.post('/developer/config/rotate-secret', async (req: any, res) => {
+  if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
+
+  try {
+    const newSecret = 'whsec_hk_' + crypto.randomBytes(20).toString('hex');
+    const result = await pool.query(
+      `INSERT INTO user_developer_configs (user_id, webhook_signing_secret, updated_at)
+       VALUES ($1, $2, NOW())
+       ON CONFLICT (user_id) DO UPDATE SET webhook_signing_secret = EXCLUDED.webhook_signing_secret, updated_at = NOW()
+       RETURNING webhook_signing_secret as "signingSecret"`,
+      [req.user.userId, newSecret]
+    );
+    res.json({ success: true, signingSecret: result.rows[0].signingSecret });
+  } catch (err: any) {
+    logger.error('Rotate webhook secret error:', err);
+    res.status(500).json({ error: 'Failed to rotate webhook signing secret' });
+  }
+});
+
+// GET /api/user/storage & /api/v1/user/storage
+// Real usage computed from knowledge_documents (the same table the actual
+// document/RAG upload pipeline in document.routes.ts writes to — file_size_bytes
+// is tracked per document at indexing time). There is no storage quota field
+// on the plans table today, so this reports real usage without inventing a
+// fake capacity/percentage to compare it against.
+router.get('/storage', async (req: any, res) => {
+  if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
+
+  try {
+    const userRes = await pool.query('SELECT tenant_id FROM users WHERE id = $1', [req.user.userId]).catch(() => ({ rows: [] }));
+    const tenantId = userRes.rows[0]?.tenant_id || req.tenant?.id || '00000000-0000-0000-0000-000000000000';
+
+    const docsRes = await pool.query(
+      `SELECT COALESCE(SUM(file_size_bytes), 0) as total_bytes, COUNT(*) as doc_count
+       FROM knowledge_documents
+       WHERE tenant_id = $1 AND is_active = true`,
+      [tenantId]
+    ).catch(() => ({ rows: [{ total_bytes: 0, doc_count: 0 }] }));
+
+    const { total_bytes, doc_count } = docsRes.rows[0];
+    res.json({
+      totalBytes: parseInt(total_bytes, 10) || 0,
+      documentCount: parseInt(doc_count, 10) || 0,
+    });
+  } catch (err: any) {
+    logger.error('Fetch storage usage error:', err);
+    res.status(500).json({ error: 'Failed to load storage usage' });
+  }
+});
+
+// DELETE /api/user/account & /api/v1/user/account
+// Real account deletion: requires the current password, soft-deletes the
+// user (consistent with the deleted_at convention already used everywhere
+// else in this file), and revokes every active session so the deleted
+// account can't keep making authenticated requests on stale tokens.
+router.delete('/account', async (req: any, res) => {
+  if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
+
+  const { password } = req.body || {};
+  if (!password) {
+    return res.status(400).json({ error: 'Current password is required to delete your account' });
+  }
+
+  try {
+    const userRes = await pool.query(
+      'SELECT id, password_hash FROM users WHERE id = $1 AND deleted_at IS NULL',
+      [req.user.userId]
+    );
+    const user = userRes.rows[0];
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    if (user.password_hash) {
+      const valid = await bcrypt.compare(password, user.password_hash);
+      if (!valid) {
+        return res.status(400).json({ error: 'Incorrect password' });
+      }
+    }
+
+    await pool.query(
+      `UPDATE users
+       SET deleted_at = NOW(),
+           email = email || '+deleted-' || id::text,
+           updated_at = NOW()
+       WHERE id = $1`,
+      [req.user.userId]
+    );
+    await pool.query('DELETE FROM refresh_tokens WHERE user_id = $1', [req.user.userId]);
+    await pool.query(
+      `UPDATE tenant_api_keys SET status = 'revoked', revoked_at = NOW() WHERE user_id = $1 AND status = 'active'`,
+      [req.user.userId]
+    ).catch(() => {});
+
+    await invalidateUserCache(req.user.userId);
+
+    res.clearCookie('hk_access_token');
+    res.clearCookie('hk_refresh_token');
+    res.json({ success: true, message: 'Your account has been deleted.' });
+  } catch (err: any) {
+    logger.error('Account deletion error:', err);
+    res.status(500).json({ error: 'Failed to delete account' });
+  }
+});
+
 export default router;

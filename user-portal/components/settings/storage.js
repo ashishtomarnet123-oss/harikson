@@ -1,135 +1,104 @@
-import React from 'react';
-import { FileText, Image as ImageIcon, Database } from 'lucide-react';
+import { authenticatedFetch, getApiConfig } from './apiHelper';
+import React, { useState, useEffect } from 'react';
+import { Database, AlertCircle } from 'lucide-react';
+
+function formatBytes(bytes) {
+  if (!bytes) return '0 MB';
+  const mb = bytes / (1024 * 1024);
+  if (mb < 1024) return `${mb.toFixed(1)} MB`;
+  return `${(mb / 1024).toFixed(2)} GB`;
+}
 
 export default function StorageSettings() {
-  const totalStorage = 100;
-  const usedStorage = 24.5;
+  const [storage, setStorage] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
-  const categories = [
-    {
-      name: 'Documents (PDF, DOCX)',
-      size: 12.3,
-      color: '#3b82f6',
-      icon: FileText,
-    },
-    { name: 'Images & Media', size: 8.1, color: '#10b981', icon: ImageIcon },
-    {
-      name: 'Vector Database Index',
-      size: 4.1,
-      color: '#8b5cf6',
-      icon: Database,
-    },
-  ];
+  useEffect(() => {
+    fetchStorage();
+  }, []);
+
+  const fetchStorage = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const { apiBase, tenantSlug } = getApiConfig();
+      const res = await authenticatedFetch(`${apiBase}/api/v1/user/storage`, {
+        credentials: 'include',
+        headers: { 'x-tenant-slug': tenantSlug },
+      });
+      if (res && res.ok) {
+        setStorage(await res.json());
+      } else {
+        setError('Unable to load storage usage right now.');
+      }
+    } catch (err) {
+      setError('Unable to reach the storage service.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (loading) {
+    return <div className="settings-loading">Loading storage usage...</div>;
+  }
 
   return (
     <>
       <div className="settings-page-header">
         <h1>Storage Manager</h1>
-        <p>Review and manage the data stored within your Harikson workspace.</p>
+        <p>Review the data stored within your Harikson workspace.</p>
       </div>
 
-      <div className="settings-section">
-        <h2>Storage Overview</h2>
-
-        <div className="settings-storage-header">
-          <div className="settings-storage-used">
-            {usedStorage} GB <span>used of {totalStorage} GB</span>
-          </div>
-          <div
-            style={{
-              fontSize: '13.5px',
-              color: 'var(--text-secondary)',
-              flexShrink: 0,
-            }}
-          >
-            {Math.round((usedStorage / totalStorage) * 100)}% Used
-          </div>
+      {error && (
+        <div className="settings-alert error" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <AlertCircle size={16} />
+          <span>{error}</span>
         </div>
+      )}
 
-        <div className="settings-storage-bar">
-          {categories.map((cat, i) => (
-            <div
-              key={i}
-              className="settings-storage-bar-segment"
-              style={{
-                width: `${(cat.size / totalStorage) * 100}%`,
-                background: cat.color,
-              }}
-            />
-          ))}
-        </div>
+      {storage && (
+        <div className="settings-section">
+          <h2>Storage Overview</h2>
 
-        <div className="settings-flex-col" style={{ marginTop: '20px' }}>
-          {categories.map((cat, i) => {
-            const Icon = cat.icon;
-            return (
-              <div key={i} className="settings-card settings-flex-row">
+          <div className="settings-storage-header">
+            <div className="settings-storage-used">
+              {formatBytes(storage.totalBytes)} <span>used across {storage.documentCount} document{storage.documentCount === 1 ? '' : 's'}</span>
+            </div>
+          </div>
+
+          <div className="settings-flex-col" style={{ marginTop: '20px' }}>
+            <div className="settings-card settings-flex-row">
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', minWidth: 0 }}>
                 <div
                   style={{
+                    width: '36px',
+                    height: '36px',
+                    flexShrink: 0,
+                    borderRadius: '8px',
+                    background: '#3b82f620',
+                    color: '#3b82f6',
                     display: 'flex',
                     alignItems: 'center',
-                    gap: '12px',
-                    minWidth: 0,
+                    justifyContent: 'center',
                   }}
                 >
-                  <div
-                    style={{
-                      width: '36px',
-                      height: '36px',
-                      flexShrink: 0,
-                      borderRadius: '8px',
-                      background: `${cat.color}20`,
-                      color: cat.color,
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                    }}
-                  >
-                    <Icon size={18} />
-                  </div>
-                  <div
-                    style={{
-                      fontWeight: '500',
-                      fontSize: '13.5px',
-                      minWidth: 0,
-                      overflow: 'hidden',
-                      textOverflow: 'ellipsis',
-                      whiteSpace: 'nowrap',
-                    }}
-                  >
-                    {cat.name}
-                  </div>
+                  <Database size={18} />
                 </div>
-                <div
-                  style={{ fontWeight: '600', fontSize: '14px', flexShrink: 0 }}
-                >
-                  {cat.size} GB
-                </div>
+                <div style={{ fontWeight: '500', fontSize: '13.5px' }}>Knowledge Base Documents</div>
               </div>
-            );
-          })}
-        </div>
-      </div>
+              <div style={{ fontWeight: '600', fontSize: '14px', flexShrink: 0 }}>
+                {formatBytes(storage.totalBytes)}
+              </div>
+            </div>
+          </div>
 
-      <div className="settings-section">
-        <h2>Data Retention</h2>
-        <div className="settings-form">
-          <div className="form-group">
-            <label>Automatically delete chat history older than</label>
-            <select defaultValue="never">
-              <option value="never">Never (Keep forever)</option>
-              <option value="30">30 days</option>
-              <option value="90">90 days</option>
-              <option value="365">1 year</option>
-            </select>
-          </div>
-          <div className="settings-actions" style={{ marginTop: '8px' }}>
-            <button type="button" className="btn-primary">
-              Update Policy
-            </button>
-          </div>
+          <p style={{ fontSize: '12.5px', color: 'var(--text-secondary)', marginTop: '14px' }}>
+            Your current plan does not enforce a fixed storage cap — this figure reflects
+            actual bytes stored, not a quota.
+          </p>
         </div>
-      </div>
+      )}
     </>
   );
 }

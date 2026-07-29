@@ -9,19 +9,36 @@ const pool = new Pool({
     'postgresql://neuravolt:neuravolt_dev_pwd@harikson-postgres:5432/neuravolt',
 });
 
-const JWT_SECRET =
-  process.env.JWT_SECRET ||
-  process.env.NEXTAUTH_SECRET ||
-  'neuravolt_dev_jwt_secret_key_extremely_long_and_secure_value_12345!';
-
 const parseCookie = (cookieHeader, key) => {
   if (!cookieHeader) return null;
   const match = cookieHeader.match(new RegExp('(?:^|;\\s*)' + key + '=([^;]+)'));
   return match ? decodeURIComponent(match[1]) : null;
 };
 
+// Read JWT_SECRET lazily (per-request) rather than baking it into a module-level
+// constant: ES module imports are evaluated before the importing file's own
+// dotenv.config() call runs, so a top-level const here could capture an empty
+// value on some startup orderings. Reading it inside the request handler avoids
+// that hazard and also lets it fail loudly instead of silently trusting a
+// well-known hardcoded string.
+function getJwtSecret() {
+  const secret = process.env.JWT_SECRET;
+  if (!secret || secret.length < 32) {
+    throw new Error('JWT_SECRET is not set (or is shorter than 32 characters) — refusing to authenticate admin requests with an insecure default.');
+  }
+  return secret;
+}
+
 export const adminAuth = async (req, res, next) => {
   try {
+    let jwtSecret;
+    try {
+      jwtSecret = getJwtSecret();
+    } catch (secretErr) {
+      logger.error('Admin Auth Middleware misconfiguration:', secretErr.message);
+      return res.status(500).json({ error: 'Server misconfiguration: admin authentication is not available' });
+    }
+
     let token = null;
 
     // 1. Try to get token from Cookies (admin_access_token or admin_token)
@@ -44,7 +61,7 @@ export const adminAuth = async (req, res, next) => {
 
     let decoded;
     try {
-      decoded = jwt.verify(token, JWT_SECRET);
+      decoded = jwt.verify(token, jwtSecret);
     } catch (jwtErr) {
       return res
         .status(401)
@@ -60,13 +77,10 @@ export const adminAuth = async (req, res, next) => {
       );
     } catch (dbErr) {
       logger.error('Admin Auth Middleware DB query error:', dbErr.message);
-      // Fallback: If DB query fails, trust valid JWT payload if role is admin/superadmin/founder
-      const allowed = ['admin', 'superadmin', 'founder'];
-      if (decoded.role && allowed.includes(decoded.role)) {
-        req.admin = { id: decoded.userId, role: decoded.role };
-        return next();
-      }
-      return res.status(500).json({ error: 'Database service unavailable' });
+      // Do NOT trust the JWT payload alone when the DB is unreachable — a valid
+      // JWT signature only proves the token was issued by us at some point, not
+      // that the user's role hasn't since been revoked/downgraded. Fail closed.
+      return res.status(503).json({ error: 'Database service unavailable' });
     }
 
     if (!result || result.rows.length === 0) {

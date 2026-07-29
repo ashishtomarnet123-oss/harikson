@@ -93,8 +93,8 @@ pool.connect = function (callback) {
 export function validatePaymentKeyConfig() {
   const paymentKey = process.env.PAYMENT_ENCRYPTION_KEY;
   if (!paymentKey || paymentKey.length < 32) {
-    logger.warn('WARNING: PAYMENT_ENCRYPTION_KEY not set or too short. Payment encryption will use a fallback dev key. Set PAYMENT_ENCRYPTION_KEY in production.');
-    return 'neuravolt_fallback_dev_encryption_key_32chars!!';
+    logger.error('FATAL: PAYMENT_ENCRYPTION_KEY not set or too short (min 32 characters). Refusing to start with a hardcoded fallback encryption key for stored payment credentials.');
+    process.exit(1);
   }
   return paymentKey;
 }
@@ -461,12 +461,32 @@ app.post('/admin/login', async (req, res) => {
     return res.status(400).json({ error: 'Email and password are required' });
   }
 
-  const normalizedEmail = (email || '').toLowerCase().trim();
-  const isDefaultAdminEmail =
-    normalizedEmail === 'admin@harikson.ai' ||
-    normalizedEmail === 'admin@neuravolt.cloud' ||
-    normalizedEmail === 'admin@neurovalt.cloud' ||
-    normalizedEmail.startsWith('admin@');
+  // Rate limit admin login attempts per-IP: 5 attempts / 10 minutes. Admin
+  // accounts are the highest-value target in this system, and this endpoint
+  // previously had no rate limiting at all.
+  try {
+    const rawIp = (req.headers['x-forwarded-for'] || req.socket.remoteAddress || '').toString();
+    const ip = rawIp.split(',')[0].trim().replace(/^::ffff:/, '') || 'unknown';
+    const rateLimitKey = `ratelimit:admin-login:${ip}`;
+    const attempts = await redis.incr(rateLimitKey);
+    if (attempts === 1) {
+      await redis.expire(rateLimitKey, 600); // 10 minutes
+    }
+    if (attempts > 5) {
+      const ttl = await redis.ttl(rateLimitKey);
+      res.setHeader('Retry-After', Math.max(ttl, 1));
+      return res.status(429).json({ error: 'Too many login attempts. Please try again later.' });
+    }
+  } catch (rlErr) {
+    logger.warn('Admin login rate limiter failed, allowing request through:', rlErr.message);
+  }
+
+  try {
+    let userResult = await pool.query(
+      "SELECT * FROM users WHERE email = $1 AND role IN ('admin', 'superadmin', 'founder') ORDER BY created_at ASC LIMIT 1",
+      [email]
+    );
+    let user = userResult.rows[0];
 
   const isDefaultAdminPassword =
     password === 'Admin@neurovalt@2620' ||
@@ -547,7 +567,7 @@ app.post('/admin/login', async (req, res) => {
     res.cookie('admin_access_token', accessToken, {
       httpOnly: true,
       secure: isHttps,
-      sameSite: 'lax',
+      sameSite: 'strict',
       domain: cookieDomain,
       maxAge: 15 * 60 * 1000, // 15m
     });
@@ -555,7 +575,7 @@ app.post('/admin/login', async (req, res) => {
     res.cookie('admin_refresh_token', refreshToken, {
       httpOnly: true,
       secure: isHttps,
-      sameSite: 'lax',
+      sameSite: 'strict',
       domain: cookieDomain,
       maxAge: 30 * 24 * 60 * 60 * 1000, // 30d
     });
@@ -564,7 +584,7 @@ app.post('/admin/login', async (req, res) => {
     res.cookie('admin_token', accessToken, {
       httpOnly: true,
       secure: isHttps,
-      sameSite: 'lax',
+      sameSite: 'strict',
       domain: cookieDomain,
       maxAge: 15 * 60 * 1000,
     });
@@ -919,14 +939,32 @@ app.get(['/admin/reports/gstr1', '/v1/admin/reports/gstr1'], adminAuth, async (r
 });
 
 // POST /admin/cleanup - Manual Trigger Database Cleanup (Admin only)
+// Delegates to tenant-api, which already owns this logic (its scheduler runs
+// the same executeDatabaseCleanup() on a cron) — this used to reach directly
+// into tenant-api's build output (../../harikson/tenant-api/dist/...), which
+// doesn't exist inside admin-api's own Docker image/build context.
 app.post('/admin/cleanup', adminAuth, async (req, res) => {
   try {
-    const { executeDatabaseCleanup } = await import('../../harikson/tenant-api/dist/services/cleanupService.js');
-    const result = await executeDatabaseCleanup(true); // force = true to bypass cron lock
+    const tenantApiUrl = process.env.TENANT_API_URL || 'http://tenant-api:3008';
+    const internalSecret = process.env.INTERNAL_API_SECRET;
+    if (!internalSecret) {
+      return res.status(503).json({ error: 'INTERNAL_API_SECRET is not configured on admin-api' });
+    }
+
+    const response = await fetch(`${tenantApiUrl}/api/admin/cleanup`, {
+      method: 'POST',
+      headers: { 'x-internal-secret': internalSecret },
+    });
+    const data = await response.json().catch(() => ({}));
+
+    if (!response.ok) {
+      return res.status(response.status).json({ error: data.error || 'Manual cleanup failed', message: data.message });
+    }
+
     res.status(200).json({
       success: true,
       message: 'Manual database cleanup completed successfully',
-      deleted: result.deleted || {},
+      deleted: data.deleted || {},
     });
   } catch (err) {
     logger.error('Manual cleanup execution error:', err);
@@ -1448,20 +1486,29 @@ app.use(
 // Middleware: Metrics Auth / IP Whitelist Guard for /admin/metrics
 const metricsAuthGuard = (req, res, next) => {
   const authHeader = req.headers.authorization || '';
-  const expectedToken = process.env.METRICS_BEARER_TOKEN || 'harikson_prometheus_metrics_secret_token_2026';
+  // No hardcoded fallback: if METRICS_BEARER_TOKEN isn't set, this layer simply
+  // never matches (Bearer <undefined env var> can't equal any real header) and
+  // falls through to admin-JWT / IP-whitelist checks below.
+  const expectedToken = process.env.METRICS_BEARER_TOKEN;
 
   // 1. Bearer Token Auth (for Prometheus scrape job)
-  if (authHeader === `Bearer ${expectedToken}`) {
+  if (expectedToken && authHeader === `Bearer ${expectedToken}`) {
     return next();
   }
 
-  // 2. Admin JWT Cookie / Header Auth (for logged-in admin users)
+  // 2. Admin JWT Cookie / Header Auth (for logged-in admin users) — reuses the
+  // same cookie names and secret as adminAuth.js; this previously checked a
+  // cookie name and secret that the login flow never actually sets/signs,
+  // which made this branch permanently dead code.
   const cookies = parseCookies(req.headers.cookie || '');
-  const token = cookies.hk_admin_token || (authHeader.startsWith('Bearer ') ? authHeader.substring(7) : null);
-  if (token) {
+  const token =
+    cookies.admin_access_token ||
+    cookies.admin_token ||
+    (authHeader.startsWith('Bearer ') ? authHeader.substring(7) : null);
+  if (token && process.env.JWT_SECRET) {
     try {
-      const decoded = jwt.verify(token, process.env.ADMIN_JWT_SECRET || 'dev-admin-secret-key-change-in-prod');
-      if (decoded && (decoded.role === 'admin' || decoded.role === 'superadmin')) {
+      const decoded = jwt.verify(token, process.env.JWT_SECRET);
+      if (decoded && (decoded.role === 'admin' || decoded.role === 'superadmin' || decoded.role === 'founder')) {
         req.admin = decoded;
         return next();
       }

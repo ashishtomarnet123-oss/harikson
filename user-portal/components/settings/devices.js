@@ -85,8 +85,7 @@ export default function DevicesSettings() {
     if (!confirm('Are you sure you want to log out of this device?')) return;
 
     try {
-      const token = localStorage.getItem('hk_user') ? 'cookie_auth' : null;
-      if (!token) return;
+      if (!localStorage.getItem('hk_user')) return;
       const { apiBase, tenantSlug } = getApiConfig();
       const res = await authenticatedFetch(`${apiBase}/api/v1/user/devices/${id}`, {
         credentials: 'include',

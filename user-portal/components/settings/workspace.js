@@ -11,15 +11,19 @@ export default function WorkspaceSettings() {
 
   useEffect(() => {
     fetchWorkspace();
-    const token = localStorage.getItem('hk_user') ? 'cookie_auth' : null;
-    if (token) {
+    // hk_user already holds the parsed current-user object (see AuthContext.js) —
+    // no need to decode a token here at all. The previous code built a fake
+    // sentinel string ('cookie_auth') and tried to base64-decode it as if it
+    // were a JWT, which always failed.
+    const storedUserRaw = localStorage.getItem('hk_user');
+    if (storedUserRaw) {
       try {
-        const payload = JSON.parse(atob(token.split('.')[1]));
-        if (payload && payload.userId) {
-          setCurrentUserId(payload.userId);
+        const user = JSON.parse(storedUserRaw);
+        if (user && user.id) {
+          setCurrentUserId(user.id);
         }
       } catch (e) {
-        console.error('Failed to parse token payload:', e);
+        console.error('Failed to parse stored user:', e);
       }
     }
   }, []);
@@ -40,8 +44,7 @@ export default function WorkspaceSettings() {
     setAddingMember(true);
     setError(null);
     try {
-      const token = localStorage.getItem('hk_user') ? 'cookie_auth' : null;
-      if (!token) return;
+      if (!localStorage.getItem('hk_user')) return;
       const { apiBase, tenantSlug } = getApiConfig();
       const res = await authenticatedFetch(`${apiBase}/api/v1/user/workspace/members`, {
         credentials: 'include',
@@ -166,8 +169,7 @@ export default function WorkspaceSettings() {
     setUpdatingRole(true);
     setError(null);
     try {
-      const token = localStorage.getItem('hk_user') ? 'cookie_auth' : null;
-      if (!token) return;
+      if (!localStorage.getItem('hk_user')) return;
       const { apiBase, tenantSlug } = getApiConfig();
       const res = await fetch(
         `${apiBase}/api/v1/user/workspace/members/${memberId}/role`,
@@ -211,8 +213,7 @@ export default function WorkspaceSettings() {
     setUpdatingRole(true);
     setError(null);
     try {
-      const token = localStorage.getItem('hk_user') ? 'cookie_auth' : null;
-      if (!token) return;
+      if (!localStorage.getItem('hk_user')) return;
       const { apiBase, tenantSlug } = getApiConfig();
       const res = await fetch(
         `${apiBase}/api/v1/user/workspace/members/${memberId}`,

@@ -151,6 +151,7 @@ services:
       - REDIS_URL=redis://redis:6379
       - JWT_SECRET
       - TENANT_MASTER_KEY
+      - INTERNAL_API_SECRET
       - PORT=3008
       - NODE_ENV=production
       - OLLAMA_HOST=http://ollama:11434
@@ -195,7 +196,9 @@ services:
       - JWT_SECRET
       - PORT=4000
       - NODE_ENV=production
-      - PAYMENT_ENCRYPTION_KEY=neuravolt_payment_encryption_key_production_secure_32chars!
+      - TENANT_API_URL=http://tenant-api:3008
+      - INTERNAL_API_SECRET
+      - PAYMENT_ENCRYPTION_KEY
       - ALLOWED_ORIGINS=https://app.neuravolt.cloud,https://admin.neuravolt.cloud,https://neuravolt.cloud,http://localhost:3002,http://localhost:3018,http://localhost:3028,http://154.201.127.68:3018,http://154.201.127.68:3028
     depends_on:
       postgres:

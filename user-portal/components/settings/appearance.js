@@ -18,8 +18,7 @@ export default function AppearanceSettings() {
   useEffect(() => {
     const fetchSettings = async () => {
       try {
-        const token = localStorage.getItem('hk_user') ? 'cookie_auth' : null;
-        if (!token) return;
+        if (!localStorage.getItem('hk_user')) return;
         const { apiBase, tenantSlug } = getApiConfig();
         const res = await authenticatedFetch(`${apiBase}/api/v1/user/settings`, {
           credentials: 'include',
@@ -53,7 +52,6 @@ export default function AppearanceSettings() {
     setSaving(true);
     setMessage(null);
     try {
-      const token = localStorage.getItem('hk_user') ? 'cookie_auth' : null;
       const { apiBase, tenantSlug } = getApiConfig();
       const res = await authenticatedFetch(`${apiBase}/api/v1/user/settings`, {
         credentials: 'include',

@@ -6,6 +6,10 @@ export default function DeveloperSettings() {
   const [keys, setKeys] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  // Holds the plaintext secret only for the few seconds between creation and
+  // the user dismissing the reveal dialog — never stored alongside the list,
+  // which only ever holds prefixes from the backend.
+  const [revealedKey, setRevealedKey] = useState(null);
 
   useEffect(() => {
     fetchKeys();
@@ -51,8 +55,7 @@ export default function DeveloperSettings() {
     if (!name || !name.trim()) return;
 
     try {
-      const token = localStorage.getItem('hk_user') ? 'cookie_auth' : null;
-      if (!token) return;
+      if (!localStorage.getItem('hk_user')) return;
       const { apiBase, tenantSlug } = getApiConfig();
       const idempotencyKey = `apikey:${name.trim()}:${Date.now()}:${Math.random()}`;
       const defaultScopes = ['chat:read', 'chat:write', 'documents:read', 'documents:write'];
@@ -68,7 +71,11 @@ export default function DeveloperSettings() {
       });
       if (res.ok) {
         const data = await res.json();
-        setKeys(data.keys);
+        // The create endpoint returns the one-time plaintext secretKey on
+        // this single response only — it is never retrievable again after
+        // this point, and the list endpoint only ever returns key prefixes.
+        setRevealedKey(data.secretKey);
+        await fetchKeys();
       } else {
         alert('Failed to generate key');
       }
@@ -87,8 +94,7 @@ export default function DeveloperSettings() {
       return;
 
     try {
-      const token = localStorage.getItem('hk_user') ? 'cookie_auth' : null;
-      if (!token) return;
+      if (!localStorage.getItem('hk_user')) return;
       const { apiBase, tenantSlug } = getApiConfig();
       const res = await authenticatedFetch(`${apiBase}/api/v1/user/developer/keys/${id}`, {
         credentials: 'include',
@@ -98,8 +104,7 @@ export default function DeveloperSettings() {
         },
       });
       if (res.ok) {
-        const data = await res.json();
-        setKeys(data.keys);
+        await fetchKeys();
       } else {
         alert('Failed to revoke key');
       }
@@ -189,7 +194,7 @@ export default function DeveloperSettings() {
                         fontSize: '12px',
                       }}
                     >
-                      {k.key}
+                      {k.prefix}••••••••••••••••
                     </div>
                     <div
                       style={{
@@ -198,26 +203,11 @@ export default function DeveloperSettings() {
                         marginTop: '7px',
                       }}
                     >
-                      Created: {k.created} &middot; Last used: {k.lastUsed}
+                      Created: {k.createdAt ? new Date(k.createdAt).toLocaleDateString() : '—'} &middot; Last used:{' '}
+                      {k.lastUsedAt ? new Date(k.lastUsedAt).toLocaleDateString() : 'Never'}
                     </div>
                   </div>
                   <div style={{ display: 'flex', gap: '6px', flexShrink: 0 }}>
-                    <button
-                      onClick={() => handleCopy(k.key)}
-                      style={{
-                        background: 'none',
-                        border: '1px solid var(--border)',
-                        padding: '6px 8px',
-                        borderRadius: '7px',
-                        cursor: 'pointer',
-                        color: 'var(--text-secondary)',
-                        display: 'flex',
-                        alignItems: 'center',
-                      }}
-                      title="Copy key"
-                    >
-                      <Copy size={14} />
-                    </button>
                     <button
                       onClick={() => handleRevokeKey(k.id)}
                       style={{
@@ -241,6 +231,92 @@ export default function DeveloperSettings() {
           </div>
         )}
       </div>
+
+      {revealedKey && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(15, 23, 42, 0.45)',
+            backdropFilter: 'blur(4px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 10000,
+            padding: '20px',
+          }}
+        >
+          <div
+            style={{
+              background: '#ffffff',
+              borderRadius: '16px',
+              maxWidth: '480px',
+              width: '100%',
+              padding: '24px',
+              border: '1px solid #e2e8f0',
+              boxShadow: '0 20px 50px rgba(0,0,0,0.15)',
+            }}
+          >
+            <h3 style={{ fontSize: '18px', fontWeight: 700, margin: '0 0 8px 0', color: '#0f172a' }}>
+              Your new API key
+            </h3>
+            <p style={{ fontSize: '13px', color: '#64748b', lineHeight: '1.5', margin: '0 0 16px 0' }}>
+              Copy this key now — for your security, it won&apos;t be shown again. Only a
+              masked prefix will be visible afterwards.
+            </p>
+            <div
+              style={{
+                display: 'flex',
+                gap: '10px',
+                alignItems: 'center',
+                background: '#f8fafc',
+                border: '1px solid #e2e8f0',
+                borderRadius: '8px',
+                padding: '10px 12px',
+                marginBottom: '16px',
+              }}
+            >
+              <code style={{ flex: 1, wordBreak: 'break-all', fontSize: '12.5px' }}>{revealedKey}</code>
+              <button
+                type="button"
+                onClick={() => handleCopy(revealedKey)}
+                style={{
+                  background: 'none',
+                  border: '1px solid #cbd5e1',
+                  borderRadius: '7px',
+                  padding: '6px 8px',
+                  cursor: 'pointer',
+                  color: '#475569',
+                  display: 'flex',
+                  alignItems: 'center',
+                  flexShrink: 0,
+                }}
+                title="Copy key"
+              >
+                <Copy size={14} />
+              </button>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+              <button
+                type="button"
+                onClick={() => setRevealedKey(null)}
+                style={{
+                  padding: '8px 16px',
+                  borderRadius: '8px',
+                  background: '#3b82f6',
+                  color: '#fff',
+                  border: 'none',
+                  fontSize: '13px',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                }}
+              >
+                Done
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }
