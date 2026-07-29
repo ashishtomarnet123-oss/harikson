@@ -142,10 +142,16 @@ services:
   tenant-api:
     build:
       context: ./harikson/tenant-api
-    container_name: harikson-tenant-api
     restart: unless-stopped
     ports:
-      - '3008:3008'
+      # No fixed host port: a fixed mapping blocks blue-green's
+      # `--scale tenant-api=2` (two containers can't bind the same host
+      # port) — Docker assigns each replica its own ephemeral host port,
+      # and Traefik/inter-service traffic reaches it via the internal
+      # harikson-network on the container port regardless. Ops scripts
+      # that need the current host port resolve it via
+      # `docker compose port tenant-api 3008`.
+      - '3008'
     environment:
       - DATABASE_URL=postgresql://neuravolt:neuravolt_dev_pwd@postgres:5432/neuravolt
       - REDIS_URL=redis://redis:6379
@@ -186,10 +192,12 @@ services:
   admin-api:
     build:
       context: ./admin-api
-    container_name: harikson-admin-api
     restart: unless-stopped
     ports:
-      - '4008:4000'
+      # See tenant-api's port comment above — same reason, no fixed host
+      # side. Resolve the current host port via `docker compose port
+      # admin-api 4000`.
+      - '4000'
     environment:
       - DATABASE_URL=postgresql://neuravolt:neuravolt_dev_pwd@postgres:5432/neuravolt
       - REDIS_URL=redis://redis:6379

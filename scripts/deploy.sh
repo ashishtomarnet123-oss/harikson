@@ -283,10 +283,17 @@ echo -e "\n${BLUE}[Step 7/8] Starting Harikson Platform stack containers...${NC}
 
 docker compose -f $INSTALL_DIR/docker-compose.yml up -d --build
 
+# tenant-api no longer has a fixed host port (a fixed mapping blocks the
+# blue-green deploy's `--scale tenant-api=2`) — resolve whatever host port
+# Docker actually assigned it, and inspect it by compose service name
+# instead of the old fixed container name.
 echo "⏳ Waiting for Tenant API health checks..."
-until [ "$(docker inspect --format='{{.State.Health.Status}}' harikson-tenant-api 2>/dev/null)" = "healthy" ]; do
+until [ "$(docker compose -f $INSTALL_DIR/docker-compose.yml ps -q tenant-api | xargs -r docker inspect --format='{{.State.Health.Status}}' 2>/dev/null)" = "healthy" ]; do
     sleep 2
 done
+
+TENANT_API_PORT=$(docker compose -f $INSTALL_DIR/docker-compose.yml port tenant-api 3008 2>/dev/null | sed 's/.*://')
+TENANT_API_PORT="${TENANT_API_PORT:-3008}"
 
 echo -e "${GREEN}✅ All containers are up, running, and healthy.${NC}"
 
@@ -297,7 +304,7 @@ echo -e "${GREEN}✅ All containers are up, running, and healthy.${NC}"
 echo -e "\n${BLUE}[Step 8/8] Performing diagnostic endpoint verifications...${NC}"
 
 # Test health checks
-health_response=$(curl -s -H "x-tenant-slug: system" http://localhost:3008/health || echo "FAIL")
+health_response=$(curl -s -H "x-tenant-slug: system" http://localhost:$TENANT_API_PORT/health || echo "FAIL")
 if echo "$health_response" | grep -q "healthy"; then
     echo -e "${GREEN}✅ Health check validation PASSED.${NC}"
 else
@@ -306,7 +313,7 @@ else
 fi
 
 # Test model catalog tags
-model_response=$(curl -s -H "x-tenant-slug: system" http://localhost:3008/api/models || echo "FAIL")
+model_response=$(curl -s -H "x-tenant-slug: system" http://localhost:$TENANT_API_PORT/api/models || echo "FAIL")
 if echo "$model_response" | grep -q "harikson-plus"; then
     echo -e "${GREEN}✅ /api/models list validation PASSED.${NC}"
 else
@@ -317,7 +324,7 @@ fi
 echo -e "${BLUE}======================================================================${NC}"
 echo -e "${GREEN}🎉 HARIKSON AI PLATFORM DEPLOYED SUCCESSFULLY!${NC}"
 echo -e "Access Details:"
-echo -e "  - Tenant API: http://localhost:3008/health"
+echo -e "  - Tenant API: http://localhost:$TENANT_API_PORT/health"
 echo -e "  - Admin Panel: http://localhost:3018"
 echo -e "  - User Portal: http://localhost:3028"
 echo -e "  - Default Admin Username: admin@harikson.ai"

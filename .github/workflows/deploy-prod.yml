@@ -102,15 +102,28 @@ jobs:
             echo "1. Launching Green environment containers..."
             docker compose up -d --no-deps --scale tenant-api=2 --scale admin-api=2
 
-            # Step 3: Perform Health Checks against new instances
+            # Step 3: Perform Health Checks against new (green, replica #2)
+            # instances specifically. Neither service publishes a fixed host
+            # port anymore (a fixed port can't be bound by two replicas at
+            # once, which is exactly what --scale=2 above needs), so we
+            # curl each green container's own localhost from inside it via
+            # `docker compose exec --index=2` rather than hitting a host port.
             echo "2. Running health probes against new instances..."
             HEALTH_PASS=0
             for i in {1..12}; do
-              if curl -s -f http://localhost:3008/health | grep -q "healthy"; then
+              TENANT_OK=0
+              ADMIN_OK=0
+              if docker compose exec -T --index=2 tenant-api curl -s -f http://localhost:3008/health 2>/dev/null | grep -q "healthy"; then
+                TENANT_OK=1
+              fi
+              if docker compose exec -T --index=2 admin-api curl -s -f http://localhost:4000/health >/dev/null 2>&1; then
+                ADMIN_OK=1
+              fi
+              if [ $TENANT_OK -eq 1 ] && [ $ADMIN_OK -eq 1 ]; then
                 HEALTH_PASS=1
                 break
               fi
-              echo "   Waiting for green instance health check... ($i/12)"
+              echo "   Waiting for green instances health check (tenant-api=$TENANT_OK admin-api=$ADMIN_OK)... ($i/12)"
               sleep 5
             done
 

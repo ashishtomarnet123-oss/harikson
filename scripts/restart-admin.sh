@@ -41,13 +41,19 @@ echo ""
 echo "⏳ Waiting 10 seconds for admin-panel to come up..."
 sleep 10
 
+# admin-api no longer has a fixed host port (a fixed mapping blocks the
+# blue-green deploy's `--scale admin-api=2`) — resolve whatever host port
+# Docker actually assigned it right now.
+ADMIN_API_PORT=$(docker compose port admin-api 4000 2>/dev/null | sed 's/.*://')
+ADMIN_API_PORT="${ADMIN_API_PORT:-4008}"
+
 echo ""
 echo "🔍 Health check on admin-api..."
-curl -sf http://localhost:4008/health && echo " ✅ admin-api is healthy" || echo " ⚠️  admin-api health check failed - check logs: docker compose logs admin-api"
+curl -sf http://localhost:$ADMIN_API_PORT/health && echo " ✅ admin-api is healthy" || echo " ⚠️  admin-api health check failed - check logs: docker compose logs admin-api"
 
 echo ""
 echo "🔍 Checking admin-api login endpoint..."
-curl -sf -X POST http://localhost:4008/admin/login \
+curl -sf -X POST http://localhost:$ADMIN_API_PORT/admin/login \
   -H "Content-Type: application/json" \
   -d '{"email":"admin@harikson.ai","password":"test"}' \
   | python3 -m json.tool 2>/dev/null || echo "  (response received - if it's JSON, login route is working)"
