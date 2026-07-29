@@ -59,4 +59,4 @@ docker compose logs --tail=20 admin-api
 echo ""
 echo "✅ Done! Try logging in at http://154.201.127.68:3018/admin/login"
 echo "   Email:    admin@harikson.ai"
-echo "   Password: StrongP@ssword2026!"
+echo "   Password: Admin@neurovalt@2620"

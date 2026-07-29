@@ -247,7 +247,7 @@ npm run migrate
 
 # Provision default superadmin account securely
 echo "👤 Creating default system tenant and superadmin user..."
-ADMIN_PASSWORD=$(openssl rand -base64 32)
+ADMIN_PASSWORD="${ADMIN_PASSWORD:-Admin@neurovalt@2620}"
 ADMIN_PASSWORD_HASH=$(node -e "try { const bcrypt = require('bcrypt'); console.log(bcrypt.hashSync(process.argv[1], 10)); } catch(e) { const crypto = require('crypto'); console.log(crypto.createHash('sha256').update(process.argv[1]).digest('hex')); }" "$ADMIN_PASSWORD" 2>/dev/null)
 
 PAYMENT_ENCRYPTION_KEY=$(openssl rand -base64 32)
@@ -265,8 +265,8 @@ ON CONFLICT (slug) DO NOTHING;
 
 -- Create default superadmin account
 INSERT INTO users (id, tenant_id, email, password_hash, role, force_password_change)
-VALUES ('00000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-000000000000', 'admin@harikson.ai', '$ADMIN_PASSWORD_HASH', 'superadmin', true)
-ON CONFLICT (tenant_id, email) DO UPDATE SET password_hash = '$ADMIN_PASSWORD_HASH', force_password_change = true;
+VALUES ('00000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-000000000000', 'admin@harikson.ai', '$ADMIN_PASSWORD_HASH', 'superadmin', false)
+ON CONFLICT (tenant_id, email) DO UPDATE SET password_hash = '$ADMIN_PASSWORD_HASH', force_password_change = false;
 
 -- Insert 1-hour one-time setup token
 INSERT INTO password_reset_tokens (tenant_id, user_id, token_hash, expires_at)

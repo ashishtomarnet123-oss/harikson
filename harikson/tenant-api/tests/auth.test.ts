@@ -16,7 +16,7 @@ describe('Tenant API - Auth Routes Test Suite', () => {
     const tenant = await createTestTenant({ slug: 'test-org' });
     const payload = {
       email: 'newuser@neuravolt.cloud',
-      password: 'StrongP@ssword2026!',
+      password: 'Admin@neurovalt@2620',
       tenantSlug: tenant.slug,
     };
 
