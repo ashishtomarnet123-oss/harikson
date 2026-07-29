@@ -90,117 +90,15 @@ export default function BillingSettings() {
         const data = await res.json();
         setBilling(data);
       } else {
-        // Dynamic fallback data model matching backend schema
-        setBilling({
-          planName: 'Professional Plan',
-          status: 'ACTIVE',
-          isTrial: true,
-          trialDays: 14,
-          daysRemaining: 14,
-          price: '$0.00',
-          postTrialPrice: '$49.00 / month',
-          trialEndDate: 'Aug 9, 2026',
-          nextBillingDate: 'Aug 9, 2026',
-          billingCycle: 'Monthly',
-          paymentMethod: {
-            brand: 'Visa',
-            last4: '4242',
-            exp: '08/28',
-            lastUpdated: 'Jul 10, 2026',
-          },
-          nextPaymentAmount: '$49.00',
-          features: [
-            'Unlimited messages (GPT-4o / Claude 3.5 Sonnet)',
-            '100GB Document Vector Storage',
-            'Custom Agents, RAG Pipelines & Webhooks',
-          ],
-          usageMeters: {
-            apiRequests: { current: 2450, limit: 10000, pct: 24.5 },
-            ragDocuments: { currentGB: 14.5, limitGB: 100, pct: 14.5 },
-          },
-          invoices: [
-            {
-              id: 'inv_1',
-              code: 'INV-2026-0012',
-              date: 'Jul 26, 2026',
-              planName: 'Professional Plan',
-              amount: '$0.00',
-              status: 'Paid',
-            },
-            {
-              id: 'inv_2',
-              code: 'INV-2026-0009',
-              date: 'Jun 26, 2026',
-              planName: 'Professional Plan',
-              amount: '$49.00',
-              status: 'Paid',
-            },
-            {
-              id: 'inv_3',
-              code: 'INV-2026-0006',
-              date: 'May 26, 2026',
-              planName: 'Professional Plan',
-              amount: '$49.00',
-              status: 'Paid',
-            },
-          ],
-        });
+        // Do not fabricate plan/card/invoice data on a non-OK response — show
+        // a real error state instead so a user never mistakes a fake plan or
+        // card for their actual billing status.
+        setBilling(null);
+        setError('Unable to load billing information. Please refresh the page or contact support if this keeps happening.');
       }
     } catch (err) {
-      setBilling({
-        planName: 'Professional Plan',
-        status: 'ACTIVE',
-        isTrial: true,
-        trialDays: 14,
-        daysRemaining: 14,
-        price: '$0.00',
-        postTrialPrice: '$49.00 / month',
-        trialEndDate: 'Aug 9, 2026',
-        nextBillingDate: 'Aug 9, 2026',
-        billingCycle: 'Monthly',
-        paymentMethod: {
-          brand: 'Visa',
-          last4: '4242',
-          exp: '08/28',
-          lastUpdated: 'Jul 10, 2026',
-        },
-        nextPaymentAmount: '$49.00',
-        features: [
-          'Unlimited messages (GPT-4o / Claude 3.5 Sonnet)',
-          '100GB Document Vector Storage',
-          'Custom Agents, RAG Pipelines & Webhooks',
-        ],
-        usageMeters: {
-          apiRequests: { current: 2450, limit: 10000, pct: 24.5 },
-          ragDocuments: { currentGB: 14.5, limitGB: 100, pct: 14.5 },
-        },
-        invoices: [
-          {
-            id: 'inv_1',
-            code: 'INV-2026-0012',
-            date: 'Jul 26, 2026',
-            planName: 'Professional Plan',
-            amount: '$0.00',
-            status: 'Paid',
-          },
-          {
-            id: 'inv_2',
-            code: 'INV-2026-0009',
-            date: 'Jun 26, 2026',
-            planName: 'Professional Plan',
-            amount: '$49.00',
-            status: 'Paid',
-          },
-          {
-            id: 'inv_3',
-            code: 'INV-2026-0006',
-            date: 'May 26, 2026',
-            planName: 'Professional Plan',
-            amount: '$49.00',
-            status: 'Paid',
-          },
-        ],
-      });
+      setBilling(null);
+      setError('Unable to reach the billing service. Please check your connection and try again.');
     } finally {
       setLoading(false);
     }
@@ -258,14 +156,11 @@ export default function BillingSettings() {
         }));
         setShowPlanModal(false);
       } else {
-        setBilling((prev) => ({
-          ...prev,
-          planName: plan.name,
-          price: `${plan.price} ${plan.period}`,
-          status: 'ACTIVE',
-          isTrial: false,
-        }));
-        setShowPlanModal(false);
+        // Previously this branch applied the exact same optimistic update as
+        // the success path, so a failed plan-change silently looked like it
+        // worked. Surface the real failure instead and keep the modal open.
+        const data = await res?.json().catch(() => ({}));
+        setError(data?.error || 'Failed to change plan. Please try again.');
       }
     } catch (err) {
       setError(err.message);
@@ -277,7 +172,6 @@ export default function BillingSettings() {
   const handleCancelSubscription = async () => {
     setActionLoading(true);
     setError(null);
-    setShowCancelModal(false);
     try {
       const { apiBase, tenantSlug } = getApiConfig();
       const res = await authenticatedFetch(`${apiBase}/api/v1/user/billing/cancel`, {
@@ -291,8 +185,10 @@ export default function BillingSettings() {
 
       if (res && res.ok) {
         setBilling((prev) => ({ ...prev, status: 'CANCELLED' }));
+        setShowCancelModal(false);
       } else {
-        setBilling((prev) => ({ ...prev, status: 'CANCELLED' }));
+        const data = await res?.json().catch(() => ({}));
+        setError(data?.error || 'Failed to cancel subscription. Please try again.');
       }
     } catch (err) {
       setError(err.message);
@@ -329,14 +225,25 @@ export default function BillingSettings() {
         </div>
       )}
 
+      {!billing && !loading && (
+        <div className="billing-plan-card" style={{ textAlign: 'center', padding: '32px 20px' }}>
+          <p style={{ color: '#64748b', marginBottom: '16px' }}>
+            We couldn&apos;t load your billing details right now.
+          </p>
+          <button type="button" className="btn-change-plan-outline" onClick={fetchBilling}>
+            Retry
+          </button>
+        </div>
+      )}
+
       {billing && (
         <>
           {/* ── Main Current Plan Card ── */}
           <div className="billing-plan-card">
             <div className="plan-card-header-row">
-              <h2 className="plan-name-heading">{billing.planName || 'Professional Plan'}</h2>
+              <h2 className="plan-name-heading">{billing.planName || 'No plan'}</h2>
               <span className={`billing-status-badge ${billing.status?.toLowerCase()}`}>
-                {billing.status || 'ACTIVE'}
+                {billing.status || 'UNKNOWN'}
               </span>
             </div>
 
@@ -346,22 +253,24 @@ export default function BillingSettings() {
                 {billing.isTrial && (
                   <div className="trial-pill-badge">
                     <Sparkles size={13} color="#2563eb" />
-                    <span>{billing.trialDays || 14}-Day Free Trial Active</span>
+                    <span>{billing.trialDays ?? '—'}-Day Free Trial Active</span>
                   </div>
                 )}
 
                 <div className="plan-price-row">
-                  <span className="price-bold">{billing.price || '$0.00'}</span>
+                  <span className="price-bold">{billing.price || '—'}</span>
                   {billing.isTrial && <span className="free-trial-tag">(Free Trial)</span>}
-                  <span className="days-remaining">| {billing.daysRemaining || 14} days remaining</span>
+                  {billing.daysRemaining != null && (
+                    <span className="days-remaining">| {billing.daysRemaining} days remaining</span>
+                  )}
                 </div>
 
                 <div className="plan-subtext">
                   <Calendar size={14} />
                   <span>
                     {billing.isTrial
-                      ? `Trial ends ${billing.trialEndDate || 'Aug 9, 2026'}  •  Then ${billing.postTrialPrice || '$49.00 / month'}`
-                      : `Next billing date: ${billing.nextBillingDate || 'Aug 9, 2026'}`}
+                      ? `Trial ends ${billing.trialEndDate || '—'}  •  Then ${billing.postTrialPrice || '—'}`
+                      : `Next billing date: ${billing.nextBillingDate || '—'}`}
                   </span>
                 </div>
 
@@ -384,18 +293,18 @@ export default function BillingSettings() {
                   <div className="metric-header-row">
                     <span className="metric-title">API Message Requests</span>
                     <span className="metric-counts">
-                      {billing.usageMeters?.apiRequests?.current?.toLocaleString() || '2,450'} /{' '}
-                      {billing.usageMeters?.apiRequests?.limit?.toLocaleString() || '10,000'}
+                      {billing.usageMeters?.apiRequests?.current?.toLocaleString() ?? '—'} /{' '}
+                      {billing.usageMeters?.apiRequests?.limit?.toLocaleString() ?? '—'}
                     </span>
                     <span className="metric-pct-pill">
-                      {billing.usageMeters?.apiRequests?.pct || 24.5}% used
+                      {billing.usageMeters?.apiRequests?.pct ?? '—'}% used
                     </span>
                   </div>
                   <div className="progress-track">
                     <div
                       className="progress-fill"
                       style={{
-                        width: `${Math.min(billing.usageMeters?.apiRequests?.pct || 24.5, 100)}%`,
+                        width: `${Math.min(billing.usageMeters?.apiRequests?.pct || 0, 100)}%`,
                       }}
                     />
                   </div>
@@ -405,18 +314,18 @@ export default function BillingSettings() {
                   <div className="metric-header-row">
                     <span className="metric-title">RAG Documents Library</span>
                     <span className="metric-counts">
-                      {billing.usageMeters?.ragDocuments?.currentGB || 14.5} GB /{' '}
-                      {billing.usageMeters?.ragDocuments?.limitGB || 100} GB
+                      {billing.usageMeters?.ragDocuments?.currentGB ?? '—'} GB /{' '}
+                      {billing.usageMeters?.ragDocuments?.limitGB ?? '—'} GB
                     </span>
                     <span className="metric-pct-pill">
-                      {billing.usageMeters?.ragDocuments?.pct || 14.5}% used
+                      {billing.usageMeters?.ragDocuments?.pct ?? '—'}% used
                     </span>
                   </div>
                   <div className="progress-track">
                     <div
                       className="progress-fill"
                       style={{
-                        width: `${Math.min(billing.usageMeters?.ragDocuments?.pct || 14.5, 100)}%`,
+                        width: `${Math.min(billing.usageMeters?.ragDocuments?.pct || 0, 100)}%`,
                       }}
                     />
                   </div>
@@ -459,18 +368,18 @@ export default function BillingSettings() {
               </div>
               {billing.paymentMethod ? (
                 <div className="payment-method-row">
-                  <div className="card-brand-badge">{billing.paymentMethod.brand || 'VISA'}</div>
+                  <div className="card-brand-badge">{billing.paymentMethod.brand || 'CARD'}</div>
                   <div className="card-info">
                     <span className="card-title-text">
-                      {billing.paymentMethod.brand || 'Visa'} ••••{' '}
-                      {billing.paymentMethod.last4 || '4242'}
+                      {billing.paymentMethod.brand || 'Card'} ••••{' '}
+                      {billing.paymentMethod.last4 || '••••'}
                     </span>
-                    <span className="card-sub-text">
-                      Expires {billing.paymentMethod.exp || '08/28'}
-                    </span>
-                    <span className="card-sub-text">
-                      Last updated: {billing.paymentMethod.lastUpdated || 'Jul 10, 2026'}
-                    </span>
+                    {billing.paymentMethod.exp && (
+                      <span className="card-sub-text">Expires {billing.paymentMethod.exp}</span>
+                    )}
+                    {billing.paymentMethod.lastUpdated && (
+                      <span className="card-sub-text">Last updated: {billing.paymentMethod.lastUpdated}</span>
+                    )}
                   </div>
                 </div>
               ) : (
@@ -490,21 +399,21 @@ export default function BillingSettings() {
                   </div>
                   <div>
                     <div className="next-payment-amount">
-                      {billing.nextPaymentAmount || '$49.00'}
+                      {billing.nextPaymentAmount || '—'}
                     </div>
                     <div className="next-payment-due">
-                      Due on {billing.nextBillingDate || 'Aug 9, 2026'}
+                      Due on {billing.nextBillingDate || '—'}
                     </div>
                   </div>
                 </div>
                 <div className="next-payment-meta">
                   <div className="meta-row">
                     <span>Plan</span>
-                    <strong>{billing.planName?.replace(' Plan', '') || 'Professional'}</strong>
+                    <strong>{billing.planName?.replace(' Plan', '') || '—'}</strong>
                   </div>
                   <div className="meta-row">
                     <span>Billing cycle</span>
-                    <strong>{billing.billingCycle || 'Monthly'}</strong>
+                    <strong>{billing.billingCycle || '—'}</strong>
                   </div>
                   <div className="meta-row">
                     <span>Payment method</span>

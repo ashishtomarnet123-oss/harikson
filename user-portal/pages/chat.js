@@ -556,15 +556,20 @@ function ChatPage() {
 
   const handleStopImpersonating = () => {
     const host = window.location.host;
-    const domainSuffix = host.includes('neuravolt.cloud')
-      ? '; Domain=.neuravolt.cloud'
-      : '';
+    const isProdDomain = host.includes('neuravolt.cloud');
+    const domainSuffix = isProdDomain ? '; Domain=.neuravolt.cloud' : '';
     document.cookie = `hk_access_token=; Path=/; Max-Age=0${domainSuffix}`;
     document.cookie = `hk_refresh_token=; Path=/; Max-Age=0${domainSuffix}`;
     localStorage.removeItem('hk_user');
     localStorage.removeItem('is_impersonating');
     localStorage.removeItem('impersonating_user_email');
-    window.location.href = 'http://localhost:3018/admin/users';
+    // Prefer an explicit env override; otherwise derive the admin panel's
+    // origin from the current domain instead of a hardcoded dev URL, which
+    // previously broke this flow in every non-local environment.
+    const adminPanelUrl =
+      process.env.NEXT_PUBLIC_ADMIN_PANEL_URL ||
+      (isProdDomain ? 'https://admin.neuravolt.cloud' : 'http://localhost:3018');
+    window.location.href = `${adminPanelUrl}/admin/users`;
   };
 
   // Voice dictation initialization

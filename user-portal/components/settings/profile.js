@@ -24,8 +24,7 @@ export default function ProfileSettings({ onClose }) {
   useEffect(() => {
     const fetchProfile = async () => {
       try {
-        const token = localStorage.getItem('hk_user') ? 'cookie_auth' : null;
-        if (!token) {
+        if (!localStorage.getItem('hk_user')) {
           router.push('/login');
           return;
         }

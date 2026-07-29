@@ -1,32 +1,106 @@
 import { authenticatedFetch, getApiConfig } from './apiHelper';
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { CheckCircle2, AlertCircle, RefreshCw } from 'lucide-react';
 
 export default function DeveloperConfigSettings() {
-  const [webhookUrl, setWebhookUrl] = useState('https://api.yourdomain.com/webhooks/harikson');
-  const [signingSecret, setSigningSecret] = useState('whsec_hk_live_8f9a2b1c4e7d3a5f');
+  const [webhookUrl, setWebhookUrl] = useState('');
+  const [signingSecret, setSigningSecret] = useState(null);
   const [verboseLogs, setVerboseLogs] = useState(true);
   const [sandboxMode, setSandboxMode] = useState(false);
   const [apiVersion, setApiVersion] = useState('v1');
   const [corsOrigins, setCorsOrigins] = useState('*');
+  const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [rotating, setRotating] = useState(false);
   const [message, setMessage] = useState(null);
 
-  const handleSave = () => {
-    setSaving(true);
-    setTimeout(() => {
-      setSaving(false);
-      setMessage({ type: 'success', text: 'Developer configuration saved.' });
-    }, 400);
-  };
+  useEffect(() => {
+    fetchConfig();
+  }, []);
 
-  const handleRotateSecret = () => {
-    if (confirm('Rotate webhook signing secret? Existing webhook listeners must update their signature verification.')) {
-      const newSecret = 'whsec_hk_live_' + Math.random().toString(36).substring(2, 14);
-      setSigningSecret(newSecret);
-      setMessage({ type: 'success', text: 'Webhook signing secret rotated.' });
+  const fetchConfig = async () => {
+    try {
+      setLoading(true);
+      const { apiBase, tenantSlug } = getApiConfig();
+      const res = await authenticatedFetch(`${apiBase}/api/v1/user/developer/config`, {
+        credentials: 'include',
+        headers: { 'x-tenant-slug': tenantSlug },
+      });
+      if (res && res.ok) {
+        const data = await res.json();
+        setWebhookUrl(data.webhookUrl || '');
+        setSigningSecret(data.signingSecret || null);
+        setApiVersion(data.apiVersion || 'v1');
+        setCorsOrigins(data.corsOrigins || '*');
+        setVerboseLogs(data.verboseLogs !== false);
+        setSandboxMode(!!data.sandboxMode);
+      } else {
+        setMessage({ type: 'error', text: 'Unable to load developer configuration.' });
+      }
+    } catch (err) {
+      setMessage({ type: 'error', text: 'Unable to reach the configuration service.' });
+    } finally {
+      setLoading(false);
     }
   };
+
+  const handleSave = async () => {
+    setSaving(true);
+    setMessage(null);
+    try {
+      const { apiBase, tenantSlug } = getApiConfig();
+      const res = await authenticatedFetch(`${apiBase}/api/v1/user/developer/config`, {
+        method: 'PUT',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-tenant-slug': tenantSlug,
+        },
+        body: JSON.stringify({ webhookUrl, apiVersion, corsOrigins, verboseLogs, sandboxMode }),
+      });
+      if (res && res.ok) {
+        setMessage({ type: 'success', text: 'Developer configuration saved.' });
+      } else {
+        const data = await res.json().catch(() => ({}));
+        setMessage({ type: 'error', text: data.error || 'Failed to save developer configuration.' });
+      }
+    } catch (err) {
+      setMessage({ type: 'error', text: 'Failed to save developer configuration.' });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleRotateSecret = async () => {
+    if (!confirm('Rotate webhook signing secret? Existing webhook listeners must update their signature verification.')) {
+      return;
+    }
+    setRotating(true);
+    setMessage(null);
+    try {
+      const { apiBase, tenantSlug } = getApiConfig();
+      const res = await authenticatedFetch(`${apiBase}/api/v1/user/developer/config/rotate-secret`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'x-tenant-slug': tenantSlug },
+      });
+      if (res && res.ok) {
+        const data = await res.json();
+        setSigningSecret(data.signingSecret);
+        setMessage({ type: 'success', text: 'Webhook signing secret rotated.' });
+      } else {
+        setMessage({ type: 'error', text: 'Failed to rotate webhook signing secret.' });
+      }
+    } catch (err) {
+      setMessage({ type: 'error', text: 'Failed to rotate webhook signing secret.' });
+    } finally {
+      setRotating(false);
+    }
+  };
+
+  if (loading) {
+    return <div className="settings-loading">Loading developer configuration...</div>;
+  }
 
   return (
     <div className="developer-config-container">
@@ -46,8 +120,8 @@ export default function DeveloperConfigSettings() {
 
       {/* ── Webhook Configuration ── */}
       <div className="settings-section-block">
-        <h2 className="settings-section-heading">Webhooks & Event Delivery</h2>
-        
+        <h2 className="settings-section-heading">Webhooks &amp; Event Delivery</h2>
+
         <div className="settings-form-grid">
           <div className="settings-field-group full-width">
             <label htmlFor="webhookUrl">Webhook Endpoint URL</label>
@@ -69,7 +143,7 @@ export default function DeveloperConfigSettings() {
               <input
                 id="signingSecret"
                 type="text"
-                value={signingSecret}
+                value={signingSecret || 'Not generated yet'}
                 readOnly
                 className="disabled-field"
                 style={{ flex: 1 }}
@@ -78,9 +152,10 @@ export default function DeveloperConfigSettings() {
                 type="button"
                 className="btn-change-photo"
                 onClick={handleRotateSecret}
+                disabled={rotating}
                 style={{ color: '#2563eb', flexShrink: 0 }}
               >
-                <RefreshCw size={14} /> Rotate
+                <RefreshCw size={14} /> {rotating ? 'Rotating...' : 'Rotate'}
               </button>
             </div>
           </div>
@@ -91,7 +166,7 @@ export default function DeveloperConfigSettings() {
 
       {/* ── API & CORS Configuration ── */}
       <div className="settings-section-block">
-        <h2 className="settings-section-heading">API Environment & CORS</h2>
+        <h2 className="settings-section-heading">API Environment &amp; CORS</h2>
         <div className="settings-form-grid">
           <div className="settings-field-group">
             <label htmlFor="apiVersion">API Version</label>
@@ -132,8 +207,8 @@ export default function DeveloperConfigSettings() {
 
       {/* ── Developer Debugging ── */}
       <div className="settings-section-block">
-        <h2 className="settings-section-heading">Debugging & Sandbox</h2>
-        
+        <h2 className="settings-section-heading">Debugging &amp; Sandbox</h2>
+
         <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <div>

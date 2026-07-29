@@ -141,6 +141,7 @@ router.get('/activity/stream', async (req, res) => {
         FROM ai_activity a LEFT JOIN tenants t ON a.tenant_id = t.id
         ORDER BY a.created_at DESC LIMIT 25
       `);
+      res.write(`data: ${JSON.stringify(result.rows)}\n\n`);
     } catch (err) {
       logger.error('Error in sendData SSE callback:', err);
     }

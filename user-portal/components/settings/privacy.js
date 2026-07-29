@@ -1,15 +1,51 @@
 import { authenticatedFetch, getApiConfig } from './apiHelper';
 import React, { useState } from 'react';
+import { useRouter } from 'next/router';
+import { useAuth } from '../../context/AuthContext';
 import { Download, Trash2, ShieldAlert, CheckCircle2, AlertCircle } from 'lucide-react';
 
 export default function DataPrivacySettings() {
+  const router = useRouter();
+  const { logout } = useAuth();
   const [dataSharing, setDataSharing] = useState(false);
   const [retentionPeriod, setRetentionPeriod] = useState('never');
   const [clearingChats, setClearingChats] = useState(false);
   const [exportingData, setExportingData] = useState(false);
   const [message, setMessage] = useState(null);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deletePassword, setDeletePassword] = useState('');
+  const [deleteError, setDeleteError] = useState(null);
+  const [deletingAccount, setDeletingAccount] = useState(false);
 
   const { apiBase, tenantSlug } = getApiConfig();
+
+  const handleDeleteAccount = async (e) => {
+    e.preventDefault();
+    setDeletingAccount(true);
+    setDeleteError(null);
+    try {
+      const res = await authenticatedFetch(`${apiBase}/api/v1/user/account`, {
+        method: 'DELETE',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-tenant-slug': tenantSlug,
+        },
+        body: JSON.stringify({ password: deletePassword }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok) {
+        await logout();
+        router.replace('/login?account_deleted=true');
+      } else {
+        setDeleteError(data.error || 'Failed to delete account.');
+      }
+    } catch (err) {
+      setDeleteError('Failed to delete account. Please try again.');
+    } finally {
+      setDeletingAccount(false);
+    }
+  };
 
   const handleExport = async () => {
     setExportingData(true);
@@ -187,9 +223,9 @@ export default function DataPrivacySettings() {
           <button
             type="button"
             onClick={() => {
-              if (window.confirm('THIS IS PERMANENT: Delete your account and all data?')) {
-                alert('Account deletion request initiated. Please contact your tenant administrator if this was a mistake.');
-              }
+              setDeleteError(null);
+              setDeletePassword('');
+              setShowDeleteModal(true);
             }}
             style={{
               padding: '8px 16px',
@@ -207,6 +243,102 @@ export default function DataPrivacySettings() {
           </button>
         </div>
       </div>
+
+      {showDeleteModal && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(15, 23, 42, 0.45)',
+            backdropFilter: 'blur(4px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 10000,
+            padding: '20px',
+          }}
+        >
+          <form
+            onSubmit={handleDeleteAccount}
+            style={{
+              background: '#ffffff',
+              borderRadius: '16px',
+              maxWidth: '420px',
+              width: '100%',
+              padding: '24px',
+              border: '1px solid #e2e8f0',
+              boxShadow: '0 20px 50px rgba(0,0,0,0.15)',
+            }}
+          >
+            <h3 style={{ fontSize: '18px', fontWeight: 700, margin: '0 0 8px 0', color: '#dc2626' }}>
+              Delete Account?
+            </h3>
+            <p style={{ fontSize: '13px', color: '#64748b', lineHeight: '1.5', margin: '0 0 16px 0' }}>
+              This permanently deletes your account and access to your workspace. Enter your
+              password to confirm — this action cannot be undone.
+            </p>
+            {deleteError && (
+              <div className="settings-toast-banner error" style={{ marginBottom: '12px' }}>
+                <AlertCircle size={16} />
+                <span>{deleteError}</span>
+              </div>
+            )}
+            <input
+              type="password"
+              placeholder="Current password"
+              value={deletePassword}
+              onChange={(e) => setDeletePassword(e.target.value)}
+              required
+              autoFocus
+              style={{
+                width: '100%',
+                height: '40px',
+                padding: '0 12px',
+                borderRadius: '8px',
+                border: '1px solid #cbd5e1',
+                fontSize: '13.5px',
+                marginBottom: '16px',
+                boxSizing: 'border-box',
+              }}
+            />
+            <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
+              <button
+                type="button"
+                onClick={() => setShowDeleteModal(false)}
+                disabled={deletingAccount}
+                style={{
+                  padding: '8px 16px',
+                  borderRadius: '8px',
+                  background: '#ffffff',
+                  border: '1px solid #cbd5e1',
+                  fontSize: '13px',
+                  fontWeight: 500,
+                  color: '#475569',
+                  cursor: 'pointer',
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={deletingAccount || !deletePassword}
+                style={{
+                  padding: '8px 16px',
+                  borderRadius: '8px',
+                  background: '#dc2626',
+                  color: '#fff',
+                  border: 'none',
+                  fontSize: '13px',
+                  fontWeight: 600,
+                  cursor: deletingAccount ? 'default' : 'pointer',
+                }}
+              >
+                {deletingAccount ? 'Deleting...' : 'Permanently Delete'}
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
     </div>
   );
 }
