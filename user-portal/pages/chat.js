@@ -913,6 +913,14 @@ function ChatPage() {
   // Flag to prevent the URL effect from re-loading the old conversation
   // when we intentionally start a new chat (state updates before URL changes)
   const isNewChatMode = useRef(false);
+  // Flag to prevent the URL effect from fighting a conversation switch we
+  // just triggered ourselves: setActiveConvId() lands on the next render,
+  // but router.replace()'s router.query update lands later still, so
+  // there's a render where activeConvId is the new conversation while
+  // router.query.conversation is still the old one — without this, the
+  // effect reads that as "URL disagrees with state" and reloads the old
+  // conversation, undoing every switch after the first.
+  const skipNextUrlSync = useRef(false);
 
   /* ── Resolve config from localStorage on mount ── */
 
@@ -1016,6 +1024,14 @@ function ChatPage() {
         return;
       }
 
+      if (skipNextUrlSync.current) {
+        // This render's mismatch is just the router.query update lagging
+        // behind the setActiveConvId() we already did in loadConversation()
+        // — not a real external navigation. Consume the flag and skip once.
+        skipNextUrlSync.current = false;
+        return;
+      }
+
       if (urlConvId && urlConvId !== activeConvId) {
         loadConversation(urlConvId);
       }
@@ -1091,6 +1107,7 @@ function ChatPage() {
 
   /* ── Load messages for a conversation ── */
   const loadConversation = async (convId) => {
+    skipNextUrlSync.current = true;
     setActiveConvId(convId);
     setError(null);
     setMessages([]);
