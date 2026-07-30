@@ -59,6 +59,14 @@ jobs:
           context: ./user-portal
           file: ./user-portal/Dockerfile
           push: true
+          # Without this, NEXT_PUBLIC_API_URL bakes into the bundle as
+          # empty (the Dockerfile's ARG has no default) — several pages
+          # read that exact name and silently fall through to hardcoded
+          # localhost fallbacks when it's unset. .env.production also sets
+          # it now as a second line of defense, but pass it explicitly here
+          # too so the CI build doesn't depend on that alone.
+          build-args: |
+            NEXT_PUBLIC_API_URL=https://api.neuravolt.cloud
           tags: |
             ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}-user-portal:latest
             ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}-user-portal:${{ github.sha }}
@@ -69,6 +77,8 @@ jobs:
           context: ./admin-panel
           file: ./admin-panel/Dockerfile
           push: true
+          build-args: |
+            NEXT_PUBLIC_API_URL=https://api.neuravolt.cloud
           tags: |
             ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}-admin-panel:latest
             ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}-admin-panel:${{ github.sha }}

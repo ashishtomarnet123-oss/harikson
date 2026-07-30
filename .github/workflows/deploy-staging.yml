@@ -59,6 +59,8 @@ jobs:
           context: ./user-portal
           file: ./user-portal/Dockerfile
           push: true
+          build-args: |
+            NEXT_PUBLIC_API_URL=https://api-staging.neuravolt.cloud
           tags: |
             ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}-user-portal:staging
             ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}-user-portal:${{ github.sha }}
@@ -69,6 +71,8 @@ jobs:
           context: ./admin-panel
           file: ./admin-panel/Dockerfile
           push: true
+          build-args: |
+            NEXT_PUBLIC_API_URL=https://api-staging.neuravolt.cloud
           tags: |
             ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}-admin-panel:staging
             ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}-admin-panel:${{ github.sha }}

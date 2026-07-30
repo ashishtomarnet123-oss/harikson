@@ -1862,12 +1862,17 @@ If any check fails, revise the relevant section before output.`;
 
   const handleLogout = async () => {
     try {
-      const apiBase =
-        localStorage.getItem('hk_api_base') ||
-        process.env.NEXT_PUBLIC_API_URL ||
-        'http://localhost:3008';
+      // `||` treats a correctly-resolved empty string (same-origin relative
+      // path, via next.config.js's rewrites()) as "not set" and falls
+      // through to the next term — since a real value here can legitimately
+      // be '', this must use `??` (nullish coalescing), which only treats
+      // null/undefined as unset.
+      const logoutApiBase =
+        localStorage.getItem('hk_api_base') ??
+        process.env.NEXT_PUBLIC_API_URL ??
+        '';
       const tenantSlug = localStorage.getItem('hk_tenant') || 'neuravolt';
-      await fetch(`${apiBase}/api/v1/auth/logout`, {
+      await fetch(`${logoutApiBase}/api/v1/auth/logout`, {
         method: 'POST',
         headers: {
           'x-tenant-slug': tenantSlug,
