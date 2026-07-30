@@ -46,11 +46,20 @@ function PromptLibrarySettings() {
   const [saving, setSaving] = useState(false);
 
   const getApiBase = () => {
+    const isDirectAccess =
+      typeof window !== 'undefined' &&
+      window.location.hostname !== 'localhost' &&
+      window.location.hostname !== '127.0.0.1' &&
+      !!window.location.port;
     const saved = localStorage.getItem('hk_api_base');
-    // Discard a stale value built from tenant-api's old fixed host port —
-    // it no longer publishes one (needed for blue-green scaling).
-    if (saved && !/:3008$/.test(saved)) return saved;
-    return process.env.NEXT_PUBLIC_API_URL || '';
+    // Discard a stale cached value: the old tenant-api-fixed-port bug
+    // (:3008, no longer valid), or any absolute URL when accessed via a
+    // raw IP:port — everything should route through this same origin's
+    // own Next.js proxy instead of a separate domain in that case.
+    if (saved && !/:3008$/.test(saved) && !(isDirectAccess && /^https?:\/\//.test(saved))) {
+      return saved;
+    }
+    return isDirectAccess ? '' : process.env.NEXT_PUBLIC_API_URL || '';
   };
   const isLoggedIn = () => !!localStorage.getItem('hk_user');
   const getTenant = () => localStorage.getItem('hk_tenant') || 'neuravolt';
@@ -248,11 +257,20 @@ function RagDriveSettings() {
   const [loading, setLoading] = useState(true);
 
   const getApiBase = () => {
+    const isDirectAccess =
+      typeof window !== 'undefined' &&
+      window.location.hostname !== 'localhost' &&
+      window.location.hostname !== '127.0.0.1' &&
+      !!window.location.port;
     const saved = localStorage.getItem('hk_api_base');
-    // Discard a stale value built from tenant-api's old fixed host port —
-    // it no longer publishes one (needed for blue-green scaling).
-    if (saved && !/:3008$/.test(saved)) return saved;
-    return process.env.NEXT_PUBLIC_API_URL || '';
+    // Discard a stale cached value: the old tenant-api-fixed-port bug
+    // (:3008, no longer valid), or any absolute URL when accessed via a
+    // raw IP:port — everything should route through this same origin's
+    // own Next.js proxy instead of a separate domain in that case.
+    if (saved && !/:3008$/.test(saved) && !(isDirectAccess && /^https?:\/\//.test(saved))) {
+      return saved;
+    }
+    return isDirectAccess ? '' : process.env.NEXT_PUBLIC_API_URL || '';
   };
   const isLoggedIn = () => !!localStorage.getItem('hk_user');
   const getTenant = () => localStorage.getItem('hk_tenant') || 'neuravolt';

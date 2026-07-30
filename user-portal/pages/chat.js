@@ -947,7 +947,14 @@ function ChatPage() {
     // host port (a fixed port can't be shared by the blue-green deploy's
     // two replicas), so any previously-cached value built that way is
     // stale and must be discarded rather than reused forever.
-    if (savedBase && /:3008$/.test(savedBase)) {
+    const isDirectAccess = currentHost !== 'localhost' && typeof window !== 'undefined' && !!window.location.port;
+    // Discard a stale cached value: the old tenant-api-fixed-port bug
+    // (:3008), or any absolute URL cached via a raw IP:port before this
+    // fix (e.g. https://api.neuravolt.cloud, written by another page's
+    // now-fixed resolution logic sharing this same localStorage key) —
+    // direct IP access should always route through this same origin's own
+    // Next.js proxy instead of a separate domain.
+    if (savedBase && (/:3008$/.test(savedBase) || (isDirectAccess && /^https?:\/\//.test(savedBase)))) {
       savedBase = null;
     }
 

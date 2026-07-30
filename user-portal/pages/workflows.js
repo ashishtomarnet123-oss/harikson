@@ -97,14 +97,20 @@ function WorkflowsPage() {
       router.replace('/login');
       return;
     }
+    const isDirectAccess =
+      typeof window !== 'undefined' &&
+      window.location.hostname !== 'localhost' &&
+      window.location.hostname !== '127.0.0.1' &&
+      !!window.location.port;
     let savedApiBase = localStorage.getItem('hk_api_base');
-    // Discard any stale cached value built from tenant-api's old fixed host
-    // port (`:3008`) — it no longer publishes one (needed for blue-green
-    // scaling), so any such cached value is always wrong now.
+    // Discard any stale cached value: the old tenant-api-fixed-port bug
+    // (`:3008`, no longer valid), or any absolute URL when accessed via a
+    // raw IP:port — route through this same origin's own Next.js proxy
+    // instead of a separate domain in that case.
     if (
       !savedApiBase ||
       /:3008$/.test(savedApiBase) ||
-      (savedApiBase === 'http://localhost:3008' && typeof window !== 'undefined' && window.location.hostname !== 'localhost')
+      (isDirectAccess && /^https?:\/\//.test(savedApiBase))
     ) {
       savedApiBase = '';
     }

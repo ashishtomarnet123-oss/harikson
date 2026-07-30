@@ -3,27 +3,47 @@
  */
 
 export function getApiBaseUrl(): string {
-  // 1. Explicit Environment Variable Override
+  // 1. Browser Environment Resolution — takes priority over the env var
+  // below. Whenever the app is reached via an explicit host:port (e.g. a
+  // raw VM IP like 154.201.127.68:3028), every request must go through
+  // *this* Next.js server's own rewrites() proxy (same origin) rather than
+  // a separate api.neuravolt.cloud domain, which may not have working
+  // DNS/TLS/Traefik routing for this deployment at all.
+  if (typeof window !== 'undefined') {
+    const isDirectAccess =
+      window.location.hostname !== 'localhost' &&
+      window.location.hostname !== '127.0.0.1' &&
+      !!window.location.port;
+
+    const saved = localStorage.getItem('hk_api_base');
+    if (saved && saved.trim()) {
+      const trimmed = saved.trim();
+      // Discard a stale cached value: either the old tenant-api-fixed-port
+      // bug (:3008, no longer valid — see docker-compose.yml), or any
+      // absolute URL cached while this same priority bug was still active
+      // (this function used to always return the env var first, so
+      // hk_api_base may already hold `https://api.neuravolt.cloud` from
+      // before this fix).
+      const isStale = /:3008$/.test(trimmed) || (isDirectAccess && /^https?:\/\//.test(trimmed));
+      if (!isStale) {
+        return trimmed;
+      }
+    }
+
+    if (isDirectAccess) {
+      return '';
+    }
+  }
+
+  // 2. Explicit Environment Variable Override — only reached for bare
+  // production-domain access (no explicit port) or during SSR.
   const envUrl = process.env.NEXT_PUBLIC_API_BASE_URL;
   if (envUrl && envUrl.trim()) {
     return envUrl.trim();
   }
 
-  // 2. Browser Environment Resolution
-  if (typeof window !== 'undefined') {
-    const saved = localStorage.getItem('hk_api_base');
-    // Discard any previously-cached value built from tenant-api's old fixed
-    // host port (e.g. `http://<vm-ip>:3008`, written by an older resolution
-    // path elsewhere in the app) — tenant-api no longer publishes a fixed
-    // host port (needed for blue-green scaling), so a cached `:3008` value
-    // is always stale now, not just the literal localhost default.
-    if (saved && saved.trim() && !/:3008$/.test(saved.trim())) {
-      return saved.trim();
-    }
-    // For non-localhost IP/domain, use relative path '' so Next.js proxies /api/*
-    if (window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
-      return '';
-    }
+  if (typeof window !== 'undefined' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
+    return '';
   }
 
   // 3. Local Development Fallback
