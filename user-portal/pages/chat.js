@@ -800,7 +800,8 @@ function ChatPage() {
       const stored = localStorage.getItem('hk_custom_presets');
       if (stored) {
         try {
-          setCustomPresets(JSON.parse(stored));
+          const parsed = JSON.parse(stored);
+          setCustomPresets(Array.isArray(parsed) ? parsed : []);
         } catch (e) {
           console.error(e);
         }

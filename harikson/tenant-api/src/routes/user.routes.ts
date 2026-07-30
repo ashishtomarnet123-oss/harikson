@@ -507,11 +507,7 @@ router.get('/billing', async (req: any, res) => {
         apiRequests: { current: 2450, limit: 10000, pct: 24.5 },
         ragDocuments: { currentGB: 14.5, limitGB: 100, pct: 14.5 }
       },
-      features: {
-        custom_agents: true,
-        unlimited_documents: true,
-        priority_support: true,
-      },
+      features: ['Custom AI Agents', 'Unlimited Documents', 'Priority Support'],
       invoices,
     });
   } catch (err: any) {
@@ -527,10 +523,7 @@ router.get('/billing', async (req: any, res) => {
         apiRequests: { current: 2450, limit: 10000, pct: 24.5 },
         ragDocuments: { currentGB: 14.5, limitGB: 100, pct: 14.5 }
       },
-      features: {
-        custom_agents: true,
-        unlimited_documents: true,
-      },
+      features: ['Custom AI Agents', 'Unlimited Documents'],
       invoices: [],
     });
   }

@@ -275,7 +275,7 @@ export default function BillingSettings() {
                 </div>
 
                 <div className="plan-features-list">
-                  {billing.features?.map((feat, idx) => (
+                  {(Array.isArray(billing.features) ? billing.features : []).map((feat, idx) => (
                     <div key={idx} className="feature-item">
                       <CheckCircle2 size={15} className="feature-check-icon" />
                       <span>{feat}</span>
