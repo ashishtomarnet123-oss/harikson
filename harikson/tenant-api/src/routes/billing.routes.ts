@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import Stripe from 'stripe';
+import Razorpay from 'razorpay';
 import { executeTenantQuery, executeCachedQuery, invalidateTenantCache } from '../db/pool.js';
 import logger from '../utils/logger.js';
 
@@ -188,19 +189,20 @@ router.post('/change-plan', async (req: any, res) => {
 import { enqueueWebhookEvent } from '../services/webhookRetryService.js';
 
 // POST /api/billing/webhooks/stripe - Instant 200 response with background BullMQ retry queueing
-router.post('/webhooks/stripe', async (req, res) => {
+router.post('/webhooks/stripe', async (req: any, res) => {
   const sig = req.headers['stripe-signature'];
   let event: any;
 
   try {
+    if (!req.rawBody) throw new Error('Raw request body unavailable for signature verification');
     event = stripe.webhooks.constructEvent(
-      req.body,
+      req.rawBody,
       sig || '',
       process.env.STRIPE_WEBHOOK_SECRET || 'whsec_mock'
     );
   } catch (err: any) {
-    logger.warn('Stripe webhook signature verification failed:', err.message);
-    event = req.body;
+    logger.warn('Stripe webhook signature verification failed, rejecting:', err.message);
+    return res.status(400).json({ error: 'Invalid webhook signature' });
   }
 
   const eventId = event.id || 'evt_' + Math.random().toString(36).substring(2, 10);
@@ -218,9 +220,26 @@ router.post('/webhooks/stripe', async (req, res) => {
 });
 
 // POST /api/billing/webhooks/razorpay
-router.post('/webhooks/razorpay', async (req, res) => {
+router.post('/webhooks/razorpay', async (req: any, res) => {
+  const signature = req.headers['x-razorpay-signature'] as string | undefined;
+  const webhookSecret = process.env.RAZORPAY_WEBHOOK_SECRET;
+
+  if (!webhookSecret) {
+    logger.error('Razorpay webhook received but RAZORPAY_WEBHOOK_SECRET is not configured — rejecting');
+    return res.status(500).json({ error: 'Webhook not configured' });
+  }
+  if (!signature || !req.rawBody) {
+    return res.status(400).json({ error: 'Missing signature or raw body' });
+  }
+
+  const isValid = Razorpay.validateWebhookSignature(req.rawBody.toString(), signature, webhookSecret);
+  if (!isValid) {
+    logger.warn('Razorpay webhook signature verification failed, rejecting');
+    return res.status(400).json({ error: 'Invalid webhook signature' });
+  }
+
   const event = req.body;
-  const eventId = event.payload?.payment?.entity?.id || 'rzp_' + Math.random().toString(36).substring(2, 10);
+  const eventId = event.payload?.payment?.entity?.id || event.payload?.subscription?.entity?.id || 'rzp_' + Math.random().toString(36).substring(2, 10);
   const eventType = event.event || 'payment.captured';
   const amount = event.payload?.payment?.entity?.amount ? event.payload.payment.entity.amount / 100 : 0;
 

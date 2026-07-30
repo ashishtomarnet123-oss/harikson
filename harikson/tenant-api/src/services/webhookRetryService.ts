@@ -70,6 +70,11 @@ export async function enqueueWebhookEvent(
  * Business logic to process payment webhook payload based on event type.
  */
 export async function processWebhookPayload(provider: string, eventType: string, payload: any): Promise<void> {
+  if (provider === 'razorpay') {
+    await processRazorpayWebhookPayload(eventType, payload);
+    return;
+  }
+
   const dataObject = payload?.data?.object || payload?.object || payload;
 
   if (eventType === 'checkout.session.completed' || eventType === 'payment_intent.succeeded') {
@@ -93,6 +98,64 @@ export async function processWebhookPayload(provider: string, eventType: string,
       );
       await invalidateTenantCache(tenantId);
       logger.info(`🚫 Webhook processed cancellation for tenant ${tenantId}`);
+    }
+  }
+}
+
+/**
+ * Razorpay event payloads nest everything under payload.payment.entity /
+ * payload.subscription.entity — a distinct shape from Stripe's
+ * payload.data.object, so it gets its own dedicated handler rather than
+ * reusing the Stripe-shaped `dataObject` extraction above. This is the async
+ * fallback confirmation path: it activates the plan the same way
+ * POST /billing/verify-payment does, in case the client never completed that
+ * call (e.g. the browser closed right after paying).
+ */
+async function processRazorpayWebhookPayload(eventType: string, payload: any): Promise<void> {
+  if (eventType === 'payment.captured' || eventType === 'order.paid') {
+    const paymentEntity = payload?.payload?.payment?.entity;
+    const notes = paymentEntity?.notes || {};
+    const tenantId = notes.tenantId;
+    const planId = notes.planId;
+    const paymentId = paymentEntity?.id;
+    const orderId = paymentEntity?.order_id;
+    const amount = paymentEntity?.amount ? paymentEntity.amount / 100 : 0;
+    const currency = paymentEntity?.currency || 'INR';
+
+    if (!tenantId || !planId || !paymentId) {
+      logger.warn(`Razorpay ${eventType} webhook missing tenantId/planId/paymentId in notes — skipping activation`);
+      return;
+    }
+
+    const subRes = await pool.query(
+      `INSERT INTO subscriptions (tenant_id, provider, provider_subscription_id, plan_id, status, current_period_start, current_period_end, amount, currency, created_at, updated_at)
+       VALUES ($1, 'razorpay', $2, $3, 'active', NOW(), NOW() + INTERVAL '30 days', $4, $5, NOW(), NOW())
+       ON CONFLICT (provider, provider_subscription_id) DO UPDATE SET status = 'active', updated_at = NOW()
+       RETURNING id`,
+      [tenantId, orderId || paymentId, planId, amount, currency]
+    );
+    const subscriptionId = subRes.rows[0]?.id || null;
+
+    const invoiceNumber = `INV-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}-${String(paymentId).slice(-8).toUpperCase()}`;
+    await pool.query(
+      `INSERT INTO invoices (tenant_id, subscription_id, provider, provider_invoice_id, invoice_number, amount, currency, status, paid_at, created_at, updated_at)
+       VALUES ($1, $2, 'razorpay', $3, $4, $5, $6, 'paid', NOW(), NOW(), NOW())
+       ON CONFLICT (provider, provider_invoice_id) DO NOTHING`,
+      [tenantId, subscriptionId, paymentId, invoiceNumber, amount, currency]
+    );
+
+    await pool.query(`UPDATE tenants SET plan = $2, status = 'active', updated_at = NOW() WHERE id = $1`, [tenantId, planId]);
+    await invalidateTenantCache(tenantId);
+    logger.info(`✅ Razorpay webhook processed payment success: Activated plan ${planId} for tenant ${tenantId}`);
+  } else if (eventType === 'subscription.cancelled' || eventType === 'subscription.completed') {
+    const subEntity = payload?.payload?.subscription?.entity;
+    const tenantId = subEntity?.notes?.tenantId;
+
+    if (tenantId) {
+      await pool.query(`UPDATE tenants SET status = 'canceled', updated_at = NOW() WHERE id = $1`, [tenantId]);
+      await pool.query(`UPDATE subscriptions SET status = 'cancelled', updated_at = NOW() WHERE tenant_id = $1`, [tenantId]);
+      await invalidateTenantCache(tenantId);
+      logger.info(`🚫 Razorpay webhook processed cancellation for tenant ${tenantId}`);
     }
   }
 }

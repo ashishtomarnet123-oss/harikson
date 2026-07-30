@@ -6,6 +6,7 @@ declare global {
       usePrimaryDb?: boolean;
       userId?: any;
       id?: string;
+      rawBody?: Buffer;
     }
   }
 }
@@ -75,7 +76,17 @@ app.use(
     credentials: true,
   })
 );
-app.use(express.json({ limit: '25mb' }));
+app.use(
+  express.json({
+    limit: '25mb',
+    // Webhook signature verification (Stripe, Razorpay) needs the exact raw
+    // bytes that were signed — express.json() only leaves the parsed object
+    // on req.body, so stash the raw buffer here for those routes to use.
+    verify: (req: any, _res, buf) => {
+      req.rawBody = buf;
+    },
+  })
+);
 app.use(express.urlencoded({ extended: true, limit: '25mb' }));
 
 // Custom simple cookie parser middleware

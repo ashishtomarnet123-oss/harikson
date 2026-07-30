@@ -21,11 +21,15 @@ export default function BillingSettings() {
   const [showPlanModal, setShowPlanModal] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
 
+  // Display only — the backend owns the actual price charged (PLAN_CONFIG in
+  // user.routes.ts) and re-derives it from planId, never from anything sent
+  // here. Keep these numbers in sync with that map so the modal doesn't show
+  // a price different from what Razorpay actually charges.
   const PLANS = [
     {
       id: 'free',
       name: 'Free Plan',
-      price: '$0.00',
+      price: '₹0',
       period: '/ month',
       badge: 'Starter',
       popular: false,
@@ -34,7 +38,7 @@ export default function BillingSettings() {
     {
       id: 'starter',
       name: 'Starter Plan',
-      price: '$19.00',
+      price: '₹19',
       period: '/ user / month',
       badge: 'Growing Teams',
       popular: false,
@@ -43,7 +47,7 @@ export default function BillingSettings() {
     {
       id: 'professional',
       name: 'Professional Plan',
-      price: '$49.00',
+      price: '₹49',
       period: '/ user / month',
       badge: 'Most Popular',
       popular: true,
@@ -52,13 +56,28 @@ export default function BillingSettings() {
     {
       id: 'enterprise',
       name: 'Enterprise Tier',
-      price: '$199.00',
+      price: '₹199',
       period: '/ user / month',
       badge: 'Scale & Governance',
       popular: false,
       features: ['Unlimited AI Messages', '1TB Document Storage', 'Dedicated GPU Node', 'Custom SLA & DPDP Compliance'],
     },
   ];
+
+  // Lazily loads Razorpay's Checkout script once per page (it exposes
+  // window.Razorpay globally — no npm package needed for the client side).
+  const loadRazorpayScript = () =>
+    new Promise((resolve, reject) => {
+      if (typeof window !== 'undefined' && window.Razorpay) {
+        resolve();
+        return;
+      }
+      const script = document.createElement('script');
+      script.src = 'https://checkout.razorpay.com/v1/checkout.js';
+      script.onload = () => resolve();
+      script.onerror = () => reject(new Error('Failed to load Razorpay checkout script'));
+      document.body.appendChild(script);
+    });
 
   useEffect(() => {
     fetchBilling();
@@ -132,39 +151,102 @@ export default function BillingSettings() {
     setError(null);
     try {
       const { apiBase, tenantSlug } = getApiConfig();
-      const res = await authenticatedFetch(`${apiBase}/api/v1/user/billing/change-plan`, {
+
+      // Free plan — no payment involved, activates directly.
+      if (plan.id === 'free') {
+        const res = await authenticatedFetch(`${apiBase}/api/v1/user/billing/change-plan`, {
+          method: 'POST',
+          credentials: 'include',
+          headers: {
+            'x-tenant-slug': tenantSlug,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ planId: plan.id }),
+        });
+
+        if (res && res.ok) {
+          await fetchBilling();
+          setShowPlanModal(false);
+        } else {
+          const data = await res?.json().catch(() => ({}));
+          setError(data?.error || 'Failed to change plan. Please try again.');
+        }
+        setActionLoading(false);
+        return;
+      }
+
+      // Paid plan — create a Razorpay order server-side (the server owns the
+      // real price, never trusting anything the client sends), then open
+      // Razorpay's Checkout modal for the customer to actually pay.
+      const checkoutRes = await authenticatedFetch(`${apiBase}/api/v1/user/billing/checkout`, {
         method: 'POST',
         credentials: 'include',
         headers: {
           'x-tenant-slug': tenantSlug,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          planId: plan.id,
-          planName: plan.name,
-          price: `${plan.price} ${plan.period}`,
-        }),
+        body: JSON.stringify({ planId: plan.id }),
       });
 
-      if (res && res.ok) {
-        setBilling((prev) => ({
-          ...prev,
-          planName: plan.name,
-          price: `${plan.price} ${plan.period}`,
-          status: 'ACTIVE',
-          isTrial: false,
-        }));
-        setShowPlanModal(false);
-      } else {
-        // Previously this branch applied the exact same optimistic update as
-        // the success path, so a failed plan-change silently looked like it
-        // worked. Surface the real failure instead and keep the modal open.
-        const data = await res?.json().catch(() => ({}));
-        setError(data?.error || 'Failed to change plan. Please try again.');
+      if (!checkoutRes || !checkoutRes.ok) {
+        const data = await checkoutRes?.json().catch(() => ({}));
+        setError(data?.error || 'Failed to start checkout. Please try again.');
+        setActionLoading(false);
+        return;
       }
+
+      const order = await checkoutRes.json();
+      await loadRazorpayScript();
+
+      const razorpayCheckout = new window.Razorpay({
+        key: order.keyId,
+        amount: order.amount,
+        currency: order.currency,
+        order_id: order.orderId,
+        name: 'Harikson AI',
+        description: `${order.planName} subscription`,
+        theme: { color: '#3b82f6' },
+        handler: async (response) => {
+          try {
+            const verifyRes = await authenticatedFetch(`${apiBase}/api/v1/user/billing/verify-payment`, {
+              method: 'POST',
+              credentials: 'include',
+              headers: {
+                'x-tenant-slug': tenantSlug,
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                razorpay_order_id: response.razorpay_order_id,
+                razorpay_payment_id: response.razorpay_payment_id,
+                razorpay_signature: response.razorpay_signature,
+                planId: plan.id,
+              }),
+            });
+
+            if (verifyRes && verifyRes.ok) {
+              await fetchBilling();
+              setShowPlanModal(false);
+            } else {
+              const data = await verifyRes?.json().catch(() => ({}));
+              setError(data?.error || 'Payment verification failed. If you were charged, contact support.');
+            }
+          } catch (err) {
+            setError('Payment verification failed. If you were charged, contact support.');
+          } finally {
+            setActionLoading(false);
+          }
+        },
+        modal: {
+          // Razorpay's modal has its own close button — this only fires when
+          // the customer dismisses it without paying, not on success.
+          ondismiss: () => setActionLoading(false),
+        },
+      });
+
+      razorpayCheckout.open();
+      return;
     } catch (err) {
       setError(err.message);
-    } finally {
       setActionLoading(false);
     }
   };

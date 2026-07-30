@@ -162,6 +162,13 @@ services:
       - JWT_SECRET
       - TENANT_MASTER_KEY
       - INTERNAL_API_SECRET
+      # Razorpay TEST-mode credentials — hardcoded here deliberately since
+      # these are test keys, not production. Move to GitHub Secrets (passed
+      # through as bare `- RAZORPAY_KEY_ID` / `- RAZORPAY_KEY_SECRET` like
+      # JWT_SECRET above) once real production credentials are in use.
+      - RAZORPAY_KEY_ID=rzp_test_TJn9uHBMDXecEa
+      - RAZORPAY_KEY_SECRET=VebS2Z6bVLy17Y4L67z0r463
+      - RAZORPAY_WEBHOOK_SECRET
       - PORT=3008
       - NODE_ENV=production
       - OLLAMA_HOST=http://ollama:11434

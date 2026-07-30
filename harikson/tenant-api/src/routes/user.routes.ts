@@ -2,6 +2,7 @@ import { Router } from 'express';
 import crypto from 'crypto';
 import bcrypt from 'bcrypt';
 import QRCode from 'qrcode';
+import Razorpay from 'razorpay';
 import { pool, executeTenantQuery, invalidateUserCache } from '../db/pool.js';
 import logger from '../utils/logger.js';
 import { validate } from '../middleware/validation.middleware.js';
@@ -15,6 +16,21 @@ import {
 import jwt from 'jsonwebtoken';
 
 const router = Router();
+
+const razorpay = new Razorpay({
+  key_id: process.env.RAZORPAY_KEY_ID || '',
+  key_secret: process.env.RAZORPAY_KEY_SECRET || '',
+});
+
+// Server-side plan pricing — the price actually charged must never come from
+// the client (the old /billing/change-plan trusted a client-supplied `price`
+// field outright, letting anyone "upgrade" for whatever they sent).
+const PLAN_CONFIG: Record<string, { name: string; priceRupees: number }> = {
+  free: { name: 'Free Plan', priceRupees: 0 },
+  starter: { name: 'Starter Plan', priceRupees: 19 },
+  professional: { name: 'Professional Plan', priceRupees: 49 },
+  enterprise: { name: 'Enterprise Tier', priceRupees: 199 },
+};
 router.use((req: any, _res, next) => {
   if (!req.user) {
     const authHeader = req.headers.authorization || '';
@@ -554,23 +570,149 @@ router.post(['/billing/cancel', '/user/billing/cancel'], async (req: any, res) =
 });
 
 // POST /api/user/billing/change-plan & /api/v1/user/billing/change-plan
+// Only handles the no-payment path (switching to the Free plan). Any paid
+// plan must go through /billing/checkout + /billing/verify-payment below —
+// this used to accept a client-supplied `price` and activate immediately
+// with no payment provider involved at all, which let anyone "upgrade" for
+// free by just changing the request body.
 router.post(['/billing/change-plan', '/user/billing/change-plan'], async (req: any, res) => {
   if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
-  const { planName, price } = req.body;
+  const { planId } = req.body;
+  const plan = planId && PLAN_CONFIG[planId];
+
+  if (!plan) {
+    return res.status(400).json({ error: 'Unknown planId' });
+  }
+  if (plan.priceRupees > 0) {
+    return res.status(400).json({
+      error: 'This plan requires payment. Use POST /billing/checkout followed by /billing/verify-payment.',
+    });
+  }
+
   try {
     const userRes = await pool.query('SELECT tenant_id FROM users WHERE id = $1', [req.user.userId]).catch(() => ({ rows: [] }));
     const tenantId = userRes.rows[0]?.tenant_id || req.tenant?.id;
     if (tenantId) {
       await pool.query(
-        `INSERT INTO subscriptions (tenant_id, plan_id, status, created_at, updated_at)
-         VALUES ($1, 'plan_pro', 'active', NOW(), NOW())
-         ON CONFLICT (id) DO UPDATE SET status = 'active'`,
-        [tenantId]
+        `UPDATE subscriptions SET plan_id = $2, status = 'active', updated_at = NOW() WHERE tenant_id = $1`,
+        [tenantId, planId]
       ).catch(() => {});
+      await pool.query(`UPDATE tenants SET plan = $2, updated_at = NOW() WHERE id = $1`, [tenantId, planId]).catch(() => {});
     }
-    res.json({ success: true, message: `Successfully updated subscription to ${planName || 'Professional Plan'}` });
+    res.json({ success: true, message: `Successfully updated subscription to ${plan.name}` });
   } catch (e) {
-    res.json({ success: true, message: 'Plan updated successfully' });
+    logger.error('Change plan (free) error:', e);
+    res.status(500).json({ error: 'Failed to update plan' });
+  }
+});
+
+// POST /api/user/billing/checkout & /api/v1/user/billing/checkout
+// Starts a paid plan upgrade. Free plan changes never reach here — the
+// frontend routes those straight to /billing/change-plan.
+router.post(['/billing/checkout', '/user/billing/checkout'], async (req: any, res) => {
+  if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
+  const { planId } = req.body;
+  const plan = planId && PLAN_CONFIG[planId];
+
+  if (!plan) return res.status(400).json({ error: 'Unknown planId' });
+  if (plan.priceRupees <= 0) {
+    return res.status(400).json({ error: 'This plan does not require payment — call /billing/change-plan instead.' });
+  }
+  if (!process.env.RAZORPAY_KEY_ID || !process.env.RAZORPAY_KEY_SECRET) {
+    logger.error('Razorpay checkout requested but RAZORPAY_KEY_ID/RAZORPAY_KEY_SECRET are not configured');
+    return res.status(500).json({ error: 'Payment provider is not configured' });
+  }
+
+  try {
+    const userRes = await pool.query('SELECT tenant_id FROM users WHERE id = $1', [req.user.userId]).catch(() => ({ rows: [] }));
+    const tenantId = userRes.rows[0]?.tenant_id || req.tenant?.id;
+    if (!tenantId) return res.status(400).json({ error: 'No tenant associated with this account' });
+
+    const amountPaise = Math.round(plan.priceRupees * 100);
+    const order = await razorpay.orders.create({
+      amount: amountPaise,
+      currency: 'INR',
+      receipt: `plan_${planId}_${Date.now()}`,
+      notes: { tenantId, planId, userId: req.user.userId },
+    });
+
+    res.json({
+      requiresPayment: true,
+      orderId: order.id,
+      amount: amountPaise,
+      currency: 'INR',
+      keyId: process.env.RAZORPAY_KEY_ID,
+      planId,
+      planName: plan.name,
+    });
+  } catch (err: any) {
+    logger.error('Razorpay checkout order creation failed:', err);
+    res.status(500).json({ error: 'Failed to start checkout' });
+  }
+});
+
+// POST /api/user/billing/verify-payment & /api/v1/user/billing/verify-payment
+// Confirms a Razorpay Checkout payment and activates the plan. The HMAC
+// signature check is the only thing standing between "user clicked pay" and
+// "we actually got paid" — never activate a plan without it passing.
+router.post(['/billing/verify-payment', '/user/billing/verify-payment'], async (req: any, res) => {
+  if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
+  const { razorpay_order_id, razorpay_payment_id, razorpay_signature, planId } = req.body;
+  const plan = planId && PLAN_CONFIG[planId];
+
+  if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature || !plan) {
+    return res.status(400).json({ error: 'Missing payment verification fields' });
+  }
+  if (!process.env.RAZORPAY_KEY_SECRET) {
+    logger.error('Razorpay verify-payment requested but RAZORPAY_KEY_SECRET is not configured');
+    return res.status(500).json({ error: 'Payment provider is not configured' });
+  }
+
+  const expectedSignature = crypto
+    .createHmac('sha256', process.env.RAZORPAY_KEY_SECRET)
+    .update(`${razorpay_order_id}|${razorpay_payment_id}`)
+    .digest('hex');
+
+  const signaturesMatch =
+    expectedSignature.length === razorpay_signature.length &&
+    crypto.timingSafeEqual(Buffer.from(expectedSignature), Buffer.from(razorpay_signature));
+
+  if (!signaturesMatch) {
+    logger.warn(`Razorpay payment signature mismatch for order ${razorpay_order_id}`);
+    return res.status(400).json({ error: 'Payment verification failed' });
+  }
+
+  try {
+    const userRes = await pool.query('SELECT tenant_id FROM users WHERE id = $1', [req.user.userId]).catch(() => ({ rows: [] }));
+    const tenantId = userRes.rows[0]?.tenant_id || req.tenant?.id;
+    if (!tenantId) return res.status(400).json({ error: 'No tenant associated with this account' });
+
+    const amountRupees = plan.priceRupees;
+
+    const subRes = await pool.query(
+      `INSERT INTO subscriptions (tenant_id, provider, provider_subscription_id, plan_id, status, current_period_start, current_period_end, amount, currency, created_at, updated_at)
+       VALUES ($1, 'razorpay', $2, $3, 'active', NOW(), NOW() + INTERVAL '30 days', $4, 'INR', NOW(), NOW())
+       ON CONFLICT (provider, provider_subscription_id) DO UPDATE SET status = 'active', updated_at = NOW()
+       RETURNING id`,
+      [tenantId, razorpay_order_id, planId, amountRupees]
+    );
+    const subscriptionId = subRes.rows[0]?.id || null;
+
+    const invoiceNumber = `INV-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}-${razorpay_payment_id.slice(-8).toUpperCase()}`;
+    await pool.query(
+      `INSERT INTO invoices (tenant_id, subscription_id, provider, provider_invoice_id, invoice_number, amount, currency, status, paid_at, created_at, updated_at)
+       VALUES ($1, $2, 'razorpay', $3, $4, $5, 'INR', 'paid', NOW(), NOW(), NOW())
+       ON CONFLICT (provider, provider_invoice_id) DO NOTHING`,
+      [tenantId, subscriptionId, razorpay_payment_id, invoiceNumber, amountRupees]
+    );
+
+    await pool.query(`UPDATE tenants SET plan = $2, status = 'active', updated_at = NOW() WHERE id = $1`, [tenantId, planId]).catch(() => {});
+
+    logger.info(`Razorpay payment verified and plan activated: tenant=${tenantId} plan=${planId} payment=${razorpay_payment_id}`);
+    res.json({ success: true, message: `Successfully upgraded to ${plan.name}` });
+  } catch (err: any) {
+    logger.error('Razorpay payment verified but activation failed:', err);
+    res.status(500).json({ error: 'Payment was verified but activating your plan failed — contact support with payment ID ' + razorpay_payment_id });
   }
 });
 
