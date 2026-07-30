@@ -12,7 +12,12 @@ export function getApiBaseUrl(): string {
   // 2. Browser Environment Resolution
   if (typeof window !== 'undefined') {
     const saved = localStorage.getItem('hk_api_base');
-    if (saved && saved.trim() && saved !== 'http://localhost:3008') {
+    // Discard any previously-cached value built from tenant-api's old fixed
+    // host port (e.g. `http://<vm-ip>:3008`, written by an older resolution
+    // path elsewhere in the app) — tenant-api no longer publishes a fixed
+    // host port (needed for blue-green scaling), so a cached `:3008` value
+    // is always stale now, not just the literal localhost default.
+    if (saved && saved.trim() && !/:3008$/.test(saved.trim())) {
       return saved.trim();
     }
     // For non-localhost IP/domain, use relative path '' so Next.js proxies /api/*

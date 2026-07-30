@@ -45,10 +45,13 @@ function PromptLibrarySettings() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
-  const getApiBase = () =>
-    localStorage.getItem('hk_api_base') ||
-    process.env.NEXT_PUBLIC_API_URL ||
-    'http://localhost:3008';
+  const getApiBase = () => {
+    const saved = localStorage.getItem('hk_api_base');
+    // Discard a stale value built from tenant-api's old fixed host port —
+    // it no longer publishes one (needed for blue-green scaling).
+    if (saved && !/:3008$/.test(saved)) return saved;
+    return process.env.NEXT_PUBLIC_API_URL || '';
+  };
   const isLoggedIn = () => !!localStorage.getItem('hk_user');
   const getTenant = () => localStorage.getItem('hk_tenant') || 'neuravolt';
 
@@ -244,10 +247,13 @@ function RagDriveSettings() {
   const [uploading, setUploading] = useState(false);
   const [loading, setLoading] = useState(true);
 
-  const getApiBase = () =>
-    localStorage.getItem('hk_api_base') ||
-    process.env.NEXT_PUBLIC_API_URL ||
-    'http://localhost:3008';
+  const getApiBase = () => {
+    const saved = localStorage.getItem('hk_api_base');
+    // Discard a stale value built from tenant-api's old fixed host port —
+    // it no longer publishes one (needed for blue-green scaling).
+    if (saved && !/:3008$/.test(saved)) return saved;
+    return process.env.NEXT_PUBLIC_API_URL || '';
+  };
   const isLoggedIn = () => !!localStorage.getItem('hk_user');
   const getTenant = () => localStorage.getItem('hk_tenant') || 'neuravolt';
 

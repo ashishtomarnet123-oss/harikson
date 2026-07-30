@@ -16,7 +16,9 @@ export default function ForgotPasswordPage() {
       const hostname = window.location.hostname;
       if (hostname !== 'localhost' && hostname !== '127.0.0.1') {
         if (window.location.port) {
-          setApiBase(`http://${hostname}:3008`);
+          // Relative path — Next.js's rewrites() proxies /api/* to
+          // tenant-api server-side; it no longer has a fixed host port.
+          setApiBase('');
         } else {
           setApiBase(
             process.env.NEXT_PUBLIC_API_URL ||

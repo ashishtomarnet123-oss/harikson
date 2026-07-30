@@ -934,21 +934,30 @@ function ChatPage() {
       return;
     }
     let savedBase = localStorage.getItem('hk_api_base');
-    // Auto-detect API base: use env var, or derive from current hostname
+    // Auto-detect API base: use env var, or fall back to a same-origin
+    // relative path (Next.js's own rewrites() in next.config.js already
+    // proxies /api/* to TENANT_API_URL — the internal Docker network
+    // address — server-side, so the browser never needs to know tenant-api's
+    // actual host/port).
     const envApiUrl = process.env.NEXT_PUBLIC_API_URL || '';
     const currentHost = typeof window !== 'undefined' ? window.location.hostname : 'localhost';
-    const currentPort = typeof window !== 'undefined' ? window.location.port : '';
-    
-    if (!savedBase || savedBase === 'http://localhost:3008') {
-      if (envApiUrl && !envApiUrl.includes('neuravolt.cloud')) {
-        // Use configured env API URL if it's not the production cloud domain
+
+    // Self-heal from the old pattern that hardcoded tenant-api's port
+    // directly (`<host>:3008`) — tenant-api no longer publishes a fixed
+    // host port (a fixed port can't be shared by the blue-green deploy's
+    // two replicas), so any previously-cached value built that way is
+    // stale and must be discarded rather than reused forever.
+    if (savedBase && /:3008$/.test(savedBase)) {
+      savedBase = null;
+    }
+
+    if (!savedBase) {
+      if (envApiUrl && !envApiUrl.includes('neuravolt.cloud') && currentHost !== 'localhost') {
+        // An explicit non-production API URL is configured (e.g. a staging
+        // domain) — use it as-is.
         savedBase = envApiUrl;
-      } else if (currentHost !== 'localhost') {
-        // On a real server: API is on same IP but port 3008
-        const protocol = typeof window !== 'undefined' ? window.location.protocol : 'http:';
-        savedBase = `${protocol}//${currentHost}:3008`;
       } else {
-        savedBase = 'http://localhost:3008';
+        savedBase = '';
       }
       // Persist the resolved base URL
       localStorage.setItem('hk_api_base', savedBase);

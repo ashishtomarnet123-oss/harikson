@@ -50,12 +50,15 @@ export default function BillingProvidersPage() {
   );
 
   const getWebhookUrl = (type: 'razorpay' | 'stripe') => {
-    if (typeof window !== 'undefined') {
-      const protocol = window.location.protocol;
-      const host = window.location.hostname;
-      return `${protocol}//${host}:4008/webhooks/${type}`;
+    // This URL gets copy-pasted into Stripe/Razorpay's own dashboard, so it
+    // must be a real, stable, publicly-reachable address — not a raw
+    // IP:port. admin-api no longer even publishes a fixed host port (needed
+    // for blue-green scaling), so that pattern can't work at all anymore;
+    // the real answer is the domain Traefik already routes to admin-api.
+    if (typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')) {
+      return `${window.location.protocol}//${window.location.hostname}:4000/webhooks/${type}`;
     }
-    return `https://154.201.127.68:4008/webhooks/${type}`;
+    return `https://admin-api.neuravolt.cloud/webhooks/${type}`;
   };
 
   const fetchData = async () => {

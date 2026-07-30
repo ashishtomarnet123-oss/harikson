@@ -24,7 +24,11 @@ export default function CookieConsent() {
     let resolvedApi = 'http://localhost:3008';
     if (hostname !== 'localhost' && hostname !== '127.0.0.1') {
       if (window.location.port) {
-        resolvedApi = `http://${hostname}:3008`;
+        // Relative path — Next.js's rewrites() proxies /api/* to tenant-api
+        // server-side. tenant-api no longer publishes a fixed host port
+        // (needed for blue-green scaling), so constructing `<host>:3008`
+        // directly no longer reaches anything.
+        resolvedApi = '';
       } else {
         resolvedApi =
           process.env.NEXT_PUBLIC_API_URL ||

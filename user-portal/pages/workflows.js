@@ -98,7 +98,14 @@ function WorkflowsPage() {
       return;
     }
     let savedApiBase = localStorage.getItem('hk_api_base');
-    if (!savedApiBase || (savedApiBase === 'http://localhost:3008' && typeof window !== 'undefined' && window.location.hostname !== 'localhost')) {
+    // Discard any stale cached value built from tenant-api's old fixed host
+    // port (`:3008`) — it no longer publishes one (needed for blue-green
+    // scaling), so any such cached value is always wrong now.
+    if (
+      !savedApiBase ||
+      /:3008$/.test(savedApiBase) ||
+      (savedApiBase === 'http://localhost:3008' && typeof window !== 'undefined' && window.location.hostname !== 'localhost')
+    ) {
       savedApiBase = '';
     }
     const savedTenant = localStorage.getItem('hk_tenant') || 'system';
