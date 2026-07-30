@@ -165,7 +165,15 @@ export default function LoginPage() {
       localStorage.removeItem('hk_access_token');
       localStorage.removeItem('hk_refresh_token');
     }
-  }, [router]);
+    // Intentionally run once on mount only. `router` from useRouter() is
+    // not guaranteed to be referentially stable across renders in the
+    // Pages Router — depending on it here caused this effect (and its
+    // /api/auth/me call) to re-fire repeatedly instead of once, which is
+    // what produced the request loop / stuck-reloading symptom. Everything
+    // this effect reads (window.location.search, router.query at the
+    // moment it runs) is still correct read once at mount.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleResendVerification = async () => {
     if (!email) {

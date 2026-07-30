@@ -459,14 +459,19 @@ export default function BillingSettings() {
                 <tbody>
                   {billing.invoices && billing.invoices.length > 0 ? (
                     billing.invoices.map((inv) => (
-                      <tr key={inv.id || inv.code}>
-                        <td className="inv-code">{inv.code}</td>
-                        <td>{inv.date}</td>
-                        <td>{inv.planName}</td>
-                        <td>{inv.amount}</td>
+                      <tr key={inv.id || inv.code || inv.number}>
+                        {/* Backend returns `number` (invoice_number) and no
+                            per-invoice planName — the old fake data had
+                            `code`/`planName` fields that don't exist on a
+                            real invoice row, so fall back sensibly instead
+                            of rendering blank cells or crashing. */}
+                        <td className="inv-code">{inv.code || inv.number || '—'}</td>
+                        <td>{inv.date ? new Date(inv.date).toLocaleDateString() : '—'}</td>
+                        <td>{inv.planName || billing.planName || '—'}</td>
+                        <td>{inv.amount != null ? `${inv.currency ? inv.currency + ' ' : ''}${inv.amount}` : '—'}</td>
                         <td>
-                          <span className={`inv-status-pill ${inv.status.toLowerCase()}`}>
-                            {inv.status}
+                          <span className={`inv-status-pill ${(inv.status || '').toLowerCase()}`}>
+                            {inv.status || 'Unknown'}
                           </span>
                         </td>
                         <td>
