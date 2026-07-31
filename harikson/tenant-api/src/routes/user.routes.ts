@@ -13,6 +13,7 @@ import {
   verifyTotpToken,
   generateHashedBackupCodes,
 } from '../services/twoFactorService.js';
+import { RagService } from '../services/rag.service.js';
 import jwt from 'jsonwebtoken';
 
 const router = Router();
@@ -713,6 +714,112 @@ router.post(['/billing/verify-payment', '/user/billing/verify-payment'], async (
   } catch (err: any) {
     logger.error('Razorpay payment verified but activation failed:', err);
     res.status(500).json({ error: 'Payment was verified but activating your plan failed — contact support with payment ID ' + razorpay_payment_id });
+  }
+});
+
+// ── My RAG Drive: per-user document upload/list/toggle/delete, backed by the
+// same knowledge_documents/document_embeddings tables and RagService used by
+// the tenant-wide knowledge base (/api/documents), scoped to this user via
+// user_id rather than shared across the whole tenant. ──
+
+async function listRagFiles(tenantId: string, userId: string) {
+  const filesRes = await executeTenantQuery(tenantId, (client) =>
+    client.query(
+      `SELECT id, filename AS name, file_size_bytes AS size, rag_enabled AS "isActive", created_at
+       FROM knowledge_documents
+       WHERE tenant_id = $1 AND user_id = $2 AND is_active = true
+       ORDER BY created_at DESC`,
+      [tenantId, userId]
+    )
+  );
+  return filesRes.rows;
+}
+
+// GET /api/user/rag-files & /api/v1/user/rag-files
+router.get(['/rag-files', '/user/rag-files'], async (req: any, res) => {
+  if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
+  try {
+    const userRes = await pool.query('SELECT tenant_id FROM users WHERE id = $1', [req.user.userId]).catch(() => ({ rows: [] }));
+    const tenantId = userRes.rows[0]?.tenant_id || req.tenant?.id;
+    if (!tenantId) return res.status(400).json({ error: 'No tenant associated with this account' });
+
+    res.json(await listRagFiles(tenantId, req.user.userId));
+  } catch (err: any) {
+    logger.error('Fetch RAG files error:', err);
+    res.status(500).json({ error: 'Failed to fetch RAG files' });
+  }
+});
+
+// POST /api/user/rag-files & /api/v1/user/rag-files
+router.post(['/rag-files', '/user/rag-files'], async (req: any, res) => {
+  if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
+  const { name, size, text } = req.body;
+  if (!name || !text) return res.status(400).json({ error: 'name and text are required' });
+
+  try {
+    const userRes = await pool.query('SELECT tenant_id FROM users WHERE id = $1', [req.user.userId]).catch(() => ({ rows: [] }));
+    const tenantId = userRes.rows[0]?.tenant_id || req.tenant?.id;
+    if (!tenantId) return res.status(400).json({ error: 'No tenant associated with this account' });
+
+    const fileType = (name.split('.').pop() || 'txt').toLowerCase();
+    await RagService.indexText(tenantId, req.user.userId, name, text, fileType, Number(size) || text.length);
+
+    res.status(201).json(await listRagFiles(tenantId, req.user.userId));
+  } catch (err: any) {
+    logger.error('RAG file upload error:', err);
+    res.status(500).json({ error: err.message || 'Failed to save and index file' });
+  }
+});
+
+// PATCH /api/user/rag-files/:id & /api/v1/user/rag-files/:id — toggles
+// whether this file contributes to RAG retrieval in chat, without removing
+// it from the list (that's what DELETE is for).
+router.patch(['/rag-files/:id', '/user/rag-files/:id'], async (req: any, res) => {
+  if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
+  const { id } = req.params;
+
+  try {
+    const userRes = await pool.query('SELECT tenant_id FROM users WHERE id = $1', [req.user.userId]).catch(() => ({ rows: [] }));
+    const tenantId = userRes.rows[0]?.tenant_id || req.tenant?.id;
+    if (!tenantId) return res.status(400).json({ error: 'No tenant associated with this account' });
+
+    await executeTenantQuery(tenantId, (client) =>
+      client.query(
+        `UPDATE knowledge_documents SET rag_enabled = NOT rag_enabled
+         WHERE id = $1 AND tenant_id = $2 AND user_id = $3 AND is_active = true`,
+        [id, tenantId, req.user.userId]
+      )
+    );
+
+    res.json(await listRagFiles(tenantId, req.user.userId));
+  } catch (err: any) {
+    logger.error('Toggle RAG file error:', err);
+    res.status(500).json({ error: 'Failed to update file' });
+  }
+});
+
+// DELETE /api/user/rag-files/:id & /api/v1/user/rag-files/:id
+router.delete(['/rag-files/:id', '/user/rag-files/:id'], async (req: any, res) => {
+  if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
+  const { id } = req.params;
+
+  try {
+    const userRes = await pool.query('SELECT tenant_id FROM users WHERE id = $1', [req.user.userId]).catch(() => ({ rows: [] }));
+    const tenantId = userRes.rows[0]?.tenant_id || req.tenant?.id;
+    if (!tenantId) return res.status(400).json({ error: 'No tenant associated with this account' });
+
+    await executeTenantQuery(tenantId, async (client) => {
+      await client.query(
+        `UPDATE knowledge_documents SET is_active = false WHERE id = $1 AND tenant_id = $2 AND user_id = $3`,
+        [id, tenantId, req.user.userId]
+      );
+      await client.query(`DELETE FROM document_embeddings WHERE knowledge_document_id = $1 AND tenant_id = $2`, [id, tenantId]);
+    });
+
+    res.json(await listRagFiles(tenantId, req.user.userId));
+  } catch (err: any) {
+    logger.error('Delete RAG file error:', err);
+    res.status(500).json({ error: 'Failed to delete file' });
   }
 });
 

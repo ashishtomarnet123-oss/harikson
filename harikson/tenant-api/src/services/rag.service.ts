@@ -108,25 +108,35 @@ export class RagService {
   ): Promise<number> {
     let text = '';
 
+    if (type.toLowerCase() === 'pdf') {
+      const parsed = await pdf(buffer);
+      text = parsed.text;
+    } else {
+      // Fallback to text parsing (Markdown, plain text, txt, json)
+      text = buffer.toString('utf-8');
+    }
+
+    return this.indexText(tenantId, userId, name, text, type || 'txt', buffer.length || 0);
+  }
+
+  // Index already-extracted plain text (e.g. client-side PDF.js/OCR output
+  // from the "My RAG Drive" settings tab, which never sends a raw file
+  // buffer — just the text it already parsed).
+  static async indexText(
+    tenantId: string,
+    userId: string,
+    name: string,
+    text: string,
+    fileType: string = 'txt',
+    sizeBytes: number = 0
+  ): Promise<number> {
     try {
-      if (type.toLowerCase() === 'pdf') {
-        const parsed = await pdf(buffer);
-        text = parsed.text;
-      } else {
-        // Fallback to text parsing (Markdown, plain text, txt, json)
-        text = buffer.toString('utf-8');
-      }
-
       if (!text.trim()) {
-        throw new Error('Extracted document content is empty');
+        throw new Error('Document content is empty');
       }
 
-      // Chunk the text
       const chunks = this.chunkText(text, 800, 150);
-
-      // Save document to knowledge_documents first
       const newDocId = crypto.randomUUID();
-      const fileType = type || 'txt';
 
       // Encrypt content at rest using AES-256-GCM
       const { encryptedContent, iv, authTag, keyId } = encryptDocumentContent(newDocId, text);
@@ -134,22 +144,21 @@ export class RagService {
       await this.executeQuery(tenantId, async (client) => {
         await client.query(
           `INSERT INTO knowledge_documents (
-            id, tenant_id, user_id, filename, file_type, file_size_bytes, 
-            content, content_iv, content_tag, key_id, is_active, status
+            id, tenant_id, user_id, title, filename, file_type, file_size_bytes,
+            content, content_iv, content_tag, key_id, is_active, rag_enabled, status
            )
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, 'indexed')`,
+           VALUES ($1, $2, $3, $4, $4, $5, $6, $7, $8, $9, $10, true, true, 'indexed')`,
           [
             newDocId,
             tenantId,
             userId,
             name,
             fileType,
-            buffer.length || 0,
+            sizeBytes || text.length,
             encryptedContent,
             iv,
             authTag,
             keyId,
-            true,
           ]
         );
       });
@@ -188,48 +197,9 @@ export class RagService {
     userId: string,
     url: string
   ): Promise<number> {
-    try {
-      // Mock crawler fetching content from remote webpage
-      const text = `Neuravolt AI agent documentation for ${url}. This page details configuration, setup, widget integration, billing subscriptions, support guidelines, and deployment metrics. The platform executes on isolated VPS nodes using Qwen3-Coder models.`;
-
-      const chunks = this.chunkText(text, 800, 150);
-      const newDocId = crypto.randomUUID();
-
-      const { encryptedContent, iv, authTag, keyId } = encryptDocumentContent(newDocId, text);
-
-      await this.executeQuery(tenantId, async (client) => {
-        await client.query(
-          `INSERT INTO knowledge_documents (
-            id, tenant_id, user_id, filename, file_type, file_size_bytes, 
-            content, content_iv, content_tag, key_id, is_active, status
-           )
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, 'indexed')`,
-          [newDocId, tenantId, userId, url, 'url', text.length || 0, encryptedContent, iv, authTag, keyId, true]
-        );
-      });
-
-      // Generate embeddings in parallel (max 5 concurrent calls)
-      const chunkEmbeddings = await this.generateBatchEmbeddings(chunks, 5);
-
-      await this.executeQuery(tenantId, async (client) => {
-        for (const item of chunkEmbeddings) {
-          const embeddingString = `[${item.embedding.join(',')}]`;
-          await client.query(
-            `INSERT INTO document_embeddings (tenant_id, knowledge_document_id, content, embedding)
-             VALUES ($1, $2, $3, $4::vector)`,
-            [tenantId, newDocId, item.chunk, embeddingString]
-          );
-        }
-      });
-
-      console.log(
-        `📂 [Harikson RAG] Indexed URL ${url}: created ${chunkEmbeddings.length}/${chunks.length} chunks.`
-      );
-      return chunkEmbeddings.length;
-    } catch (error) {
-      console.error(`❌ [Harikson RAG] Crawl error on ${url}:`, error);
-      throw error;
-    }
+    // Mock crawler fetching content from remote webpage
+    const text = `Neuravolt AI agent documentation for ${url}. This page details configuration, setup, widget integration, billing subscriptions, support guidelines, and deployment metrics. The platform executes on isolated VPS nodes using Qwen3-Coder models.`;
+    return this.indexText(tenantId, userId, url, text, 'url', text.length);
   }
 
   // Hybrid (Semantic Vector + Full-Text BM25) search to find relevant context
@@ -250,7 +220,7 @@ export class RagService {
                   (0.7 * (1 - (de.embedding <=> $1::vector)) + 0.3 * COALESCE(ts_rank(kd.tsv, plainto_tsquery('english', $2)), 0)) AS final_score
            FROM document_embeddings de
            JOIN knowledge_documents kd ON de.knowledge_document_id = kd.id
-           WHERE de.tenant_id = $3 AND kd.is_active = true
+           WHERE de.tenant_id = $3 AND kd.is_active = true AND kd.rag_enabled = true
            ORDER BY (0.7 * (1 - (de.embedding <=> $1::vector)) + 0.3 * COALESCE(ts_rank(kd.tsv, plainto_tsquery('english', $2)), 0)) DESC
            LIMIT $4`,
           [embeddingString, query, tenantId, maxResults]
