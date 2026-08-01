@@ -10,3 +10,6 @@ dist/
 secrets/
 traefik/letsencrypt/
 *.log
+.claude/launch.json
+question-2ndtype.md
+questions.md
