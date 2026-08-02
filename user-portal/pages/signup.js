@@ -104,8 +104,8 @@ export default function SignupPage() {
   return (
     <>
       <Head>
-        <title>Request Access — Neuravolt Cloud</title>
-        <meta name="description" content="Request access to your Neuravolt Cloud workspace" />
+        <title>Request Access — Xarwiz Cloud</title>
+        <meta name="description" content="Request access to your Xarwiz Cloud workspace" />
       </Head>
 
       <div className="login-root">
@@ -152,7 +152,7 @@ export default function SignupPage() {
                 textAlign: 'left',
                 marginBottom: '24px'
               }}>
-                Thanks for requesting access to Neuravolt Cloud.
+                Thanks for requesting access to Xarwiz Cloud.
                 <br /><br />
                 You have been added to our invitation list. Your account is currently awaiting administrator approval.
                 <br /><br />
@@ -179,7 +179,7 @@ export default function SignupPage() {
           ) : (
             <>
               <h1 className="login-title">Request Access</h1>
-              <p className="login-subtitle">Request access to Neuravolt Cloud AI Platform</p>
+              <p className="login-subtitle">Request access to Xarwiz Cloud AI Platform</p>
 
               <form onSubmit={handleSignup} autoComplete="on">
                 <div className="form-group">

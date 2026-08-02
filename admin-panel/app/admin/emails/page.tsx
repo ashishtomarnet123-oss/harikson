@@ -120,7 +120,7 @@ export default function AdminEmailsPage() {
     smtp_pass: '',
     smtp_secure: true,
     from_email: 'noreply@neuravolt.cloud',
-    from_name: 'Neuravolt Cloud'
+    from_name: 'Xarwiz Cloud'
   });
   const [testingSmtp, setTestingSmtp] = useState<boolean>(false);
   const [savingSmtp, setSavingSmtp] = useState<boolean>(false);
@@ -905,7 +905,7 @@ export default function AdminEmailsPage() {
                   type="text"
                   value={smtpConfig.from_name || ''}
                   onChange={(e) => setSmtpConfig({ ...smtpConfig, from_name: e.target.value })}
-                  placeholder="Neuravolt Cloud"
+                  placeholder="Xarwiz Cloud"
                   className="w-full px-3 py-2 rounded-xl bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 outline-none text-gray-900 dark:text-white"
                 />
               </div>
@@ -1093,7 +1093,7 @@ export default function AdminEmailsPage() {
                   type="text"
                   value={editingTemplate.subject || ''}
                   onChange={(e) => setEditingTemplate({ ...editingTemplate, subject: e.target.value })}
-                  placeholder="Welcome {{name}} to Neuravolt!"
+                  placeholder="Welcome {{name}} to Xarwiz!"
                   className="w-full px-3 py-2 rounded-xl bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 outline-none text-gray-900 dark:text-white"
                   required
                 />

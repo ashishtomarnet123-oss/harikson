@@ -213,7 +213,7 @@ export default function CookieConsent() {
             </div>
 
             <p style={styles.modalDesc}>
-              Customize your cookie preferences below. Essential cookies are required to operate the Neuravolt AI platform safely.
+              Customize your cookie preferences below. Essential cookies are required to operate the Xarwiz AI platform safely.
             </p>
 
             <div style={styles.categoryList}>

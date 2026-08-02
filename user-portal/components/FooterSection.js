@@ -88,7 +88,7 @@ export default function FooterSection() {
         <div className="final-cta-center">
           <h2 className="final-cta-title">Ready to Build the Future with AI?</h2>
           <div className="final-cta-sub">
-            Join thousands of Indian businesses building secure and compliant AI applications with Neuravolt.
+            Join thousands of Indian businesses building secure and compliant AI applications with Xarwiz.
           </div>
 
           <div className="final-cta-btns">
@@ -111,7 +111,7 @@ export default function FooterSection() {
             <div>
               <Link href="/neuravolt" className="logo-container" style={{ marginBottom: 8 }}>
                 <div className="logo-icon">N</div>
-                <span className="logo-text">NEURAVOLT</span>
+                <span className="logo-text">XARWIZ</span>
               </Link>
               <div style={{ fontSize: '0.72rem', color: '#94a3b8', marginBottom: 10 }}>AI Cloud Platform</div>
               <p className="footer-brand-desc">
@@ -178,7 +178,7 @@ export default function FooterSection() {
             <div>
               <div className="footer-col-title">Company</div>
               <ul className="footer-links">
-                <li><Link href="/neuravolt">About Neuravolt</Link></li>
+                <li><Link href="/neuravolt">About Xarwiz</Link></li>
                 <li><Link href="/login">Contact Team</Link></li>
                 <li><Link href="/login">Careers</Link></li>
               </ul>

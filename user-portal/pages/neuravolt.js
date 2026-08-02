@@ -39,7 +39,7 @@ export default function NeuravoltLandingPage() {
       bullets: [
         'Invoice ID: #INV-2024-089',
         'Total Amount: ₹48,500 + 18% GST (₹57,230)',
-        'Vendor: Neuravolt Technologies Pvt. Ltd.',
+        'Vendor: Xarwiz Technologies Pvt. Ltd.',
         'Due Date: 15 June 2024 (Auto-scheduled)'
       ]
     },
@@ -86,7 +86,7 @@ export default function NeuravoltLandingPage() {
       userPrompt: textToRun,
       responseTitle: `AI Agent Output for "${textToRun}":`,
       bullets: [
-        `Executed prompt via Neuravolt Sovereign AI Orchestration Node in 114ms.`,
+        `Executed prompt via Xarwiz Sovereign AI Orchestration Node in 114ms.`,
         `Vector Boundary: Verified isolated PostgreSQL tenant boundary.`,
         `Compliance Status: DPDP Act 2023 check PASSED.`
       ]
@@ -103,12 +103,12 @@ export default function NeuravoltLandingPage() {
   return (
     <div style={{ backgroundColor: '#FFFFFF', color: '#0F172A', minHeight: '100vh', fontFamily: "'Inter', sans-serif" }}>
       <Head>
-        <title>Neuravolt - India's AI Infrastructure & AI Agent Platform | DPDP Compliant</title>
+        <title>Xarwiz - India's AI Infrastructure & AI Agent Platform | DPDP Compliant</title>
         <meta name="description" content="Deploy AI Agents, RAG, Workflows and Multi-Language LLMs on India's most trusted AI Infrastructure." />
         <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
       </Head>
 
-      {/* Embedded Neuravolt Design System CSS */}
+      {/* Embedded Xarwiz Design System CSS */}
       <style jsx global>{`
         :root {
           --bg-main: #FFFFFF;
@@ -401,7 +401,7 @@ export default function NeuravoltLandingPage() {
         <div class="container header-inner">
           <Link href="/neuravolt" class="logo-container">
             <div class="logo-icon">N</div>
-            <span class="logo-text">NEURAVOLT</span>
+            <span class="logo-text">XARWIZ</span>
             <span class="logo-badge">
               <Shield style={{ width: 12, height: 12 }} /> AI Cloud Platform
             </span>
@@ -477,7 +477,7 @@ export default function NeuravoltLandingPage() {
               <div class="dash-sidebar">
                 <div class="sidebar-logo">
                   <div class="logo-icon" style={{ width: 20, height: 20, fontSize: '0.75rem' }}>N</div>
-                  <span>NEURAVOLT</span>
+                  <span>XARWIZ</span>
                 </div>
 
                 <div class="nav-item active"><LayoutDashboard style={{ width: 14, height: 14 }} /> Overview</div>
@@ -502,7 +502,7 @@ export default function NeuravoltLandingPage() {
                     <RotateCw style={{ width: 13, height: 13, cursor: 'pointer' }} />
                     <Bell style={{ width: 13, height: 13, cursor: 'pointer' }} />
                     <img src="/assets/user-avatar.jpg" class="avatar-img" alt="User" />
-                    <span style={{ fontWeight: 600, fontSize: '0.78rem', color: '#0F172A' }}>Team Neuravolt <ChevronDown style={{ width: 12, height: 12 }} /></span>
+                    <span style={{ fontWeight: 600, fontSize: '0.78rem', color: '#0F172A' }}>Team Xarwiz <ChevronDown style={{ width: 12, height: 12 }} /></span>
                   </div>
                 </div>
 
@@ -717,7 +717,7 @@ export default function NeuravoltLandingPage() {
                 <Sparkles class="sparkles-icon" />
               </div>
               <div class="demo-subtitle">
-                Experience the power of Neuravolt AI Agents. No sign-up. No credit card. Just try.
+                Experience the power of Xarwiz AI Agents. No sign-up. No credit card. Just try.
               </div>
             </div>
 
@@ -786,7 +786,7 @@ export default function NeuravoltLandingPage() {
                       1 Free Guest Prompt Used
                     </p>
                     <p style={{ margin: '6px 0 12px 0', fontSize: '0.8rem', color: '#475569' }}>
-                      You've experienced your 1 free guest prompt trial. To continue using Neuravolt Cloud, please request access.
+                      You've experienced your 1 free guest prompt trial. To continue using Xarwiz Cloud, please request access.
                     </p>
                     <Link href="/signup" class="btn-hero-primary" style={{ display: 'inline-block', padding: '8px 24px', fontSize: '0.82rem', textDecoration: 'none' }}>
                       Request Access
@@ -1051,7 +1051,7 @@ export default function NeuravoltLandingPage() {
               <div class="flag-line"><img src="/assets/india-flag.svg" alt="India Flag" /></div>
 
               <p class="india-left-desc">
-                Neuravolt is DPDP-ready and designed to meet the highest standards of security, privacy and compliance.
+                Xarwiz is DPDP-ready and designed to meet the highest standards of security, privacy and compliance.
               </p>
 
               <button class="btn-compliance-pager">
@@ -1341,7 +1341,7 @@ export default function NeuravoltLandingPage() {
             <div class="final-cta-center">
               <h2 class="final-cta-title">Ready to Build the Future with AI?</h2>
               <div class="final-cta-sub">
-                Join thousands of Indian businesses building secure and compliant AI applications with Neuravolt.
+                Join thousands of Indian businesses building secure and compliant AI applications with Xarwiz.
               </div>
 
               <div class="final-cta-btns">
@@ -1366,7 +1366,7 @@ export default function NeuravoltLandingPage() {
             <div>
               <div class="logo-container" style={{ marginBottom: 8 }}>
                 <div class="logo-icon">N</div>
-                <span class="logo-text">NEURAVOLT</span>
+                <span class="logo-text">XARWIZ</span>
               </div>
               <div style={{ fontSize: '0.72rem', color: 'var(--text-dim)', marginBottom: 10 }}>AI Cloud Platform</div>
               <p class="footer-brand-desc">
@@ -1433,7 +1433,7 @@ export default function NeuravoltLandingPage() {
             <div>
               <div class="footer-col-title">Company</div>
               <ul class="footer-links">
-                <li><Link href="/neuravolt">About Neuravolt</Link></li>
+                <li><Link href="/neuravolt">About Xarwiz</Link></li>
                 <li><Link href="/login">Contact Team</Link></li>
                 <li><Link href="/login">Careers</Link></li>
               </ul>

@@ -79,7 +79,7 @@ export default function ImpersonatePage() {
       padding: '20px'
     }}>
       <Head>
-        <title>Impersonation Session | Neuravolt AI</title>
+        <title>Impersonation Session | Xarwiz AI</title>
       </Head>
 
       <div style={{

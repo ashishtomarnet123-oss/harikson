@@ -283,7 +283,7 @@ function WorkflowsPage() {
   return (
     <>
       <Head>
-        <title>Workflow Builder — Neuravolt Cloud</title>
+        <title>Workflow Builder — Xarwiz Cloud</title>
         <meta name="description" content="Build, test, and automate complex AI workflows" />
       </Head>
 

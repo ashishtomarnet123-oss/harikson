@@ -48,10 +48,11 @@ async function queryUser(email: string) {
   }
 }
 
-const JWT_SECRET =
-  process.env.JWT_SECRET ||
-  process.env.NEXTAUTH_SECRET ||
-  'neuravolt_dev_jwt_secret_key_extremely_long_and_secure_value_12345!';
+const rawJwtSecret = process.env.JWT_SECRET || process.env.NEXTAUTH_SECRET;
+if (!rawJwtSecret || rawJwtSecret.length < 32) {
+  throw new Error('FATAL: JWT_SECRET (or NEXTAUTH_SECRET) must be set and at least 32 characters');
+}
+const JWT_SECRET: string = rawJwtSecret;
 
 export async function POST(req: NextRequest) {
   try {
@@ -65,44 +66,18 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const normalizedEmail = email.toLowerCase().trim();
-    const isDefaultAdminEmail =
-      normalizedEmail === 'admin@harikson.ai' ||
-      normalizedEmail === 'admin@neuravolt.cloud' ||
-      normalizedEmail === 'admin@neurovalt.cloud' ||
-      normalizedEmail.startsWith('admin@');
-
-    const isDefaultAdminPassword =
-      password === 'Admin@neurovalt@2620' ||
-      password === 'Admin@neuravolt@2620' ||
-      password === 'StrongP@ssword2026!';
-
-    const isDefaultAdmin = isDefaultAdminEmail && isDefaultAdminPassword;
-
     let userResult;
     try {
       userResult = await queryUser(email);
     } catch (dbErr: any) {
       console.error('[/api/auth/login] Database connection error:', dbErr?.message);
-      if (!isDefaultAdmin) {
-        return NextResponse.json(
-          { error: 'Database service unavailable. Please check database connection.' },
-          { status: 500 }
-        );
-      }
+      return NextResponse.json(
+        { error: 'Database service unavailable. Please check database connection.' },
+        { status: 500 }
+      );
     }
 
-    let user = userResult?.rows?.[0];
-
-    if (!user && isDefaultAdmin) {
-      user = {
-        id: '00000000-0000-0000-0000-000000000001',
-        tenant_id: '00000000-0000-0000-0000-000000000000',
-        email: normalizedEmail,
-        role: 'superadmin',
-        password_hash: '',
-      };
-    }
+    const user = userResult?.rows?.[0];
 
     if (!user) {
       return NextResponse.json({ error: 'Invalid credentials' }, { status: 401 });
@@ -116,10 +91,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    let matches = user.password_hash ? await bcrypt.compare(password, user.password_hash) : false;
-    if (!matches && isDefaultAdmin) {
-      matches = true;
-    }
+    const matches = user.password_hash ? await bcrypt.compare(password, user.password_hash) : false;
 
     if (!matches) {
       return NextResponse.json({ error: 'Invalid credentials' }, { status: 401 });

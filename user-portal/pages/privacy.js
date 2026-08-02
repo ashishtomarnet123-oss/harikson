@@ -45,7 +45,7 @@ export default function PrivacyPolicyPage() {
     { num: 9, cat: 'legal', title: 'Purpose of Processing', content: 'Your data is used for user account authentication, running RAG search pipelines, subscription renewals, security safety logs (preventing jailbreaks), system diagnostic optimizations, and support communications.' },
     
     { num: 10, cat: 'ai', title: 'AI-Specific Data Processing', content: 'During model inference, prompt inputs are vectorized and processed by baseline AI nodes. Prompts are also dynamically parsed through content moderation layers to identify malicious boundaries or illegal content.' },
-    { num: 11, cat: 'ai', title: 'AI Training Policy', content: 'Neuravolt does NOT use prompt inputs, RAG documents, or generated outputs to train public baseline AI models. All workspace assets are isolated from public training runs. Opt-in consent is required for custom model refinements.' },
+    { num: 11, cat: 'ai', title: 'AI Training Policy', content: 'Xarwiz does NOT use prompt inputs, RAG documents, or generated outputs to train public baseline AI models. All workspace assets are isolated from public training runs. Opt-in consent is required for custom model refinements.' },
     { num: 12, cat: 'ai', title: 'Conversation History', content: 'We store history to display past queries. Users can delete chats to purge entries from active databases. History metrics can be exported in JSON format, and workspace owners can turn history logging off.' },
     { num: 13, cat: 'ai', title: 'Uploaded Files', content: 'Files uploaded to RAG vectors are parsed and stored in logically separated databases. Uploaded files are encrypted at rest using AES-256 and scanned for malware.' },
     
@@ -93,8 +93,8 @@ export default function PrivacyPolicyPage() {
       fontFamily: "'Outfit', sans-serif"
     }}>
       <Head>
-        <title>Privacy Policy | Neuravolt Cloud Platform</title>
-        <meta name="description" content="Neuravolt Cloud Privacy Policy - comprehensive data disclosures compliant with Indian DPDP Act 2023 and global regulations." />
+        <title>Privacy Policy | Xarwiz Cloud Platform</title>
+        <meta name="description" content="Xarwiz Cloud Privacy Policy - comprehensive data disclosures compliant with Indian DPDP Act 2023 and global regulations." />
         <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
       </Head>
 
@@ -153,7 +153,7 @@ export default function PrivacyPolicyPage() {
           lineHeight: '1.6',
           fontWeight: '300'
         }}>
-          Comprehensive data processing guidelines, model inference boundaries, and DPDP Act 2023 regulations on Neuravolt.
+          Comprehensive data processing guidelines, model inference boundaries, and DPDP Act 2023 regulations on Xarwiz.
         </p>
 
         {/* Floating Search Container */}

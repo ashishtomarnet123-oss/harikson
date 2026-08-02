@@ -68,7 +68,7 @@ export default function DashboardShell({ children, title = 'Dashboard' }) {
               <Zap size={18} color="#ffffff" />
             </div>
             <span style={{ fontSize: '17px', fontWeight: 700, color: '#ffffff', letterSpacing: '-0.02em' }}>
-              Neuravolt <span style={{ color: '#a855f7', fontWeight: 400 }}>AI</span>
+              Xarwiz <span style={{ color: '#a855f7', fontWeight: 400 }}>AI</span>
             </span>
           </Link>
 
@@ -142,7 +142,7 @@ export default function DashboardShell({ children, title = 'Dashboard' }) {
                 {user?.name || user?.email || 'Authenticated User'}
               </p>
               <p style={{ fontSize: '11px', color: '#6b7280', margin: '2px 0 0 0', textTransform: 'capitalize' }}>
-                {user?.tenantSlug || 'Neuravolt Cloud'}
+                {user?.tenantSlug || 'Xarwiz Cloud'}
               </p>
             </div>
             <button

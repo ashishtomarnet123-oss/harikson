@@ -40,10 +40,11 @@ async function queryUserById(userId: string) {
   }
 }
 
-const JWT_SECRET =
-  process.env.JWT_SECRET ||
-  process.env.NEXTAUTH_SECRET ||
-  'neuravolt_dev_jwt_secret_key_extremely_long_and_secure_value_12345!';
+const rawJwtSecret = process.env.JWT_SECRET || process.env.NEXTAUTH_SECRET;
+if (!rawJwtSecret || rawJwtSecret.length < 32) {
+  throw new Error('FATAL: JWT_SECRET (or NEXTAUTH_SECRET) must be set and at least 32 characters');
+}
+const JWT_SECRET: string = rawJwtSecret;
 
 export async function GET(req: NextRequest) {
   try {
@@ -72,25 +73,11 @@ export async function GET(req: NextRequest) {
     let userResult;
     try {
       userResult = await queryUserById(payload.userId);
-    } catch {
-      // DB connection unavailable
+    } catch (dbErr: any) {
+      console.error('[/api/auth/me] Database connection error:', dbErr?.message);
+      return NextResponse.json({ error: 'Database service unavailable' }, { status: 500 });
     }
-    let user = userResult?.rows?.[0];
-
-    if (
-      !user &&
-      (payload.userId === '00000000-0000-0000-0000-000000000001' ||
-        payload.userId === '00000000-0000-0000-0000-000000000002' ||
-        payload.role === 'superadmin' ||
-        payload.role === 'admin')
-    ) {
-      user = {
-        id: payload.userId || '00000000-0000-0000-0000-000000000001',
-        tenant_id: '00000000-0000-0000-0000-000000000000',
-        email: 'admin@harikson.ai',
-        role: payload.role || 'superadmin',
-      };
-    }
+    const user = userResult?.rows?.[0];
 
     if (!user) {
       return NextResponse.json({ error: 'User not found' }, { status: 401 });

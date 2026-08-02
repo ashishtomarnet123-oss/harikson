@@ -39,7 +39,7 @@ export default function Navbar() {
           </div>
           <div>
             <span style={{ fontSize: '18px', fontWeight: 700, color: '#ffffff', letterSpacing: '-0.02em' }}>
-              Neuravolt <span style={{ color: '#a855f7', fontWeight: 400 }}>Cloud</span>
+              Xarwiz <span style={{ color: '#a855f7', fontWeight: 400 }}>Cloud</span>
             </span>
           </div>
         </Link>

@@ -998,7 +998,7 @@ export default function UsersPage() {
                   <div className="flex justify-between items-center">
                     <span className="text-gray-500 font-medium">Tenant Workspace:</span>
                     <span className="font-bold text-gray-800 dark:text-gray-200">
-                      {selectedUser.tenant_name || 'Neuravolt Default Workspace'}
+                      {selectedUser.tenant_name || 'Xarwiz Default Workspace'}
                     </span>
                   </div>
                   <div className="flex justify-between items-center">

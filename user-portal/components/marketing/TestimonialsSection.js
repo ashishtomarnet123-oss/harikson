@@ -4,7 +4,7 @@ import { Star, ShieldCheck, Building } from 'lucide-react';
 export default function TestimonialsSection() {
   const testimonials = [
     {
-      quote: 'Neuravolt Cloud enabled our engineering team to deploy custom fine-tuned AI agents while meeting strict DPDP Act data residency requirements.',
+      quote: 'Xarwiz Cloud enabled our engineering team to deploy custom fine-tuned AI agents while meeting strict DPDP Act data residency requirements.',
       author: 'Rajesh Kumar',
       role: 'Head of Infrastructure, Enterprise Fintech',
       company: 'Fintech Corp'
@@ -16,7 +16,7 @@ export default function TestimonialsSection() {
       company: 'HealthTech Global'
     },
     {
-      quote: 'Deploying private LLMs on Neuravolt reduced our OpenAI API costs by 65% while providing faster RAG vector search across our codebase.',
+      quote: 'Deploying private LLMs on Xarwiz reduced our OpenAI API costs by 65% while providing faster RAG vector search across our codebase.',
       author: 'Vikram Singh',
       role: 'VP Engineering, SaaS Enterprise',
       company: 'DevFlow Systems'
