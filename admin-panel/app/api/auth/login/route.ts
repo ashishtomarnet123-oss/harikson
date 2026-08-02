@@ -48,14 +48,21 @@ async function queryUser(email: string) {
   }
 }
 
-const rawJwtSecret = process.env.JWT_SECRET || process.env.NEXTAUTH_SECRET;
-if (!rawJwtSecret || rawJwtSecret.length < 32) {
-  throw new Error('FATAL: JWT_SECRET (or NEXTAUTH_SECRET) must be set and at least 32 characters');
+// Deliberately not evaluated at module load: Next.js's build step imports
+// route modules to collect page data, which would run this before any
+// runtime env vars are injected and fail the build itself. Called instead
+// from inside each handler, where it only runs against a real request.
+function getJwtSecret(): string {
+  const raw = process.env.JWT_SECRET || process.env.NEXTAUTH_SECRET;
+  if (!raw || raw.length < 32) {
+    throw new Error('FATAL: JWT_SECRET (or NEXTAUTH_SECRET) must be set and at least 32 characters');
+  }
+  return raw;
 }
-const JWT_SECRET: string = rawJwtSecret;
 
 export async function POST(req: NextRequest) {
   try {
+    const JWT_SECRET = getJwtSecret();
     const body = await req.json().catch(() => ({}));
     const { email, password } = body as { email?: string; password?: string };
 
