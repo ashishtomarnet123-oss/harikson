@@ -955,8 +955,11 @@ function ChatPage() {
     // directly (`<host>:3008`) — tenant-api no longer publishes a fixed
     // host port (a fixed port can't be shared by the blue-green deploy's
     // two replicas), so any previously-cached value built that way is
-    // stale and must be discarded rather than reused forever.
-    const isDirectAccess = currentHost !== 'localhost' && typeof window !== 'undefined' && !!window.location.port;
+    // stale and must be discarded rather than reused forever. This used
+    // to also require window.location.port to be set, which meant a
+    // stale absolute URL cached from a bare-domain visit (no port, e.g.
+    // https://xarwiz.com) was never cleared.
+    const isDirectAccess = currentHost !== 'localhost' && typeof window !== 'undefined';
     // Discard a stale cached value: the old tenant-api-fixed-port bug
     // (:3008), or any absolute URL cached via a raw IP:port before this
     // fix (e.g. https://api.neuravolt.cloud, written by another page's
@@ -968,9 +971,14 @@ function ChatPage() {
     }
 
     if (!savedBase) {
-      if (envApiUrl && !envApiUrl.includes('neuravolt.cloud') && currentHost !== 'localhost') {
-        // An explicit non-production API URL is configured (e.g. a staging
-        // domain) — use it as-is.
+      if (currentHost !== 'localhost') {
+        // Any real (non-localhost) browser access always prefers this same
+        // origin's own Next.js proxy over an absolute env-configured URL —
+        // that URL points at a specific domain (previously
+        // api.neuravolt.cloud, now xarwiz.com) that can migrate again in
+        // the future without ever needing a matching frontend code change.
+        savedBase = '';
+      } else if (envApiUrl) {
         savedBase = envApiUrl;
       } else {
         savedBase = '';

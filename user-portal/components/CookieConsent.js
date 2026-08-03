@@ -23,17 +23,11 @@ export default function CookieConsent() {
     const hostname = window.location.hostname;
     let resolvedApi = 'http://localhost:3008';
     if (hostname !== 'localhost' && hostname !== '127.0.0.1') {
-      if (window.location.port) {
-        // Relative path — Next.js's rewrites() proxies /api/* to tenant-api
-        // server-side. tenant-api no longer publishes a fixed host port
-        // (needed for blue-green scaling), so constructing `<host>:3008`
-        // directly no longer reaches anything.
-        resolvedApi = '';
-      } else {
-        resolvedApi =
-          process.env.NEXT_PUBLIC_API_URL ||
-          `${window.location.protocol}//api.${hostname.split('.').slice(1).join('.')}`;
-      }
+      // Relative path — Next.js's rewrites() proxies /api/* to tenant-api
+      // server-side, same origin, regardless of what domain is actually
+      // being visited (previously api.neuravolt.cloud, now xarwiz.com) or
+      // whether that domain has an explicit port.
+      resolvedApi = '';
     }
     setApiBase(resolvedApi);
 

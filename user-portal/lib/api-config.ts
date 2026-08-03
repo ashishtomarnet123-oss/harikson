@@ -4,16 +4,20 @@
 
 export function getApiBaseUrl(): string {
   // 1. Browser Environment Resolution — takes priority over the env var
-  // below. Whenever the app is reached via an explicit host:port (e.g. a
-  // raw VM IP like 154.201.127.68:3028), every request must go through
-  // *this* Next.js server's own rewrites() proxy (same origin) rather than
-  // a separate api.neuravolt.cloud domain, which may not have working
-  // DNS/TLS/Traefik routing for this deployment at all.
+  // below. Any non-localhost browser access (a raw VM IP like
+  // 154.201.127.68:3028, or a bare production domain like xarwiz.com with
+  // no explicit port) must go through *this* Next.js server's own
+  // rewrites() proxy (same origin) rather than a separate absolute API
+  // domain — that domain can be renamed/migrated (as happened moving from
+  // api.neuravolt.cloud to xarwiz.com) without ever needing a matching
+  // frontend code change, since the browser never needs to know it exists.
+  // This used to also require window.location.port to be set, which meant
+  // bare-domain access (no port, e.g. https://xarwiz.com) fell through to
+  // the stale NEXT_PUBLIC_API_BASE_URL env var below instead.
   if (typeof window !== 'undefined') {
     const isDirectAccess =
       window.location.hostname !== 'localhost' &&
-      window.location.hostname !== '127.0.0.1' &&
-      !!window.location.port;
+      window.location.hostname !== '127.0.0.1';
 
     const saved = localStorage.getItem('hk_api_base');
     if (saved && saved.trim()) {

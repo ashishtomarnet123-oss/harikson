@@ -14,16 +14,10 @@ export default function VerifyEmailPage() {
     if (typeof window !== 'undefined') {
       const hostname = window.location.hostname;
       if (hostname !== 'localhost' && hostname !== '127.0.0.1') {
-        if (window.location.port) {
-          // Relative path — Next.js's rewrites() proxies /api/* to
-          // tenant-api server-side; it no longer has a fixed host port.
-          setApiBase('');
-        } else {
-          setApiBase(
-            process.env.NEXT_PUBLIC_API_URL ||
-              `${window.location.protocol}//api.${hostname.split('.').slice(1).join('.')}`
-          );
-        }
+        // Relative path — Next.js's rewrites() proxies /api/* to tenant-api
+        // server-side, same origin, regardless of what domain is actually
+        // being visited or whether it has an explicit port.
+        setApiBase('');
       }
     }
   }, []);

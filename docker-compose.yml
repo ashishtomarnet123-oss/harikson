@@ -172,7 +172,7 @@ services:
       - PORT=3008
       - NODE_ENV=production
       - OLLAMA_HOST=http://ollama:11434
-      - ALLOWED_ORIGINS=https://app.neuravolt.cloud,https://admin.neuravolt.cloud,https://neuravolt.cloud,http://localhost:3002,http://localhost:3018,http://localhost:3028,http://154.201.127.68:3018,http://154.201.127.68:3028
+      - ALLOWED_ORIGINS=https://xarwiz.com,https://www.xarwiz.com,https://app.neuravolt.cloud,https://admin.neuravolt.cloud,https://neuravolt.cloud,http://localhost:3002,http://localhost:3018,http://localhost:3028,http://154.201.127.68:3018,http://154.201.127.68:3028
     depends_on:
       postgres:
         condition: service_healthy
@@ -219,7 +219,7 @@ services:
       - TENANT_API_URL=http://tenant-api:3008
       - INTERNAL_API_SECRET
       - PAYMENT_ENCRYPTION_KEY
-      - ALLOWED_ORIGINS=https://app.neuravolt.cloud,https://admin.neuravolt.cloud,https://neuravolt.cloud,http://localhost:3002,http://localhost:3018,http://localhost:3028,http://154.201.127.68:3018,http://154.201.127.68:3028
+      - ALLOWED_ORIGINS=https://xarwiz.com,https://www.xarwiz.com,https://app.neuravolt.cloud,https://admin.neuravolt.cloud,https://neuravolt.cloud,http://localhost:3002,http://localhost:3018,http://localhost:3028,http://154.201.127.68:3018,http://154.201.127.68:3028
     depends_on:
       postgres:
         condition: service_healthy
@@ -251,7 +251,7 @@ services:
     build:
       context: ./admin-panel
       args:
-        - NEXT_PUBLIC_API_URL=https://api.neuravolt.cloud
+        - NEXT_PUBLIC_API_URL=https://xarwiz.com
     image: ${REGISTRY:-ghcr.io}/${IMAGE_PREFIX:-ashishtomarnet123-oss/harikson}-admin-panel:latest
     restart: unless-stopped
     command: npx next start -p 3001
@@ -259,7 +259,7 @@ services:
       - '3018:3001'
     environment:
       - PORT=3001
-      - NEXT_PUBLIC_API_URL=https://api.neuravolt.cloud
+      - NEXT_PUBLIC_API_URL=https://xarwiz.com
       - ADMIN_API_URL=http://admin-api:4000
       - DATABASE_URL=postgresql://neuravolt:neuravolt_dev_pwd@postgres:5432/neuravolt
       - JWT_SECRET
@@ -282,7 +282,7 @@ services:
     build:
       context: ./user-portal
       args:
-        - NEXT_PUBLIC_API_URL=https://api.neuravolt.cloud
+        - NEXT_PUBLIC_API_URL=https://xarwiz.com
     image: ${REGISTRY:-ghcr.io}/${IMAGE_PREFIX:-ashishtomarnet123-oss/harikson}-user-portal:latest
     restart: unless-stopped
     command: npx next start -p 3002
@@ -291,14 +291,14 @@ services:
     environment:
       - PORT=3002
       - TENANT_API_URL=http://tenant-api:3008
-      - NEXT_PUBLIC_API_URL=https://api.neuravolt.cloud
+      - NEXT_PUBLIC_API_URL=https://xarwiz.com
       - NEXTAUTH_SECRET
-      - NEXTAUTH_URL=https://app.neuravolt.cloud
+      - NEXTAUTH_URL=https://xarwiz.com
     networks:
       - harikson-network
     labels:
       - 'traefik.enable=true'
-      - 'traefik.http.routers.user-portal.rule=Host(`app.neuravolt.cloud`)'
+      - 'traefik.http.routers.user-portal.rule=Host(`xarwiz.com`) || Host(`www.xarwiz.com`) || Host(`app.neuravolt.cloud`)'
       - 'traefik.http.routers.user-portal.entrypoints=websecure'
       - 'traefik.http.routers.user-portal.tls.certresolver=letsencrypt'
       - 'traefik.http.services.user-portal.loadbalancer.server.port=3002'

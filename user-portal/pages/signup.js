@@ -28,17 +28,17 @@ export default function SignupPage() {
     if (typeof window !== 'undefined') {
       const hostname = window.location.hostname;
       if (hostname !== 'localhost' && hostname !== '127.0.0.1') {
-        if (window.location.port) {
-          setApiBase('');
-        } else {
-          setApiBase(
-            process.env.NEXT_PUBLIC_API_URL ||
-              `${window.location.protocol}//api.${hostname.split('.').slice(1).join('.')}`
-          );
-        }
+        // Relative path — Next.js's rewrites() proxies /api/* to tenant-api
+        // server-side, same origin, regardless of what domain is actually
+        // being visited or whether it has an explicit port.
+        setApiBase('');
         const parts = hostname.split('.');
         const isIP = !isNaN(parts[0]);
-        if (!isIP && parts[0] !== 'www') {
+        // A genuine tenant subdomain needs at least 3 labels
+        // (acme.xarwiz.com) — a bare domain (xarwiz.com) only has 2, and
+        // its first label isn't a tenant slug, it's just the domain name.
+        const hasSubdomain = parts.length >= 3;
+        if (!isIP && hasSubdomain && parts[0] !== 'www') {
           setTenantSlug(parts[0]);
         } else {
           const urlParams = new URLSearchParams(window.location.search);

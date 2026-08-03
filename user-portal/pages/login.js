@@ -96,24 +96,27 @@ export default function LoginPage() {
     if (typeof window !== 'undefined') {
       const hostname = window.location.hostname;
       if (hostname !== 'localhost' && hostname !== '127.0.0.1') {
-        if (window.location.port) {
-          resolvedApiBase = '';
-        } else {
-          resolvedApiBase =
-            process.env.NEXT_PUBLIC_API_URL ||
-              `${window.location.protocol}//api.${hostname.split('.').slice(1).join('.')}`;
-        }
+        // Any real browser access — with or without an explicit port —
+        // always prefers this same origin's own Next.js proxy over an
+        // absolute env-configured URL, which points at a specific domain
+        // (previously api.neuravolt.cloud, now xarwiz.com) that can migrate
+        // again without ever needing a matching frontend code change.
+        resolvedApiBase = '';
         const parts = hostname.split('.');
         const isIP = !isNaN(Number(parts[0]));
+        // A genuine tenant subdomain needs at least 3 labels
+        // (acme.xarwiz.com) — a bare domain (xarwiz.com) only has 2, and
+        // its first label isn't a tenant slug, it's just the domain name.
+        const hasSubdomain = parts.length >= 3;
         const urlParams = new URLSearchParams(window.location.search);
-        if (!isIP && parts[0] !== 'www') {
-          // Subdomain-based routing: e.g., acme.neuravolt.cloud → slug=acme
+        if (!isIP && hasSubdomain && parts[0] !== 'www') {
+          // Subdomain-based routing: e.g., acme.xarwiz.com → slug=acme
           resolvedTenantSlug = parts[0];
         } else if (urlParams.get('tenant')) {
           // Explicit ?tenant= param takes precedence over default
           resolvedTenantSlug = urlParams.get('tenant');
         }
-        // else: keep defaultTenantSlug (IP access, no subdomain, no ?tenant=)
+        // else: keep defaultTenantSlug (IP/bare-domain access, no subdomain, no ?tenant=)
       }
       setApiBase(resolvedApiBase);
       setTenantSlug(resolvedTenantSlug);

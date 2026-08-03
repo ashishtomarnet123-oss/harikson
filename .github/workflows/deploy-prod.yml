@@ -66,7 +66,7 @@ jobs:
           # it now as a second line of defense, but pass it explicitly here
           # too so the CI build doesn't depend on that alone.
           build-args: |
-            NEXT_PUBLIC_API_URL=https://api.neuravolt.cloud
+            NEXT_PUBLIC_API_URL=https://xarwiz.com
           tags: |
             ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}-user-portal:latest
             ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}-user-portal:${{ github.sha }}
@@ -78,7 +78,7 @@ jobs:
           file: ./admin-panel/Dockerfile
           push: true
           build-args: |
-            NEXT_PUBLIC_API_URL=https://api.neuravolt.cloud
+            NEXT_PUBLIC_API_URL=https://xarwiz.com
           tags: |
             ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}-admin-panel:latest
             ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}-admin-panel:${{ github.sha }}

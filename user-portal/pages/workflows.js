@@ -100,8 +100,7 @@ function WorkflowsPage() {
     const isDirectAccess =
       typeof window !== 'undefined' &&
       window.location.hostname !== 'localhost' &&
-      window.location.hostname !== '127.0.0.1' &&
-      !!window.location.port;
+      window.location.hostname !== '127.0.0.1';
     let savedApiBase = localStorage.getItem('hk_api_base');
     // Discard any stale cached value: the old tenant-api-fixed-port bug
     // (`:3008`, no longer valid), or any absolute URL when accessed via a
