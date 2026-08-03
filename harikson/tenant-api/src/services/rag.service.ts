@@ -116,12 +116,16 @@ export class RagService {
       text = buffer.toString('utf-8');
     }
 
-    return this.indexText(tenantId, userId, name, text, type || 'txt', buffer.length || 0);
+    const result = await this.indexText(tenantId, userId, name, text, type || 'txt', buffer.length || 0);
+    return result.chunksIndexed;
   }
 
   // Index already-extracted plain text (e.g. client-side PDF.js/OCR output
-  // from the "My RAG Drive" settings tab, which never sends a raw file
-  // buffer — just the text it already parsed).
+  // from the "My RAG Drive" settings tab, or a downloaded Google Drive file
+  // — anything that never sends a raw file buffer, just text it already
+  // extracted). Returns the created document's id alongside the chunk count
+  // so callers like the Drive sync worker can link a synced-file record to
+  // the resulting knowledge_documents row.
   static async indexText(
     tenantId: string,
     userId: string,
@@ -129,7 +133,7 @@ export class RagService {
     text: string,
     fileType: string = 'txt',
     sizeBytes: number = 0
-  ): Promise<number> {
+  ): Promise<{ documentId: string; chunksIndexed: number }> {
     try {
       if (!text.trim()) {
         throw new Error('Document content is empty');
@@ -181,7 +185,7 @@ export class RagService {
       console.log(
         `📂 [Harikson RAG] Indexed document ${name}: created ${chunkEmbeddings.length}/${chunks.length} chunks.`
       );
-      return chunkEmbeddings.length;
+      return { documentId: newDocId, chunksIndexed: chunkEmbeddings.length };
     } catch (error) {
       console.error(
         `❌ [Harikson RAG] Ingestion error on document ${name}:`,
@@ -199,7 +203,8 @@ export class RagService {
   ): Promise<number> {
     // Mock crawler fetching content from remote webpage
     const text = `Neuravolt AI agent documentation for ${url}. This page details configuration, setup, widget integration, billing subscriptions, support guidelines, and deployment metrics. The platform executes on isolated VPS nodes using Qwen3-Coder models.`;
-    return this.indexText(tenantId, userId, url, text, 'url', text.length);
+    const result = await this.indexText(tenantId, userId, url, text, 'url', text.length);
+    return result.chunksIndexed;
   }
 
   // Hybrid (Semantic Vector + Full-Text BM25) search to find relevant context

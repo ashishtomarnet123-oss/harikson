@@ -169,6 +169,10 @@ services:
       - RAZORPAY_KEY_ID=rzp_test_TJn9uHBMDXecEa
       - RAZORPAY_KEY_SECRET=VebS2Z6bVLy17Y4L67z0r463
       - RAZORPAY_WEBHOOK_SECRET
+      - GOOGLE_CLIENT_ID
+      - GOOGLE_CLIENT_SECRET
+      - GOOGLE_REDIRECT_URI
+      - GOOGLE_DRIVE_SCOPES
       - PORT=3008
       - NODE_ENV=production
       - OLLAMA_HOST=http://ollama:11434

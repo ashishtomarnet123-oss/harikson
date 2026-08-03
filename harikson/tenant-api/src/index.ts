@@ -33,6 +33,7 @@ import billingRoutes from './routes/billing.routes.js';
 import agentRoutes from './routes/agent.routes.js';
 import widgetRoutes from './routes/widget.routes.js';
 import adminRoutes from './routes/admin.routes.js';
+import integrationsRoutes from './routes/integrations.routes.js';
 
 // Import existing API sub-routers
 import chatRouter from './routes/chat.js';
@@ -178,6 +179,8 @@ app.use('/api/agents', agentRoutes);
 app.use('/api/v1/agents', agentRoutes);
 app.use('/api/widget', widgetRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/integrations', integrationsRoutes);
+app.use('/api/v1/integrations', integrationsRoutes);
 
 // Register specialized sub-routers
 app.use('/api/routes/chat', chatRouter);
