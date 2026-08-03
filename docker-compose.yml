@@ -172,7 +172,9 @@ services:
       - GOOGLE_CLIENT_ID
       - GOOGLE_CLIENT_SECRET
       - GOOGLE_REDIRECT_URI
-      - GOOGLE_DRIVE_SCOPES
+      # Not sensitive (a fixed public scope list, not a credential) —
+      # hardcoded directly rather than needing its own GitHub secret.
+      - GOOGLE_DRIVE_SCOPES=https://www.googleapis.com/auth/drive.readonly,https://www.googleapis.com/auth/userinfo.email,https://www.googleapis.com/auth/userinfo.profile
       - PORT=3008
       - NODE_ENV=production
       - OLLAMA_HOST=http://ollama:11434

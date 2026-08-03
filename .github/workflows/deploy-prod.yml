@@ -88,6 +88,14 @@ jobs:
     needs: build-and-push-prod
     environment: production
     runs-on: ubuntu-latest
+    env:
+      # Referenced (not hardcoded) — set these under Settings > Secrets and
+      # variables > Actions on this repo. Google Drive integration will
+      # return a clean "not configured" error until they're set, rather
+      # than fail the deploy.
+      GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
+      GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
+      GOOGLE_REDIRECT_URI: ${{ secrets.GOOGLE_REDIRECT_URI }}
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
@@ -113,7 +121,7 @@ jobs:
           host: ${{ secrets.PROD_HOST }}
           username: ${{ secrets.PROD_USER || 'ubuntu' }}
           key: ${{ secrets.PROD_SSH_KEY }}
-          envs: REGISTRY,IMAGE_PREFIX
+          envs: REGISTRY,IMAGE_PREFIX,GOOGLE_CLIENT_ID,GOOGLE_CLIENT_SECRET,GOOGLE_REDIRECT_URI
           script: |
             set -e
             cd /mnt/docker-data/harikson || exit 1
