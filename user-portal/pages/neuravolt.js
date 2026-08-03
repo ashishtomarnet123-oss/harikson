@@ -400,8 +400,7 @@ export default function NeuravoltLandingPage() {
       <header class="header">
         <div class="container header-inner">
           <Link href="/neuravolt" class="logo-container">
-            <div class="logo-icon">N</div>
-            <span class="logo-text">XARWIZ</span>
+            <img src="/assets/xarwiz-logo.png" alt="Xarwiz" className="brand-logo-img" />
             <span class="logo-badge">
               <Shield style={{ width: 12, height: 12 }} /> AI Cloud Platform
             </span>
@@ -476,8 +475,7 @@ export default function NeuravoltLandingPage() {
               {/* Sidebar */}
               <div class="dash-sidebar">
                 <div class="sidebar-logo">
-                  <div class="logo-icon" style={{ width: 20, height: 20, fontSize: '0.75rem' }}>N</div>
-                  <span>XARWIZ</span>
+                  <img src="/assets/xarwiz-logo.png" alt="Xarwiz" style={{ height: 18, width: 'auto' }} />
                 </div>
 
                 <div class="nav-item active"><LayoutDashboard style={{ width: 14, height: 14 }} /> Overview</div>
@@ -1365,8 +1363,7 @@ export default function NeuravoltLandingPage() {
           <div class="footer-grid-6col">
             <div>
               <div class="logo-container" style={{ marginBottom: 8 }}>
-                <div class="logo-icon">N</div>
-                <span class="logo-text">XARWIZ</span>
+                <img src="/assets/xarwiz-logo.png" alt="Xarwiz" className="brand-logo-img" />
               </div>
               <div style={{ fontSize: '0.72rem', color: 'var(--text-dim)', marginBottom: 10 }}>AI Cloud Platform</div>
               <p class="footer-brand-desc">

@@ -76,8 +76,7 @@ export default function ForgotPasswordPage() {
 
         <div className="login-card">
           <div className="login-logo">
-            <div className="login-logo-icon">⚡</div>
-            <div className="login-logo-text">Harikson AI</div>
+            <img src="/assets/xarwiz-logo.png" alt="Xarwiz" className="brand-logo-img" />
           </div>
 
           <h1 className="login-title">Reset Your Password</h1>

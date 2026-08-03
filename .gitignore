@@ -13,3 +13,4 @@ traefik/letsencrypt/
 .claude/launch.json
 question-2ndtype.md
 questions.md
+app.pem

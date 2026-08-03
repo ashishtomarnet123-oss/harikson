@@ -5,7 +5,6 @@ import {
   MessageSquare,
   Workflow,
   Settings,
-  Zap,
   LogOut,
   User,
   Shield,
@@ -55,21 +54,7 @@ export default function DashboardShell({ children, title = 'Dashboard' }) {
         <div>
           {/* Brand Logo */}
           <Link href="/chat" style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '28px', paddingLeft: '8px' }}>
-            <div style={{
-              width: '32px',
-              height: '32px',
-              borderRadius: '8px',
-              background: 'linear-gradient(135deg, #6366f1 0%, #a855f7 100%)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              boxShadow: '0 0 16px rgba(99, 102, 241, 0.4)'
-            }}>
-              <Zap size={18} color="#ffffff" />
-            </div>
-            <span style={{ fontSize: '17px', fontWeight: 700, color: '#ffffff', letterSpacing: '-0.02em' }}>
-              Xarwiz <span style={{ color: '#a855f7', fontWeight: 400 }}>AI</span>
-            </span>
+            <img src="/assets/xarwiz-logo.png" alt="Xarwiz" style={{ height: '26px', width: 'auto' }} />
           </Link>
 
           {/* Navigation Links */}

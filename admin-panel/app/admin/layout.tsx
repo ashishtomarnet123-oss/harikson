@@ -248,10 +248,7 @@ export default function AdminLayout({
       {/* Mobile Header */}
       <header className="lg:hidden w-full h-16 bg-gray-900 border-b border-gray-800 flex items-center justify-between px-4 fixed top-0 left-0 z-30">
         <div className="flex items-center gap-2">
-          <Cpu className="w-6 h-6 text-indigo-500" />
-          <span className="font-extrabold tracking-tight text-white">
-            HARIKSON ADMIN
-          </span>
+          <img src="/assets/xarwiz-logo.png" alt="Xarwiz" className="h-6 w-auto" />
         </div>
         <div className="flex items-center gap-2">
           <button
@@ -295,10 +292,7 @@ export default function AdminLayout({
           {/* Logo */}
           <div className="h-14 flex items-center justify-between px-5 border-b border-gray-800 shrink-0">
             <div className="flex items-center gap-2.5">
-              <Cpu className="w-6 h-6 text-indigo-500" />
-              <span className="font-extrabold tracking-wider text-sm bg-gradient-to-r from-indigo-400 to-purple-500 bg-clip-text text-transparent">
-                HARIKSON
-              </span>
+              <img src="/assets/xarwiz-logo.png" alt="Xarwiz" className="h-6 w-auto" />
             </div>
             <div className="hidden lg:flex items-center gap-1.5">
               <button

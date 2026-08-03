@@ -1,6 +1,6 @@
 import React from 'react';
 import Link from 'next/link';
-import { Zap, ArrowRight, ShieldCheck, Cpu } from 'lucide-react';
+import { ArrowRight, ShieldCheck, Cpu } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 
 export default function Navbar() {
@@ -25,23 +25,7 @@ export default function Navbar() {
       }}>
         {/* Brand Logo */}
         <Link href="/" style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '10px' }}>
-          <div style={{
-            width: '36px',
-            height: '36px',
-            borderRadius: '10px',
-            background: 'linear-gradient(135deg, #6366f1 0%, #a855f7 100%)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            boxShadow: '0 0 20px rgba(99, 102, 241, 0.4)'
-          }}>
-            <Zap size={20} color="#ffffff" />
-          </div>
-          <div>
-            <span style={{ fontSize: '18px', fontWeight: 700, color: '#ffffff', letterSpacing: '-0.02em' }}>
-              Xarwiz <span style={{ color: '#a855f7', fontWeight: 400 }}>Cloud</span>
-            </span>
-          </div>
+          <img src="/assets/xarwiz-logo.png" alt="Xarwiz" style={{ height: '30px', width: 'auto' }} />
         </Link>
 
         {/* Navigation Links */}

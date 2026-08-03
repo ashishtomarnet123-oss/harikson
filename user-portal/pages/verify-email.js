@@ -83,8 +83,7 @@ export default function VerifyEmailPage() {
 
         <div className="login-card" style={{ textAlign: 'center' }}>
           <div className="login-logo" style={{ justifyContent: 'center' }}>
-            <div className="login-logo-icon">⚡</div>
-            <div className="login-logo-text">Harikson AI</div>
+            <img src="/assets/xarwiz-logo.png" alt="Xarwiz" className="brand-logo-img" />
           </div>
 
           <h1 className="login-title" style={{ fontSize: '20px', marginBottom: '16px' }}>

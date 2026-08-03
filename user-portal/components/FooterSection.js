@@ -110,8 +110,7 @@ export default function FooterSection() {
           <div className="footer-grid-7col">
             <div>
               <Link href="/neuravolt" className="logo-container" style={{ marginBottom: 8 }}>
-                <div className="logo-icon">N</div>
-                <span className="logo-text">XARWIZ</span>
+                <img src="/assets/xarwiz-logo.png" alt="Xarwiz" className="brand-logo-img" />
               </Link>
               <div style={{ fontSize: '0.72rem', color: '#94a3b8', marginBottom: 10 }}>AI Cloud Platform</div>
               <p className="footer-brand-desc">

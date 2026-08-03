@@ -39,6 +39,7 @@ export default function App({ Component, pageProps }) {
   return (
     <AuthProvider>
       <Head>
+        <link rel="icon" type="image/png" href="/assets/favicon-x.png" />
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         <link

@@ -18,7 +18,6 @@ import {
   Link2,
   Key,
   Lock,
-  Zap,
 } from 'lucide-react';
 import { useRouter } from 'next/router';
 
@@ -736,10 +735,7 @@ export default function SettingsModal({
           {/* ── Sidebar ── */}
           <div className="settings-sidebar">
             <div className="settings-sidebar-header">
-              <div className="settings-brand-pill">
-                <Zap size={15} fill="white" color="white" />
-              </div>
-              <h2 className="settings-brand-title">Harikson AI</h2>
+              <img src="/assets/xarwiz-logo.png" alt="Xarwiz" className="brand-logo-img" />
             </div>
 
             <nav className="settings-nav" aria-label="Settings navigation">

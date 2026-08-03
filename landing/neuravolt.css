@@ -69,6 +69,18 @@ body {
   justify-content: center;
 }
 
+.logo-img {
+  height: 30px;
+  width: auto;
+  display: block;
+}
+
+.logo-img-sm {
+  height: 20px;
+  width: auto;
+  display: block;
+}
+
 .logo-text {
   font-family: var(--font-heading);
   font-size: 1.25rem;

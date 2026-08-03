@@ -2044,10 +2044,7 @@ If any check fails, revise the relevant section before output.`;
         <aside className="sidebar">
           {/* Logo */}
           <div className="sidebar-header">
-            <div className="sidebar-logo-icon">
-              <Zap size={18} fill="white" color="white" />
-            </div>
-            <div className="sidebar-logo-text">Harikson AI</div>
+            <img src="/assets/xarwiz-logo.png" alt="Xarwiz" className="brand-logo-img" />
           </div>
 
           {/* Sidebar Primary Actions */}

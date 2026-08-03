@@ -116,8 +116,7 @@ export default function SignupPage() {
         <div className="login-card" style={{ maxWidth: '460px' }}>
           {/* Logo */}
           <div className="login-logo">
-            <div className="login-logo-icon">⚡</div>
-            <div className="login-logo-text">Harikson AI</div>
+            <img src="/assets/xarwiz-logo.png" alt="Xarwiz" className="brand-logo-img" />
           </div>
 
           {isPendingApproval ? (
