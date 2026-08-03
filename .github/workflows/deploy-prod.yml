@@ -157,6 +157,18 @@ jobs:
               echo "✅ Green health checks PASSED. Switching Traefik traffic and draining old instances..."
               docker compose up -d --remove-orphans
               echo "🎉 Production Blue-Green deployment complete."
+
+              # Step 4: Free disk space now that the new images are confirmed
+              # healthy and live. Every deploy tags new :latest + :<sha>
+              # images without ever cleaning up the superseded ones — left
+              # unchecked this fills the disk (hit 100% full and broke a
+              # deploy's config-sync step). Only runs after a confirmed
+              # successful switch, never in the rollback branch below, since
+              # a rollback needs the previous image still present.
+              echo "3. Pruning superseded Docker images and build cache..."
+              docker image prune -a -f || true
+              docker builder prune -f || true
+              df -h /mnt/docker-data || true
             else
               echo "❌ Green health check FAILED! Triggering automatic rollback..."
               docker compose up -d --scale tenant-api=1 --scale admin-api=1

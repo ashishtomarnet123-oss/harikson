@@ -97,6 +97,12 @@ jobs:
             docker compose pull
             docker compose up -d --remove-orphans
 
+            # Free disk space now that new containers are up — every deploy
+            # tags new :staging + :<sha> images without cleaning up the
+            # superseded ones, which fills the disk over repeated deploys.
+            docker image prune -a -f || true
+            docker builder prune -f || true
+
       - name: Run Staging Smoke Tests
         run: |
           echo "Executing staging endpoint smoke tests..."

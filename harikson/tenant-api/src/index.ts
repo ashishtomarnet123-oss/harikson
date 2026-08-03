@@ -181,6 +181,11 @@ app.use('/api/widget', widgetRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/integrations', integrationsRoutes);
 app.use('/api/v1/integrations', integrationsRoutes);
+// Google's registered OAuth redirect_uri is .../api/v1/user/integrations/google/callback
+// (set up before the /api/integrations prefix above existed) — mounted here
+// too so that exact, already-registered URL keeps resolving correctly.
+app.use('/api/user/integrations', integrationsRoutes);
+app.use('/api/v1/user/integrations', integrationsRoutes);
 
 // Register specialized sub-routers
 app.use('/api/routes/chat', chatRouter);
