@@ -445,15 +445,15 @@ export default function NeuravoltLandingPage() {
             <div class="hero-checks">
               <div class="check-item">
                 <span class="check-circle">✓</span>
-                <span>DPDP Ready</span>
+                <span>Secure</span>
               </div>
               <div class="check-item">
                 <span class="check-circle">✓</span>
-                <span>Data Stays in India</span>
+                <span>Scalable</span>
               </div>
               <div class="check-item">
                 <span class="check-circle">✓</span>
-                <span>Deploy in 5 Minutes</span>
+                <span>Enterprise Grade</span>
               </div>
             </div>
 

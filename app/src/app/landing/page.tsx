@@ -87,7 +87,7 @@ export default function NeuravoltLightLandingPage() {
             </p>
 
             <div className="flex flex-wrap gap-4 pt-1">
-              {['DPDP Ready', 'Data Stays in India', 'Deploy in 5 Minutes'].map((item) => (
+              {['Secure', 'Scalable', 'Enterprise Grade'].map((item) => (
                 <div key={item} className="flex items-center gap-1.5 text-xs font-semibold text-slate-900">
                   <div className="w-4 h-4 rounded-full bg-green-100 text-green-600 flex items-center justify-center font-bold text-[10px]">✓</div>
                   <span>{item}</span>
