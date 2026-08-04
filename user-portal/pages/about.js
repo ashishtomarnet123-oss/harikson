@@ -125,12 +125,31 @@ export default function AboutPage() {
 
       {/* SECTION 3 — EVERYTHING WORKS TOGETHER */}
       <section style={{ padding: '90px 20px', background: '#fafafc', borderTop: '1px solid #e2e8f0', borderBottom: '1px solid #e2e8f0' }}>
-        <div style={{ maxWidth: '960px', margin: '0 auto', textAlign: 'center' }}>
-          <div style={{ display: 'inline-flex', padding: '4px 14px', borderRadius: '20px', background: '#eff6ff', color: '#2563eb', fontSize: '0.82rem', fontWeight: '700', marginBottom: '16px' }}>🇮🇳 Sovereign Enterprise AI</div>
-          <h2 style={{ fontFamily: "'Outfit', sans-serif", fontSize: '2.5rem', fontWeight: 800, color: '#0f172a', marginBottom: '16px' }}>Everything Works Together in One Platform</h2>
-          <p style={{ fontSize: '1.1rem', color: '#475569', lineHeight: 1.65 }}>
-            From AI agents and workflow automation to agentic coding, multilingual AI chat, and knowledge management—everything works together in one platform.
-          </p>
+        <div style={{ maxWidth: '1140px', margin: '0 auto' }}>
+          <div style={{ textAlign: 'center' }}>
+            <div style={{ display: 'inline-flex', padding: '4px 14px', borderRadius: '20px', background: '#eff6ff', color: '#2563eb', fontSize: '0.82rem', fontWeight: '700', marginBottom: '16px' }}>India's AI Business Operating System</div>
+            <h2 style={{ fontFamily: "'Outfit', sans-serif", fontSize: '2.5rem', fontWeight: 800, color: '#0f172a', marginBottom: '16px' }}>Everything Your Business Needs. One Intelligent Platform.</h2>
+            <p style={{ fontSize: '1.1rem', color: '#475569', maxWidth: '780px', margin: '0 auto 40px auto', lineHeight: 1.65 }}>
+              Running a business shouldn't mean juggling dozens of disconnected tools. Xarwiz brings everything together—from AI agents and workflow automation to knowledge management, collaboration, cloud services, and enterprise security—so your team can focus on building, growing, and delivering better results.
+            </p>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '28px' }}>
+            <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '16px', padding: '32px', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.03)' }}>
+              <h3 style={{ fontSize: '1.25rem', fontWeight: 700, color: '#0f172a', marginBottom: '12px' }}>AI Agents &amp; Automation</h3>
+              <p style={{ color: '#64748b', fontSize: '0.95rem', lineHeight: 1.65, margin: 0 }}>Let AI handle the repetitive work. Create intelligent agents that automate routine tasks, simplify complex workflows, and help your team get more done with less effort.</p>
+            </div>
+
+            <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '16px', padding: '32px', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.03)' }}>
+              <h3 style={{ fontSize: '1.25rem', fontWeight: 700, color: '#0f172a', marginBottom: '12px' }}>Enterprise Knowledge Hub</h3>
+              <p style={{ color: '#64748b', fontSize: '0.95rem', lineHeight: 1.65, margin: 0 }}>Turn your company's documents, websites, databases, and internal resources into a centralized knowledge hub where anyone can find accurate answers in seconds using AI.</p>
+            </div>
+
+            <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '16px', padding: '32px', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.03)' }}>
+              <h3 style={{ fontSize: '1.25rem', fontWeight: 700, color: '#0f172a', marginBottom: '12px' }}>Enterprise Security &amp; Compliance</h3>
+              <p style={{ color: '#64748b', fontSize: '0.95rem', lineHeight: 1.65, margin: 0 }}>Your data deserves the highest level of protection. Xarwiz is built with enterprise-grade security, role-based access controls, encryption, audit logs, and compliance-ready architecture to keep your business secure at every step.</p>
+            </div>
+          </div>
         </div>
       </section>
 
