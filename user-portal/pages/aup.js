@@ -47,12 +47,12 @@ export default function AcceptableUsePolicyPage() {
     
     { num: 11, cat: 'developer', title: 'API Usage Rules', content: 'You must limit queries to the rate boundaries of your subscription tier. Prevent API key exposure (e.g. do not check keys into git), and do not deploy bots to create multiple API accounts.' },
     { num: 12, cat: 'developer', title: 'Enterprise Workspace Responsibilities', content: 'Workspace Administrators are responsible for revoking access for inactive team members, enforcing Multi-Factor Authentication (MFA), and auditing workspace prompt metadata logs.' },
-    { num: 13, cat: 'developer', title: 'System Security Standards', content: 'Clients must access services through updated browsers. Security vulnerabilities must be reported immediately to security@harikson.ai. Do not exploit logical security flaws.' },
+    { num: 13, cat: 'developer', title: 'System Security Standards', content: 'Clients must access services through updated browsers. Security vulnerabilities must be reported immediately to security@xarwiz.com. Do not exploit logical security flaws.' },
     
     { num: 14, cat: 'enforce', title: 'Abuse Detection and Monitoring', content: 'We run automated moderation scans on prompts to identify prohibited content, and monitor request frequencies to block mass automation, bot calls, and credential abuse.' },
     { num: 15, cat: 'enforce', title: 'Enforcement and Sanctions', content: 'Violations will result in formal warning warnings, temporary workspace rate limiting, permanent account termination, or reporting to legal authorities (CERT-In).' },
-    { num: 16, cat: 'enforce', title: 'Reporting Violations', content: 'Submit reports of AUP infractions to: support@harikson.ai (support issues), security@harikson.ai (security concerns), or legal@harikson.ai (copyright alerts).' },
-    { num: 17, cat: 'enforce', title: 'Appeals Process', content: 'You can submit review requests to appeals@harikson.ai within 14 business days. All decisions by our trust and safety audit team are final.' },
+    { num: 16, cat: 'enforce', title: 'Reporting Violations', content: 'Submit reports of AUP infractions to: support@xarwiz.com (support issues), security@xarwiz.com (security concerns), or legal@xarwiz.com (copyright alerts).' },
+    { num: 17, cat: 'enforce', title: 'Appeals Process', content: 'You can submit review requests to appeals@xarwiz.com within 14 business days. All decisions by our trust and safety audit team are final.' },
     { num: 18, cat: 'enforce', title: 'Changes to this Policy', content: 'We reserve the right to modify this AUP. Changes are published on this page with updated version histories.' },
     
     { num: 19, cat: 'governance', title: 'Contact Information', content: 'Company: Xarwiz Technologies LLP, Sector 62, Noida, Uttar Pradesh, India - 201301. Grievance Officer: Ashish Pratap Singh Tomar (grievance@xarwiz.com).' },
@@ -82,8 +82,8 @@ export default function AcceptableUsePolicyPage() {
       fontFamily: "'Outfit', sans-serif"
     }}>
       <Head>
-        <title>Acceptable Use Policy | Harikson AI Platform</title>
-        <meta name="description" content="Harikson AI Acceptable Use Policy - safe usage guidelines compliant with Indian and global regulations." />
+        <title>Acceptable Use Policy | Xarwiz Cloud Platform</title>
+        <meta name="description" content="Xarwiz Cloud Acceptable Use Policy - safe usage guidelines compliant with Indian and global regulations." />
         <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
       </Head>
 
@@ -142,7 +142,7 @@ export default function AcceptableUsePolicyPage() {
           lineHeight: '1.6',
           fontWeight: '300'
         }}>
-          Clear boundaries governing developer integration parameters, workspace security, and model safety constraints on Harikson.
+          Clear boundaries governing developer integration parameters, workspace security, and model safety constraints on Xarwiz.
         </p>
 
         {/* Floating Search Container */}
