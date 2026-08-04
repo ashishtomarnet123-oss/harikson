@@ -32,8 +32,8 @@ export default function PrivacyPolicyPage() {
   }
 
   const sectionsData = [
-    { num: 1, cat: 'intro', title: 'Introduction', content: 'This Privacy Policy describes how Neuravolt Technologies Private Limited ("Neuravolt", "Company", "we", "us", or "our") processes, collects, stores, and protects personal data obtained from users of our Platform.' },
-    { num: 2, cat: 'intro', title: 'About Us', content: 'Company: Neuravolt Technologies Private Limited. Registered Office Address: Sector 62, Noida, Uttar Pradesh, India - 201301. CIN: U72900UP2026PTC123456. Support Email: support@neuravolt.cloud. Privacy Email: privacy@neuravolt.cloud.' },
+    { num: 1, cat: 'intro', title: 'Introduction', content: 'This Privacy Policy describes how Xarwiz Technologies LLP ("Xarwiz", "Company", "we", "us", or "our") processes, collects, stores, and protects personal data obtained from users of our Platform.' },
+    { num: 2, cat: 'intro', title: 'About Us', content: 'Company: Xarwiz Technologies LLP. Registered Office Address: Sector 62, Noida, Uttar Pradesh, India - 201301. LLPIN: AAK-1234. Support Email: support@xarwiz.com. Privacy Email: privacy@xarwiz.com.' },
     { num: 3, cat: 'intro', title: 'Definitions', content: 'Personal Data: Data about an individual who is identifiable. Sensitive Personal Data: Passwords, financial or biometric credentials. Processing: Automated operations performed on data. Data Principal: The individual whose data is processed. Data Fiduciary: Entity determining processing purposes (Neuravolt).' },
     { num: 4, cat: 'intro', title: 'Scope of this Policy', content: 'This policy applies to our websites, dashboards, user portals, developer APIs, SDKs, mobile systems, browser extensions, and collaborative workspaces.' },
     
