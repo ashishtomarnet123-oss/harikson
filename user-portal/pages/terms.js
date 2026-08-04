@@ -129,7 +129,7 @@ export default function TermsOfServicePage() {
     { num: 86, cat: 'governance', title: 'Grievance Officer details (as required under Indian law)', content: 'Under the Information Technology Act, 2000 and the DPDP Act, 2023, the Grievance Officer details are: Name: Ashish Pratap Singh Tomar, Email: grievance@harikson.ai, Address: Sector 62, Noida, Uttar Pradesh, India - 201301.' },
     { num: 87, cat: 'governance', title: 'Compliance Officer details (placeholder)', content: 'Compliance Officer contact: compliance@harikson.ai' },
     { num: 88, cat: 'governance', title: 'Nodal Officer details (placeholder)', content: 'Nodal Officer contact: nodal@harikson.ai' },
-    { num: 89, cat: 'governance', title: 'Registered Office details (placeholder)', content: 'Address: Harikson AI Technologies Private Limited, Sector 62, Noida, Uttar Pradesh, India - 201301' },
+    { num: 89, cat: 'governance', title: 'Registered Office details (placeholder)', content: 'Address: Xarwiz Technologies LLP, Sector 62, Noida, Uttar Pradesh, India - 201301' },
     { num: 90, cat: 'governance', title: 'Support Contact', content: 'Support desk: support@harikson.ai' },
     { num: 91, cat: 'governance', title: 'Effective Date', content: 'Date: July 19, 2026' },
     { num: 92, cat: 'governance', title: 'Version History', content: 'v1.0.0: Initial Release (July 19, 2026)' }
@@ -362,7 +362,7 @@ export default function TermsOfServicePage() {
             <div>
               <span style={{ color: '#64748b', fontSize: '13px' }}>Corporate Registry:</span>
               <div style={{ fontSize: '14px', fontWeight: '600', color: '#1e293b', marginTop: '2px' }}>
-                Harikson AI Technologies Pvt. Ltd. (CIN: U72900UP2026PTC123456)
+                Xarwiz Technologies LLP (LLPIN: AAK-1234)
               </div>
             </div>
             <div style={{ textAlign: 'right' }}>
