@@ -149,10 +149,48 @@ export default function AboutPage() {
             <p style={{ fontSize: '1.1rem', color: '#475569', maxWidth: '780px', margin: '0 auto 40px auto', lineHeight: 1.65 }}>Businesses today have access to more software than ever before, yet productivity continues to suffer.</p>
           </div>
 
-          {/* VISUAL INFOGRAPHIC GRAPHIC */}
-          <div style={{ margin: '40px 0 50px 0', textAlign: 'center' }}>
-            <div style={{ position: 'relative', display: 'inline-block', borderRadius: '24px', overflow: 'hidden', border: '1px solid rgba(37,99,235,0.2)', boxShadow: '0 20px 40px -10px rgba(15,23,42,0.12)', background: '#0f172a' }}>
-              <img src="/assets/fragmented-vs-unified.png" alt="Fragmented Tools vs Unified AI OS" style={{ width: '100%', maxWidth: '960px', height: 'auto', display: 'block', margin: '0 auto', objectFit: 'contain' }} />
+          {/* PURE CSS VECTOR COMPARISON MOCKUP */}
+          <div style={{ margin: '40px 0 50px 0' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '24px' }}>
+              
+              {/* BEFORE: FRAGMENTED CHAOS */}
+              <div style={{ background: '#ffffff', border: '1px solid #fee2e2', borderRadius: '20px', padding: '32px', position: 'relative', boxShadow: '0 10px 25px -5px rgba(239, 68, 68, 0.05)' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px' }}>
+                  <span style={{ fontSize: '0.78rem', fontWeight: 800, color: '#dc2626', background: '#fef2f2', padding: '4px 12px', borderRadius: '20px', border: '1px solid #fecaca', textTransform: 'uppercase', letterSpacing: '0.04em' }}>The Old Way</span>
+                  <span style={{ fontSize: '0.85rem', color: '#ef4444', fontWeight: 600 }}>10+ Disconnected Tools</span>
+                </div>
+                <h3 style={{ fontSize: '1.3rem', fontWeight: 800, color: '#0f172a', marginBottom: '16px' }}>Fragmented Software Chaos</h3>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '20px' }}>
+                  <span style={{ background: '#f1f5f9', color: '#475569', padding: '6px 12px', borderRadius: '8px', fontSize: '0.82rem', fontWeight: 600 }}>CRM Tool</span>
+                  <span style={{ background: '#f1f5f9', color: '#475569', padding: '6px 12px', borderRadius: '8px', fontSize: '0.82rem', fontWeight: 600 }}>Spreadsheets</span>
+                  <span style={{ background: '#f1f5f9', color: '#475569', padding: '6px 12px', borderRadius: '8px', fontSize: '0.82rem', fontWeight: 600 }}>Standalone Chatbot</span>
+                  <span style={{ background: '#f1f5f9', color: '#475569', padding: '6px 12px', borderRadius: '8px', fontSize: '0.82rem', fontWeight: 600 }}>Project Mgmt</span>
+                  <span style={{ background: '#f1f5f9', color: '#475569', padding: '6px 12px', borderRadius: '8px', fontSize: '0.82rem', fontWeight 600 }}>Cloud Storage</span>
+                  <span style={{ background: '#f1f5f9', color: '#475569', padding: '6px 12px', borderRadius: '8px', fontSize: '0.82rem', fontWeight 600 }}>Automation App</span>
+                </div>
+                <div style={{ fontSize: '0.88rem', color: '#b91c1c', background: '#fff5f5', padding: '12px 16px', borderRadius: '10px', borderLeft: '3px solid #ef4444' }}>
+                  Data silos, repeated logins, manual copy paste, and rising subscription costs.
+                </div>
+              </div>
+
+              {/* AFTER: XARWIZ UNIFIED AI OS */}
+              <div style={{ background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 100%)', border: '1px solid #3b82f6', borderRadius: '20px', padding: '32px', position: 'relative', color: '#ffffff', boxShadow: '0 20px 40px -10px rgba(37, 99, 235, 0.25)' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px' }}>
+                  <span style={{ fontSize: '0.78rem', fontWeight: 800, color: '#60a5fa', background: 'rgba(37, 99, 235, 0.2)', padding: '4px 12px', borderRadius: '20px', border: '1px solid rgba(59, 130, 246, 0.4)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>The Xarwiz Way</span>
+                  <span style={{ fontSize: '0.85rem', color: '#38bdf8', fontWeight: 600 }}>One Unified AI OS</span>
+                </div>
+                <h3 style={{ fontSize: '1.3rem', fontWeight: 800, color: '#ffffff', marginBottom: '16px' }}>Everything Connected Natively</h3>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '20px' }}>
+                  <span style={{ background: 'rgba(255,255,255,0.1)', color: '#93c5fd', padding: '6px 12px', borderRadius: '8px', fontSize: '0.82rem', fontWeight: 600, border: '1px solid rgba(255,255,255,0.15)' }}>AI Workspace</span>
+                  <span style={{ background: 'rgba(255,255,255,0.1)', color: '#93c5fd', padding: '6px 12px', borderRadius: '8px', fontSize: '0.82rem', fontWeight 600, border: '1px solid rgba(255,255,255,0.15)' }}>RAG Knowledge Hub</span>
+                  <span style={{ background: 'rgba(255,255,255,0.1)', color: '#93c5fd', padding: '6px 12px', borderRadius: '8px', fontSize: '0.82rem', fontWeight 600, border: '1px solid rgba(255,255,255,0.15)' }}>Autonomous Agents</span>
+                  <span style={{ background: 'rgba(255,255,255,0.1)', color: '#93c5fd', padding: '6px 12px', borderRadius: '8px', fontSize: '0.82rem', fontWeight 600, border: '1px solid rgba(255,255,255,0.15)' }}>Workflows &amp; Analytics</span>
+                </div>
+                <div style={{ fontSize: '0.88rem', color: '#e0f2fe', background: 'rgba(37, 99, 235, 0.2)', padding: '12px 16px', borderRadius: '10px', borderLeft: '3px solid #3b82f6' }}>
+                  Single source of truth, automated workflows, enterprise security, and 100% data sovereignty.
+                </div>
+              </div>
+
             </div>
           </div>
 
