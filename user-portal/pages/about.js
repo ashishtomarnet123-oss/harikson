@@ -84,39 +84,58 @@ export default function AboutPage() {
 
       {/* SECTION 2 — WHO WE ARE */}
       <section style={{ padding: '90px 20px', background: '#ffffff' }}>
-        <div style={{ maxWidth: '1080px', margin: '0 auto' }}>
+        <div style={{ maxWidth: '1140px', margin: '0 auto' }}>
           <div style={{ textAlign: 'center' }}>
             <div style={{ display: 'inline-flex', padding: '4px 14px', borderRadius: '20px', background: '#eff6ff', color: '#2563eb', fontSize: '0.82rem', fontWeight: '700', marginBottom: '16px' }}>Who We Are</div>
-            <h2 style={{ fontFamily: "'Outfit', sans-serif", fontSize: '2.5rem', fontWeight: 800, color: '#0f172a', marginBottom: '16px' }}>Building the Future of AI-Powered Business</h2>
-            <p style={{ fontSize: '1.1rem', color: '#475569', maxWidth: '780px', margin: '0 auto 40px auto', lineHeight: 1.65 }}>Technology has transformed the way businesses operate, but the software they rely on is still fragmented. Teams switch between countless applications every day—one for communication, another for documents, another for automation, another for analytics, and yet another for AI. Instead of making work simpler, technology often creates more complexity.</p>
+            <h2 style={{ fontFamily: "'Outfit', sans-serif", fontSize: '2.5rem', fontWeight: 800, color: '#0f172a', marginBottom: '16px' }}>Building the Future of AI Powered Business</h2>
+            <p style={{ fontSize: '1.1rem', color: '#475569', maxWidth: '780px', margin: '0 auto 40px auto', lineHeight: 1.65 }}>Technology has transformed the way businesses operate, but the software they rely on is still fragmented. Teams switch between countless applications every day: one for communication, another for documents, another for automation, another for analytics, and yet another for AI. Instead of making work simpler, technology often creates more complexity.</p>
           </div>
 
-          <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '20px', padding: '36px', margin: '32px 0 48px 0', fontSize: '1.05rem', lineHeight: 1.75, color: '#334155' }}>
-            <p style={{ marginBottom: '16px', fontWeight: 700, color: '#0f172a', fontSize: '1.25rem' }}>Xarwiz was founded to change that.</p>
-            <p style={{ marginBottom: '16px' }}>We are building an AI-native business operating system that brings together everything modern organizations need to work smarter. From intelligent AI agents and workflow automation to knowledge management, cloud infrastructure, collaboration, and enterprise-grade security, Xarwiz unifies essential business capabilities into one intelligent platform.</p>
-            <p style={{ marginBottom: '16px' }}>Rather than adding another tool to your workflow, Xarwiz becomes the platform that connects your workflows.</p>
+          <div style={{ background: 'linear-gradient(135deg, #ffffff 0%, #f8fafc 100%)', border: '1px solid rgba(37,99,235,0.18)', borderRadius: '20px', padding: '40px', margin: '32px 0 48px 0', boxShadow: '0 10px 30px rgba(0,0,0,0.03)', fontSize: '1.05rem', lineHeight: 1.75, color: '#334155' }}>
+            <h3 style={{ marginBottom: '16px', fontWeight: 800, color: '#0f172a', fontSize: '1.35rem', letterSpacing: '-0.01em' }}>Xarwiz was founded to change that.</h3>
+            <p style={{ marginBottom: '16px' }}>We are building an AI-native business operating system that brings together everything modern organizations need to work smarter. From intelligent AI agents and workflow automation to knowledge management, cloud infrastructure, collaboration, and enterprise grade security, Xarwiz unifies essential business capabilities into one intelligent platform.</p>
+            <p style={{ marginBottom: '16px', fontWeight: 600, color: '#2563eb' }}>Rather than adding another tool to your workflow, Xarwiz becomes the platform that connects your workflows.</p>
             <p style={{ margin: 0 }}>Whether you're a startup building your first product, a growing agency managing multiple clients, or an enterprise looking to modernize operations, Xarwiz helps your teams automate repetitive work, organize knowledge, collaborate efficiently, and make faster decisions with AI.</p>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '28px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))', gap: '28px' }}>
             <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '16px', padding: '32px' }}>
               <h3 style={{ fontSize: '1.3rem', fontWeight: 700, color: '#0f172a', marginBottom: '12px' }}>Who We Build For</h3>
-              <p style={{ color: '#64748b', fontSize: '0.95rem', marginBottom: '16px' }}>Xarwiz is designed for organizations that want to spend less time managing software and more time creating value.</p>
-              <ul style={{ listStyle: 'none', padding: 0, display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '0.92rem', color: '#334155' }}>
-                <li>• Startups scaling quickly with limited resources</li>
-                <li>• Small and medium businesses modernizing their operations</li>
-                <li>• Marketing and creative agencies managing multiple clients</li>
-                <li>• Developers building AI-powered products</li>
-                <li>• Enterprise teams looking for secure AI adoption</li>
-                <li>• Founders who want one platform instead of ten</li>
-              </ul>
+              <p style={{ color: '#64748b', fontSize: '0.95rem', marginBottom: '20px' }}>Xarwiz is designed for organizations that want to spend less time managing software and more time creating value.</p>
+              
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', fontSize: '0.93rem', color: '#334155' }}>
+                  <span style={{ color: '#2563eb', fontWeight: 'bold' }}>✓</span>
+                  <span>Startups scaling quickly with limited resources</span>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', fontSize: '0.93rem', color: '#334155' }}>
+                  <span style={{ color: '#2563eb', fontWeight: 'bold' }}>✓</span>
+                  <span>Small and medium businesses modernizing their operations</span>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', fontSize: '0.93rem', color: '#334155' }}>
+                  <span style={{ color: '#2563eb', fontWeight: 'bold' }}>✓</span>
+                  <span>Marketing and creative agencies managing multiple clients</span>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', fontSize: '0.93rem', color: '#334155' }}>
+                  <span style={{ color: '#2563eb', fontWeight: 'bold' }}>✓</span>
+                  <span>Developers building AI powered products</span>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', fontSize: '0.93rem', color: '#334155' }}>
+                  <span style={{ color: '#2563eb', fontWeight: 'bold' }}>✓</span>
+                  <span>Enterprise teams looking for secure AI adoption</span>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', fontSize: '0.93rem', color: '#334155' }}>
+                  <span style={{ color: '#2563eb', fontWeight: 'bold' }}>✓</span>
+                  <span>Founders who want one platform instead of ten</span>
+                </div>
+              </div>
             </div>
 
             <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '16px', padding: '32px' }}>
               <h3 style={{ fontSize: '1.3rem', fontWeight: 700, color: '#0f172a', marginBottom: '12px' }}>What Makes Xarwiz Different</h3>
-              <p style={{ color: '#64748b', fontSize: '0.95rem', marginBottom: '14px' }}>Most software solves a single problem. <strong>Xarwiz solves how businesses work as a whole.</strong></p>
-              <p style={{ color: '#475569', fontSize: '0.92rem', lineHeight: 1.6, marginBottom: '14px' }}>Instead of offering isolated features, we combine AI, automation, collaboration, cloud services, knowledge management, and enterprise infrastructure into one connected ecosystem where every product works together seamlessly.</p>
-              <div style={{ background: '#eff6ff', borderLeft: '4px solid #2563eb', padding: '12px 16px', borderRadius: '0 8px 8px 0', fontSize: '0.9rem', color: '#1e40af', fontWeight: 600 }}>
+              <p style={{ color: '#64748b', fontSize: '0.95rem', marginBottom: '16px' }}>Most software solves a single problem. <strong>Xarwiz solves how businesses work as a whole.</strong></p>
+              <p style={{ color: '#475569', fontSize: '0.93rem', lineHeight: 1.65, marginBottom: '20px' }}>Instead of offering isolated features, we combine AI, automation, collaboration, cloud services, knowledge management, and enterprise infrastructure into one connected ecosystem where every product works together seamlessly.</p>
+              <div style={{ background: '#eff6ff', borderLeft: '4px solid #2563eb', padding: '16px', borderRadius: '0 12px 12px 0', fontSize: '0.92rem', color: '#1e40af', fontWeight: 600, lineHeight: 1.6 }}>
                 We believe businesses shouldn't have to build their workflows around software. Software should adapt to the way businesses work.
               </div>
             </div>
