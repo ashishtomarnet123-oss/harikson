@@ -1364,7 +1364,7 @@ export default function NeuravoltLandingPage() {
               <div class="logo-container" style={{ marginBottom: 8 }}>
                 <img src="/assets/xarwiz-logo.png" alt="Xarwiz" className="brand-logo-img" />
               </div>
-              <div style={{ fontSize: '0.72rem', color: 'var(--text-dim)', marginBottom: 10 }}>AI Cloud Platform</div>
+              <div style={{ fontSize: '0.72rem', color: 'var(--text-dim)', marginBottom: 10 }}>🇮🇳 India's AI Platform for Agents &amp; Automation</div>
               <p class="footer-brand-desc">
                 From AI agents and workflow automation to agentic coding, multilingual AI chat, and knowledge management everything works together in one platform.
               </p>

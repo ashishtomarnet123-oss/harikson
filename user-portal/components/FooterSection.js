@@ -112,7 +112,7 @@ export default function FooterSection() {
               <Link href="/neuravolt" className="logo-container" style={{ marginBottom: 8 }}>
                 <img src="/assets/xarwiz-logo.png" alt="Xarwiz" className="brand-logo-img" />
               </Link>
-              <div style={{ fontSize: '0.72rem', color: '#94a3b8', marginBottom: 10 }}>AI Cloud Platform</div>
+              <div style={{ fontSize: '0.72rem', color: '#94a3b8', marginBottom: 10 }}>🇮🇳 India&apos;s AI Platform for Agents &amp; Automation</div>
               <p className="footer-brand-desc">
                 From AI agents and workflow automation to agentic coding, multilingual AI chat, and knowledge management everything works together in one platform.
               </p>
