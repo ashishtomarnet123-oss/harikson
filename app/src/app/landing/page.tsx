@@ -294,7 +294,7 @@ export default function NeuravoltLightLandingPage() {
       {/* FOOTER */}
       <footer className="bg-white border-t border-slate-200 py-10 text-xs text-slate-500">
         <div className="max-w-7xl mx-auto px-6 flex flex-col md:flex-row items-center justify-between gap-4">
-          <div>© 2025 Neuravolt Technologies Pvt. Ltd. All rights reserved.</div>
+          <div>© 2026 Xarwiz Technologies LLP. All rights reserved.</div>
           <div className="flex items-center gap-4">
             <span>🇮🇳 Made in India</span>
             <span>🌐 English</span>

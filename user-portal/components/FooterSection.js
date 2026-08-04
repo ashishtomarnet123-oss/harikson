@@ -185,7 +185,7 @@ export default function FooterSection() {
           </div>
 
           <div className="footer-bottom-bar">
-            <div>© 2025 Neuravolt Technologies Pvt. Ltd. All rights reserved.</div>
+            <div>© 2026 Xarwiz Technologies LLP. All rights reserved.</div>
             <div className="footer-bottom-selectors">
               <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>Made in India <img src="/assets/india-flag.svg" alt="India Flag" style={{ width: 16, height: 11, borderRadius: 1, objectFit: 'cover' }} /> ▾</span>
               <span>English ▾</span>
