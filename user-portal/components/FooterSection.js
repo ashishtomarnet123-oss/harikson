@@ -177,7 +177,7 @@ export default function FooterSection() {
             <div>
               <div className="footer-col-title">Company</div>
               <ul className="footer-links">
-                <li><Link href="/neuravolt">About Xarwiz</Link></li>
+                <li><Link href="/about">About Xarwiz</Link></li>
                 <li><Link href="/login">Contact Team</Link></li>
                 <li><Link href="/login">Careers</Link></li>
               </ul>
