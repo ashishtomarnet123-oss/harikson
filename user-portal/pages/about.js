@@ -130,7 +130,7 @@ export default function AboutPage() {
             <div style={{ display: 'inline-flex', padding: '4px 14px', borderRadius: '20px', background: '#eff6ff', color: '#2563eb', fontSize: '0.82rem', fontWeight: '700', marginBottom: '16px' }}>India's AI Business Operating System</div>
             <h2 style={{ fontFamily: "'Outfit', sans-serif", fontSize: '2.5rem', fontWeight: 800, color: '#0f172a', marginBottom: '16px' }}>Everything Your Business Needs. One Intelligent Platform.</h2>
             <p style={{ fontSize: '1.1rem', color: '#475569', maxWidth: '780px', margin: '0 auto 40px auto', lineHeight: 1.65 }}>
-              Running a business shouldn't mean juggling dozens of disconnected tools. Xarwiz brings everything together—from AI agents and workflow automation to knowledge management, collaboration, cloud services, and enterprise security—so your team can focus on building, growing, and delivering better results.
+              Running a business shouldn't mean juggling dozens of disconnected tools. Xarwiz brings everything together from AI agents and workflow automation to knowledge management, collaboration, cloud services, and enterprise security so your team can focus on building, growing, and delivering better results.
             </p>
           </div>
 
