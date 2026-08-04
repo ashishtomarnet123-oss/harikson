@@ -1366,7 +1366,7 @@ export default function NeuravoltLandingPage() {
               </div>
               <div style={{ fontSize: '0.72rem', color: 'var(--text-dim)', marginBottom: 10 }}>AI Cloud Platform</div>
               <p class="footer-brand-desc">
-                India's DPDP-compliant AI cloud platform for AI Agents, Workflows, Multi-Language LLMs and Enterprise AI applications.
+                From AI agents and workflow automation to agentic coding, multilingual AI chat, and knowledge management everything works together in one platform.
               </p>
               <div class="social-icons-row">
                 <a href="#" style={{ color: 'var(--text-muted)', textDecoration: 'none', fontSize: '1.1rem' }}>𝕏</a>
