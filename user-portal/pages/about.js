@@ -140,34 +140,51 @@ export default function AboutPage() {
               </div>
             </div>
           </div>
-        </div>
-      </section>
-
-      {/* SECTION 3 — WHY XARWIZ EXISTS */}
-      <section style={{ padding: '90px 20px', background: '#fafafc', borderTop: '1px solid #e2e8f0', borderBottom: '1px solid #e2e8f0' }}>
-        <div style={{ maxWidth: '1040px', margin: '0 auto' }}>
+        </div      {/* SECTION 3 — WHY XARWIZ EXISTS */}
+      <section style={{ padding: '100px 20px', background: '#fafafc', borderTop: '1px solid #e2e8f0', borderBottom: '1px solid #e2e8f0' }}>
+        <div style={{ maxWidth: '1140px', margin: '0 auto' }}>
           <div style={{ textAlign: 'center' }}>
             <div style={{ display: 'inline-flex', padding: '4px 14px', borderRadius: '20px', background: '#eff6ff', color: '#2563eb', fontSize: '0.82rem', fontWeight: '700', marginBottom: '16px' }}>Why Xarwiz Exists</div>
             <h2 style={{ fontFamily: "'Outfit', sans-serif", fontSize: '2.5rem', fontWeight: 800, color: '#0f172a', marginBottom: '16px' }}>The Way We Work Has Changed. Business Software Hasn't.</h2>
             <p style={{ fontSize: '1.1rem', color: '#475569', maxWidth: '780px', margin: '0 auto 40px auto', lineHeight: 1.65 }}>Businesses today have access to more software than ever before, yet productivity continues to suffer.</p>
           </div>
 
-          <div style={{ fontSize: '1.02rem', lineHeight: 1.7, color: '#334155', maxWidth: '900px', margin: '0 auto' }}>
-            <p style={{ marginBottom: '16px' }}>Teams spend valuable hours switching between applications, copying information, managing repetitive tasks, and trying to keep disconnected systems synchronized. Instead of helping businesses move faster, technology often slows them down.</p>
-            <p style={{ marginBottom: '16px' }}>A simple customer journey may involve a CRM, project management software, communication tools, cloud storage, spreadsheets, AI assistants, email platforms, analytics dashboards, and automation software. Each tool stores information separately. Each tool requires another subscription. Each tool creates another workflow to manage.</p>
-            
-            <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '16px', padding: '24px 32px', margin: '24px 0' }}>
-              <strong style={{ color: '#dc2626', fontSize: '1.05rem', display: 'block', marginBottom: '8px' }}>The Result of Disconnected Tools:</strong>
-              <div style={{ color: '#64748b', fontSize: '0.95rem' }}>Scattered knowledge, duplicated work, higher software costs, and unnecessary operational complexity.</div>
+          {/* VISUAL INFOGRAPHIC GRAPHIC */}
+          <div style={{ margin: '40px 0 50px 0', textAlign: 'center' }}>
+            <div style={{ position: 'relative', display: 'inline-block', borderRadius: '24px', overflow: 'hidden', border: '1px solid rgba(37,99,235,0.2)', boxShadow: '0 20px 40px -10px rgba(15,23,42,0.12)', background: '#0f172a' }}>
+              <img src="/assets/fragmented-vs-unified.png" alt="Fragmented Tools vs Unified AI OS" style={{ width: '100%', maxWidth: '960px', height: 'auto', display: 'block', margin: '0 auto', objectFit: 'contain' }} />
+            </div>
+          </div>
+
+          <div style={{ fontSize: '1.05rem', lineHeight: 1.75, color: '#334155', maxWidth: '960px', margin: '0 auto' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '28px', marginBottom: '36px' }}>
+              <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '16px', padding: '28px', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.03)' }}>
+                <div style={{ fontWeight: 700, color: '#0f172a', fontSize: '1.15rem', marginBottom: '10px' }}>Constant App Toggling</div>
+                <p style={{ fontSize: '0.95rem', color: '#64748b', margin: 0, lineHeight: 1.6 }}>Teams spend valuable hours switching between applications, copying information, managing repetitive tasks, and trying to keep disconnected systems synchronized. Instead of helping businesses move faster, technology often slows them down.</p>
+              </div>
+
+              <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '16px', padding: '28px', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.03)' }}>
+                <div style={{ fontWeight: 700, color: '#0f172a', fontSize: '1.15rem', marginBottom: '10px' }}>Fragmented Customer Journeys</div>
+                <p style={{ fontSize: '0.95rem', color: '#64748b', margin: 0, lineHeight: 1.6 }}>A simple customer journey may involve a CRM, project management software, communication tools, cloud storage, spreadsheets, AI assistants, email platforms, analytics dashboards, and automation software. Each tool stores information separately and creates another workflow to manage.</p>
+              </div>
             </div>
 
-            <p style={{ marginBottom: '16px' }}>Artificial intelligence has introduced incredible new possibilities, but most AI products exist as standalone chat interfaces with little connection to the systems businesses actually use every day. Businesses don't need another AI chatbot. They need AI that understands their data, connects their tools, automates their processes, and works alongside their teams.</p>
+            <div style={{ background: 'linear-gradient(135deg, #fef2f2 0%, #fff5f5 100%)', border: '1px solid #fecaca', borderLeft: '5px solid #ef4444', borderRadius: '16px', padding: '28px 36px', margin: '32px 0' }}>
+              <strong style={{ color: '#991b1b', fontSize: '1.15rem', display: 'block', marginBottom: '8px' }}>The Real Cost of Disconnected SaaS:</strong>
+              <div style={{ color: '#7f1d1d', fontSize: '1.02rem', fontWeight: 500 }}>Scattered knowledge, duplicated effort, soaring software subscriptions, and unnecessary operational complexity across every department.</div>
+            </div>
 
-            <p style={{ marginBottom: '16px', fontWeight: 700, color: '#0f172a', fontSize: '1.15rem' }}>That's why we created Xarwiz.</p>
+            <p style={{ marginBottom: '24px' }}>Artificial intelligence has introduced incredible new possibilities, but most AI products exist as standalone chat interfaces with little connection to the systems businesses actually use every day. Businesses don't need another AI chatbot. They need AI that understands their data, connects their tools, automates their processes, and works alongside their teams.</p>
 
-            <p style={{ marginBottom: '16px' }}>Our goal isn't simply to build another software platform. Our goal is to simplify the way businesses operate by bringing intelligence, automation, collaboration, and knowledge into one unified ecosystem.</p>
+            {/* THE XARWIZ SOLUTION GLOW BOX */}
+            <div style={{ background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 100%)', color: '#ffffff', borderRadius: '20px', padding: '40px', marginTop: '36px', border: '1px solid #334155', boxShadow: '0 20px 30px rgba(15,23,42,0.15)', textAlign: 'center' }}>
+              <h3 style={{ fontSize: '1.6rem', fontWeight: 800, color: '#ffffff', marginBottom: '14px', letterSpacing: '-0.02em' }}>That's why we created Xarwiz.</h3>
+              <p style={{ fontSize: '1.08rem', color: '#cbd5e1', maxWidth: '800px', margin: '0 auto 24px auto', lineHeight: 1.7 }}>Our goal isn't simply to build another software platform. Our goal is to simplify the way businesses operate by bringing intelligence, automation, collaboration, and knowledge into one unified ecosystem.</p>
+              <div style={{ display: 'inline-block', background: 'rgba(37,99,235,0.25)', border: '1px solid rgba(59,130,246,0.4)', padding: '14px 28px', borderRadius: '12px', fontWeight: 700, color: '#60a5fa', fontSize: '1.05rem' }}>
+                When everything works together, teams move faster, decisions become smarter, and businesses focus on growth.
+              </div>
+            </div>
 
-            <p style={{ margin: 0, fontWeight: 600, color: '#2563eb' }}>When everything works together, teams move faster, decisions become smarter, and businesses can focus on growth instead of managing technology.</p>
           </div>
         </div>
       </section>
