@@ -274,12 +274,45 @@ export default function AboutPage() {
         </div>
       </section>
 
+      {/* SECTION 7 — THE PROBLEM */}
+      <section style={{ padding: '90px 20px', background: '#fafafc', borderTop: '1px solid #e2e8f0' }}>
+        <div style={{ maxWidth: '1140px', margin: '0 auto' }}>
+          <div style={{ textAlign: 'center' }}>
+            <div style={{ display: 'inline-flex', padding: '4px 14px', borderRadius: '20px', background: '#eff6ff', color: '#2563eb', fontSize: '0.82rem', fontWeight: '700', marginBottom: '16px' }}>The Problem</div>
+            <h2 style={{ fontFamily: "'Outfit', sans-serif", fontSize: '2.5rem', fontWeight: 800, color: '#0f172a', marginBottom: '16px' }}>Modern Businesses Deserve Better Than Disconnected Software</h2>
+            <p style={{ fontSize: '1.1rem', color: '#475569', maxWidth: '780px', margin: '0 auto 40px auto', lineHeight: 1.65 }}>Today's organizations rely on dozens of applications just to complete everyday work. Each department uses different software. Each platform stores information separately. Each subscription adds cost, complexity, and maintenance.</p>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '24px', marginTop: '40px' }}>
+            {[
+              { title: "Scattered Information", desc: "Data locked across multiple disconnected platforms." },
+              { title: "Constant Context Switching", desc: "Teams losing focus toggling between apps." },
+              { title: "Manual Repetitive Tasks", desc: "Valuable time consumed by manual work." },
+              { title: "Disconnected Collaboration", desc: "Poor communication between departments." },
+              { title: "Inconsistent Reporting", desc: "Duplicate data and conflicting analytics." },
+              { title: "Isolated AI Tools", desc: "Chatbots that cannot access business context." },
+              { title: "Rising Software Costs", desc: "Bloated subscription bills as teams grow." },
+              { title: "Security & Compliance Risks", desc: "Harder to manage across fragmented SaaS." }
+            ].map((item, idx) => (
+              <div key={idx} style={{ background: '#ffffff', padding: '24px', borderRadius: '16px', border: '1px solid #fee2e2', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.02)' }}>
+                <h3 style={{ fontSize: '1.1rem', fontWeight: 700, color: '#0f172a', marginBottom: '8px' }}>{item.title}</h3>
+                <p style={{ fontSize: '0.9rem', color: '#64748b', margin: 0, lineHeight: 1.55 }}>{item.desc}</p>
+              </div>
+            ))}
+          </div>
+
+          <div style={{ background: 'linear-gradient(135deg, #ffffff 0%, #fef2f2 100%)', border: '1px solid #fee2e2', borderLeft: '4px solid #ef4444', borderRadius: '16px', padding: '24px 32px', marginTop: '40px', textAlign: 'center', fontSize: '1.08rem', fontWeight: 700, color: '#991b1b', boxShadow: '0 10px 25px -5px rgba(239, 68, 68, 0.05)' }}>
+            The more tools businesses adopt, the more complicated their operations become. Technology should simplify work, not make it harder.
+          </div>
+        </div>
+      </section>
+
       {/* SECTION 8 — THE XARWIZ SOLUTION */}
       <section style={{ padding: '90px 20px', background: '#ffffff' }}>
         <div style={{ maxWidth: '1140px', margin: '0 auto' }}>
           <div style={{ textAlign: 'center' }}>
             <div style={{ display: 'inline-flex', padding: '4px 14px', borderRadius: '20px', background: '#eff6ff', color: '#2563eb', fontSize: '0.82rem', fontWeight: '700', marginBottom: '16px' }}>The Solution</div>
-            <h2 style={{ fontFamily: "'Outfit', sans-serif", fontSize: '2.5rem', fontWeight 800, color: '#0f172a', marginBottom: '16px' }}>One Platform. Endless Possibilities.</h2>
+            <h2 style={{ fontFamily: "'Outfit', sans-serif", fontSize: '2.5rem', fontWeight: 800, color: '#0f172a', marginBottom: '16px' }}>One Platform. Endless Possibilities.</h2>
             <p style={{ fontSize: '1.1rem', color: '#475569', maxWidth: '780px', margin: '0 auto 40px auto', lineHeight: 1.65 }}>Xarwiz brings together everything businesses need into one connected platform designed for the AI era. Instead of managing separate applications, your team works from a single intelligent workspace where every product, workflow, and piece of information is connected.</p>
           </div>
 
