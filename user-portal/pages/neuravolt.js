@@ -439,7 +439,7 @@ export default function NeuravoltLandingPage() {
             </h1>
 
             <p class="hero-subtitle">
-              From AI agents and workflow automation to agentic coding, multilingual AI chat, and knowledge management—everything works together in one platform.
+              From AI agents and workflow automation to agentic coding, multilingual AI chat, and knowledge management, everything works together in one platform.
             </p>
 
             <div class="hero-checks">

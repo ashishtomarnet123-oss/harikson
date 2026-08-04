@@ -83,7 +83,7 @@ export default function NeuravoltLightLandingPage() {
             </h1>
 
             <p className="text-base text-slate-600 leading-relaxed">
-              From AI agents and workflow automation to agentic coding, multilingual AI chat, and knowledge management—everything works together in one platform.
+              From AI agents and workflow automation to agentic coding, multilingual AI chat, and knowledge management, everything works together in one platform.
             </p>
 
             <div className="flex flex-wrap gap-4 pt-1">
