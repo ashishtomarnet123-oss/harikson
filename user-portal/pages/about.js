@@ -140,7 +140,10 @@ export default function AboutPage() {
               </div>
             </div>
           </div>
-        </div      {/* SECTION 3 — WHY XARWIZ EXISTS */}
+        </div>
+      </section>
+
+      {/* SECTION 3 — WHY XARWIZ EXISTS */}
       <section style={{ padding: '100px 20px', background: '#fafafc', borderTop: '1px solid #e2e8f0', borderBottom: '1px solid #e2e8f0' }}>
         <div style={{ maxWidth: '1140px', margin: '0 auto' }}>
           <div style={{ textAlign: 'center' }}>
@@ -165,8 +168,8 @@ export default function AboutPage() {
                   <span style={{ background: '#f1f5f9', color: '#475569', padding: '6px 12px', borderRadius: '8px', fontSize: '0.82rem', fontWeight: 600 }}>Spreadsheets</span>
                   <span style={{ background: '#f1f5f9', color: '#475569', padding: '6px 12px', borderRadius: '8px', fontSize: '0.82rem', fontWeight: 600 }}>Standalone Chatbot</span>
                   <span style={{ background: '#f1f5f9', color: '#475569', padding: '6px 12px', borderRadius: '8px', fontSize: '0.82rem', fontWeight: 600 }}>Project Mgmt</span>
-                  <span style={{ background: '#f1f5f9', color: '#475569', padding: '6px 12px', borderRadius: '8px', fontSize: '0.82rem', fontWeight 600 }}>Cloud Storage</span>
-                  <span style={{ background: '#f1f5f9', color: '#475569', padding: '6px 12px', borderRadius: '8px', fontSize: '0.82rem', fontWeight 600 }}>Automation App</span>
+                  <span style={{ background: '#f1f5f9', color: '#475569', padding: '6px 12px', borderRadius: '8px', fontSize: '0.82rem', fontWeight: 600 }}>Cloud Storage</span>
+                  <span style={{ background: '#f1f5f9', color: '#475569', padding: '6px 12px', borderRadius: '8px', fontSize: '0.82rem', fontWeight: 600 }}>Automation App</span>
                 </div>
                 <div style={{ fontSize: '0.88rem', color: '#b91c1c', background: '#fff5f5', padding: '12px 16px', borderRadius: '10px', borderLeft: '3px solid #ef4444' }}>
                   Data silos, repeated logins, manual copy paste, and rising subscription costs.
@@ -182,9 +185,9 @@ export default function AboutPage() {
                 <h3 style={{ fontSize: '1.3rem', fontWeight: 800, color: '#ffffff', marginBottom: '16px' }}>Everything Connected Natively</h3>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '20px' }}>
                   <span style={{ background: 'rgba(255,255,255,0.1)', color: '#93c5fd', padding: '6px 12px', borderRadius: '8px', fontSize: '0.82rem', fontWeight: 600, border: '1px solid rgba(255,255,255,0.15)' }}>AI Workspace</span>
-                  <span style={{ background: 'rgba(255,255,255,0.1)', color: '#93c5fd', padding: '6px 12px', borderRadius: '8px', fontSize: '0.82rem', fontWeight 600, border: '1px solid rgba(255,255,255,0.15)' }}>RAG Knowledge Hub</span>
-                  <span style={{ background: 'rgba(255,255,255,0.1)', color: '#93c5fd', padding: '6px 12px', borderRadius: '8px', fontSize: '0.82rem', fontWeight 600, border: '1px solid rgba(255,255,255,0.15)' }}>Autonomous Agents</span>
-                  <span style={{ background: 'rgba(255,255,255,0.1)', color: '#93c5fd', padding: '6px 12px', borderRadius: '8px', fontSize: '0.82rem', fontWeight 600, border: '1px solid rgba(255,255,255,0.15)' }}>Workflows &amp; Analytics</span>
+                  <span style={{ background: 'rgba(255,255,255,0.1)', color: '#93c5fd', padding: '6px 12px', borderRadius: '8px', fontSize: '0.82rem', fontWeight: 600, border: '1px solid rgba(255,255,255,0.15)' }}>RAG Knowledge Hub</span>
+                  <span style={{ background: 'rgba(255,255,255,0.1)', color: '#93c5fd', padding: '6px 12px', borderRadius: '8px', fontSize: '0.82rem', fontWeight: 600, border: '1px solid rgba(255,255,255,0.15)' }}>Autonomous Agents</span>
+                  <span style={{ background: 'rgba(255,255,255,0.1)', color: '#93c5fd', padding: '6px 12px', borderRadius: '8px', fontSize: '0.82rem', fontWeight: 600, border: '1px solid rgba(255,255,255,0.15)' }}>Workflows &amp; Analytics</span>
                 </div>
                 <div style={{ fontSize: '0.88rem', color: '#e0f2fe', background: 'rgba(37, 99, 235, 0.2)', padding: '12px 16px', borderRadius: '10px', borderLeft: '3px solid #3b82f6' }}>
                   Single source of truth, automated workflows, enterprise security, and 100% data sovereignty.
@@ -267,7 +270,7 @@ export default function AboutPage() {
 
             <div style={{ background: '#1e293b', border: '1px solid #334155', borderRadius: '16px', padding: '32px', color: '#ffffff' }}>
               <div style={{ fontSize: '0.8rem', fontWeight: 800, color: '#3b82f6', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '12px' }}>Our Long-Term Ambition</div>
-              <h3 style={{ fontSize: '1.35rem', fontWeight 700, marginBottom: '12px' }}>One Single Intelligent Ecosystem</h3>
+              <h3 style={{ fontSize: '1.35rem', fontWeight: 700, marginBottom: '12px' }}>One Single Intelligent Ecosystem</h3>
               <p style={{ color: '#94a3b8', fontSize: '0.95rem', lineHeight: 1.65 }}>Our ambition is to build a platform where businesses no longer need dozens of disconnected applications. We envision a future where every organization has its own intelligent workforce powered by AI—and Xarwiz becomes the platform that makes it possible.</p>
             </div>
           </div>
@@ -323,42 +326,42 @@ export default function AboutPage() {
             </div>
 
             <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '16px', padding: '32px', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.03)' }}>
-              <h3 style={{ fontSize: '1.25rem', fontWeight 700, color: '#0f172a', marginBottom: '12px' }}>AI Agents</h3>
+              <h3 style={{ fontSize: '1.25rem', fontWeight: 700, color: '#0f172a', marginBottom: '12px' }}>AI Agents</h3>
               <p style={{ color: '#64748b', fontSize: '0.95rem', lineHeight: 1.65, margin: 0 }}>Create intelligent AI agents that assist employees, automate routine tasks, answer questions, and execute business workflows around the clock.</p>
             </div>
 
             <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '16px', padding: '32px', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.03)' }}>
-              <h3 style={{ fontSize: '1.25rem', fontWeight 700, color: '#0f172a', marginBottom: '12px' }}>Workflow Automation</h3>
+              <h3 style={{ fontSize: '1.25rem', fontWeight: 700, color: '#0f172a', marginBottom: '12px' }}>Workflow Automation</h3>
               <p style={{ color: '#64748b', fontSize: '0.95rem', lineHeight: 1.65, margin: 0 }}>Automate repetitive processes across departments, reduce manual effort, and ensure work moves efficiently from one stage to the next.</p>
             </div>
 
             <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '16px', padding: '32px', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.03)' }}>
-              <h3 style={{ fontSize: '1.25rem', fontWeight 700, color: '#0f172a', marginBottom: '12px' }}>Business Intelligence</h3>
+              <h3 style={{ fontSize: '1.25rem', fontWeight: 700, color: '#0f172a', marginBottom: '12px' }}>Business Intelligence</h3>
               <p style={{ color: '#64748b', fontSize: '0.95rem', lineHeight: 1.65, margin: 0 }}>Transform your business data into actionable insights with AI-powered reporting, analytics, and decision support.</p>
             </div>
 
             <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '16px', padding: '32px', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.03)' }}>
-              <h3 style={{ fontSize: '1.25rem', fontWeight 700, color: '#0f172a', marginBottom: '12px' }}>Cloud Infrastructure</h3>
+              <h3 style={{ fontSize: '1.25rem', fontWeight: 700, color: '#0f172a', marginBottom: '12px' }}>Cloud Infrastructure</h3>
               <p style={{ color: '#64748b', fontSize: '0.95rem', lineHeight: 1.65, margin: 0 }}>Securely store, organize, and manage business data with scalable cloud services built for performance and reliability.</p>
             </div>
 
             <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '16px', padding: '32px', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.03)' }}>
-              <h3 style={{ fontSize: '1.25rem', fontWeight 700, color: '#0f172a', marginBottom: '12px' }}>Team Collaboration</h3>
+              <h3 style={{ fontSize: '1.25rem', fontWeight: 700, color: '#0f172a', marginBottom: '12px' }}>Team Collaboration</h3>
               <p style={{ color: '#64748b', fontSize: '0.95rem', lineHeight: 1.65, margin: 0 }}>Bring conversations, documents, tasks, and projects into one shared workspace so teams can collaborate more effectively.</p>
             </div>
 
             <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '16px', padding: '32px', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.03)' }}>
-              <h3 style={{ fontSize: '1.25rem', fontWeight 700, color: '#0f172a', marginBottom: '12px' }}>Integrations &amp; APIs</h3>
+              <h3 style={{ fontSize: '1.25rem', fontWeight: 700, color: '#0f172a', marginBottom: '12px' }}>Integrations &amp; APIs</h3>
               <p style={{ color: '#64748b', fontSize: '0.95rem', lineHeight: 1.65, margin: 0 }}>Connect Xarwiz with your existing tools and workflows through flexible APIs and integrations, ensuring a seamless experience without disrupting your current systems.</p>
             </div>
 
             <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '16px', padding: '32px', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.03)' }}>
-              <h3 style={{ fontSize: '1.25rem', fontWeight 700, color: '#0f172a', marginBottom: '12px' }}>Secure Data Management</h3>
+              <h3 style={{ fontSize: '1.25rem', fontWeight: 700, color: '#0f172a', marginBottom: '12px' }}>Secure Data Management</h3>
               <p style={{ color: '#64748b', fontSize: '0.95rem', lineHeight: 1.65, margin: 0 }}>Protect your organization's information with enterprise-grade encryption, access controls, audit logs, and compliance-ready security architecture.</p>
             </div>
 
             <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '16px', padding: '32px', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.03)' }}>
-              <h3 style={{ fontSize: '1.25rem', fontWeight 700, color: '#0f172a', marginBottom: '12px' }}>Enterprise AI</h3>
+              <h3 style={{ fontSize: '1.25rem', fontWeight: 700, color: '#0f172a', marginBottom: '12px' }}>Enterprise AI</h3>
               <p style={{ color: '#64748b', fontSize: '0.95rem', lineHeight: 1.65, margin: 0 }}>Deliver AI experiences that understand your organization's knowledge, context, and workflows—providing relevant, accurate, and secure assistance tailored to your business.</p>
             </div>
           </div>
@@ -370,7 +373,7 @@ export default function AboutPage() {
         <div style={{ maxWidth: '860px', margin: '0 auto' }}>
           <div style={{ textAlign: 'center', marginBottom: '40px' }}>
             <div style={{ display: 'inline-flex', padding: '4px 14px', borderRadius: '20px', background: '#eff6ff', color: '#2563eb', fontSize: '0.82rem', fontWeight: '700', marginBottom: '16px' }}>FAQ</div>
-            <h2 style={{ fontFamily: "'Outfit', sans-serif", fontSize: '2.5rem', fontWeight 800, color: '#0f172a' }}>Frequently Asked Questions</h2>
+            <h2 style={{ fontFamily: "'Outfit', sans-serif", fontSize: '2.5rem', fontWeight: 800, color: '#0f172a' }}>Frequently Asked Questions</h2>
           </div>
 
           {[
@@ -380,7 +383,7 @@ export default function AboutPage() {
             <div key={idx} style={{ border: '1px solid #e2e8f0', borderRadius: '12px', marginBottom: '12px', background: '#ffffff', overflow: 'hidden' }}>
               <div
                 onClick={() => toggleFaq(idx)}
-                style={{ padding: '20px 24px', fontWeight 700, fontSize: '1.05rem', color: '#0f172a', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
+                style={{ padding: '20px 24px', fontWeight: 700, fontSize: '1.05rem', color: '#0f172a', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
               >
                 <span>{item.q}</span>
                 <span>{activeFaq === idx ? '▲' : '▼'}</span>
@@ -398,7 +401,7 @@ export default function AboutPage() {
       {/* CALL TO ACTION SECTION */}
       <section style={{ background: 'linear-gradient(135deg, #1e40af 0%, #2563eb 100%)', color: '#ffffff', padding: '90px 20px', textAlign: 'center' }}>
         <div style={{ maxWidth: '800px', margin: '0 auto' }}>
-          <h2 style={{ fontFamily: "'Outfit', sans-serif", fontSize: '3rem', fontWeight 800, marginBottom: '20px', lineHeight: 1.15 }}>
+          <h2 style={{ fontFamily: "'Outfit', sans-serif", fontSize: '3rem', fontWeight: 800, marginBottom: '20px', lineHeight: 1.15 }}>
             Everything Your Business Needs.<br />One Intelligent Platform.
           </h2>
           <p style={{ fontSize: '1.15rem', color: 'rgba(255,255,255,0.9)', marginBottom: '36px', lineHeight: 1.6 }}>
