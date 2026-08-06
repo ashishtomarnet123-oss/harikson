@@ -15,19 +15,24 @@
     "onStartupFinished"
   ],
   "main": "./dist/extension.js",
+  "scripts": {
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "package": "npm run compile && vsce package"
+  },
   "contributes": {
     "configuration": {
       "title": "Harikson AI",
       "properties": {
         "harikson.tenantUrl": {
           "type": "string",
-          "default": "http://localhost:3000",
-          "description": "Tenant API endpoint (e.g., http://mycompany.harikson.ai or http://localhost:3000)."
+          "default": "https://xarwiz.com",
+          "description": "Your Xarwiz tenant API endpoint (e.g., https://xarwiz.com or http://localhost:3008 for local development)."
         },
         "harikson.apiKey": {
           "type": "string",
           "default": "",
-          "description": "Your Harikson JWT access key."
+          "description": "Personal access token from Xarwiz → Settings → Connected Apps → Xarwiz VS Code Extension → Connect."
         },
         "harikson.model": {
           "type": "string",
@@ -71,6 +76,7 @@
   },
   "devDependencies": {
     "@types/vscode": "^1.80.0",
+    "@vscode/vsce": "^2.32.0",
     "typescript": "^5.4.5"
   }
 }
