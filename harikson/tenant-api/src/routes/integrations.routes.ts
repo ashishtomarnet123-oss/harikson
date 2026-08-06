@@ -54,6 +54,7 @@ async function getGoogleConnection(tenantId: string, userId: string) {
   return res.rows[0] || null;
 }
 
+const LIVE_PROVIDERS = ['google_drive', 'vscode'];
 const KNOWN_PROVIDERS = ['google_drive', 'github', 'vscode', 'slack', 'notion', 'figma'];
 
 // GET /api/integrations — list every provider's connection status for the Connected Apps page.
@@ -71,7 +72,7 @@ router.get('/', async (req: any, res) => {
     const byProvider = new Map(connRes.rows.map((r: any) => [r.provider_id, r]));
 
     const integrations = KNOWN_PROVIDERS.map((providerId) => {
-      if (providerId !== 'google_drive') {
+      if (!LIVE_PROVIDERS.includes(providerId)) {
         return { providerId, status: 'coming_soon' };
       }
       const conn = byProvider.get(providerId);
@@ -310,6 +311,80 @@ router.post('/google/sync', async (req: any, res) => {
   } catch (err: any) {
     logger.error('Google Drive sync trigger error:', err);
     res.status(500).json({ error: 'Failed to start sync' });
+  }
+});
+
+// ── VS Code Extension: a personal access token scoped to IDE use, tracked as
+// its own integration_connections row (separate status from the general
+// Developer Settings API keys) so the Connected Apps card reflects reality. ──
+
+// POST /api/integrations/vscode/connect — (re)issues a personal access token
+// for the extension and marks the connection active. Re-connecting revokes
+// any previous IDE token first, so only one is ever valid at a time.
+router.post('/vscode/connect', async (req: any, res) => {
+  if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
+  try {
+    const tenantId = await resolveTenantId(req);
+    if (!tenantId) return res.status(400).json({ error: 'No tenant associated with this account' });
+
+    await pool.query(
+      `UPDATE tenant_api_keys SET status = 'revoked', revoked_at = NOW()
+       WHERE tenant_id = $1 AND user_id = $2 AND status = 'active' AND scopes = $3::jsonb`,
+      [tenantId, req.user.userId, JSON.stringify(['ide'])]
+    );
+
+    const rawKey = 'hk_live_' + crypto.randomBytes(24).toString('hex');
+    const prefix = rawKey.substring(0, 12);
+    const keyHash = crypto.createHash('sha256').update(rawKey).digest('hex');
+
+    await pool.query(
+      `INSERT INTO tenant_api_keys (tenant_id, user_id, name, key_hash, key_prefix, scopes, status, created_at)
+       VALUES ($1, $2, 'VS Code Extension', $3, $4, $5, 'active', NOW())`,
+      [tenantId, req.user.userId, keyHash, prefix, JSON.stringify(['ide'])]
+    );
+
+    await pool.query(
+      `INSERT INTO integration_connections (tenant_id, user_id, provider_id, status, connected_by, connected_at, settings)
+       VALUES ($1, $2, 'vscode', 'connected', $2, NOW(), '{}'::jsonb)
+       ON CONFLICT (tenant_id, user_id, provider_id) DO UPDATE SET
+         status = 'connected', connected_by = $2, connected_at = NOW(), disconnected_at = NULL,
+         last_error = NULL, error_count = 0, updated_at = NOW()`,
+      [tenantId, req.user.userId]
+    );
+
+    logger.info(`VS Code extension token issued: tenant=${tenantId} user=${req.user.userId}`);
+    // apiKey is returned once, exactly like the Developer Settings API keys —
+    // it is never retrievable again after this response.
+    res.status(201).json({ apiKey: rawKey, keyPrefix: prefix });
+  } catch (err: any) {
+    logger.error('VS Code connect error:', err);
+    res.status(500).json({ error: 'Failed to connect VS Code extension' });
+  }
+});
+
+// POST /api/integrations/vscode/disconnect
+router.post('/vscode/disconnect', async (req: any, res) => {
+  if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
+  try {
+    const tenantId = await resolveTenantId(req);
+    if (!tenantId) return res.status(400).json({ error: 'No tenant associated with this account' });
+
+    await pool.query(
+      `UPDATE tenant_api_keys SET status = 'revoked', revoked_at = NOW()
+       WHERE tenant_id = $1 AND user_id = $2 AND status = 'active' AND scopes = $3::jsonb`,
+      [tenantId, req.user.userId, JSON.stringify(['ide'])]
+    );
+
+    await pool.query(
+      `UPDATE integration_connections SET status = 'disconnected', disconnected_at = NOW(), updated_at = NOW()
+       WHERE tenant_id = $1 AND user_id = $2 AND provider_id = 'vscode'`,
+      [tenantId, req.user.userId]
+    );
+
+    res.json({ success: true });
+  } catch (err: any) {
+    logger.error('VS Code disconnect error:', err);
+    res.status(500).json({ error: 'Failed to disconnect VS Code extension' });
   }
 });
 

@@ -15,13 +15,15 @@ import {
   File as FileIcon,
   ChevronLeft,
   X,
+  Copy,
 } from 'lucide-react';
 
-// google_drive is the only provider with a real backend behind it
-// (tenant-api's /api/integrations/google/*). The rest stay honestly labeled
-// "Coming Soon" — this list previously showed all of these as "Connected"
-// with fabricated account names and a client-only toggle; that was actively
-// misleading, so nothing here claims to work until it actually does.
+// google_drive and vscode are the only providers with a real backend behind
+// them (tenant-api's /api/integrations/google/* and /api/integrations/vscode/*).
+// The rest stay honestly labeled "Coming Soon" — this list previously showed
+// all of these as "Connected" with fabricated account names and a
+// client-only toggle; that was actively misleading, so nothing here claims
+// to work until it actually does.
 const APPS_META = [
   {
     id: 'google_drive',
@@ -36,8 +38,8 @@ const APPS_META = [
     permissions: ['Code Base Indexing', 'Repo Context Analysis'],
   },
   {
-    id: 'vscode-ext',
-    name: 'Harikson VS Code Extension',
+    id: 'vscode',
+    name: 'Xarwiz VS Code Extension',
     category: 'IDE Integration',
     permissions: ['Code Completion', 'Inline Chat Assistant'],
   },
@@ -71,7 +73,7 @@ function appIcon(id) {
       return <FileText size={22} />;
     case 'slack':
       return <MessageSquare size={22} />;
-    case 'vscode-ext':
+    case 'vscode':
       return <Zap size={22} />;
     default:
       return <Layers size={22} />;
@@ -102,6 +104,12 @@ export default function ConnectedAppsSettings() {
   const [currentFolderId, setCurrentFolderId] = useState(undefined);
   const [folderStack, setFolderStack] = useState([]);
   const [selectedFileIds, setSelectedFileIds] = useState([]);
+
+  // Holds the plaintext VS Code token only for the few seconds between
+  // issuance and the user dismissing the reveal dialog — never stored
+  // anywhere else, since the backend never returns it again after this.
+  const [vsCodeToken, setVsCodeToken] = useState(null);
+  const [vsCodeCopied, setVsCodeCopied] = useState(false);
 
   const fetchStatus = useCallback(async () => {
     try {
@@ -196,6 +204,62 @@ export default function ConnectedAppsSettings() {
     } finally {
       setActionLoading(null);
     }
+  };
+
+  const handleConnectVsCode = async () => {
+    setActionLoading('vscode');
+    setMessage(null);
+    try {
+      const { apiBase, tenantSlug } = getApiConfig();
+      const res = await authenticatedFetch(`${apiBase}/api/integrations/vscode/connect`, {
+        method: 'POST',
+        headers: { 'x-tenant-slug': tenantSlug, 'Content-Type': 'application/json' },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setVsCodeToken(data.apiKey);
+        await fetchStatus();
+      } else {
+        const data = await res.json().catch(() => ({}));
+        setMessage({ type: 'error', text: data.error || 'Failed to connect VS Code extension.' });
+      }
+    } catch (e) {
+      setMessage({ type: 'error', text: 'Failed to connect VS Code extension.' });
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const handleDisconnectVsCode = async () => {
+    if (!confirm('Disconnect the VS Code extension? Its access token will stop working immediately.')) {
+      return;
+    }
+    setActionLoading('vscode');
+    setMessage(null);
+    try {
+      const { apiBase, tenantSlug } = getApiConfig();
+      const res = await authenticatedFetch(`${apiBase}/api/integrations/vscode/disconnect`, {
+        method: 'POST',
+        headers: { 'x-tenant-slug': tenantSlug, 'Content-Type': 'application/json' },
+      });
+      if (res.ok) {
+        setMessage({ type: 'success', text: 'VS Code extension disconnected.' });
+        await fetchStatus();
+      } else {
+        setMessage({ type: 'error', text: 'Failed to disconnect. Please try again.' });
+      }
+    } catch (e) {
+      setMessage({ type: 'error', text: 'Failed to disconnect. Please try again.' });
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const copyVsCodeToken = () => {
+    if (!vsCodeToken) return;
+    navigator.clipboard.writeText(vsCodeToken);
+    setVsCodeCopied(true);
+    setTimeout(() => setVsCodeCopied(false), 2000);
   };
 
   const loadPickerFiles = async (folderId) => {
@@ -298,7 +362,7 @@ export default function ConnectedAppsSettings() {
   const renderActions = (app) => {
     const status = statusByProvider[app.id];
 
-    if (app.id !== 'google_drive') {
+    if (app.id !== 'google_drive' && app.id !== 'vscode') {
       return (
         <button
           type="button"
@@ -318,6 +382,51 @@ export default function ConnectedAppsSettings() {
         >
           Connect
         </button>
+      );
+    }
+
+    if (app.id === 'vscode') {
+      const isBusy = actionLoading === 'vscode';
+      const connState = status?.status || 'disconnected';
+
+      if (connState === 'disconnected') {
+        return (
+          <button type="button" onClick={handleConnectVsCode} disabled={isBusy} className="btn-primary" style={{ height: '36px', padding: '0 16px', fontSize: '13px' }}>
+            {isBusy ? <Loader2 size={14} className="spin-icon" /> : 'Connect'}
+          </button>
+        );
+      }
+
+      return (
+        <div style={{ display: 'flex', gap: '8px' }}>
+          <button
+            type="button"
+            onClick={handleConnectVsCode}
+            disabled={isBusy}
+            className="btn-change-plan-outline"
+            style={{ height: '36px', padding: '0 14px', fontSize: '13px' }}
+          >
+            {isBusy ? <Loader2 size={14} className="spin-icon" /> : 'Regenerate Token'}
+          </button>
+          <button
+            type="button"
+            onClick={handleDisconnectVsCode}
+            disabled={isBusy}
+            style={{
+              height: '36px',
+              padding: '0 14px',
+              background: 'transparent',
+              border: '1px solid #fecaca',
+              borderRadius: '8px',
+              color: '#dc2626',
+              fontSize: '13px',
+              fontWeight: 600,
+              cursor: isBusy ? 'default' : 'pointer',
+            }}
+          >
+            Disconnect
+          </button>
+        </div>
       );
     }
 
@@ -368,7 +477,7 @@ export default function ConnectedAppsSettings() {
 
   const renderStatusBadge = (app) => {
     const status = statusByProvider[app.id];
-    if (app.id !== 'google_drive') {
+    if (app.id !== 'google_drive' && app.id !== 'vscode') {
       return (
         <span style={{ fontSize: '11px', fontWeight: 500, padding: '2px 8px', borderRadius: '12px', background: '#f1f5f9', color: '#64748b' }}>
           Coming Soon
@@ -429,7 +538,8 @@ export default function ConnectedAppsSettings() {
           <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
             {APPS_META.map((app) => {
               const status = statusByProvider[app.id];
-              const isConnected = app.id === 'google_drive' && status && status.status !== 'disconnected';
+              const isConnected =
+                (app.id === 'google_drive' || app.id === 'vscode') && status && status.status !== 'disconnected';
 
               return (
                 <div
@@ -477,7 +587,7 @@ export default function ConnectedAppsSettings() {
                       </div>
                       <p style={{ fontSize: '13px', color: '#64748b', margin: '3px 0 0 0' }}>{app.category}</p>
 
-                      {isConnected ? (
+                      {isConnected && app.id === 'google_drive' ? (
                         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '14px', marginTop: '6px', fontSize: '12px', color: '#475569' }}>
                           <span>
                             Account: <strong>{status.email}</strong>
@@ -497,6 +607,10 @@ export default function ConnectedAppsSettings() {
                             <span style={{ color: '#dc2626' }}>Error: {status.error}</span>
                           )}
                         </div>
+                      ) : isConnected && app.id === 'vscode' ? (
+                        <p style={{ fontSize: '12px', color: '#475569', margin: '6px 0 0 0' }}>
+                          Personal access token active. Paste it into the extension&apos;s API key setting in VS Code.
+                        </p>
                       ) : (
                         <div style={{ display: 'flex', gap: '8px', marginTop: '6px' }}>
                           {app.permissions.map((perm, idx) => (
@@ -628,6 +742,86 @@ export default function ConnectedAppsSettings() {
                 </button>
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── VS Code extension token reveal — shown once, right after issuance ── */}
+      {vsCodeToken && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(15, 23, 42, 0.45)',
+            backdropFilter: 'blur(4px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 10000,
+            padding: '20px',
+          }}
+        >
+          <div
+            style={{
+              background: '#ffffff',
+              borderRadius: '16px',
+              maxWidth: '520px',
+              width: '100%',
+              border: '1px solid #e2e8f0',
+              boxShadow: '0 20px 50px rgba(0,0,0,0.15)',
+              padding: '24px',
+            }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+              <div>
+                <h3 style={{ fontSize: '17px', fontWeight: 700, margin: 0, color: '#0f172a' }}>VS Code extension connected</h3>
+                <p style={{ fontSize: '12px', color: '#64748b', margin: '4px 0 0 0' }}>
+                  Copy this token now — for your security, it won&apos;t be shown again.
+                </p>
+              </div>
+              <button onClick={() => { setVsCodeToken(null); setVsCodeCopied(false); }} style={{ background: 'none', border: 'none', fontSize: '18px', cursor: 'pointer', color: '#64748b' }}>
+                <X size={18} />
+              </button>
+            </div>
+
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                marginTop: '16px',
+                padding: '10px 12px',
+                background: '#f8fafc',
+                border: '1px solid #e2e8f0',
+                borderRadius: '8px',
+              }}
+            >
+              <code style={{ flex: 1, fontSize: '12px', color: '#0f172a', overflowX: 'auto', whiteSpace: 'nowrap' }}>{vsCodeToken}</code>
+              <button
+                type="button"
+                onClick={copyVsCodeToken}
+                title="Copy token"
+                style={{ background: 'none', border: 'none', cursor: 'pointer', color: vsCodeCopied ? '#16a34a' : '#64748b', flexShrink: 0 }}
+              >
+                {vsCodeCopied ? <CheckCircle2 size={16} /> : <Copy size={16} />}
+              </button>
+            </div>
+
+            <div style={{ marginTop: '16px', fontSize: '12px', color: '#475569', lineHeight: 1.6 }}>
+              <p style={{ margin: '0 0 6px 0', fontWeight: 600, color: '#0f172a' }}>To finish setup in VS Code:</p>
+              <ol style={{ margin: 0, paddingLeft: '18px' }}>
+                <li>Install the Xarwiz VS Code extension once it&apos;s available.</li>
+                <li>Open its settings and paste the token above into the API key field.</li>
+              </ol>
+            </div>
+
+            <button
+              onClick={() => { setVsCodeToken(null); setVsCodeCopied(false); }}
+              className="btn-primary"
+              style={{ marginTop: '20px', width: '100%', padding: '10px', fontSize: '13px' }}
+            >
+              Done
+            </button>
           </div>
         </div>
       )}
