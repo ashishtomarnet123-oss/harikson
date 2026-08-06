@@ -795,25 +795,28 @@ function ChatPage() {
   const [customPresets, setCustomPresets] = useState([]);
   const [showExportMenu, setShowExportMenu] = useState(false);
 
-  const syncCustomPresets = useCallback(() => {
-    if (typeof window !== 'undefined') {
-      const stored = localStorage.getItem('hk_custom_presets');
-      if (stored) {
-        try {
-          const parsed = JSON.parse(stored);
-          setCustomPresets(Array.isArray(parsed) ? parsed : []);
-        } catch (e) {
-          console.error(e);
-        }
+  const syncCustomPresets = useCallback(async () => {
+    if (typeof window === 'undefined') return;
+    try {
+      const slug = tenantSlug || localStorage.getItem('hk_tenant') || 'neuravolt';
+      const res = await fetch(`${apiBase}/api/v1/user/presets`, {
+        headers: { 'x-tenant-slug': slug },
+        credentials: 'include',
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setCustomPresets(Array.isArray(data) ? data : []);
       }
+    } catch (e) {
+      console.error('Failed to load custom presets:', e);
     }
-  }, []);
+  }, [apiBase, tenantSlug]);
 
   useEffect(() => {
-    syncCustomPresets();
+    if (token) syncCustomPresets();
     window.addEventListener('storage', syncCustomPresets);
     return () => window.removeEventListener('storage', syncCustomPresets);
-  }, [syncCustomPresets]);
+  }, [token, syncCustomPresets]);
 
   const triggerDownload = (content, filename, contentType) => {
     const blob = new Blob([content], { type: contentType });

@@ -116,7 +116,10 @@ function PromptLibrarySettings() {
         headers: { 'x-tenant-slug': getTenant() },
         credentials: 'include',
       });
-      if (res.ok) setPresets(await res.json());
+      if (res.ok) {
+        setPresets(await res.json());
+        window.dispatchEvent(new Event('storage'));
+      }
     } catch (e) {
       console.error(e);
     }

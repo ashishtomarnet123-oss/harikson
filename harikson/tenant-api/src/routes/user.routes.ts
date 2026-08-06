@@ -823,6 +823,87 @@ router.delete(['/rag-files/:id', '/user/rag-files/:id'], async (req: any, res) =
   }
 });
 
+// ── Prompt Library: per-user custom agent presets (name + description +
+// system prompt), selectable from the chat model dropdown. ──
+
+async function listPresets(tenantId: string, userId: string) {
+  const presetsRes = await executeTenantQuery(tenantId, (client) =>
+    client.query(
+      `SELECT id, name, description, system_prompt AS "systemPrompt", created_at AS "createdAt"
+       FROM user_prompt_presets
+       WHERE tenant_id = $1 AND user_id = $2
+       ORDER BY created_at ASC`,
+      [tenantId, userId]
+    )
+  );
+  return presetsRes.rows;
+}
+
+// GET /api/user/presets & /api/v1/user/presets
+router.get('/presets', async (req: any, res) => {
+  if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
+  try {
+    const userRes = await pool.query('SELECT tenant_id FROM users WHERE id = $1', [req.user.userId]).catch(() => ({ rows: [] }));
+    const tenantId = userRes.rows[0]?.tenant_id || req.tenant?.id;
+    if (!tenantId) return res.status(400).json({ error: 'No tenant associated with this account' });
+
+    res.json(await listPresets(tenantId, req.user.userId));
+  } catch (err: any) {
+    logger.error('Fetch presets error:', err);
+    res.status(500).json({ error: 'Failed to fetch presets' });
+  }
+});
+
+// POST /api/user/presets & /api/v1/user/presets
+router.post('/presets', async (req: any, res) => {
+  if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
+  const { name, description, systemPrompt } = req.body;
+  if (!name || !systemPrompt) return res.status(400).json({ error: 'name and systemPrompt are required' });
+
+  try {
+    const userRes = await pool.query('SELECT tenant_id FROM users WHERE id = $1', [req.user.userId]).catch(() => ({ rows: [] }));
+    const tenantId = userRes.rows[0]?.tenant_id || req.tenant?.id;
+    if (!tenantId) return res.status(400).json({ error: 'No tenant associated with this account' });
+
+    await executeTenantQuery(tenantId, (client) =>
+      client.query(
+        `INSERT INTO user_prompt_presets (tenant_id, user_id, name, description, system_prompt)
+         VALUES ($1, $2, $3, $4, $5)`,
+        [tenantId, req.user.userId, name, description || null, systemPrompt]
+      )
+    );
+
+    res.status(201).json(await listPresets(tenantId, req.user.userId));
+  } catch (err: any) {
+    logger.error('Create preset error:', err);
+    res.status(500).json({ error: 'Failed to create preset' });
+  }
+});
+
+// DELETE /api/user/presets/:id & /api/v1/user/presets/:id
+router.delete('/presets/:id', async (req: any, res) => {
+  if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
+  const { id } = req.params;
+
+  try {
+    const userRes = await pool.query('SELECT tenant_id FROM users WHERE id = $1', [req.user.userId]).catch(() => ({ rows: [] }));
+    const tenantId = userRes.rows[0]?.tenant_id || req.tenant?.id;
+    if (!tenantId) return res.status(400).json({ error: 'No tenant associated with this account' });
+
+    await executeTenantQuery(tenantId, (client) =>
+      client.query(
+        `DELETE FROM user_prompt_presets WHERE id = $1 AND tenant_id = $2 AND user_id = $3`,
+        [id, tenantId, req.user.userId]
+      )
+    );
+
+    res.json(await listPresets(tenantId, req.user.userId));
+  } catch (err: any) {
+    logger.error('Delete preset error:', err);
+    res.status(500).json({ error: 'Failed to delete preset' });
+  }
+});
+
 // GET /api/user/usage & /api/v1/user/usage
 router.get('/usage', async (req: any, res) => {
   if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
