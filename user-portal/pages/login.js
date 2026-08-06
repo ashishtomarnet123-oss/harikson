@@ -2,9 +2,11 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import Head from 'next/head';
 import Link from 'next/link';
+import { useAuth } from '../context/AuthContext';
 
 export default function LoginPage() {
   const router = useRouter();
+  const { checkAuth } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -263,6 +265,12 @@ export default function LoginPage() {
       localStorage.setItem('hk_user', JSON.stringify({ ...data.user, tenantSlug }));
       localStorage.setItem('hk_tenant', tenantSlug);
       localStorage.setItem('hk_api_base', apiBase);
+      // AuthContext only checks auth once, when the app first loads — before
+      // this login even happened, so it still thinks the user is signed out.
+      // Without re-running it here, the /chat page (wrapped in withAuth)
+      // reads that stale isAuthenticated=false the instant it mounts and
+      // bounces straight back to /login.
+      await checkAuth();
       router.replace('/chat');
     } catch (err) {
       const errMsg = err?.message || 'Login error occurred';
@@ -303,6 +311,7 @@ export default function LoginPage() {
       localStorage.setItem('hk_user', JSON.stringify({ ...data.user, tenantSlug }));
       localStorage.setItem('hk_tenant', tenantSlug);
       localStorage.setItem('hk_api_base', apiBase);
+      await checkAuth();
       router.replace('/chat');
     } catch (err) {
       setError(err.message);
