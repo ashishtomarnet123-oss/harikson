@@ -345,11 +345,11 @@ router.post('/vscode/connect', async (req: any, res) => {
 
     await pool.query(
       `INSERT INTO integration_connections (tenant_id, user_id, provider_id, status, connected_by, connected_at, settings)
-       VALUES ($1, $2, 'vscode', 'connected', $2, NOW(), '{}'::jsonb)
+       VALUES ($1, $2, 'vscode', 'connected', $3, NOW(), '{}'::jsonb)
        ON CONFLICT (tenant_id, user_id, provider_id) DO UPDATE SET
-         status = 'connected', connected_by = $2, connected_at = NOW(), disconnected_at = NULL,
+         status = 'connected', connected_by = $3, connected_at = NOW(), disconnected_at = NULL,
          last_error = NULL, error_count = 0, updated_at = NOW()`,
-      [tenantId, req.user.userId]
+      [tenantId, req.user.userId, req.user.userId]
     );
 
     logger.info(`VS Code extension token issued: tenant=${tenantId} user=${req.user.userId}`);
@@ -357,7 +357,7 @@ router.post('/vscode/connect', async (req: any, res) => {
     // it is never retrievable again after this response.
     res.status(201).json({ apiKey: rawKey, keyPrefix: prefix });
   } catch (err: any) {
-    logger.error('VS Code connect error:', err);
+    logger.error(err, 'VS Code connect error');
     res.status(500).json({ error: 'Failed to connect VS Code extension' });
   }
 });
@@ -383,7 +383,7 @@ router.post('/vscode/disconnect', async (req: any, res) => {
 
     res.json({ success: true });
   } catch (err: any) {
-    logger.error('VS Code disconnect error:', err);
+    logger.error(err, 'VS Code disconnect error');
     res.status(500).json({ error: 'Failed to disconnect VS Code extension' });
   }
 });
