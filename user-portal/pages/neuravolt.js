@@ -103,8 +103,8 @@ export default function NeuravoltLandingPage() {
   return (
     <div style={{ backgroundColor: '#FFFFFF', color: '#0F172A', minHeight: '100vh', fontFamily: "'Inter', sans-serif" }}>
       <Head>
-        <title>Xarwiz - India's AI Infrastructure & AI Agent Platform | DPDP Compliant</title>
-        <meta name="description" content="Deploy AI Agents, RAG, Workflows and Multi-Language LLMs on India's most trusted AI Infrastructure." />
+        <title>India's All-in-One AI Platform for Agents &amp; Automation</title>
+        <meta name="description" content="India's all-in-one AI platform to build AI agents, automate workflows, chat with leading AI models, create RAG knowledge bases, and accelerate development with agentic coding." />
         <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
       </Head>
 
@@ -430,31 +430,30 @@ export default function NeuravoltLandingPage() {
           <div class="hero-left">
             <div class="dpdp-pill">
               <span class="dpdp-icon-dot"><Zap style={{ width: 10, height: 10 }} /></span>
-              <span>India's First DPDP-Compliant AI Platform</span>
+              <span>🇮🇳 India's AI Platform for Agents &amp; Automation</span>
             </div>
 
             <h1 class="hero-title">
-              Build AI Agents. <br />
-              Keep Data in <span class="blue-text">India</span>. <br />
-              Stay Compliant.
+              AI That Works the <br />
+              Way Your <span class="blue-text">Business Works</span>.
             </h1>
 
             <p class="hero-subtitle">
-              Deploy AI Agents, RAG, Workflows and Multi-Language LLMs on India's most trusted AI Infrastructure.
+              From AI agents and workflow automation to agentic coding, multilingual AI chat, and knowledge management, everything works together in one platform.
             </p>
 
             <div class="hero-checks">
               <div class="check-item">
                 <span class="check-circle">✓</span>
-                <span>DPDP Ready</span>
+                <span>Secure</span>
               </div>
               <div class="check-item">
                 <span class="check-circle">✓</span>
-                <span>Data Stays in India</span>
+                <span>Scalable</span>
               </div>
               <div class="check-item">
                 <span class="check-circle">✓</span>
-                <span>Deploy in 5 Minutes</span>
+                <span>Enterprise Grade</span>
               </div>
             </div>
 
@@ -1365,9 +1364,9 @@ export default function NeuravoltLandingPage() {
               <div class="logo-container" style={{ marginBottom: 8 }}>
                 <img src="/assets/xarwiz-logo.png" alt="Xarwiz" className="brand-logo-img" />
               </div>
-              <div style={{ fontSize: '0.72rem', color: 'var(--text-dim)', marginBottom: 10 }}>AI Cloud Platform</div>
+              <div style={{ fontSize: '0.72rem', color: 'var(--text-dim)', marginBottom: 10 }}>🇮🇳 India's AI Platform for Agents &amp; Automation</div>
               <p class="footer-brand-desc">
-                India's DPDP-compliant AI cloud platform for AI Agents, Workflows, Multi-Language LLMs and Enterprise AI applications.
+                From AI agents and workflow automation to agentic coding, multilingual AI chat, and knowledge management everything works together in one platform.
               </p>
               <div class="social-icons-row">
                 <a href="#" style={{ color: 'var(--text-muted)', textDecoration: 'none', fontSize: '1.1rem' }}>𝕏</a>
@@ -1430,7 +1429,7 @@ export default function NeuravoltLandingPage() {
             <div>
               <div class="footer-col-title">Company</div>
               <ul class="footer-links">
-                <li><Link href="/neuravolt">About Xarwiz</Link></li>
+                <li><Link href="/about">About Xarwiz</Link></li>
                 <li><Link href="/login">Contact Team</Link></li>
                 <li><Link href="/login">Careers</Link></li>
               </ul>
@@ -1438,7 +1437,7 @@ export default function NeuravoltLandingPage() {
           </div>
 
           <div class="footer-bottom-bar">
-            <div>© 2025 Neuravolt Technologies Pvt. Ltd. All rights reserved.</div>
+            <div>© 2026 Xarwiz Technologies LLP. All rights reserved.</div>
             <div class="footer-bottom-selectors">
               <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>Made in India <img src="/assets/india-flag.svg" alt="India Flag" style={{ width: 16, height: 11, borderRadius: 1, objectFit: 'cover' }} /> ▾</span>
               <span>English ▾</span>

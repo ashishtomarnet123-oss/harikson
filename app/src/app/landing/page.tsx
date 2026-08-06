@@ -74,21 +74,20 @@ export default function NeuravoltLightLandingPage() {
           <div className="lg:col-span-5 space-y-5">
             <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-blue-50 border border-blue-100 text-xs font-semibold text-blue-600">
               <Globe className="w-4 h-4" />
-              <span>India's First DPDP-Compliant AI Platform</span>
+              <span>🇮🇳 India's AI Platform for Agents &amp; Automation</span>
             </div>
 
             <h1 className="text-4xl sm:text-5xl font-extrabold tracking-tight text-slate-900 leading-tight font-['Outfit']">
-              Build AI Agents. <br />
-              Keep Data in <span className="text-blue-600">India</span>. <br />
-              Stay Compliant.
+              AI That Works the <br />
+              Way Your <span className="text-blue-600">Business Works</span>.
             </h1>
 
             <p className="text-base text-slate-600 leading-relaxed">
-              Deploy AI Agents, RAG, Workflows and Private LLMs on India's most trusted AI Infrastructure.
+              From AI agents and workflow automation to agentic coding, multilingual AI chat, and knowledge management, everything works together in one platform.
             </p>
 
             <div className="flex flex-wrap gap-4 pt-1">
-              {['DPDP Ready', 'Data Stays in India', 'Deploy in 5 Minutes'].map((item) => (
+              {['Secure', 'Scalable', 'Enterprise Grade'].map((item) => (
                 <div key={item} className="flex items-center gap-1.5 text-xs font-semibold text-slate-900">
                   <div className="w-4 h-4 rounded-full bg-green-100 text-green-600 flex items-center justify-center font-bold text-[10px]">✓</div>
                   <span>{item}</span>
@@ -295,7 +294,7 @@ export default function NeuravoltLightLandingPage() {
       {/* FOOTER */}
       <footer className="bg-white border-t border-slate-200 py-10 text-xs text-slate-500">
         <div className="max-w-7xl mx-auto px-6 flex flex-col md:flex-row items-center justify-between gap-4">
-          <div>© 2025 Neuravolt Technologies Pvt. Ltd. All rights reserved.</div>
+          <div>© 2026 Xarwiz Technologies LLP. All rights reserved.</div>
           <div className="flex items-center gap-4">
             <span>🇮🇳 Made in India</span>
             <span>🌐 English</span>

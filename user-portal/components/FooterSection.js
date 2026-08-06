@@ -112,9 +112,9 @@ export default function FooterSection() {
               <Link href="/neuravolt" className="logo-container" style={{ marginBottom: 8 }}>
                 <img src="/assets/xarwiz-logo.png" alt="Xarwiz" className="brand-logo-img" />
               </Link>
-              <div style={{ fontSize: '0.72rem', color: '#94a3b8', marginBottom: 10 }}>AI Cloud Platform</div>
+              <div style={{ fontSize: '0.72rem', color: '#94a3b8', marginBottom: 10 }}>🇮🇳 India&apos;s AI Platform for Agents &amp; Automation</div>
               <p className="footer-brand-desc">
-                India&apos;s DPDP-compliant AI cloud platform for AI Agents, Workflows, Multi-Language LLMs and Enterprise AI applications.
+                From AI agents and workflow automation to agentic coding, multilingual AI chat, and knowledge management everything works together in one platform.
               </p>
               <div className="social-icons-row">
                 <a href="#" style={{ color: '#64748b', textDecoration: 'none', fontSize: '1.1rem' }}>𝕏</a>
@@ -177,7 +177,7 @@ export default function FooterSection() {
             <div>
               <div className="footer-col-title">Company</div>
               <ul className="footer-links">
-                <li><Link href="/neuravolt">About Xarwiz</Link></li>
+                <li><Link href="/about">About Xarwiz</Link></li>
                 <li><Link href="/login">Contact Team</Link></li>
                 <li><Link href="/login">Careers</Link></li>
               </ul>
@@ -185,7 +185,7 @@ export default function FooterSection() {
           </div>
 
           <div className="footer-bottom-bar">
-            <div>© 2025 Neuravolt Technologies Pvt. Ltd. All rights reserved.</div>
+            <div>© 2026 Xarwiz Technologies LLP. All rights reserved.</div>
             <div className="footer-bottom-selectors">
               <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>Made in India <img src="/assets/india-flag.svg" alt="India Flag" style={{ width: 16, height: 11, borderRadius: 1, objectFit: 'cover' }} /> ▾</span>
               <span>English ▾</span>

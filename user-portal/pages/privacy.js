@@ -32,8 +32,8 @@ export default function PrivacyPolicyPage() {
   }
 
   const sectionsData = [
-    { num: 1, cat: 'intro', title: 'Introduction', content: 'This Privacy Policy describes how Neuravolt Technologies Private Limited ("Neuravolt", "Company", "we", "us", or "our") processes, collects, stores, and protects personal data obtained from users of our Platform.' },
-    { num: 2, cat: 'intro', title: 'About Us', content: 'Company: Neuravolt Technologies Private Limited. Registered Office Address: Sector 62, Noida, Uttar Pradesh, India - 201301. CIN: U72900UP2026PTC123456. Support Email: support@neuravolt.cloud. Privacy Email: privacy@neuravolt.cloud.' },
+    { num: 1, cat: 'intro', title: 'Introduction', content: 'This Privacy Policy describes how Xarwiz Technologies LLP ("Xarwiz", "Company", "we", "us", or "our") processes, collects, stores, and protects personal data obtained from users of our Platform.' },
+    { num: 2, cat: 'intro', title: 'About Us', content: 'Company: Xarwiz Technologies LLP. Registered Office Address: Sector 62, Noida, Uttar Pradesh, India - 201301. LLPIN: AAK-1234. Support Email: support@xarwiz.com. Privacy Email: privacy@xarwiz.com.' },
     { num: 3, cat: 'intro', title: 'Definitions', content: 'Personal Data: Data about an individual who is identifiable. Sensitive Personal Data: Passwords, financial or biometric credentials. Processing: Automated operations performed on data. Data Principal: The individual whose data is processed. Data Fiduciary: Entity determining processing purposes (Neuravolt).' },
     { num: 4, cat: 'intro', title: 'Scope of this Policy', content: 'This policy applies to our websites, dashboards, user portals, developer APIs, SDKs, mobile systems, browser extensions, and collaborative workspaces.' },
     
@@ -59,19 +59,25 @@ export default function PrivacyPolicyPage() {
     { num: 19, cat: 'rights', title: 'Your Rights as a Data Principal', content: 'Under the DPDP Act 2023, you have the right to access a summary of your processed data, correct anomalies, request erasures, nominate an individual to act in the event of incapacity, and submit complaints to our Grievance Officer.' },
     { num: 20, cat: 'rights', title: 'Children\'s Privacy', content: 'Our service blocks registration for minors under 18. We do not knowingly track or process minors data. If discovered, minor accounts are immediately erased.' },
     { num: 21, cat: 'rights', title: 'Enterprise Customers', content: 'Workspace admins hold complete authority to delete indexes, restrict member queries, export conversation logs, and request complete database purges.' },
+    { num: 17, cat: 'security', title: 'Encryption in Transit and at Rest', content: 'All API communication requires TLS 1.3. Database storage and vector indices enforce AES-256 encryption at rest. Decryption keys are rotated annually via cloud KMS.' },
+    { num: 18, cat: 'security', title: 'Multi-Tenant Row-Level Security (RLS)', content: 'Database queries enforce PostgreSQL Row-Level Security (RLS) bound to app.current_tenant, preventing cross-tenant context leaks.' },
+    { num: 19, cat: 'security', title: 'Access Control & Authentication Safeguards', content: 'Access requires mandatory Multi-Factor Authentication (MFA), WebAuthn Passkeys, role-based scoping (RBAC), and session expiration.' },
+    { num: 20, cat: 'security', title: 'Incident Response & Breach Notification', content: 'In the event of a security breach involving personal data, we report to CERT-In within 6 hours and notify affected Data Principals without undue delay.' },
     
-    { num: 22, cat: 'thirdparty', title: 'Third-Party Services', content: 'Integrations with third-party tools (Google SSO, Stripe, Razorpay, Cloudflare, OpenAI, Anthropic APIs) are governed by their respective privacy policies.' },
-    { num: 23, cat: 'thirdparty', title: 'Security Incident Response', content: 'We investigate breaches immediately. Safe guards are implemented and breaches are reported to affected users and CERT-In within 6 hours of discovery.' },
-    { num: 24, cat: 'thirdparty', title: 'Marketing Communications', content: 'Users can opt-out of promotional alerts or email newsletters using the unsubscribe link at the footer of emails.' },
-    { num: 25, cat: 'thirdparty', title: 'Automated Decision-Making', content: 'We do not perform decisions carrying legally binding or significant consequences solely based on automated AI processing. Human review is implemented for operational choices.' },
-    { num: 26, cat: 'thirdparty', title: 'Data Accuracy', content: 'You must ensure that the personal details you submit are correct and complete. Update records using the Account Settings page.' },
-    { num: 27, cat: 'thirdparty', title: 'Data Deletion Requests', content: 'Deletion requests sent to privacy@neuravolt.cloud are verified and processed within 30 days, subject to legal auditing requirements.' },
+    { num: 21, cat: 'retention', title: 'Data Retention Periods', content: 'Account records are stored for the lifecycle of your subscription. Active database rows are purged within 30 days of cancellation. Audit logs are kept for 180 days per IT Rules.' },
+    { num: 22, cat: 'retention', title: 'Account Deletion & Right to Erasure', content: 'Users can request complete account erasure via settings or email. Deleted workspace vectors and documents are permanently purged from server disks within 30 days.' },
+    { num: 23, cat: 'retention', title: 'Statutory Tax Retention', content: 'Invoice records, GST telemetry, and payment receipts are retained for 8 years to satisfy Indian tax audit requirements.' },
     
-    { num: 28, cat: 'governance', title: 'Grievance Redressal', content: 'Grievances can be submitted to our designated Grievance Officer: Ashish Pratap Singh Tomar, Email: grievance@neuravolt.cloud, Address: Sector 62, Noida, Uttar Pradesh, India - 201301. We reply within 72 hours.' },
-    { num: 29, cat: 'governance', title: 'Changes to Privacy Policy', content: 'Policy revisions are posted on this page with updated version numbers. Users are notified of significant changes via email.' },
-    { num: 30, cat: 'governance', title: 'Contact Us', content: 'Company: Neuravolt Technologies Private Limited. Office: Sector 62, Noida, UP, India. Email: privacy@neuravolt.cloud.' },
+    { num: 24, cat: 'rights', title: 'Your Rights Under India\'s DPDP Act 2023', content: 'Data Principals hold rights to: Summaries of Personal Data, Correction & Completion of data, Erasure, Grievance Redressal, and Nomination of an authorized representative.' },
+    { num: 25, cat: 'rights', title: 'Your Rights Under GDPR & Global Frameworks', content: 'Global users hold rights to: Access, Rectification, Erasure (Right to be Forgotten), Restriction of Processing, Data Portability, and Objection.' },
+    { num: 26, cat: 'rights', title: 'How to Exercise Your Privacy Rights', content: 'Submit privacy requests by emailing privacy@xarwiz.com. Requests are validated and fulfilled within 30 days.' },
+    { num: 27, cat: 'rights', title: 'Children\'s Data Privacy', content: 'The Platform is intended exclusively for users aged 18 and older. We do not knowingly collect personal data from minors.' },
+    
+    { num: 28, cat: 'governance', title: 'Grievance Redressal Mechanism', content: 'In accordance with India\'s IT Act 2000 and DPDP Act 2023, privacy concerns may be directed to our Grievance Officer: Ashish Pratap Singh Tomar (grievance@xarwiz.com).' },
+    { num: 29, cat: 'governance', title: 'Changes to this Privacy Policy', content: 'We reserve the right to modify this Privacy Policy. Material updates will be notified via email or dashboard banners 14 days before taking effect.' },
+    { num: 30, cat: 'governance', title: 'Contact Us', content: 'Company: Xarwiz Technologies LLP. Office: Sector 62, Noida, UP, India. Email: privacy@xarwiz.com.' },
     { num: 31, cat: 'governance', title: 'Governing Law', content: 'This policy is governed by the laws of India. Legal disputes are subject to the exclusive jurisdiction of the courts of Noida, Uttar Pradesh, India.' },
-    { num: 32, cat: 'governance', title: 'Definitions Appendix', content: 'Data Fiduciary: Neuravolt. Data Principal: User. Processing: Any operation performed on personal data.' },
+    { num: 32, cat: 'governance', title: 'Definitions Appendix', content: 'Data Fiduciary: Xarwiz. Data Principal: User. Processing: Any operation performed on personal data.' },
     { num: 33, cat: 'governance', title: 'Annexures', content: 'Annexure A: Categories of Personal Data.\nAnnexure B: Retention Schedule.\nAnnexure C: Third-Party Service Providers.\nAnnexure D: International Transfers.\nAnnexure E: Security Measures.' }
   ];
 
@@ -302,7 +308,7 @@ export default function PrivacyPolicyPage() {
             <div>
               <span style={{ color: '#64748b', fontSize: '13px' }}>Corporate Registry:</span>
               <div style={{ fontSize: '14px', fontWeight: '600', color: '#1e293b', marginTop: '2px' }}>
-                Neuravolt Technologies Pvt. Ltd. (CIN: U72900UP2026PTC123456)
+                Xarwiz Technologies LLP (LLPIN: AAK-1234)
               </div>
             </div>
             <div style={{ textAlign: 'right' }}>

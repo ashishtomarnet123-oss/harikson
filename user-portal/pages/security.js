@@ -43,7 +43,7 @@ export default function SecurityPolicyPage() {
   }
 
   const sectionsData = [
-    { num: 1, cat: 'intro', title: 'Introduction', content: 'This Security Policy governs the technological safeguards, cloud architecture, and organizational security protocols deployed by Harikson AI Technologies Private Limited, Sector 62, Noida, Uttar Pradesh, India - 201301.' },
+    { num: 1, cat: 'intro', title: 'Introduction', content: 'This Security Policy governs the technological safeguards, cloud architecture, and organizational security protocols deployed by Xarwiz Technologies LLP, Sector 62, Noida, Uttar Pradesh, India - 201301.' },
     { num: 2, cat: 'intro', title: 'Security Principles', content: 'Our security architecture is governed by Confidentiality & Least Privilege (restricting data using Row-Level Security), Defense in Depth (multi-layered network boundaries), Zero Trust validation, and Privacy/AI Safety by Design.' },
     { num: 3, cat: 'intro', title: 'Governance', content: 'Our security operations are led by our CISO, who coordinates threat assessments. DevSecOps handles pipeline safety and container updates, while Risk Management conducts quarterly audits.' },
     { num: 4, cat: 'intro', title: 'Compliance', content: 'We comply with India\'s DPDP Act 2023, IT Act 2000, CERT-In Directions (incident notification reporting within 6 hours), ISO/IEC 27001 standard practices, and SOC 2 Type II controls.' },
@@ -72,13 +72,13 @@ export default function SecurityPolicyPage() {
     { num: 21, cat: 'vendor', title: 'Employee Security', content: 'Background checks are run before onboarding. Security awareness and phishing tests are conducted annually.' },
     
     { num: 22, cat: 'governance', title: 'Customer Responsibilities', content: 'Users must set long passwords, activate Multi-Factor Authentication (MFA), and protect workspace keys.' },
-    { num: 23, cat: 'governance', title: 'Security Incident Reporting', content: 'Security flaws can be reported directly to security@harikson.ai. We investigate all bug reports under responsible disclosure.' },
+    { num: 23, cat: 'governance', title: 'Security Incident Reporting', content: 'Security flaws can be reported directly to security@xarwiz.com. We investigate all bug reports under responsible disclosure.' },
     { num: 24, cat: 'governance', title: 'Security Audits', content: 'Internal code audits are run before key upgrades. Independent external compliance reviews are run annually.' },
     { num: 25, cat: 'governance', title: 'Data Retention & Secure Deletion', content: 'Active database rows are purged within 30 days of user erasure. Billing invoices are stored for 8 years to meet statutory tax audits.' },
     { num: 26, cat: 'governance', title: 'Privacy & Data Protection', content: 'We collect minimal user metrics. Consent is requested for cross-border transfers. Check our Privacy Policy for more details.' },
     { num: 27, cat: 'governance', title: 'AI Risk Management', content: 'We monitor prompt leakage, model theft risks, and output manipulation using safety boundaries.' },
     { num: 28, cat: 'governance', title: 'Enforcement', content: 'Policy violations result in warning emails, temporary query limits, workspace suspension, or reporting to law authorities.' },
-    { num: 29, cat: 'governance', title: 'Contact Information', content: 'Harikson AI Technologies Private Limited, Sector 62, Noida, Uttar Pradesh, India - 201301. Grievance Officer: Ashish Pratap Singh Tomar (grievance@harikson.ai).' },
+    { num: 29, cat: 'governance', title: 'Contact Information', content: 'Xarwiz Technologies LLP, Sector 62, Noida, Uttar Pradesh, India - 201301. Grievance Officer: Ashish Pratap Singh Tomar (grievance@xarwiz.com).' },
     
     { num: 30, cat: 'appendices', title: 'APPENDIX A: Controls Mapping', content: 'Our security controls map directly to ISO 27001, SOC 2 Criteria, and the NIST CSF.' },
     { num: 31, cat: 'appendices', title: 'APPENDIX B: Encryption Standards', content: 'We mandate TLS 1.3 in transit and AES-256 for database tables.' },
@@ -106,8 +106,8 @@ export default function SecurityPolicyPage() {
       fontFamily: "'Outfit', sans-serif"
     }}>
       <Head>
-        <title>Security Policy | Harikson AI Platform</title>
-        <meta name="description" content="Harikson AI Security Policy - comprehensive technical controls compliant with Indian and global regulations." />
+        <title>Security Policy | Xarwiz Cloud Platform</title>
+        <meta name="description" content="Xarwiz Cloud Security Policy - comprehensive technical controls compliant with Indian and global regulations." />
         <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
       </Head>
 
@@ -315,7 +315,7 @@ export default function SecurityPolicyPage() {
             <div>
               <span style={{ color: '#64748b', fontSize: '13px' }}>Corporate Registry:</span>
               <div style={{ fontSize: '14px', fontWeight: '600', color: '#1e293b', marginTop: '2px' }}>
-                Harikson AI Technologies Pvt. Ltd. (CIN: U72900UP2026PTC123456)
+                Xarwiz Technologies LLP (LLPIN: AAK-1234)
               </div>
             </div>
             <div style={{ textAlign: 'right' }}>
