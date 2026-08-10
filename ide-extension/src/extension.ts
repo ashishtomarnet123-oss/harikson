@@ -3,6 +3,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { GhostTextProvider } from './providers/ghostTextProvider';
 import { ChatProvider } from './providers/chatProvider';
+import { extractSseContent } from './util/sse';
 
 let statusBarItem: vscode.StatusBarItem;
 let connectionTimer: NodeJS.Timeout | undefined;
@@ -62,7 +63,7 @@ export function activate(context: vscode.ExtensionContext) {
 
       const currentModel = config.get<string>('model') || 'harikson-plus';
       const tenantUrl =
-        config.get<string>('tenantUrl') || 'http://localhost:3000';
+        config.get<string>('tenantUrl') || 'https://xarwiz.com';
       const apiKey = config.get<string>('apiKey') || '';
 
       if (!apiKey) {
@@ -90,10 +91,7 @@ export function activate(context: vscode.ExtensionContext) {
               },
               body: JSON.stringify({
                 message: prompt,
-                model:
-                  currentModel === 'harikson-plus'
-                    ? 'harikson-chat-8b'
-                    : 'harikson-coder-14b',
+                model: currentModel,
               }),
             });
 
@@ -101,8 +99,7 @@ export function activate(context: vscode.ExtensionContext) {
               throw new Error(`Server returned code ${response.status}`);
             }
 
-            const data = (await response.json()) as any;
-            const reviewResult = data.response || '';
+            const reviewResult = await extractSseContent(response);
 
             // Clean reviewed result of markdown tags
             let cleanedResult = reviewResult
@@ -189,6 +186,29 @@ export function activate(context: vscode.ExtensionContext) {
     })
   );
 
+  // 6. Register Connect API Key Command — the direct in-extension way to set
+  // up harikson.apiKey without opening Settings manually. Triggered from the
+  // sidebar chat panel's "Connect API Key" button or the Command Palette.
+  context.subscriptions.push(
+    vscode.commands.registerCommand('harikson.connectApiKey', async () => {
+      const key = await vscode.window.showInputBox({
+        title: 'Connect Xarwiz VS Code Extension',
+        prompt:
+          'Paste your personal access token from Xarwiz → Settings → Connected Apps → Xarwiz VS Code Extension → Connect',
+        placeHolder: 'hk_live_...',
+        password: true,
+        ignoreFocusOut: true,
+        validateInput: (value) =>
+          value && !value.trim() ? 'Token cannot be empty' : undefined,
+      });
+      if (!key) return;
+
+      await config.update('apiKey', key.trim(), vscode.ConfigurationTarget.Global);
+      vscode.window.showInformationMessage('✅ Harikson AI: API key saved.');
+      checkConnection();
+    })
+  );
+
   // Bind configurations change listener
   context.subscriptions.push(
     vscode.workspace.onDidChangeConfiguration((e) => {
@@ -198,14 +218,14 @@ export function activate(context: vscode.ExtensionContext) {
     })
   );
 
-  // 6. Start Connection Status Check Polling
+  // 7. Start Connection Status Check Polling
   checkConnection();
   connectionTimer = setInterval(checkConnection, 10000);
 }
 
 async function checkConnection() {
   const config = vscode.workspace.getConfiguration('harikson');
-  const tenantUrl = config.get<string>('tenantUrl') || 'http://localhost:3000';
+  const tenantUrl = config.get<string>('tenantUrl') || 'https://xarwiz.com';
   const currentModel = config.get<string>('model') || 'harikson-plus';
 
   try {

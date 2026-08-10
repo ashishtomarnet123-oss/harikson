@@ -71,6 +71,10 @@
       {
         "command": "harikson.switchModel",
         "title": "Harikson: Switch Model"
+      },
+      {
+        "command": "harikson.connectApiKey",
+        "title": "Harikson: Connect API Key"
       }
     ]
   },

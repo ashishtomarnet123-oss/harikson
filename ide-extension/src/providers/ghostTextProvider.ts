@@ -1,4 +1,5 @@
 import * as vscode from 'vscode';
+import { extractSseContent } from '../util/sse';
 
 export class GhostTextProvider implements vscode.InlineCompletionItemProvider {
   public async provideInlineCompletionItems(
@@ -17,7 +18,7 @@ export class GhostTextProvider implements vscode.InlineCompletionItemProvider {
 
     const config = vscode.workspace.getConfiguration('harikson');
     const tenantUrl =
-      config.get<string>('tenantUrl') || 'http://localhost:3000';
+      config.get<string>('tenantUrl') || 'https://xarwiz.com';
     const apiKey = config.get<string>('apiKey') || '';
     const model = config.get<string>('model') || 'harikson-plus';
 
@@ -54,10 +55,7 @@ Provide ONLY the code suggestions to insert next. Do NOT include markdown tags l
         },
         body: JSON.stringify({
           message: prompt,
-          model:
-            model === 'harikson-plus'
-              ? 'harikson-chat-8b'
-              : 'harikson-coder-14b',
+          model,
         }),
         signal: AbortSignal.timeout(4000), // 4 seconds timeout limit
       });
@@ -66,10 +64,8 @@ Provide ONLY the code suggestions to insert next. Do NOT include markdown tags l
         return undefined;
       }
 
-      const data = (await response.json()) as any;
-      if (data && data.response) {
-        let completionText = data.response;
-
+      let completionText = await extractSseContent(response);
+      if (completionText) {
         // Clean markdown backticks that the LLM might have returned
         completionText = completionText
           .replace(/```[a-z]*\n?/gi, '')

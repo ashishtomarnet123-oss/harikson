@@ -1,4 +1,5 @@
 import * as vscode from 'vscode';
+import { extractSseContent } from '../util/sse';
 
 export class ChatProvider implements vscode.WebviewViewProvider {
   public static readonly viewType = 'harikson-chat-view';
@@ -28,6 +29,9 @@ export class ChatProvider implements vscode.WebviewViewProvider {
         case 'sendMessage':
           await this._handleSendMessage(data.value);
           break;
+        case 'connectApiKey':
+          await vscode.commands.executeCommand('harikson.connectApiKey');
+          break;
       }
     });
   }
@@ -37,7 +41,7 @@ export class ChatProvider implements vscode.WebviewViewProvider {
 
     const config = vscode.workspace.getConfiguration('harikson');
     const tenantUrl =
-      config.get<string>('tenantUrl') || 'http://localhost:3000';
+      config.get<string>('tenantUrl') || 'https://xarwiz.com';
     const apiKey = config.get<string>('apiKey') || '';
     const model = config.get<string>('model') || 'harikson-plus';
 
@@ -45,7 +49,7 @@ export class ChatProvider implements vscode.WebviewViewProvider {
       this._view.webview.postMessage({
         type: 'addResponse',
         value:
-          '⚠️ Config Error: API Key missing. Set "harikson.apiKey" in VS Code settings.',
+          '⚠️ No API key configured yet. Click "Connect API Key" above to get started.',
       });
       return;
     }
@@ -63,10 +67,7 @@ export class ChatProvider implements vscode.WebviewViewProvider {
         },
         body: JSON.stringify({
           message: message,
-          model:
-            model === 'harikson-plus'
-              ? 'harikson-chat-8b'
-              : 'harikson-coder-14b',
+          model,
         }),
       });
 
@@ -75,10 +76,10 @@ export class ChatProvider implements vscode.WebviewViewProvider {
         throw new Error(errText || `Server returned ${response.status}`);
       }
 
-      const data = (await response.json()) as any;
+      const content = await extractSseContent(response);
       this._view.webview.postMessage({
         type: 'addResponse',
-        value: data.response || 'Empty response received.',
+        value: content || 'Empty response received.',
       });
     } catch (err: any) {
       this._view.webview.postMessage({
@@ -199,10 +200,30 @@ export class ChatProvider implements vscode.WebviewViewProvider {
             background: #4a5568;
             color: #fff;
           }
+          .header-bar {
+            display: flex;
+            justify-content: flex-end;
+            padding-bottom: 8px;
+          }
+          .connect-btn {
+            padding: 4px 10px;
+            font-size: 0.78rem;
+            font-weight: 600;
+            background: transparent;
+            border: 1px solid var(--vscode-button-background, #007acc);
+            color: var(--vscode-button-background, #007acc);
+          }
+          .connect-btn:hover {
+            background: var(--vscode-button-background, #007acc);
+            color: var(--vscode-button-foreground, #fff);
+          }
         </style>
       </head>
       <body>
         <div class="chat-container">
+          <div class="header-bar">
+            <button id="connect" class="connect-btn">🔑 Connect API Key</button>
+          </div>
           <div id="messages">
             <div class="message ai-msg">Hi! I am your Harikson AI assistant. Ask code completions or logic questions here!</div>
           </div>
@@ -217,6 +238,11 @@ export class ChatProvider implements vscode.WebviewViewProvider {
           const messagesContainer = document.getElementById('messages');
           const inputField = document.getElementById('input');
           const sendBtn = document.getElementById('send');
+          const connectBtn = document.getElementById('connect');
+
+          connectBtn.addEventListener('click', () => {
+            vscode.postMessage({ type: 'connectApiKey' });
+          });
 
           sendBtn.addEventListener('click', sendMessage);
           inputField.addEventListener('keydown', (e) => {
