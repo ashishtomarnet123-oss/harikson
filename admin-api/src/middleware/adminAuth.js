@@ -84,11 +84,12 @@ export const adminAuth = async (req, res, next) => {
     }
 
     if (!result || result.rows.length === 0) {
-      const allowed = ['admin', 'superadmin', 'founder'];
-      if (decoded.role && allowed.includes(decoded.role)) {
-        req.admin = { id: decoded.userId, role: decoded.role, email: 'admin@harikson.ai' };
-        return next();
-      }
+      // The DB is reachable and answered — it just doesn't have this user
+      // anymore (deleted/deactivated since the JWT was issued). A valid
+      // signature only proves we issued the token at some point, not that
+      // the account or its role still exists; trusting decoded.role here
+      // would mean deleting an admin never actually revokes their
+      // outstanding session. Fail closed, same as the DB-unreachable case.
       return res.status(401).json({ error: 'Access Denied: User not found' });
     }
 

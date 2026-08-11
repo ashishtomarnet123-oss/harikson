@@ -382,15 +382,6 @@ app.get('/api/user/billing', async (req, res) => {
       if (sub.metadata && typeof sub.metadata === 'object') {
         paymentMethod = sub.metadata.payment_method || null;
       }
-
-      // Fallback dummy payment method if none in metadata but is a paid plan
-      if (!paymentMethod && priceNum > 0) {
-        paymentMethod = {
-          type: 'Visa',
-          last4: '4242',
-          expiry: '12/28',
-        };
-      }
     }
 
     // Query invoices for this tenant
