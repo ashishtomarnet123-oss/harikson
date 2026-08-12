@@ -47,12 +47,12 @@ Every backup automatically triggers the integrity test script (`harikson/scripts
      ```bash
      aws s3 cp s3://harikson-backups/backups/latest/ /mnt/docker-data/backups/ --recursive
      ```
-   - Restore `/mnt/docker-data/harikson/.env` containing `JWT_SECRET` and `TENANT_MASTER_KEY` from secure vault (KMS/HashiCorp Vault).
+   - Restore `/opt/xarwiz/.env` containing `JWT_SECRET` and `TENANT_MASTER_KEY` from secure vault (KMS/HashiCorp Vault).
 
 3. **Restore Database State**:
    - Start PostgreSQL service container:
      ```bash
-     cd /mnt/docker-data/harikson
+     cd /opt/xarwiz
      docker compose up -d postgres redis
      ```
    - Restore database dump into clean PostgreSQL container:

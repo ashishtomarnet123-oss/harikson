@@ -5,10 +5,14 @@
 set -e
 
 # Configuration
-VM_USER="ubuntu"
+VM_USER="xarwiz"
 VM_HOST="34.131.140.10"
-VM_KEY="~/Downloads/app.pem"
-VM_PATH="/mnt/docker-data"
+# Same key pair used for the GitHub Actions PROD_SSH_KEY secret — see
+# deploy-prod.yml. This script is a manual alternative to that CD pipeline
+# and needs its own local copy of the private key (GitHub Secrets are only
+# readable by Actions runners, not from your machine).
+VM_KEY="$HOME/.ssh/harikson_deploy_key"
+VM_PATH="/opt/xarwiz"
 GITHUB_REPO="https://github.com/ashishtomarnet123-oss/harikson.git"
 BRANCH="main"
 
@@ -47,7 +51,7 @@ fi
 echo ""
 echo -e "${YELLOW}Step 2: Syncing codebase to VM ($VM_HOST)...${NC}"
 
-ssh -o ServerAliveInterval=30 -i "$VM_KEY" "$VM_USER@$VM_HOST" "sudo mkdir -p /mnt/docker-data/harikson && sudo chown -R ubuntu:ubuntu /mnt/docker-data/harikson"
+ssh -o ServerAliveInterval=30 -i "$VM_KEY" "$VM_USER@$VM_HOST" "sudo mkdir -p $VM_PATH && sudo chown -R $VM_USER:$VM_USER $VM_PATH"
 
 rsync -avz -e "ssh -i $VM_KEY -o ServerAliveInterval=30" \
     --exclude='.git' \
@@ -55,7 +59,7 @@ rsync -avz -e "ssh -i $VM_KEY -o ServerAliveInterval=30" \
     --exclude='.next' \
     --exclude='postgres-data' \
     --exclude='redis-data' \
-    ./ "$VM_USER@$VM_HOST:/mnt/docker-data/harikson/"
+    ./ "$VM_USER@$VM_HOST:$VM_PATH/"
 
 echo -e "${GREEN}✓ Codebase synced to VM${NC}"
 
@@ -64,9 +68,9 @@ echo -e "${YELLOW}Step 3: Building and Re-launching services on VM...${NC}"
 
 ssh -o ServerAliveInterval=30 -o ServerAliveCountMax=20 -i "$VM_KEY" "$VM_USER@$VM_HOST" << 'REMOTE_SCRIPT'
     set -e
-    
-    cd /mnt/docker-data/harikson
-    
+
+    cd /opt/xarwiz
+
     echo "Stopping existing containers and freeing up disk space on VM..."
     docker compose down --remove-orphans || true
     
@@ -99,4 +103,4 @@ echo "  2. Create your first tenant"
 echo "  3. Visit tenant subdomain to test chat"
 echo ""
 echo "To check logs:"
-echo "  ssh -i $VM_KEY $VM_USER@$VM_HOST 'cd $VM_PATH/harikson && docker compose logs -f'"
+echo "  ssh -i $VM_KEY $VM_USER@$VM_HOST 'cd $VM_PATH && docker compose logs -f'"
