@@ -5,7 +5,7 @@
 export function getApiBaseUrl(): string {
   // 1. Browser Environment Resolution — takes priority over the env var
   // below. Any non-localhost browser access (a raw VM IP like
-  // 154.201.127.68:3028, or a bare production domain like xarwiz.com with
+  // 34.131.140.10:3028, or a bare production domain like xarwiz.com with
   // no explicit port) must go through *this* Next.js server's own
   // rewrites() proxy (same origin) rather than a separate absolute API
   // domain — that domain can be renamed/migrated (as happened moving from

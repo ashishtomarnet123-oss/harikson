@@ -235,7 +235,7 @@ Deploys local code changes directly to your remote VM:
 ./scripts/deploy-to-vm.sh
 ```
 
-- Establishes an SSH connection to the Ace Cloud VM (`154.201.127.68`), pulls the fresh code, generates random environment secrets, runs migrations, triggers model downloads, and restarts containers.
+- Establishes an SSH connection to the Ace Cloud VM (`34.131.140.10`), pulls the fresh code, generates random environment secrets, runs migrations, triggers model downloads, and restarts containers.
 
 ---
 

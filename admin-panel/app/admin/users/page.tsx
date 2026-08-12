@@ -342,7 +342,7 @@ export default function UsersPage() {
         credentials: 'include',
       });
       const data = await res.json();
-      const userPortalBase = process.env.NEXT_PUBLIC_USER_PORTAL_URL || 'http://154.201.127.68:3028';
+      const userPortalBase = process.env.NEXT_PUBLIC_USER_PORTAL_URL || 'https://xarwiz.com';
       const redirectPath = data.redirectUrl || `/impersonate?token=${data.token}`;
       const userPortalUrl = `${userPortalBase}${redirectPath}`;
       window.open(userPortalUrl, '_blank');

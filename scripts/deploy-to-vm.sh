@@ -6,7 +6,7 @@ set -e
 
 # Configuration
 VM_USER="ubuntu"
-VM_HOST="154.201.127.68"
+VM_HOST="34.131.140.10"
 VM_KEY="~/Downloads/app.pem"
 VM_PATH="/mnt/docker-data"
 GITHUB_REPO="https://github.com/ashishtomarnet123-oss/harikson.git"
