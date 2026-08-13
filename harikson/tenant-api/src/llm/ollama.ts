@@ -10,24 +10,21 @@ export class OllamaClient {
 
   static async embed(text: string): Promise<number[]> {
     const baseUrl = process.env.OLLAMA_HOST || 'http://localhost:11434';
-    const rawModel = process.env.DEFAULT_MODEL || 'qwen3-coder:8b';
-
-    // Perform standard fallback model mapping
-    const lower = rawModel.toLowerCase();
-    let mappedModel = 'qwen2.5:0.5b';
-    if (lower.includes('coder') || lower.includes('code')) {
-      mappedModel = 'qwen2.5-coder:1.5b';
-    }
-    if (process.env.NODE_ENV !== 'development') {
-      mappedModel = 'qwen2.5-coder:7b';
-    }
+    // Ollama's /api/embeddings endpoint only works with a model actually
+    // built for embeddings — chat/completion models like qwen2.5-coder
+    // (what this used to request) are rejected outright with "This server
+    // does not support embeddings", regardless of whether they're pulled.
+    // nomic-embed-text is a real, small (~274MB), purpose-built embedding
+    // model. Its 768-dim output gets padded to the table's VECTOR(1536)
+    // below, same as any other embedding model would.
+    const embedModel = process.env.OLLAMA_EMBED_MODEL || 'nomic-embed-text';
 
     try {
       const res = await fetch(`${baseUrl}/api/embeddings`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          model: mappedModel,
+          model: embedModel,
           prompt: text,
         }),
       });
