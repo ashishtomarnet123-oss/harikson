@@ -36,13 +36,13 @@ export const sendPasswordReset = async (to: string, resetUrl: string) => {
 
   try {
     const { data, error } = await resend.emails.send({
-      from: 'Harikson AI <noreply@neuravolt.cloud>',
+      from: 'Xarwiz AI <noreply@neuravolt.cloud>',
       to,
       subject: 'Reset your password',
       html: `
         <div style="font-family: sans-serif; padding: 20px; color: #1e293b; max-width: 600px; margin: 0 auto; border: 1px solid #e2e8f0; border-radius: 8px;">
           <h2 style="color: #3b82f6; border-bottom: 2px solid #3b82f6; padding-bottom: 10px;">Password Reset Request</h2>
-          <p>We received a request to reset your password for your Harikson AI account.</p>
+          <p>We received a request to reset your password for your Xarwiz AI account.</p>
           <p>Please click the button below to reset your password (link is valid for 1 hour):</p>
           <div style="text-align: center; margin: 30px 0;">
             <a href="${resetUrl}" style="display: inline-block; padding: 12px 24px; background-color: #3b82f6; color: white; text-decoration: none; border-radius: 6px; font-weight: bold;">Reset Password</a>
@@ -81,17 +81,17 @@ export const sendWelcomeEmail = async (to: string, name: string) => {
 
   try {
     const { data, error } = await resend.emails.send({
-      from: 'Harikson AI <noreply@neuravolt.cloud>',
+      from: 'Xarwiz AI <noreply@neuravolt.cloud>',
       to,
-      subject: 'Welcome to Harikson AI!',
+      subject: 'Welcome to Xarwiz AI!',
       html: `
         <div style="font-family: sans-serif; padding: 20px; color: #1e293b; max-width: 600px; margin: 0 auto; border: 1px solid #e2e8f0; border-radius: 8px;">
-          <h2 style="color: #10b981; border-bottom: 2px solid #10b981; padding-bottom: 10px;">Welcome to Harikson AI!</h2>
+          <h2 style="color: #10b981; border-bottom: 2px solid #10b981; padding-bottom: 10px;">Welcome to Xarwiz AI!</h2>
           <p>Hello ${name || 'there'},</p>
-          <p>Thank you for signing up to Harikson AI Platform. Your workspace is now active and ready to build state-of-the-art AI systems.</p>
+          <p>Thank you for signing up to Xarwiz AI Platform. Your workspace is now active and ready to build state-of-the-art AI systems.</p>
           <p>Visit your dashboard to create your first agent or knowledge base documents library.</p>
           <hr style="border: 0; border-top: 1px solid #e2e8f0; margin: 20px 0;" />
-          <p style="font-size: 12px; color: #94a3b8;">Secured by Harikson · Enterprise AI Platform</p>
+          <p style="font-size: 12px; color: #94a3b8;">Secured by Xarwiz · Enterprise AI Platform</p>
         </div>
       `,
     });
@@ -128,9 +128,9 @@ export const sendInvoiceReceipt = async (to: string, invoiceDetails: InvoiceDeta
   try {
     const { amount, currency, status, invoiceUrl, pdfUrl } = invoiceDetails;
     const { data, error } = await resend.emails.send({
-      from: 'Harikson AI <noreply@neuravolt.cloud>',
+      from: 'Xarwiz AI <noreply@neuravolt.cloud>',
       to,
-      subject: 'Payment Receipt - Harikson AI',
+      subject: 'Payment Receipt - Xarwiz AI',
       html: `
         <div style="font-family: sans-serif; padding: 20px; color: #1e293b; max-width: 600px; margin: 0 auto; border: 1px solid #e2e8f0; border-radius: 8px;">
           <h2 style="color: #059669; border-bottom: 2px solid #059669; padding-bottom: 10px;">Payment Receipt</h2>
@@ -143,7 +143,7 @@ export const sendInvoiceReceipt = async (to: string, invoiceDetails: InvoiceDeta
           </div>
           ${pdfUrl ? `<p>Or download the PDF copy <a href="${pdfUrl}">here</a>.</p>` : ''}
           <hr style="border: 0; border-top: 1px solid #e2e8f0; margin: 20px 0;" />
-          <p style="font-size: 12px; color: #94a3b8;">Thank you for choosing Harikson AI!</p>
+          <p style="font-size: 12px; color: #94a3b8;">Thank you for choosing Xarwiz AI!</p>
         </div>
       `,
     });
@@ -172,9 +172,9 @@ export const sendSubscriptionCancellation = async (to: string, planName: string,
 
   try {
     const { data, error } = await resend.emails.send({
-      from: 'Harikson AI <noreply@neuravolt.cloud>',
+      from: 'Xarwiz AI <noreply@neuravolt.cloud>',
       to,
-      subject: 'Subscription Cancelled — Harikson AI',
+      subject: 'Subscription Cancelled — Xarwiz AI',
       html: `
         <div style="font-family: sans-serif; padding: 20px; color: #1e293b; max-width: 600px; margin: 0 auto; border: 1px solid #e2e8f0; border-radius: 8px;">
           <h2 style="color: #ef4444; border-bottom: 2px solid #ef4444; padding-bottom: 10px;">Subscription Cancelled</h2>
@@ -183,7 +183,7 @@ export const sendSubscriptionCancellation = async (to: string, planName: string,
           <p>Your access will remain active until the end of your billing cycle on <strong>${endDate}</strong>.</p>
           <p>If you change your mind, you can resubscribe at any time from your settings panel.</p>
           <hr style="border: 0; border-top: 1px solid #e2e8f0; margin: 20px 0;" />
-          <p style="font-size: 12px; color: #94a3b8;">Secured by Harikson · Enterprise AI Platform</p>
+          <p style="font-size: 12px; color: #94a3b8;">Secured by Xarwiz · Enterprise AI Platform</p>
         </div>
       `,
     });

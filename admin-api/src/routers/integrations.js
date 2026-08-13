@@ -2,7 +2,7 @@ import logger from '../utils/logger.js';
 /**
  * Integration Center Router
  * Handles all /admin/integrations/* and /admin/webhooks/* endpoints
- * Part of the Harikson Admin API
+ * Part of the Xarwiz Admin API
  */
 
 import express from 'express';

@@ -323,8 +323,8 @@ export default function LoginPage() {
   return (
     <>
       <Head>
-        <title>Login — Harikson AI</title>
-        <meta name="description" content="Sign in to Harikson AI Platform" />
+        <title>Login — Xarwiz AI</title>
+        <meta name="description" content="Sign in to Xarwiz AI Platform" />
       </Head>
 
       <div className="login-root">
@@ -341,7 +341,7 @@ export default function LoginPage() {
 
           <h1 className="login-title">{requires2FA ? 'Two-Factor Verification' : 'Welcome back'}</h1>
           <p className="login-subtitle">
-            {requires2FA ? 'Enter your 6-digit authenticator code or backup code' : 'Sign in to your Harikson workspace'}
+            {requires2FA ? 'Enter your 6-digit authenticator code or backup code' : 'Sign in to your Xarwiz workspace'}
           </p>
 
           {verifiedSuccess && (
@@ -597,7 +597,7 @@ export default function LoginPage() {
               textAlign: 'center',
             }}
           >
-            Secured by Harikson · Enterprise AI Platform
+            Secured by Xarwiz · Enterprise AI Platform
           </p>
 
           <p

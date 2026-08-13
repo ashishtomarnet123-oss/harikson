@@ -74,7 +74,7 @@ export default function UnlockAccountPage() {
   return (
     <>
       <Head>
-        <title>Unlock Account — Harikson AI</title>
+        <title>Unlock Account — Xarwiz AI</title>
       </Head>
 
       <div className="login-root">

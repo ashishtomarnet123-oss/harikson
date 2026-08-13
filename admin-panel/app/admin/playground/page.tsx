@@ -14,7 +14,7 @@ import { getCookie } from 'cookies-next';
 
 const MODELS = ['harikson-plus', 'Qwen3-8B', 'Qwen3-14B', 'Qwen3-32B'];
 const MODEL_LABELS: Record<string, string> = {
-  'harikson-plus': 'Harikson Plus (Default)',
+  'harikson-plus': 'Xarwiz Plus (Default)',
   'Qwen3-8B': 'Qwen3-8B · Fast',
   'Qwen3-14B': 'Qwen3-14B · Balanced',
   'Qwen3-32B': 'Qwen3-32B · Powerful',

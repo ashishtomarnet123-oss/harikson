@@ -255,7 +255,7 @@ export default function WorkspaceSettings() {
       <div className="settings-page-header">
         <h1>Workspace</h1>
         <p>
-          Manage your Harikson instance, invite team members, and configure
+          Manage your Xarwiz instance, invite team members, and configure
           roles.
         </p>
       </div>

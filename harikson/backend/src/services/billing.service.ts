@@ -223,7 +223,7 @@ export class BillingService {
 
     // Email user
     await this.emailUser(tenant.email || 'user@neuravolt.cloud', {
-      subject: 'Your Harikson AI Agent is Ready!',
+      subject: 'Your Xarwiz AI Agent is Ready!',
       body: `Your agent is deployed at: https://${deployment.domain}`,
     });
 
@@ -257,7 +257,7 @@ export class BillingService {
 
     for (const admin of admins) {
       await this.emailUser(admin.email, {
-        subject: 'Harikson: New Tenant Approval Request',
+        subject: 'Xarwiz: New Tenant Approval Request',
         body: `${data.message}. Review admin dashboard.`,
       });
     }
@@ -265,7 +265,7 @@ export class BillingService {
 
   async emailUser(email: string, data: any) {
     console.log(
-      `📧 [Harikson Email] Sent to ${email}: ${data.subject}\nBody: ${data.body}`
+      `📧 [Xarwiz Email] Sent to ${email}: ${data.subject}\nBody: ${data.body}`
     );
   }
 }

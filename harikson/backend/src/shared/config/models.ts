@@ -3,44 +3,44 @@ export const HARIKSON_MODELS: Record<
   { displayName: string; description: string; icon: string; plan: string }
 > = {
   'harikson/qwen3-coder:1.5b': {
-    displayName: 'Harikson Starter',
+    displayName: 'Xarwiz Starter',
     description: 'Fast responses for everyday tasks',
     icon: 'Zap',
     plan: 'STARTER',
   },
   'harikson/qwen3-coder:4b': {
-    displayName: 'Harikson Pro',
+    displayName: 'Xarwiz Pro',
     description: 'Advanced coding and reasoning',
     icon: 'Code',
     plan: 'PRO',
   },
   'harikson/qwen3-coder:8b': {
-    displayName: 'Harikson Business',
+    displayName: 'Xarwiz Business',
     description: 'Complex multi-file projects',
     icon: 'Building',
     plan: 'BUSINESS',
   },
   'harikson/qwen3-coder:14b': {
-    displayName: 'Harikson Enterprise',
+    displayName: 'Xarwiz Enterprise',
     description: 'Maximum capability for large teams',
     icon: 'Crown',
     plan: 'ENTERPRISE',
   },
   // Also support default / existing fallback names in database
   'qwen3-coder-4b': {
-    displayName: 'Harikson Pro',
+    displayName: 'Xarwiz Pro',
     description: 'Advanced coding and reasoning',
     icon: 'Code',
     plan: 'PRO',
   },
   'qwen3-coder-8b': {
-    displayName: 'Harikson Business',
+    displayName: 'Xarwiz Business',
     description: 'Complex multi-file projects',
     icon: 'Building',
     plan: 'BUSINESS',
   },
   'qwen3-coder-14b': {
-    displayName: 'Harikson Enterprise',
+    displayName: 'Xarwiz Enterprise',
     description: 'Maximum capability for large teams',
     icon: 'Crown',
     plan: 'ENTERPRISE',
@@ -48,7 +48,7 @@ export const HARIKSON_MODELS: Record<
 };
 
 export function getDisplayModelName(internalName: string): string {
-  return HARIKSON_MODELS[internalName]?.displayName || 'Harikson AI';
+  return HARIKSON_MODELS[internalName]?.displayName || 'Xarwiz AI';
 }
 
 export function sanitizeTenantResponse(tenant: any) {

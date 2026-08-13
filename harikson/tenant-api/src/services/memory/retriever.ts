@@ -10,7 +10,7 @@ export class MemoryRetriever {
   ): Promise<Memory[]> {
     try {
       console.log(
-        `🧠 [Harikson Memory] Retrieving context for user message...`
+        `🧠 [Xarwiz Memory] Retrieving context for user message...`
       );
       const embedding = await OllamaClient.embed(message);
 
@@ -24,7 +24,7 @@ export class MemoryRetriever {
       // Fallback: If vector search yields no hits, query by keyword matching
       if (results.length === 0) {
         console.log(
-          `🧠 [Harikson Memory] No vector hits found. Attempting keyword search fallback...`
+          `🧠 [Xarwiz Memory] No vector hits found. Attempting keyword search fallback...`
         );
         const keywords = message
           .toLowerCase()
@@ -43,11 +43,11 @@ export class MemoryRetriever {
       }
 
       console.log(
-        `🧠 [Harikson Memory] Retrieved ${results.length} relevant memories.`
+        `🧠 [Xarwiz Memory] Retrieved ${results.length} relevant memories.`
       );
       return results;
     } catch (error) {
-      console.error('❌ [Harikson Memory] Retrieval failed:', error);
+      console.error('❌ [Xarwiz Memory] Retrieval failed:', error);
       return [];
     }
   }

@@ -31,7 +31,7 @@ app.use(securityMiddleware);
 
 // Console request logger middleware
 app.use((req, _res, next) => {
-  console.log(`📡 [Harikson API] ${req.method} ${req.path}`);
+  console.log(`📡 [Xarwiz API] ${req.method} ${req.path}`);
   next();
 });
 
@@ -56,6 +56,6 @@ app.use('/training', trainingRouter);
 // Start listening
 app.listen(port, () => {
   console.log(
-    `⚡ [Harikson Control Plane] Admin API operational on port ${port}`
+    `⚡ [Xarwiz Control Plane] Admin API operational on port ${port}`
   );
 });

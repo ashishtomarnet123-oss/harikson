@@ -24,11 +24,11 @@ class MetricsStore {
         : 1.0;
 
     let out = '';
-    out += `# HELP harikson_token_usage_total Total tokens used by Harikson LLM calls\n`;
+    out += `# HELP harikson_token_usage_total Total tokens used by Xarwiz LLM calls\n`;
     out += `# TYPE harikson_token_usage_total counter\n`;
     out += `harikson_token_usage_total ${this.tokensUsed}\n\n`;
 
-    out += `# HELP harikson_api_latency_seconds Latency of Harikson API operations\n`;
+    out += `# HELP harikson_api_latency_seconds Latency of Xarwiz API operations\n`;
     out += `# TYPE harikson_api_latency_seconds gauge\n`;
     for (const [op, sec] of Object.entries(this.latencies)) {
       out += `harikson_api_latency_seconds{operation="${op}"} ${sec}\n`;

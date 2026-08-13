@@ -52,7 +52,7 @@ router.delete('/:id', async (req: Request, res: Response) => {
       hariksonSuccess: true,
       hariksonDeletedId: id,
       hariksonMessage:
-        'Memory deleted successfully from Harikson memory store.',
+        'Memory deleted successfully from Xarwiz memory store.',
     });
   } catch (error: any) {
     return res.status(500).json({ hariksonError: error.message });

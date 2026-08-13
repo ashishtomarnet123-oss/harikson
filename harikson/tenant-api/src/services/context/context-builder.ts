@@ -227,11 +227,11 @@ export class ContextBuilder {
             .join('\n');
 
           console.log(
-            `🧠 [Harikson Context] Summarization triggered. Processing ${messagesToSummarize.length} old messages...`
+            `🧠 [Xarwiz Context] Summarization triggered. Processing ${messagesToSummarize.length} old messages...`
           );
 
           const summarySystemPrompt =
-            'You are the Harikson Conversation Summarizer. Condense the conversation history into a 1-2 paragraph summary capturing all names, stack details, preferences, and important facts.';
+            'You are the Xarwiz Conversation Summarizer. Condense the conversation history into a 1-2 paragraph summary capturing all names, stack details, preferences, and important facts.';
           const summaryText = await OllamaClient.generate(
             `Summarize this chat:\n\n${rawSummaryPrompt}`,
             summarySystemPrompt
@@ -289,7 +289,7 @@ export class ContextBuilder {
         }
       } catch (err) {
         console.error(
-          '⚠️ [Harikson Context] History retrieval / summary failed:',
+          '⚠️ [Xarwiz Context] History retrieval / summary failed:',
           err
         );
       }

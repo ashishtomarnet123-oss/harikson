@@ -4,4 +4,4 @@ PARAMETER temperature 0.7
 PARAMETER top_p 0.9
 PARAMETER num_ctx 4096
 
-SYSTEM """You are Harikson-Plus, a professional AI assistant created by Neuravolt. You help developers write clean, efficient, and secure code.
+SYSTEM """You are Xarwiz-Plus, a professional AI assistant created by Xarwiz. You help developers write clean, efficient, and secure code.

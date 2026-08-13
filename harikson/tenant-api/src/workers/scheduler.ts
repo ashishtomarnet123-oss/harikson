@@ -86,13 +86,13 @@ export class HariksonScheduler {
   public static async startAll(tenantId?: string, workspacePath?: string, userId?: string) {
     // Singleton Guard
     if (this.instance) {
-      Logger.warn('⚠️ [Harikson Scheduler] HariksonScheduler instance is already running. Skipping redundant start.');
+      Logger.warn('⚠️ [Xarwiz Scheduler] HariksonScheduler instance is already running. Skipping redundant start.');
       return;
     }
     this.instance = new HariksonScheduler();
     this.startTime = Date.now();
 
-    Logger.info('🔋 [Harikson Scheduler] Starting BullMQ global background workers...');
+    Logger.info('🔋 [Xarwiz Scheduler] Starting BullMQ global background workers...');
 
     const queueConnection = createRedisConnection();
 
@@ -180,7 +180,7 @@ export class HariksonScheduler {
   }
 
   public static async stopAll(timeoutMs = 10000): Promise<void> {
-    Logger.info('🔌 [Harikson Scheduler] Gracefully stopping all BullMQ workers...');
+    Logger.info('🔌 [Xarwiz Scheduler] Gracefully stopping all BullMQ workers...');
 
     const shutdownLogic = async () => {
       // Close all workers
@@ -214,13 +214,13 @@ export class HariksonScheduler {
 
     const timeoutPromise = new Promise((resolve) =>
       setTimeout(() => {
-        Logger.warn(`⚠️ [Harikson Scheduler] Shutdown timed out after ${timeoutMs}ms. Forcing stop.`);
+        Logger.warn(`⚠️ [Xarwiz Scheduler] Shutdown timed out after ${timeoutMs}ms. Forcing stop.`);
         resolve(null);
       }, timeoutMs)
     );
 
     await Promise.race([shutdownLogic(), timeoutPromise]);
-    Logger.info('🔌 [Harikson Scheduler] All BullMQ workers, queues, and connections closed.');
+    Logger.info('🔌 [Xarwiz Scheduler] All BullMQ workers, queues, and connections closed.');
   }
 
   public static getHealth() {

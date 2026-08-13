@@ -63,8 +63,8 @@ export default function CookiePolicyPage() {
       fontFamily: "'Outfit', sans-serif"
     }}>
       <Head>
-        <title>Cookie Policy | Harikson AI Platform</title>
-        <meta name="description" content="Harikson AI Cookie Policy - comprehensive tracking disclosures compliant with Indian and global regulations." />
+        <title>Cookie Policy | Xarwiz AI Platform</title>
+        <meta name="description" content="Xarwiz AI Cookie Policy - comprehensive tracking disclosures compliant with Indian and global regulations." />
         <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
       </Head>
 
@@ -123,7 +123,7 @@ export default function CookiePolicyPage() {
           lineHeight: '1.6',
           fontWeight: '300'
         }}>
-          Detailed tracking disclosures, cookie registries, consent management, and DPDP Act 2023 boundaries on Harikson.
+          Detailed tracking disclosures, cookie registries, consent management, and DPDP Act 2023 boundaries on Xarwiz.
         </p>
 
         {/* Floating Search Container */}

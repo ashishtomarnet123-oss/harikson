@@ -532,7 +532,7 @@ async function seedKnowledge() {
       const kb2 = await pool.query(
         `
         INSERT INTO knowledge_bases (name, description, tenant_id, index_status, total_documents, total_embeddings, storage_bytes)
-        VALUES ('Harikson SaaS Platform Guide', 'Sovereign platform capabilities, billing features, and vector drive setup guides.', $1, 'completed', 2, 185, 984000)
+        VALUES ('Xarwiz SaaS Platform Guide', 'Sovereign platform capabilities, billing features, and vector drive setup guides.', $1, 'completed', 2, 185, 984000)
         RETURNING id
       `,
         [tenantId]

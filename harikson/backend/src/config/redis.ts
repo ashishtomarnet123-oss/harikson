@@ -7,15 +7,15 @@ export const redisClient = createClient({
 });
 
 redisClient.on('error', (err) =>
-  console.error('🐳 [Harikson Redis] Client Error', err)
+  console.error('🐳 [Xarwiz Redis] Client Error', err)
 );
 
 try {
   await redisClient.connect();
-  console.log('🐳 [Harikson Redis] Connected successfully to DB Index 1.');
+  console.log('🐳 [Xarwiz Redis] Connected successfully to DB Index 1.');
 } catch (err) {
   console.error(
-    '❌ [Harikson Redis] Failed to establish Redis connection:',
+    '❌ [Xarwiz Redis] Failed to establish Redis connection:',
     err
   );
 }

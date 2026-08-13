@@ -145,8 +145,8 @@ const INITIAL_PLANS: Plan[] = [
     tokenLimit: 100000,
     tenantLimit: 1,
     agentLimit: 2,
-    modelAccess: ['Harikson-3B'],
-    description: 'Perfect for developers exploring Harikson AI.',
+    modelAccess: ['Xarwiz-3B'],
+    description: 'Perfect for developers exploring Xarwiz AI.',
     createdAt: '2025-01-01T00:00:00Z',
     features: [
       {
@@ -219,7 +219,7 @@ const INITIAL_PLANS: Plan[] = [
     tokenLimit: 5000000,
     tenantLimit: 10,
     agentLimit: 20,
-    modelAccess: ['Harikson-3B', 'Qwen3-8B', 'Qwen3-32B', 'Qwen3-72B'],
+    modelAccess: ['Xarwiz-3B', 'Qwen3-8B', 'Qwen3-32B', 'Qwen3-72B'],
     description: 'For growing teams needing full AI capabilities.',
     createdAt: '2025-01-01T00:00:00Z',
     features: [
@@ -294,7 +294,7 @@ const INITIAL_PLANS: Plan[] = [
     tenantLimit: -1,
     agentLimit: -1,
     modelAccess: [
-      'Harikson-3B',
+      'Xarwiz-3B',
       'Qwen3-8B',
       'Qwen3-32B',
       'Qwen3-72B',
@@ -397,7 +397,7 @@ const TIER_META: Record<
 };
 
 const AVAILABLE_MODELS = [
-  'Harikson-3B',
+  'Xarwiz-3B',
   'Qwen3-8B',
   'Qwen3-32B',
   'Qwen3-72B',
@@ -3211,7 +3211,7 @@ export default function TenantPlanManager() {
             tokenLimit: 1000000,
             tenantLimit: 5,
             agentLimit: 10,
-            modelAccess: ['Harikson-3B'],
+            modelAccess: ['Xarwiz-3B'],
             description: '',
             createdAt: new Date().toISOString(),
             features: INITIAL_PLANS[0].features.map((f) => ({

@@ -1,7 +1,7 @@
 {
   "name": "harikson-vscode-extension",
-  "displayName": "Harikson AI Code Assistant",
-  "description": "Ghost text autocompletions, sidebar developer chat, and code review reviews for Harikson Multi-Tenant Platform.",
+  "displayName": "Xarwiz AI Code Assistant",
+  "description": "Ghost text autocompletions, sidebar developer chat, and code review reviews for Xarwiz Multi-Tenant Platform.",
   "version": "1.0.0",
   "publisher": "harikson",
   "engines": {
@@ -22,7 +22,7 @@
   },
   "contributes": {
     "configuration": {
-      "title": "Harikson AI",
+      "title": "Xarwiz AI",
       "properties": {
         "harikson.tenantUrl": {
           "type": "string",
@@ -41,7 +41,7 @@
             "harikson-plus",
             "harikson-max"
           ],
-          "description": "The active Harikson AI assistant model to query."
+          "description": "The active Xarwiz AI assistant model to query."
         }
       }
     },
@@ -49,7 +49,7 @@
       "activitybar": [
         {
           "id": "harikson-sidebar",
-          "title": "Harikson AI",
+          "title": "Xarwiz AI",
           "icon": "resources/icon.svg"
         }
       ]
@@ -59,22 +59,22 @@
         {
           "type": "webview",
           "id": "harikson-chat-view",
-          "name": "Harikson Developer Chat"
+          "name": "Xarwiz Developer Chat"
         }
       ]
     },
     "commands": [
       {
         "command": "harikson.reviewSelection",
-        "title": "Harikson: Review Selection"
+        "title": "Xarwiz: Review Selection"
       },
       {
         "command": "harikson.switchModel",
-        "title": "Harikson: Switch Model"
+        "title": "Xarwiz: Switch Model"
       },
       {
         "command": "harikson.connectApiKey",
-        "title": "Harikson: Connect API Key"
+        "title": "Xarwiz: Connect API Key"
       }
     ]
   },

@@ -96,7 +96,7 @@ export class ChatProvider implements vscode.WebviewViewProvider {
       <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Harikson Chat</title>
+        <title>Xarwiz Chat</title>
         <style>
           body {
             font-family: var(--vscode-font-family, system-ui, -apple-system, sans-serif);
@@ -225,10 +225,10 @@ export class ChatProvider implements vscode.WebviewViewProvider {
             <button id="connect" class="connect-btn">🔑 Connect API Key</button>
           </div>
           <div id="messages">
-            <div class="message ai-msg">Hi! I am your Harikson AI assistant. Ask code completions or logic questions here!</div>
+            <div class="message ai-msg">Hi! I am your Xarwiz AI assistant. Ask code completions or logic questions here!</div>
           </div>
           <div class="input-area">
-            <input id="input" type="text" placeholder="Ask Harikson AI..." />
+            <input id="input" type="text" placeholder="Ask Xarwiz AI..." />
             <button id="send">Ask</button>
           </div>
         </div>

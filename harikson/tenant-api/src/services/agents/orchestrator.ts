@@ -9,11 +9,11 @@ import { metrics } from '../../observability/metrics.js';
 export interface TaskStep {
   step: number;
   agent:
-    | 'Harikson Planner'
-    | 'Harikson Research'
-    | 'Harikson Coder'
-    | 'Harikson Reviewer'
-    | 'Harikson Tester';
+    | 'Xarwiz Planner'
+    | 'Xarwiz Research'
+    | 'Xarwiz Coder'
+    | 'Xarwiz Reviewer'
+    | 'Xarwiz Tester';
   task: string;
   status: 'pending' | 'running' | 'completed' | 'failed';
   result?: string;
@@ -52,7 +52,7 @@ export class HariksonOrchestrator {
     userRequest: string
   ): Promise<{ planId: string; finalOutput: string; steps: TaskStep[] }> {
     Logger.info(
-      '🤖 [Harikson Orchestrator] Starting multi-agent task execution...',
+      '🤖 [Xarwiz Orchestrator] Starting multi-agent task execution...',
       { userRequest }
     );
     const start = Date.now();
@@ -94,14 +94,14 @@ export class HariksonOrchestrator {
         let result = '';
 
         switch (currentStep.agent) {
-          case 'Harikson Research':
+          case 'Xarwiz Research':
             result = await this.runResearchAgent(
               tenantId,
               currentStep.task,
               sharedContext
             );
             break;
-          case 'Harikson Coder':
+          case 'Xarwiz Coder':
             result = await this.runCoderAgent(
               tenantId,
               conversationId,
@@ -109,7 +109,7 @@ export class HariksonOrchestrator {
               sharedContext
             );
             break;
-          case 'Harikson Reviewer':
+          case 'Xarwiz Reviewer':
             result = await this.runReviewerAgent(
               currentStep.task,
               sharedContext
@@ -125,7 +125,7 @@ export class HariksonOrchestrator {
               const lastCoderStep = planSteps
                 .slice(0, currentStepIdx)
                 .reverse()
-                .find((s) => s.agent === 'Harikson Coder');
+                .find((s) => s.agent === 'Xarwiz Coder');
 
               if (lastCoderStep) {
                 lastCoderStep.status = 'pending';
@@ -141,7 +141,7 @@ export class HariksonOrchestrator {
               }
             }
             break;
-          case 'Harikson Tester':
+          case 'Xarwiz Tester':
             result = await this.runTesterAgent(
               tenantId,
               conversationId,
@@ -178,7 +178,7 @@ export class HariksonOrchestrator {
 
     metrics.recordLatency('agent_orchestration', duration);
     Logger.info(
-      '🎉 [Harikson Orchestrator] Multi-agent execution finished successfully!'
+      '🎉 [Xarwiz Orchestrator] Multi-agent execution finished successfully!'
     );
 
     return { planId, finalOutput, steps: planSteps };
@@ -186,7 +186,7 @@ export class HariksonOrchestrator {
 
   private static async generatePlan(userRequest: string): Promise<TaskStep[]> {
     const systemPrompt =
-      'You are the Harikson Orchestration Planner. Split the user request into 4-5 sequential sub-tasks. Choose only from agents: \'Harikson Research\', \'Harikson Coder\', \'Harikson Reviewer\', \'Harikson Tester\'. Output valid JSON array matches strictly this format: [{"step": 1, "agent": "Harikson Research", "task": "..."}]';
+      'You are the Xarwiz Orchestration Planner. Split the user request into 4-5 sequential sub-tasks. Choose only from agents: \'Xarwiz Research\', \'Xarwiz Coder\', \'Xarwiz Reviewer\', \'Xarwiz Tester\'. Output valid JSON array matches strictly this format: [{"step": 1, "agent": "Xarwiz Research", "task": "..."}]';
 
     try {
       const response = await OllamaClient.generate(
@@ -208,25 +208,25 @@ export class HariksonOrchestrator {
       return [
         {
           step: 1,
-          agent: 'Harikson Research',
+          agent: 'Xarwiz Research',
           task: 'Scan workspace and search for existing files or auth middleware.',
           status: 'pending',
         },
         {
           step: 2,
-          agent: 'Harikson Coder',
+          agent: 'Xarwiz Coder',
           task: 'Write code matching the user request and save file changes.',
           status: 'pending',
         },
         {
           step: 3,
-          agent: 'Harikson Reviewer',
+          agent: 'Xarwiz Reviewer',
           task: 'Review the code changes for syntax errors and architectural alignment.',
           status: 'pending',
         },
         {
           step: 4,
-          agent: 'Harikson Tester',
+          agent: 'Xarwiz Tester',
           task: 'Execute workspace tests to verify code stability.',
           status: 'pending',
         },
@@ -261,7 +261,7 @@ export class HariksonOrchestrator {
     context: Record<string, string>
   ): Promise<string> {
     const systemPrompt =
-      'You are Harikson Coder. Generate the write_file tool call XML tags required to implement the task.';
+      'You are Xarwiz Coder. Generate the write_file tool call XML tags required to implement the task.';
     const response = await OllamaClient.generate(
       `Implement this: "${task}"`,
       systemPrompt
@@ -299,7 +299,7 @@ export class HariksonOrchestrator {
     context: Record<string, string>
   ): Promise<string> {
     const systemPrompt =
-      "You are the Harikson Reviewer. Evaluate the changes. If there are syntax or logic errors, reply with 'REJECT' and details. Otherwise reply with 'APPROVE'.";
+      "You are the Xarwiz Reviewer. Evaluate the changes. If there are syntax or logic errors, reply with 'REJECT' and details. Otherwise reply with 'APPROVE'.";
 
     // We pass Coder changes to reviewer context
     const input = `Review task: "${task}". Coder outcomes: ${context.coderChanges || 'Mock auth content written.'}`;

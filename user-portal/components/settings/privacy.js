@@ -59,7 +59,7 @@ export default function DataPrivacySettings() {
         const profileData = await res.json();
         const exportObj = {
           exportedAt: new Date().toISOString(),
-          platform: 'Harikson AI',
+          platform: 'Xarwiz AI',
           user: profileData,
           localConversations: JSON.parse(localStorage.getItem('hk_recent_conversations') || '[]'),
         };
@@ -115,7 +115,7 @@ export default function DataPrivacySettings() {
           <div>
             <span style={{ fontSize: '14px', fontWeight: 600, color: '#0f172a', display: 'block' }}>Model Quality & Telemetry</span>
             <p style={{ fontSize: '13px', color: '#64748b', margin: '2px 0 0 0' }}>
-              Allow anonymized query logs to help improve Harikson AI reasoning accuracy.
+              Allow anonymized query logs to help improve Xarwiz AI reasoning accuracy.
             </p>
           </div>
           <input

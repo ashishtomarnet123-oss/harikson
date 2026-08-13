@@ -74,7 +74,7 @@ export default function VerifyEmailPage() {
   return (
     <>
       <Head>
-        <title>Email Verification — Harikson AI</title>
+        <title>Email Verification — Xarwiz AI</title>
       </Head>
 
       <div className="login-root">

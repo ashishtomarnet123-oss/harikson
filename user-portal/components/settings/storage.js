@@ -47,7 +47,7 @@ export default function StorageSettings() {
     <>
       <div className="settings-page-header">
         <h1>Storage Manager</h1>
-        <p>Review the data stored within your Harikson workspace.</p>
+        <p>Review the data stored within your Xarwiz workspace.</p>
       </div>
 
       {error && (

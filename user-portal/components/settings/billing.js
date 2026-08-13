@@ -188,7 +188,7 @@ export default function BillingSettings() {
         amount: order.amount,
         currency: order.currency,
         order_id: order.orderId,
-        name: 'Harikson AI',
+        name: 'Xarwiz AI',
         description: `${order.planName} subscription`,
         theme: { color: '#3b82f6' },
         handler: async (response) => {

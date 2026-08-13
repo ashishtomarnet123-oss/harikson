@@ -26,7 +26,7 @@ router.get('/config', async (req: any, res) => {
       name: tenant.name,
       slug: tenant.slug,
       config: tenant.widget_config || {
-        title: 'Harikson AI Support',
+        title: 'Xarwiz AI Support',
         color: '#4f46e5',
         greeting: 'Hello! How can I assist you today?',
       },
@@ -41,7 +41,7 @@ router.get('/config', async (req: any, res) => {
 router.get('/script.js', (_req, res) => {
   const scriptContent = `
     (function() {
-      console.log('🤖 [Harikson AI] Chat widget initialized.');
+      console.log('🤖 [Xarwiz AI] Chat widget initialized.');
     })();
   `;
   res.setHeader('Content-Type', 'application/javascript');

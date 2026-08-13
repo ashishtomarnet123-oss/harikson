@@ -306,7 +306,7 @@ export default function ProfileSettings({ onClose }) {
               name="company"
               value={profile.company}
               onChange={handleChange}
-              placeholder="Harikson Technologies"
+              placeholder="Xarwiz Technologies"
             />
           </div>
 

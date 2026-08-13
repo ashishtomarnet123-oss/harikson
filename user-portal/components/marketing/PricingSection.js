@@ -11,7 +11,7 @@ export default function PricingSection() {
       description: 'Ideal for developers testing private LLMs and building AI prototypes.',
       features: [
         '10,000 AI tokens / month',
-        'Harikson-3B & Qwen3-8B access',
+        'Xarwiz-3B & Qwen3-8B access',
         '1 Private AI Workspace',
         'Community Support',
         'Standard Rate Limits'

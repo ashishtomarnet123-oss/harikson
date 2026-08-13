@@ -1,8 +1,8 @@
 {
   "openapi": "3.0.3",
   "info": {
-    "title": "Harikson AI SaaS Platform API",
-    "description": "Comprehensive developer and tenant API documentation for Harikson AI SaaS Platform.",
+    "title": "Xarwiz AI SaaS Platform API",
+    "description": "Comprehensive developer and tenant API documentation for Xarwiz AI SaaS Platform.",
     "version": "1.0.0"
   },
   "servers": [

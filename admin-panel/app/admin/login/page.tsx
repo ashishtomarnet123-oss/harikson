@@ -47,7 +47,7 @@ export default function LoginPage() {
             <Cpu className="w-7 h-7 text-blue-600" />
           </div>
           <h1 className="text-xl font-black text-slate-900 tracking-wide">
-            HARIKSON CONTROL PLANE
+            XARWIZ CONTROL PLANE
           </h1>
           <p className="text-[11px] text-slate-500 mt-1 uppercase font-bold tracking-widest">
             Administrator Authentication
@@ -119,7 +119,7 @@ export default function LoginPage() {
 
         {/* Footer */}
         <p className="text-[11px] text-slate-600 text-center mt-10 uppercase tracking-widest font-bold">
-          Harikson AI · Secure Control Panel
+          Xarwiz AI · Secure Control Panel
         </p>
       </div>
     </div>

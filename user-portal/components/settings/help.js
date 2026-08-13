@@ -6,7 +6,7 @@ const resources = [
     icon: BookOpen,
     title: 'Documentation',
     description:
-      'Read our comprehensive guides on how to use Harikson AI for your business.',
+      'Read our comprehensive guides on how to use Xarwiz AI for your business.',
     label: 'View Docs',
     href: '#',
   },
@@ -15,7 +15,7 @@ const resources = [
     title: 'Contact Support',
     description: 'Need help? Reach out to our enterprise support team 24/7.',
     label: 'Email Support',
-    href: 'mailto:support@harikson.com',
+    href: 'mailto:support@xarwiz.com',
   },
   {
     icon: Bug,

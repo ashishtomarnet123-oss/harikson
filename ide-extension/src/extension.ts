@@ -9,7 +9,7 @@ let statusBarItem: vscode.StatusBarItem;
 let connectionTimer: NodeJS.Timeout | undefined;
 
 export function activate(context: vscode.ExtensionContext) {
-  console.log('⚡ [Harikson AI] VS Code Extension activated!');
+  console.log('⚡ [Xarwiz AI] VS Code Extension activated!');
 
   const config = vscode.workspace.getConfiguration('harikson');
   const initialModel = config.get<string>('model') || 'harikson-plus';
@@ -68,7 +68,7 @@ export function activate(context: vscode.ExtensionContext) {
 
       if (!apiKey) {
         vscode.window.showErrorMessage(
-          'Harikson API Key is missing. Configure "harikson.apiKey" in settings.'
+          'Xarwiz API Key is missing. Configure "harikson.apiKey" in settings.'
         );
         return;
       }
@@ -76,7 +76,7 @@ export function activate(context: vscode.ExtensionContext) {
       vscode.window.withProgress(
         {
           location: vscode.ProgressLocation.Notification,
-          title: 'Harikson: Reviewing selected code...',
+          title: 'Xarwiz: Reviewing selected code...',
           cancellable: false,
         },
         async (progress) => {
@@ -142,7 +142,7 @@ export function activate(context: vscode.ExtensionContext) {
               'vscode.diff',
               originalUri,
               reviewedUri,
-              'Harikson: Review Code Selection'
+              'Xarwiz: Review Code Selection'
             );
 
             // Queue background deletion of temporary files after a short interval
@@ -173,7 +173,7 @@ export function activate(context: vscode.ExtensionContext) {
       const chosen = await vscode.window.showQuickPick(
         ['harikson-plus', 'harikson-max'],
         {
-          placeHolder: 'Select Harikson Model Context',
+          placeHolder: 'Select Xarwiz Model Context',
         }
       );
       if (chosen) {
@@ -204,7 +204,7 @@ export function activate(context: vscode.ExtensionContext) {
       if (!key) return;
 
       await config.update('apiKey', key.trim(), vscode.ConfigurationTarget.Global);
-      vscode.window.showInformationMessage('✅ Harikson AI: API key saved.');
+      vscode.window.showInformationMessage('✅ Xarwiz AI: API key saved.');
       checkConnection();
     })
   );
@@ -245,10 +245,10 @@ async function checkConnection() {
 function updateStatusBar(connected: boolean, model: string) {
   if (!statusBarItem) return;
   const icon = connected ? '$(circle-filled)' : '$(circle-outline)';
-  statusBarItem.text = `${icon} Harikson: ${model}`;
+  statusBarItem.text = `${icon} Xarwiz: ${model}`;
   statusBarItem.tooltip = connected
-    ? `Connected to Harikson Tenant Service\nActive Model: ${model}\nClick to switch model`
-    : `Disconnected from Harikson\nClick to switch model`;
+    ? `Connected to Xarwiz Tenant Service\nActive Model: ${model}\nClick to switch model`
+    : `Disconnected from Xarwiz\nClick to switch model`;
 
   if (connected) {
     statusBarItem.backgroundColor = undefined;

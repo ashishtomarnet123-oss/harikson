@@ -144,7 +144,7 @@ async function initDb() {
     );
     if (parseInt(providers.rows[0].count) === 0) {
       logger.warn(
-        '⚠️ No active payment providers configured. Add Razorpay or Stripe merchant settings in Harikson Admin Panel.'
+        '⚠️ No active payment providers configured. Add Razorpay or Stripe merchant settings in Xarwiz Admin Panel.'
       );
     }
   } catch (err) {

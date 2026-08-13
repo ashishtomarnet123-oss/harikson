@@ -87,7 +87,7 @@ export class ToolExecutor {
 
     if (!toolDef) {
       const elapsed = Date.now() - start;
-      const errorMsg = `Tool "${name}" is not registered in Harikson framework.`;
+      const errorMsg = `Tool "${name}" is not registered in Xarwiz framework.`;
 
       // Log failure in DB
       await this.logExecution(
@@ -115,7 +115,7 @@ export class ToolExecutor {
       }
 
       console.log(
-        `⚡ [Harikson Tool] Executing: ${name} (Params: ${JSON.stringify(activeParams)})`
+        `⚡ [Xarwiz Tool] Executing: ${name} (Params: ${JSON.stringify(activeParams)})`
       );
       const result = await toolDef.handler(workspacePath, activeParams);
       const elapsed = Date.now() - start;
@@ -201,7 +201,7 @@ export class ToolExecutor {
         ]);
       });
     } catch (err) {
-      console.error('⚠️ [Harikson Tool] Failed to save execution log:', err);
+      console.error('⚠️ [Xarwiz Tool] Failed to save execution log:', err);
     }
   }
 }

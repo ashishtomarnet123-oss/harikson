@@ -879,7 +879,7 @@ function ChatPage() {
     printWindow.document.write(
       '<html><head><title>Chat Transcript</title></head>' +
         '<body style="max-width: 800px; margin: 40px auto; padding: 0 20px; font-family: sans-serif;">' +
-        '<h1 style="font-size: 24px; margin-bottom: 30px; text-align: center;">Harikson AI Chat Transcript</h1>' +
+        '<h1 style="font-size: 24px; margin-bottom: 30px; text-align: center;">Xarwiz AI Chat Transcript</h1>' +
         contentHtml +
         '<script>window.onload = function() { window.print(); window.close(); }</script>' +
         '</body></html>'
@@ -1374,18 +1374,18 @@ function ChatPage() {
     // Map system prompts presets
     const presets = {
       coder:
-        "You are a senior developer. Write code in clean, modular blocks with TypeScript typings and proper error catches. Brand everything as 'Harikson'. Do not expose any open-source model names.",
+        "You are a senior developer. Write code in clean, modular blocks with TypeScript typings and proper error catches. Brand everything as 'Xarwiz'. Do not expose any open-source model names.",
       reviewer:
-        "You are a code auditor. Find logic flows, edge cases, and performance leaks in the code. Brand everything as 'Harikson'.",
-      dba: "You are a senior Postgres DBA. Focus on database schemas, transaction locks, and query index performance. Brand everything as 'Harikson'.",
+        "You are a code auditor. Find logic flows, edge cases, and performance leaks in the code. Brand everything as 'Xarwiz'.",
+      dba: "You are a senior Postgres DBA. Focus on database schemas, transaction locks, and query index performance. Brand everything as 'Xarwiz'.",
       general:
-        "You are a helpful, privacy-first enterprise AI assistant branded as 'Harikson'.",
+        "You are a helpful, privacy-first enterprise AI assistant branded as 'Xarwiz'.",
     };
 
     const fileInstructions = `
 
 # IDENTITY
-You are Harikson AI, an Enterprise Document Intelligence Agent. You analyze uploaded files with the rigor of a senior consultant, security engineer, and data analyst. You do not summarize superficially. You investigate, validate, and structure evidence.
+You are Xarwiz AI, an Enterprise Document Intelligence Agent. You analyze uploaded files with the rigor of a senior consultant, security engineer, and data analyst. You do not summarize superficially. You investigate, validate, and structure evidence.
 
 # CORE MANDATE
 1. Ground every claim in the document. Cite page numbers, section headers, line numbers, or table coordinates.
@@ -2033,8 +2033,8 @@ If any check fails, revise the relevant section before output.`;
         </div>
       )}
       <Head>
-        <title>Harikson AI — Chat</title>
-        <meta name="description" content="Harikson AI Chat Interface" />
+        <title>Xarwiz AI — Chat</title>
+        <meta name="description" content="Xarwiz AI Chat Interface" />
       </Head>
 
       <div
@@ -2287,8 +2287,8 @@ If any check fails, revise the relevant section before output.`;
                   value={model}
                   onChange={(e) => setModel(e.target.value)}
                 >
-                  <option value="harikson-plus">Harikson Plus · 8B</option>
-                  <option value="harikson-max">Harikson Max · 14B</option>
+                  <option value="harikson-plus">Xarwiz Plus · 8B</option>
+                  <option value="harikson-max">Xarwiz Max · 14B</option>
                 </select>
               </div>
             </div>
@@ -2322,7 +2322,7 @@ If any check fails, revise the relevant section before output.`;
                   <div className="hero-icon-container">
                     <Zap size={26} color="#3b82f6" />
                   </div>
-                  <h2 className="hero-title">Harikson AI</h2>
+                  <h2 className="hero-title">Xarwiz AI</h2>
                   <p className="hero-description">
                     Your enterprise AI coding assistant. Ask anything about your
                     codebase, architecture, or software.
@@ -2333,7 +2333,7 @@ If any check fails, revise the relevant section before output.`;
                       className="quick-action-card"
                       onClick={() =>
                         handleSuggestionClick(
-                          'Create a private LLM deployment template with Harikson.'
+                          'Create a private LLM deployment template with Xarwiz.'
                         )
                       }
                     >
@@ -2568,7 +2568,7 @@ If any check fails, revise the relevant section before output.`;
                     value={inputText}
                     onChange={handleInputChange}
                     onKeyDown={handleKeyDown}
-                    placeholder="Message Harikson…"
+                    placeholder="Message Xarwiz…"
                     disabled={loading}
                   />
                   <div className="composer-toolbar">
@@ -2700,7 +2700,7 @@ If any check fails, revise the relevant section before output.`;
             <div className="drag-drop-icon">
               <FolderUp size={48} color="var(--accent)" />
             </div>
-            <span>Drop your files to attach to Harikson</span>
+            <span>Drop your files to attach to Xarwiz</span>
           </div>
         )}
 

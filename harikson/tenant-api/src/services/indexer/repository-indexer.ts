@@ -294,7 +294,7 @@ export class RepositoryIndexer {
         processedFiles++;
       } catch (err) {
         console.error(
-          `❌ [Harikson Indexer] Failed to index ${relativePath}:`,
+          `❌ [Xarwiz Indexer] Failed to index ${relativePath}:`,
           err
         );
         processedFiles++;
@@ -327,7 +327,7 @@ export class RepositoryIndexer {
         for (const dbFile of dbFiles) {
           if (!presentSet.has(dbFile)) {
             console.log(
-              `🧹 [Harikson Indexer] Cleaning up removed file: ${dbFile}`
+              `🧹 [Xarwiz Indexer] Cleaning up removed file: ${dbFile}`
             );
             await client.query('DELETE FROM file_chunks WHERE file_path = $1', [
               dbFile,
@@ -341,7 +341,7 @@ export class RepositoryIndexer {
       });
     } catch (cleanupErr) {
       console.error(
-        '⚠️ [Harikson Indexer] Database cleanup error:',
+        '⚠️ [Xarwiz Indexer] Database cleanup error:',
         cleanupErr
       );
     }

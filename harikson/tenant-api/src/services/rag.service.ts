@@ -72,14 +72,14 @@ export class RagService {
           embedding = await embedSingleChunk();
         } catch (firstErr: any) {
           console.warn(
-            `⚠️ [Harikson RAG] Embed attempt 1 failed for chunk ${index + 1}/${total}: ${firstErr.message}. Retrying in 2s...`
+            `⚠️ [Xarwiz RAG] Embed attempt 1 failed for chunk ${index + 1}/${total}: ${firstErr.message}. Retrying in 2s...`
           );
           await new Promise((res) => setTimeout(res, 2000));
           try {
             embedding = await embedSingleChunk();
           } catch (retryErr: any) {
             console.error(
-              `❌ [Harikson RAG] Skipping chunk ${index + 1}/${total} after retry failure:`,
+              `❌ [Xarwiz RAG] Skipping chunk ${index + 1}/${total} after retry failure:`,
               retryErr.message
             );
             return null;
@@ -88,7 +88,7 @@ export class RagService {
 
         completedCount++;
         const percent = Math.round((completedCount / total) * 100);
-        console.log(`⏳ [Harikson RAG] Embedding chunk ${completedCount}/${total} (${percent}%)`);
+        console.log(`⏳ [Xarwiz RAG] Embedding chunk ${completedCount}/${total} (${percent}%)`);
 
         return { chunk, embedding };
       })
@@ -183,12 +183,12 @@ export class RagService {
       });
 
       console.log(
-        `📂 [Harikson RAG] Indexed document ${name}: created ${chunkEmbeddings.length}/${chunks.length} chunks.`
+        `📂 [Xarwiz RAG] Indexed document ${name}: created ${chunkEmbeddings.length}/${chunks.length} chunks.`
       );
       return { documentId: newDocId, chunksIndexed: chunkEmbeddings.length };
     } catch (error) {
       console.error(
-        `❌ [Harikson RAG] Ingestion error on document ${name}:`,
+        `❌ [Xarwiz RAG] Ingestion error on document ${name}:`,
         error
       );
       throw error;
@@ -250,7 +250,7 @@ export class RagService {
       return matched.join('\n\n');
     } catch (error: any) {
       console.warn(
-        '⚠️ [Harikson RAG] Query failed, returning empty context:',
+        '⚠️ [Xarwiz RAG] Query failed, returning empty context:',
         error.message
       );
       return 'No matching context found in knowledge base.';

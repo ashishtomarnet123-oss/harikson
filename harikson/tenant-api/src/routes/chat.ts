@@ -78,7 +78,7 @@ router.post('/', async (req: Request, res: Response) => {
       message,
       conversationContextText
     ).catch((err) =>
-      console.error('⚠️ [Harikson Memory] Background extraction failed:', err)
+      console.error('⚠️ [Xarwiz Memory] Background extraction failed:', err)
     );
 
     // Run response through toxicity and PII validation gates

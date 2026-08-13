@@ -106,7 +106,7 @@ export default function LanguageSettings() {
               <option value="hi">Hindi</option>
             </select>
             <span className="help-text">
-              This controls the language used across the Harikson AI interface.
+              This controls the language used across the Xarwiz AI interface.
             </span>
           </div>
 

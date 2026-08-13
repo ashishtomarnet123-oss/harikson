@@ -216,13 +216,13 @@ async function startServer() {
     // Initialize background worker scheduler
     try {
       await HariksonScheduler.startAll();
-      logger.info('Harikson background scheduler initialized.');
+      logger.info('Xarwiz background scheduler initialized.');
     } catch (schedErr: any) {
       logger.warn('Scheduler failed to start:', schedErr.message);
     }
 
     app.listen(PORT, () => {
-      logger.info(`🚀 [Harikson Tenant API] Running on port ${PORT}`);
+      logger.info(`🚀 [Xarwiz Tenant API] Running on port ${PORT}`);
     });
   } catch (err: any) {
     logger.error('Failed to start server:', err);

@@ -4,7 +4,7 @@ import ClientInitializer from '../components/ClientInitializer';
 import { AdminAuthProvider } from '../context/AdminAuthContext';
 
 export const metadata = {
-  title: 'Harikson AI Platform - Admin Control Plane',
+  title: 'Xarwiz AI Platform - Admin Control Plane',
   description:
     'Control panel for managing multi-tenant LLM instances and VM workloads.',
 };

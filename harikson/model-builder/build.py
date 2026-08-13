@@ -49,7 +49,7 @@ class ModelBuilder:
     def create_modelfile(self, gguf_path: str, template_path: str, output_path: str):
         if not os.path.exists(template_path):
             print(f"⚠️ Template file {template_path} not found. Using inline fallback template.")
-            template = "FROM {{gguf_path}}\nPARAMETER temperature 0.7\nSYSTEM You are Harikson AI"
+            template = "FROM {{gguf_path}}\nPARAMETER temperature 0.7\nSYSTEM You are Xarwiz AI"
         else:
             with open(template_path, 'r') as f:
                 template = f.read()

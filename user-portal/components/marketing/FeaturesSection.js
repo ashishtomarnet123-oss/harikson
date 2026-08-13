@@ -31,7 +31,7 @@ export default function FeaturesSection() {
     {
       icon: Layers,
       title: 'Multi-Model Fabric',
-      description: 'Switch seamlessly between Harikson-3B, Qwen3-8B, Qwen3-32B, and custom fine-tuned LLMs with 100% data sovereignty.'
+      description: 'Switch seamlessly between Xarwiz-3B, Qwen3-8B, Qwen3-32B, and custom fine-tuned LLMs with 100% data sovereignty.'
     }
   ];
 

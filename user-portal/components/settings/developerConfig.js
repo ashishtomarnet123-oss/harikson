@@ -133,7 +133,7 @@ export default function DeveloperConfigSettings() {
               placeholder="https://example.com/api/webhook"
             />
             <span className="field-hint-text">
-              Harikson AI will send HTTP POST payloads for chat events and workflow triggers to this URL.
+              Xarwiz AI will send HTTP POST payloads for chat events and workflow triggers to this URL.
             </span>
           </div>
 

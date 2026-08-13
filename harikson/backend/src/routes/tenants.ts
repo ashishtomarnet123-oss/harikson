@@ -151,7 +151,7 @@ router.post(
       });
 
       await billingService.emailUser(tenant.email || 'user@neuravolt.cloud', {
-        subject: 'Harikson Request Update',
+        subject: 'Xarwiz Request Update',
         body: `Your request has been rejected. Reason: ${req.body.reason || 'Not specified'}`,
       });
 

@@ -85,12 +85,12 @@ export class MemoryExtractor {
     messageId?: string
   ): Promise<void> {
     if (messageId && (await this.isProcessed(tenantId, messageId))) {
-      console.log(`🧠 [Harikson Memory] Skipping already processed message ${messageId}`);
+      console.log(`🧠 [Xarwiz Memory] Skipping already processed message ${messageId}`);
       return;
     }
 
     try {
-      const systemPrompt = `You are the Harikson Memory Service. Your job is to extract important, permanent facts about the user (their preferences, their tech stack, their name, their project, their company) from the user's message.
+      const systemPrompt = `You are the Xarwiz Memory Service. Your job is to extract important, permanent facts about the user (their preferences, their tech stack, their name, their project, their company) from the user's message.
 Do NOT extract transient information like greetings, temporary states, weather, or conversational filler.
 Always write extracted facts in the third person (e.g., 'User's company uses Laravel' instead of 'My company uses Laravel').
 Rate the importance on a scale of 0.0 to 1.0.
@@ -119,7 +119,7 @@ or
 
       if (parsed.should_remember && parsed.fact && parsed.fact.trim()) {
         console.log(
-          `🧠 [Harikson Memory] Extracted fact: "${parsed.fact}" (Importance: ${parsed.importance})`
+          `🧠 [Xarwiz Memory] Extracted fact: "${parsed.fact}" (Importance: ${parsed.importance})`
         );
         const embedding = await OllamaClient.embed(parsed.fact);
         await MemoryStore.save(
@@ -131,7 +131,7 @@ or
         );
       } else {
         console.log(
-          `🧠 [Harikson Memory] Message not deemed worthy of permanent memory.`
+          `🧠 [Xarwiz Memory] Message not deemed worthy of permanent memory.`
         );
       }
 
@@ -139,7 +139,7 @@ or
         await this.markProcessed(tenantId, messageId);
       }
     } catch (error) {
-      console.error('❌ [Harikson Memory] Extraction failed:', error);
+      console.error('❌ [Xarwiz Memory] Extraction failed:', error);
     }
   }
 }

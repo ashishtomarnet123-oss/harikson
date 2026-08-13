@@ -152,6 +152,6 @@ export function processRequest(data) {
 }`;
     }
 
-    return `This is a simulated AI response from the Neuravolt-Harikson tenant engine. I received your request: "${prompt}". Let me know how I can help you compile databases or connect web widgets!`;
+    return `This is a simulated AI response from the Neuravolt-Xarwiz tenant engine. I received your request: "${prompt}". Let me know how I can help you compile databases or connect web widgets!`;
   }
 }

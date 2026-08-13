@@ -83,7 +83,7 @@ export default function AppearanceSettings() {
     <>
       <div className="settings-page-header">
         <h1>Appearance</h1>
-        <p>Customize the look and feel of Harikson AI.</p>
+        <p>Customize the look and feel of Xarwiz AI.</p>
       </div>
 
       {message && (
@@ -151,7 +151,7 @@ export default function AppearanceSettings() {
                 value={settings.accentColor}
                 onChange={handleChange}
               >
-                <option value="default">Harikson Blue</option>
+                <option value="default">Xarwiz Blue</option>
                 <option value="purple">Purple</option>
                 <option value="green">Green</option>
               </select>

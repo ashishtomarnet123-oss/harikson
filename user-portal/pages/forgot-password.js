@@ -66,8 +66,8 @@ export default function ForgotPasswordPage() {
   return (
     <>
       <Head>
-        <title>Forgot Password — Harikson AI</title>
-        <meta name="description" content="Reset your Harikson AI account password" />
+        <title>Forgot Password — Xarwiz AI</title>
+        <meta name="description" content="Reset your Xarwiz AI account password" />
       </Head>
 
       <div className="login-root">

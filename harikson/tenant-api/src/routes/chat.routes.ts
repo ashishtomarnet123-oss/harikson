@@ -18,7 +18,7 @@ function getMockResponse(history: any[], lastUserMsg: string, model: string): st
   const msgLower = lastUserMsg.toLowerCase().trim();
 
   if (msgLower.match(/^(hello|hi|hey|good morning|good evening|howdy|sup|yo)[\s!?.]*$/)) {
-    return `Hello! I'm Harikson AI, your intelligent enterprise assistant. How can I help you today?`;
+    return `Hello! I'm Xarwiz AI, your intelligent enterprise assistant. How can I help you today?`;
   }
   if (msgLower.includes('how are you') || msgLower.includes('how was your day') || msgLower.includes('how do you do')) {
     return `I'm doing great, thank you for asking! I'm fully operational and ready to help you with anything you need — from answering questions to analyzing documents and managing your AI workflows.`;
@@ -27,7 +27,7 @@ function getMockResponse(history: any[], lastUserMsg: string, model: string): st
     return `I can help you with:\n\n• **Intelligent Q&A** — Answer questions about your business, documents, or knowledge base\n• **Document Analysis** — Analyze uploaded PDFs, contracts, reports\n• **Code Review** — Review and suggest improvements to your codebase\n• **RAG Search** — Search across your uploaded knowledge documents\n• **Workflow Automation** — Design and trigger AI-powered workflows\n\nWhat would you like to explore?`;
   }
   if (msgLower.includes('pricing') || msgLower.includes('plan') || msgLower.includes('cost') || msgLower.includes('subscription')) {
-    return `Harikson AI offers flexible plans:\n\n• **Free** — $0/month, basic chat & 100 messages/month\n• **Starter** — $19/month, 2,000 messages & 10GB RAG storage\n• **Professional** — $49/month, 10,000 messages & 100GB RAG storage *(your current plan)*\n• **Enterprise** — $199/month, unlimited messages & dedicated infrastructure\n\nYou're currently on the **14-Day Professional Free Trial** with full access.`;
+    return `Xarwiz AI offers flexible plans:\n\n• **Free** — $0/month, basic chat & 100 messages/month\n• **Starter** — $19/month, 2,000 messages & 10GB RAG storage\n• **Professional** — $49/month, 10,000 messages & 100GB RAG storage *(your current plan)*\n• **Enterprise** — $199/month, unlimited messages & dedicated infrastructure\n\nYou're currently on the **14-Day Professional Free Trial** with full access.`;
   }
   if (msgLower.includes('help') || msgLower.includes('support') || msgLower.includes('issue') || msgLower.includes('problem')) {
     return `I'm here to help! You can:\n\n1. Describe your issue and I'll guide you through it\n2. Upload a document for analysis\n3. Ask me to write, review, or explain code\n4. Search your knowledge base\n\nWhat's the challenge you're facing?`;
@@ -137,7 +137,7 @@ async function handleChat(req: any, res: any) {
   const { message, conversationId, agentId, model: rawModel = 'harikson-plus', stream = true, clientHistory } = req.body;
   if (!message) return res.status(400).json({ error: 'Message text is required' });
 
-  // Map Harikson brand model names to real Ollama model names
+  // Map Xarwiz brand model names to real Ollama model names
   const MODEL_MAP: Record<string, string> = {
     'harikson-plus':  'qwen2.5:3b',
     'harikson-max':   'qwen2.5:3b',
@@ -196,8 +196,8 @@ async function handleChat(req: any, res: any) {
 
       // Build Ollama message list — include conversation history for context
       const systemContent = ragContext && ragContext !== 'No matching context found in knowledge base.'
-        ? `You are Harikson AI, a helpful enterprise AI assistant. Use this context to answer:\n\n${ragContext}`
-        : `You are Harikson AI, a helpful and knowledgeable enterprise AI assistant. Answer questions accurately and helpfully.`;
+        ? `You are Xarwiz AI, a helpful enterprise AI assistant. Use this context to answer:\n\n${ragContext}`
+        : `You are Xarwiz AI, a helpful and knowledgeable enterprise AI assistant. Answer questions accurately and helpfully.`;
 
       let ollamaMessages: Array<{ role: string; content: string }> = [
         { role: 'system', content: systemContent },
