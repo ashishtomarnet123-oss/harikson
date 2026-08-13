@@ -468,91 +468,114 @@ router.delete('/workspace/members/:id', async (req: any, res) => {
 });
 
 // GET /api/user/billing & /api/v1/user/billing
+// Real, DB-backed billing snapshot — no fabricated plan/card/usage/invoice
+// data anywhere in this handler. Every field either comes from a real row
+// or is left null/empty for the frontend's existing empty states to handle.
 router.get('/billing', async (req: any, res) => {
   if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
 
   try {
-    const userRes = await pool.query('SELECT tenant_id, role, company FROM users WHERE id = $1', [req.user.userId]).catch(() => ({ rows: [] }));
-    const tenantId = userRes.rows[0]?.tenant_id || req.tenant?.id || '00000000-0000-0000-0000-000000000000';
+    const userRes = await pool.query('SELECT tenant_id FROM users WHERE id = $1', [req.user.userId]).catch(() => ({ rows: [] }));
+    const tenantId = userRes.rows[0]?.tenant_id || req.tenant?.id;
+    if (!tenantId) return res.status(400).json({ error: 'No tenant associated with this account' });
 
-    let currentSub: any = {
-      plan_name: 'Professional Plan (14-Day Free Trial)',
-      status: 'active',
-      price: '$0.00 (Free Trial)',
-      billingCycle: '14-Day Trial',
-      nextBillingDate: 'August 09, 2026',
-      paymentMethod: { brand: 'Visa', last4: '4242' },
-      current_period_end: new Date(Date.now() + 14 * 24 * 3600 * 1000).toISOString(),
-      isTrial: true,
-    };
+    const tenantRes = await pool.query('SELECT plan, status FROM tenants WHERE id = $1', [tenantId]);
+    if (tenantRes.rows.length === 0) return res.status(404).json({ error: 'Tenant not found' });
+    const tenant = tenantRes.rows[0];
 
-    try {
-      const subRes = await pool.query(
-        `SELECT s.*, p.name as plan_name, p.price, p.currency
-         FROM subscriptions s
-         LEFT JOIN plans p ON p.id = s.plan_id
-         WHERE s.tenant_id = $1
-         ORDER BY s.created_at DESC LIMIT 1`,
+    // Prefer an active paid subscription (has real price/period/payment
+    // method data attached); fall back to the tenant's own `plan` column
+    // (e.g. still on the free tier, never paid) and look up that plan's
+    // real limits/features directly.
+    const subRes = await pool.query(
+      `SELECT s.*, p.name as plan_name, p.price as plan_price, p.currency as plan_currency,
+              p.token_limit, p.storage_limit_gb, p.features
+       FROM subscriptions s
+       JOIN plans p ON p.id = s.plan_id
+       WHERE s.tenant_id = $1 AND s.status IN ('active', 'past_due')
+       ORDER BY s.created_at DESC LIMIT 1`,
+      [tenantId]
+    ).catch(() => ({ rows: [] }));
+
+    let sub: any = subRes.rows[0] || null;
+    let plan: any;
+    if (sub) {
+      plan = sub;
+    } else {
+      const planRes = await pool.query('SELECT * FROM plans WHERE id = $1', [tenant.plan]);
+      plan = planRes.rows[0] || null;
+    }
+    if (!plan) {
+      return res.status(500).json({ error: 'No plan configuration found for this tenant' });
+    }
+
+    // Real payment method — only present if a real Razorpay payment stored
+    // one in subscription.metadata (set at verification time). Never a
+    // fabricated card.
+    let paymentMethod: any = null;
+    if (sub?.metadata && typeof sub.metadata === 'object' && sub.metadata.payment_method) {
+      paymentMethod = sub.metadata.payment_method;
+    }
+
+    // Real message usage this calendar month.
+    const usageRes = await executeTenantQuery(tenantId, (client) =>
+      client.query(
+        `SELECT COUNT(*) as msg_count
+         FROM messages m JOIN conversations c ON m.conversation_id = c.id
+         WHERE c.tenant_id = $1 AND m.role = 'user' AND m.created_at >= date_trunc('month', NOW())`,
         [tenantId]
-      );
-      if (subRes.rows.length > 0) {
-        const s = subRes.rows[0];
-        currentSub.plan_name = s.plan_name || currentSub.plan_name;
-        currentSub.status = (s.status || 'active').toLowerCase();
-        currentSub.price = s.price ? `${s.currency === 'INR' ? '₹' : '$'}${s.price} / month` : currentSub.price;
-      }
-    } catch (e) {}
+      )
+    ).catch(() => ({ rows: [{ msg_count: 0 }] }));
+    const msgCount = parseInt(usageRes.rows[0]?.msg_count, 10) || 0;
 
-    let invoices: any[] = [];
-    try {
-      const invRes = await pool.query(
-        'SELECT id, invoice_number as number, amount, currency, status, pdf_url as url, created_at as date FROM invoices WHERE tenant_id = $1 ORDER BY created_at DESC LIMIT 10',
-        [tenantId]
-      );
-      invoices = invRes.rows || [];
-    } catch (e) {}
+    // Real RAG storage usage.
+    const storageRes = await pool.query(
+      `SELECT COALESCE(SUM(file_size_bytes), 0) as total_bytes FROM knowledge_documents WHERE tenant_id = $1 AND is_active = true`,
+      [tenantId]
+    ).catch(() => ({ rows: [{ total_bytes: 0 }] }));
+    const storageGB = (parseInt(storageRes.rows[0]?.total_bytes, 10) || 0) / (1024 ** 3);
+
+    const messageLimit = plan.token_limit; // -1 = unlimited
+    const storageLimit = plan.storage_limit_gb; // -1 = unlimited
+
+    const invRes = await pool.query(
+      `SELECT id, invoice_number as number, amount, currency, status, pdf_url as url, created_at as date
+       FROM invoices WHERE tenant_id = $1 ORDER BY created_at DESC LIMIT 100`,
+      [tenantId]
+    ).catch(() => ({ rows: [] }));
+
+    const priceNum = parseFloat(sub?.plan_price ?? plan.price) || 0;
+    const currency = (sub?.plan_currency ?? plan.currency) === 'INR' ? '₹' : '$';
+    const dateFmt = (d: any) => (d ? new Date(d).toLocaleDateString('en-US', { month: 'long', day: '2-digit', year: 'numeric' }) : null);
 
     res.json({
-      status: currentSub.status,
-      planName: currentSub.plan_name,
-      price: currentSub.price,
-      billingCycle: currentSub.billingCycle,
-      nextBillingDate: currentSub.nextBillingDate,
-      currentPeriodEnd: currentSub.current_period_end,
-      paymentMethod: currentSub.paymentMethod,
+      status: (sub?.status || tenant.status || 'active').toUpperCase(),
+      planName: plan.plan_name || plan.name,
+      price: priceNum > 0 ? `${currency}${priceNum} / month` : 'Free',
+      billingCycle: sub ? 'Monthly' : null,
+      nextBillingDate: dateFmt(sub?.current_period_end),
+      currentPeriodEnd: sub?.current_period_end || null,
+      paymentMethod,
       usageMeters: {
-        apiRequests: { current: 2450, limit: 10000, pct: 24.5 },
-        ragDocuments: { currentGB: 14.5, limitGB: 100, pct: 14.5 }
+        apiRequests: {
+          current: msgCount,
+          limit: messageLimit === -1 ? null : messageLimit,
+          pct: messageLimit > 0 ? Math.min(100, Math.round((msgCount / messageLimit) * 1000) / 10) : 0,
+        },
+        ragDocuments: {
+          currentGB: Math.round(storageGB * 10) / 10,
+          limitGB: storageLimit === -1 ? null : storageLimit,
+          pct: storageLimit > 0 ? Math.min(100, Math.round((storageGB / storageLimit) * 1000) / 10) : 0,
+        },
       },
-      features: ['Custom AI Agents', 'Unlimited Documents', 'Priority Support'],
-      invoices,
+      features: Array.isArray(plan.features) ? plan.features : [],
+      nextPaymentAmount: sub ? `${currency}${parseFloat(sub.amount ?? sub.plan_price) || priceNum}` : null,
+      invoices: invRes.rows,
     });
   } catch (err: any) {
-    res.json({
-      status: 'active',
-      planName: 'Professional Plan',
-      price: '$49.00 / month',
-      billingCycle: 'Monthly',
-      nextBillingDate: 'August 24, 2026',
-      paymentMethod: { brand: 'Visa', last4: '4242' },
-      currentPeriodEnd: new Date(Date.now() + 30 * 24 * 3600 * 1000).toISOString(),
-      usageMeters: {
-        apiRequests: { current: 2450, limit: 10000, pct: 24.5 },
-        ragDocuments: { currentGB: 14.5, limitGB: 100, pct: 14.5 }
-      },
-      features: ['Custom AI Agents', 'Unlimited Documents'],
-      invoices: [],
-    });
+    logger.error(err, 'Fetch billing info error');
+    res.status(500).json({ error: 'Failed to load billing information' });
   }
-});
-
-// POST /api/user/billing/portal & /api/v1/user/billing/portal
-router.post(['/billing/portal', '/user/billing/portal'], async (req: any, res) => {
-  if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
-  res.json({
-    success: true,
-    url: 'https://billing.stripe.com/p/session/test_harikson_portal',
-  });
 });
 
 // POST /api/user/billing/cancel & /api/v1/user/billing/cancel
@@ -690,21 +713,44 @@ router.post(['/billing/verify-payment', '/user/billing/verify-payment'], async (
 
     const amountRupees = plan.priceRupees;
 
+    // Best-effort: fetch the actual payment method used (card network/last4,
+    // or UPI/netbanking) from Razorpay so the billing page can show a real
+    // card instead of leaving payment method blank. Never blocks plan
+    // activation if this call fails.
+    let paymentMethodMeta: any = null;
+    try {
+      const payment: any = await razorpay.payments.fetch(razorpay_payment_id);
+      if (payment?.method === 'card' && payment.card) {
+        paymentMethodMeta = {
+          brand: payment.card.network || 'Card',
+          last4: payment.card.last4 || '',
+          type: payment.card.type,
+        };
+      } else if (payment?.method) {
+        paymentMethodMeta = { brand: payment.method.toUpperCase() };
+      }
+    } catch (fetchErr: any) {
+      logger.warn(`Could not fetch Razorpay payment method details for ${razorpay_payment_id}: ${fetchErr.message}`);
+    }
+
     const subRes = await pool.query(
-      `INSERT INTO subscriptions (tenant_id, provider, provider_subscription_id, plan_id, status, current_period_start, current_period_end, amount, currency, created_at, updated_at)
-       VALUES ($1, 'razorpay', $2, $3, 'active', NOW(), NOW() + INTERVAL '30 days', $4, 'INR', NOW(), NOW())
-       ON CONFLICT (provider, provider_subscription_id) DO UPDATE SET status = 'active', updated_at = NOW()
+      `INSERT INTO subscriptions (tenant_id, provider, provider_subscription_id, plan_id, status, current_period_start, current_period_end, amount, currency, metadata, created_at, updated_at)
+       VALUES ($1, 'razorpay', $2, $3, 'active', NOW(), NOW() + INTERVAL '30 days', $4, 'INR', $5, NOW(), NOW())
+       ON CONFLICT (provider, provider_subscription_id) DO UPDATE SET status = 'active', metadata = $5, updated_at = NOW()
        RETURNING id`,
-      [tenantId, razorpay_order_id, planId, amountRupees]
+      [tenantId, razorpay_order_id, planId, amountRupees, paymentMethodMeta ? JSON.stringify({ payment_method: paymentMethodMeta }) : null]
     );
     const subscriptionId = subRes.rows[0]?.id || null;
 
+    // Generated up front (rather than via RETURNING) so pdf_url can point at
+    // this invoice's own real receipt endpoint in the same INSERT.
+    const invoiceId = crypto.randomUUID();
     const invoiceNumber = `INV-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}-${razorpay_payment_id.slice(-8).toUpperCase()}`;
     await pool.query(
-      `INSERT INTO invoices (tenant_id, subscription_id, provider, provider_invoice_id, invoice_number, amount, currency, status, paid_at, created_at, updated_at)
-       VALUES ($1, $2, 'razorpay', $3, $4, $5, 'INR', 'paid', NOW(), NOW(), NOW())
+      `INSERT INTO invoices (id, tenant_id, subscription_id, provider, provider_invoice_id, invoice_number, amount, currency, status, paid_at, pdf_url, created_at, updated_at)
+       VALUES ($1, $2, $3, 'razorpay', $4, $5, $6, 'INR', 'paid', NOW(), $7, NOW(), NOW())
        ON CONFLICT (provider, provider_invoice_id) DO NOTHING`,
-      [tenantId, subscriptionId, razorpay_payment_id, invoiceNumber, amountRupees]
+      [invoiceId, tenantId, subscriptionId, razorpay_payment_id, invoiceNumber, amountRupees, `/api/v1/user/billing/invoices/${invoiceId}/receipt`]
     );
 
     await pool.query(`UPDATE tenants SET plan = $2, status = 'active', updated_at = NOW() WHERE id = $1`, [tenantId, planId]).catch(() => {});
@@ -714,6 +760,71 @@ router.post(['/billing/verify-payment', '/user/billing/verify-payment'], async (
   } catch (err: any) {
     logger.error('Razorpay payment verified but activation failed:', err);
     res.status(500).json({ error: 'Payment was verified but activating your plan failed — contact support with payment ID ' + razorpay_payment_id });
+  }
+});
+
+// GET /api/user/billing/invoices/:id/receipt & /api/v1/user/billing/invoices/:id/receipt
+// A real, tenant-scoped, printable receipt generated from the actual invoice
+// row — not a Razorpay-hosted invoice (this integration uses Orders/Payments,
+// not Razorpay's separate Invoices product). Opened directly via
+// window.open() from the browser, so auth relies on the same hk_access_token
+// cookie every other same-origin request already uses.
+router.get(['/billing/invoices/:id/receipt', '/user/billing/invoices/:id/receipt'], async (req: any, res) => {
+  if (!req.user) return res.status(401).send('Unauthorized');
+  const { id } = req.params;
+
+  try {
+    const userRes = await pool.query('SELECT tenant_id FROM users WHERE id = $1', [req.user.userId]).catch(() => ({ rows: [] }));
+    const tenantId = userRes.rows[0]?.tenant_id || req.tenant?.id;
+    if (!tenantId) return res.status(400).send('No tenant associated with this account');
+
+    const invRes = await pool.query(
+      `SELECT i.*, t.name as tenant_name
+       FROM invoices i JOIN tenants t ON t.id = i.tenant_id
+       WHERE i.id = $1 AND i.tenant_id = $2`,
+      [id, tenantId]
+    );
+    if (invRes.rows.length === 0) return res.status(404).send('Invoice not found');
+    const inv = invRes.rows[0];
+
+    const esc = (v: any) => String(v ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c] as string));
+    const amountFmt = `${inv.currency === 'INR' ? '₹' : '$'}${parseFloat(inv.amount).toFixed(2)}`;
+    const dateFmt = inv.paid_at ? new Date(inv.paid_at).toLocaleDateString('en-US', { month: 'long', day: '2-digit', year: 'numeric' }) : '—';
+
+    res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    res.send(`<!doctype html>
+<html><head><meta charset="utf-8"><title>Receipt ${esc(inv.invoice_number)}</title>
+<style>
+  body { font-family: -apple-system, system-ui, sans-serif; max-width: 640px; margin: 40px auto; color: #0f172a; padding: 0 20px; }
+  .header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #e2e8f0; padding-bottom: 20px; margin-bottom: 24px; }
+  h1 { font-size: 20px; margin: 0 0 4px 0; }
+  .status { display: inline-block; padding: 3px 10px; border-radius: 12px; background: #dcfce7; color: #16a34a; font-size: 12px; font-weight: 700; text-transform: uppercase; }
+  table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+  td { padding: 8px 0; border-bottom: 1px solid #f1f5f9; font-size: 14px; }
+  td:first-child { color: #64748b; width: 200px; }
+  .total { font-size: 20px; font-weight: 800; text-align: right; margin-top: 20px; }
+  @media print { body { margin: 0; } }
+</style></head>
+<body>
+  <div class="header">
+    <div>
+      <h1>Xarwiz</h1>
+      <div style="font-size:13px;color:#64748b;">Receipt for ${esc(inv.tenant_name)}</div>
+    </div>
+    <span class="status">${esc(inv.status)}</span>
+  </div>
+  <table>
+    <tr><td>Invoice Number</td><td>${esc(inv.invoice_number)}</td></tr>
+    <tr><td>Payment ID</td><td>${esc(inv.provider_invoice_id)}</td></tr>
+    <tr><td>Date Paid</td><td>${esc(dateFmt)}</td></tr>
+    <tr><td>Payment Method</td><td>Razorpay</td></tr>
+  </table>
+  <div class="total">${esc(amountFmt)}</div>
+  <p style="margin-top:40px;font-size:12px;color:#94a3b8;text-align:center;">This is a system-generated receipt. Use your browser's Print &rarr; Save as PDF to download.</p>
+</body></html>`);
+  } catch (err: any) {
+    logger.error(err, 'Fetch invoice receipt error');
+    res.status(500).send('Failed to load invoice receipt');
   }
 });
 

@@ -19,6 +19,7 @@ export default function BillingSettings() {
   const [error, setError] = useState(null);
   const [showCancelModal, setShowCancelModal] = useState(false);
   const [showPlanModal, setShowPlanModal] = useState(false);
+  const [showInvoicesModal, setShowInvoicesModal] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
 
   // Display only — the backend owns the actual price charged (PLAN_CONFIG in
@@ -123,28 +124,12 @@ export default function BillingSettings() {
     }
   };
 
-  const handleManageBilling = async () => {
-    try {
-      const { apiBase, tenantSlug } = getApiConfig();
-      const res = await authenticatedFetch(`${apiBase}/api/v1/user/billing/portal`, {
-        method: 'POST',
-        credentials: 'include',
-        headers: {
-          'x-tenant-slug': tenantSlug,
-        },
-      });
-      if (res && res.ok) {
-        const data = await res.json();
-        if (data.url) {
-          window.location.href = data.url;
-          return;
-        }
-      }
-      setShowPlanModal(true);
-    } catch (e) {
-      setShowPlanModal(true);
-    }
-  };
+  // There's no Razorpay-hosted billing portal to redirect to (this
+  // integration uses Orders/Payments, not a separate hosted-portal product),
+  // so "Manage Billing" and "Update payment method" both open the real
+  // Change Plan flow directly — re-running Razorpay Checkout (even for the
+  // current plan) is the actual mechanism that updates the stored card.
+  const handleManageBilling = () => setShowPlanModal(true);
 
   const handleSelectPlan = async (plan) => {
     setActionLoading(true);
@@ -277,6 +262,41 @@ export default function BillingSettings() {
     } finally {
       setActionLoading(false);
     }
+  };
+
+  const renderInvoiceRows = (invoices) => {
+    if (!invoices || invoices.length === 0) {
+      return (
+        <tr>
+          <td colSpan={6} style={{ textAlign: 'center', padding: '24px', color: '#94a3b8' }}>
+            No billing history recorded yet.
+          </td>
+        </tr>
+      );
+    }
+    return invoices.map((inv) => (
+      <tr key={inv.id || inv.number}>
+        <td className="inv-code">{inv.number || '—'}</td>
+        <td>{inv.date ? new Date(inv.date).toLocaleDateString() : '—'}</td>
+        <td>{billing?.planName || '—'}</td>
+        <td>{inv.amount != null ? `${inv.currency ? inv.currency + ' ' : ''}${inv.amount}` : '—'}</td>
+        <td>
+          <span className={`inv-status-pill ${(inv.status || '').toLowerCase()}`}>
+            {inv.status || 'Unknown'}
+          </span>
+        </td>
+        <td>
+          <button
+            type="button"
+            className="btn-inv-download"
+            onClick={() => inv.url && window.open(inv.url, '_blank')}
+            title="Download Invoice"
+          >
+            <Download size={14} />
+          </button>
+        </td>
+      </tr>
+    ));
   };
 
   if (loading) {
@@ -516,14 +536,16 @@ export default function BillingSettings() {
               <h2 className="settings-section-heading" style={{ margin: 0 }}>
                 Billing History
               </h2>
-              <button
-                type="button"
-                className="view-all-invoices-link"
-                style={{ background: 'none', border: 'none', cursor: 'pointer' }}
-                onClick={handleManageBilling}
-              >
-                View all invoices →
-              </button>
+              {billing.invoices && billing.invoices.length > 5 && (
+                <button
+                  type="button"
+                  className="view-all-invoices-link"
+                  style={{ background: 'none', border: 'none', cursor: 'pointer' }}
+                  onClick={() => setShowInvoicesModal(true)}
+                >
+                  View all invoices →
+                </button>
+              )}
             </div>
 
             <div className="invoices-table-wrapper">
@@ -538,44 +560,7 @@ export default function BillingSettings() {
                     <th>Action</th>
                   </tr>
                 </thead>
-                <tbody>
-                  {billing.invoices && billing.invoices.length > 0 ? (
-                    billing.invoices.map((inv) => (
-                      <tr key={inv.id || inv.code || inv.number}>
-                        {/* Backend returns `number` (invoice_number) and no
-                            per-invoice planName — the old fake data had
-                            `code`/`planName` fields that don't exist on a
-                            real invoice row, so fall back sensibly instead
-                            of rendering blank cells or crashing. */}
-                        <td className="inv-code">{inv.code || inv.number || '—'}</td>
-                        <td>{inv.date ? new Date(inv.date).toLocaleDateString() : '—'}</td>
-                        <td>{inv.planName || billing.planName || '—'}</td>
-                        <td>{inv.amount != null ? `${inv.currency ? inv.currency + ' ' : ''}${inv.amount}` : '—'}</td>
-                        <td>
-                          <span className={`inv-status-pill ${(inv.status || '').toLowerCase()}`}>
-                            {inv.status || 'Unknown'}
-                          </span>
-                        </td>
-                        <td>
-                          <button
-                            type="button"
-                            className="btn-inv-download"
-                            onClick={() => inv.url && window.open(inv.url, '_blank')}
-                            title="Download Invoice"
-                          >
-                            <Download size={14} />
-                          </button>
-                        </td>
-                      </tr>
-                    ))
-                  ) : (
-                    <tr>
-                      <td colSpan={6} style={{ textAlign: 'center', padding: '24px', color: '#94a3b8' }}>
-                        No billing history recorded yet.
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
+                <tbody>{renderInvoiceRows((billing.invoices || []).slice(0, 5))}</tbody>
               </table>
             </div>
           </div>
@@ -854,6 +839,59 @@ export default function BillingSettings() {
               >
                 {actionLoading ? 'Canceling...' : 'Confirm Cancellation'}
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── All Invoices Modal ── */}
+      {showInvoicesModal && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(15, 23, 42, 0.45)',
+            backdropFilter: 'blur(4px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 10000,
+            padding: '20px',
+          }}
+        >
+          <div
+            style={{
+              background: '#ffffff',
+              borderRadius: '16px',
+              maxWidth: '720px',
+              width: '100%',
+              maxHeight: '80vh',
+              display: 'flex',
+              flexDirection: 'column',
+              border: '1px solid #e2e8f0',
+              boxShadow: '0 20px 50px rgba(0,0,0,0.15)',
+            }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '20px 24px 12px 24px' }}>
+              <h3 style={{ fontSize: '17px', fontWeight: 700, margin: 0, color: '#0f172a' }}>All Invoices</h3>
+              <button onClick={() => setShowInvoicesModal(false)} style={{ background: 'none', border: 'none', fontSize: '18px', cursor: 'pointer', color: '#64748b' }}>
+                ✕
+              </button>
+            </div>
+            <div className="invoices-table-wrapper" style={{ flex: 1, overflowY: 'auto', padding: '0 24px 20px 24px' }}>
+              <table className="invoices-table">
+                <thead>
+                  <tr>
+                    <th>Invoice</th>
+                    <th>Date</th>
+                    <th>Plan</th>
+                    <th>Amount</th>
+                    <th>Status</th>
+                    <th>Action</th>
+                  </tr>
+                </thead>
+                <tbody>{renderInvoiceRows(billing?.invoices)}</tbody>
+              </table>
             </div>
           </div>
         </div>
