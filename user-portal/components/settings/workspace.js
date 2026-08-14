@@ -8,6 +8,14 @@ export default function WorkspaceSettings() {
   const [error, setError] = useState(null);
 
   const [currentUserId, setCurrentUserId] = useState(null);
+  const [currentUserRole, setCurrentUserRole] = useState(null);
+  // Matches WORKSPACE_SETTABLE_ROLES + platform-admin roles allowed by
+  // requireWorkspaceAdmin on the backend (user.routes.ts) — the backend is
+  // the actual authority here (it rejects unauthorized calls regardless),
+  // this just keeps the UI from showing controls the viewer can't use.
+  const canManageMembers = ['owner', 'admin', 'superadmin', 'founder'].includes(
+    (currentUserRole || '').toLowerCase()
+  );
 
   useEffect(() => {
     fetchWorkspace();
@@ -21,6 +29,9 @@ export default function WorkspaceSettings() {
         const user = JSON.parse(storedUserRaw);
         if (user && user.id) {
           setCurrentUserId(user.id);
+        }
+        if (user && user.role) {
+          setCurrentUserRole(user.role);
         }
       } catch (e) {
         console.error('Failed to parse stored user:', e);
@@ -242,8 +253,9 @@ export default function WorkspaceSettings() {
   };
 
   const getRoleBadgeClass = (role) => {
-    if (role === 'Owner') return 'settings-badge owner';
-    if (role === 'Admin') return 'settings-badge admin';
+    const r = (role || '').toLowerCase();
+    if (r === 'owner') return 'settings-badge owner';
+    if (['admin', 'superadmin', 'founder'].includes(r)) return 'settings-badge admin';
     return 'settings-badge member';
   };
 
@@ -366,7 +378,7 @@ export default function WorkspaceSettings() {
               }}
             >
               <h2>Members &amp; Roles</h2>
-              {!showAddForm && (
+              {!showAddForm && canManageMembers && (
                 <button
                   onClick={() => setShowAddForm(true)}
                   style={{
@@ -452,7 +464,6 @@ export default function WorkspaceSettings() {
                     }}
                   >
                     <option value="Member">Member</option>
-                    <option value="Admin">Admin</option>
                     <option value="Owner">Owner</option>
                   </select>
                   <input
@@ -596,7 +607,6 @@ export default function WorkspaceSettings() {
                         autoFocus
                       >
                         <option value="Member">Member</option>
-                        <option value="Admin">Admin</option>
                         <option value="Owner">Owner</option>
                       </select>
                     ) : (
@@ -604,35 +614,37 @@ export default function WorkspaceSettings() {
                         <span className={getRoleBadgeClass(m.role)}>
                           {m.role}
                         </span>
-                        <button
-                          onClick={() => setEditingMemberId(m.id)}
-                          style={{
-                            background: 'none',
-                            border: 'none',
-                            cursor: 'pointer',
-                            color: 'var(--text-muted)',
-                            padding: '4px',
-                            display: 'flex',
-                          }}
-                          title="Change Role"
-                        >
-                          <Settings size={15} />
-                        </button>
-                        {currentUserId !== m.id && (
-                          <button
-                            onClick={() => handleDeleteMember(m.id, m.email)}
-                            style={{
-                              background: 'none',
-                              border: 'none',
-                              cursor: 'pointer',
-                              color: 'var(--accent-red, #ef4444)',
-                              padding: '4px',
-                              display: 'flex',
-                            }}
-                            title="Remove Member"
-                          >
-                            <Trash2 size={15} />
-                          </button>
+                        {canManageMembers && currentUserId !== m.id && (
+                          <>
+                            <button
+                              onClick={() => setEditingMemberId(m.id)}
+                              style={{
+                                background: 'none',
+                                border: 'none',
+                                cursor: 'pointer',
+                                color: 'var(--text-muted)',
+                                padding: '4px',
+                                display: 'flex',
+                              }}
+                              title="Change Role"
+                            >
+                              <Settings size={15} />
+                            </button>
+                            <button
+                              onClick={() => handleDeleteMember(m.id, m.email)}
+                              style={{
+                                background: 'none',
+                                border: 'none',
+                                cursor: 'pointer',
+                                color: 'var(--accent-red, #ef4444)',
+                                padding: '4px',
+                                display: 'flex',
+                              }}
+                              title="Remove Member"
+                            >
+                              <Trash2 size={15} />
+                            </button>
+                          </>
                         )}
                       </>
                     )}

@@ -410,6 +410,9 @@ router.post('/workspace/members', async (req: any, res) => {
 
   const { email, name, role } = req.body;
   if (!email || !name) return res.status(400).json({ error: 'Email and name are required' });
+  if (role && !WORKSPACE_SETTABLE_ROLES.includes(role.toLowerCase())) {
+    return res.status(400).json({ error: `role must be one of: ${WORKSPACE_SETTABLE_ROLES.join(', ')}` });
+  }
 
   try {
     const guard = await requireWorkspaceAdmin(req, res);
@@ -439,6 +442,13 @@ router.post('/workspace/members', async (req: any, res) => {
   }
 });
 
+// Roles settable on a tenant member via the workspace endpoints below.
+// Deliberately excludes 'admin'/'superadmin'/'founder' — those grant
+// platform-wide admin panel access (see admin-api's login), so a tenant
+// owner must never be able to grant them to a teammate through their own
+// workspace's member management.
+const WORKSPACE_SETTABLE_ROLES = ['owner', 'user', 'member'];
+
 // Shared guard for the two endpoints below: neither previously checked the
 // caller's role NOR scoped the target user to the caller's own tenant at
 // all — any authenticated user, regardless of role, could change the role
@@ -453,7 +463,12 @@ async function requireWorkspaceAdmin(req: any, res: any): Promise<{ tenantId: st
     res.status(400).json({ error: 'No tenant associated with this account' });
     return null;
   }
-  const allowedRoles = ['admin', 'superadmin', 'founder'];
+  // 'owner' is the tenant-scoped workspace-management role assigned to
+  // every new signup's founding member (see auth.routes.ts's handleRegister)
+  // — distinct from 'admin'/'superadmin'/'founder', which admin-api's own
+  // login also checks for platform-wide admin panel access. A tenant owner
+  // must never be conflated with a platform admin.
+  const allowedRoles = ['owner', 'admin', 'superadmin', 'founder'];
   if (!allowedRoles.includes((caller?.role || '').toLowerCase())) {
     res.status(403).json({ error: 'Only workspace admins can manage members' });
     return null;
@@ -470,6 +485,9 @@ router.put('/workspace/members/:id/role', async (req: any, res) => {
   if (!role) return res.status(400).json({ error: 'role is required' });
   if (id === req.user.userId) {
     return res.status(400).json({ error: 'Use your profile settings to change your own role' });
+  }
+  if (!WORKSPACE_SETTABLE_ROLES.includes(role.toLowerCase())) {
+    return res.status(400).json({ error: `role must be one of: ${WORKSPACE_SETTABLE_ROLES.join(', ')}` });
   }
 
   try {

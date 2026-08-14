@@ -256,38 +256,51 @@ async function handleRegister(req: any, res: any) {
       return res.status(409).json({ error: 'User with this email already exists' });
     }
 
-    let tenantId = req.tenant?.id;
-    let finalSlug = req.tenant?.slug || tenantSlug || 'neuravolt';
+    // Every self-serve registration gets its own brand-new, isolated tenant
+    // — never joins an existing one. The previous version looked up an
+    // existing tenant by slug/companyName and silently joined it if found,
+    // which meant (a) anyone could self-register directly into another
+    // company's workspace just by knowing/guessing its slug, and (b) if
+    // req.tenant already resolved to something (the tenant-resolution
+    // middleware always falls back to *some* tenant, including a shared
+    // default), that tenant was reused for every signup that didn't
+    // explicitly pass a companyName/tenantSlug — which is how every real
+    // signup on this platform ended up sharing one default tenant instead
+    // of getting genuine per-customer isolation. Joining an existing
+    // tenant is exclusively done via an admin explicitly adding a member
+    // (POST /workspace/members), never via public self-serve registration.
+    const slugBase = (tenantSlug || companyName || name || 'workspace')
+      .toLowerCase()
+      .replace(/[^a-z0-9-]/g, '')
+      .slice(0, 50) || 'workspace';
+    const slugTaken = await pool.query('SELECT 1 FROM tenants WHERE slug = $1', [slugBase]);
+    const slugToUse = slugTaken.rows.length > 0 ? `${slugBase}-${crypto.randomBytes(3).toString('hex')}` : slugBase;
 
-    if (!tenantId || companyName || tenantSlug) {
-      const slugToUse = (tenantSlug || companyName || 'tenant-' + crypto.randomBytes(4).toString('hex'))
-        .toLowerCase()
-        .replace(/[^a-z0-9-]/g, '');
-
-      const existingTenant = await pool.query('SELECT id FROM tenants WHERE slug = $1', [slugToUse]);
-      if (existingTenant.rows.length > 0) {
-        tenantId = existingTenant.rows[0].id;
-      } else {
-        const newTenantRes = await pool.query(
-          `INSERT INTO tenants (name, slug, status, created_at)
-           VALUES ($1, $2, 'active', NOW())
-           RETURNING id`,
-          [companyName || name + "'s Org", slugToUse]
-        );
-        tenantId = newTenantRes.rows[0].id;
-      }
-      finalSlug = slugToUse;
-    }
+    const newTenantRes = await pool.query(
+      `INSERT INTO tenants (name, slug, status, created_at)
+       VALUES ($1, $2, 'active', NOW())
+       RETURNING id`,
+      [companyName || name + "'s Workspace", slugToUse]
+    );
+    const tenantId = newTenantRes.rows[0].id;
 
     const passwordHash = await bcrypt.hash(password, 12);
     const verificationToken = crypto.randomBytes(32).toString('hex');
     const verificationTokenHash = crypto.createHash('sha256').update(verificationToken).digest('hex');
 
+    // 'owner' — the founding/sole member of the tenant just created above,
+    // able to manage THEIR OWN workspace's members (see requireWorkspaceAdmin
+    // in user.routes.ts). Deliberately NOT 'admin'/'superadmin'/'founder':
+    // admin-api's own login (admin.js) grants full platform-wide admin panel
+    // access to any user with role IN ('admin','superadmin','founder') —
+    // those three are reserved for actual platform staff. Reusing one of
+    // them here would mean every public self-serve signup also gets into
+    // the admin control plane for every tenant, not just their own.
     const newUserRes = await pool.query(
       `INSERT INTO users (
         tenant_id, email, password_hash, name, role, email_verified, email_verification_token, verification_token, status, created_at
        )
-       VALUES ($1, $2, $3, $4, 'user', true, $5, $5, 'pending', NOW())
+       VALUES ($1, $2, $3, $4, 'owner', true, $5, $5, 'pending', NOW())
        RETURNING id, email, name, role, status, created_at`,
       [tenantId, email, passwordHash, name, verificationTokenHash]
     );
