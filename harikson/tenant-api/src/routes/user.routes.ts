@@ -408,24 +408,28 @@ router.get('/workspace', async (req: any, res) => {
 router.post('/workspace/members', async (req: any, res) => {
   if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
 
-  const { email, name, role, password } = req.body;
+  const { email, name, role } = req.body;
   if (!email || !name) return res.status(400).json({ error: 'Email and name are required' });
 
   try {
-    const userRes = await pool.query('SELECT tenant_id FROM users WHERE id = $1', [req.user.userId]);
-    const tenantId = userRes.rows[0]?.tenant_id || req.tenant?.id || '00000000-0000-0000-0000-000000000000';
+    const guard = await requireWorkspaceAdmin(req, res);
+    if (!guard) return;
 
     const existing = await pool.query('SELECT id FROM users WHERE email = $1 AND deleted_at IS NULL', [email]);
     if (existing.rows.length > 0) {
       return res.status(409).json({ error: 'User with this email already exists' });
     }
 
-    const passwordHash = await bcrypt.hash(password || 'Password123456!', 10);
+    // A caller-supplied password would let whoever calls this endpoint set
+    // a password they already know on the new account — always generate a
+    // random one server-side instead; the new member resets it via the
+    // normal forgot-password flow.
+    const passwordHash = await bcrypt.hash(crypto.randomBytes(24).toString('hex'), 10);
     const newMemberRes = await pool.query(
       `INSERT INTO users (tenant_id, email, password_hash, name, role, email_verified, created_at)
        VALUES ($1, $2, $3, $4, $5, true, NOW())
        RETURNING id, email, name, role, created_at as "joinedAt"`,
-      [tenantId, email, passwordHash, name, role || 'Member']
+      [guard.tenantId, email, passwordHash, name, role || 'Member']
     );
 
     res.status(201).json(newMemberRes.rows[0]);
@@ -435,17 +439,50 @@ router.post('/workspace/members', async (req: any, res) => {
   }
 });
 
+// Shared guard for the two endpoints below: neither previously checked the
+// caller's role NOR scoped the target user to the caller's own tenant at
+// all — any authenticated user, regardless of role, could change the role
+// of (or soft-delete) any user in the entire database, in any tenant, just
+// by knowing their id. Returns the caller's {tenantId, role}, or sends an
+// error response and returns null.
+async function requireWorkspaceAdmin(req: any, res: any): Promise<{ tenantId: string; role: string } | null> {
+  const callerRes = await pool.query('SELECT tenant_id, role FROM users WHERE id = $1', [req.user.userId]).catch(() => ({ rows: [] }));
+  const caller = callerRes.rows[0];
+  const tenantId = caller?.tenant_id || req.tenant?.id;
+  if (!tenantId) {
+    res.status(400).json({ error: 'No tenant associated with this account' });
+    return null;
+  }
+  const allowedRoles = ['admin', 'superadmin', 'founder'];
+  if (!allowedRoles.includes((caller?.role || '').toLowerCase())) {
+    res.status(403).json({ error: 'Only workspace admins can manage members' });
+    return null;
+  }
+  return { tenantId, role: caller.role };
+}
+
 // PUT /api/user/workspace/members/:id/role
 router.put('/workspace/members/:id/role', async (req: any, res) => {
   if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
 
   const { id } = req.params;
   const { role } = req.body;
+  if (!role) return res.status(400).json({ error: 'role is required' });
+  if (id === req.user.userId) {
+    return res.status(400).json({ error: 'Use your profile settings to change your own role' });
+  }
+
   try {
+    const guard = await requireWorkspaceAdmin(req, res);
+    if (!guard) return;
+
     const updateRes = await pool.query(
-      'UPDATE users SET role = $1, updated_at = NOW() WHERE id = $2 RETURNING id, email, name, role',
-      [role, id]
+      'UPDATE users SET role = $1, updated_at = NOW() WHERE id = $2 AND tenant_id = $3 RETURNING id, email, name, role',
+      [role, id, guard.tenantId]
     );
+    if (updateRes.rows.length === 0) {
+      return res.status(404).json({ error: 'Member not found in your workspace' });
+    }
     res.json(updateRes.rows[0]);
   } catch (err: any) {
     logger.error('Update member role error:', err);
@@ -458,8 +495,21 @@ router.delete('/workspace/members/:id', async (req: any, res) => {
   if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
 
   const { id } = req.params;
+  if (id === req.user.userId) {
+    return res.status(400).json({ error: 'Use account deletion in your profile settings to remove your own account' });
+  }
+
   try {
-    await pool.query('UPDATE users SET deleted_at = NOW() WHERE id = $1', [id]);
+    const guard = await requireWorkspaceAdmin(req, res);
+    if (!guard) return;
+
+    const deleteRes = await pool.query(
+      'UPDATE users SET deleted_at = NOW() WHERE id = $1 AND tenant_id = $2 AND deleted_at IS NULL RETURNING id',
+      [id, guard.tenantId]
+    );
+    if (deleteRes.rows.length === 0) {
+      return res.status(404).json({ error: 'Member not found in your workspace' });
+    }
     res.json({ success: true, message: 'Member removed successfully' });
   } catch (err: any) {
     logger.error('Remove member error:', err);
