@@ -1921,6 +1921,11 @@ If any check fails, revise the relevant section before output.`;
     localStorage.removeItem('hk_user');
     localStorage.removeItem('hk_tenant');
     localStorage.removeItem('hk_api_base');
+    localStorage.removeItem('hk_access_token');
+    localStorage.removeItem('hk_refresh_token');
+    localStorage.removeItem('is_impersonating');
+    localStorage.removeItem('impersonating_user_email');
+    localStorage.removeItem('impersonating_admin_email');
     router.replace('/login');
   };
 
