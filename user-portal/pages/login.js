@@ -569,21 +569,7 @@ export default function LoginPage() {
                 {loading && <span className="login-spinner" />}
                 {loading ? 'Signing in…' : 'Sign in'}
               </button>
-
-              <div className="social-divider">
-                <span className="social-divider-text">Or continue with</span>
-              </div>
-
-              <div className="social-grid">
-                <a href={`${apiBase}/api/auth/google`} className="social-btn">
-                  <svg width="16" height="16" viewBox="0 0 24 24"><path fill="#ea4335" d="M12 5c1.6 0 3 .6 4.1 1.6l3.1-3.1C17.3 1.7 14.8 1 12 1 7.4 1 3.5 3.6 1.6 7.4l3.7 2.9C6.2 7.3 8.9 5 12 5z"/><path fill="#4285f4" d="M23.5 12.3c0-.8-.1-1.6-.2-2.3H12v4.5h6.5c-.3 1.5-1.1 2.8-2.4 3.7l3.7 2.9c2.2-2 3.7-5 3.7-8.8z"/><path fill="#fbbc05" d="M5.3 14.7c-.2-.7-.4-1.5-.4-2.3s.2-1.6.4-2.3L1.6 7.2C.6 9.2 0 11.5 0 14s.6 4.8 1.6 6.8l3.7-2.9z"/><path fill="#34a853" d="M12 23c3.2 0 6-1.1 8-3l-3.7-2.9c-1.1.7-2.5 1.2-4.3 1.2-3.1 0-5.8-2.3-6.7-5.3L1.6 16C3.5 19.8 7.4 23 12 23z"/></svg>
-                  <span>Google</span>
-                </a>
-                <a href={`${apiBase}/api/auth/microsoft`} className="social-btn">
-                  <svg width="16" height="16" viewBox="0 0 23 23"><path fill="#f35325" d="M1 1h10v10H1z"/><path fill="#81bc06" d="M12 1h10v10H12z"/><path fill="#05a6f0" d="M1 12h10v10H1z"/><path fill="#ffba08" d="M12 12h10v10H12z"/></svg>
-                  <span>Microsoft</span>
-                </a>
-              </div>
+              
             </form>
           )}
 
