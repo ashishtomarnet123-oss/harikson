@@ -367,8 +367,17 @@ router.get('/workspace', async (req: any, res) => {
 
     let members: any[] = [];
     try {
+      // Platform staff (superadmin/admin/founder) are excluded even when a
+      // row's tenant_id happens to match — legacy data from before tenants
+      // were properly isolated means some real tenants still share the
+      // default tenant_id with these accounts, and a tenant's own member
+      // list must never surface platform admins regardless of what the
+      // tenant_id column says.
       const membersRes = await pool.query(
-        'SELECT id, email, name, role, created_at as "joinedAt" FROM users WHERE tenant_id = $1 AND deleted_at IS NULL ORDER BY created_at ASC',
+        `SELECT id, email, name, role, created_at as "joinedAt" FROM users
+         WHERE tenant_id = $1 AND deleted_at IS NULL
+           AND role NOT IN ('superadmin', 'admin', 'founder')
+         ORDER BY created_at ASC`,
         [tenantId]
       );
       members = membersRes.rows || [];
@@ -380,7 +389,7 @@ router.get('/workspace', async (req: any, res) => {
         ...m,
         name: displayName,
         avatar: displayName.charAt(0).toUpperCase(),
-        role: m.role || 'Member',
+        role: m.role || 'user',
       };
     });
 
@@ -432,7 +441,7 @@ router.post('/workspace/members', async (req: any, res) => {
       `INSERT INTO users (tenant_id, email, password_hash, name, role, email_verified, created_at)
        VALUES ($1, $2, $3, $4, $5, true, NOW())
        RETURNING id, email, name, role, created_at as "joinedAt"`,
-      [guard.tenantId, email, passwordHash, name, role || 'Member']
+      [guard.tenantId, email, passwordHash, name, (role || 'user').toLowerCase()]
     );
 
     res.status(201).json(newMemberRes.rows[0]);
@@ -495,8 +504,10 @@ router.put('/workspace/members/:id/role', async (req: any, res) => {
     if (!guard) return;
 
     const updateRes = await pool.query(
-      'UPDATE users SET role = $1, updated_at = NOW() WHERE id = $2 AND tenant_id = $3 RETURNING id, email, name, role',
-      [role, id, guard.tenantId]
+      `UPDATE users SET role = $1, updated_at = NOW()
+       WHERE id = $2 AND tenant_id = $3 AND role NOT IN ('superadmin', 'admin', 'founder')
+       RETURNING id, email, name, role`,
+      [role.toLowerCase(), id, guard.tenantId]
     );
     if (updateRes.rows.length === 0) {
       return res.status(404).json({ error: 'Member not found in your workspace' });
@@ -522,7 +533,9 @@ router.delete('/workspace/members/:id', async (req: any, res) => {
     if (!guard) return;
 
     const deleteRes = await pool.query(
-      'UPDATE users SET deleted_at = NOW() WHERE id = $1 AND tenant_id = $2 AND deleted_at IS NULL RETURNING id',
+      `UPDATE users SET deleted_at = NOW()
+       WHERE id = $1 AND tenant_id = $2 AND deleted_at IS NULL AND role NOT IN ('superadmin', 'admin', 'founder')
+       RETURNING id`,
       [id, guard.tenantId]
     );
     if (deleteRes.rows.length === 0) {

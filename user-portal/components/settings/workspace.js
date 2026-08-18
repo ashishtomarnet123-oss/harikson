@@ -45,7 +45,7 @@ export default function WorkspaceSettings() {
   const [showAddForm, setShowAddForm] = useState(false);
   const [newEmail, setNewEmail] = useState('');
   const [newName, setNewName] = useState('');
-  const [newRole, setNewRole] = useState('Member');
+  const [newRole, setNewRole] = useState('user');
   const [newPassword, setNewPassword] = useState('');
   const [addingMember, setAddingMember] = useState(false);
 
@@ -80,7 +80,7 @@ export default function WorkspaceSettings() {
         setNewEmail('');
         setNewName('');
         setNewPassword('');
-        setNewRole('Member');
+        setNewRole('user');
         setShowAddForm(false);
       } else {
         throw new Error(data.error || 'Failed to add workspace member');
@@ -257,6 +257,18 @@ export default function WorkspaceSettings() {
     if (r === 'owner') return 'settings-badge owner';
     if (['admin', 'superadmin', 'founder'].includes(r)) return 'settings-badge admin';
     return 'settings-badge member';
+  };
+
+  // 'owner' is the account founder's actual stored role (see auth.routes.ts's
+  // handleRegister and WORKSPACE_SETTABLE_ROLES on the backend) — displayed
+  // as "Admin" here since that's the term this workspace's users expect for
+  // "the person who manages this account." The stored value stays 'owner'
+  // so it's never confused with the platform-wide 'admin' role.
+  const getRoleLabel = (role) => {
+    const r = (role || '').toLowerCase();
+    if (r === 'owner') return 'Admin';
+    if (r === 'user' || r === 'member') return 'User';
+    return role;
   };
 
   if (loading)
@@ -463,8 +475,8 @@ export default function WorkspaceSettings() {
                       cursor: 'pointer',
                     }}
                   >
-                    <option value="Member">Member</option>
-                    <option value="Owner">Owner</option>
+                    <option value="user">User</option>
+                    <option value="owner">Admin</option>
                   </select>
                   <input
                     type="password"
@@ -606,13 +618,13 @@ export default function WorkspaceSettings() {
                         }}
                         autoFocus
                       >
-                        <option value="Member">Member</option>
-                        <option value="Owner">Owner</option>
+                        <option value="user">User</option>
+                        <option value="owner">Admin</option>
                       </select>
                     ) : (
                       <>
                         <span className={getRoleBadgeClass(m.role)}>
-                          {m.role}
+                          {getRoleLabel(m.role)}
                         </span>
                         {canManageMembers && currentUserId !== m.id && (
                           <>
