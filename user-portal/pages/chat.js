@@ -37,16 +37,49 @@ import {
 import SettingsModal from '../components/SettingsModal';
 
 /* ────────────────────────────────────────────────────────────
+   Clipboard helper — navigator.clipboard is only defined in
+   secure contexts (HTTPS or localhost). Plain-HTTP access (e.g.
+   a bare IP:port) leaves it undefined, so calling .writeText()
+   directly throws instead of copying. Fall back to the
+   textarea+execCommand trick in that case.
+──────────────────────────────────────────────────────────── */
+function copyToClipboard(text) {
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    return navigator.clipboard.writeText(text);
+  }
+  return new Promise((resolve, reject) => {
+    const textArea = document.createElement('textarea');
+    textArea.value = text;
+    textArea.style.position = 'fixed';
+    textArea.style.top = '0';
+    textArea.style.left = '0';
+    textArea.style.opacity = '0';
+    document.body.appendChild(textArea);
+    textArea.focus();
+    textArea.select();
+    try {
+      const successful = document.execCommand('copy');
+      document.body.removeChild(textArea);
+      if (successful) resolve();
+      else reject(new Error('document.execCommand(copy) returned false'));
+    } catch (err) {
+      document.body.removeChild(textArea);
+      reject(err);
+    }
+  });
+}
+
+/* ────────────────────────────────────────────────────────────
    Markdown renderer — converts plain text/markdown to JSX
    without external deps (Next.js 14 Pages Router, no Tailwind)
 ──────────────────────────────────────────────────────────── */
 function CodeBlock({ language, code, onOpenArtifact }) {
   const [copied, setCopied] = useState(false);
   const copy = () => {
-    navigator.clipboard.writeText(code).then(() => {
+    copyToClipboard(code).then(() => {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
-    });
+    }).catch((err) => console.error('Copy failed:', err));
   };
   return (
     <div className="code-block">
@@ -2670,7 +2703,9 @@ If any check fails, revise the relevant section before output.`;
                 <div className="artifact-actions">
                   <button
                     onClick={() => {
-                      navigator.clipboard.writeText(activeArtifact.code);
+                      copyToClipboard(activeArtifact.code).catch((err) =>
+                        console.error('Copy failed:', err)
+                      );
                     }}
                   >
                     <Copy size={14} />
