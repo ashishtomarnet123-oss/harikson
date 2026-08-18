@@ -193,14 +193,19 @@ async function handleChat(req: any, res: any) {
       try {
         const convRes = await executeTenantQuery(req.tenant.id, (client) =>
           client.query(
-            `INSERT INTO conversations (tenant_id, user_id, agent_id, title, created_at, updated_at)
+            `INSERT INTO conversations (tenant_id, user_id, title, model, created_at, updated_at)
              VALUES ($1, $2, $3, $4, NOW(), NOW())
              RETURNING id`,
-            [req.tenant.id, userId, agentId || null, title]
+            [req.tenant.id, userId, title, model]
           )
         );
         currentConvId = convRes.rows[0]?.id;
       } catch (e) {
+        // conversations has no agent_id column, so agentId is currently
+        // unused here — this fallback ID is never a real row, which used
+        // to be the silent, permanent path (the INSERT above referenced a
+        // column that doesn't exist and always threw).
+        logger.error(e, 'Failed to create conversation row');
         currentConvId = 'conv_' + Date.now() + '_' + Math.random().toString(36).substring(7);
       }
     }
@@ -213,12 +218,14 @@ async function handleChat(req: any, res: any) {
     const promptTokens = countExactTokens(message) + countExactTokens(ragContext);
 
     // Save user message
+    // sender is a NOT NULL legacy column with no default, kept in sync with
+    // role (its replacement) — omitting it makes the insert fail outright.
     executeTenantQuery(req.tenant.id, (client) =>
       client.query(
-        'INSERT INTO messages (tenant_id, conversation_id, role, content, tokens_used) VALUES ($1, $2, $3, $4, $5)',
+        'INSERT INTO messages (tenant_id, conversation_id, role, sender, content, tokens_used) VALUES ($1, $2, $3, $3, $4, $5)',
         [req.tenant.id, currentConvId, 'user', message, countExactTokens(message)]
       )
-    ).catch(() => {});
+    ).catch((e) => logger.error(e, 'Failed to save user message'));
 
     if (stream) {
       res.setHeader('Content-Type', 'text/event-stream');
@@ -283,10 +290,10 @@ async function handleChat(req: any, res: any) {
           const completionTokens = countExactTokens(fullResponseText);
           executeTenantQuery(req.tenant.id, (client) =>
             client.query(
-              'INSERT INTO messages (tenant_id, conversation_id, role, content, tokens_used) VALUES ($1, $2, $3, $4, $5)',
+              'INSERT INTO messages (tenant_id, conversation_id, role, sender, content, tokens_used) VALUES ($1, $2, $3, $3, $4, $5)',
               [req.tenant.id, currentConvId, 'assistant', fullResponseText, completionTokens]
             )
-          ).catch(() => {});
+          ).catch((e) => logger.error(e, 'Failed to save assistant message'));
           res.write(`data: [DONE]\n\n`);
           res.end();
         });
