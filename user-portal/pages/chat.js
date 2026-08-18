@@ -2095,6 +2095,7 @@ If any check fails, revise the relevant section before output.`;
               <span>New Conversation</span>
             </button>
 
+            {/* Workflow Builder temporarily disabled
             <button
               className="sidebar-btn-secondary"
               onClick={() => router.push('/workflows')}
@@ -2102,6 +2103,7 @@ If any check fails, revise the relevant section before output.`;
               <Zap size={16} color="var(--accent)" />
               <span>Workflow Builder</span>
             </button>
+            */}
           </div>
 
           {/* Conversation List */}
