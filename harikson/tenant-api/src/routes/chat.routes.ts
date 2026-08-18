@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import axios from 'axios';
 import { Redis } from 'ioredis';
+import jwt from 'jsonwebtoken';
 import { pool, executeTenantQuery } from '../db/pool.js';
 import { RagService } from '../services/rag.service.js';
 import { countExactTokens } from '../services/tokenCountingService.js';
@@ -11,6 +12,32 @@ const redis = new Redis(process.env.REDIS_URL || 'redis://redis:6379', {
   retryStrategy: (times) => Math.min(times * 50, 2000),
   maxRetriesPerRequest: 3,
   enableReadyCheck: true,
+});
+
+// Every route below reads/writes conversations by user, so the caller must
+// be identified. Without this, req.user was always undefined and every
+// conversation got attributed to a shared placeholder ID instead of the
+// real caller — breaking per-user token attribution and, since the
+// /conversations user filter was conditional on req.user existing, letting
+// any caller list and read every other user's conversations in the tenant.
+router.use((req: any, res, next) => {
+  const authHeader = req.headers.authorization || '';
+  const cookieToken = req.cookies?.hk_access_token;
+  let token = '';
+  if (authHeader.startsWith('Bearer ')) {
+    token = authHeader.substring(7);
+  } else if (cookieToken) {
+    token = cookieToken;
+  }
+  if (!token) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+  try {
+    req.user = jwt.verify(token, process.env.JWT_SECRET || 'fallback_secret_key_neuravolt_2026');
+  } catch (err) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+  next();
 });
 
 // Helper: Context-aware Mock LLM response fallback
@@ -57,7 +84,7 @@ const DEFAULT_TENANT = {
 // GET /api/chat/conversations
 router.get('/conversations', async (req: any, res) => {
   if (!req.tenant) req.tenant = DEFAULT_TENANT;
-  const userId = req.user?.userId;
+  const userId = req.user.userId;
 
   try {
     const convRes = await executeTenantQuery(req.tenant.id, (client) =>
@@ -66,10 +93,10 @@ router.get('/conversations', async (req: any, res) => {
                 COUNT(m.id)::int as message_count
          FROM conversations c
          LEFT JOIN messages m ON m.conversation_id = c.id
-         WHERE c.tenant_id = $1 ${userId ? 'AND c.user_id = $2' : ''}
+         WHERE c.tenant_id = $1 AND c.user_id = $2
          GROUP BY c.id
          ORDER BY c.updated_at DESC`,
-        userId ? [req.tenant.id, userId] : [req.tenant.id]
+        [req.tenant.id, userId]
       )
     );
 
@@ -84,15 +111,17 @@ router.get('/conversations', async (req: any, res) => {
 router.get('/conversations/:id/messages', async (req: any, res) => {
   if (!req.tenant) req.tenant = DEFAULT_TENANT;
   const { id } = req.params;
+  const userId = req.user.userId;
 
   try {
     const msgRes = await executeTenantQuery(req.tenant.id, (client) =>
       client.query(
-        `SELECT id, conversation_id, role, content, tokens_used, created_at
-         FROM messages
-         WHERE conversation_id = $1 AND tenant_id = $2
-         ORDER BY created_at ASC`,
-        [id, req.tenant.id]
+        `SELECT m.id, m.conversation_id, m.role, m.content, m.tokens_used, m.created_at
+         FROM messages m
+         JOIN conversations c ON c.id = m.conversation_id
+         WHERE m.conversation_id = $1 AND m.tenant_id = $2 AND c.user_id = $3
+         ORDER BY m.created_at ASC`,
+        [id, req.tenant.id, userId]
       )
     );
 
@@ -107,11 +136,16 @@ router.get('/conversations/:id/messages', async (req: any, res) => {
 router.delete('/conversations/:id', async (req: any, res) => {
   if (!req.tenant) req.tenant = DEFAULT_TENANT;
   const { id } = req.params;
+  const userId = req.user.userId;
 
   try {
     await executeTenantQuery(req.tenant.id, async (client) => {
-      await client.query('DELETE FROM messages WHERE conversation_id = $1 AND tenant_id = $2', [id, req.tenant.id]);
-      await client.query('DELETE FROM conversations WHERE id = $1 AND tenant_id = $2', [id, req.tenant.id]);
+      await client.query(
+        `DELETE FROM messages WHERE conversation_id = $1 AND tenant_id = $2
+         AND EXISTS (SELECT 1 FROM conversations c WHERE c.id = $1 AND c.user_id = $3)`,
+        [id, req.tenant.id, userId]
+      );
+      await client.query('DELETE FROM conversations WHERE id = $1 AND tenant_id = $2 AND user_id = $3', [id, req.tenant.id, userId]);
     });
 
     res.json({ success: true, message: 'Conversation deleted successfully' });
@@ -150,7 +184,7 @@ async function handleChat(req: any, res: any) {
   };
   const model = MODEL_MAP[rawModel] || rawModel;
 
-  const userId = req.user?.userId || '00000000-0000-0000-0000-000000000000';
+  const userId = req.user.userId;
 
   try {
     let currentConvId = conversationId;
