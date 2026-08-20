@@ -55,7 +55,15 @@ services:
       - '11435:11434'
     environment:
       - OLLAMA_HOST=0.0.0.0
-      - OLLAMA_MAX_LOADED_MODELS=1
+      # Every chat request needs both the embedding model (RAG context
+      # lookup) and the chat model in the same request — with this at 1,
+      # Ollama had to evict and reload one of them on every single call
+      # (confirmed in ollama's own logs: an embedding-model load
+      # immediately followed by a chat-model load, then nothing — the
+      # second load never completed within 30s). qwen2.5:3b (~2.2GB) and
+      # nomic-embed-text (~270MB) fit together comfortably under the 12GB
+      # limit below.
+      - OLLAMA_MAX_LOADED_MODELS=2
       - OLLAMA_NUM_PARALLEL=1
     volumes:
       - ${DATA_DIR:-./data}/ollama:/root/.ollama

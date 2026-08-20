@@ -235,14 +235,17 @@ async function handleChat(req: any, res: any) {
   const { message, conversationId, agentId, model: rawModel = 'harikson-plus', stream = true, clientHistory } = req.body;
   if (!message) return res.status(400).json({ error: 'Message text is required' });
 
-  // Map Xarwiz brand model names to real Ollama model names
+  // Map Xarwiz brand model names to real Ollama model names.
+  // 'harikson-plus' is what the "Xarwiz Plus · 8B" selector actually sends
+  // (see chat.js) — now a real ~7-8B model (qwen2.5:7b) instead of the 3B
+  // one, so the label matches what's actually running.
   const MODEL_MAP: Record<string, string> = {
-    'harikson-plus':  'qwen2.5:3b',
-    'harikson-max':   'qwen2.5:3b',
-    'harikson-pro':   'qwen2.5:3b',
+    'harikson-plus':  'qwen2.5:7b',
+    'harikson-max':   'qwen2.5:7b',
+    'harikson-pro':   'qwen2.5:7b',
     'harikson-mini':  'qwen2.5:3b',
-    'harikson-8b':    'qwen2.5:3b',
-    'harikson-plus-8b': 'qwen2.5:3b',
+    'harikson-8b':    'qwen2.5:7b',
+    'harikson-plus-8b': 'qwen2.5:7b',
     'general':        'qwen2.5:3b',
     'qwen3-coder':    'qwen2.5:3b',
   };
