@@ -89,7 +89,7 @@ router.get('/conversations', async (req: any, res) => {
   try {
     const convRes = await executeTenantQuery(req.tenant.id, (client) =>
       client.query(
-        `SELECT c.id, c.title, c.agent_id, c.created_at, c.updated_at,
+        `SELECT c.id, c.title, c.model, c.created_at, c.updated_at,
                 COUNT(m.id)::int as message_count
          FROM conversations c
          LEFT JOIN messages m ON m.conversation_id = c.id
