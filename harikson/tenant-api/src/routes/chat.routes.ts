@@ -235,16 +235,29 @@ async function handleChat(req: any, res: any) {
       const ollamaUrl = process.env.OLLAMA_URL || 'http://ollama:11434';
       let fullResponseText = '';
 
-      // Build Ollama message list — include conversation history for context
+      // Build Ollama message list — include conversation history for context.
+      // The frontend builds a system message carrying the selected agent's
+      // preset prompt (Senior Coder / Code Reviewer / Database DBA / a
+      // custom Prompt Library preset) into clientHistory[0]. This used to be
+      // filtered out below and unconditionally replaced with a generic
+      // prompt, which is why agent selection had no effect on replies —
+      // use it as the base system prompt when present.
+      const clientSystemMessage = Array.isArray(clientHistory)
+        ? clientHistory.find((m: any) => m.role === 'system' && m.content?.trim())
+        : null;
+      const baseSystemPrompt =
+        clientSystemMessage?.content ||
+        `You are Xarwiz AI, a helpful and knowledgeable enterprise AI assistant. Answer questions accurately and helpfully.`;
       const systemContent = ragContext && ragContext !== 'No matching context found in knowledge base.'
-        ? `You are Xarwiz AI, a helpful enterprise AI assistant. Use this context to answer:\n\n${ragContext}`
-        : `You are Xarwiz AI, a helpful and knowledgeable enterprise AI assistant. Answer questions accurately and helpfully.`;
+        ? `${baseSystemPrompt}\n\nUse this additional context to answer:\n\n${ragContext}`
+        : baseSystemPrompt;
 
       let ollamaMessages: Array<{ role: string; content: string }> = [
         { role: 'system', content: systemContent },
       ];
 
-      // Inject prior conversation turns from clientHistory (skip system messages)
+      // Inject prior conversation turns from clientHistory (system message
+      // already extracted above, so exclude it here to avoid duplicating it)
       if (Array.isArray(clientHistory) && clientHistory.length > 0) {
         const historyMessages = clientHistory
           .filter((m: any) => m.role !== 'system' && m.content?.trim())
