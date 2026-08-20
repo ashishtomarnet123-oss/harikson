@@ -139,11 +139,20 @@ export class HariksonScheduler {
         removeOnFail: true,
       });
 
-      await this.cacheQueue.add('cache-warmer', { workspacePath: workspacePath || './' }, {
-        repeat: { every: 300000 },
-        removeOnComplete: { age: 3600 },
-        removeOnFail: { age: 86400 },
-      });
+      // Disabled: startAll() is called once globally with no workspacePath
+      // (see index.ts), so this always resolved to './' — the container's
+      // own cwd — and scanned/embedded the API server's own compiled
+      // source files on every boot and every 5 minutes after. BullMQ fires
+      // a repeat:{every} job immediately on registration, so this fired
+      // right after every deploy, exactly when live chat traffic resumes,
+      // saturating Ollama (single inference slot) with a burst of
+      // sequential embedding calls and starving real chat requests —
+      // the root cause of chat POSTs hanging/500ing shortly after deploys.
+      // await this.cacheQueue.add('cache-warmer', { workspacePath: workspacePath || './' }, {
+      //   repeat: { every: 300000 },
+      //   removeOnComplete: { age: 3600 },
+      //   removeOnFail: { age: 86400 },
+      // });
 
       await this.cleanupQueue.add('daily-cleanup', {}, {
         repeat: { pattern: '0 3 * * *' }, // 3:00 AM UTC off-peak schedule
