@@ -70,7 +70,17 @@ services:
       # All three together (~7.8GB) still fit comfortably under the 12GB
       # limit below.
       - OLLAMA_MAX_LOADED_MODELS=4
-      - OLLAMA_NUM_PARALLEL=1
+      # With this at 1, Ollama processes exactly one request at a time —
+      # ANY second request (a second real user, a second tab, or the
+      # background memory worker) has to wait for the first one's ENTIRE
+      # generation to finish before it even starts. Confirmed via request
+      # timing logs: two overlapping chat calls, one resolved in 59.7s and
+      # the other in 23.2s — both past the ~30s proxy timeout that kills
+      # the connection, even though nothing was actually stuck, just
+      # queued. 7 CPU cores are allocated and each generation uses ~4
+      # threads (per ollama's own logs), so there's headroom for limited
+      # real parallelism instead of a strict single-file queue.
+      - OLLAMA_NUM_PARALLEL=3
       # Ollama's default keep_alive (5 minutes) unloads an idle model from
       # memory. Confirmed in ollama's own logs: reloading qwen2.5:7b from
       # disk on this CPU-only host takes ~28 seconds — right at the edge of
