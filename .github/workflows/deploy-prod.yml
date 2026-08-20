@@ -106,13 +106,17 @@ jobs:
         # docker-compose.yml (and mounted config files) already happen to be
         # sitting in /opt/xarwiz — this workflow never used to
         # update them, so fixes made here (e.g. removing container_name,
-        # adding image: refs) never actually reached production.
+        # adding image: refs) never actually reached production. landing/
+        # is included too — the landing nginx container mounts it directly
+        # (no build step), so this is the only thing that gets it onto the
+        # server at all; before this it was manually uploaded once and
+        # never updated by any push.
         uses: appleboy/scp-action@v0.1.7
         with:
           host: ${{ secrets.PROD_HOST }}
           username: ${{ secrets.PROD_USER || 'xarwiz' }}
           key: ${{ secrets.PROD_SSH_KEY }}
-          source: "docker-compose.yml,traefik/dynamic.yml,monitoring/prometheus.yml,init.sql"
+          source: "docker-compose.yml,traefik/dynamic.yml,monitoring/prometheus.yml,init.sql,landing"
           target: "/opt/xarwiz"
           strip_components: 0
 

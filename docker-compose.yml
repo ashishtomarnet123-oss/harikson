@@ -318,6 +318,30 @@ services:
       - 'traefik.http.services.user-portal.loadbalancer.server.port=3002'
     depends_on:
       - tenant-api
+
+  # 7.5. Landing Page (static marketing site)
+  # Plain static HTML/CSS — no build step, so this just mounts the source
+  # directory straight into nginx read-only. Reachable directly via
+  # <host>:3038 right now; the Traefik host rule is ready for whenever
+  # DNS for landing.xarwiz.com actually points at this server (xarwiz.com
+  # itself is already claimed by user-portal above and isn't touched here).
+  landing:
+    image: nginx:alpine
+    container_name: harikson-landing
+    restart: unless-stopped
+    ports:
+      - '3038:80'
+    volumes:
+      - ./landing:/usr/share/nginx/html:ro
+    networks:
+      - harikson-network
+    labels:
+      - 'traefik.enable=true'
+      - 'traefik.http.routers.landing.rule=Host(`landing.xarwiz.com`)'
+      - 'traefik.http.routers.landing.entrypoints=websecure'
+      - 'traefik.http.routers.landing.tls.certresolver=letsencrypt'
+      - 'traefik.http.services.landing.loadbalancer.server.port=80'
+
   # 8. Prometheus (Metrics Scraper)
   prometheus:
     image: prom/prometheus:latest
