@@ -322,7 +322,9 @@ services:
   # 7.5. Landing Page (static marketing site)
   # Plain static HTML/CSS — no build step, so this just mounts the source
   # directory straight into nginx read-only. Reachable directly via
-  # <host>:3038 right now; the Traefik host rule is ready for whenever
+  # <host>:3048 right now (3038 is already grafana's — a first attempt at
+  # this collided with it and briefly took down user-portal/admin-panel
+  # during the reconcile); the Traefik host rule is ready for whenever
   # DNS for landing.xarwiz.com actually points at this server (xarwiz.com
   # itself is already claimed by user-portal above and isn't touched here).
   landing:
@@ -330,7 +332,7 @@ services:
     container_name: harikson-landing
     restart: unless-stopped
     ports:
-      - '3038:80'
+      - '3048:80'
     volumes:
       - ./landing:/usr/share/nginx/html:ro
     networks:
