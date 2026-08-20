@@ -284,7 +284,13 @@ async function handleChat(req: any, res: any) {
     }
 
     // RAG Context retrieval
+    // Fine-grained timing added to catch exactly where a hang happens —
+    // the 30s "client or proxy disconnected" hangs never show up in
+    // [REQ]/[RES] alone, so this pinpoints RAG lookup vs Ollama call vs
+    // first-byte latency on the next occurrence.
+    const ragStart = Date.now();
     const ragContext = await RagService.queryContext(req.tenant.id, message, 3).catch(() => '');
+    logger.info({ durationMs: Date.now() - ragStart }, `[TIMING] RAG lookup took ${Date.now() - ragStart}ms`);
     const promptTokens = countExactTokens(message) + countExactTokens(ragContext);
 
     // Save user message
@@ -344,6 +350,8 @@ async function handleChat(req: any, res: any) {
       }
 
       try {
+        const ollamaCallStart = Date.now();
+        logger.info({ model }, `[TIMING] Calling Ollama /api/chat with model=${model}`);
         const ollamaRes = await axios.post(
           `${ollamaUrl}/api/chat`,
           {
@@ -353,8 +361,20 @@ async function handleChat(req: any, res: any) {
           },
           { responseType: 'stream', timeout: 60000 }
         );
+        logger.info(
+          { durationMs: Date.now() - ollamaCallStart },
+          `[TIMING] Ollama axios.post resolved (headers received) after ${Date.now() - ollamaCallStart}ms`
+        );
 
+        let firstByteLogged = false;
         ollamaRes.data.on('data', (chunk: Buffer) => {
+          if (!firstByteLogged) {
+            firstByteLogged = true;
+            logger.info(
+              { durationMs: Date.now() - ollamaCallStart },
+              `[TIMING] First stream chunk from Ollama after ${Date.now() - ollamaCallStart}ms`
+            );
+          }
           const lines = chunk.toString().split('\n').filter(Boolean);
           for (const line of lines) {
             try {
