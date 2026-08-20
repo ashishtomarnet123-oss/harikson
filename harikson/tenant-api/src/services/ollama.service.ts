@@ -96,7 +96,15 @@ export class OllamaService {
     systemPrompt?: string
   ): Promise<string> {
     const baseUrl = this.getBaseUrl();
-    const rawModel = process.env.DEFAULT_MODEL || 'qwen3-coder:8b';
+    // 'qwen3-coder:8b' isn't a real Ollama registry tag and isn't in
+    // mapModel()'s table either (only the hyphenated/prefixed variants are),
+    // so this fell through unmapped and ensureModel() tried to pull that
+    // literal string on every single call — failing every time, and tying
+    // up Ollama (which serializes requests) while a real chat request was
+    // trying to use it, producing hangs/socket resets on live chat traffic.
+    // qwen2.5:3b is the model actually pulled on these servers (see
+    // chat.routes.ts's MODEL_MAP).
+    const rawModel = process.env.DEFAULT_MODEL || 'qwen2.5:3b';
     const model = this.mapModel(rawModel);
 
     try {
