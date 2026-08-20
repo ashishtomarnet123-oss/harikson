@@ -155,6 +155,38 @@ router.delete('/conversations/:id', async (req: any, res) => {
   }
 });
 
+// PATCH /api/chat/conversations/:id — rename a conversation. The frontend
+// has always called this, but no matching route ever existed here, so
+// renaming silently no-opped against a 404.
+router.patch('/conversations/:id', async (req: any, res) => {
+  if (!req.tenant) req.tenant = DEFAULT_TENANT;
+  const { id } = req.params;
+  const { title } = req.body;
+  const userId = req.user.userId;
+
+  if (!title || !title.trim()) {
+    return res.status(400).json({ error: 'title is required' });
+  }
+
+  try {
+    const updateRes = await executeTenantQuery(req.tenant.id, (client) =>
+      client.query(
+        `UPDATE conversations SET title = $1, updated_at = NOW()
+         WHERE id = $2 AND tenant_id = $3 AND user_id = $4
+         RETURNING id, title`,
+        [title.trim(), id, req.tenant.id, userId]
+      )
+    );
+    if (updateRes.rows.length === 0) {
+      return res.status(404).json({ error: 'Conversation not found' });
+    }
+    res.json(updateRes.rows[0]);
+  } catch (err: any) {
+    logger.error('Rename conversation error:', err);
+    res.status(500).json({ error: 'Failed to rename conversation' });
+  }
+});
+
 // POST /api/chat & POST /api/v1/chat
 async function handleChat(req: any, res: any) {
   if (!req.tenant) req.tenant = DEFAULT_TENANT;

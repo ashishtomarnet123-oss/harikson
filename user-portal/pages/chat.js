@@ -1119,7 +1119,7 @@ function ChatPage() {
     }
 
     try {
-      const res = await fetch(`${apiBase}/api/v1/conversations`, {
+      const res = await fetch(`${apiBase}/api/v1/chat/conversations`, {
         headers: authHeaders(),
         credentials: 'include',
       });
@@ -1168,7 +1168,7 @@ function ChatPage() {
 
     try {
       const res = await fetch(
-        `${apiBase}/api/v1/conversations/${convId}/messages`,
+        `${apiBase}/api/v1/chat/conversations/${convId}/messages`,
         { headers: authHeaders(), credentials: 'include' }
       );
       if (res.ok) {
@@ -1889,7 +1889,7 @@ If any check fails, revise the relevant section before output.`;
     e.stopPropagation();
     if (!confirm('Delete this conversation?')) return;
     try {
-      await fetch(`${apiBase}/api/v1/conversations/${convId}`, {
+      await fetch(`${apiBase}/api/v1/chat/conversations/${convId}`, {
         method: 'DELETE',
         headers: authHeaders(),
         credentials: 'include',
@@ -1913,7 +1913,7 @@ If any check fails, revise the relevant section before output.`;
       return;
     }
     try {
-      await fetch(`${apiBase}/api/v1/conversations/${convId}`, {
+      await fetch(`${apiBase}/api/v1/chat/conversations/${convId}`, {
         method: 'PATCH',
         headers: authHeaders(),
         credentials: 'include',
