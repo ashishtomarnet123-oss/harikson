@@ -74,6 +74,14 @@ function getMockResponse(history: any[], lastUserMsg: string, model: string): st
   return responses[Math.abs(lastUserMsg.length) % responses.length];
 }
 
+// Browsers that used the app before conversations actually persisted
+// (chat.routes.ts's INSERT silently failed for a long time — see git
+// history) still have client-only fallback IDs like 'conv_<ts>_<rand>'
+// cached in localStorage. Those were never real rows. Passing one into a
+// uuid column throws a raw Postgres syntax error instead of a normal
+// "not found", so every :id route below checks this first.
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 const DEFAULT_TENANT = {
   id: '00000000-0000-0000-0000-000000000000',
   name: 'Neuravolt Default',
@@ -113,6 +121,11 @@ router.get('/conversations/:id/messages', async (req: any, res) => {
   const { id } = req.params;
   const userId = req.user.userId;
 
+  if (!UUID_RE.test(id)) {
+    // A client-only fallback ID — there are no server-side messages for it.
+    return res.json({ messages: [] });
+  }
+
   try {
     const msgRes = await executeTenantQuery(req.tenant.id, (client) =>
       client.query(
@@ -137,6 +150,12 @@ router.delete('/conversations/:id', async (req: any, res) => {
   if (!req.tenant) req.tenant = DEFAULT_TENANT;
   const { id } = req.params;
   const userId = req.user.userId;
+
+  if (!UUID_RE.test(id)) {
+    // A client-only fallback ID — nothing server-side to delete, but the
+    // caller should still see success so it clears from their local list.
+    return res.json({ success: true, message: 'Conversation deleted successfully' });
+  }
 
   try {
     await executeTenantQuery(req.tenant.id, async (client) => {
@@ -166,6 +185,9 @@ router.patch('/conversations/:id', async (req: any, res) => {
 
   if (!title || !title.trim()) {
     return res.status(400).json({ error: 'title is required' });
+  }
+  if (!UUID_RE.test(id)) {
+    return res.status(404).json({ error: 'Conversation not found' });
   }
 
   try {
@@ -219,7 +241,10 @@ async function handleChat(req: any, res: any) {
   const userId = req.user.userId;
 
   try {
-    let currentConvId = conversationId;
+    // A client-only fallback ID from before this route persisted anything
+    // (see UUID_RE's comment) is not a real conversation — treat it the
+    // same as no ID at all rather than trying to reuse it.
+    let currentConvId = conversationId && UUID_RE.test(conversationId) ? conversationId : undefined;
     if (!currentConvId) {
       const title = message.length > 30 ? message.substring(0, 30) + '...' : message;
       try {
