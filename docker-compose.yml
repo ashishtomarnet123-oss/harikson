@@ -65,6 +65,15 @@ services:
       # limit below.
       - OLLAMA_MAX_LOADED_MODELS=2
       - OLLAMA_NUM_PARALLEL=1
+      # Ollama's default keep_alive (5 minutes) unloads an idle model from
+      # memory. Confirmed in ollama's own logs: reloading qwen2.5:7b from
+      # disk on this CPU-only host takes ~28 seconds — right at the edge of
+      # the ~30s timeout somewhere in the proxy chain, so the first chat
+      # request after any 5+ minute gap was one bad millisecond away from
+      # timing out (and often did). Keep loaded models resident for 24h so
+      # this cold-load penalty essentially never recurs in normal use —
+      # both models together (~7.6GB) fit well under the 12GB limit below.
+      - OLLAMA_KEEP_ALIVE=24h
     volumes:
       - ${DATA_DIR:-./data}/ollama:/root/.ollama
     networks:
