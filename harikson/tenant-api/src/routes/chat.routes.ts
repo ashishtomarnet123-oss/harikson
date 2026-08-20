@@ -100,8 +100,8 @@ router.get('/conversations', async (req: any, res) => {
         `SELECT c.id, c.title, c.model, c.created_at, c.updated_at,
                 COUNT(m.id)::int as message_count
          FROM conversations c
-         LEFT JOIN messages m ON m.conversation_id = c.id
-         WHERE c.tenant_id = $1 AND c.user_id = $2
+         LEFT JOIN messages m ON m.conversation_id = c.id AND m.deleted_at IS NULL
+         WHERE c.tenant_id = $1 AND c.user_id = $2 AND c.deleted_at IS NULL
          GROUP BY c.id
          ORDER BY c.updated_at DESC`,
         [req.tenant.id, userId]
@@ -133,6 +133,7 @@ router.get('/conversations/:id/messages', async (req: any, res) => {
          FROM messages m
          JOIN conversations c ON c.id = m.conversation_id
          WHERE m.conversation_id = $1 AND m.tenant_id = $2 AND c.user_id = $3
+           AND m.deleted_at IS NULL AND c.deleted_at IS NULL
          ORDER BY m.created_at ASC`,
         [id, req.tenant.id, userId]
       )
@@ -158,13 +159,22 @@ router.delete('/conversations/:id', async (req: any, res) => {
   }
 
   try {
+    // Soft-delete, not hard delete: billing usage (message quota, token
+    // totals) is computed by counting real message/token rows for this
+    // month, with no separate persistent counter. A hard delete here let a
+    // user erase their own usage history — and reset their quota — just by
+    // deleting a conversation. deleted_at hides it from the conversation
+    // list/messages views while billing/usage queries keep counting it.
     await executeTenantQuery(req.tenant.id, async (client) => {
       await client.query(
-        `DELETE FROM messages WHERE conversation_id = $1 AND tenant_id = $2
+        `UPDATE messages SET deleted_at = NOW() WHERE conversation_id = $1 AND tenant_id = $2
          AND EXISTS (SELECT 1 FROM conversations c WHERE c.id = $1 AND c.user_id = $3)`,
         [id, req.tenant.id, userId]
       );
-      await client.query('DELETE FROM conversations WHERE id = $1 AND tenant_id = $2 AND user_id = $3', [id, req.tenant.id, userId]);
+      await client.query(
+        'UPDATE conversations SET deleted_at = NOW() WHERE id = $1 AND tenant_id = $2 AND user_id = $3',
+        [id, req.tenant.id, userId]
+      );
     });
 
     res.json({ success: true, message: 'Conversation deleted successfully' });
@@ -194,7 +204,7 @@ router.patch('/conversations/:id', async (req: any, res) => {
     const updateRes = await executeTenantQuery(req.tenant.id, (client) =>
       client.query(
         `UPDATE conversations SET title = $1, updated_at = NOW()
-         WHERE id = $2 AND tenant_id = $3 AND user_id = $4
+         WHERE id = $2 AND tenant_id = $3 AND user_id = $4 AND deleted_at IS NULL
          RETURNING id, title`,
         [title.trim(), id, req.tenant.id, userId]
       )

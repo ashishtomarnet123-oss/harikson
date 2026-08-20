@@ -69,6 +69,33 @@ if (!process.env.JWT_SECRET || process.env.JWT_SECRET.length < 32) {
 
 const app = express();
 
+// Request-level logging — first middleware in the chain, before body
+// parsing or anything else that could throw, so every request that
+// reaches this process gets a start marker and a completion/duration
+// entry no matter what happens to it downstream. Added specifically
+// to catch intermittent hangs/socket resets on POST /api/chat that
+// otherwise leave zero trace in the logs (the request appears to die
+// before any of our route-level code ever logs anything).
+app.use((req, res, next) => {
+  const start = Date.now();
+  logger.info({ method: req.method, url: req.originalUrl }, `[REQ] ${req.method} ${req.originalUrl}`);
+  res.on('finish', () => {
+    logger.info(
+      { method: req.method, url: req.originalUrl, status: res.statusCode, durationMs: Date.now() - start },
+      `[RES] ${req.method} ${req.originalUrl} ${res.statusCode} ${Date.now() - start}ms`
+    );
+  });
+  res.on('close', () => {
+    if (!res.writableEnded) {
+      logger.warn(
+        { method: req.method, url: req.originalUrl, durationMs: Date.now() - start },
+        `[CLOSED-EARLY] ${req.method} ${req.originalUrl} after ${Date.now() - start}ms — client or proxy disconnected before a response was sent`
+      );
+    }
+  });
+  next();
+});
+
 // Security and utility middleware stack
 app.use(helmet({ contentSecurityPolicy: false }));
 app.use(
