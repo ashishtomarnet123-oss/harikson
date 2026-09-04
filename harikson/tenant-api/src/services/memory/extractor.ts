@@ -2,7 +2,7 @@ import { Redis } from 'ioredis';
 import { OllamaClient } from '../../llm/ollama.js';
 import { MemoryStore } from './store.js';
 
-const redis = new Redis(process.env.REDIS_URL || 'redis://localhost:6379', {
+const redis = new Redis(process.env.REDIS_URL || 'redis://redis:6379', {
   maxRetriesPerRequest: 3,
 });
 

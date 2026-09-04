@@ -3,11 +3,9 @@ import { Redis } from 'ioredis';
 import { pool } from '../db/pool.js';
 import { Logger } from '../observability/logger.js';
 
-const redis = new Redis({
-  host: process.env.REDIS_HOST || '127.0.0.1',
-  port: parseInt(process.env.REDIS_PORT || '6379'),
-  password: process.env.REDIS_PASSWORD || undefined,
+const redis = new Redis(process.env.REDIS_URL || 'redis://redis:6379', {
   lazyConnect: true,
+  maxRetriesPerRequest: 3,
 });
 
 redis.connect().catch(() => {});

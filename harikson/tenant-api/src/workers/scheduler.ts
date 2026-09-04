@@ -14,7 +14,7 @@ import { Logger } from '../observability/logger.js';
 const redisConnections: Redis[] = [];
 
 function createRedisConnection(): Redis {
-  const conn = new Redis(process.env.REDIS_URL || 'redis://localhost:6379', {
+  const conn = new Redis(process.env.REDIS_URL || 'redis://redis:6379', {
     maxRetriesPerRequest: null,
   });
   redisConnections.push(conn);

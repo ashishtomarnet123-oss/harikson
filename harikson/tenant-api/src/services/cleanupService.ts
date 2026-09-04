@@ -57,7 +57,7 @@ export async function executeDatabaseCleanup(force = false): Promise<{
   skipped?: boolean;
   reason?: string;
 }> {
-  const redis = new Redis(process.env.REDIS_URL || 'redis://localhost:6379', {
+  const redis = new Redis(process.env.REDIS_URL || 'redis://redis:6379', {
     maxRetriesPerRequest: 3,
   });
   const lockKey = 'cleanup:lock';
