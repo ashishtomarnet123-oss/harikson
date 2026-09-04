@@ -55,41 +55,8 @@ services:
       - '11435:11434'
     environment:
       - OLLAMA_HOST=0.0.0.0
-      # There are actually THREE distinct models in concurrent use, not
-      # two: qwen2.5:7b (the "Xarwiz Plus" chat model), nomic-embed-text
-      # (RAG context lookup, every chat request), and qwen2.5:3b (the
-      # "mini"/"general" chat preset — but ALSO what the background
-      # memory-extraction worker uses via OllamaService.generate()'s
-      # default). Raising this to 2 fixed the embed+chat swap; the hang
-      # kept recurring anyway, traced via fine-grained request timing +
-      # ollama's own logs to the memory worker's /api/generate call
-      # (model=qwen2.5:3b) landing at the same moment as a live chat
-      # request needing 7b — a third model competing for 2 slots forces
-      # the same evict-and-reload-mid-request hang, just between the
-      # background job and live traffic instead of RAG-embed and chat.
-      # All three together (~7.8GB) still fit comfortably under the 12GB
-      # limit below.
-      - OLLAMA_MAX_LOADED_MODELS=4
-      # With this at 1, Ollama processes exactly one request at a time —
-      # ANY second request (a second real user, a second tab, or the
-      # background memory worker) has to wait for the first one's ENTIRE
-      # generation to finish before it even starts. Confirmed via request
-      # timing logs: two overlapping chat calls, one resolved in 59.7s and
-      # the other in 23.2s — both past the ~30s proxy timeout that kills
-      # the connection, even though nothing was actually stuck, just
-      # queued. 7 CPU cores are allocated and each generation uses ~4
-      # threads (per ollama's own logs), so there's headroom for limited
-      # real parallelism instead of a strict single-file queue.
-      - OLLAMA_NUM_PARALLEL=3
-      # Ollama's default keep_alive (5 minutes) unloads an idle model from
-      # memory. Confirmed in ollama's own logs: reloading qwen2.5:7b from
-      # disk on this CPU-only host takes ~28 seconds — right at the edge of
-      # the ~30s timeout somewhere in the proxy chain, so the first chat
-      # request after any 5+ minute gap was one bad millisecond away from
-      # timing out (and often did). Keep loaded models resident for 24h so
-      # this cold-load penalty essentially never recurs in normal use —
-      # both models together (~7.6GB) fit well under the 12GB limit below.
-      - OLLAMA_KEEP_ALIVE=24h
+      - OLLAMA_MAX_LOADED_MODELS=1
+      - OLLAMA_NUM_PARALLEL=1
     volumes:
       - ${DATA_DIR:-./data}/ollama:/root/.ollama
     networks:
@@ -211,7 +178,7 @@ services:
       - PORT=3008
       - NODE_ENV=production
       - OLLAMA_HOST=http://ollama:11434
-      - ALLOWED_ORIGINS=https://xarwiz.com,https://www.xarwiz.com,https://app.neuravolt.cloud,https://admin.neuravolt.cloud,https://neuravolt.cloud,http://localhost:3002,http://localhost:3018,http://localhost:3028,http://154.201.127.68:3018,http://154.201.127.68:3028,http://34.131.140.10:3018,http://34.131.140.10:3028
+      - ALLOWED_ORIGINS=https://xarwiz.com,https://www.xarwiz.com,https://app.neuravolt.cloud,https://admin.neuravolt.cloud,https://neuravolt.cloud,http://localhost:3002,http://localhost:3018,http://localhost:3028,http://154.201.127.68:3018,http://154.201.127.68:3028
     depends_on:
       postgres:
         condition: service_healthy
@@ -254,11 +221,11 @@ services:
       - REDIS_URL=redis://redis:6379
       - JWT_SECRET
       - PORT=4000
-      - NODE_ENV=production
+      - NODE_ENV=${NODE_ENV:-development}
       - TENANT_API_URL=http://tenant-api:3008
       - INTERNAL_API_SECRET
       - PAYMENT_ENCRYPTION_KEY
-      - ALLOWED_ORIGINS=https://xarwiz.com,https://www.xarwiz.com,https://app.neuravolt.cloud,https://admin.neuravolt.cloud,https://neuravolt.cloud,http://localhost:3002,http://localhost:3018,http://localhost:3028,http://154.201.127.68:3018,http://154.201.127.68:3028,http://34.131.140.10:3018,http://34.131.140.10:3028
+      - ALLOWED_ORIGINS=http://34.131.140.10:3018,http://34.131.140.10:3028,http://34.131.140.10:8085,https://xarwiz.com,https://www.xarwiz.com,https://app.neuravolt.cloud,https://admin.neuravolt.cloud,https://neuravolt.cloud,http://localhost:3002,http://localhost:3018,http://localhost:3028,http://154.201.127.68:3018,http://154.201.127.68:3028
     depends_on:
       postgres:
         condition: service_healthy
@@ -298,7 +265,7 @@ services:
       - '3018:3001'
     environment:
       - PORT=3001
-      - NEXT_PUBLIC_API_URL=https://xarwiz.com
+      - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-http://34.131.140.10:3028}
       - ADMIN_API_URL=http://admin-api:4000
       - DATABASE_URL=postgresql://neuravolt:neuravolt_dev_pwd@postgres:5432/neuravolt
       - JWT_SECRET
@@ -330,9 +297,9 @@ services:
     environment:
       - PORT=3002
       - TENANT_API_URL=http://tenant-api:3008
-      - NEXT_PUBLIC_API_URL=https://xarwiz.com
+      - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-http://34.131.140.10:3028}
       - NEXTAUTH_SECRET
-      - NEXTAUTH_URL=https://xarwiz.com
+      - NEXTAUTH_URL=${NEXTAUTH_URL:-http://34.131.140.10:3028}
     networks:
       - harikson-network
     labels:
@@ -343,32 +310,6 @@ services:
       - 'traefik.http.services.user-portal.loadbalancer.server.port=3002'
     depends_on:
       - tenant-api
-
-  # 7.5. Landing Page (static marketing site)
-  # Plain static HTML/CSS — no build step, so this just mounts the source
-  # directory straight into nginx read-only. Reachable directly via
-  # <host>:3048 right now (3038 is already grafana's — a first attempt at
-  # this collided with it and briefly took down user-portal/admin-panel
-  # during the reconcile); the Traefik host rule is ready for whenever
-  # DNS for landing.xarwiz.com actually points at this server (xarwiz.com
-  # itself is already claimed by user-portal above and isn't touched here).
-  landing:
-    image: nginx:alpine
-    container_name: harikson-landing
-    restart: unless-stopped
-    ports:
-      - '3048:80'
-    volumes:
-      - ./landing:/usr/share/nginx/html:ro
-    networks:
-      - harikson-network
-    labels:
-      - 'traefik.enable=true'
-      - 'traefik.http.routers.landing.rule=Host(`landing.xarwiz.com`)'
-      - 'traefik.http.routers.landing.entrypoints=websecure'
-      - 'traefik.http.routers.landing.tls.certresolver=letsencrypt'
-      - 'traefik.http.services.landing.loadbalancer.server.port=80'
-
   # 8. Prometheus (Metrics Scraper)
   prometheus:
     image: prom/prometheus:latest
@@ -392,7 +333,7 @@ services:
     ports:
       - '3038:3003'
     environment:
-      - GF_SECURITY_ADMIN_PASSWORD
+      - GF_SECURITY_ADMIN_PASSWORD=admin_password
       - GF_SERVER_HTTP_PORT=3003
     volumes:
       - ${DATA_DIR:-./data}/grafana:/var/lib/grafana
