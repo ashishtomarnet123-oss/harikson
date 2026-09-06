@@ -47,7 +47,7 @@ export function withAuth(WrappedComponent) {
             marginBottom: '16px'
           }} />
           <p style={{ color: '#9ca3af', fontSize: '14px' }}>Authenticating session…</p>
-          <style jsx>{`
+          <style>{`
             @keyframes spin {
               to { transform: rotate(360deg); }
             }
