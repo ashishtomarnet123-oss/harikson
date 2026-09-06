@@ -97,7 +97,7 @@ services:
     image: redis:7-alpine
     container_name: harikson-redis
     restart: unless-stopped
-    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD}
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD:-harikson_redis_pwd}
     expose:
       - '6379'
     volumes:
@@ -109,7 +109,7 @@ services:
         limits:
           memory: 256m
     healthcheck:
-      test: ['CMD', 'redis-cli', 'ping']
+      test: ['CMD', 'redis-cli', '-a', '${REDIS_PASSWORD:-harikson_redis_pwd}', '--no-auth-warning', 'ping']
       interval: 10s
       timeout: 5s
       retries: 5
@@ -157,7 +157,7 @@ services:
       - '3008'
     environment:
       - DATABASE_URL=postgresql://neuravolt:${POSTGRES_PASSWORD}@postgres:5432/neuravolt
-      - REDIS_URL=redis://redis:6379
+      - REDIS_URL=redis://:${REDIS_PASSWORD:-harikson_redis_pwd}@redis:6379
       - JWT_SECRET
       - TENANT_MASTER_KEY
       - INTERNAL_API_SECRET
@@ -213,7 +213,7 @@ services:
       - '4000'
     environment:
       - DATABASE_URL=postgresql://neuravolt:${POSTGRES_PASSWORD}@postgres:5432/neuravolt
-      - REDIS_URL=redis://redis:6379
+      - REDIS_URL=redis://:${REDIS_PASSWORD:-harikson_redis_pwd}@redis:6379
       - JWT_SECRET
       - PORT=4000
       - NODE_ENV=${NODE_ENV:-development}

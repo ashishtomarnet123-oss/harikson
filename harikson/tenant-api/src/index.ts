@@ -132,7 +132,7 @@ app.use((req, _res, next) => {
 });
 
 // Middleware: Tenant context resolution from header, subdomain, or API key
-app.use(async (req, _res, next) => {
+app.use(async (req, res, next) => {
   try {
     const host = req.headers.host || '';
     const authHeader = req.headers.authorization || '';
