@@ -20,7 +20,7 @@ services:
     environment:
       POSTGRES_DB: neuravolt
       POSTGRES_USER: neuravolt
-      POSTGRES_PASSWORD: neuravolt_secure_password_2026
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
     volumes:
       - harikson-postgres-data:/var/lib/postgresql/data
 

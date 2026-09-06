@@ -3,6 +3,7 @@ import crypto from 'crypto';
 import { Redis } from 'ioredis';
 import { pool } from '../db/pool.js';
 import { Logger } from '../observability/logger.js';
+import { OllamaService } from '../services/ollama.service.js';
 
 const router = Router();
 
@@ -67,7 +68,7 @@ router.get('/widget.js', async (req: Request, res: Response) => {
 
     // 2. HMAC Signature Verification (if provided)
     if (signature && timestamp) {
-      const secret = tenant.widget_secret || process.env.JWT_SECRET || 'widget_fallback_secret';
+      const secret = tenant.widget_secret || process.env.JWT_SECRET!;
       const expectedSig = crypto
         .createHmac('sha256', secret)
         .update(`${requestOrigin}|${timestamp}`)
@@ -268,9 +269,20 @@ router.post('/api/widget/chat', async (req: Request, res: Response) => {
       [tenant.id, requestOrigin]
     ).catch(() => {});
 
+    let aiResponse: string;
+    try {
+      aiResponse = await OllamaService.generate(
+        message,
+        'You are a helpful customer support assistant. Keep responses concise and under 200 words.'
+      );
+    } catch (llmErr) {
+      Logger.warn('Widget chat LLM fallback:', llmErr);
+      aiResponse = 'Thanks for your message! Our team will get back to you shortly.';
+    }
+
     res.json({
       success: true,
-      response: `Thank you for reaching out! Your message was received securely via widget origin ${requestOrigin}.`,
+      response: aiResponse,
     });
   } catch (err) {
     Logger.error('Widget chat error:', err);

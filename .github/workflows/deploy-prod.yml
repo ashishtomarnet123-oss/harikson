@@ -122,15 +122,18 @@ jobs:
 
       - name: Execute Production Blue-Green Switch
         uses: appleboy/ssh-action@v1.0.3
+        env:
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GHCR_USER: ${{ github.actor }}
         with:
           host: ${{ secrets.PROD_HOST }}
           username: ${{ secrets.PROD_USER || 'xarwiz' }}
           key: ${{ secrets.PROD_SSH_KEY }}
-          envs: REGISTRY,IMAGE_PREFIX,GOOGLE_CLIENT_ID,GOOGLE_CLIENT_SECRET,GOOGLE_REDIRECT_URI,GF_SECURITY_ADMIN_PASSWORD
+          envs: REGISTRY,IMAGE_PREFIX,GOOGLE_CLIENT_ID,GOOGLE_CLIENT_SECRET,GOOGLE_REDIRECT_URI,GF_SECURITY_ADMIN_PASSWORD,GHCR_TOKEN,GHCR_USER
           script: |
             set -e
             cd /opt/xarwiz || exit 1
-            echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+            echo "$GHCR_TOKEN" | docker login ghcr.io -u "$GHCR_USER" --password-stdin
 
             echo "🚀 Initializing Production Blue-Green Deployment..."
             

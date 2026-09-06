@@ -5,10 +5,11 @@ import pg from 'pg';
 import nodemailer from 'nodemailer';
 
 const { Pool } = pg;
+if (!process.env.DATABASE_URL) {
+  throw new Error('DATABASE_URL environment variable is required');
+}
 const pool = new Pool({
-  connectionString:
-    process.env.DATABASE_URL ||
-    'postgresql://neuravolt:neuravolt_dev_pwd@harikson-postgres:5432/neuravolt',
+  connectionString: process.env.DATABASE_URL,
 });
 
 const resend = new Resend(process.env.RESEND_API_KEY || 're_dev_key');

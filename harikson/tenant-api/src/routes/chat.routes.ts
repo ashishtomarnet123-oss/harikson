@@ -33,46 +33,14 @@ router.use((req: any, res, next) => {
     return res.status(401).json({ error: 'Unauthorized' });
   }
   try {
-    req.user = jwt.verify(token, process.env.JWT_SECRET || 'fallback_secret_key_neuravolt_2026');
+    req.user = jwt.verify(token, process.env.JWT_SECRET!);
   } catch (err) {
     return res.status(401).json({ error: 'Unauthorized' });
   }
   next();
 });
 
-// Helper: Context-aware Mock LLM response fallback
-function getMockResponse(history: any[], lastUserMsg: string, model: string): string {
-  const msgLower = lastUserMsg.toLowerCase().trim();
-
-  if (msgLower.match(/^(hello|hi|hey|good morning|good evening|howdy|sup|yo)[\s!?.]*$/)) {
-    return `Hello! I'm Xarwiz AI, your intelligent enterprise assistant. How can I help you today?`;
-  }
-  if (msgLower.includes('how are you') || msgLower.includes('how was your day') || msgLower.includes('how do you do')) {
-    return `I'm doing great, thank you for asking! I'm fully operational and ready to help you with anything you need — from answering questions to analyzing documents and managing your AI workflows.`;
-  }
-  if (msgLower.includes('what can you do') || msgLower.includes('your capabilities') || msgLower.includes('features')) {
-    return `I can help you with:\n\n• **Intelligent Q&A** — Answer questions about your business, documents, or knowledge base\n• **Document Analysis** — Analyze uploaded PDFs, contracts, reports\n• **Code Review** — Review and suggest improvements to your codebase\n• **RAG Search** — Search across your uploaded knowledge documents\n• **Workflow Automation** — Design and trigger AI-powered workflows\n\nWhat would you like to explore?`;
-  }
-  if (msgLower.includes('pricing') || msgLower.includes('plan') || msgLower.includes('cost') || msgLower.includes('subscription')) {
-    return `Xarwiz AI offers flexible plans:\n\n• **Free** — $0/month, basic chat & 100 messages/month\n• **Starter** — $19/month, 2,000 messages & 10GB RAG storage\n• **Professional** — $49/month, 10,000 messages & 100GB RAG storage *(your current plan)*\n• **Enterprise** — $199/month, unlimited messages & dedicated infrastructure\n\nYou're currently on the **14-Day Professional Free Trial** with full access.`;
-  }
-  if (msgLower.includes('help') || msgLower.includes('support') || msgLower.includes('issue') || msgLower.includes('problem')) {
-    return `I'm here to help! You can:\n\n1. Describe your issue and I'll guide you through it\n2. Upload a document for analysis\n3. Ask me to write, review, or explain code\n4. Search your knowledge base\n\nWhat's the challenge you're facing?`;
-  }
-  if (msgLower.includes('thank') || msgLower.includes('thanks')) {
-    return `You're very welcome! Is there anything else I can assist you with?`;
-  }
-  if (msgLower.includes('bye') || msgLower.includes('goodbye') || msgLower.includes('see you')) {
-    return `Goodbye! Feel free to come back anytime you need assistance. Have a great day!`;
-  }
-  // Generic intelligent fallback
-  const responses = [
-    `That's an interesting question! Let me think about this... Based on what you've shared, I'd suggest exploring this from a few angles. Could you provide a bit more context so I can give you a more precise answer?`,
-    `Great question! I'm processing your request. To give you the most accurate response, could you tell me more about what you're trying to achieve?`,
-    `I understand what you're asking. This touches on some nuanced areas — could you elaborate a bit more so I can tailor my response to your specific needs?`,
-  ];
-  return responses[Math.abs(lastUserMsg.length) % responses.length];
-}
+const AI_UNAVAILABLE_MSG = 'AI service is temporarily unavailable. Please try again in a moment.';
 
 // Browsers that used the app before conversations actually persisted
 // (chat.routes.ts's INSERT silently failed for a long time — see git
@@ -82,16 +50,11 @@ function getMockResponse(history: any[], lastUserMsg: string, model: string): st
 // "not found", so every :id route below checks this first.
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-const DEFAULT_TENANT = {
-  id: '00000000-0000-0000-0000-000000000000',
-  name: 'Neuravolt Default',
-  slug: 'neuravolt',
-  status: 'active',
-};
+
 
 // GET /api/chat/conversations
 router.get('/conversations', async (req: any, res) => {
-  if (!req.tenant) req.tenant = DEFAULT_TENANT;
+
   const userId = req.user.userId;
 
   try {
@@ -117,7 +80,7 @@ router.get('/conversations', async (req: any, res) => {
 
 // GET /api/chat/conversations/:id/messages
 router.get('/conversations/:id/messages', async (req: any, res) => {
-  if (!req.tenant) req.tenant = DEFAULT_TENANT;
+
   const { id } = req.params;
   const userId = req.user.userId;
 
@@ -148,7 +111,7 @@ router.get('/conversations/:id/messages', async (req: any, res) => {
 
 // DELETE /api/chat/conversations/:id
 router.delete('/conversations/:id', async (req: any, res) => {
-  if (!req.tenant) req.tenant = DEFAULT_TENANT;
+
   const { id } = req.params;
   const userId = req.user.userId;
 
@@ -188,7 +151,7 @@ router.delete('/conversations/:id', async (req: any, res) => {
 // has always called this, but no matching route ever existed here, so
 // renaming silently no-opped against a 404.
 router.patch('/conversations/:id', async (req: any, res) => {
-  if (!req.tenant) req.tenant = DEFAULT_TENANT;
+
   const { id } = req.params;
   const { title } = req.body;
   const userId = req.user.userId;
@@ -221,7 +184,7 @@ router.patch('/conversations/:id', async (req: any, res) => {
 
 // POST /api/chat & POST /api/v1/chat
 async function handleChat(req: any, res: any) {
-  if (!req.tenant) req.tenant = DEFAULT_TENANT;
+
 
   // Lock chat after Day 14 grace period if tenant is past_due
   if (req.tenant.status === 'past_due' && (req.tenant.metadata?.dunning_stage || 0) >= 4) {
@@ -232,28 +195,26 @@ async function handleChat(req: any, res: any) {
     });
   }
 
-  const { message, conversationId, agentId, model: rawModel = 'harikson-plus', stream = true, clientHistory } = req.body;
+  try {
+  const { message, conversationId, agentId, model: rawModel = 'harikson-plus', stream = true, clientHistory } = req.body || {};
   if (!message) return res.status(400).json({ error: 'Message text is required' });
 
-  // Map Xarwiz brand model names to real Ollama model names.
-  // 'harikson-plus' is what the "Xarwiz Plus · 8B" selector actually sends
-  // (see chat.js) — now a real ~7-8B model (qwen2.5:7b) instead of the 3B
-  // one, so the label matches what's actually running.
+  // Single-GPU VM (16GB) can only serve one 7B model at a time.
+  // plus/max/pro all map to qwen2.5:7b until multi-model infra is available.
   const MODEL_MAP: Record<string, string> = {
-    'harikson-plus':  'qwen2.5:7b',
-    'harikson-max':   'qwen2.5:7b',
-    'harikson-pro':   'qwen2.5:7b',
-    'harikson-mini':  'qwen2.5:3b',
-    'harikson-8b':    'qwen2.5:7b',
+    'harikson-plus':    'qwen2.5:7b',
+    'harikson-max':     'qwen2.5:7b',
+    'harikson-pro':     'qwen2.5:7b',
+    'harikson-mini':    'qwen2.5:3b',
+    'harikson-8b':      'qwen2.5:7b',
     'harikson-plus-8b': 'qwen2.5:7b',
-    'general':        'qwen2.5:3b',
-    'qwen3-coder':    'qwen2.5:3b',
+    'general':          'qwen2.5:3b',
+    'qwen3-coder':      'qwen2.5:3b',
   };
   const model = MODEL_MAP[rawModel] || rawModel;
 
   const userId = req.user.userId;
 
-  try {
     // A client-only fallback ID from before this route persisted anything
     // (see UUID_RE's comment) is not a real conversation — treat it the
     // same as no ID at all rather than trying to reuse it.
@@ -289,7 +250,11 @@ async function handleChat(req: any, res: any) {
     // [REQ]/[RES] alone, so this pinpoints RAG lookup vs Ollama call vs
     // first-byte latency on the next occurrence.
     const ragStart = Date.now();
-    const ragContext = await RagService.queryContext(req.tenant.id, message, 3).catch(() => '');
+    const ragTimeout = new Promise<string>((resolve) => setTimeout(() => resolve(''), 15000));
+    const ragContext = await Promise.race([
+      RagService.queryContext(req.tenant.id, message, 3).catch(() => ''),
+      ragTimeout,
+    ]);
     logger.info({ durationMs: Date.now() - ragStart }, `[TIMING] RAG lookup took ${Date.now() - ragStart}ms`);
     const promptTokens = countExactTokens(message) + countExactTokens(ragContext);
 
@@ -307,8 +272,9 @@ async function handleChat(req: any, res: any) {
       res.setHeader('Content-Type', 'text/event-stream');
       res.setHeader('Cache-Control', 'no-cache');
       res.setHeader('Connection', 'keep-alive');
+      if (currentConvId) res.setHeader('X-Conversation-Id', currentConvId);
 
-      const ollamaUrl = process.env.OLLAMA_URL || 'http://ollama:11434';
+      const ollamaUrl = process.env.OLLAMA_URL || process.env.OLLAMA_HOST || 'http://ollama:11434';
       let fullResponseText = '';
 
       // Build Ollama message list — include conversation history for context.
@@ -367,7 +333,9 @@ async function handleChat(req: any, res: any) {
         );
 
         let firstByteLogged = false;
+        let streamEnded = false;
         ollamaRes.data.on('data', (chunk: Buffer) => {
+          if (streamEnded) return;
           if (!firstByteLogged) {
             firstByteLogged = true;
             logger.info(
@@ -390,6 +358,8 @@ async function handleChat(req: any, res: any) {
         });
 
         ollamaRes.data.on('end', async () => {
+          if (streamEnded) return;
+          streamEnded = true;
           const completionTokens = countExactTokens(fullResponseText);
           executeTenantQuery(req.tenant.id, (client) =>
             client.query(
@@ -397,37 +367,31 @@ async function handleChat(req: any, res: any) {
               [req.tenant.id, currentConvId, 'assistant', fullResponseText, completionTokens]
             )
           ).catch((e) => logger.error(e, 'Failed to save assistant message'));
-          res.write(`data: [DONE]\n\n`);
-          res.end();
+          try { res.write(`data: [DONE]\n\n`); res.end(); } catch (_) {}
         });
 
         ollamaRes.data.on('error', async () => {
-          const fallback = getMockResponse([], message, model);
-          res.write(`data: ${JSON.stringify({ content: fallback, conversationId: currentConvId })}\n\n`);
-          res.write(`data: [DONE]\n\n`);
-          res.end();
+          if (streamEnded) return;
+          streamEnded = true;
+          try {
+            res.write(`data: ${JSON.stringify({ error: AI_UNAVAILABLE_MSG, conversationId: currentConvId })}\n\n`);
+            res.write(`data: [DONE]\n\n`);
+            res.end();
+          } catch (_) {}
         });
       } catch (ollamaErr) {
-        const fallback = getMockResponse([], message, model);
-        res.write(`data: ${JSON.stringify({ content: fallback, conversationId: currentConvId })}\n\n`);
+        logger.error('Ollama connection failed:', ollamaErr);
+        res.write(`data: ${JSON.stringify({ error: AI_UNAVAILABLE_MSG, conversationId: currentConvId })}\n\n`);
         res.write(`data: [DONE]\n\n`);
         res.end();
       }
     } else {
-      const fallback = getMockResponse([], message, model);
-      const completionTokens = countExactTokens(fallback);
-      res.json({
-        conversationId: currentConvId,
-        message: fallback,
-        tokensUsed: promptTokens + completionTokens,
-      });
+      return res.status(503).json({ error: AI_UNAVAILABLE_MSG });
     }
   } catch (err: any) {
     logger.error('Chat processing error:', err);
-    const fallback = getMockResponse([], req.body?.message || 'hello', req.body?.model || 'harikson-plus');
     try {
       if (res.headersSent) {
-        // Headers already sent in stream — just close the connection
         try { res.write(`data: [DONE]\n\n`); res.end(); } catch (_) {}
         return;
       }
@@ -435,11 +399,11 @@ async function handleChat(req: any, res: any) {
         res.setHeader('Content-Type', 'text/event-stream');
         res.setHeader('Cache-Control', 'no-cache');
         res.setHeader('Connection', 'keep-alive');
-        res.write(`data: ${JSON.stringify({ content: fallback, conversationId: 'conv_fallback' })}\n\n`);
+        res.write(`data: ${JSON.stringify({ error: AI_UNAVAILABLE_MSG })}\n\n`);
         res.write(`data: [DONE]\n\n`);
         res.end();
       } else {
-        res.json({ conversationId: 'conv_fallback', message: fallback, tokensUsed: 150 });
+        res.status(503).json({ error: AI_UNAVAILABLE_MSG });
       }
     } catch (writeErr) {
       logger.error('Failed to write error response:', writeErr);

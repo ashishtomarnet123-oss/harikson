@@ -35,6 +35,7 @@ import {
   Sparkles,
 } from 'lucide-react';
 import SettingsModal from '../components/SettingsModal';
+import { trackEvent } from '../lib/analytics';
 
 /* ────────────────────────────────────────────────────────────
    Clipboard helper — navigator.clipboard is only defined in
@@ -783,10 +784,9 @@ function ChatPage() {
   };
 
   // Auth & config
-  const [token, setToken] = useState(null);
   const [user, setUser] = useState(null);
-  const [apiBase, setApiBase] = useState('http://localhost:3008');
-  const [tenantSlug, setTenantSlug] = useState('system');
+  const [apiBase, setApiBase] = useState('');
+  const [tenantSlug, setTenantSlug] = useState('default');
 
   // Conversations
   const [conversations, setConversations] = useState([]);
@@ -831,7 +831,7 @@ function ChatPage() {
   const syncCustomPresets = useCallback(async () => {
     if (typeof window === 'undefined') return;
     try {
-      const slug = tenantSlug || localStorage.getItem('hk_tenant') || 'neuravolt';
+      const slug = tenantSlug || localStorage.getItem('hk_tenant') || 'default';
       const res = await fetch(`${apiBase}/api/v1/user/presets`, {
         headers: { 'x-tenant-slug': slug },
         credentials: 'include',
@@ -846,10 +846,10 @@ function ChatPage() {
   }, [apiBase, tenantSlug]);
 
   useEffect(() => {
-    if (token) syncCustomPresets();
+    if (user) syncCustomPresets();
     window.addEventListener('storage', syncCustomPresets);
     return () => window.removeEventListener('storage', syncCustomPresets);
-  }, [token, syncCustomPresets]);
+  }, [user, syncCustomPresets]);
 
   const triggerDownload = (content, filename, contentType) => {
     const blob = new Blob([content], { type: contentType });
@@ -1022,8 +1022,7 @@ function ChatPage() {
       // Persist the resolved base URL
       localStorage.setItem('hk_api_base', savedBase);
     }
-    const savedTenant = localStorage.getItem('hk_tenant') || 'neuravolt';
-    setToken(true);
+    const savedTenant = localStorage.getItem('hk_tenant') || 'default';
     setUser(savedUser);
     setApiBase(savedBase);
     setTenantSlug(savedTenant);
@@ -1081,7 +1080,7 @@ function ChatPage() {
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [token, router.isReady, router.query.conversation, activeConvId]);
+  }, [user, router.isReady, router.query.conversation, activeConvId]);
 
   /* ── Auto scroll on new messages ── */
   useEffect(() => {
@@ -1099,7 +1098,7 @@ function ChatPage() {
 
   const authHeaders = useCallback(
     () => {
-      const slug = tenantSlug || (typeof window !== 'undefined' ? localStorage.getItem('hk_tenant') : null) || 'neuravolt';
+      const slug = tenantSlug || (typeof window !== 'undefined' ? localStorage.getItem('hk_tenant') : null) || 'default';
       const headers = {
         'Content-Type': 'application/json',
         'x-tenant-slug': slug,
@@ -1403,6 +1402,7 @@ function ChatPage() {
 
     // Optimistically add user message
     setMessages((prev) => [...prev, { sender: 'user', text: userText }]);
+    trackEvent('chat_message_sent', { model: selectedModel });
 
     // Map system prompts presets
     const presets = {
@@ -1941,7 +1941,7 @@ If any check fails, revise the relevant section before output.`;
         localStorage.getItem('hk_api_base') ??
         process.env.NEXT_PUBLIC_API_URL ??
         '';
-      const tenantSlug = localStorage.getItem('hk_tenant') || 'neuravolt';
+      const tenantSlug = localStorage.getItem('hk_tenant') || 'default';
       await fetch(`${logoutApiBase}/api/v1/auth/logout`, {
         method: 'POST',
         headers: {

@@ -44,7 +44,7 @@ router.use((req: any, _res, next) => {
     }
     if (token) {
       try {
-        const decoded: any = jwt.verify(token, process.env.JWT_SECRET || 'fallback_secret_key_neuravolt_2026');
+        const decoded: any = jwt.verify(token, process.env.JWT_SECRET!);
         req.user = decoded;
       } catch (err) {}
     }
@@ -222,7 +222,7 @@ router.post('/2fa/disable', async (req: any, res) => {
 
 // API Keys Endpoints
 router.get('/api-keys', async (req: any, res) => {
-  if (!req.tenant) req.tenant = { id: '00000000-0000-0000-0000-000000000000', name: 'Neuravolt Default', slug: 'neuravolt', status: 'active' };
+
 
   try {
     const keysRes = await executeTenantQuery(req.tenant.id, (client) =>
@@ -239,7 +239,7 @@ router.get('/api-keys', async (req: any, res) => {
 });
 
 router.post('/api-keys', async (req: any, res) => {
-  if (!req.tenant) req.tenant = { id: '00000000-0000-0000-0000-000000000000', name: 'Neuravolt Default', slug: 'neuravolt', status: 'active' };
+
 
   const { name, scopes } = req.body;
   const rawKey = 'hk_live_' + crypto.randomBytes(24).toString('hex');
@@ -267,7 +267,7 @@ router.post('/api-keys', async (req: any, res) => {
 });
 
 router.delete('/api-keys/:id', async (req: any, res) => {
-  if (!req.tenant) req.tenant = { id: '00000000-0000-0000-0000-000000000000', name: 'Neuravolt Default', slug: 'neuravolt', status: 'active' };
+
 
   const { id } = req.params;
   try {
@@ -290,7 +290,7 @@ import { generatePasskeyRegistrationOptions, savePasskeyCredential } from '../se
 
 // LOW-020: Setup custom domain and verify DNS CNAME record
 router.post('/custom-domain', async (req: any, res) => {
-  if (!req.tenant) req.tenant = { id: '00000000-0000-0000-0000-000000000000', name: 'Neuravolt Default', slug: 'neuravolt', status: 'active' };
+
 
   const { domain } = req.body;
   if (!domain) return res.status(400).json({ error: 'Domain is required' });
@@ -343,7 +343,7 @@ router.get('/workspace', async (req: any, res) => {
   if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
 
   try {
-    let tenantId = '00000000-0000-0000-0000-000000000000';
+    let tenantId = req.tenant.id;
     try {
       const userRes = await pool.query('SELECT tenant_id FROM users WHERE id = $1', [req.user.userId]);
       if (userRes.rows.length > 0 && userRes.rows[0].tenant_id) {
@@ -402,12 +402,12 @@ router.get('/workspace', async (req: any, res) => {
     });
   } catch (err: any) {
     res.json({
-      id: '00000000-0000-0000-0000-000000000000',
-      name: 'System Admin Services',
-      slug: 'system',
+      id: req.tenant.id,
+      name: req.tenant.name || 'Workspace',
+      slug: req.tenant.slug || 'workspace',
       createdAt: new Date().toISOString(),
       members: [
-        { id: req.user.userId, email: 'user@neuravolt.cloud', name: 'User', role: 'Admin', avatar: 'U' }
+        { id: req.user.userId, email: req.user.email || 'user@neuravolt.cloud', name: 'User', role: 'Admin', avatar: 'U' }
       ]
     });
   }
@@ -1353,7 +1353,7 @@ router.get('/developer/keys', async (req: any, res) => {
 
   try {
     const userRes = await pool.query('SELECT tenant_id FROM users WHERE id = $1', [req.user.userId]).catch(() => ({ rows: [] }));
-    const tenantId = userRes.rows[0]?.tenant_id || req.tenant?.id || '00000000-0000-0000-0000-000000000000';
+    const tenantId = userRes.rows[0]?.tenant_id || req.tenant.id;
 
     const keysRes = await pool.query(
       'SELECT id, name, key_prefix as prefix, scopes, created_at as "createdAt", last_used_at as "lastUsedAt" FROM tenant_api_keys WHERE tenant_id = $1 AND status = \'active\' ORDER BY created_at DESC',
@@ -1377,7 +1377,7 @@ router.post('/developer/keys', async (req: any, res) => {
 
   try {
     const userRes = await pool.query('SELECT tenant_id FROM users WHERE id = $1', [req.user.userId]).catch(() => ({ rows: [] }));
-    const tenantId = userRes.rows[0]?.tenant_id || req.tenant?.id || '00000000-0000-0000-0000-000000000000';
+    const tenantId = userRes.rows[0]?.tenant_id || req.tenant.id;
 
     const insertRes = await pool.query(
       `INSERT INTO tenant_api_keys (tenant_id, user_id, name, key_hash, key_prefix, scopes, status, created_at)
@@ -1498,23 +1498,68 @@ router.get('/storage', async (req: any, res) => {
 
   try {
     const userRes = await pool.query('SELECT tenant_id FROM users WHERE id = $1', [req.user.userId]).catch(() => ({ rows: [] }));
-    const tenantId = userRes.rows[0]?.tenant_id || req.tenant?.id || '00000000-0000-0000-0000-000000000000';
+    const tenantId = userRes.rows[0]?.tenant_id || req.tenant.id;
 
-    const docsRes = await pool.query(
-      `SELECT COALESCE(SUM(file_size_bytes), 0) as total_bytes, COUNT(*) as doc_count
-       FROM knowledge_documents
-       WHERE tenant_id = $1 AND is_active = true`,
-      [tenantId]
-    ).catch(() => ({ rows: [{ total_bytes: 0, doc_count: 0 }] }));
+    const [docsRes, planRes] = await Promise.all([
+      pool.query(
+        `SELECT COALESCE(SUM(file_size_bytes), 0) as total_bytes, COUNT(*) as doc_count
+         FROM knowledge_documents
+         WHERE tenant_id = $1 AND is_active = true`,
+        [tenantId]
+      ).catch(() => ({ rows: [{ total_bytes: 0, doc_count: 0 }] })),
+      pool.query(
+        `SELECT p.storage_limit_gb, p.name as plan_name
+         FROM tenants t JOIN plans p ON p.id = t.plan
+         WHERE t.id = $1`,
+        [tenantId]
+      ).catch(() => ({ rows: [] })),
+    ]);
 
     const { total_bytes, doc_count } = docsRes.rows[0];
+    const totalBytes = parseInt(total_bytes, 10) || 0;
+    const plan = planRes.rows[0];
+    const quotaGB = plan?.storage_limit_gb ?? null;
+    const quotaBytes = quotaGB && quotaGB > 0 ? quotaGB * 1024 ** 3 : null;
+
     res.json({
-      totalBytes: parseInt(total_bytes, 10) || 0,
+      totalBytes,
       documentCount: parseInt(doc_count, 10) || 0,
+      quotaBytes,
+      quotaGB,
+      planName: plan?.plan_name || null,
+      usagePct: quotaBytes ? Math.min(100, Math.round((totalBytes / quotaBytes) * 1000) / 10) : null,
     });
   } catch (err: any) {
     logger.error('Fetch storage usage error:', err);
     res.status(500).json({ error: 'Failed to load storage usage' });
+  }
+});
+
+// POST /api/user/analytics/track & /api/v1/analytics/track
+router.post(['/analytics/track', '/user/analytics/track'], async (req: any, res) => {
+  if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
+
+  const { action, details } = req.body;
+  if (!action || typeof action !== 'string') {
+    return res.status(400).json({ error: 'action is required' });
+  }
+
+  try {
+    await pool.query(
+      `INSERT INTO activity_logs (user_id, action, details, ip_address, user_agent, created_at)
+       VALUES ($1, $2, $3, $4, $5, NOW())`,
+      [
+        req.user.userId,
+        action,
+        details || null,
+        req.headers['x-real-ip'] || req.ip || null,
+        req.headers['user-agent'] || null,
+      ]
+    );
+    res.json({ success: true });
+  } catch (err: any) {
+    logger.warn('Analytics track error:', err.message);
+    res.json({ success: true });
   }
 });
 

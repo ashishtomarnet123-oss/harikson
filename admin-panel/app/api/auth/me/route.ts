@@ -2,42 +2,23 @@ import { NextRequest, NextResponse } from 'next/server';
 import { Pool } from 'pg';
 import jwt from 'jsonwebtoken';
 
-const dbConnectionString =
-  process.env.DATABASE_URL ||
-  'postgresql://neuravolt:neuravolt_dev_pwd@harikson-postgres:5432/neuravolt';
-
-const primaryPool = new Pool({
-  connectionString: dbConnectionString,
-  max: 5,
-  idleTimeoutMillis: 30000,
-  connectionTimeoutMillis: 3000,
-});
+let primaryPool: InstanceType<typeof Pool> | null = null;
+function getPool() {
+  if (!primaryPool) {
+    if (!process.env.DATABASE_URL) throw new Error('DATABASE_URL is required');
+    primaryPool = new Pool({
+      connectionString: process.env.DATABASE_URL,
+      max: 5,
+      idleTimeoutMillis: 30000,
+      connectionTimeoutMillis: 3000,
+    });
+  }
+  return primaryPool;
+}
 
 async function queryUserById(userId: string) {
   const query = 'SELECT id, tenant_id, email, role FROM users WHERE id = $1 LIMIT 1';
-  try {
-    return await primaryPool.query(query, [userId]);
-  } catch (err: any) {
-    const fallbackUrls = [
-      'postgresql://neuravolt:neuravolt_dev_pwd@postgres:5432/neuravolt',
-      'postgresql://neuravolt:neuravolt_dev_pwd@localhost:5432/neuravolt',
-    ];
-    for (const url of fallbackUrls) {
-      try {
-        const localPool = new Pool({
-          connectionString: url,
-          max: 2,
-          connectionTimeoutMillis: 2000,
-        });
-        const res = await localPool.query(query, [userId]);
-        localPool.end().catch(() => {});
-        return res;
-      } catch {
-        // try next
-      }
-    }
-    throw err;
-  }
+  return await getPool().query(query, [userId]);
 }
 
 // Deliberately not evaluated at module load: Next.js's build step imports

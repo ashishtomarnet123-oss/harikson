@@ -22,14 +22,10 @@ export function getApiBaseUrl(): string {
     const saved = localStorage.getItem('hk_api_base');
     if (saved && saved.trim()) {
       const trimmed = saved.trim();
-      // Discard a stale cached value: either the old tenant-api-fixed-port
-      // bug (:3008, no longer valid — see docker-compose.yml), or any
-      // absolute URL cached while this same priority bug was still active
-      // (this function used to always return the env var first, so
-      // hk_api_base may already hold `https://api.neuravolt.cloud` from
-      // before this fix).
       const isStale = /:3008$/.test(trimmed) || (isDirectAccess && /^https?:\/\//.test(trimmed));
-      if (!isStale) {
+      const ALLOWED_ORIGINS = /^https?:\/\/(.*\.)?(neuravolt\.cloud|xarwiz\.com|localhost(:\d+)?)$/;
+      const isAllowed = !trimmed.startsWith('http') || ALLOWED_ORIGINS.test(trimmed);
+      if (!isStale && isAllowed) {
         return trimmed;
       }
     }
@@ -68,18 +64,7 @@ export function getTenantSlug(): string {
     return storedTenant.trim();
   }
 
-  // 2. Read from ?tenant= URL Query Parameter
-  try {
-    const urlParams = new URLSearchParams(window.location.search);
-    const paramTenant = urlParams.get('tenant');
-    if (paramTenant && paramTenant.trim()) {
-      return paramTenant.trim();
-    }
-  } catch (err) {
-    // Ignore URL search params error
-  }
-
-  // 3. Extract from Subdomain (first segment)
+  // 2. Extract from Subdomain (first segment)
   const hostname = window.location.hostname;
   if (hostname.includes('.') && !hostname.startsWith('localhost') && !/^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(hostname)) {
     const firstSegment = hostname.split('.')[0];

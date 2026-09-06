@@ -45,7 +45,7 @@ postgresql:
   authentication:
     replication:
       username: replicator
-      password: replicator_password_2026
+      password: '' # REQUIRED: set via environment variable or external secret
     superuser:
       username: postgres
-      password: superuser_password_2026
+      password: '' # REQUIRED: set via environment variable or external secret

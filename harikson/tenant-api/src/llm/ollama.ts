@@ -20,6 +20,8 @@ export class OllamaClient {
     const embedModel = process.env.OLLAMA_EMBED_MODEL || 'nomic-embed-text';
 
     try {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 10000);
       const res = await fetch(`${baseUrl}/api/embeddings`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -27,7 +29,9 @@ export class OllamaClient {
           model: embedModel,
           prompt: text,
         }),
+        signal: controller.signal,
       });
+      clearTimeout(timeout);
 
       if (!res.ok) {
         throw new Error(`Ollama embeddings returned status ${res.status}`);
@@ -45,23 +49,8 @@ export class OllamaClient {
       }
       return embedding;
     } catch (error) {
-      console.warn(
-        '⚠️ Ollama embeddings error, returning fallback mock vector.',
-        error
-      );
-      return this.generateMockEmbedding(text);
+      console.error('Ollama embeddings failed:', error);
+      throw new Error('Embedding service unavailable');
     }
-  }
-
-  private static generateMockEmbedding(text: string): number[] {
-    const embedding = new Array(1536).fill(0.0);
-    let hash = 0;
-    for (let i = 0; i < text.length; i++) {
-      hash = text.charCodeAt(i) + ((hash << 5) - hash);
-    }
-    for (let j = 0; j < 1536; j++) {
-      embedding[j] = Math.sin(hash + j) * 0.1;
-    }
-    return embedding;
   }
 }

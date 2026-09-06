@@ -131,7 +131,8 @@ router.get('/activity/stream', async (req, res) => {
   res.setHeader('Content-Type', 'text/event-stream');
   res.setHeader('Cache-Control', 'no-cache');
   res.setHeader('Connection', 'keep-alive');
-  res.setHeader('Access-Control-Allow-Origin', '*');
+  const allowedOrigin = process.env.ADMIN_PANEL_ORIGIN || 'https://admin.neuravolt.cloud';
+  res.setHeader('Access-Control-Allow-Origin', allowedOrigin);
   res.flushHeaders();
 
   const sendData = async () => {

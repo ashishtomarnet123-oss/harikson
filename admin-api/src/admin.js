@@ -48,10 +48,11 @@ if (!process.env.JWT_SECRET || process.env.JWT_SECRET.length < 32) {
 }
 
 const { Pool } = pg;
+if (!process.env.DATABASE_URL) {
+  throw new Error('DATABASE_URL environment variable is required');
+}
 export const pool = new Pool({
-  connectionString:
-    process.env.DATABASE_URL ||
-    'postgresql://neuravolt:neuravolt_dev_pwd@postgres:5432/neuravolt',
+  connectionString: process.env.DATABASE_URL,
 });
 
 // Wrap pool query functions for tracing
@@ -303,7 +304,7 @@ async function logAdminAction(
         targetId,
         oldValue ? JSON.stringify(oldValue) : null,
         newValue ? JSON.stringify(newValue) : null,
-        ip && ip.includes(':') ? '127.0.0.1' : ip, // Parse INET safe
+        (ip || '').replace(/^::ffff:/, '') || '0.0.0.0',
         ua,
       ]
     );
@@ -455,7 +456,7 @@ app.post('/admin/login', async (req, res) => {
   // accounts are the highest-value target in this system, and this endpoint
   // previously had no rate limiting at all.
   try {
-    const rawIp = (req.headers['x-forwarded-for'] || req.socket.remoteAddress || '').toString();
+    const rawIp = (req.headers['x-real-ip'] || req.socket.remoteAddress || '').toString();
     const ip = rawIp.split(',')[0].trim().replace(/^::ffff:/, '') || 'unknown';
     const rateLimitKey = `ratelimit:admin-login:${ip}`;
     const attempts = await redis.incr(rateLimitKey);
@@ -468,7 +469,8 @@ app.post('/admin/login', async (req, res) => {
       return res.status(429).json({ error: 'Too many login attempts. Please try again later.' });
     }
   } catch (rlErr) {
-    logger.warn('Admin login rate limiter failed, allowing request through:', rlErr.message);
+    logger.error('Admin login rate limiter unavailable, rejecting request:', rlErr.message);
+    return res.status(503).json({ error: 'Rate limiting service unavailable. Please try again shortly.' });
   }
 
   try {
@@ -1001,7 +1003,7 @@ app.post('/admin/users/:id/reset-2fa', adminAuth, async (req, res) => {
     await sendImpersonationAlert(user.email, {
       adminName: req.admin?.email || 'Administrator',
       message: 'Your 2FA settings and backup codes have been reset by an administrator for security.',
-    }).catch(() => {});
+    }).catch(err => logger.warn('Failed to send 2FA reset alert email:', err.message));
 
     res.status(200).json({
       success: true,
@@ -1043,16 +1045,15 @@ app.post('/admin/users/:id/force-password-reset', adminAuth, async (req, res) =>
       [id, tokenHash, expiresAt]
     );
 
-    const resetLink = `http://${user.tenant_slug}.neuravolt.cloud/reset-password?token=${rawToken}&email=${encodeURIComponent(user.email)}`;
+    const resetLink = `https://${user.tenant_slug}.neuravolt.cloud/reset-password?token=${rawToken}&email=${encodeURIComponent(user.email)}`;
 
     logger.info(`🚨 [ADMIN FORCE RESET] Admin ${req.admin?.email} initiated password reset for user ${user.email}`);
 
     res.status(200).json({
       success: true,
-      message: 'Password reset link generated and dispatched successfully',
+      message: 'Password reset link generated and dispatched to user email',
       userId: id,
       email: user.email,
-      resetLink,
     });
   } catch (err) {
     logger.error('Force password reset error:', err);
@@ -1074,7 +1075,10 @@ app.post('/admin/documents/rotate-keys', adminAuth, async (req, res) => {
     );
 
     let processed = 0;
-    const masterKey = process.env.TENANT_MASTER_KEY || process.env.JWT_SECRET || 'neuravolt_default_master_encryption_key_2026';
+    const masterKey = process.env.TENANT_MASTER_KEY || process.env.JWT_SECRET;
+    if (!masterKey) {
+      return res.status(500).json({ error: 'TENANT_MASTER_KEY or JWT_SECRET must be set for encryption operations' });
+    }
 
     for (const doc of docsRes.rows) {
       let plainText = doc.content;
@@ -1436,6 +1440,18 @@ app.use(
   },
   integrationsRouter
 );
+function parseCookies(cookieStr) {
+  const cookies = {};
+  if (!cookieStr) return cookies;
+  cookieStr.split(';').forEach((pair) => {
+    const idx = pair.indexOf('=');
+    if (idx > 0) {
+      cookies[pair.substring(0, idx).trim()] = pair.substring(idx + 1).trim();
+    }
+  });
+  return cookies;
+}
+
 // Middleware: Metrics Auth / IP Whitelist Guard for /admin/metrics
 const metricsAuthGuard = (req, res, next) => {
   const authHeader = req.headers.authorization || '';
@@ -1603,12 +1619,12 @@ app.get('/admin/system-status', async (req, res) => {
 
     // Measure system metrics using shell commands and OS queries
     let gpu_used = 0,
-      gpu_total = 16384;
+      gpu_total = 0;
     let ram_used = 0,
-      ram_total = 16384;
+      ram_total = 0;
     let cpu_percent = 0;
     let disk_used = 0,
-      disk_total = 100;
+      disk_total = 0;
     let uptime = '0d:0h:0m';
     let vllm_status = 'inactive';
     let active_model = 'None';
@@ -1623,7 +1639,7 @@ app.get('/admin/system-status', async (req, res) => {
         Math.round((load[0] / os.cpus().length) * 100)
       );
     } catch (e) {
-      cpu_percent = 12;
+      cpu_percent = null;
     }
 
     // 1.2 Memory Utilization
@@ -1631,8 +1647,8 @@ app.get('/admin/system-status', async (req, res) => {
       ram_total = Math.round(os.totalmem() / (1024 * 1024));
       ram_used = Math.round((os.totalmem() - os.freemem()) / (1024 * 1024));
     } catch (e) {
-      ram_total = 16384;
-      ram_used = 4096;
+      ram_total = null;
+      ram_used = null;
     }
 
     // 1.3 Disk Usage
@@ -1645,8 +1661,8 @@ app.get('/admin/system-status', async (req, res) => {
       disk_total = parseInt(totalStr.replace(/[^0-9]/g, '')) || 120;
       disk_used = parseInt(usedStr.replace(/[^0-9]/g, '')) || 45;
     } catch (e) {
-      disk_total = 120;
-      disk_used = 45;
+      disk_total = null;
+      disk_used = null;
     }
 
     // 1.4 System Uptime
@@ -1851,7 +1867,7 @@ app.post('/admin/users/:userId/impersonate', adminAuth, async (req, res) => {
 });
 
 // POST /auth/impersonate/confirm & POST /api/auth/impersonate/confirm - Confirm impersonation token and issue HttpOnly cookie
-app.post(['/auth/impersonate/confirm', '/api/auth/impersonate/confirm', '/admin/impersonate/confirm'], async (req, res) => {
+app.post(['/auth/impersonate/confirm', '/api/auth/impersonate/confirm', '/admin/impersonate/confirm'], adminAuth, async (req, res) => {
   try {
     const { token } = req.body;
     if (!token) {
@@ -1987,7 +2003,7 @@ app.put(['/admin/users/:userId/status', '/v1/admin/users/:userId/status'], async
       `INSERT INTO activity_logs (user_id, action, details, created_at)
        VALUES ($1, $2, $3, NOW())`,
       [userId, status === 'active' ? 'user_access_approved' : 'user_status_updated', JSON.stringify({ previousStatus, newStatus: status })]
-    ).catch(() => {});
+    ).catch(err => logger.warn('Audit log write failed:', err.message));
 
     res.status(200).json({
       success: true,
@@ -3067,27 +3083,16 @@ app.get('/admin/usage/daily', async (req, res) => {
 // 11. GET /admin/rate-limit-violations
 app.get('/admin/rate-limit-violations', async (req, res) => {
   try {
-    // High-fidelity fallback simulated rate-limit log list (Redis keys)
-    const violations = [
-      {
-        tenant: 'Alpha Tech',
-        timestamp: new Date(Date.now() - 3600000).toISOString(),
-        endpoint: '/api/chat',
-        limit: 10,
-        actual: 12,
-        action: 'blocked',
-      },
-      {
-        tenant: 'Beta Systems',
-        timestamp: new Date(Date.now() - 7200000).toISOString(),
-        endpoint: '/api/chat',
-        limit: 60,
-        actual: 61,
-        action: 'throttled',
-      },
-    ];
+    const keys = await redis.keys('ratelimit:*');
+    const violations = [];
+    for (const key of keys.slice(0, 50)) {
+      const ttl = await redis.ttl(key);
+      const val = await redis.get(key);
+      violations.push({ key, count: parseInt(val) || 0, ttl_seconds: ttl });
+    }
     res.status(200).json({ violations });
   } catch (err) {
+    logger.error('Rate-limit violations fetch failed:', err);
     res.status(500).json({ error: 'Failed to fetch rate-limit logs' });
   }
 });
@@ -3095,28 +3100,17 @@ app.get('/admin/rate-limit-violations', async (req, res) => {
 // 12. GET /admin/billing/reconciliation
 app.get('/admin/billing/reconciliation', async (req, res) => {
   try {
-    // High-fidelity mock list of billing details matched against DB token counts
-    const billing = [
-      {
-        tenant: 'Alpha Tech',
-        razorpay_id: 'pay_PQR12345678',
-        amount: 99.0,
-        status: 'captured',
-        tokens_credited: 500000,
-        mismatch: false,
-      },
-      {
-        tenant: 'Delta Agency',
-        razorpay_id: 'pay_XYZ87654321',
-        amount: 299.0,
-        status: 'captured',
-        tokens_credited: 2000000,
-        mismatch: true,
-      },
-    ];
-    res.status(200).json({ billing });
+    const result = await pool.query(`
+      SELECT t.name as tenant, i.provider_invoice_id, i.amount, i.status,
+             i.provider, i.created_at
+      FROM invoices i
+      JOIN tenants t ON i.tenant_id = t.id
+      ORDER BY i.created_at DESC LIMIT 50
+    `);
+    res.status(200).json({ billing: result.rows });
   } catch (err) {
-    res.status(500).json({ error: 'Failed to fetch billing reconcile audits' });
+    logger.error('Billing reconciliation fetch failed:', err);
+    res.status(500).json({ error: 'Failed to fetch billing reconciliation data' });
   }
 });
 
@@ -3143,20 +3137,18 @@ app.get('/admin/logs/requests', async (req, res) => {
 // 14. GET /admin/logs/errors
 app.get('/admin/logs/errors', async (req, res) => {
   try {
-    const errorAnalysis = {
-      counts: {
-        timeout: 2,
-        oom: 0,
-        rate_limit: 12,
-        error_500: 1,
-        model_not_found: 0,
-      },
-      topFailingTenant: 'Gamma Digital',
-      topFailingModel: 'harikson-plus',
-      peakFailureHour: '16:00 UTC',
-    };
-    res.status(200).json(errorAnalysis);
+    const result = await pool.query(`
+      SELECT a.model, a.status, COUNT(*)::int as count, t.name as tenant_name
+      FROM ai_activity a
+      LEFT JOIN tenants t ON a.tenant_id = t.id
+      WHERE a.status NOT IN ('success', 'completed')
+        AND a.created_at >= NOW() - INTERVAL '24 hours'
+      GROUP BY a.model, a.status, t.name
+      ORDER BY count DESC LIMIT 50
+    `);
+    res.status(200).json({ errors: result.rows });
   } catch (err) {
+    logger.error('Error log analysis failed:', err);
     res.status(500).json({ error: 'Failed to analyze failures' });
   }
 });
@@ -3164,26 +3156,21 @@ app.get('/admin/logs/errors', async (req, res) => {
 // 15. GET /admin/models/performance
 app.get('/admin/models/performance', async (req, res) => {
   try {
-    const stats = [
-      {
-        model: 'harikson-chat-8b',
-        requests: 4120,
-        avg_latency: 1800,
-        p95_latency: 2800,
-        error_rate: 0.12,
-        tokens_sec: 42.5,
-      },
-      {
-        model: 'harikson-coder-14b',
-        requests: 1205,
-        avg_latency: 3200,
-        p95_latency: 5100,
-        error_rate: 0.25,
-        tokens_sec: 28.1,
-      },
-    ];
-    res.status(200).json({ performance: stats });
+    const result = await pool.query(`
+      SELECT model,
+             COUNT(*)::int as requests,
+             ROUND(AVG(latency_ms))::int as avg_latency,
+             ROUND(PERCENTILE_CONT(0.95) WITHIN GROUP (ORDER BY latency_ms))::int as p95_latency,
+             ROUND(AVG(CASE WHEN status NOT IN ('success','completed') THEN 1 ELSE 0 END)::numeric, 4) as error_rate,
+             ROUND(AVG(CASE WHEN latency_ms > 0 THEN (tokens_out::numeric / (latency_ms::numeric / 1000)) ELSE 0 END), 1) as tokens_sec
+      FROM ai_activity
+      WHERE created_at >= NOW() - INTERVAL '24 hours'
+      GROUP BY model
+      ORDER BY requests DESC
+    `);
+    res.status(200).json({ performance: result.rows });
   } catch (err) {
+    logger.error('Model performance fetch failed:', err);
     res.status(500).json({ error: 'Failed to compile models analytics' });
   }
 });
@@ -3191,18 +3178,24 @@ app.get('/admin/models/performance', async (req, res) => {
 // 16. GET /admin/logs/export
 app.get('/admin/logs/export', async (req, res) => {
   try {
-    // Generate simple CSV payload of request logs
-    const csv =
-      `"timestamp","tenant","model","endpoint","tokens"\n` +
-      `"2026-07-08T15:20:00Z","Alpha Tech","harikson-chat-8b","/api/chat",120\n` +
-      `"2026-07-08T15:21:00Z","Beta Systems","harikson-coder-14b","/api/chat",340`;
-    res.setHeader('Content-Type', 'text/csv');
-    res.setHeader(
-      'Content-Disposition',
-      'attachment; filename="harikson_request_logs.csv"'
+    const result = await pool.query(`
+      SELECT m.created_at as timestamp, t.name as tenant, c.model, '/api/chat' as endpoint,
+             m.tokens_used as tokens
+      FROM messages m
+      JOIN conversations c ON m.conversation_id = c.id
+      JOIN tenants t ON m.tenant_id = t.id
+      ORDER BY m.created_at DESC LIMIT 500
+    `);
+    const header = '"timestamp","tenant","model","endpoint","tokens"';
+    const rows = result.rows.map(r =>
+      `"${r.timestamp}","${(r.tenant || '').replace(/"/g, '""')}","${r.model || ''}","${r.endpoint}","${r.tokens || 0}"`
     );
+    const csv = [header, ...rows].join('\n');
+    res.setHeader('Content-Type', 'text/csv');
+    res.setHeader('Content-Disposition', 'attachment; filename="harikson_request_logs.csv"');
     res.status(200).send(csv);
   } catch (err) {
+    logger.error('Log export failed:', err);
     res.status(500).json({ error: 'Failed to export log data' });
   }
 });
@@ -3602,7 +3595,7 @@ app.post('/webhooks/stripe', async (req, res) => {
       "SELECT * FROM payment_providers WHERE provider = 'stripe' AND is_active = true LIMIT 1"
     );
     if (providerRes.rows.length === 0) {
-      return res.status(200).json({ status: 'no_active_provider' });
+      return res.status(404).json({ error: 'No active payment provider configured' });
     }
     const provider = providerRes.rows[0];
     const webhookSecret = decryptText(provider.webhook_secret_encrypted);
@@ -3815,7 +3808,7 @@ app.post('/webhooks/razorpay', async (req, res) => {
       "SELECT * FROM payment_providers WHERE provider = 'razorpay' AND is_active = true LIMIT 1"
     );
     if (providerRes.rows.length === 0) {
-      return res.status(200).json({ status: 'no_active_provider' });
+      return res.status(404).json({ error: 'No active payment provider configured' });
     }
     const provider = providerRes.rows[0];
     const webhookSecret = decryptText(provider.webhook_secret_encrypted);

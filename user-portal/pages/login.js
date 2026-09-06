@@ -3,6 +3,7 @@ import { useRouter } from 'next/router';
 import Head from 'next/head';
 import Link from 'next/link';
 import { useAuth } from '../context/AuthContext';
+import { trackEvent } from '../lib/analytics';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -158,7 +159,8 @@ export default function LoginPage() {
           );
           localStorage.setItem('hk_tenant', resolvedTenantSlug);
           localStorage.setItem('hk_api_base', resolvedApiBase);
-          router.replace('/chat');
+          const onboarded = localStorage.getItem('hk_onboarded');
+          router.replace(onboarded ? '/chat' : '/onboarding');
         })
         .catch(() => {
           localStorage.removeItem('hk_user');
@@ -265,13 +267,15 @@ export default function LoginPage() {
       localStorage.setItem('hk_user', JSON.stringify({ ...data.user, tenantSlug }));
       localStorage.setItem('hk_tenant', tenantSlug);
       localStorage.setItem('hk_api_base', apiBase);
+      trackEvent('login_success');
       // AuthContext only checks auth once, when the app first loads — before
       // this login even happened, so it still thinks the user is signed out.
       // Without re-running it here, the /chat page (wrapped in withAuth)
       // reads that stale isAuthenticated=false the instant it mounts and
       // bounces straight back to /login.
       await checkAuth();
-      router.replace('/chat');
+      const onboarded = localStorage.getItem('hk_onboarded');
+      router.replace(onboarded ? '/chat' : '/onboarding');
     } catch (err) {
       const errMsg = err?.message || 'Login error occurred';
       if (errMsg.includes('Unexpected token') || errMsg.includes('is not valid JSON')) {
@@ -311,8 +315,10 @@ export default function LoginPage() {
       localStorage.setItem('hk_user', JSON.stringify({ ...data.user, tenantSlug }));
       localStorage.setItem('hk_tenant', tenantSlug);
       localStorage.setItem('hk_api_base', apiBase);
+      trackEvent('login_success');
       await checkAuth();
-      router.replace('/chat');
+      const onboarded = localStorage.getItem('hk_onboarded');
+      router.replace(onboarded ? '/chat' : '/onboarding');
     } catch (err) {
       setError(err.message);
     } finally {

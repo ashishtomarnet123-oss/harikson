@@ -117,14 +117,7 @@ export function AuthProvider({ children }) {
       }
     } catch (err) {
       console.error('Auth verification error:', err);
-      if (storedUser && storedToken) {
-        try {
-          setUser(JSON.parse(storedUser));
-          setIsAuthenticated(true);
-        } catch (e) {
-          clearAuthData();
-        }
-      }
+      clearAuthData();
     } finally {
       setIsLoading(false);
     }

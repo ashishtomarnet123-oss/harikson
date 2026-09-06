@@ -1,4 +1,7 @@
 export class OllamaService {
+  private static modelCache = new Map<string, number>();
+  private static MODEL_CACHE_TTL = 60_000;
+
   private static getBaseUrl(): string {
     return process.env.OLLAMA_HOST || 'http://localhost:11434';
   }
@@ -53,6 +56,12 @@ export class OllamaService {
   private static async ensureModel(model: string): Promise<void> {
     const baseUrl = this.getBaseUrl();
     const mapped = this.mapModel(model);
+
+    const cachedAt = this.modelCache.get(mapped);
+    if (cachedAt && Date.now() - cachedAt < this.MODEL_CACHE_TTL) {
+      return;
+    }
+
     try {
       const listRes = await fetch(`${baseUrl}/api/tags`);
       if (listRes.ok) {
@@ -61,9 +70,7 @@ export class OllamaService {
           (m) => m.name.startsWith(mapped) || mapped.startsWith(m.name)
         );
         if (exists) {
-          console.log(
-            `🤖 Model ${mapped} (mapped from ${model}) is already pulled.`
-          );
+          this.modelCache.set(mapped, Date.now());
           return;
         }
       }
@@ -83,6 +90,7 @@ export class OllamaService {
       if (!pullRes.ok) {
         throw new Error(`Failed to pull model: status ${pullRes.status}`);
       }
+      this.modelCache.set(mapped, Date.now());
       console.log(`✅ Model ${mapped} pulled successfully!`);
     } catch (err) {
       console.error(`❌ Failed to pull model ${mapped}:`, err);

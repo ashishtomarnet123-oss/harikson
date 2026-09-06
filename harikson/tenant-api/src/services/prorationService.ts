@@ -2,9 +2,12 @@ import Stripe from 'stripe';
 import { pool, executeTenantQuery, invalidateTenantCache } from '../db/pool.js';
 import logger from '../utils/logger.js';
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || 'sk_test_mock', {
-  apiVersion: '2023-10-16' as any,
-});
+if (!process.env.STRIPE_SECRET_KEY) {
+  logger.warn('STRIPE_SECRET_KEY not set — proration Stripe operations will fail');
+}
+const stripe = process.env.STRIPE_SECRET_KEY
+  ? new Stripe(process.env.STRIPE_SECRET_KEY, { apiVersion: '2023-10-16' as any })
+  : null;
 
 export interface ProrationResult {
   oldPlanPrice: number;

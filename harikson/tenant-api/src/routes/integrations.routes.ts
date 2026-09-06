@@ -33,7 +33,7 @@ router.use((req: any, _res, next) => {
     }
     if (token) {
       try {
-        const decoded: any = jwt.verify(token, process.env.JWT_SECRET || 'fallback_secret_key_neuravolt_2026');
+        const decoded: any = jwt.verify(token, process.env.JWT_SECRET!);
         req.user = decoded;
       } catch (err) {}
     }

@@ -168,25 +168,22 @@ app.use(async (req, _res, next) => {
 
     if (!tenant) {
       const defaultTenantRes = await pool.query("SELECT * FROM tenants ORDER BY created_at ASC LIMIT 1").catch(() => ({ rows: [] }));
-      tenant = defaultTenantRes.rows[0] || {
-        id: '00000000-0000-0000-0000-000000000000',
-        name: 'Neuravolt Default',
-        slug: 'neuravolt',
-        status: 'active',
-      };
+      tenant = defaultTenantRes.rows[0];
+    }
+
+    if (!tenant) {
+      // Health/readiness probes must work without a tenant
+      if (req.path === '/health' || req.path === '/ready') {
+        return next();
+      }
+      return res.status(400).json({ error: 'Tenant not found. Provide a valid x-tenant-slug header, API key, or use a tenant subdomain.' });
     }
 
     req.tenant = tenant;
     next();
   } catch (err) {
     logger.error('Tenant resolution error:', err);
-    req.tenant = {
-      id: '00000000-0000-0000-0000-000000000000',
-      name: 'Neuravolt Default',
-      slug: 'neuravolt',
-      status: 'active',
-    };
-    next();
+    return res.status(500).json({ error: 'Tenant resolution failed' });
   }
 });
 

@@ -56,7 +56,11 @@ async function runRotationAndAudit() {
   }
 
   // 2. Audit Database for Bypass Token Usage
-  const dbUrl = process.env.DATABASE_URL || 'postgresql://neuravolt:neuravolt_dev_pwd@localhost:5432/neuravolt?schema=public';
+  const dbUrl = process.env.DATABASE_URL;
+  if (!dbUrl) {
+    console.error('ERROR: DATABASE_URL environment variable is required');
+    process.exit(1);
+  }
   const pool = new Pool({ connectionString: dbUrl });
 
   try {

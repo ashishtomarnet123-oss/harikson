@@ -16,7 +16,7 @@ export default function SignupPage() {
   const [success, setSuccess] = useState('');
   const [isPendingApproval, setIsPendingApproval] = useState(false);
   const [apiBase, setApiBase] = useState('');
-  const [tenantSlug, setTenantSlug] = useState('system');
+  const [tenantSlug, setTenantSlug] = useState('default');
 
   useEffect(() => {
     const user = localStorage.getItem('hk_user');
@@ -42,7 +42,7 @@ export default function SignupPage() {
           setTenantSlug(parts[0]);
         } else {
           const urlParams = new URLSearchParams(window.location.search);
-          setTenantSlug(urlParams.get('tenant') || 'system');
+          setTenantSlug('default');
         }
       } else {
         setApiBase('');
@@ -60,8 +60,8 @@ export default function SignupPage() {
       setError('Passwords do not match.');
       return;
     }
-    if (password.length < 6) {
-      setError('Password must be at least 6 characters.');
+    if (password.length < 12) {
+      setError('Password must be at least 12 characters.');
       return;
     }
 

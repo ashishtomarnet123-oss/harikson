@@ -121,26 +121,8 @@ function WorkflowsPage() {
   }, []);
 
   const fetchWorkflows = async (base, tenant) => {
-    setLoading(true);
-    setError('');
-    try {
-      const res = await fetch(`${base}/api/workflows`, {
-        credentials: 'include',
-        headers: {
-          'x-tenant-slug': tenant,
-        },
-      });
-      if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.error || 'Failed to fetch workflows');
-      }
-      const data = await res.json();
-      setWorkflows(data);
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
+    setLoading(false);
+    setWorkflows([]);
   };
 
   const handleOpenNew = () => {
@@ -434,12 +416,12 @@ function WorkflowsPage() {
               textAlign: 'center',
               boxShadow: '0 4px 20px -2px rgba(0, 0, 0, 0.02)'
             }}>
-              <div style={{ fontSize: '48px', marginBottom: '16px' }}>⚡</div>
+              <div style={{ fontSize: '48px', marginBottom: '16px' }}>🚧</div>
               <h3 style={{ fontSize: '20px', fontWeight: '800', margin: '0 0 8px 0', color: '#0f172a' }}>
-                No active workflows built yet
+                Workflows — Coming Soon
               </h3>
               <p style={{ color: '#64748b', fontSize: '14px', maxWidth: '500px', margin: '0 auto 24px auto' }}>
-                Get started by choosing a pre-configured template or create a custom multi-step pipeline connecting webhooks, LLMs, and email dispatches.
+                Multi-step AI workflow pipelines are under active development. This feature will let you connect webhooks, LLMs, and actions into automated sequences.
               </p>
               <div style={{ display: 'flex', justify: 'center', gap: '12px' }}>
                 <button

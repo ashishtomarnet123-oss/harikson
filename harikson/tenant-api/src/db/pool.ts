@@ -7,10 +7,12 @@ const { Pool } = pg;
 
 export { RequestContext, requestContext };
 
+if (!process.env.DATABASE_URL) {
+  throw new Error('DATABASE_URL environment variable is required');
+}
+
 export const pool = new Pool({
-  connectionString:
-    process.env.DATABASE_URL ||
-    'postgresql://neuravolt:neuravolt_dev_pwd@postgres:5432/neuravolt',
+  connectionString: process.env.DATABASE_URL,
   max: 20,
   idleTimeoutMillis: 30000,
   connectionTimeoutMillis: 5000,
@@ -19,8 +21,7 @@ export const pool = new Pool({
 export const readPool = new Pool({
   connectionString:
     process.env.DATABASE_READ_URL ||
-    process.env.DATABASE_URL ||
-    'postgresql://neuravolt:neuravolt_dev_pwd@postgres:5432/neuravolt',
+    process.env.DATABASE_URL,
   max: 20,
   idleTimeoutMillis: 30000,
   connectionTimeoutMillis: 5000,

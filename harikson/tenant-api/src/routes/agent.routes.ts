@@ -1,12 +1,13 @@
 import { Router } from 'express';
 import { executeTenantQuery } from '../db/pool.js';
 import logger from '../utils/logger.js';
+import { HariksonOrchestrator } from '../services/agents/orchestrator.js';
 
 const router = Router();
 
 // GET /api/agents
 router.get('/', async (req: any, res) => {
-  if (!req.tenant) req.tenant = { id: '00000000-0000-0000-0000-000000000000', name: 'Neuravolt Default', slug: 'neuravolt', status: 'active' };
+
 
   try {
     const agentsRes = await executeTenantQuery(req.tenant.id, (client) =>
@@ -28,7 +29,7 @@ router.get('/', async (req: any, res) => {
 
 // POST /api/agents
 router.post('/', async (req: any, res) => {
-  if (!req.tenant) req.tenant = { id: '00000000-0000-0000-0000-000000000000', name: 'Neuravolt Default', slug: 'neuravolt', status: 'active' };
+
 
   const { name, model = 'qwen3-coder', systemPrompt = 'You are a helpful AI assistant.' } = req.body;
 
@@ -51,7 +52,7 @@ router.post('/', async (req: any, res) => {
 
 // GET /api/agents/:id
 router.get('/:id', async (req: any, res) => {
-  if (!req.tenant) req.tenant = { id: '00000000-0000-0000-0000-000000000000', name: 'Neuravolt Default', slug: 'neuravolt', status: 'active' };
+
   const { id } = req.params;
 
   try {
@@ -77,7 +78,7 @@ router.get('/:id', async (req: any, res) => {
 
 // PUT /api/agents/:id
 router.put('/:id', async (req: any, res) => {
-  if (!req.tenant) req.tenant = { id: '00000000-0000-0000-0000-000000000000', name: 'Neuravolt Default', slug: 'neuravolt', status: 'active' };
+
   const { id } = req.params;
   const { name, model, systemPrompt, status } = req.body;
 
@@ -107,9 +108,69 @@ router.put('/:id', async (req: any, res) => {
   }
 });
 
+// POST /api/agents/:id/execute
+router.post('/:id/execute', async (req: any, res) => {
+  const { id } = req.params;
+  const { message, workspacePath = '/workspace' } = req.body;
+
+  if (!message) {
+    return res.status(400).json({ error: 'message is required' });
+  }
+
+  try {
+    const agentRes = await executeTenantQuery(req.tenant.id, (client) =>
+      client.query(
+        `SELECT id, name, model, system_prompt, status
+         FROM agents
+         WHERE id = $1 AND tenant_id = $2 AND status = 'active'`,
+        [id, req.tenant.id]
+      )
+    );
+
+    if (agentRes.rows.length === 0) {
+      return res.status(404).json({ error: 'Agent not found or inactive' });
+    }
+
+    const agent = agentRes.rows[0];
+    const startTime = Date.now();
+
+    const result = await HariksonOrchestrator.executeTask(
+      req.tenant.id,
+      req.body.conversationId || `agent-exec-${Date.now()}`,
+      workspacePath,
+      message
+    );
+
+    const durationMs = Date.now() - startTime;
+
+    await executeTenantQuery(req.tenant.id, (client) =>
+      client.query(
+        `UPDATE agents
+         SET total_requests = COALESCE(total_requests, 0) + 1,
+             avg_response_time_ms = COALESCE(avg_response_time_ms, 0) * 0.9 + $1 * 0.1,
+             last_used_at = NOW()
+         WHERE id = $2 AND tenant_id = $3`,
+        [durationMs, id, req.tenant.id]
+      )
+    );
+
+    res.json({
+      agentId: agent.id,
+      agentName: agent.name,
+      planId: result.planId,
+      output: result.finalOutput,
+      steps: result.steps,
+      durationMs,
+    });
+  } catch (err: any) {
+    logger.error('Agent execution error:', err);
+    res.status(500).json({ error: 'Agent execution failed' });
+  }
+});
+
 // DELETE /api/agents/:id
 router.delete('/:id', async (req: any, res) => {
-  if (!req.tenant) req.tenant = { id: '00000000-0000-0000-0000-000000000000', name: 'Neuravolt Default', slug: 'neuravolt', status: 'active' };
+
   const { id } = req.params;
 
   try {

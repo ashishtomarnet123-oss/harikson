@@ -3,10 +3,10 @@ global:
     auth:
       database: neuravolt
       username: neuravolt
-      password: 'secure_postgres_password_2026'
+      password: '' # REQUIRED: set via --set global.postgresql.auth.password=... or external secret
   redis:
     auth:
-      password: 'secure_redis_password_2026'
+      password: '' # REQUIRED: set via --set global.redis.auth.password=... or external secret
 
 postgresql-ha:
   enabled: true
