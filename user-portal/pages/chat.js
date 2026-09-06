@@ -1402,7 +1402,7 @@ function ChatPage() {
 
     // Optimistically add user message
     setMessages((prev) => [...prev, { sender: 'user', text: userText }]);
-    trackEvent('chat_message_sent', { model: selectedModel });
+    trackEvent('chat_message_sent', { model });
 
     // Map system prompts presets
     const presets = {

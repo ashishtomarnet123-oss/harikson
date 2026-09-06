@@ -4,16 +4,42 @@ import Head from 'next/head';
 import Link from 'next/link';
 import { trackEvent } from '../lib/analytics';
 
+const RocketIcon = () => (
+  <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z" />
+    <path d="M12 15l-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z" />
+    <path d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 0 5 0" />
+    <path d="M12 15v5s3.03-.55 4-2c1.08-1.62 0-5 0-5" />
+  </svg>
+);
+
+const CodeIcon = () => (
+  <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <polyline points="16 18 22 12 16 6" />
+    <polyline points="8 6 2 12 8 18" />
+    <line x1="14" y1="4" x2="10" y2="20" />
+  </svg>
+);
+
+const ChatIcon = () => (
+  <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+    <path d="M8 10h.01" />
+    <path d="M12 10h.01" />
+    <path d="M16 10h.01" />
+  </svg>
+);
+
 const STEPS = [
   {
     title: 'Welcome to Xarwiz',
     description: 'Your AI-powered development workspace is ready. Let\'s get you set up in under a minute.',
-    icon: '🚀',
+    icon: <RocketIcon />,
   },
   {
     title: 'Connect Your IDE',
     description: 'Install the Xarwiz VS Code extension for inline completions and code review. You can generate an API key from Settings → Developer.',
-    icon: '⚡',
+    icon: <CodeIcon />,
     action: {
       label: 'Install VS Code Extension',
       href: 'https://marketplace.visualstudio.com/items?itemName=harikson.harikson-vscode-extension',
@@ -23,7 +49,7 @@ const STEPS = [
   {
     title: 'Start Your First Chat',
     description: 'Ask anything — generate code, debug errors, or explore your knowledge base with RAG-powered search.',
-    icon: '💬',
+    icon: <ChatIcon />,
   },
 ];
 
@@ -75,7 +101,7 @@ export default function OnboardingPage() {
                   width: i === step ? '24px' : '8px',
                   height: '8px',
                   borderRadius: '4px',
-                  background: i <= step ? 'var(--accent, #8b5cf6)' : 'rgba(255,255,255,0.15)',
+                  background: i <= step ? 'var(--accent, #4f6ef7)' : 'rgba(0,0,0,0.08)',
                   transition: 'all 0.3s ease',
                 }}
               />
@@ -87,12 +113,12 @@ export default function OnboardingPage() {
             height: '64px',
             margin: '0 auto 16px auto',
             borderRadius: '50%',
-            background: 'rgba(139, 92, 246, 0.12)',
-            border: '1px solid rgba(139, 92, 246, 0.3)',
+            background: 'rgba(79, 110, 247, 0.08)',
+            border: '1px solid rgba(79, 110, 247, 0.2)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            fontSize: '1.8rem',
+            color: '#4f6ef7',
           }}>
             {current.icon}
           </div>
@@ -121,17 +147,22 @@ export default function OnboardingPage() {
                 alignItems: 'center',
                 gap: '6px',
                 padding: '10px 20px',
-                background: 'rgba(139, 92, 246, 0.12)',
-                border: '1px solid rgba(139, 92, 246, 0.3)',
+                background: 'rgba(79, 110, 247, 0.08)',
+                border: '1px solid rgba(79, 110, 247, 0.2)',
                 borderRadius: '8px',
-                color: 'var(--accent, #8b5cf6)',
+                color: '#4f6ef7',
                 textDecoration: 'none',
                 fontSize: '0.85rem',
                 fontWeight: 500,
                 marginBottom: '20px',
               }}
             >
-              {current.action.label} ↗
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+                <polyline points="15 3 21 3 21 9" />
+                <line x1="10" y1="14" x2="21" y2="3" />
+              </svg>
+              {current.action.label}
             </a>
           )}
 
@@ -142,7 +173,7 @@ export default function OnboardingPage() {
                 flex: 1,
                 padding: '12px',
                 background: 'transparent',
-                border: '1px solid rgba(255,255,255,0.1)',
+                border: '1px solid rgba(0,0,0,0.08)',
                 borderRadius: '8px',
                 color: 'var(--text-secondary)',
                 cursor: 'pointer',
