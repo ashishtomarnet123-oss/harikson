@@ -318,8 +318,20 @@ async function logAdminAction(
 // ────────────────────────────────────────────────────────────
 
 // GET /api/user/billing — Syncs admin-defined plan data to user portal billing page
-// Accepts x-tenant-slug header to identify tenant. No auth required (public plan info).
-app.get('/api/user/billing', async (req, res) => {
+// Requires a valid JWT (user or admin) to prevent unauthenticated enumeration.
+app.get('/api/user/billing', (req, res, next) => {
+  const authHeader = req.headers.authorization || '';
+  const token = authHeader.startsWith('Bearer ') ? authHeader.substring(7) : null;
+  if (!token || !process.env.JWT_SECRET) {
+    return res.status(401).json({ error: 'Authentication required' });
+  }
+  try {
+    jwt.verify(token, process.env.JWT_SECRET);
+    next();
+  } catch {
+    return res.status(401).json({ error: 'Invalid or expired token' });
+  }
+}, async (req, res) => {
   let tenantSlug = req.headers['x-tenant-slug'] || 'system';
   if (['system', 'app', 'alphatech'].includes(tenantSlug.toLowerCase())) {
     tenantSlug = 'default';
@@ -1421,11 +1433,12 @@ app.get('/admin/legal-holds/audit-logs', adminAuth, async (req, res) => {
 // ────────────────────────────────────────────────────────────
 // PROTECTED ROUTES (Admin Authorization required)
 // ────────────────────────────────────────────────────────────
-app.use('/admin/agents', agentsRouter);
-app.use('/admin', operationsRouter); // Phase 1-5 operations
+app.use('/admin/agents', adminAuth, agentsRouter);
+app.use('/admin', adminAuth, operationsRouter); // Phase 1-5 operations
 // Integration Center — inject pool into req then mount
 app.use(
   '/admin/integrations',
+  adminAuth,
   (req, _res, next) => {
     req.pool = pool;
     next();
@@ -1434,6 +1447,7 @@ app.use(
 );
 app.use(
   '/admin/webhooks',
+  adminAuth,
   (req, _res, next) => {
     req.pool = pool;
     next();

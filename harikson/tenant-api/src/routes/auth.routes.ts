@@ -29,7 +29,11 @@ const redis = new Redis(process.env.REDIS_URL || 'redis://redis:6379', {
   enableReadyCheck: true,
 });
 
-const getJwtSecret = () => process.env.JWT_SECRET || 'dev-jwt-secret-key-change-in-prod';
+const getJwtSecret = () => {
+  const secret = process.env.JWT_SECRET;
+  if (!secret) throw new Error('JWT_SECRET environment variable is not set');
+  return secret;
+};
 
 // Helper: Handle Login Logic
 async function handleLogin(req: any, res: any) {
@@ -42,28 +46,19 @@ async function handleLogin(req: any, res: any) {
     const key = `ratelimit:login:${ip}`;
     const attempts = await redis.incr(key);
     if (attempts === 1) {
-      await redis.expire(key, 60); // 60s sliding window instead of 3600s
+      await redis.expire(key, 60);
     }
-    if (attempts > 60) { // 60 attempts/min threshold instead of 5/hr
+    if (attempts > 10) {
       return res.status(429).json({
         error: 'Too many login attempts. Rate limit exceeded. Try again in a minute.',
       });
     }
 
-    let userResult = await pool.query(
+    const userResult = await pool.query(
       'SELECT * FROM users WHERE email = $1 AND tenant_id = $2 AND deleted_at IS NULL',
       [email, req.tenant?.id]
     );
-    let user = userResult.rows[0];
-    if (!user) {
-      const fallbackResult = await pool.query(
-        'SELECT * FROM users WHERE email = $1 AND deleted_at IS NULL ORDER BY created_at DESC LIMIT 1',
-        [email]
-      );
-      if (fallbackResult.rows.length > 0) {
-        user = fallbackResult.rows[0];
-      }
-    }
+    const user = userResult.rows[0];
 
     if (!user) {
       return res.status(401).json({ error: 'Invalid email or password' });

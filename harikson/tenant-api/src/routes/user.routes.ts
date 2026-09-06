@@ -1159,13 +1159,25 @@ router.get('/usage', async (req: any, res) => {
       });
     }
 
+    // Look up the tenant's actual plan limit instead of hardcoding
+    let limitTokens = -1;
+    try {
+      const planRes = await pool.query(
+        `SELECT p.token_limit FROM tenants t
+         LEFT JOIN plans p ON LOWER(t.plan) = LOWER(p.id)
+         WHERE t.id = $1`,
+        [tenantId]
+      );
+      limitTokens = planRes.rows[0]?.token_limit ?? -1;
+    } catch { /* fall back to unlimited */ }
+
     res.json({
       daily: dailyList,
       totalTokens: sumTokens,
       totalQueries: sumQueries,
       tokensChangePct: 0,
       queriesChangePct: 0,
-      limitTokens: 100000,
+      limitTokens: limitTokens === -1 ? null : limitTokens,
       tokenUsage: dailyList.map(d => ({ date: d.date, tokens: d.tokens })),
       apiRequests: dailyList.map(d => ({ date: d.date, count: d.queries }))
     });

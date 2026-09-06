@@ -195,6 +195,40 @@ async function handleChat(req: any, res: any) {
     });
   }
 
+  // Quota enforcement: check monthly message count against plan limit
+  try {
+    const planRes = await pool.query(
+      `SELECT p.token_limit FROM tenants t
+       LEFT JOIN plans p ON LOWER(t.plan) = LOWER(p.id)
+       WHERE t.id = $1`,
+      [req.tenant.id]
+    );
+    const tokenLimit = planRes.rows[0]?.token_limit ?? -1;
+    // token_limit: -1 = unlimited, 0 = blocked, >0 = monthly cap
+    if (tokenLimit >= 0) {
+      const usageRes = await executeTenantQuery(req.tenant.id, (client) =>
+        client.query(
+          `SELECT COUNT(*) as msg_count FROM messages m
+           JOIN conversations c ON m.conversation_id = c.id
+           WHERE c.tenant_id = $1 AND m.role = 'user'
+             AND m.created_at >= date_trunc('month', NOW())`,
+          [req.tenant.id]
+        )
+      );
+      const msgCount = parseInt(usageRes.rows[0]?.msg_count, 10) || 0;
+      if (msgCount >= tokenLimit) {
+        return res.status(429).json({
+          error: 'Monthly message limit reached for your current plan. Please upgrade to continue.',
+          limitReached: true,
+          currentUsage: msgCount,
+          limit: tokenLimit,
+        });
+      }
+    }
+  } catch (quotaErr) {
+    logger.warn('Quota check failed, allowing request:', quotaErr);
+  }
+
   try {
   const { message, conversationId, agentId, model: rawModel = 'harikson-plus', stream = true, clientHistory } = req.body || {};
   if (!message) return res.status(400).json({ error: 'Message text is required' });

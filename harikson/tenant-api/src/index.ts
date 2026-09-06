@@ -100,7 +100,9 @@ app.use((req, res, next) => {
 app.use(helmet({ contentSecurityPolicy: false }));
 app.use(
   cors({
-    origin: true,
+    origin: process.env.ALLOWED_ORIGINS
+      ? process.env.ALLOWED_ORIGINS.split(',').map(o => o.trim())
+      : ['http://localhost:3002', 'http://localhost:3018', 'http://localhost:3028'],
     credentials: true,
   })
 );

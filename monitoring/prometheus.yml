@@ -16,6 +16,6 @@ scrape_configs:
   # Endpoint: /admin/metrics
   - job_name: 'harikson-admin-api'
     metrics_path: '/admin/metrics'
-    bearer_token: 'harikson_prometheus_metrics_secret_token_2026'
+    bearer_token_file: '/etc/prometheus/metrics_token'
     static_configs:
       - targets: ['admin-api:3009']

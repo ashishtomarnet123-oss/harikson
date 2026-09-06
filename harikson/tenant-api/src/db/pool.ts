@@ -145,14 +145,22 @@ export async function executeTenantQuery<T>(
   const client = await connectWithValidation(effectiveUseReplica);
   let contextSet = false;
   try {
-    // Set RLS context on the connection
+    // Set RLS context on the connection — must succeed or queries run without isolation
     await client.query("SELECT set_config('app.current_tenant', $1, false)", [
       tenantId,
-    ]).catch(() => {});
+    ]);
     contextSet = true;
 
     // Assert tenant context if function exists
-    await client.query('SELECT assert_tenant_context()').catch(() => {});
+    try {
+      await client.query('SELECT assert_tenant_context()');
+    } catch (assertErr: any) {
+      if (assertErr.message?.includes('does not exist')) {
+        // Function not yet created in this DB — acceptable during migrations
+      } else {
+        throw assertErr;
+      }
+    }
 
     // Run the queries
     const result = await callback(client);

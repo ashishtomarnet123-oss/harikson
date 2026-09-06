@@ -25,6 +25,10 @@ router.post('/webhooks/stripe', async (req: any, res) => {
   if (!stripe) {
     return res.status(503).json({ error: 'Stripe not configured' });
   }
+  if (!process.env.STRIPE_WEBHOOK_SECRET) {
+    logger.error('STRIPE_WEBHOOK_SECRET not set — cannot verify webhook signature');
+    return res.status(503).json({ error: 'Stripe webhook verification not configured' });
+  }
 
   const sig = req.headers['stripe-signature'];
   let event: any;
@@ -34,7 +38,7 @@ router.post('/webhooks/stripe', async (req: any, res) => {
     event = stripe.webhooks.constructEvent(
       req.rawBody,
       sig || '',
-      process.env.STRIPE_WEBHOOK_SECRET || 'whsec_mock'
+      process.env.STRIPE_WEBHOOK_SECRET
     );
   } catch (err: any) {
     logger.warn('Stripe webhook signature verification failed, rejecting:', err.message);
