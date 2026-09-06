@@ -29,6 +29,7 @@ rsync -avz -e "ssh -i ${SSH_KEY} -o StrictHostKeyChecking=no" \
     --exclude='.git' \
     --exclude='node_modules' \
     --exclude='.next' \
+    --exclude='data' \
     --exclude='postgres-data' \
     --exclude='redis-data' \
     ./ ${VM_USER}@${VM_HOST}:${TARGET_DIR}/
@@ -61,6 +62,13 @@ ssh -i ${SSH_KEY} -o StrictHostKeyChecking=no ${VM_USER}@${VM_HOST} << 'REMOTE_C
 
     echo "Using Docker Compose command: $DOCKER_COMPOSE"
 
+    echo "Fixing persistent volume permissions..."
+    DATA_DIR="${DATA_DIR:-./data}"
+    sudo mkdir -p "$DATA_DIR"/{postgres,redis,grafana,prometheus,ollama,traefik}
+    sudo chown -R 999:999   "$DATA_DIR/postgres"
+    sudo chown -R 472:472   "$DATA_DIR/grafana"
+    sudo chown -R 65534:65534 "$DATA_DIR/prometheus"
+
     echo "Stopping existing containers..."
     sudo $DOCKER_COMPOSE down --remove-orphans || true
 
@@ -69,6 +77,9 @@ ssh -i ${SSH_KEY} -o StrictHostKeyChecking=no ${VM_USER}@${VM_HOST} << 'REMOTE_C
 
     echo "Starting services..."
     sudo $DOCKER_COMPOSE up -d
+
+    echo "Waiting for services to initialize..."
+    sleep 10
 
     echo "Verifying running containers:"
     sudo $DOCKER_COMPOSE ps
