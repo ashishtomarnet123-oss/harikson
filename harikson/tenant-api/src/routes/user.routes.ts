@@ -18,10 +18,16 @@ import jwt from 'jsonwebtoken';
 
 const router = Router();
 
-const razorpay = new Razorpay({
-  key_id: process.env.RAZORPAY_KEY_ID || '',
-  key_secret: process.env.RAZORPAY_KEY_SECRET || '',
-});
+let _razorpay: Razorpay | null = null;
+function getRazorpay(): Razorpay {
+  if (!_razorpay) {
+    const key_id = process.env.RAZORPAY_KEY_ID || '';
+    const key_secret = process.env.RAZORPAY_KEY_SECRET || '';
+    if (!key_id) throw new Error('RAZORPAY_KEY_ID is not configured');
+    _razorpay = new Razorpay({ key_id, key_secret });
+  }
+  return _razorpay;
+}
 
 // Server-side plan pricing — the price actually charged must never come from
 // the client (the old /billing/change-plan trusted a client-supplied `price`
@@ -734,7 +740,7 @@ router.post(['/billing/checkout', '/user/billing/checkout'], async (req: any, re
     if (!tenantId) return res.status(400).json({ error: 'No tenant associated with this account' });
 
     const amountPaise = Math.round(plan.priceRupees * 100);
-    const order = await razorpay.orders.create({
+    const order = await getRazorpay().orders.create({
       amount: amountPaise,
       currency: 'INR',
       receipt: `plan_${planId}_${Date.now()}`,
@@ -800,7 +806,7 @@ router.post(['/billing/verify-payment', '/user/billing/verify-payment'], async (
     // activation if this call fails.
     let paymentMethodMeta: any = null;
     try {
-      const payment: any = await razorpay.payments.fetch(razorpay_payment_id);
+      const payment: any = await getRazorpay().payments.fetch(razorpay_payment_id);
       if (payment?.method === 'card' && payment.card) {
         paymentMethodMeta = {
           brand: payment.card.network || 'Card',
