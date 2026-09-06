@@ -156,7 +156,7 @@ services:
       # `docker compose port tenant-api 3008`.
       - '3008'
     environment:
-      - DATABASE_URL=postgresql://neuravolt:${POSTGRES_PASSWORD}@postgres:5432/neuravolt
+      - DATABASE_URL=postgresql://neuravolt:${POSTGRES_PASSWORD:-neuravolt_dev_pwd}@postgres:5432/neuravolt
       - REDIS_URL=redis://:${REDIS_PASSWORD:-harikson_redis_pwd}@redis:6379
       - JWT_SECRET
       - TENANT_MASTER_KEY
@@ -212,7 +212,7 @@ services:
       # admin-api 4000`.
       - '4000'
     environment:
-      - DATABASE_URL=postgresql://neuravolt:${POSTGRES_PASSWORD}@postgres:5432/neuravolt
+      - DATABASE_URL=postgresql://neuravolt:${POSTGRES_PASSWORD:-neuravolt_dev_pwd}@postgres:5432/neuravolt
       - REDIS_URL=redis://:${REDIS_PASSWORD:-harikson_redis_pwd}@redis:6379
       - JWT_SECRET
       - PORT=4000
@@ -262,7 +262,7 @@ services:
       - PORT=3001
       - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-http://34.131.140.10:3028}
       - ADMIN_API_URL=http://admin-api:4000
-      - DATABASE_URL=postgresql://neuravolt:${POSTGRES_PASSWORD}@postgres:5432/neuravolt
+      - DATABASE_URL=postgresql://neuravolt:${POSTGRES_PASSWORD:-neuravolt_dev_pwd}@postgres:5432/neuravolt
       - JWT_SECRET
       - NEXTAUTH_SECRET
     networks:
