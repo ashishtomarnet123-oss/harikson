@@ -2016,7 +2016,7 @@ If any check fails, revise the relevant section before output.`;
 
   const userInitial = user?.email?.[0]?.toUpperCase() || 'U';
 
-  if (!token) return null; // Wait for mount
+  if (!user) return null; // Wait for mount
 
   return (
     <>
