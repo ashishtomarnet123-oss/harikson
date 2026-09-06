@@ -19,7 +19,7 @@ services:
       - '--entrypoints.web.address=:80'
       - '--entrypoints.websecure.address=:443'
       - '--certificatesresolvers.letsencrypt.acme.tlschallenge=true'
-      - '--certificatesresolvers.letsencrypt.acme.email=admin@neuravolt.cloud'
+      - '--certificatesresolvers.letsencrypt.acme.email=neuravolt@gmail.com'
       - '--certificatesresolvers.letsencrypt.acme.storage=/letsencrypt/acme.json'
       - '--providers.file.directory=/dynamic'
       - '--providers.file.watch=true'
@@ -35,7 +35,7 @@ services:
     labels:
       - "traefik.enable=true"
       # Dashboard routing rules pointing to internal service
-      - "traefik.http.routers.dashboard.rule=Host(`traefik.neuravolt.cloud`)"
+      - "traefik.http.routers.dashboard.rule=Host(`traefik.xarwiz.com`)"
       - "traefik.http.routers.dashboard.entrypoints=websecure"
       - "traefik.http.routers.dashboard.tls.certresolver=letsencrypt"
       - "traefik.http.routers.dashboard.service=api@internal"
@@ -173,7 +173,7 @@ services:
       - PORT=3008
       - NODE_ENV=production
       - OLLAMA_HOST=http://ollama:11434
-      - ALLOWED_ORIGINS=https://xarwiz.com,https://www.xarwiz.com,https://app.neuravolt.cloud,https://admin.neuravolt.cloud,https://neuravolt.cloud,http://localhost:3002,http://localhost:3018,http://localhost:3028,http://154.201.127.68:3018,http://154.201.127.68:3028
+      - ALLOWED_ORIGINS=https://xarwiz.com,https://www.xarwiz.com,https://admin.xarwiz.com,http://localhost:3002,http://localhost:3018,http://localhost:3028
     depends_on:
       postgres:
         condition: service_healthy
@@ -183,7 +183,7 @@ services:
       - harikson-network
     labels:
       - 'traefik.enable=true'
-      - 'traefik.http.routers.tenant-api.rule=Host(`api.neuravolt.cloud`) || Host(`cdn.neuravolt.cloud`)'
+      - 'traefik.http.routers.tenant-api.rule=Host(`api.xarwiz.com`)'
       - 'traefik.http.routers.tenant-api.entrypoints=websecure'
       - 'traefik.http.routers.tenant-api.tls.certresolver=letsencrypt'
       - 'traefik.http.services.tenant-api.loadbalancer.server.port=3008'
@@ -220,7 +220,7 @@ services:
       - TENANT_API_URL=http://tenant-api:3008
       - INTERNAL_API_SECRET
       - PAYMENT_ENCRYPTION_KEY
-      - ALLOWED_ORIGINS=http://34.131.140.10:3018,http://34.131.140.10:3028,http://34.131.140.10:8085,https://xarwiz.com,https://www.xarwiz.com,https://app.neuravolt.cloud,https://admin.neuravolt.cloud,https://neuravolt.cloud,http://localhost:3002,http://localhost:3018,http://localhost:3028,http://154.201.127.68:3018,http://154.201.127.68:3028
+      - ALLOWED_ORIGINS=https://xarwiz.com,https://www.xarwiz.com,https://admin.xarwiz.com,http://localhost:3002,http://localhost:3018,http://localhost:3028
     depends_on:
       postgres:
         condition: service_healthy
@@ -234,7 +234,7 @@ services:
           memory: 512m
     labels:
       - 'traefik.enable=true'
-      - 'traefik.http.routers.admin-api.rule=Host(`admin-api.neuravolt.cloud`)'
+      - 'traefik.http.routers.admin-api.rule=Host(`admin-api.xarwiz.com`)'
       - 'traefik.http.routers.admin-api.entrypoints=websecure'
       - 'traefik.http.routers.admin-api.tls.certresolver=letsencrypt'
       - 'traefik.http.services.admin-api.loadbalancer.server.port=4000'
@@ -269,7 +269,7 @@ services:
       - harikson-network
     labels:
       - 'traefik.enable=true'
-      - 'traefik.http.routers.admin-panel.rule=Host(`admin.neuravolt.cloud`)'
+      - 'traefik.http.routers.admin-panel.rule=Host(`admin.xarwiz.com`)'
       - 'traefik.http.routers.admin-panel.entrypoints=websecure'
       - 'traefik.http.routers.admin-panel.tls.certresolver=letsencrypt'
       - 'traefik.http.services.admin-panel.loadbalancer.server.port=3001'
@@ -299,7 +299,7 @@ services:
       - harikson-network
     labels:
       - 'traefik.enable=true'
-      - 'traefik.http.routers.user-portal.rule=Host(`xarwiz.com`) || Host(`www.xarwiz.com`) || Host(`app.neuravolt.cloud`)'
+      - 'traefik.http.routers.user-portal.rule=Host(`xarwiz.com`) || Host(`www.xarwiz.com`)'
       - 'traefik.http.routers.user-portal.entrypoints=websecure'
       - 'traefik.http.routers.user-portal.tls.certresolver=letsencrypt'
       - 'traefik.http.services.user-portal.loadbalancer.server.port=3002'
@@ -336,7 +336,7 @@ services:
       - harikson-network
     labels:
       - 'traefik.enable=true'
-      - 'traefik.http.routers.grafana.rule=Host(`monitor.neuravolt.cloud`)'
+      - 'traefik.http.routers.grafana.rule=Host(`monitor.xarwiz.com`)'
       - 'traefik.http.routers.grafana.entrypoints=websecure'
       - 'traefik.http.routers.grafana.tls.certresolver=letsencrypt'
       - 'traefik.http.services.grafana.loadbalancer.server.port=3003'

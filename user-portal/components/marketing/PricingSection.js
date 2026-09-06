@@ -51,7 +51,7 @@ export default function PricingSection() {
         'SSO / SAML & SCIM User Provisioning'
       ],
       cta: 'Contact Enterprise',
-      href: 'mailto:enterprise@neuravolt.cloud',
+      href: 'mailto:enterprise@xarwiz.com',
       highlighted: false
     }
   ];

@@ -17,11 +17,11 @@ describe('2FA Service - otplib Migration Test Suite', () => {
 
   it('2. Generates otpauth URL with email and issuer', () => {
     const secret = generateTotpSecret();
-    const userEmail = 'user@neuravolt.cloud';
-    const otpauthUrl = generateOtpauthUrl(userEmail, secret, 'Neuravolt');
+    const userEmail = 'user@xarwiz.com';
+    const otpauthUrl = generateOtpauthUrl(userEmail, secret, 'Xarwiz');
 
     expect(otpauthUrl).toContain('otpauth://totp/');
-    expect(otpauthUrl).toContain('Neuravolt');
+    expect(otpauthUrl).toContain('Xarwiz');
     expect(otpauthUrl).toContain(encodeURIComponent(userEmail));
     expect(otpauthUrl).toContain(secret);
   });

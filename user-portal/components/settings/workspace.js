@@ -130,7 +130,7 @@ export default function WorkspaceSettings() {
             members: [
               {
                 id: user.id || '1',
-                email: user.email || 'user@neuravolt.cloud',
+                email: user.email || 'user@xarwiz.com',
                 name: user.name || user.email?.split('@')[0] || 'User',
                 role: user.role || 'Admin',
                 avatar: (user.name || user.email || 'U')[0].toUpperCase(),
@@ -157,7 +157,7 @@ export default function WorkspaceSettings() {
             members: [
               {
                 id: user.id || '1',
-                email: user.email || 'user@neuravolt.cloud',
+                email: user.email || 'user@xarwiz.com',
                 name: user.name || user.email?.split('@')[0] || 'User',
                 role: user.role || 'Admin',
                 avatar: (user.name || user.email || 'U')[0].toUpperCase(),

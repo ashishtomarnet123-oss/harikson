@@ -590,19 +590,16 @@ function ChatPage() {
 
   const handleStopImpersonating = () => {
     const host = window.location.host;
-    const isProdDomain = host.includes('neuravolt.cloud');
-    const domainSuffix = isProdDomain ? '; Domain=.neuravolt.cloud' : '';
+    const isProdDomain = host.includes('xarwiz.com');
+    const domainSuffix = isProdDomain ? '; Domain=.xarwiz.com' : '';
     document.cookie = `hk_access_token=; Path=/; Max-Age=0${domainSuffix}`;
     document.cookie = `hk_refresh_token=; Path=/; Max-Age=0${domainSuffix}`;
     localStorage.removeItem('hk_user');
     localStorage.removeItem('is_impersonating');
     localStorage.removeItem('impersonating_user_email');
-    // Prefer an explicit env override; otherwise derive the admin panel's
-    // origin from the current domain instead of a hardcoded dev URL, which
-    // previously broke this flow in every non-local environment.
     const adminPanelUrl =
       process.env.NEXT_PUBLIC_ADMIN_PANEL_URL ||
-      (isProdDomain ? 'https://admin.neuravolt.cloud' : 'http://localhost:3018');
+      (isProdDomain ? 'https://admin.xarwiz.com' : 'http://localhost:3018');
     window.location.href = `${adminPanelUrl}/admin/users`;
   };
 
@@ -998,7 +995,7 @@ function ChatPage() {
     const isDirectAccess = currentHost !== 'localhost' && typeof window !== 'undefined';
     // Discard a stale cached value: the old tenant-api-fixed-port bug
     // (:3008), or any absolute URL cached via a raw IP:port before this
-    // fix (e.g. https://api.neuravolt.cloud, written by another page's
+    // fix (e.g. https://api.xarwiz.com, written by another page's
     // now-fixed resolution logic sharing this same localStorage key) —
     // direct IP access should always route through this same origin's own
     // Next.js proxy instead of a separate domain.
@@ -1011,7 +1008,7 @@ function ChatPage() {
         // Any real (non-localhost) browser access always prefers this same
         // origin's own Next.js proxy over an absolute env-configured URL —
         // that URL points at a specific domain (previously
-        // api.neuravolt.cloud, now xarwiz.com) that can migrate again in
+        // api.xarwiz.com, now xarwiz.com) that can migrate again in
         // the future without ever needing a matching frontend code change.
         savedBase = '';
       } else if (envApiUrl) {

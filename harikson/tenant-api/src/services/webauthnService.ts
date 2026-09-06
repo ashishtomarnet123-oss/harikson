@@ -20,8 +20,8 @@ export async function generatePasskeyRegistrationOptions(userId: string, email: 
   return {
     challenge,
     rp: {
-      name: 'Neuravolt AI Cloud',
-      id: process.env.WEBAUTHN_RP_ID || 'neuravolt.cloud',
+      name: 'Xarwiz AI',
+      id: process.env.WEBAUTHN_RP_ID || 'xarwiz.com',
     },
     user: {
       id: Buffer.from(userId).toString('base64url'),
@@ -70,7 +70,7 @@ export async function generatePasskeyAuthOptions(email: string) {
   return {
     challenge,
     timeout: 60000,
-    rpId: process.env.WEBAUTHN_RP_ID || 'neuravolt.cloud',
+    rpId: process.env.WEBAUTHN_RP_ID || 'xarwiz.com',
     allowCredentials: passkeysRes.rows.map((pk) => ({
       id: pk.credential_id,
       type: 'public-key',

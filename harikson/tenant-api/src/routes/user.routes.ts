@@ -139,10 +139,10 @@ router.post('/2fa/setup', async (req: any, res) => {
 
   try {
     const userRes = await pool.query('SELECT email FROM users WHERE id = $1', [req.user.userId]);
-    const userEmail = userRes.rows[0]?.email || 'user@neuravolt.cloud';
+    const userEmail = userRes.rows[0]?.email || 'user@xarwiz.com';
 
     const secret = generateTotpSecret();
-    const otpauthUrl = generateOtpauthUrl(userEmail, secret, 'Neuravolt');
+    const otpauthUrl = generateOtpauthUrl(userEmail, secret, 'Xarwiz');
     const qrCodeDataUrl = await QRCode.toDataURL(otpauthUrl);
 
     await pool.query('UPDATE users SET two_factor_secret_temp = $1 WHERE id = $2', [secret, req.user.userId]);
@@ -316,7 +316,7 @@ router.post('/passkeys/generate-options', async (req: any, res) => {
 
   try {
     const userRes = await pool.query('SELECT email FROM users WHERE id = $1', [req.user.userId]);
-    const email = userRes.rows[0]?.email || 'user@neuravolt.cloud';
+    const email = userRes.rows[0]?.email || 'user@xarwiz.com';
 
     const options = await generatePasskeyRegistrationOptions(req.user.userId, email);
     res.json(options);
@@ -413,7 +413,7 @@ router.get('/workspace', async (req: any, res) => {
       slug: req.tenant.slug || 'workspace',
       createdAt: new Date().toISOString(),
       members: [
-        { id: req.user.userId, email: req.user.email || 'user@neuravolt.cloud', name: 'User', role: 'Admin', avatar: 'U' }
+        { id: req.user.userId, email: req.user.email || 'user@xarwiz.com', name: 'User', role: 'Admin', avatar: 'U' }
       ]
     });
   }

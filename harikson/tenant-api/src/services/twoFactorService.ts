@@ -32,7 +32,7 @@ export function generateTotpSecret(): string {
 /**
  * Generate OTPAuth URI string for QR code generation using otplib.
  */
-export function generateOtpauthUrl(email: string, secret: string, serviceName: string = 'Neuravolt'): string {
+export function generateOtpauthUrl(email: string, secret: string, serviceName: string = 'Xarwiz'): string {
   return authenticator.keyuri(email, serviceName, secret);
 }
 

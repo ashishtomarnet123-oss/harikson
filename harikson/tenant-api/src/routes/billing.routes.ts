@@ -188,7 +188,7 @@ router.post('/checkout', async (req: any, res) => {
     const total = subtotal + taxAmount;
 
     if (paymentProvider === 'stripe') {
-      const baseUrl = req.headers.origin || process.env.APP_BASE_URL || 'https://app.neuravolt.cloud';
+      const baseUrl = req.headers.origin || process.env.APP_BASE_URL || 'https://xarwiz.com';
       const session = await stripe.checkout.sessions.create({
         payment_method_types: ['card'],
         line_items: [

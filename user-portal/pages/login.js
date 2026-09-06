@@ -14,7 +14,7 @@ export default function LoginPage() {
   const [error, setError] = useState('');
   const [apiBase, setApiBase] = useState('http://localhost:3008');
   const [tenantSlug, setTenantSlug] = useState(
-    (typeof process !== 'undefined' && process.env.NEXT_PUBLIC_DEFAULT_TENANT_SLUG) || 'neuravolt'
+    (typeof process !== 'undefined' && process.env.NEXT_PUBLIC_DEFAULT_TENANT_SLUG) || 'default'
   );
   const [requires2FA, setRequires2FA] = useState(false);
   const [totpCode, setTotpCode] = useState('');
@@ -89,11 +89,10 @@ export default function LoginPage() {
     }
 
     // Resolve API base and tenant slug from URL
-    // Default slug: env var > localStorage last-known > 'neuravolt'
     const defaultTenantSlug =
       process.env.NEXT_PUBLIC_DEFAULT_TENANT_SLUG ||
       (typeof window !== 'undefined' && localStorage.getItem('hk_tenant')) ||
-      'neuravolt';
+      'default';
     let resolvedApiBase = 'http://localhost:3008';
     let resolvedTenantSlug = defaultTenantSlug;
     if (typeof window !== 'undefined') {
@@ -102,7 +101,7 @@ export default function LoginPage() {
         // Any real browser access — with or without an explicit port —
         // always prefers this same origin's own Next.js proxy over an
         // absolute env-configured URL, which points at a specific domain
-        // (previously api.neuravolt.cloud, now xarwiz.com) that can migrate
+        // (previously api.xarwiz.com, now xarwiz.com) that can migrate
         // again without ever needing a matching frontend code change.
         resolvedApiBase = '';
         const parts = hostname.split('.');

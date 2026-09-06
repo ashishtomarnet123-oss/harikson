@@ -4,7 +4,7 @@ import { io, Socket } from 'socket.io-client';
 let socket: Socket | undefined;
 
 export function activate(context: vscode.ExtensionContext) {
-  console.log('⚡ [Neuravolt AI] VS Code Extension activated!');
+  console.log('⚡ [Xarwiz AI] VS Code Extension activated!');
 
   const config = vscode.workspace.getConfiguration('neuravolt');
   const agentUrl = config.get<string>('agentUrl') || 'http://localhost:6000';
@@ -18,13 +18,13 @@ export function activate(context: vscode.ExtensionContext) {
 
   socket.on('connect', () => {
     vscode.window.showInformationMessage(
-      '🔌 [Neuravolt AI] Connected to coding bridge agent.'
+      '🔌 [Xarwiz AI] Connected to coding bridge agent.'
     );
   });
 
   socket.on('disconnect', () => {
     vscode.window.showWarningMessage(
-      '🔌 [Neuravolt AI] Disconnected from coding bridge.'
+      '🔌 [Xarwiz AI] Disconnected from coding bridge.'
     );
   });
 
@@ -92,7 +92,7 @@ export function activate(context: vscode.ExtensionContext) {
           <!DOCTYPE html>
           <html>
           <body style="font-family: sans-serif; padding: 10px; color: white; background: #1e1e1e;">
-            <h3>Neuravolt Code Assistant</h3>
+            <h3>Xarwiz Code Assistant</h3>
             <div id="messages" style="height: 250px; overflow-y: auto; font-size: 0.85rem; border: 1px solid #333; padding: 8px; border-radius: 4px; background: #000; margin-bottom: 10px;">
               <div>Ask a question to start.</div>
             </div>

@@ -202,7 +202,7 @@ export class RagService {
     url: string
   ): Promise<number> {
     // Mock crawler fetching content from remote webpage
-    const text = `Neuravolt AI agent documentation for ${url}. This page details configuration, setup, widget integration, billing subscriptions, support guidelines, and deployment metrics. The platform executes on isolated VPS nodes using Qwen3-Coder models.`;
+    const text = `Xarwiz AI agent documentation for ${url}. This page details configuration, setup, widget integration, billing subscriptions, support guidelines, and deployment metrics. The platform executes on isolated VPS nodes using Qwen3-Coder models.`;
     const result = await this.indexText(tenantId, userId, url, text, 'url', text.length);
     return result.chunksIndexed;
   }

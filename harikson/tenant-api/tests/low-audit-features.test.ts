@@ -20,7 +20,7 @@ describe('LOW-015, LOW-017, LOW-020, LOW-024 Audit Features Test Suite', () => {
 
   it('3. LOW-024: Generates WebAuthn passkey registration options', async () => {
     const options = await generatePasskeyRegistrationOptions(userId, email);
-    expect(options.rp.name).toBe('Neuravolt AI Cloud');
+    expect(options.rp.name).toBe('Xarwiz AI');
     expect(options.user.name).toBe(email);
   });
 });

@@ -15,7 +15,7 @@ describe('Tenant API - Auth Routes Test Suite', () => {
   it('POST /auth/register - creates user, returns tokens, and sets HttpOnly cookies', async () => {
     const tenant = await createTestTenant({ slug: 'test-org' });
     const payload = {
-      email: 'newuser@neuravolt.cloud',
+      email: 'newuser@xarwiz.com',
       password: 'Admin@neurovalt@2620',
       tenantSlug: tenant.slug,
     };
@@ -26,9 +26,9 @@ describe('Tenant API - Auth Routes Test Suite', () => {
 
   it('POST /auth/login - validates password and rejects invalid passwords', async () => {
     const tenant = await createTestTenant({ slug: 'login-org' });
-    const user = await createTestUser(tenant.id, { email: 'loginuser@neuravolt.cloud' });
+    const user = await createTestUser(tenant.id, { email: 'loginuser@xarwiz.com' });
 
-    expect(user.email).toBe('loginuser@neuravolt.cloud');
+    expect(user.email).toBe('loginuser@xarwiz.com');
     expect(user.tenant_id).toBe(tenant.id);
   });
 

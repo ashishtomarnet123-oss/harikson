@@ -44,7 +44,7 @@ function WorkflowsPage() {
       steps: [
         { id: 1, type: 'filter', value: 'Filter: Check if request payload contains customer email & message' },
         { id: 2, type: 'prompt', value: 'Classify intent (Billing, Technical, Account) and draft high-priority reply' },
-        { id: 3, type: 'email', value: 'Dispatch transactional approval notification to support@neuravolt.cloud' },
+        { id: 3, type: 'email', value: 'Dispatch transactional approval notification to support@xarwiz.com' },
         { id: 4, type: 'webhook', value: 'Post resolution payload to CRM webhook' }
       ]
     },

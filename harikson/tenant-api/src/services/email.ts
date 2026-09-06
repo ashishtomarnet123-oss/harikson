@@ -36,7 +36,7 @@ export const sendPasswordReset = async (to: string, resetUrl: string) => {
 
   try {
     const { data, error } = await resend.emails.send({
-      from: 'Xarwiz AI <noreply@neuravolt.cloud>',
+      from: 'Xarwiz AI <noreply@xarwiz.com>',
       to,
       subject: 'Reset your password',
       html: `
@@ -81,7 +81,7 @@ export const sendWelcomeEmail = async (to: string, name: string) => {
 
   try {
     const { data, error } = await resend.emails.send({
-      from: 'Xarwiz AI <noreply@neuravolt.cloud>',
+      from: 'Xarwiz AI <noreply@xarwiz.com>',
       to,
       subject: 'Welcome to Xarwiz AI!',
       html: `
@@ -128,7 +128,7 @@ export const sendInvoiceReceipt = async (to: string, invoiceDetails: InvoiceDeta
   try {
     const { amount, currency, status, invoiceUrl, pdfUrl } = invoiceDetails;
     const { data, error } = await resend.emails.send({
-      from: 'Xarwiz AI <noreply@neuravolt.cloud>',
+      from: 'Xarwiz AI <noreply@xarwiz.com>',
       to,
       subject: 'Payment Receipt - Xarwiz AI',
       html: `
@@ -172,7 +172,7 @@ export const sendSubscriptionCancellation = async (to: string, planName: string,
 
   try {
     const { data, error } = await resend.emails.send({
-      from: 'Xarwiz AI <noreply@neuravolt.cloud>',
+      from: 'Xarwiz AI <noreply@xarwiz.com>',
       to,
       subject: 'Subscription Cancelled — Xarwiz AI',
       html: `
@@ -211,13 +211,13 @@ export const sendVerificationEmail = async (to: string, verificationUrl: string)
 
   try {
     const { data, error } = await resend.emails.send({
-      from: 'Neuravolt AI <noreply@neuravolt.cloud>',
+      from: 'Xarwiz AI <noreply@xarwiz.com>',
       to,
-      subject: 'Verify your email — Neuravolt',
+      subject: 'Verify your email — Xarwiz',
       html: `
         <div style="font-family: sans-serif; padding: 20px; color: #1e293b; max-width: 600px; margin: 0 auto; border: 1px solid #e2e8f0; border-radius: 8px;">
-          <h2 style="color: #2563eb; border-bottom: 2px solid #2563eb; padding-bottom: 10px;">Verify your Neuravolt Account</h2>
-          <p>Welcome to Neuravolt!</p>
+          <h2 style="color: #2563eb; border-bottom: 2px solid #2563eb; padding-bottom: 10px;">Verify your Xarwiz Account</h2>
+          <p>Welcome to Xarwiz!</p>
           <p>Please click the button below to verify your email address and activate your account (link expires in 24 hours):</p>
           <div style="text-align: center; margin: 30px 0;">
             <a href="${verificationUrl}" style="display: inline-block; padding: 12px 24px; background-color: #2563eb; color: white; text-decoration: none; border-radius: 6px; font-weight: bold;">Verify Email Address</a>
@@ -225,7 +225,7 @@ export const sendVerificationEmail = async (to: string, verificationUrl: string)
           <p style="font-size: 13px; color: #64748b;">If the button doesn't work, copy and paste this URL into your browser:</p>
           <p style="font-size: 13px; color: #2563eb; word-break: break-all;">${verificationUrl}</p>
           <hr style="border: 0; border-top: 1px solid #e2e8f0; margin: 20px 0;" />
-          <p style="font-size: 12px; color: #94a3b8;">If you did not register for a Neuravolt account, please ignore this message.</p>
+          <p style="font-size: 12px; color: #94a3b8;">If you did not register for a Xarwiz account, please ignore this message.</p>
         </div>
       `,
     });
@@ -253,13 +253,13 @@ export const sendAccountLockoutAlert = async (to: string, unlockUrl: string, dur
 
   try {
     const { data, error } = await resend.emails.send({
-      from: 'Neuravolt Security <security@neuravolt.cloud>',
+      from: 'Xarwiz Security <security@xarwiz.com>',
       to,
-      subject: 'Security Alert: Your Neuravolt account has been locked',
+      subject: 'Security Alert: Your Xarwiz account has been locked',
       html: `
         <div style="font-family: sans-serif; padding: 20px; color: #1e293b; max-width: 600px; margin: 0 auto; border: 1px solid #fee2e2; border-radius: 8px;">
           <h2 style="color: #dc2626; border-bottom: 2px solid #dc2626; padding-bottom: 10px;">Security Alert: Account Temporarily Locked</h2>
-          <p>We detected multiple failed login attempts on your Neuravolt AI account.</p>
+          <p>We detected multiple failed login attempts on your Xarwiz AI account.</p>
           <p>To protect your workspace from brute-force access attempts, your account has been locked for <strong>${durationText}</strong>.</p>
           <p>If this was you or if you need to restore immediate access, please click the button below to safely unlock your account:</p>
           <div style="text-align: center; margin: 30px 0;">
@@ -296,13 +296,13 @@ export const sendDeviceMismatchAlert = async (to: string, deviceName: string, ip
 
   try {
     const { data, error } = await resend.emails.send({
-      from: 'Neuravolt Security <security@neuravolt.cloud>',
+      from: 'Xarwiz Security <security@xarwiz.com>',
       to,
       subject: 'Security Alert: Device fingerprint mismatch detected',
       html: `
         <div style="font-family: sans-serif; padding: 20px; color: #1e293b; max-width: 600px; margin: 0 auto; border: 1px solid #fee2e2; border-radius: 8px;">
           <h2 style="color: #dc2626; border-bottom: 2px solid #dc2626; padding-bottom: 10px;">Security Alert: Unrecognized Device Blocked</h2>
-          <p>We blocked a refresh token request on your Neuravolt AI account from an unrecognized device.</p>
+          <p>We blocked a refresh token request on your Xarwiz AI account from an unrecognized device.</p>
           <p><strong>Device:</strong> ${deviceName || 'Unknown Device'}</p>
           <p><strong>IP Address:</strong> ${ip || 'Unknown IP'}</p>
           <p><strong>Time:</strong> ${new Date().toUTCString()}</p>
@@ -326,14 +326,14 @@ export const sendDeviceMismatchAlert = async (to: string, deviceName: string, ip
   }
 };
 
-export const sendDunningNotice = async (to: string, dayStage: number, billingUrl: string = 'https://app.neuravolt.cloud/settings/billing') => {
+export const sendDunningNotice = async (to: string, dayStage: number, billingUrl: string = 'https://xarwiz.com/settings/billing') => {
   if (!(await checkEmailRateLimit(to))) {
     return { success: false, error: 'Rate limit exceeded.' };
   }
 
   let subject = 'Payment Failed - Action Required';
-  let heading = 'Payment Failed for Your Neuravolt Subscription';
-  let message = 'We were unable to process the latest payment for your Neuravolt AI subscription. Please update your payment details to ensure uninterrupted service.';
+  let heading = 'Payment Failed for Your Xarwiz Subscription';
+  let message = 'We were unable to process the latest payment for your Xarwiz AI subscription. Please update your payment details to ensure uninterrupted service.';
   let buttonText = 'Update Billing Details';
   let color = '#dc2626';
 
@@ -352,7 +352,7 @@ export const sendDunningNotice = async (to: string, dayStage: number, billingUrl
     buttonText = 'Pay & Restore Access Now';
   } else if (dayStage === 30) {
     subject = 'Subscription Cancelled due to Non-Payment';
-    heading = 'Your Neuravolt Subscription Has Been Cancelled';
+    heading = 'Your Xarwiz Subscription Has Been Cancelled';
     message = 'Your subscription was cancelled after 30 days of uncollected payment. Reactivate your plan anytime to restore access.';
     buttonText = 'Reactivate Subscription';
     color = '#4b5563';
@@ -360,7 +360,7 @@ export const sendDunningNotice = async (to: string, dayStage: number, billingUrl
 
   try {
     const { data, error } = await resend.emails.send({
-      from: 'Neuravolt Billing <billing@neuravolt.cloud>',
+      from: 'Xarwiz Billing <billing@xarwiz.com>',
       to,
       subject,
       html: `
@@ -371,7 +371,7 @@ export const sendDunningNotice = async (to: string, dayStage: number, billingUrl
             <a href="${billingUrl}" style="display: inline-block; padding: 12px 24px; background-color: ${color}; color: white; text-decoration: none; border-radius: 6px; font-weight: bold;">${buttonText}</a>
           </div>
           <hr style="border: 0; border-top: 1px solid #fee2e2; margin: 20px 0;" />
-          <p style="font-size: 12px; color: #94a3b8;">If you believe this is an error or need billing support, contact support@neuravolt.cloud.</p>
+          <p style="font-size: 12px; color: #94a3b8;">If you believe this is an error or need billing support, contact support@xarwiz.com.</p>
         </div>
       `,
     });

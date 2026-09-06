@@ -182,9 +182,9 @@ const port = process.env.PORT || 4000;
 const jwtSecret = process.env.JWT_SECRET;
 
 const defaultOrigins = [
-  'https://app.neuravolt.cloud',
-  'https://admin.neuravolt.cloud',
-  'https://neuravolt.cloud',
+  'https://xarwiz.com',
+  'https://www.xarwiz.com',
+  'https://admin.xarwiz.com',
   'http://localhost:3002',
   'http://localhost:3018',
   'http://localhost:3028',
@@ -322,7 +322,7 @@ async function logAdminAction(
 app.get('/api/user/billing', async (req, res) => {
   let tenantSlug = req.headers['x-tenant-slug'] || 'system';
   if (['system', 'app', 'alphatech'].includes(tenantSlug.toLowerCase())) {
-    tenantSlug = 'neuravolt';
+    tenantSlug = 'default';
   }
   try {
     // Join tenant → plan to get full plan details (case-insensitive join)
@@ -585,7 +585,7 @@ app.post(['/admin/auth/refresh', '/admin/refresh'], async (req, res) => {
     });
 
     const isProd = process.env.NODE_ENV === 'production';
-    const cookieDomain = isProd ? '.neuravolt.cloud' : undefined;
+    const cookieDomain = isProd ? '.xarwiz.com' : undefined;
 
     res.cookie('admin_access_token', newAccessToken, {
       httpOnly: true,
@@ -686,7 +686,7 @@ app.post(['/admin/first-login/reset', '/v1/admin/auth/first-login-reset'], async
     );
 
     const isProd = process.env.NODE_ENV === 'production';
-    const cookieDomain = isProd ? '.neuravolt.cloud' : undefined;
+    const cookieDomain = isProd ? '.xarwiz.com' : undefined;
 
     const accessToken = jwt.sign({ userId: tokenRecord.user_id, role: tokenRecord.role, type: 'access' }, jwtSecret, {
       expiresIn: '15m',
@@ -751,7 +751,7 @@ app.post('/admin/auth/login', (req, res, next) => {
 // POST /admin/logout & POST /admin/auth/logout
 app.post(['/admin/logout', '/admin/auth/logout'], (req, res) => {
   const isProd = process.env.NODE_ENV === 'production';
-  const cookieDomain = isProd ? '.neuravolt.cloud' : undefined;
+  const cookieDomain = isProd ? '.xarwiz.com' : undefined;
 
   res.clearCookie('admin_access_token', { domain: cookieDomain });
   res.clearCookie('admin_refresh_token', { domain: cookieDomain });
@@ -1045,7 +1045,7 @@ app.post('/admin/users/:id/force-password-reset', adminAuth, async (req, res) =>
       [id, tokenHash, expiresAt]
     );
 
-    const resetLink = `https://${user.tenant_slug}.neuravolt.cloud/reset-password?token=${rawToken}&email=${encodeURIComponent(user.email)}`;
+    const resetLink = `https://xarwiz.com/reset-password?token=${rawToken}&email=${encodeURIComponent(user.email)}`;
 
     logger.info(`🚨 [ADMIN FORCE RESET] Admin ${req.admin?.email} initiated password reset for user ${user.email}`);
 
@@ -1303,7 +1303,7 @@ app.post('/admin/tenants/:id/legal-holds', adminAuth, async (req, res) => {
       return res.status(404).json({ error: 'Tenant not found' });
     }
 
-    const adminEmail = req.admin?.email || 'admin@neuravolt.cloud';
+    const adminEmail = req.admin?.email || 'admin@xarwiz.com';
     const adminId = req.admin?.id || 'admin-system';
 
     const insertRes = await pool.query(
@@ -1350,7 +1350,7 @@ app.post('/admin/tenants/:id/legal-holds/:holdId/lift', adminAuth, async (req, r
     const { id, holdId } = req.params;
     const { reason = 'Litigation concluded' } = req.body;
 
-    const adminEmail = req.admin?.email || 'admin@neuravolt.cloud';
+    const adminEmail = req.admin?.email || 'admin@xarwiz.com';
     const adminId = req.admin?.id || 'admin-system';
 
     const updateRes = await pool.query(
@@ -1906,8 +1906,8 @@ app.post(['/auth/impersonate/confirm', '/api/auth/impersonate/confirm', '/admin/
     );
 
     const host = req.headers.host || '';
-    const domainSuffix = host.includes('neuravolt.cloud')
-      ? '; Domain=.neuravolt.cloud'
+    const domainSuffix = host.includes('xarwiz.com')
+      ? '; Domain=.xarwiz.com'
       : '';
     const isHttps = req.headers['x-forwarded-proto'] === 'https' || req.socket?.encrypted;
     const secureFlag = isHttps ? 'Secure;' : '';
@@ -2129,7 +2129,7 @@ const handleSendUserEmail = async (req, res) => {
     } else if (emailType === 'welcome') {
       result = await sendWelcomeEmail(user.email, user.name);
     } else if (emailType === 'password_reset') {
-      const resetUrl = `https://app.neuravolt.cloud/reset-password?email=${encodeURIComponent(user.email)}`;
+      const resetUrl = `https://app.xarwiz.com/reset-password?email=${encodeURIComponent(user.email)}`;
       result = await sendPasswordReset(user.email, resetUrl);
     } else {
       return res.status(400).json({ error: 'Invalid emailType specified' });
@@ -2266,7 +2266,7 @@ const handleUpdateSmtpConfig = async (req, res) => {
       `INSERT INTO smtp_configs (provider, resend_api_key, smtp_host, smtp_port, smtp_user, smtp_pass, smtp_secure, from_email, from_name, is_active)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, true)
        RETURNING *`,
-      [provider || 'resend', resend_api_key, smtp_host, smtp_port ? parseInt(smtp_port) : 587, smtp_user, smtp_pass, smtp_secure !== false, from_email || 'noreply@neuravolt.cloud', from_name || 'Neuravolt Cloud']
+      [provider || 'resend', resend_api_key, smtp_host, smtp_port ? parseInt(smtp_port) : 587, smtp_user, smtp_pass, smtp_secure !== false, from_email || 'noreply@xarwiz.com', from_name || 'Xarwiz']
     );
 
     res.json({ success: true, message: 'SMTP settings updated and activated successfully', config: insertRes.rows[0] });

@@ -131,7 +131,7 @@ router.get('/activity/stream', async (req, res) => {
   res.setHeader('Content-Type', 'text/event-stream');
   res.setHeader('Cache-Control', 'no-cache');
   res.setHeader('Connection', 'keep-alive');
-  const allowedOrigin = process.env.ADMIN_PANEL_ORIGIN || 'https://admin.neuravolt.cloud';
+  const allowedOrigin = process.env.ADMIN_PANEL_ORIGIN || 'https://admin.xarwiz.com';
   res.setHeader('Access-Control-Allow-Origin', allowedOrigin);
   res.flushHeaders();
 
@@ -524,7 +524,7 @@ async function seedKnowledge() {
       const kb1 = await pool.query(
         `
         INSERT INTO knowledge_bases (name, description, tenant_id, index_status, total_documents, total_embeddings, storage_bytes)
-        VALUES ('Neuravolt Technical Docs', 'RAG reference manuals for model optimization, latency profiling, and vLLM parameter setups.', $1, 'completed', 2, 420, 2450000)
+        VALUES ('Xarwiz Technical Docs', 'RAG reference manuals for model optimization, latency profiling, and vLLM parameter setups.', $1, 'completed', 2, 420, 2450000)
         RETURNING id
       `,
         [tenantId]

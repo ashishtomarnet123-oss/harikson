@@ -60,7 +60,7 @@ function PromptLibrarySettings() {
     return isDirectAccess ? '' : process.env.NEXT_PUBLIC_API_URL || '';
   };
   const isLoggedIn = () => !!localStorage.getItem('hk_user');
-  const getTenant = () => localStorage.getItem('hk_tenant') || 'neuravolt';
+  const getTenant = () => localStorage.getItem('hk_tenant') || 'default';
 
   useEffect(() => {
     const fetchPresets = async () => {
@@ -273,7 +273,7 @@ function RagDriveSettings() {
     return isDirectAccess ? '' : process.env.NEXT_PUBLIC_API_URL || '';
   };
   const isLoggedIn = () => !!localStorage.getItem('hk_user');
-  const getTenant = () => localStorage.getItem('hk_tenant') || 'neuravolt';
+  const getTenant = () => localStorage.getItem('hk_tenant') || 'default';
 
   useEffect(() => {
     const fetchFiles = async () => {

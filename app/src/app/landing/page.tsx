@@ -42,7 +42,7 @@ export default function NeuravoltLightLandingPage() {
             <div className="w-8 h-8 bg-gradient-to-br from-blue-600 to-blue-700 rounded-lg flex items-center justify-center text-white font-extrabold text-base shadow-sm">
               N
             </div>
-            <span className="text-xl font-extrabold tracking-tight text-slate-900 font-['Outfit']">NEURAVOLT</span>
+            <span className="text-xl font-extrabold tracking-tight text-slate-900 font-['Outfit']">XARWIZ</span>
             <span className="hidden sm:inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-blue-50 border border-blue-200 text-xs font-semibold text-blue-600">
               🇮🇳 AI Cloud Platform
             </span>
@@ -208,7 +208,7 @@ export default function NeuravoltLightLandingPage() {
         <div className="max-w-7xl mx-auto px-6">
           <div className="text-center max-w-xl mx-auto mb-10">
             <h2 className="text-3xl font-extrabold text-slate-900 font-['Outfit']">Try an AI Agent ✨</h2>
-            <p className="text-slate-600 text-sm mt-2">Experience the power of Neuravolt AI Agents. No signup. No credit card. Just try.</p>
+            <p className="text-slate-600 text-sm mt-2">Experience the power of Xarwiz AI Agents. No signup. No credit card. Just try.</p>
           </div>
 
           <div className="bg-white border border-slate-200 rounded-2xl p-8 shadow-xl shadow-slate-200/40">
@@ -273,7 +273,7 @@ export default function NeuravoltLightLandingPage() {
         <div className="bg-gradient-to-r from-blue-700 to-blue-800 rounded-2xl p-12 text-white flex flex-col md:flex-row items-center justify-between gap-8 shadow-xl shadow-blue-600/20">
           <div>
             <h2 className="text-3xl font-extrabold mb-2 font-['Outfit']">Ready to Build the Future with AI?</h2>
-            <p className="text-blue-100 text-sm max-w-lg">Join thousands of Indian businesses building secure and compliant AI applications with Neuravolt.</p>
+            <p className="text-blue-100 text-sm max-w-lg">Join thousands of Indian businesses building secure and compliant AI applications with Xarwiz.</p>
             <div className="flex gap-3 mt-6">
               <button className="px-6 py-3 bg-white text-blue-600 font-bold rounded-xl text-sm shadow hover:bg-slate-50 transition">
                 Start Free for 14 Days

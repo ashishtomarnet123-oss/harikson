@@ -154,7 +154,7 @@ export class OllamaService {
       lowercasePrompt.includes('class') ||
       lowercasePrompt.includes('code')
     ) {
-      return `// Generated using Neuravolt AI Qwen3-Coder
+      return `// Generated using Xarwiz AI Qwen3-Coder
 export function processRequest(data) {
   if (!data) {
     throw new Error("Invalid payload: empty data source");
@@ -168,6 +168,6 @@ export function processRequest(data) {
 }`;
     }
 
-    return `This is a simulated AI response from the Neuravolt-Xarwiz tenant engine. I received your request: "${prompt}". Let me know how I can help you compile databases or connect web widgets!`;
+    return `This is a simulated AI response from the Xarwiz tenant engine. I received your request: "${prompt}". Let me know how I can help you compile databases or connect web widgets!`;
   }
 }

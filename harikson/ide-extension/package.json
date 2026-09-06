@@ -1,7 +1,7 @@
 {
   "name": "neuravolt-agent-vscode",
-  "displayName": "Neuravolt AI Agent Assistant",
-  "description": "Ghost text autocompletions and coding sidebar assistance powered by Neuravolt-Harikson.",
+  "displayName": "Xarwiz AI Agent Assistant",
+  "description": "Ghost text autocompletions and coding sidebar assistance powered by Xarwiz-Harikson.",
   "version": "1.0.0",
   "publisher": "neuravolt",
   "engines": {
@@ -17,7 +17,7 @@
   "main": "./dist/extension.js",
   "contributes": {
     "configuration": {
-      "title": "Neuravolt AI",
+      "title": "Xarwiz AI",
       "properties": {
         "neuravolt.agentUrl": {
           "type": "string",
@@ -27,7 +27,7 @@
         "neuravolt.apiKey": {
           "type": "string",
           "default": "",
-          "description": "Your Neuravolt instance api access key."
+          "description": "Your Xarwiz instance api access key."
         }
       }
     },
@@ -35,7 +35,7 @@
       "activitybar": [
         {
           "id": "neuravolt-sidebar",
-          "title": "Neuravolt AI",
+          "title": "Xarwiz AI",
           "icon": "resources/icon.svg"
         }
       ]

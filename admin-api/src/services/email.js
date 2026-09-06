@@ -41,8 +41,8 @@ export async function getActiveSmtpConfig() {
   return {
     provider: 'resend',
     resend_api_key: process.env.RESEND_API_KEY || 're_dev_key',
-    from_email: 'noreply@neuravolt.cloud',
-    from_name: 'Neuravolt Cloud'
+    from_email: 'noreply@xarwiz.com',
+    from_name: 'Xarwiz'
   };
 }
 
@@ -85,7 +85,7 @@ export async function sendEmail({ to, subject, html, text, emailType = 'custom',
   }
 
   const config = await getActiveSmtpConfig();
-  const fromAddress = `"${config.from_name || 'Neuravolt Cloud'}" <${config.from_email || 'noreply@neuravolt.cloud'}>`;
+  const fromAddress = `"${config.from_name || 'Xarwiz'}" <${config.from_email || 'noreply@xarwiz.com'}>`;
 
   if (config.provider === 'smtp') {
     try {
@@ -211,7 +211,7 @@ export const sendPasswordReset = async (to, resetUrl) => {
 
   try {
     const { data, error } = await resend.emails.send({
-      from: 'Xarwiz AI <noreply@neuravolt.cloud>',
+      from: 'Xarwiz AI <noreply@xarwiz.com>',
       to,
       subject: 'Reset your password',
       html: `
@@ -256,7 +256,7 @@ export const sendWelcomeEmail = async (to, name) => {
 
   try {
     const { data, error } = await resend.emails.send({
-      from: 'Xarwiz AI <noreply@neuravolt.cloud>',
+      from: 'Xarwiz AI <noreply@xarwiz.com>',
       to,
       subject: 'Welcome to Xarwiz AI!',
       html: `
@@ -285,25 +285,25 @@ export const sendWelcomeEmail = async (to, name) => {
 };
 
 export const sendAccountApprovalEmail = async (to, name) => {
-  const loginUrl = process.env.USER_PORTAL_URL || 'https://app.neuravolt.cloud/login';
+  const loginUrl = process.env.USER_PORTAL_URL || 'https://app.xarwiz.com/login';
   const result = await renderAndSendTemplate('access_approval', to, { name: name || 'there', email: to, loginUrl });
   if (result.success) return result;
 
   // Fallback if template rendering fails
   return await sendEmail({
     to,
-    subject: 'Your Neuravolt Cloud Access Has Been Approved',
+    subject: 'Your Xarwiz Access Has Been Approved',
     html: `
       <div style="font-family: system-ui, -apple-system, sans-serif; padding: 24px; color: #1e293b; max-width: 600px; margin: 0 auto; border: 1px solid #e2e8f0; border-radius: 12px; background: #ffffff;">
         <h2 style="color: #6366f1; border-bottom: 2px solid #6366f1; padding-bottom: 12px; margin-top: 0;">Access Approved</h2>
         <p>Hi ${name || 'there'},</p>
-        <p>Your access to Neuravolt Cloud has been approved.</p>
+        <p>Your access to Xarwiz has been approved.</p>
         <p>You can now sign in using the email address and password you used when requesting access.</p>
         <div style="text-align: center; margin: 32px 0;">
-          <a href="${loginUrl}" style="display: inline-block; padding: 14px 28px; background-color: #6366f1; color: white; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 15px;">Sign In to Neuravolt Cloud</a>
+          <a href="${loginUrl}" style="display: inline-block; padding: 14px 28px; background-color: #6366f1; color: white; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 15px;">Sign In to Xarwiz</a>
         </div>
         <hr style="border: 0; border-top: 1px solid #e2e8f0; margin: 24px 0;" />
-        <p style="font-size: 12px; color: #94a3b8;">Neuravolt Cloud · Sovereign Enterprise AI Platform</p>
+        <p style="font-size: 12px; color: #94a3b8;">Xarwiz · Sovereign Enterprise AI Platform</p>
       </div>
     `,
     emailType: 'access_approval'
@@ -347,7 +347,7 @@ export const sendInvoiceReceipt = async (to, invoiceDetails) => {
         <!-- Header -->
         <div style="border-bottom: 1px solid #f1f5f9; padding-bottom: 20px; margin-bottom: 24px; display: flex; justify-content: space-between; align-items: center;">
           <div>
-            <h2 style="margin: 0; color: #4f46e5; font-size: 24px; font-weight: 800; letter-spacing: -0.02em;">Neuravolt Cloud</h2>
+            <h2 style="margin: 0; color: #4f46e5; font-size: 24px; font-weight: 800; letter-spacing: -0.02em;">Xarwiz</h2>
             <p style="margin: 4px 0 0 0; font-size: 12px; color: #64748b; font-weight: 600; text-transform: uppercase;">Payment Receipt</p>
           </div>
           <span style="font-size: 14px; font-weight: 700; color: #059669; background-color: #ecfdf5; border: 1px solid #a7f3d0; padding: 4px 12px; border-radius: 20px;">
@@ -357,7 +357,7 @@ export const sendInvoiceReceipt = async (to, invoiceDetails) => {
 
         <!-- Body -->
         <p style="font-size: 15px; color: #334155; line-height: 1.6;">
-          Hello, thank you for your payment to <strong>Neuravolt Cloud</strong>. Your payment for invoice <strong>#${invoiceNum}</strong> has been processed successfully.
+          Hello, thank you for your payment to <strong>Xarwiz</strong>. Your payment for invoice <strong>#${invoiceNum}</strong> has been processed successfully.
         </p>
 
         <!-- Invoice Details Box -->
@@ -399,8 +399,8 @@ export const sendInvoiceReceipt = async (to, invoiceDetails) => {
         <!-- Footer -->
         <hr style="border: 0; border-top: 1px solid #f1f5f9; margin: 28px 0 20px 0;" />
         <div style="font-size: 12px; color: #94a3b8; text-align: center; line-height: 1.5;">
-          <p style="margin: 0 0 4px 0;">Need help? Contact our support team at <a href="mailto:support@neuravolt.cloud" style="color: #6366f1; text-decoration: none;">support@neuravolt.cloud</a> or read our <a href="https://neuravolt.cloud/billing-faq" style="color: #6366f1; text-decoration: none;">Billing FAQ</a>.</p>
-          <p style="margin: 0;">Neuravolt Cloud Services India Pvt Ltd · Enterprise AI Operating System</p>
+          <p style="margin: 0 0 4px 0;">Need help? Contact our support team at <a href="mailto:support@xarwiz.com" style="color: #6366f1; text-decoration: none;">support@xarwiz.com</a> or read our <a href="https://xarwiz.com/billing-faq" style="color: #6366f1; text-decoration: none;">Billing FAQ</a>.</p>
+          <p style="margin: 0;">Xarwiz Services India Pvt Ltd · Enterprise AI Operating System</p>
         </div>
 
       </div>
@@ -416,10 +416,10 @@ export const sendInvoiceReceipt = async (to, invoiceDetails) => {
     attempts++;
     try {
       const { data, error } = await resend.emails.send({
-        from: 'Neuravolt Cloud Billing <noreply@neuravolt.cloud>',
+        from: 'Xarwiz Billing <noreply@xarwiz.com>',
         to,
-        bcc: 'billing@neuravolt.cloud',
-        subject: `Your Neuravolt Invoice — #${invoiceNum}`,
+        bcc: 'billing@xarwiz.com',
+        subject: `Your Xarwiz Invoice — #${invoiceNum}`,
         html,
       });
 
@@ -462,7 +462,7 @@ export const sendImpersonationAlert = async (to, details = {}) => {
 
   try {
     const { data, error } = await resend.emails.send({
-      from: 'Xarwiz AI <noreply@neuravolt.cloud>',
+      from: 'Xarwiz AI <noreply@xarwiz.com>',
       to,
       subject: 'Security Alert: Account Impersonation Access',
       html: `

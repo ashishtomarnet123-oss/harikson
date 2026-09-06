@@ -15,7 +15,7 @@ export class DockerService {
       console.warn(`⚠️ Orchestrator createTenantStack connection failed, simulating fallback:`, err.message);
       return {
         containerId: `mock_stack_${Math.random().toString(36).substring(7)}`,
-        domain: `${name}.neuravolt.cloud`,
+        domain: `${name}.xarwiz.com`,
       };
     }
   }

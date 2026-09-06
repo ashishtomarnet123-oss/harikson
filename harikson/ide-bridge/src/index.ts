@@ -34,7 +34,7 @@ io.on('connection', (socket) => {
         } else if (data.prefix.trim().endsWith('const')) {
           completion = " express = require('express');";
         } else {
-          completion = ' // Autocompleted by Neuravolt AI';
+          completion = ' // Autocompleted by Xarwiz AI';
         }
 
         callback({ completion });

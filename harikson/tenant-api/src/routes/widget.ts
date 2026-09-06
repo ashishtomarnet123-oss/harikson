@@ -31,7 +31,7 @@ function extractRequestOrigin(req: Request): string {
 // GET /widget.js - Dynamic chat widget loader with strict origin validation & HMAC verification
 router.get('/widget.js', async (req: Request, res: Response) => {
   try {
-    const tenantSlug = (req.query.tenant as string) || 'neuravolt';
+    const tenantSlug = (req.query.tenant as string) || 'default';
     const color = (req.query.color as string) || '#8b5cf6';
     const welcome = (req.query.welcome as string) || 'Hello! How can I help you today?';
     const timestamp = (req.query.ts as string) || '';
@@ -99,7 +99,7 @@ router.get('/widget.js', async (req: Request, res: Response) => {
 
     const jsScript = `
 (function() {
-  console.log("⚡ [Neuravolt Chat Widget] Initializing for origin: ${requestOrigin || 'local'}");
+  console.log("⚡ [Xarwiz Chat Widget] Initializing for origin: ${requestOrigin || 'local'}");
 
   const launcher = document.createElement("div");
   launcher.id = "nv-chat-launcher";
@@ -213,7 +213,7 @@ router.get('/widget.js', async (req: Request, res: Response) => {
 // POST /api/widget/chat - Rate limited widget message execution & origin analytics
 router.post('/api/widget/chat', async (req: Request, res: Response) => {
   try {
-    const tenantSlug = (req.headers['x-tenant-slug'] as string) || req.body?.tenantSlug || 'neuravolt';
+    const tenantSlug = (req.headers['x-tenant-slug'] as string) || req.body?.tenantSlug || 'default';
     const { message, origin: clientOrigin } = req.body;
     const requestOrigin = extractRequestOrigin(req) || clientOrigin || 'unknown';
 

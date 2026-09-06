@@ -114,7 +114,7 @@ async function handleLogin(req: any, res: any) {
           WHERE id = $2`;
         queryParams = [failCount, user.id, unlockTokenHash];
 
-        const unlockUrl = `https://app.neuravolt.cloud/unlock-account?token=${unlockToken}`;
+        const unlockUrl = `https://xarwiz.com/unlock-account?token=${unlockToken}`;
         sendAccountLockoutAlert(user.email, unlockUrl, durationText).catch((err) =>
           logger.error('[ACCOUNT LOCKOUT ALERT ERROR]:', err.message)
         );
@@ -173,7 +173,7 @@ async function handleLogin(req: any, res: any) {
     }
 
     let resolvedTenantId = req.tenant?.id || user.tenant_id;
-    let resolvedTenantSlug = req.tenant?.slug || 'neuravolt';
+    let resolvedTenantSlug = req.tenant?.slug || 'default';
     if (user.tenant_id !== req.tenant?.id) {
       const tenantRes = await pool.query('SELECT slug FROM tenants WHERE id = $1', [user.tenant_id]);
       if (tenantRes.rows.length > 0) {
@@ -209,7 +209,7 @@ async function handleLogin(req: any, res: any) {
     );
 
     const host = req.headers.host || '';
-    const domainSuffix = host.includes('neuravolt.cloud') ? '; Domain=.neuravolt.cloud' : '';
+    const domainSuffix = host.includes('xarwiz.com') ? '; Domain=.xarwiz.com' : '';
     const isHttps = req.headers['x-forwarded-proto'] === 'https' || (req.socket as any)?.encrypted;
     const secureFlag = isHttps ? 'Secure;' : '';
 
@@ -316,7 +316,7 @@ async function handleRegister(req: any, res: any) {
       [tenantId, 'sub_trial_' + crypto.randomBytes(8).toString('hex')]
     ).catch(() => {});
 
-    const verifyUrl = `https://app.neuravolt.cloud/verify-email?token=${verificationToken}`;
+    const verifyUrl = `https://xarwiz.com/verify-email?token=${verificationToken}`;
     sendVerificationEmail(user.email, verifyUrl).catch((err) =>
       logger.error('Failed to send verification email:', err?.message || err)
     );
@@ -410,7 +410,7 @@ router.post('/login/2fa', async (req, res) => {
     );
 
     const host = req.headers.host || '';
-    const domainSuffix = host.includes('neuravolt.cloud') ? '; Domain=.neuravolt.cloud' : '';
+    const domainSuffix = host.includes('xarwiz.com') ? '; Domain=.xarwiz.com' : '';
     const isHttps = req.headers['x-forwarded-proto'] === 'https' || (req.socket as any)?.encrypted;
     const secureFlag = isHttps ? 'Secure;' : '';
 
@@ -465,7 +465,7 @@ async function handleRefresh(req: any, res: any) {
         rtRecord.refresh_token_family,
       ]);
       const host = req.headers.host || '';
-      const domainSuffix = host.includes('neuravolt.cloud') ? '; Domain=.neuravolt.cloud' : '';
+      const domainSuffix = host.includes('xarwiz.com') ? '; Domain=.xarwiz.com' : '';
       res.setHeader('Set-Cookie', [
         `hk_access_token=; HttpOnly; SameSite=Strict; Path=/; Max-Age=0${domainSuffix}`,
         `hk_refresh_token=; HttpOnly; SameSite=Strict; Path=/; Max-Age=0${domainSuffix}`,
@@ -512,7 +512,7 @@ async function handleRefresh(req: any, res: any) {
     );
 
     const host = req.headers.host || '';
-    const domainSuffix = host.includes('neuravolt.cloud') ? '; Domain=.neuravolt.cloud' : '';
+    const domainSuffix = host.includes('xarwiz.com') ? '; Domain=.xarwiz.com' : '';
     const isHttps = req.headers['x-forwarded-proto'] === 'https' || (req.socket as any)?.encrypted;
     const secureFlag = isHttps ? 'Secure;' : '';
 
@@ -544,7 +544,7 @@ async function handleLogout(req: any, res: any) {
   }
 
   const host = req.headers.host || '';
-  const domainSuffix = host.includes('neuravolt.cloud') ? '; Domain=.neuravolt.cloud' : '';
+  const domainSuffix = host.includes('xarwiz.com') ? '; Domain=.xarwiz.com' : '';
   res.setHeader('Set-Cookie', [
     `hk_access_token=; HttpOnly; SameSite=Strict; Path=/; Max-Age=0${domainSuffix}`,
     `hk_refresh_token=; HttpOnly; SameSite=Strict; Path=/; Max-Age=0${domainSuffix}`,
@@ -574,7 +574,7 @@ async function handleForgotPassword(req: any, res: any) {
       [resetTokenHash, expiresAt, userRes.rows[0].id]
     );
 
-    const resetUrl = `https://app.neuravolt.cloud/reset-password?token=${resetToken}`;
+    const resetUrl = `https://xarwiz.com/reset-password?token=${resetToken}`;
     sendPasswordReset(email, resetUrl).catch((err) => logger.error('Failed to send password reset email:', err));
 
     res.json({ message: 'If that email exists, a password reset link has been sent.' });
@@ -657,13 +657,13 @@ import { generatePasskeyAuthOptions } from '../services/webauthnService.js';
 
 // LOW-017: OAuth Google Login Redirect
 router.get('/google', (req, res) => {
-  const redirectUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${process.env.GOOGLE_CLIENT_ID || 'mock_google_id'}&redirect_uri=https://app.neuravolt.cloud/login?sso=google&response_type=code&scope=email%20profile`;
+  const redirectUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${process.env.GOOGLE_CLIENT_ID || 'mock_google_id'}&redirect_uri=https://xarwiz.com/login?sso=google&response_type=code&scope=email%20profile`;
   res.redirect(redirectUrl);
 });
 
 // LOW-017: OAuth Microsoft Login Redirect
 router.get('/microsoft', (req, res) => {
-  const redirectUrl = `https://login.microsoftonline.com/common/oauth2/v2.0/authorize?client_id=${process.env.MICROSOFT_CLIENT_ID || 'mock_ms_id'}&redirect_uri=https://app.neuravolt.cloud/login?sso=microsoft&response_type=code&scope=openid%20email%20profile`;
+  const redirectUrl = `https://login.microsoftonline.com/common/oauth2/v2.0/authorize?client_id=${process.env.MICROSOFT_CLIENT_ID || 'mock_ms_id'}&redirect_uri=https://xarwiz.com/login?sso=microsoft&response_type=code&scope=openid%20email%20profile`;
   res.redirect(redirectUrl);
 });
 
@@ -720,7 +720,7 @@ async function handleMe(req: any, res: any) {
       });
     }
     const tenantRes = await pool.query('SELECT slug FROM tenants WHERE id = $1', [user.tenant_id]);
-    const tenantSlug = tenantRes.rows[0]?.slug || req.tenant?.slug || 'neuravolt';
+    const tenantSlug = tenantRes.rows[0]?.slug || req.tenant?.slug || 'default';
 
     res.json({
       id: user.id,

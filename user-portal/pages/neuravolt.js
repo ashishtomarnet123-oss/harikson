@@ -1126,7 +1126,7 @@ export default function NeuravoltLandingPage() {
                 </ul>
               </div>
               <div>
-                <a href="mailto:sales@neuravolt.cloud" class="btn-hero-primary" style={{ width: '100%' }}>Talk to Sales Team</a>
+                <a href="mailto:sales@xarwiz.com" class="btn-hero-primary" style={{ width: '100%' }}>Talk to Sales Team</a>
                 <div class="waitlist-avatars-row" style={{ justifyContent: 'center', marginTop: 8 }}>
                   <div class="avatar-stack">
                     <img src="/assets/user-avatar.jpg" alt="Team" />

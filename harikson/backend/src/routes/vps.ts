@@ -14,7 +14,7 @@ router.get('/', async (req: AuthenticatedAdminRequest, res: Response) => {
     const mockNodes = [
       {
         id: 'node-primary-mumbai',
-        name: 'Neuravolt VPS Node 01',
+        name: 'Xarwiz VPS Node 01',
         ip: '45.194.2.244',
         region: 'ap-south-1 (Mumbai)',
         status: 'ONLINE',

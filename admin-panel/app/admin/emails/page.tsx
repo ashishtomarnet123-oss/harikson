@@ -119,7 +119,7 @@ export default function AdminEmailsPage() {
     smtp_user: '',
     smtp_pass: '',
     smtp_secure: true,
-    from_email: 'noreply@neuravolt.cloud',
+    from_email: 'noreply@xarwiz.com',
     from_name: 'Xarwiz Cloud'
   });
   const [testingSmtp, setTestingSmtp] = useState<boolean>(false);
@@ -758,7 +758,7 @@ export default function AdminEmailsPage() {
                         __html: selectedTemplate.body_html
                           .replace(/\{\{name\}\}/g, 'John Doe')
                           .replace(/\{\{email\}\}/g, 'user@example.com')
-                          .replace(/\{\{loginUrl\}\}/g, 'https://app.neuravolt.cloud/login')
+                          .replace(/\{\{loginUrl\}\}/g, 'https://xarwiz.com/login')
                       }}
                     />
                   </div>
@@ -893,7 +893,7 @@ export default function AdminEmailsPage() {
                   type="email"
                   value={smtpConfig.from_email || ''}
                   onChange={(e) => setSmtpConfig({ ...smtpConfig, from_email: e.target.value })}
-                  placeholder="noreply@neuravolt.cloud"
+                  placeholder="noreply@xarwiz.com"
                   className="w-full px-3 py-2 rounded-xl bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 outline-none text-gray-900 dark:text-white"
                 />
               </div>

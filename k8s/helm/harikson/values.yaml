@@ -101,30 +101,30 @@ ingress:
     nginx.ingress.kubernetes.io/ssl-redirect: 'true'
     nginx.ingress.kubernetes.io/proxy-body-size: '50m'
   hosts:
-    - host: admin.neuravolt.cloud
+    - host: admin.xarwiz.com
       paths:
         - path: /
           pathType: Prefix
           backend: adminPanel
-    - host: api.neuravolt.cloud
+    - host: api.xarwiz.com
       paths:
         - path: /
           pathType: Prefix
           backend: tenantApi
-    - host: admin-api.neuravolt.cloud
+    - host: admin-api.xarwiz.com
       paths:
         - path: /
           pathType: Prefix
           backend: adminApi
-    - host: '*.neuravolt.cloud'
+    - host: '*.xarwiz.com'
       paths:
         - path: /
           pathType: Prefix
           backend: userPortal
   tls:
-    - secretName: neuravolt-cloud-tls
+    - secretName: xarwiz-com-tls
       hosts:
-        - admin.neuravolt.cloud
-        - api.neuravolt.cloud
-        - admin-api.neuravolt.cloud
-        - '*.neuravolt.cloud'
+        - admin.xarwiz.com
+        - api.xarwiz.com
+        - admin-api.xarwiz.com
+        - '*.xarwiz.com'

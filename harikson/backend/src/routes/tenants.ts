@@ -98,12 +98,12 @@ router.post('/', async (req: AuthenticatedAdminRequest, res: Response) => {
 
     // Check for collisions
     const existing = await prisma.tenant.findUnique({
-      where: { domain: `${name}.neuravolt.cloud` },
+      where: { domain: `${name}.xarwiz.com` },
     });
     if (existing) {
       return res
         .status(400)
-        .json({ error: `Subdomain ${name}.neuravolt.cloud is already in use` });
+        .json({ error: `Subdomain ${name}.xarwiz.com is already in use` });
     }
 
     const result = await billingService.handleSignup(check.data);
@@ -150,7 +150,7 @@ router.post(
         },
       });
 
-      await billingService.emailUser(tenant.email || 'user@neuravolt.cloud', {
+      await billingService.emailUser(tenant.email || 'user@xarwiz.com', {
         subject: 'Xarwiz Request Update',
         body: `Your request has been rejected. Reason: ${req.body.reason || 'Not specified'}`,
       });

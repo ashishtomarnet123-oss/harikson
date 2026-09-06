@@ -9,7 +9,7 @@ export function getApiBaseUrl(): string {
   // no explicit port) must go through *this* Next.js server's own
   // rewrites() proxy (same origin) rather than a separate absolute API
   // domain — that domain can be renamed/migrated (as happened moving from
-  // api.neuravolt.cloud to xarwiz.com) without ever needing a matching
+  // a different domain) without ever needing a matching
   // frontend code change, since the browser never needs to know it exists.
   // This used to also require window.location.port to be set, which meant
   // bare-domain access (no port, e.g. https://xarwiz.com) fell through to
@@ -23,7 +23,7 @@ export function getApiBaseUrl(): string {
     if (saved && saved.trim()) {
       const trimmed = saved.trim();
       const isStale = /:3008$/.test(trimmed) || (isDirectAccess && /^https?:\/\//.test(trimmed));
-      const ALLOWED_ORIGINS = /^https?:\/\/(.*\.)?(neuravolt\.cloud|xarwiz\.com|localhost(:\d+)?)$/;
+      const ALLOWED_ORIGINS = /^https?:\/\/(.*\.)?xarwiz\.com|localhost(:\d+)?$/;
       const isAllowed = !trimmed.startsWith('http') || ALLOWED_ORIGINS.test(trimmed);
       if (!isStale && isAllowed) {
         return trimmed;
@@ -68,7 +68,7 @@ export function getTenantSlug(): string {
   const hostname = window.location.hostname;
   if (hostname.includes('.') && !hostname.startsWith('localhost') && !/^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(hostname)) {
     const firstSegment = hostname.split('.')[0];
-    const reservedSubdomains = ['app', 'www', 'api', 'admin', 'neuravolt'];
+    const reservedSubdomains = ['app', 'www', 'api', 'admin'];
     if (firstSegment && !reservedSubdomains.includes(firstSegment.toLowerCase())) {
       return firstSegment.toLowerCase();
     }

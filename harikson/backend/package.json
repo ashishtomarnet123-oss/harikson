@@ -1,7 +1,7 @@
 {
   "name": "harikson-backend",
   "version": "1.0.0",
-  "description": "Neuravolt-Harikson Admin API Control Plane",
+  "description": "Xarwiz-Harikson Admin API Control Plane",
   "main": "dist/index.js",
   "type": "module",
   "scripts": {

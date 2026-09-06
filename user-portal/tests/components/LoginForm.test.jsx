@@ -4,8 +4,8 @@ import '@testing-library/jest-dom';
 
 describe('User Portal Component Tests', () => {
   it('renders login form input fields and CTA button', () => {
-    const titleText = 'Sign in to Neuravolt';
-    expect(titleText).toBe('Sign in to Neuravolt');
+    const titleText = 'Sign in to Xarwiz';
+    expect(titleText).toBe('Sign in to Xarwiz');
   });
 
   it('validates email format and required password field', () => {

@@ -16,7 +16,7 @@ export async function createTestTenant(overrides: Record<string, any> = {}) {
 }
 
 export async function createTestUser(tenantId: string, overrides: Record<string, any> = {}) {
-  const email = overrides.email || `user-${crypto.randomBytes(4).toString('hex')}@neuravolt.cloud`;
+  const email = overrides.email || `user-${crypto.randomBytes(4).toString('hex')}@xarwiz.com`;
   const role = overrides.role || 'user';
   const passwordHash = '$2b$10$abcdefghijklmnopqrstuu'; // Dummy hash for testing
 

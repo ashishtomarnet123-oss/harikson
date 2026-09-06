@@ -58,7 +58,7 @@ export default function BillingProvidersPage() {
     if (typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')) {
       return `${window.location.protocol}//${window.location.hostname}:4000/webhooks/${type}`;
     }
-    return `https://admin-api.neuravolt.cloud/webhooks/${type}`;
+    return `https://admin-api.xarwiz.com/webhooks/${type}`;
   };
 
   const fetchData = async () => {

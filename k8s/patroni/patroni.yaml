@@ -4,9 +4,9 @@ name: pg-node-1
 
 etcd3:
   hosts:
-    - etcd-1.internal.neuravolt.cloud:2379
-    - etcd-2.internal.neuravolt.cloud:2379
-    - etcd-3.internal.neuravolt.cloud:2379
+    - etcd-1.internal.xarwiz.com:2379
+    - etcd-2.internal.xarwiz.com:2379
+    - etcd-3.internal.xarwiz.com:2379
 
 bootstrap:
   dcs:
@@ -38,7 +38,7 @@ bootstrap:
 
 postgresql:
   listen: 0.0.0.0:5432
-  connect_address: pg-node-1.internal.neuravolt.cloud:5432
+  connect_address: pg-node-1.internal.xarwiz.com:5432
   data_dir: /var/lib/postgresql/data
   bin_dir: /usr/lib/postgresql/15/bin
   pgpass: /var/lib/postgresql/.pgpass

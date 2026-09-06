@@ -2,7 +2,7 @@ import dns from 'dns/promises';
 import { pool, invalidateTenantCache } from '../db/pool.js';
 import logger from '../utils/logger.js';
 
-const TARGET_CNAME = process.env.CUSTOM_DOMAIN_TARGET_CNAME || 'neuravolt.cloud';
+const TARGET_CNAME = process.env.CUSTOM_DOMAIN_TARGET_CNAME || 'xarwiz.com';
 
 /**
  * Validate DNS CNAME record for custom domain and save to tenant.

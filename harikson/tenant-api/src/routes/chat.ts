@@ -67,7 +67,7 @@ router.post('/', async (req: Request, res: Response) => {
     }
 
     const systemPrompt =
-      'You are a professional, white-labeled AI support agent deployed via Neuravolt Cloud. Help customers with their requests.';
+      'You are a professional, white-labeled AI support agent deployed via Xarwiz Cloud. Help customers with their requests.';
     const response = await OllamaService.generate(enrichedPrompt, systemPrompt);
 
     // Call memory extraction in a background fire-and-forget task

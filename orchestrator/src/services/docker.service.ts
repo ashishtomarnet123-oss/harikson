@@ -48,7 +48,7 @@ export class DockerService {
     plan: string,
     apps: string[]
   ): Promise<{ containerId: string; domain: string }> {
-    const domain = `${name}.neuravolt.cloud`;
+    const domain = `${name}.xarwiz.com`;
 
     if (this.isMockMode) {
       console.log(
@@ -354,7 +354,7 @@ export class DockerService {
     plan: string,
     agentType: string
   ): Promise<{ containerId: string; domain: string }> {
-    const domain = `${name}.neuravolt.cloud`;
+    const domain = `${name}.xarwiz.com`;
 
     if (this.isMockMode) {
       return {

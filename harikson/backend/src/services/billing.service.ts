@@ -48,7 +48,7 @@ export class BillingService {
     const tenant = await prisma.tenant.create({
       data: {
         name: data.name,
-        domain: `${data.name}.neuravolt.cloud`,
+        domain: `${data.name}.xarwiz.com`,
         plan: data.plan || 'STARTER',
         agentType: data.agentType || 'CHAT',
         model: data.model || 'qwen3-coder-8b',
@@ -81,7 +81,7 @@ export class BillingService {
     const tenant = await prisma.tenant.create({
       data: {
         name: data.name,
-        domain: `${data.name}.neuravolt.cloud`,
+        domain: `${data.name}.xarwiz.com`,
         plan: data.plan || 'STARTER',
         agentType: data.agentType || 'CHAT',
         model: data.model || 'qwen3-coder-8b',
@@ -171,7 +171,7 @@ export class BillingService {
         order_currency: 'INR',
         customer_details: {
           customer_id: tenant.id,
-          customer_email: tenant.email || 'support@neuravolt.cloud',
+          customer_email: tenant.email || 'support@xarwiz.com',
           customer_phone: tenant.phone || '9999999999',
         },
       }),
@@ -222,7 +222,7 @@ export class BillingService {
     });
 
     // Email user
-    await this.emailUser(tenant.email || 'user@neuravolt.cloud', {
+    await this.emailUser(tenant.email || 'user@xarwiz.com', {
       subject: 'Your Xarwiz AI Agent is Ready!',
       body: `Your agent is deployed at: https://${deployment.domain}`,
     });

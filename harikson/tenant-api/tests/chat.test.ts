@@ -14,7 +14,7 @@ describe('Tenant API - Chat & RAG Streaming Test Suite', () => {
 
   it('POST /chat - creates conversation and returns active ID', async () => {
     const tenant = await createTestTenant({ slug: 'chat-org' });
-    const user = await createTestUser(tenant.id, { email: 'chatuser@neuravolt.cloud' });
+    const user = await createTestUser(tenant.id, { email: 'chatuser@xarwiz.com' });
 
     const res = await pool.query(
       `INSERT INTO conversations (tenant_id, user_id, title)
