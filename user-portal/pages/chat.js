@@ -1046,14 +1046,14 @@ function ChatPage() {
     fetchFreshProfile();
   }, [router]);
 
-  /* ── Load conversations once token is ready ── */
+  /* ── Load conversations once user is ready ── */
   useEffect(() => {
-    if (token) fetchConversations();
-  }, [token]);
+    if (user) fetchConversations();
+  }, [user]);
 
   /* ── Load shared conversation link if present on mount or URL change ── */
   useEffect(() => {
-    if (token && router.isReady) {
+    if (user && router.isReady) {
       const urlConvId = router.query.conversation;
 
       // If we just triggered a new chat, skip this effect run.
