@@ -35,6 +35,7 @@ import agentRoutes from './routes/agent.routes.js';
 import widgetRoutes from './routes/widget.routes.js';
 import adminRoutes from './routes/admin.routes.js';
 import integrationsRoutes from './routes/integrations.routes.js';
+import workflowRoutes from './routes/workflow.routes.js';
 
 // Import existing API sub-routers
 import chatRouter from './routes/chat.js';
@@ -226,6 +227,8 @@ app.use('/api/widget', widgetRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/integrations', integrationsRoutes);
 app.use('/api/v1/integrations', integrationsRoutes);
+app.use('/api/workflows', workflowRoutes);
+app.use('/api/v1/workflows', workflowRoutes);
 // Google's registered OAuth redirect_uri is .../api/v1/user/integrations/google/callback
 // (set up before the /api/integrations prefix above existed) — mounted here
 // too so that exact, already-registered URL keeps resolving correctly.

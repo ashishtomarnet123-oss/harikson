@@ -16,6 +16,8 @@ function WorkflowsPage() {
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [triggerType, setTriggerType] = useState('manual');
+  const [cronExpression, setCronExpression] = useState('');
+  const [webhookSecret, setWebhookSecret] = useState('');
   const [status, setStatus] = useState('active');
   const [steps, setSteps] = useState([]);
   const [saving, setSaving] = useState(false);
@@ -27,6 +29,11 @@ function WorkflowsPage() {
   const [selectedWorkflowForHistory, setSelectedWorkflowForHistory] = useState(null);
   const [executions, setExecutions] = useState([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
+
+  // Run State & Toast
+  const [runningWorkflowId, setRunningWorkflowId] = useState(null);
+  const [runToast, setRunToast] = useState(null);
+  const [copiedWebhookId, setCopiedWebhookId] = useState(null);
 
   const [apiBase, setApiBase] = useState('');
   const [tenantSlug, setTenantSlug] = useState('system');
@@ -44,8 +51,8 @@ function WorkflowsPage() {
       steps: [
         { id: 1, type: 'filter', value: 'Filter: Check if request payload contains customer email & message' },
         { id: 2, type: 'prompt', value: 'Classify intent (Billing, Technical, Account) and draft high-priority reply' },
-        { id: 3, type: 'email', value: 'Dispatch transactional approval notification to support@xarwiz.com' },
-        { id: 4, type: 'webhook', value: 'Post resolution payload to CRM webhook' }
+        { id: 3, type: 'email', value: 'Dispatch transactional notification to support@xarwiz.com' },
+        { id: 4, type: 'webhook', value: 'https://httpbin.org/post' }
       ]
     },
     {
@@ -53,13 +60,14 @@ function WorkflowsPage() {
       name: 'Daily Knowledge Base Vector Sync',
       description: 'Scrape workspace document repositories every morning and re-index embeddings into PgVector.',
       trigger_type: 'cron',
+      cron_expression: '0 6 * * *',
       status: 'active',
       icon: '📚',
       badge: 'RAG & Vector Search',
       steps: [
-        { id: 1, type: 'rag_search', value: 'Fetch latest PDF & markdown files updated in workspace repository' },
+        { id: 1, type: 'rag_search', value: 'Latest platform features, billing questions, and API docs' },
         { id: 2, type: 'prompt', value: 'Extract key entity summaries and chunk text into 512-token segments' },
-        { id: 3, type: 'rag_search', value: 'Generate embeddings and insert into PgVector index' }
+        { id: 3, type: 'prompt', value: 'Verify index consistency across all tenant document tables' }
       ]
     },
     {
@@ -71,8 +79,9 @@ function WorkflowsPage() {
       icon: '✉️',
       badge: 'Document Automation',
       steps: [
-        { id: 1, type: 'prompt', value: 'Summarize uploaded document in 3 executive bullet points and action items' },
-        { id: 2, type: 'email', value: 'Send summary email to team leads' }
+        { id: 1, type: 'rag_search', value: 'Summary of executive contract and enterprise SLA terms' },
+        { id: 2, type: 'prompt', value: 'Summarize uploaded document in 3 executive bullet points and action items' },
+        { id: 3, type: 'email', value: 'team-leads@xarwiz.com' }
       ]
     },
     {
@@ -85,8 +94,8 @@ function WorkflowsPage() {
       badge: 'Monitoring & Alerts',
       steps: [
         { id: 1, type: 'prompt', value: 'Analyze text sentiment (Positive, Neutral, Negative) and score 1-10' },
-        { id: 2, type: 'filter', value: 'Filter: Trigger alert only if sentiment is Negative and score < 4' },
-        { id: 3, type: 'webhook', value: 'Post urgent alert payload to Slack / Discord webhook' }
+        { id: 2, type: 'filter', value: 'Negative' },
+        { id: 3, type: 'webhook', value: 'https://httpbin.org/post' }
       ]
     }
   ];
@@ -102,10 +111,6 @@ function WorkflowsPage() {
       window.location.hostname !== 'localhost' &&
       window.location.hostname !== '127.0.0.1';
     let savedApiBase = localStorage.getItem('hk_api_base');
-    // Discard any stale cached value: the old tenant-api-fixed-port bug
-    // (`:3008`, no longer valid), or any absolute URL when accessed via a
-    // raw IP:port — route through this same origin's own Next.js proxy
-    // instead of a separate domain in that case.
     if (
       !savedApiBase ||
       /:3008$/.test(savedApiBase) ||
@@ -121,8 +126,64 @@ function WorkflowsPage() {
   }, []);
 
   const fetchWorkflows = async (base, tenant) => {
-    setLoading(false);
-    setWorkflows([]);
+    setLoading(true);
+    try {
+      const res = await fetch(`${base}/api/workflows`, {
+        credentials: 'include',
+        headers: {
+          'x-tenant-slug': tenant || 'system',
+        },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setWorkflows(Array.isArray(data) ? data : []);
+      } else {
+        setWorkflows([]);
+      }
+    } catch (err) {
+      console.error('Fetch workflows error:', err);
+      setWorkflows([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleRunWorkflow = async (wf) => {
+    setRunningWorkflowId(wf.id);
+    try {
+      const res = await fetch(`${apiBase}/api/workflows/${wf.id}/run`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-tenant-slug': tenantSlug,
+        },
+        body: JSON.stringify({}),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to run workflow');
+      
+      setRunToast({
+        type: data.status === 'completed' || data.success ? 'success' : 'error',
+        message: data.status === 'completed'
+          ? `Workflow "${wf.name}" completed in ${data.durationMs || 0}ms!`
+          : `Workflow execution finished with status: ${data.status || 'running'}`,
+      });
+      setTimeout(() => setRunToast(null), 6000);
+      fetchWorkflows(apiBase, tenantSlug);
+
+      if (selectedWorkflowForHistory && selectedWorkflowForHistory.id === wf.id) {
+        handleFetchExecutions(wf);
+      }
+    } catch (err) {
+      setRunToast({
+        type: 'error',
+        message: `Run failed: ${err.message}`,
+      });
+      setTimeout(() => setRunToast(null), 6000);
+    } finally {
+      setRunningWorkflowId(null);
+    }
   };
 
   const handleOpenNew = () => {
@@ -131,8 +192,10 @@ function WorkflowsPage() {
     setName('');
     setDescription('');
     setTriggerType('manual');
+    setCronExpression('');
+    setWebhookSecret('');
     setStatus('active');
-    setSteps([{ id: 1, type: 'prompt', value: 'Generate a response using LLM' }]);
+    setSteps([{ id: 1, type: 'prompt', value: 'Analyze input and generate structured response using LLM' }]);
   };
 
   const handleApplyTemplate = (template) => {
@@ -141,6 +204,8 @@ function WorkflowsPage() {
     setName(template.name);
     setDescription(template.description);
     setTriggerType(template.trigger_type);
+    setCronExpression(template.cron_expression || '');
+    setWebhookSecret('');
     setStatus(template.status);
     setSteps(template.steps);
     setShowTemplateModal(false);
@@ -152,8 +217,10 @@ function WorkflowsPage() {
     setName(wf.name);
     setDescription(wf.description || '');
     setTriggerType(wf.trigger_type || 'manual');
+    setCronExpression(wf.cron_expression || '');
+    setWebhookSecret(wf.webhook_secret || '');
     setStatus(wf.status || 'active');
-    setSteps(wf.steps || []);
+    setSteps(Array.isArray(wf.steps) ? wf.steps : (typeof wf.steps === 'string' ? JSON.parse(wf.steps || '[]') : []));
   };
 
   const handleAddStep = () => {
@@ -188,6 +255,8 @@ function WorkflowsPage() {
           name,
           description,
           trigger_type: triggerType,
+          cron_expression: cronExpression || null,
+          webhook_secret: webhookSecret || null,
           status,
           steps,
         }),
@@ -242,12 +311,21 @@ function WorkflowsPage() {
         throw new Error(data.error || 'Failed to fetch execution history');
       }
       const data = await res.json();
-      setExecutions(data);
+      setExecutions(Array.isArray(data) ? data : []);
     } catch (err) {
       alert(err.message);
     } finally {
       setLoadingHistory(false);
     }
+  };
+
+  const handleCopyWebhook = (wfId) => {
+    const url = typeof window !== 'undefined'
+      ? `${window.location.origin}/api/workflows/${wfId}/trigger`
+      : `/api/workflows/${wfId}/trigger`;
+    navigator.clipboard.writeText(url);
+    setCopiedWebhookId(wfId);
+    setTimeout(() => setCopiedWebhookId(null), 3000);
   };
 
   const getStepBadgeColor = (type) => {
@@ -276,6 +354,35 @@ function WorkflowsPage() {
         padding: '36px 24px',
         boxSizing: 'border-box'
       }}>
+        {/* Floating Notification Toast */}
+        {runToast && (
+          <div style={{
+            position: 'fixed',
+            top: '24px',
+            right: '24px',
+            zIndex: 9999,
+            background: runToast.type === 'success' ? '#065f46' : '#991b1b',
+            color: 'white',
+            padding: '14px 22px',
+            borderRadius: '12px',
+            boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.2)',
+            fontSize: '13px',
+            fontWeight: '700',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '10px'
+          }}>
+            <span>{runToast.type === 'success' ? '✅' : '❌'}</span>
+            <span>{runToast.message}</span>
+            <button
+              onClick={() => setRunToast(null)}
+              style={{ background: 'none', border: 'none', color: 'white', cursor: 'pointer', marginLeft: '10px', fontSize: '14px' }}
+            >
+              ✕
+            </button>
+          </div>
+        )}
+
         <div style={{ maxWidth: '1240px', margin: '0 auto' }}>
           {/* Header */}
           <div style={{
@@ -359,42 +466,40 @@ function WorkflowsPage() {
             </div>
           </div>
 
-          {error && (
-            <div style={{
-              padding: '16px 20px',
-              borderRadius: '14px',
-              background: '#fef2f2',
-              border: '1px solid #fecaca',
-              color: '#991b1b',
-              fontSize: '14px',
-              fontWeight: '600',
-              marginBottom: '24px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between'
-            }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <span>⚠️</span> {error}
-              </div>
-              <button
-                onClick={() => fetchWorkflows(apiBase, tenantSlug)}
-                style={{
-                  padding: '6px 14px',
-                  background: '#991b1b',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '8px',
-                  fontSize: '12px',
-                  fontWeight: 'bold',
-                  cursor: 'pointer'
-                }}
-              >
-                Retry
-              </button>
+          {/* Quick Metrics Bar */}
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+            gap: '16px',
+            marginBottom: '28px'
+          }}>
+            <div style={{ background: '#ffffff', padding: '20px', borderRadius: '16px', border: '1px solid #e2e8f0' }}>
+              <span style={{ fontSize: '11px', fontWeight: '800', color: '#64748b', textTransform: 'uppercase' }}>Active Workflows</span>
+              <h2 style={{ fontSize: '28px', fontWeight: '900', margin: '6px 0 0 0', color: '#0f172a' }}>
+                {workflows.filter(w => w.status === 'active').length}
+              </h2>
             </div>
-          )}
+            <div style={{ background: '#ffffff', padding: '20px', borderRadius: '16px', border: '1px solid #e2e8f0' }}>
+              <span style={{ fontSize: '11px', fontWeight: '800', color: '#64748b', textTransform: 'uppercase' }}>Total Executions</span>
+              <h2 style={{ fontSize: '28px', fontWeight: '900', margin: '6px 0 0 0', color: '#0f172a' }}>
+                {workflows.reduce((acc, w) => acc + (parseInt(w.execution_count || w.total_runs || 0, 10)), 0)}
+              </h2>
+            </div>
+            <div style={{ background: '#ffffff', padding: '20px', borderRadius: '16px', border: '1px solid #e2e8f0' }}>
+              <span style={{ fontSize: '11px', fontWeight: '800', color: '#64748b', textTransform: 'uppercase' }}>Connected Triggers</span>
+              <h2 style={{ fontSize: '28px', fontWeight: '900', margin: '6px 0 0 0', color: '#0f172a' }}>
+                {workflows.filter(w => w.trigger_type === 'webhook' || w.trigger_type === 'cron').length}
+              </h2>
+            </div>
+            <div style={{ background: '#ffffff', padding: '20px', borderRadius: '16px', border: '1px solid #e2e8f0' }}>
+              <span style={{ fontSize: '11px', fontWeight: '800', color: '#64748b', textTransform: 'uppercase' }}>Execution Engine</span>
+              <h2 style={{ fontSize: '18px', fontWeight: '900', margin: '10px 0 0 0', color: '#16a34a', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                ● Online (BullMQ)
+              </h2>
+            </div>
+          </div>
 
-          {/* Workflow Cards Grid */}
+          {/* Workflow Cards Grid or Empty State */}
           {loading ? (
             <div style={{
               background: '#ffffff',
@@ -416,14 +521,14 @@ function WorkflowsPage() {
               textAlign: 'center',
               boxShadow: '0 4px 20px -2px rgba(0, 0, 0, 0.02)'
             }}>
-              <div style={{ fontSize: '48px', marginBottom: '16px' }}>🚧</div>
+              <div style={{ fontSize: '48px', marginBottom: '16px' }}>⚡</div>
               <h3 style={{ fontSize: '20px', fontWeight: '800', margin: '0 0 8px 0', color: '#0f172a' }}>
-                Workflows — Coming Soon
+                No Autonomous Workflows Yet
               </h3>
-              <p style={{ color: '#64748b', fontSize: '14px', maxWidth: '500px', margin: '0 auto 24px auto' }}>
-                Multi-step AI workflow pipelines are under active development. This feature will let you connect webhooks, LLMs, and actions into automated sequences.
+              <p style={{ color: '#64748b', fontSize: '14px', maxWidth: '520px', margin: '0 auto 24px auto', lineHeight: '1.6' }}>
+                Create your first automated workflow pipeline. Connect Ollama LLMs, PgVector knowledge retrieval, outgoing webhooks, and email notifications into multi-step autonomous pipelines.
               </p>
-              <div style={{ display: 'flex', justify: 'center', gap: '12px' }}>
+              <div style={{ display: 'flex', justifyContent: 'center', gap: '12px' }}>
                 <button
                   onClick={() => setShowTemplateModal(true)}
                   style={{
@@ -437,7 +542,7 @@ function WorkflowsPage() {
                     cursor: 'pointer'
                   }}
                 >
-                  ✨ Browse Presets
+                  ✨ Browse Presets Library
                 </button>
                 <button
                   onClick={handleOpenNew}
@@ -463,140 +568,229 @@ function WorkflowsPage() {
               gridTemplateColumns: 'repeat(auto-fill, minmax(360px, 1fr))',
               gap: '20px'
             }}>
-              {workflows.map((wf) => (
-                <div
-                  key={wf.id}
-                  style={{
-                    background: '#ffffff',
-                    borderRadius: '20px',
-                    border: '1px solid #e2e8f0',
-                    padding: '24px',
-                    boxShadow: '0 4px 20px -2px rgba(0, 0, 0, 0.04)',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    justifyContent: 'space-between',
-                    transition: 'all 0.2s'
-                  }}
-                >
-                  <div>
-                    <div style={{ display: 'flex', justify: 'space-between', alignItems: 'flex-start', marginBottom: '14px' }}>
-                      <span style={{
-                        padding: '4px 10px',
-                        borderRadius: '20px',
-                        fontSize: '11px',
-                        fontWeight: '800',
-                        textTransform: 'uppercase',
-                        letterSpacing: '0.05em',
-                        background: wf.status === 'active' ? '#d1fae5' : '#f1f5f9',
-                        color: wf.status === 'active' ? '#065f46' : '#64748b',
-                        border: wf.status === 'active' ? '1px solid #a7f3d0' : '1px solid #cbd5e1'
+              {workflows.map((wf) => {
+                let parsedSteps = [];
+                try {
+                  parsedSteps = Array.isArray(wf.steps) ? wf.steps : (typeof wf.steps === 'string' ? JSON.parse(wf.steps) : []);
+                } catch {
+                  parsedSteps = [];
+                }
+
+                return (
+                  <div
+                    key={wf.id}
+                    style={{
+                      background: '#ffffff',
+                      borderRadius: '20px',
+                      border: '1px solid #e2e8f0',
+                      padding: '24px',
+                      boxShadow: '0 4px 20px -2px rgba(0, 0, 0, 0.04)',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      justifyContent: 'space-between',
+                      transition: 'all 0.2s'
+                    }}
+                  >
+                    <div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '14px' }}>
+                        <span style={{
+                          padding: '4px 10px',
+                          borderRadius: '20px',
+                          fontSize: '11px',
+                          fontWeight: '800',
+                          textTransform: 'uppercase',
+                          letterSpacing: '0.05em',
+                          background: wf.status === 'active' ? '#d1fae5' : '#f1f5f9',
+                          color: wf.status === 'active' ? '#065f46' : '#64748b',
+                          border: wf.status === 'active' ? '1px solid #a7f3d0' : '1px solid #cbd5e1'
+                        }}>
+                          {wf.status || 'Active'}
+                        </span>
+
+                        <span style={{
+                          padding: '4px 10px',
+                          borderRadius: '20px',
+                          fontSize: '11px',
+                          fontWeight: '700',
+                          background: '#e0e7ff',
+                          color: '#3730a3',
+                          border: '1px solid #c7d2fe'
+                        }}>
+                          Trigger: {wf.trigger_type?.toUpperCase() || 'MANUAL'}
+                        </span>
+                      </div>
+
+                      <h3 style={{ fontSize: '18px', fontWeight: '800', margin: '0 0 8px 0', color: '#0f172a' }}>
+                        {wf.name}
+                      </h3>
+                      <p style={{ fontSize: '13px', color: '#64748b', margin: '0 0 16px 0', minHeight: '38px', lineHeight: '1.5' }}>
+                        {wf.description || 'No description provided.'}
+                      </p>
+
+                      {/* Step Visualizer Sequence */}
+                      <div style={{ background: '#f8fafc', padding: '12px', borderRadius: '12px', border: '1px solid #f1f5f9', marginBottom: '12px' }}>
+                        <span style={{ fontSize: '11px', fontWeight: '700', color: '#94a3b8', textTransform: 'uppercase', display: 'block', marginBottom: '8px' }}>
+                          Step Pipeline ({parsedSteps.length} Steps)
+                        </span>
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                          {parsedSteps.map((step, idx) => {
+                            const badge = getStepBadgeColor(step.type);
+                            return (
+                              <span key={idx} style={{
+                                fontSize: '11px',
+                                fontWeight: '700',
+                                padding: '3px 8px',
+                                borderRadius: '6px',
+                                background: badge.bg,
+                                color: badge.color,
+                                border: `1px solid ${badge.border}`
+                              }}>
+                                {idx + 1}. {badge.label}
+                              </span>
+                            );
+                          })}
+                        </div>
+                      </div>
+
+                      {/* Metrics strip */}
+                      <div style={{
+                        display: 'grid',
+                        gridTemplateColumns: 'repeat(3, 1fr)',
+                        gap: '8px',
+                        marginBottom: '14px',
+                        background: '#f8fafc',
+                        padding: '10px 12px',
+                        borderRadius: '12px',
+                        border: '1px solid #f1f5f9'
                       }}>
-                        {wf.status || 'Active'}
-                      </span>
+                        <div>
+                          <div style={{ fontSize: '10px', fontWeight: '700', color: '#94a3b8', textTransform: 'uppercase' }}>Runs</div>
+                          <div style={{ fontSize: '13px', fontWeight: '800', color: '#0f172a' }}>{wf.execution_count || wf.total_runs || 0}</div>
+                        </div>
+                        <div>
+                          <div style={{ fontSize: '10px', fontWeight: '700', color: '#94a3b8', textTransform: 'uppercase' }}>Avg Time</div>
+                          <div style={{ fontSize: '13px', fontWeight: '800', color: '#0f172a' }}>{wf.avg_duration_ms ? `${wf.avg_duration_ms}ms` : '—'}</div>
+                        </div>
+                        <div>
+                          <div style={{ fontSize: '10px', fontWeight: '700', color: '#94a3b8', textTransform: 'uppercase' }}>Last Status</div>
+                          <div style={{ fontSize: '11px', fontWeight: '800', color: wf.last_status === 'failed' ? '#ef4444' : '#10b981' }}>
+                            {wf.last_status ? wf.last_status.toUpperCase() : 'READY'}
+                          </div>
+                        </div>
+                      </div>
 
-                      <span style={{
-                        padding: '4px 10px',
-                        borderRadius: '20px',
-                        fontSize: '11px',
-                        fontWeight: '700',
-                        background: '#e0e7ff',
-                        color: '#3730a3',
-                        border: '1px solid #c7d2fe'
-                      }}>
-                        Trigger: {wf.trigger_type?.toUpperCase() || 'MANUAL'}
-                      </span>
-                    </div>
-
-                    <h3 style={{ fontSize: '18px', fontWeight: '800', margin: '0 0 8px 0', color: '#0f172a' }}>
-                      {wf.name}
-                    </h3>
-                    <p style={{ fontSize: '13px', color: '#64748b', margin: '0 0 16px 0', minHeight: '38px', lineHeight: '1.5' }}>
-                      {wf.description || 'No description provided.'}
-                    </p>
-
-                    {/* Step Visualizer Sequence */}
-                    <div style={{ background: '#f8fafc', padding: '12px', borderRadius: '12px', border: '1px solid #f1f5f9', marginBottom: '16px' }}>
-                      <span style={{ fontSize: '11px', fontWeight: '700', color: '#94a3b8', textTransform: 'uppercase', display: 'block', marginBottom: '8px' }}>
-                        Step Pipeline ({wf.steps?.length || 0} Steps)
-                      </span>
-                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
-                        {(wf.steps || []).map((step, idx) => {
-                          const badge = getStepBadgeColor(step.type);
-                          return (
-                            <span key={idx} style={{
+                      {/* Webhook trigger copy button if webhook */}
+                      {wf.trigger_type === 'webhook' && (
+                        <div style={{ marginBottom: '14px' }}>
+                          <button
+                            onClick={() => handleCopyWebhook(wf.id)}
+                            style={{
+                              width: '100%',
+                              padding: '8px',
+                              borderRadius: '8px',
+                              background: copiedWebhookId === wf.id ? '#dcfce7' : '#f0fdf4',
+                              color: copiedWebhookId === wf.id ? '#15803d' : '#166534',
+                              border: '1px solid #bbf7d0',
                               fontSize: '11px',
                               fontWeight: '700',
-                              padding: '3px 8px',
-                              borderRadius: '6px',
-                              background: badge.bg,
-                              color: badge.color,
-                              border: `1px solid ${badge.border}`
-                            }}>
-                              {idx + 1}. {badge.label}
-                            </span>
-                          );
-                        })}
+                              cursor: 'pointer',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              gap: '6px'
+                            }}
+                          >
+                            {copiedWebhookId === wf.id ? '✅ Copied Webhook URL!' : '🔗 Copy Inbound Webhook URL'}
+                          </button>
+                        </div>
+                      )}
+                    </div>
+
+                    <div>
+                      {/* RUN BUTTON */}
+                      <button
+                        onClick={() => handleRunWorkflow(wf)}
+                        disabled={runningWorkflowId === wf.id}
+                        style={{
+                          width: '100%',
+                          padding: '10px 16px',
+                          borderRadius: '12px',
+                          background: runningWorkflowId === wf.id ? '#818cf8' : '#4f46e5',
+                          color: 'white',
+                          border: 'none',
+                          fontSize: '13px',
+                          fontWeight: '800',
+                          cursor: runningWorkflowId === wf.id ? 'not-allowed' : 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          gap: '6px',
+                          boxShadow: '0 2px 10px rgba(79, 70, 229, 0.25)',
+                          transition: 'all 0.2s',
+                          marginBottom: '10px'
+                        }}
+                      >
+                        {runningWorkflowId === wf.id ? '⏳ Running Workflow...' : '▶️ Run Workflow Now'}
+                      </button>
+
+                      <div style={{
+                        display: 'flex',
+                        gap: '8px',
+                        borderTop: '1px solid #f1f5f9',
+                        paddingTop: '12px'
+                      }}>
+                        <button
+                          onClick={() => handleOpenEdit(wf)}
+                          style={{
+                            flex: 1,
+                            padding: '8px 12px',
+                            borderRadius: '10px',
+                            background: '#f1f5f9',
+                            border: '1px solid #cbd5e1',
+                            color: '#334155',
+                            fontSize: '12px',
+                            fontWeight: '700',
+                            cursor: 'pointer'
+                          }}
+                        >
+                          ✏️ Edit
+                        </button>
+                        <button
+                          onClick={() => handleFetchExecutions(wf)}
+                          style={{
+                            flex: 1,
+                            padding: '8px 12px',
+                            borderRadius: '10px',
+                            background: '#e0e7ff',
+                            border: '1px solid #c7d2fe',
+                            color: '#3730a3',
+                            fontSize: '12px',
+                            fontWeight: '700',
+                            cursor: 'pointer'
+                          }}
+                        >
+                          📜 History
+                        </button>
+                        <button
+                          onClick={() => handleDelete(wf.id)}
+                          style={{
+                            padding: '8px 12px',
+                            borderRadius: '10px',
+                            background: '#fef2f2',
+                            border: '1px solid #fecaca',
+                            color: '#991b1b',
+                            fontSize: '12px',
+                            fontWeight: '700',
+                            cursor: 'pointer'
+                          }}
+                        >
+                          🗑️
+                        </button>
                       </div>
                     </div>
                   </div>
-
-                  <div style={{
-                    display: 'flex',
-                    gap: '8px',
-                    borderTop: '1px solid #f1f5f9',
-                    paddingTop: '16px',
-                    marginTop: '8px'
-                  }}>
-                    <button
-                      onClick={() => handleOpenEdit(wf)}
-                      style={{
-                        flex: 1,
-                        padding: '8px 12px',
-                        borderRadius: '10px',
-                        background: '#f1f5f9',
-                        border: '1px solid #cbd5e1',
-                        color: '#334155',
-                        fontSize: '12px',
-                        fontWeight: '700',
-                        cursor: 'pointer'
-                      }}
-                    >
-                      ✏️ Edit
-                    </button>
-                    <button
-                      onClick={() => handleFetchExecutions(wf)}
-                      style={{
-                        flex: 1,
-                        padding: '8px 12px',
-                        borderRadius: '10px',
-                        background: '#e0e7ff',
-                        border: '1px solid #c7d2fe',
-                        color: '#3730a3',
-                        fontSize: '12px',
-                        fontWeight: '700',
-                        cursor: 'pointer'
-                      }}
-                    >
-                      📜 History
-                    </button>
-                    <button
-                      onClick={() => handleDelete(wf.id)}
-                      style={{
-                        padding: '8px 12px',
-                        borderRadius: '10px',
-                        background: '#fef2f2',
-                        border: '1px solid #fecaca',
-                        color: '#991b1b',
-                        fontSize: '12px',
-                        fontWeight: '700',
-                        cursor: 'pointer'
-                      }}
-                    >
-                      🗑️
-                    </button>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>
@@ -829,15 +1023,58 @@ function WorkflowsPage() {
                 </div>
               </div>
 
+              {/* Cron Expression Input */}
+              {triggerType === 'cron' && (
+                <div>
+                  <label style={{ display: 'block', fontSize: '12px', fontWeight: '800', marginBottom: '6px', color: '#334155' }}>
+                    Cron Schedule Pattern
+                  </label>
+                  <input
+                    type="text"
+                    value={cronExpression}
+                    onChange={(e) => setCronExpression(e.target.value)}
+                    style={{
+                      width: '100%',
+                      padding: '12px 14px',
+                      borderRadius: '10px',
+                      background: '#f8fafc',
+                      border: '1px solid #cbd5e1',
+                      color: '#0f172a',
+                      fontSize: '13px',
+                      fontFamily: 'monospace',
+                      outline: 'none',
+                      boxSizing: 'border-box'
+                    }}
+                    placeholder="e.g. 0 6 * * * (Daily at 6:00 AM)"
+                  />
+                </div>
+              )}
+
               {/* Webhook Endpoint Info Box */}
               {triggerType === 'webhook' && editingWorkflow?.id && (
                 <div style={{ background: '#f0fdf4', padding: '12px 16px', borderRadius: '12px', border: '1px solid #bbf7d0' }}>
                   <span style={{ fontSize: '11px', fontWeight: '800', color: '#166534', display: 'block', marginBottom: '4px' }}>
-                    🔗 Webhook Endpoint URL:
+                    🔗 Inbound Webhook Endpoint:
                   </span>
-                  <code style={{ fontSize: '11px', fontFamily: 'monospace', color: '#15803d', wordBreak: 'break-all' }}>
+                  <code style={{ fontSize: '11px', fontFamily: 'monospace', color: '#15803d', wordBreak: 'break-all', display: 'block', marginBottom: '8px' }}>
                     {typeof window !== 'undefined' ? `${window.location.origin}/api/workflows/${editingWorkflow.id}/trigger` : `/api/workflows/${editingWorkflow.id}/trigger`}
                   </code>
+                  <button
+                    type="button"
+                    onClick={() => handleCopyWebhook(editingWorkflow.id)}
+                    style={{
+                      padding: '4px 10px',
+                      borderRadius: '6px',
+                      background: '#166534',
+                      color: 'white',
+                      border: 'none',
+                      fontSize: '11px',
+                      fontWeight: '700',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    {copiedWebhookId === editingWorkflow.id ? 'Copied!' : 'Copy URL'}
+                  </button>
                 </div>
               )}
 
@@ -900,9 +1137,9 @@ function WorkflowsPage() {
                       </select>
                       <input
                         type="text"
-                        value={step.value}
+                        value={step.value || ''}
                         onChange={(e) => handleStepChange(step.id, 'value', e.target.value)}
-                        placeholder="Instruction / payload configuration..."
+                        placeholder="Instruction, query, webhook URL, or email target..."
                         style={{
                           flex: 1,
                           padding: '8px 10px',
@@ -983,17 +1220,22 @@ function WorkflowsPage() {
             background: '#ffffff',
             borderRadius: '24px',
             width: '100%',
-            maxWidth: '680px',
+            maxWidth: '780px',
             maxHeight: '90vh',
             overflowY: 'auto',
             padding: '32px',
             border: '1px solid #e2e8f0',
             boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)'
           }}>
-            <div style={{ display: 'flex', justify: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-              <h2 style={{ fontSize: '18px', fontWeight: '900', margin: 0, color: '#0f172a' }}>
-                📜 Execution Logs — {selectedWorkflowForHistory.name}
-              </h2>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+              <div>
+                <h2 style={{ fontSize: '18px', fontWeight: '900', margin: 0, color: '#0f172a' }}>
+                  📜 Execution Telemetry — {selectedWorkflowForHistory.name}
+                </h2>
+                <p style={{ margin: '4px 0 0 0', color: '#64748b', fontSize: '12px' }}>
+                  Step-by-step audit logs, execution timing, inputs, and outputs.
+                </p>
+              </div>
               <button
                 onClick={() => setSelectedWorkflowForHistory(null)}
                 style={{ background: 'none', border: 'none', fontSize: '20px', cursor: 'pointer', color: '#94a3b8' }}
@@ -1005,36 +1247,124 @@ function WorkflowsPage() {
             {loadingHistory ? (
               <p style={{ textAlign: 'center', color: '#64748b', padding: '40px' }}>Fetching execution telemetry...</p>
             ) : executions.length === 0 ? (
-              <p style={{ textAlign: 'center', color: '#94a3b8', padding: '40px' }}>No execution telemetry recorded for this workflow yet.</p>
+              <div style={{ textAlign: 'center', color: '#94a3b8', padding: '40px' }}>
+                <p style={{ fontSize: '14px', fontWeight: '600' }}>No execution telemetry recorded for this workflow yet.</p>
+                <button
+                  onClick={() => handleRunWorkflow(selectedWorkflowForHistory)}
+                  style={{
+                    marginTop: '12px',
+                    padding: '8px 16px',
+                    borderRadius: '10px',
+                    background: '#4f46e5',
+                    color: 'white',
+                    border: 'none',
+                    fontSize: '12px',
+                    fontWeight: '800',
+                    cursor: 'pointer'
+                  }}
+                >
+                  ▶️ Trigger First Run
+                </button>
+              </div>
             ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                {executions.map((ex) => (
-                  <div key={ex.id} style={{
-                    background: '#f8fafc',
-                    border: '1px solid #e2e8f0',
-                    borderRadius: '12px',
-                    padding: '14px',
-                    fontSize: '12px'
-                  }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}>
-                      <span style={{
-                        fontWeight: 'bold',
-                        color: ex.status === 'SUCCESS' ? '#166534' : '#991b1b',
-                        background: ex.status === 'SUCCESS' ? '#d1fae5' : '#fee2e2',
-                        padding: '2px 8px',
-                        borderRadius: '6px'
-                      }}>
-                        {ex.status}
-                      </span>
-                      <span style={{ color: '#94a3b8', fontWeight: '500' }}>
-                        {new Date(ex.created_at).toLocaleString()}
-                      </span>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                {executions.map((ex) => {
+                  let stepResults = [];
+                  try {
+                    stepResults = Array.isArray(ex.step_results)
+                      ? ex.step_results
+                      : (typeof ex.step_results === 'string' ? JSON.parse(ex.step_results) : []);
+                  } catch {
+                    stepResults = [];
+                  }
+
+                  const isSuccess = ex.status === 'completed' || ex.status === 'SUCCESS';
+
+                  return (
+                    <div key={ex.id} style={{
+                      background: '#f8fafc',
+                      border: '1px solid #e2e8f0',
+                      borderRadius: '16px',
+                      padding: '16px',
+                      fontSize: '12px'
+                    }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <span style={{
+                            fontWeight: '800',
+                            color: isSuccess ? '#166534' : '#991b1b',
+                            background: isSuccess ? '#d1fae5' : '#fee2e2',
+                            padding: '3px 10px',
+                            borderRadius: '8px',
+                            textTransform: 'uppercase',
+                            fontSize: '11px'
+                          }}>
+                            {ex.status}
+                          </span>
+                          <span style={{ color: '#64748b', fontSize: '11px' }}>
+                            Trigger: {ex.trigger_type?.toUpperCase() || 'MANUAL'}
+                          </span>
+                        </div>
+                        <span style={{ color: '#94a3b8', fontWeight: '500', fontSize: '11px' }}>
+                          {ex.started_at ? new Date(ex.started_at).toLocaleString() : ''}
+                        </span>
+                      </div>
+
+                      <div style={{ display: 'flex', gap: '16px', color: '#475569', fontSize: '11px', marginBottom: '10px', fontFamily: 'monospace' }}>
+                        <span>Duration: {ex.duration_ms || 0}ms</span>
+                        <span>Steps: {stepResults.length}</span>
+                      </div>
+
+                      {/* Step Results Timeline */}
+                      {stepResults.length > 0 && (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginTop: '10px' }}>
+                          {stepResults.map((sr, sIdx) => {
+                            const badge = getStepBadgeColor(sr.type);
+                            return (
+                              <div key={sIdx} style={{
+                                background: '#ffffff',
+                                border: '1px solid #e2e8f0',
+                                borderRadius: '10px',
+                                padding: '10px',
+                                fontSize: '11px'
+                              }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
+                                  <span style={{ fontWeight: '700', color: badge.color }}>
+                                    Step {sIdx + 1}: {badge.label}
+                                  </span>
+                                  <span style={{ color: '#64748b', fontFamily: 'monospace' }}>
+                                    {sr.durationMs}ms
+                                  </span>
+                                </div>
+                                {sr.output && (
+                                  <div style={{
+                                    background: '#f8fafc',
+                                    padding: '6px 8px',
+                                    borderRadius: '6px',
+                                    fontFamily: 'monospace',
+                                    fontSize: '10px',
+                                    color: '#334155',
+                                    maxHeight: '80px',
+                                    overflowY: 'auto',
+                                    wordBreak: 'break-all'
+                                  }}>
+                                    {typeof sr.output === 'object' ? JSON.stringify(sr.output) : String(sr.output)}
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+
+                      {ex.error_message && (
+                        <div style={{ marginTop: '8px', padding: '8px', borderRadius: '8px', background: '#fef2f2', color: '#991b1b', fontSize: '11px' }}>
+                          ⚠️ Error: {ex.error_message}
+                        </div>
+                      )}
                     </div>
-                    <p style={{ margin: '4px 0 0 0', color: '#334155', fontFamily: 'monospace' }}>
-                      Duration: {ex.duration_ms || 120}ms
-                    </p>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>

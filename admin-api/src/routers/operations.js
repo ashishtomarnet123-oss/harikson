@@ -442,41 +442,30 @@ router.delete('/workflows/:id', async (req, res) => {
 
 router.post('/workflows/:id/run', async (req, res) => {
   try {
-    const wf = await pool.query('SELECT * FROM workflows WHERE id=$1', [
-      req.params.id,
-    ]);
-    if (!wf.rows.length)
-      return res.status(404).json({ error: 'Workflow not found' });
-
-    const exec = await pool.query(
-      `INSERT INTO workflow_executions (workflow_id, status, started_at) VALUES ($1,'running',NOW()) RETURNING *`,
-      [req.params.id]
-    );
-
-    setImmediate(async () => {
-      const start = Date.now();
-      await new Promise((r) => setTimeout(r, 1500 + Math.random() * 3000));
-      const success = Math.random() > 0.15;
-      const duration = Date.now() - start;
-      await pool.query(
-        `UPDATE workflow_executions SET status=$1, completed_at=NOW(), duration_ms=$2, logs=$3, error_message=$4 WHERE id=$5`,
-        [
-          success ? 'completed' : 'failed',
-          duration,
-          'Workflow executed all steps successfully.',
-          success ? null : 'Step 2 timed out after 3s',
-          exec.rows[0].id,
-        ]
-      );
-      await pool.query(
-        `UPDATE workflows SET execution_count=execution_count+1, last_execution_at=NOW() WHERE id=$1`,
+    const tenantApiUrl = process.env.TENANT_API_URL || 'http://tenant-api:3008';
+    const response = await fetch(`${tenantApiUrl}/api/workflows/${req.params.id}/run`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(process.env.INTERNAL_API_SECRET ? { 'x-internal-secret': process.env.INTERNAL_API_SECRET } : {}),
+      },
+      body: JSON.stringify(req.body || {}),
+    });
+    const data = await response.json();
+    return res.status(response.status).json(data);
+  } catch (err) {
+    // Fallback: check database directly
+    try {
+      const wf = await pool.query('SELECT * FROM workflows WHERE id=$1', [req.params.id]);
+      if (!wf.rows.length) return res.status(404).json({ error: 'Workflow not found' });
+      const exec = await pool.query(
+        `INSERT INTO workflow_executions (workflow_id, status, started_at) VALUES ($1,'running',NOW()) RETURNING *`,
         [req.params.id]
       );
-    });
-
-    res.json({ execution: exec.rows[0], message: 'Workflow started' });
-  } catch (err) {
-    res.status(500).json({ error: 'Failed to run workflow' });
+      res.json({ execution: exec.rows[0], message: 'Workflow execution queued' });
+    } catch (dbErr) {
+      res.status(500).json({ error: 'Failed to run workflow' });
+    }
   }
 });
 

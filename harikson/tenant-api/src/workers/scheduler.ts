@@ -10,6 +10,7 @@ import { MemoryExtractor } from '../services/memory/extractor.js';
 import { ContextBuilder } from '../services/context/context-builder.js';
 import { OllamaClient } from '../llm/ollama.js';
 import { Logger } from '../observability/logger.js';
+import { WorkflowEngine } from '../services/workflow/engine.js';
 
 const redisConnections: Redis[] = [];
 
@@ -38,12 +39,14 @@ export class HariksonScheduler {
   public static summarizerQueue: Queue;
   public static cacheQueue: Queue;
   public static cleanupQueue: Queue;
+  public static workflowQueue: Queue;
   public static failedQueue: Queue;
 
   private static memoryWorker: Worker;
   private static summarizerWorker: Worker;
   private static cacheWorker: Worker;
   private static cleanupWorker: Worker;
+  private static workflowWorker: Worker;
 
   private static activeWatchers = new Map<string, fs.FSWatcher>();
   private static startTime: number = 0;
@@ -81,6 +84,14 @@ export class HariksonScheduler {
       healthy: true,
       errorCount: 0,
     },
+    workflowWorker: {
+      name: 'workflowWorker',
+      expectedIntervalMs: 60000,
+      lastRun: null,
+      nextRun: null,
+      healthy: true,
+      errorCount: 0,
+    },
   };
 
   public static async startAll(tenantId?: string, workspacePath?: string, userId?: string) {
@@ -101,6 +112,7 @@ export class HariksonScheduler {
     this.summarizerQueue = new Queue('summarizerQueue', { connection: queueConnection });
     this.cacheQueue = new Queue('cacheQueue', { connection: queueConnection });
     this.cleanupQueue = new Queue('cleanupQueue', { connection: queueConnection });
+    this.workflowQueue = new Queue('workflowQueue', { connection: queueConnection });
     this.failedQueue = new Queue('failedQueue', { connection: queueConnection });
 
     // 1. File Watcher Indexer (Incremental Indexer)
@@ -197,12 +209,14 @@ export class HariksonScheduler {
       if (this.summarizerWorker) await this.summarizerWorker.close();
       if (this.cacheWorker) await this.cacheWorker.close();
       if (this.cleanupWorker) await this.cleanupWorker.close();
+      if (this.workflowWorker) await this.workflowWorker.close();
 
       // Close all queues
       if (this.memoryQueue) await this.memoryQueue.close();
       if (this.summarizerQueue) await this.summarizerQueue.close();
       if (this.cacheQueue) await this.cacheQueue.close();
       if (this.cleanupQueue) await this.cleanupQueue.close();
+      if (this.workflowQueue) await this.workflowQueue.close();
       if (this.failedQueue) await this.failedQueue.close();
 
       // Close watchers
@@ -482,6 +496,24 @@ export class HariksonScheduler {
       concurrency: 1,
     });
     this.setupDLQ(this.cleanupWorker, 'cleanupQueue');
+
+    // E. Workflow Engine Worker
+    const workflowWorkerConn = createRedisConnection();
+    this.workflowWorker = new Worker('workflowQueue', async (job: Job) => {
+      this.recordWorkerRun('workflowWorker');
+      try {
+        const { workflowId, triggerType, payload, tenantId } = job.data;
+        Logger.info(`⚡ [Workflow Worker] Executing queued workflow ${workflowId} (trigger: ${triggerType})...`);
+        await WorkflowEngine.executeWorkflow(workflowId, triggerType || 'manual', payload || {}, tenantId);
+      } catch (err: any) {
+        this.recordWorkerError('workflowWorker', err);
+        throw err;
+      }
+    }, {
+      connection: workflowWorkerConn,
+      concurrency: 3,
+    });
+    this.setupDLQ(this.workflowWorker, 'workflowQueue');
   }
 
   private static setupDLQ(worker: Worker, queueName: string) {

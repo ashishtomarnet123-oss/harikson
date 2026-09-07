@@ -342,6 +342,8 @@ model Workflow {
   name            String
   description     String?
   triggerType     String?   @default("manual") @map("trigger_type")
+  cronExpression  String?   @map("cron_expression")
+  webhookSecret   String?   @map("webhook_secret")
   status          String?   @default("active")
   steps           Json?     @default("[]")
   executionCount  Int?      @default(0) @map("execution_count")
@@ -357,17 +359,20 @@ model Workflow {
 }
 
 model WorkflowExecution {
-  id           String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  tenantId     String?   @map("tenant_id") @db.Uuid
-  tenant       Tenant?   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  workflowId   String?   @map("workflow_id") @db.Uuid
-  workflow     Workflow? @relation(fields: [workflowId], references: [id], onDelete: Cascade)
-  status       String?   @default("running")
-  startedAt    DateTime? @default(now()) @map("started_at") @db.Timestamptz
-  completedAt  DateTime? @map("completed_at") @db.Timestamptz
-  durationMs   Int?      @map("duration_ms")
-  logs         String?
-  errorMessage String?   @map("error_message")
+  id             String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId       String?   @map("tenant_id") @db.Uuid
+  tenant         Tenant?   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  workflowId     String?   @map("workflow_id") @db.Uuid
+  workflow       Workflow? @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+  status         String?   @default("running")
+  triggerType    String?   @default("manual") @map("trigger_type")
+  triggerPayload Json?     @default("{}") @map("trigger_payload")
+  stepResults    Json?     @default("[]") @map("step_results")
+  startedAt      DateTime? @default(now()) @map("started_at") @db.Timestamptz
+  completedAt    DateTime? @map("completed_at") @db.Timestamptz
+  durationMs     Int?      @map("duration_ms")
+  logs           String?
+  errorMessage   String?   @map("error_message")
 
   @@map("workflow_executions")
 }
