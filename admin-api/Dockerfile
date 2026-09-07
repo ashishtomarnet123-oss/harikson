@@ -3,7 +3,7 @@ FROM node:20-alpine
 WORKDIR /usr/src/app
 
 COPY package*.json ./
-RUN rm -f package-lock.json && npm install --no-audit --no-fund
+RUN npm ci --no-audit --no-fund
 RUN apk add --no-cache curl
 
 COPY . .

@@ -1,39 +1,43 @@
 #!/bin/bash
-# Neuravolt Cloud backup utility
+# Xarwiz Cloud backup utility
 # Backs up the primary Postgres database and packs volumes into a tarball
 
-set -e
+set -euo pipefail
 
 BACKUP_DIR="./backups"
 TIMESTAMP=$(date +"%Y%m%d_%H%M%S")
-DB_BACKUP_FILE="${BACKUP_DIR}/nv_db_backup_${TIMESTAMP}.sql"
-VOLUME_BACKUP_FILE="${BACKUP_DIR}/nv_volumes_backup_${TIMESTAMP}.tar.gz"
+DB_BACKUP_FILE="${BACKUP_DIR}/xarwiz_db_backup_${TIMESTAMP}.sql.gz"
+VOLUME_BACKUP_FILE="${BACKUP_DIR}/xarwiz_volumes_backup_${TIMESTAMP}.tar.gz"
 
 mkdir -p "$BACKUP_DIR"
 
-echo "🤖 Starting Neuravolt Cloud backup cycle..."
+echo "Starting Xarwiz Cloud backup cycle..."
 
 # Check if PostgreSQL container is running
-if [ "$(docker ps -q -f name=nv-postgres)" ]; then
-  echo "🐘 Backing up PostgreSQL database..."
-  # Fetch DB password secret content dynamically
-  DB_PASS=$(cat ./secrets/db_password)
-  
-  docker exec -e PGPASSWORD="$DB_PASS" nv-postgres pg_dump -U neuravolt neuravolt > "$DB_BACKUP_FILE"
-  echo "🐘 PostgreSQL backup written to: $DB_BACKUP_FILE"
+if [ "$(docker ps -q -f name=harikson-postgres)" ]; then
+  echo "Backing up PostgreSQL database..."
+  docker exec -e PGPASSWORD="${POSTGRES_PASSWORD}" harikson-postgres \
+    pg_dump -U neuravolt neuravolt | gzip > "$DB_BACKUP_FILE"
+  echo "PostgreSQL backup written to: $DB_BACKUP_FILE"
 else
-  echo "⚠️ nv-postgres container is not running. Performing dry run mock backup..."
-  echo "-- Neuravolt Mock Database Schema & Records Dump" > "$DB_BACKUP_FILE"
+  echo "ERROR: harikson-postgres container is not running. Cannot backup."
+  exit 1
 fi
 
 # Archive volumes
-echo "📦 Compression active client volumes..."
-if [ -d "./postgres-data" ] || [ -d "./redis-data" ]; then
-  tar -czf "$VOLUME_BACKUP_FILE" ./postgres-data ./redis-data 2>/dev/null || true
-  echo "📦 Volumes backup written to: $VOLUME_BACKUP_FILE"
+echo "Compressing data volumes..."
+if [ -d "./data/postgres" ] || [ -d "./data/redis" ]; then
+  tar -czf "$VOLUME_BACKUP_FILE" \
+    --exclude='./data/postgres/postmaster.pid' \
+    ./data/postgres ./data/redis 2>/dev/null || true
+  echo "Volumes backup written to: $VOLUME_BACKUP_FILE"
 else
-  echo "mock volume data" > "$VOLUME_BACKUP_FILE"
-  echo "📦 Mock volume written."
+  echo "ERROR: Data directories not found at ./data/"
+  exit 1
 fi
 
-echo "✅ Backup process finalized successfully."
+# Retention: keep last 7 daily backups
+find "$BACKUP_DIR" -name "xarwiz_db_backup_*.sql.gz" -mtime +7 -delete 2>/dev/null || true
+find "$BACKUP_DIR" -name "xarwiz_volumes_backup_*.tar.gz" -mtime +7 -delete 2>/dev/null || true
+
+echo "Backup process completed successfully."

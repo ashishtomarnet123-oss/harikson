@@ -1,38 +1,39 @@
 #!/bin/bash
-# Neuravolt Cloud restore utility
-# Restores databases and active volumes from tarballs
+# Xarwiz Cloud restore utility
+# Restores databases and active volumes from backups
 
-set -e
+set -euo pipefail
 
-if [ -z "$1" ] || [ -z "$2" ]; then
-  echo "Usage: $0 <path_to_db_sql_backup> <path_to_volume_tar>"
+if [ -z "${1:-}" ] || [ -z "${2:-}" ]; then
+  echo "Usage: $0 <path_to_db_sql_gz_backup> <path_to_volume_tar>"
   exit 1
 fi
 
 DB_BACKUP="$1"
 VOLUME_BACKUP="$2"
 
-echo "🤖 Restoring Neuravolt Cloud nodes..."
+echo "Restoring Xarwiz Cloud..."
 
 # Validate files
 if [ ! -f "$DB_BACKUP" ] || [ ! -f "$VOLUME_BACKUP" ]; then
-  echo "❌ Error: Backup files do not exist."
+  echo "ERROR: Backup files do not exist."
   exit 1
 fi
 
 # Restore volumes
-echo "📦 Extracting volumes archive..."
+echo "Extracting volumes archive..."
 tar -xzf "$VOLUME_BACKUP" -C . || true
-echo "📦 Archive extraction complete."
+echo "Archive extraction complete."
 
 # Restore DB
-if [ "$(docker ps -q -f name=nv-postgres)" ]; then
-  echo "🐘 Restoring PostgreSQL database records..."
-  DB_PASS=$(cat ./secrets/db_password)
-  docker exec -i -e PGPASSWORD="$DB_PASS" nv-postgres psql -U neuravolt neuravolt < "$DB_BACKUP"
-  echo "🐘 Postgres restore complete."
+if [ "$(docker ps -q -f name=harikson-postgres)" ]; then
+  echo "Restoring PostgreSQL database..."
+  gunzip -c "$DB_BACKUP" | docker exec -i -e PGPASSWORD="${POSTGRES_PASSWORD}" \
+    harikson-postgres psql -U neuravolt neuravolt
+  echo "Postgres restore complete."
 else
-  echo "⚠️ nv-postgres container is not running. Mock database restored."
+  echo "ERROR: harikson-postgres container is not running."
+  exit 1
 fi
 
-echo "✅ Restoration cycle finalized."
+echo "Restoration cycle completed."

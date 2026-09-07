@@ -3,7 +3,7 @@ FROM node:20-alpine AS builder
 WORKDIR /usr/src/app
 
 COPY package*.json ./
-RUN rm -f package-lock.json && npm install
+RUN npm ci
 
 COPY . .
 RUN npm run build
@@ -13,7 +13,7 @@ FROM node:20-alpine
 WORKDIR /usr/src/app
 
 COPY package*.json ./
-RUN rm -f package-lock.json && npm install --omit=dev --no-audit --no-fund
+RUN npm ci --omit=dev --no-audit --no-fund
 RUN apk add --no-cache curl
 
 COPY --from=builder /usr/src/app/dist ./dist

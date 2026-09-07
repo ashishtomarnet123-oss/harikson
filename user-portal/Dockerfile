@@ -7,7 +7,7 @@ ARG NEXT_PUBLIC_API_URL
 ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
 
 COPY package*.json ./
-RUN rm -f package-lock.json && npm install --no-audit --no-fund
+RUN npm ci --no-audit --no-fund
 
 COPY . .
 
@@ -19,7 +19,7 @@ FROM node:20-alpine AS runner
 WORKDIR /usr/src/app
 
 COPY --from=builder /usr/src/app/package*.json ./
-RUN rm -f package-lock.json && npm install --omit=dev --no-audit --no-fund
+RUN npm ci --omit=dev --no-audit --no-fund
 
 COPY --from=builder /usr/src/app/public ./public
 COPY --from=builder /usr/src/app/.next ./.next

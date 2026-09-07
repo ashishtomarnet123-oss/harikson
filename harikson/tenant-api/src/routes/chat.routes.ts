@@ -129,15 +129,22 @@ router.delete('/conversations/:id', async (req: any, res) => {
     // deleting a conversation. deleted_at hides it from the conversation
     // list/messages views while billing/usage queries keep counting it.
     await executeTenantQuery(req.tenant.id, async (client) => {
-      await client.query(
-        `UPDATE messages SET deleted_at = NOW() WHERE conversation_id = $1 AND tenant_id = $2
-         AND EXISTS (SELECT 1 FROM conversations c WHERE c.id = $1 AND c.user_id = $3)`,
-        [id, req.tenant.id, userId]
-      );
-      await client.query(
-        'UPDATE conversations SET deleted_at = NOW() WHERE id = $1 AND tenant_id = $2 AND user_id = $3',
-        [id, req.tenant.id, userId]
-      );
+      await client.query('BEGIN');
+      try {
+        await client.query(
+          `UPDATE messages SET deleted_at = NOW() WHERE conversation_id = $1 AND tenant_id = $2
+           AND EXISTS (SELECT 1 FROM conversations c WHERE c.id = $1 AND c.user_id = $3)`,
+          [id, req.tenant.id, userId]
+        );
+        await client.query(
+          'UPDATE conversations SET deleted_at = NOW() WHERE id = $1 AND tenant_id = $2 AND user_id = $3',
+          [id, req.tenant.id, userId]
+        );
+        await client.query('COMMIT');
+      } catch (txErr) {
+        await client.query('ROLLBACK');
+        throw txErr;
+      }
     });
 
     res.json({ success: true, message: 'Conversation deleted successfully' });
@@ -292,15 +299,19 @@ async function handleChat(req: any, res: any) {
     logger.info({ durationMs: Date.now() - ragStart }, `[TIMING] RAG lookup took ${Date.now() - ragStart}ms`);
     const promptTokens = countExactTokens(message) + countExactTokens(ragContext);
 
-    // Save user message
+    // Save user message — must be awaited so it persists before the response streams.
     // sender is a NOT NULL legacy column with no default, kept in sync with
     // role (its replacement) — omitting it makes the insert fail outright.
-    executeTenantQuery(req.tenant.id, (client) =>
-      client.query(
-        'INSERT INTO messages (tenant_id, conversation_id, role, sender, content, tokens_used) VALUES ($1, $2, $3, $3, $4, $5)',
-        [req.tenant.id, currentConvId, 'user', message, countExactTokens(message)]
-      )
-    ).catch((e) => logger.error(e, 'Failed to save user message'));
+    try {
+      await executeTenantQuery(req.tenant.id, (client) =>
+        client.query(
+          'INSERT INTO messages (tenant_id, conversation_id, role, sender, content, tokens_used) VALUES ($1, $2, $3, $3, $4, $5)',
+          [req.tenant.id, currentConvId, 'user', message, countExactTokens(message)]
+        )
+      );
+    } catch (e) {
+      logger.error(e, 'Failed to save user message');
+    }
 
     if (stream) {
       res.setHeader('Content-Type', 'text/event-stream');
@@ -395,12 +406,16 @@ async function handleChat(req: any, res: any) {
           if (streamEnded) return;
           streamEnded = true;
           const completionTokens = countExactTokens(fullResponseText);
-          executeTenantQuery(req.tenant.id, (client) =>
-            client.query(
-              'INSERT INTO messages (tenant_id, conversation_id, role, sender, content, tokens_used) VALUES ($1, $2, $3, $3, $4, $5)',
-              [req.tenant.id, currentConvId, 'assistant', fullResponseText, completionTokens]
-            )
-          ).catch((e) => logger.error(e, 'Failed to save assistant message'));
+          try {
+            await executeTenantQuery(req.tenant.id, (client) =>
+              client.query(
+                'INSERT INTO messages (tenant_id, conversation_id, role, sender, content, tokens_used) VALUES ($1, $2, $3, $3, $4, $5)',
+                [req.tenant.id, currentConvId, 'assistant', fullResponseText, completionTokens]
+              )
+            );
+          } catch (e) {
+            logger.error(e, 'Failed to save assistant message');
+          }
           try { res.write(`data: [DONE]\n\n`); res.end(); } catch (_) {}
         });
 

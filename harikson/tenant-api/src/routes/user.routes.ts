@@ -29,15 +29,19 @@ function getRazorpay(): Razorpay {
   return _razorpay;
 }
 
-// Server-side plan pricing — the price actually charged must never come from
-// the client (the old /billing/change-plan trusted a client-supplied `price`
-// field outright, letting anyone "upgrade" for whatever they sent).
-const PLAN_CONFIG: Record<string, { name: string; priceRupees: number }> = {
-  free: { name: 'Free Plan', priceRupees: 0 },
-  starter: { name: 'Starter Plan', priceRupees: 19 },
-  professional: { name: 'Professional Plan', priceRupees: 49 },
-  enterprise: { name: 'Enterprise Tier', priceRupees: 199 },
-};
+// Server-side plan pricing — the price actually charged must come from the DB
+// `plans` table, never from client input or a hardcoded map.
+async function getPlanFromDb(planId: string): Promise<{ id: string; name: string; price: number; currency: string } | null> {
+  try {
+    const res = await pool.query(
+      'SELECT id, name, price, currency FROM plans WHERE id = $1 AND is_active = true',
+      [planId]
+    );
+    return res.rows[0] || null;
+  } catch {
+    return null;
+  }
+}
 router.use((req: any, _res, next) => {
   if (!req.user) {
     const authHeader = req.headers.authorization || '';
@@ -656,6 +660,8 @@ router.get('/billing', async (req: any, res) => {
         },
       },
       features: Array.isArray(plan.features) ? plan.features : [],
+      isTrial: req.entitlements?.isTrial || false,
+      trialEndsAt: req.entitlements?.trialEndsAt || null,
       nextPaymentAmount: sub ? `${currency}${parseFloat(sub.amount ?? sub.plan_price) || priceNum}` : null,
       invoices: invRes.rows,
     });
@@ -689,12 +695,12 @@ router.post(['/billing/cancel', '/user/billing/cancel'], async (req: any, res) =
 router.post(['/billing/change-plan', '/user/billing/change-plan'], async (req: any, res) => {
   if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
   const { planId } = req.body;
-  const plan = planId && PLAN_CONFIG[planId];
+  const plan = planId ? await getPlanFromDb(planId) : null;
 
   if (!plan) {
     return res.status(400).json({ error: 'Unknown planId' });
   }
-  if (plan.priceRupees > 0) {
+  if (Number(plan.price) > 0) {
     return res.status(400).json({
       error: 'This plan requires payment. Use POST /billing/checkout followed by /billing/verify-payment.',
     });
@@ -723,10 +729,10 @@ router.post(['/billing/change-plan', '/user/billing/change-plan'], async (req: a
 router.post(['/billing/checkout', '/user/billing/checkout'], async (req: any, res) => {
   if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
   const { planId } = req.body;
-  const plan = planId && PLAN_CONFIG[planId];
+  const plan = planId ? await getPlanFromDb(planId) : null;
 
   if (!plan) return res.status(400).json({ error: 'Unknown planId' });
-  if (plan.priceRupees <= 0) {
+  if (Number(plan.price) <= 0) {
     return res.status(400).json({ error: 'This plan does not require payment — call /billing/change-plan instead.' });
   }
   if (!process.env.RAZORPAY_KEY_ID || !process.env.RAZORPAY_KEY_SECRET) {
@@ -739,10 +745,10 @@ router.post(['/billing/checkout', '/user/billing/checkout'], async (req: any, re
     const tenantId = userRes.rows[0]?.tenant_id || req.tenant?.id;
     if (!tenantId) return res.status(400).json({ error: 'No tenant associated with this account' });
 
-    const amountPaise = Math.round(plan.priceRupees * 100);
+    const amountPaise = Math.round(Number(plan.price) * 100);
     const order = await getRazorpay().orders.create({
       amount: amountPaise,
-      currency: 'INR',
+      currency: plan.currency || 'INR',
       receipt: `plan_${planId}_${Date.now()}`,
       notes: { tenantId, planId, userId: req.user.userId },
     });
@@ -751,7 +757,7 @@ router.post(['/billing/checkout', '/user/billing/checkout'], async (req: any, re
       requiresPayment: true,
       orderId: order.id,
       amount: amountPaise,
-      currency: 'INR',
+      currency: plan.currency || 'INR',
       keyId: process.env.RAZORPAY_KEY_ID,
       planId,
       planName: plan.name,
@@ -769,7 +775,7 @@ router.post(['/billing/checkout', '/user/billing/checkout'], async (req: any, re
 router.post(['/billing/verify-payment', '/user/billing/verify-payment'], async (req: any, res) => {
   if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
   const { razorpay_order_id, razorpay_payment_id, razorpay_signature, planId } = req.body;
-  const plan = planId && PLAN_CONFIG[planId];
+  const plan = planId ? await getPlanFromDb(planId) : null;
 
   if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature || !plan) {
     return res.status(400).json({ error: 'Missing payment verification fields' });
@@ -798,7 +804,7 @@ router.post(['/billing/verify-payment', '/user/billing/verify-payment'], async (
     const tenantId = userRes.rows[0]?.tenant_id || req.tenant?.id;
     if (!tenantId) return res.status(400).json({ error: 'No tenant associated with this account' });
 
-    const amountRupees = plan.priceRupees;
+    const amountRupees = Number(plan.price);
 
     // Best-effort: fetch the actual payment method used (card network/last4,
     // or UPI/netbanking) from Razorpay so the billing page can show a real
@@ -1007,11 +1013,18 @@ router.delete(['/rag-files/:id', '/user/rag-files/:id'], async (req: any, res) =
     if (!tenantId) return res.status(400).json({ error: 'No tenant associated with this account' });
 
     await executeTenantQuery(tenantId, async (client) => {
-      await client.query(
-        `UPDATE knowledge_documents SET is_active = false WHERE id = $1 AND tenant_id = $2 AND user_id = $3`,
-        [id, tenantId, req.user.userId]
-      );
-      await client.query(`DELETE FROM document_embeddings WHERE knowledge_document_id = $1 AND tenant_id = $2`, [id, tenantId]);
+      await client.query('BEGIN');
+      try {
+        await client.query(
+          `UPDATE knowledge_documents SET is_active = false WHERE id = $1 AND tenant_id = $2 AND user_id = $3`,
+          [id, tenantId, req.user.userId]
+        );
+        await client.query(`DELETE FROM document_embeddings WHERE knowledge_document_id = $1 AND tenant_id = $2`, [id, tenantId]);
+        await client.query('COMMIT');
+      } catch (txErr) {
+        await client.query('ROLLBACK');
+        throw txErr;
+      }
     });
 
     res.json(await listRagFiles(tenantId, req.user.userId));

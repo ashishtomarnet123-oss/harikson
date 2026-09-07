@@ -1501,7 +1501,8 @@ const metricsAuthGuard = (req, res, next) => {
   }
 
   // 3. IP Whitelist check (allow Docker container network 172.x.x.x, loopback 127.0.0.1, ::1)
-  const rawIp = (req.headers['x-forwarded-for'] || req.socket.remoteAddress || '').toString();
+  // Use socket address only — X-Forwarded-For is trivially spoofable by external clients.
+  const rawIp = (req.socket.remoteAddress || '').toString();
   const cleanIp = rawIp.replace(/^::ffff:/, '').trim();
 
   const isInternalIp =

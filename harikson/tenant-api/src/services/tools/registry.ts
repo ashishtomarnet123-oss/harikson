@@ -183,7 +183,7 @@ ToolRegistry.register({
   handler: async (workspace, params) => {
     const command = params.command as string;
 
-    // Safety check 1: Block dangerous keywords
+    // Safety check 1: Block dangerous keywords and shell metacharacters
     const blocklist = ['rm -rf /', 'rm -rf  /', 'format', 'fdisk', 'mkfs'];
     if (blocklist.some((term) => command.includes(term))) {
       throw new Error(
@@ -191,17 +191,21 @@ ToolRegistry.register({
       );
     }
 
+    // Block shell chaining/piping that could bypass the allowlist
+    if (/[;|&`$()]/.test(command)) {
+      throw new Error(
+        `Security Exception: Shell operators (;|&\`$()) are not allowed.`
+      );
+    }
+
     // Safety check 2: Allowlist prefix constraints
+    // node, python, pip, go, cargo removed — they allow arbitrary code execution
+    // via flags like `node -e "require('child_process')..."`.
     const allowlist = [
       'git',
       'npm',
-      'node',
-      'python',
       'pytest',
-      'pip',
       'composer',
-      'go',
-      'cargo',
     ];
     const baseCommand = command.trim().split(/\s+/)[0];
     if (!allowlist.includes(baseCommand)) {

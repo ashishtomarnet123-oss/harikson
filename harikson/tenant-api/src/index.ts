@@ -24,6 +24,7 @@ import { validateMasterKeyConfig } from './services/documentEncryptionService.js
 import { HariksonScheduler } from './workers/scheduler.js';
 
 // Import domain route modules
+import { loadEntitlements } from './middleware/entitlements.js';
 import healthRoutes from './routes/health.routes.js';
 import authRoutes from './routes/auth.routes.js';
 import userRoutes from './routes/user.routes.js';
@@ -97,7 +98,22 @@ app.use((req, res, next) => {
 });
 
 // Security and utility middleware stack
-app.use(helmet({ contentSecurityPolicy: false }));
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'none'"],
+      scriptSrc: ["'none'"],
+      styleSrc: ["'none'"],
+      imgSrc: ["'none'"],
+      connectSrc: ["'self'"],
+      fontSrc: ["'none'"],
+      objectSrc: ["'none'"],
+      frameSrc: ["'none'"],
+      baseUri: ["'none'"],
+      formAction: ["'none'"],
+    },
+  },
+}));
 app.use(
   cors({
     origin: process.env.ALLOWED_ORIGINS
@@ -188,6 +204,9 @@ app.use(async (req, res, next) => {
     return res.status(500).json({ error: 'Tenant resolution failed' });
   }
 });
+
+// Load plan entitlements onto req.entitlements for all routes
+app.use(loadEntitlements());
 
 // Register Domain Route Modules
 app.use('/', healthRoutes);
