@@ -112,7 +112,7 @@ services:
     image: redis:7-alpine
     container_name: harikson-redis
     restart: unless-stopped
-    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD:-harikson_redis_pwd}
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD:-harikson_redis_pwd} --stop-writes-on-bgsave-error no --maxmemory-policy allkeys-lru
     expose:
       - '6379'
     volumes:
