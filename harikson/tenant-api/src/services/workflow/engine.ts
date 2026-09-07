@@ -335,7 +335,7 @@ export class WorkflowEngine {
       [
         overallStatus,
         totalDurationMs,
-        executionLogs.join('\n'),
+        JSON.stringify(executionLogs),
         errorMessage,
         JSON.stringify(context.stepsResults),
         executionId,
@@ -348,8 +348,8 @@ export class WorkflowEngine {
        SET execution_count = execution_count + 1,
            last_execution_at = NOW(),
            avg_duration_ms = CASE 
-             WHEN avg_duration_ms = 0 OR avg_duration_ms IS NULL THEN $1 
-             ELSE ROUND((avg_duration_ms + $1) / 2) 
+             WHEN avg_duration_ms = 0 OR avg_duration_ms IS NULL THEN $1::int 
+             ELSE ROUND((avg_duration_ms + $1::int)::numeric / 2)::int 
            END,
            updated_at = NOW()
        WHERE id = $2`,

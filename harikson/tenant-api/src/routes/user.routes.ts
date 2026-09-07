@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import multer from 'multer';
 import crypto from 'crypto';
 import bcrypt from 'bcrypt';
 import QRCode from 'qrcode';
@@ -68,7 +69,7 @@ router.get('/profile', async (req: any, res) => {
 
   try {
     const userRes = await pool.query(
-      'SELECT id, email, name, role, two_factor_enabled, created_at FROM users WHERE id = $1 AND deleted_at IS NULL',
+      'SELECT id, email, name, role, two_factor_enabled, avatar_url, created_at FROM users WHERE id = $1 AND deleted_at IS NULL',
       [req.user.userId]
     );
 
@@ -100,6 +101,24 @@ router.put('/profile', validate(profileUpdateSchema), async (req: any, res) => {
   } catch (err: any) {
     logger.error('Update user profile error:', err);
     res.status(500).json({ error: 'Failed to update user profile' });
+  }
+});
+
+// POST /api/user/avatar
+const avatarUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 2 * 1024 * 1024 } });
+router.post('/avatar', avatarUpload.single('avatar'), async (req: any, res) => {
+  if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
+  if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
+
+  try {
+    const base64 = req.file.buffer.toString('base64');
+    const dataUrl = `data:${req.file.mimetype};base64,${base64}`;
+    await pool.query('UPDATE users SET avatar_url = $1, updated_at = NOW() WHERE id = $2', [dataUrl, req.user.userId]);
+    await invalidateUserCache(req.user.userId);
+    res.json({ avatarUrl: dataUrl });
+  } catch (err: any) {
+    logger.error('Avatar upload error:', err);
+    res.status(500).json({ error: 'Failed to upload avatar' });
   }
 });
 

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
 import {
@@ -12,19 +12,64 @@ import {
   ChevronRight,
   Database,
   Cpu,
-  Layers
+  Layers,
+  Bell
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import SettingsModal from '../SettingsModal';
+import GlobalSearch from '../GlobalSearch';
+import { authenticatedFetch, getApiConfig } from '../settings/apiHelper';
 
 export default function DashboardShell({ children, title = 'Dashboard' }) {
   const router = useRouter();
   const { user, logout } = useAuth();
   const [showSettingsModal, setShowSettingsModal] = useState(false);
+  const [showSearch, setShowSearch] = useState(false);
+  const [notifications, setNotifications] = useState([]);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [showNotifications, setShowNotifications] = useState(false);
+
+  useEffect(() => {
+    const fetchNotifications = async () => {
+      try {
+        const { apiBase } = getApiConfig();
+        const res = await authenticatedFetch(`${apiBase}/api/v1/notifications`);
+        if (res?.ok) {
+          const data = await res.json();
+          setNotifications(data.notifications || []);
+          setUnreadCount(data.unreadCount || 0);
+        }
+      } catch (e) { /* silent */ }
+    };
+    fetchNotifications();
+  }, []);
+
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+        e.preventDefault();
+        setShowSearch(prev => !prev);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
+  const handleMarkAllRead = async () => {
+    try {
+      const { apiBase } = getApiConfig();
+      await authenticatedFetch(`${apiBase}/api/v1/notifications/read-all`, { method: 'PUT' });
+      setNotifications(prev => prev.map(n => ({ ...n, read: true })));
+      setUnreadCount(0);
+    } catch (e) { /* silent */ }
+  };
 
   const navItems = [
+    { name: 'Dashboard', href: '/dashboard', icon: Layers },
     { name: 'AI Workspaces', href: '/chat', icon: MessageSquare },
+    { name: 'AI Agents', href: '/agents', icon: Cpu },
     { name: 'Agent Workflows', href: '/workflows', icon: Workflow },
+    { name: 'Knowledge Base', href: '/documents', icon: Database },
     { name: 'Security & Compliance', href: '/security', icon: Shield },
   ];
 
@@ -53,7 +98,7 @@ export default function DashboardShell({ children, title = 'Dashboard' }) {
       }}>
         <div>
           {/* Brand Logo */}
-          <Link href="/chat" style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '28px', paddingLeft: '8px' }}>
+          <Link href="/dashboard" style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '28px', paddingLeft: '8px' }}>
             <img src="/assets/xarwiz-logo.png" alt="Xarwiz" style={{ height: '26px', width: 'auto' }} />
           </Link>
 
@@ -91,6 +136,28 @@ export default function DashboardShell({ children, title = 'Dashboard' }) {
 
         {/* Footer Settings & User Card */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+          <button
+            onClick={() => setShowSearch(true)}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '12px',
+              padding: '10px 12px',
+              borderRadius: '8px',
+              color: '#9ca3af',
+              backgroundColor: 'transparent',
+              border: 'none',
+              cursor: 'pointer',
+              fontSize: '14px',
+              fontWeight: 500,
+              width: '100%',
+              textAlign: 'left'
+            }}
+          >
+            <Search size={18} color="#9ca3af" />
+            Search
+            <span style={{ marginLeft: 'auto', fontSize: '11px', color: '#4b5563', padding: '1px 5px', borderRadius: '4px', border: '1px solid rgba(255,255,255,0.08)' }}>⌘K</span>
+          </button>
           <button
             onClick={() => setShowSettingsModal(true)}
             style={{
@@ -173,7 +240,53 @@ export default function DashboardShell({ children, title = 'Dashboard' }) {
             {title}
           </h1>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            {/* Notification Bell */}
+            <div style={{ position: 'relative' }}>
+              <button
+                onClick={() => setShowNotifications(!showNotifications)}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9ca3af', padding: '4px', position: 'relative' }}
+              >
+                <Bell size={20} />
+                {unreadCount > 0 && (
+                  <span style={{
+                    position: 'absolute', top: '-2px', right: '-2px',
+                    width: '16px', height: '16px', borderRadius: '50%',
+                    backgroundColor: '#ef4444', color: 'white',
+                    fontSize: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    fontWeight: 700,
+                  }}>
+                    {unreadCount > 9 ? '9+' : unreadCount}
+                  </span>
+                )}
+              </button>
+              {showNotifications && (
+                <div style={{
+                  position: 'absolute', top: '36px', right: 0, width: '340px', maxHeight: '400px',
+                  overflow: 'auto', backgroundColor: '#1f2937',
+                  border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px',
+                  boxShadow: '0 8px 24px rgba(0,0,0,0.4)', zIndex: 100, padding: '8px',
+                }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 12px', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+                    <span style={{ fontSize: '14px', fontWeight: 600, color: '#f3f4f6' }}>Notifications</span>
+                    {unreadCount > 0 && (
+                      <button onClick={handleMarkAllRead} style={{ fontSize: '11px', color: '#818cf8', background: 'none', border: 'none', cursor: 'pointer' }}>
+                        Mark all read
+                      </button>
+                    )}
+                  </div>
+                  {notifications.length === 0 ? (
+                    <p style={{ padding: '20px', textAlign: 'center', color: '#6b7280', fontSize: '13px' }}>No notifications</p>
+                  ) : notifications.map(n => (
+                    <div key={n.id} style={{ padding: '10px 12px', borderBottom: '1px solid rgba(255,255,255,0.04)', opacity: n.read ? 0.6 : 1 }}>
+                      <p style={{ fontSize: '13px', color: '#f3f4f6', margin: 0 }}>{n.title}</p>
+                      <p style={{ fontSize: '11px', color: '#6b7280', margin: '2px 0 0' }}>{n.message}</p>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
             <span style={{
               fontSize: '12px',
               padding: '4px 10px',
@@ -199,6 +312,8 @@ export default function DashboardShell({ children, title = 'Dashboard' }) {
         initialTab="profile"
         handleLogout={logout}
       />
+
+      <GlobalSearch isOpen={showSearch} onClose={() => setShowSearch(false)} />
     </div>
   );
 }
