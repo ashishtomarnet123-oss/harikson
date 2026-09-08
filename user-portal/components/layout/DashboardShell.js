@@ -2,22 +2,15 @@ import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
 import {
-  MessageSquare,
-  Workflow,
   Settings,
   LogOut,
-  User,
-  Shield,
   Search,
-  ChevronRight,
-  Database,
-  Cpu,
-  Layers,
   Bell
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import SettingsModal from '../SettingsModal';
 import GlobalSearch from '../GlobalSearch';
+import NavigationRail from './NavigationRail';
 import { authenticatedFetch, getApiConfig } from '../settings/apiHelper';
 
 export default function DashboardShell({ children, title = 'Dashboard' }) {
@@ -64,15 +57,6 @@ export default function DashboardShell({ children, title = 'Dashboard' }) {
     } catch (e) { /* silent */ }
   };
 
-  const navItems = [
-    { name: 'Dashboard', href: '/dashboard', icon: Layers },
-    { name: 'AI Workspaces', href: '/chat', icon: MessageSquare },
-    { name: 'AI Agents', href: '/agents', icon: Cpu },
-    { name: 'Agent Workflows', href: '/workflows', icon: Workflow },
-    { name: 'Knowledge Base', href: '/documents', icon: Database },
-    { name: 'Security & Compliance', href: '/security', icon: Shield },
-  ];
-
   return (
     <div style={{
       minHeight: '100vh',
@@ -81,9 +65,14 @@ export default function DashboardShell({ children, title = 'Dashboard' }) {
       display: 'flex',
       fontFamily: 'Inter, system-ui, sans-serif'
     }}>
-      {/* Sidebar */}
+      {/* Navigation Rail — shared icon sidebar */}
+      <div style={{ position: 'fixed', top: 0, bottom: 0, left: 0, zIndex: 51 }}>
+        <NavigationRail onSettingsClick={() => setShowSettingsModal(true)} />
+      </div>
+
+      {/* Context Sidebar */}
       <aside style={{
-        width: '260px',
+        width: '220px',
         backgroundColor: 'rgba(17, 24, 39, 0.6)',
         borderRight: '1px solid rgba(255, 255, 255, 0.08)',
         display: 'flex',
@@ -93,45 +82,27 @@ export default function DashboardShell({ children, title = 'Dashboard' }) {
         position: 'fixed',
         top: 0,
         bottom: 0,
-        left: 0,
+        left: '56px',
         zIndex: 50
       }}>
         <div>
           {/* Brand Logo */}
-          <Link href="/dashboard" style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '28px', paddingLeft: '8px' }}>
-            <img src="/assets/xarwiz-logo.png" alt="Xarwiz" style={{ height: '26px', width: 'auto' }} />
+          <Link href="/dashboard" style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '20px', paddingLeft: '4px' }}>
+            <img src="/assets/xarwiz-logo.png" alt="Xarwiz" style={{ height: '22px', width: 'auto' }} />
           </Link>
 
-          {/* Navigation Links */}
-          <nav style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-            {navItems.map((item) => {
-              const Icon = item.icon;
-              const isActive = router.pathname === item.href;
-              return (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '12px',
-                    padding: '10px 12px',
-                    borderRadius: '8px',
-                    color: isActive ? '#ffffff' : '#9ca3af',
-                    backgroundColor: isActive ? 'rgba(99, 102, 241, 0.15)' : 'transparent',
-                    border: isActive ? '1px solid rgba(99, 102, 241, 0.3)' : '1px solid transparent',
-                    textDecoration: 'none',
-                    fontSize: '14px',
-                    fontWeight: isActive ? 600 : 500,
-                    transition: 'all 0.15s ease'
-                  }}
-                >
-                  <Icon size={18} color={isActive ? '#818cf8' : '#9ca3af'} />
-                  {item.name}
-                </Link>
-              );
-            })}
-          </nav>
+          {/* Page context — current section title */}
+          <div style={{
+            fontSize: '11px',
+            fontWeight: 600,
+            color: '#6b7280',
+            textTransform: 'uppercase',
+            letterSpacing: '0.05em',
+            padding: '0 4px',
+            marginBottom: '12px',
+          }}>
+            {title}
+          </div>
         </div>
 
         {/* Footer Settings & User Card */}
@@ -217,7 +188,7 @@ export default function DashboardShell({ children, title = 'Dashboard' }) {
       {/* Main Content Area */}
       <main style={{
         flex: 1,
-        marginLeft: '260px',
+        marginLeft: '276px',
         display: 'flex',
         flexDirection: 'column',
         minHeight: '100vh'

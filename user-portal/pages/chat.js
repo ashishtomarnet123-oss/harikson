@@ -35,6 +35,7 @@ import {
   Sparkles,
 } from 'lucide-react';
 import SettingsModal from '../components/SettingsModal';
+import NavigationRail from '../components/layout/NavigationRail';
 import { trackEvent } from '../lib/analytics';
 
 /* ────────────────────────────────────────────────────────────
@@ -2079,6 +2080,9 @@ If any check fails, revise the relevant section before output.`;
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
       >
+        {/* ─── Navigation Rail ─────────────────────────────── */}
+        <NavigationRail onSettingsClick={() => setShowSettingsModal(true)} />
+
         {/* ─── Sidebar ─────────────────────────────────────── */}
         <aside className="sidebar">
           {/* Logo */}

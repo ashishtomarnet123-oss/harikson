@@ -3,6 +3,8 @@ import { useRouter } from 'next/router';
 import Head from 'next/head';
 import Link from 'next/link';
 import { withAuth } from '../components/withAuth';
+import DashboardShell from '../components/layout/DashboardShell';
+import { authenticatedFetch, getApiConfig } from '../components/settings/apiHelper';
 
 function WorkflowsPage() {
   const router = useRouter();
@@ -101,28 +103,10 @@ function WorkflowsPage() {
   ];
 
   useEffect(() => {
-    const user = localStorage.getItem('hk_user');
-    if (!user) {
-      router.replace('/login');
-      return;
-    }
-    const isDirectAccess =
-      typeof window !== 'undefined' &&
-      window.location.hostname !== 'localhost' &&
-      window.location.hostname !== '127.0.0.1';
-    let savedApiBase = localStorage.getItem('hk_api_base');
-    if (
-      !savedApiBase ||
-      /:3008$/.test(savedApiBase) ||
-      (isDirectAccess && /^https?:\/\//.test(savedApiBase))
-    ) {
-      savedApiBase = '';
-    }
-    const savedTenant = localStorage.getItem('hk_tenant') || 'system';
-    setApiBase(savedApiBase);
-    setTenantSlug(savedTenant);
-
-    fetchWorkflows(savedApiBase, savedTenant);
+    const { apiBase: base, tenantSlug: tenant } = getApiConfig();
+    setApiBase(base);
+    setTenantSlug(tenant);
+    fetchWorkflows(base, tenant);
   }, []);
 
   const fetchWorkflows = async (base, tenant) => {
@@ -340,19 +324,18 @@ function WorkflowsPage() {
   };
 
   return (
-    <>
+    <DashboardShell title="Agent Workflows">
       <Head>
         <title>Workflow Builder — Xarwiz Cloud</title>
-        <meta name="description" content="Build, test, and automate complex AI workflows" />
       </Head>
 
       <div style={{
-        minHeight: '100vh',
-        background: '#f8fafc',
         color: '#0f172a',
         fontFamily: 'Inter, system-ui, -apple-system, sans-serif',
-        padding: '36px 24px',
-        boxSizing: 'border-box'
+        background: '#f8fafc',
+        borderRadius: '12px',
+        padding: '28px 24px',
+        minHeight: 'calc(100vh - 120px)',
       }}>
         {/* Floating Notification Toast */}
         {runToast && (
@@ -447,22 +430,6 @@ function WorkflowsPage() {
                 + Create Workflow
               </button>
 
-              <Link href="/chat" passHref legacyBehavior>
-                <a style={{
-                  padding: '10px 18px',
-                  borderRadius: '12px',
-                  background: '#ffffff',
-                  border: '1px solid #cbd5e1',
-                  color: '#475569',
-                  textDecoration: 'none',
-                  fontSize: '13px',
-                  fontWeight: '600',
-                  display: 'flex',
-                  alignItems: 'center'
-                }}>
-                  Back to Workspace
-                </a>
-              </Link>
             </div>
           </div>
 
@@ -1370,7 +1337,7 @@ function WorkflowsPage() {
           </div>
         </div>
       )}
-    </>
+    </DashboardShell>
   );
 }
 
