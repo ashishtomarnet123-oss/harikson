@@ -5,25 +5,27 @@ import { withAuth } from '../components/withAuth';
 import DashboardShell from '../components/layout/DashboardShell';
 import { authenticatedFetch, getApiConfig } from '../components/settings/apiHelper';
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
-import { Cpu, MessageSquare, Zap, FileText, ArrowRight, Activity } from 'lucide-react';
+import { Cpu, MessageSquare, Zap, FileText, ArrowRight, Activity, AlertCircle } from 'lucide-react';
 
 function DashboardPage() {
   const [stats, setStats] = useState({ totalTokens: 0, totalQueries: 0, daily: [] });
   const [activity, setActivity] = useState([]);
   const [agentCount, setAgentCount] = useState(0);
+  const [docCount, setDocCount] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
-  useEffect(() => {
-    const load = async () => {
+  const loadData = async () => {
       try {
         const { apiBase, tenantSlug } = getApiConfig();
         const headers = { 'x-tenant-slug': tenantSlug };
         const opts = { credentials: 'include', headers };
 
-        const [usageRes, activityRes, agentsRes] = await Promise.allSettled([
+        const [usageRes, activityRes, agentsRes, docsRes] = await Promise.allSettled([
           authenticatedFetch(`${apiBase}/api/v1/user/usage?days=7`, opts),
           authenticatedFetch(`${apiBase}/api/v1/user/activity`, opts),
           authenticatedFetch(`${apiBase}/api/agents`, opts),
+          authenticatedFetch(`${apiBase}/api/documents`, opts),
         ]);
 
         if (usageRes.status === 'fulfilled' && usageRes.value?.ok) {
@@ -44,13 +46,21 @@ function DashboardPage() {
           const data = await agentsRes.value.json();
           setAgentCount(data.agents?.length || 0);
         }
+
+        if (docsRes.status === 'fulfilled' && docsRes.value?.ok) {
+          const data = await docsRes.value.json();
+          setDocCount(data.documents?.length || 0);
+        }
       } catch (err) {
         console.error('Dashboard load error:', err);
+        setError('Unable to load dashboard data. Check your connection and try again.');
       } finally {
         setLoading(false);
       }
-    };
-    load();
+  };
+
+  useEffect(() => {
+    loadData();
   }, []);
 
   const formatNumber = (n) => {
@@ -63,7 +73,7 @@ function DashboardPage() {
     { label: 'Total Tokens', value: formatNumber(stats.totalTokens), icon: Zap, color: '#818cf8' },
     { label: 'API Requests', value: formatNumber(stats.totalQueries), icon: Activity, color: '#34d399' },
     { label: 'Active Agents', value: String(agentCount), icon: Cpu, color: '#f472b6' },
-    { label: 'Conversations', value: formatNumber(stats.totalQueries), icon: MessageSquare, color: '#fbbf24' },
+    { label: 'Documents', value: String(docCount), icon: FileText, color: '#fbbf24' },
   ];
 
   const quickActions = [
@@ -80,6 +90,20 @@ function DashboardPage() {
         <div style={{ display: 'flex', justifyContent: 'center', padding: '60px 0' }}>
           <div style={{ width: '32px', height: '32px', border: '3px solid rgba(99,102,241,0.2)', borderTopColor: '#6366f1', borderRadius: '50%', animation: 'spin 1s linear infinite' }} />
           <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+        </div>
+      ) : error ? (
+        <div style={{ textAlign: 'center', padding: '60px 0' }}>
+          <div style={{ width: '48px', height: '48px', borderRadius: '50%', backgroundColor: 'rgba(239,68,68,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 12px' }}>
+            <AlertCircle size={24} color="#f87171" />
+          </div>
+          <p style={{ color: '#f87171', fontSize: '14px', marginBottom: '12px' }}>{error}</p>
+          <button onClick={loadData} style={{
+            padding: '8px 20px', borderRadius: '8px', fontSize: '13px', fontWeight: 600,
+            backgroundColor: 'rgba(99,102,241,0.15)', color: '#818cf8',
+            border: '1px solid rgba(99,102,241,0.3)', cursor: 'pointer',
+          }}>
+            Retry
+          </button>
         </div>
       ) : (
         <>

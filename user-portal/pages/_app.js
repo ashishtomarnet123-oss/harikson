@@ -1,6 +1,7 @@
 import '../styles/globals.css';
 import '../styles/settings-addon.css';
 import { AuthProvider } from '../context/AuthContext';
+import { ToastProvider } from '../context/ToastContext';
 
 if (typeof window !== 'undefined' && !window.__fetchIntercepted) {
   window.__fetchIntercepted = true;
@@ -38,17 +39,19 @@ import CookieConsent from '../components/CookieConsent';
 export default function App({ Component, pageProps }) {
   return (
     <AuthProvider>
-      <Head>
-        <link rel="icon" type="image/png" href="/assets/favicon-x.png" />
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-        <link
-          href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@500;600;700&display=swap"
-          rel="stylesheet"
-        />
-      </Head>
-      <Component {...pageProps} />
-      <CookieConsent />
+      <ToastProvider>
+        <Head>
+          <link rel="icon" type="image/png" href="/assets/favicon-x.png" />
+          <link rel="preconnect" href="https://fonts.googleapis.com" />
+          <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+          <link
+            href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@500;600;700&display=swap"
+            rel="stylesheet"
+          />
+        </Head>
+        <Component {...pageProps} />
+        <CookieConsent />
+      </ToastProvider>
     </AuthProvider>
   );
 }

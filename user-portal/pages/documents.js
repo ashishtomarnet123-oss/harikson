@@ -3,12 +3,15 @@ import Head from 'next/head';
 import { withAuth } from '../components/withAuth';
 import DashboardShell from '../components/layout/DashboardShell';
 import { authenticatedFetch, getApiConfig } from '../components/settings/apiHelper';
-import { FileText, Upload, Trash2, Download, Database } from 'lucide-react';
+import { FileText, Upload, Trash2, Download, Database, AlertCircle } from 'lucide-react';
+import { useToast } from '../context/ToastContext';
 
 function DocumentsPage() {
   const [documents, setDocuments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
+  const [error, setError] = useState(null);
+  const toast = useToast();
   const fileInputRef = useRef(null);
 
   useEffect(() => {
@@ -17,15 +20,19 @@ function DocumentsPage() {
 
   const fetchDocuments = async () => {
     setLoading(true);
+    setError(null);
     try {
       const { apiBase } = getApiConfig();
       const res = await authenticatedFetch(`${apiBase}/api/documents`);
       if (res?.ok) {
         const data = await res.json();
         setDocuments(data.documents || []);
+      } else {
+        setError('Failed to load documents. Please try again.');
       }
     } catch (err) {
       console.error('Fetch documents error:', err);
+      setError('Unable to connect to the server. Check your connection and try again.');
     } finally {
       setLoading(false);
     }
@@ -45,9 +52,13 @@ function DocumentsPage() {
       });
       if (res?.ok) {
         fetchDocuments();
+        toast.success('Document uploaded');
+      } else {
+        toast.error('Upload failed');
       }
     } catch (err) {
       console.error('Upload error:', err);
+      toast.error('Upload failed');
     } finally {
       setUploading(false);
       if (fileInputRef.current) fileInputRef.current.value = '';
@@ -60,14 +71,31 @@ function DocumentsPage() {
       const { apiBase } = getApiConfig();
       await authenticatedFetch(`${apiBase}/api/documents/${id}`, { method: 'DELETE' });
       fetchDocuments();
+      toast.success('Document deleted');
     } catch (err) {
       console.error('Delete document error:', err);
+      toast.error('Failed to delete document');
     }
   };
 
-  const handleDownload = (id) => {
-    const { apiBase } = getApiConfig();
-    window.open(`${apiBase}/api/documents/${id}/download`, '_blank');
+  const handleDownload = async (doc) => {
+    try {
+      const { apiBase } = getApiConfig();
+      const res = await authenticatedFetch(`${apiBase}/api/documents/${doc.id}/download`);
+      if (!res?.ok) throw new Error('Download failed');
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = doc.filename || 'download';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error('Download error:', err);
+      toast.error('Download failed');
+    }
   };
 
   const formatSize = (bytes) => {
@@ -128,6 +156,20 @@ function DocumentsPage() {
         <div style={{ display: 'flex', justifyContent: 'center', padding: '60px 0' }}>
           <div style={{ width: '32px', height: '32px', border: '3px solid rgba(99,102,241,0.2)', borderTopColor: '#6366f1', borderRadius: '50%', animation: 'spin 1s linear infinite' }} />
           <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+        </div>
+      ) : error ? (
+        <div style={{ textAlign: 'center', padding: '60px 0' }}>
+          <div style={{ width: '48px', height: '48px', borderRadius: '50%', backgroundColor: 'rgba(239,68,68,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 12px' }}>
+            <AlertCircle size={24} color="#f87171" />
+          </div>
+          <p style={{ color: '#f87171', fontSize: '14px', marginBottom: '12px' }}>{error}</p>
+          <button onClick={fetchDocuments} style={{
+            padding: '8px 20px', borderRadius: '8px', fontSize: '13px', fontWeight: 600,
+            backgroundColor: 'rgba(99,102,241,0.15)', color: '#818cf8',
+            border: '1px solid rgba(99,102,241,0.3)', cursor: 'pointer',
+          }}>
+            Retry
+          </button>
         </div>
       ) : documents.length === 0 ? (
         <div style={{ textAlign: 'center', padding: '60px 0' }}>
@@ -190,7 +232,7 @@ function DocumentsPage() {
               </span>
               <span style={{ color: '#6b7280', fontSize: '12px' }}>{formatDate(doc.created_at)}</span>
               <div style={{ display: 'flex', gap: '6px' }}>
-                <button onClick={() => handleDownload(doc.id)} title="Download" style={{
+                <button onClick={() => handleDownload(doc)} title="Download" style={{
                   background: 'none', border: 'none', color: '#818cf8', cursor: 'pointer', padding: '4px',
                 }}>
                   <Download size={14} />

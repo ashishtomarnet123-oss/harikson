@@ -4,6 +4,7 @@ import { withAuth } from '../components/withAuth';
 import DashboardShell from '../components/layout/DashboardShell';
 import { authenticatedFetch, getApiConfig } from '../components/settings/apiHelper';
 import { Cpu, Plus, Pencil, Trash2, X, Play, Clock } from 'lucide-react';
+import { useToast } from '../context/ToastContext';
 
 const MODELS = ['qwen3-coder', 'qwen3-8b', 'qwen3-14b', 'qwen3-32b'];
 
@@ -13,12 +14,14 @@ function AgentsPage() {
   const [editing, setEditing] = useState(null);
   const [isNew, setIsNew] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [error, setError] = useState(null);
 
   // Form fields
   const [name, setName] = useState('');
   const [model, setModel] = useState('qwen3-coder');
   const [systemPrompt, setSystemPrompt] = useState('You are a helpful AI assistant.');
   const [status, setStatus] = useState('active');
+  const toast = useToast();
 
   useEffect(() => {
     fetchAgents();
@@ -26,15 +29,19 @@ function AgentsPage() {
 
   const fetchAgents = async () => {
     setLoading(true);
+    setError(null);
     try {
       const { apiBase } = getApiConfig();
       const res = await authenticatedFetch(`${apiBase}/api/agents`);
       if (res?.ok) {
         const data = await res.json();
         setAgents(data.agents || []);
+      } else {
+        setError('Failed to load agents. Please try again.');
       }
     } catch (err) {
       console.error('Fetch agents error:', err);
+      setError('Unable to connect to the server. Check your connection and try again.');
     } finally {
       setLoading(false);
     }
@@ -74,9 +81,13 @@ function AgentsPage() {
       if (res?.ok) {
         setEditing(null);
         fetchAgents();
+        toast.success(isNew ? 'Agent created' : 'Agent updated');
+      } else {
+        toast.error('Failed to save agent');
       }
     } catch (err) {
       console.error('Save agent error:', err);
+      toast.error('Failed to save agent');
     } finally {
       setSaving(false);
     }
@@ -88,8 +99,10 @@ function AgentsPage() {
       const { apiBase } = getApiConfig();
       await authenticatedFetch(`${apiBase}/api/agents/${id}`, { method: 'DELETE' });
       fetchAgents();
+      toast.success('Agent deleted');
     } catch (err) {
       console.error('Delete agent error:', err);
+      toast.error('Failed to delete agent');
     }
   };
 
@@ -121,6 +134,20 @@ function AgentsPage() {
         <div style={{ display: 'flex', justifyContent: 'center', padding: '60px 0' }}>
           <div style={{ width: '32px', height: '32px', border: '3px solid rgba(99,102,241,0.2)', borderTopColor: '#6366f1', borderRadius: '50%', animation: 'spin 1s linear infinite' }} />
           <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+        </div>
+      ) : error ? (
+        <div style={{ textAlign: 'center', padding: '60px 0' }}>
+          <div style={{ width: '48px', height: '48px', borderRadius: '50%', backgroundColor: 'rgba(239,68,68,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 12px' }}>
+            <X size={24} color="#f87171" />
+          </div>
+          <p style={{ color: '#f87171', fontSize: '14px', marginBottom: '12px' }}>{error}</p>
+          <button onClick={fetchAgents} style={{
+            padding: '8px 20px', borderRadius: '8px', fontSize: '13px', fontWeight: 600,
+            backgroundColor: 'rgba(99,102,241,0.15)', color: '#818cf8',
+            border: '1px solid rgba(99,102,241,0.3)', cursor: 'pointer',
+          }}>
+            Retry
+          </button>
         </div>
       ) : (
         <>

@@ -7,7 +7,7 @@ const resources = [
     title: 'Documentation',
     description: 'Read our comprehensive guides on how to use Xarwiz AI for your business.',
     label: 'View Docs',
-    href: '#',
+    href: '/security-policy',
   },
   {
     icon: MessageCircle,
@@ -21,28 +21,28 @@ const resources = [
     title: 'Report an Issue',
     description: 'Found a bug? Let our engineering team know so we can fix it quickly.',
     label: 'Report Bug',
-    href: '#',
+    href: 'mailto:bugs@xarwiz.com?subject=Bug%20Report',
   },
   {
     icon: Cpu,
     title: 'API Reference',
     description: 'Explore the Xarwiz REST API for integrating AI capabilities into your apps.',
     label: 'View API Docs',
-    href: '#',
+    href: '/security-policy',
   },
   {
     icon: Users,
     title: 'Community',
     description: 'Join the Xarwiz developer community to share ideas and get help.',
     label: 'Join Community',
-    href: '#',
+    href: 'mailto:community@xarwiz.com?subject=Community%20Access',
   },
   {
     icon: Activity,
     title: 'Status Page',
     description: 'Check the real-time status of all Xarwiz platform services.',
     label: 'View Status',
-    href: '#',
+    href: 'mailto:status@xarwiz.com?subject=Status%20Inquiry',
   },
 ];
 
