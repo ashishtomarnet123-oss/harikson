@@ -88,8 +88,35 @@ export function decryptDocumentContent(
   return decrypted;
 }
 
+const CACHE_KEY_SECRET = process.env.TENANT_MASTER_KEY || '';
+
+function deriveCacheKey(documentId: string): Buffer {
+  return crypto.pbkdf2Sync(CACHE_KEY_SECRET, `cache:${documentId}`, 10000, 32, 'sha256');
+}
+
+function encryptForCache(plainText: string, documentId: string): string {
+  const key = deriveCacheKey(documentId);
+  const iv = crypto.randomBytes(12);
+  const cipher = crypto.createCipheriv('aes-256-gcm', key, iv);
+  let enc = cipher.update(plainText, 'utf8', 'hex');
+  enc += cipher.final('hex');
+  const tag = cipher.getAuthTag().toString('hex');
+  return `${iv.toString('hex')}:${tag}:${enc}`;
+}
+
+function decryptFromCache(packed: string, documentId: string): string {
+  const [ivHex, tagHex, enc] = packed.split(':');
+  const key = deriveCacheKey(documentId);
+  const decipher = crypto.createDecipheriv('aes-256-gcm', key, Buffer.from(ivHex, 'hex'));
+  decipher.setAuthTag(Buffer.from(tagHex, 'hex'));
+  let dec = decipher.update(enc, 'hex', 'utf8');
+  dec += decipher.final('utf8');
+  return dec;
+}
+
 /**
- * Decrypt document content with Redis caching (TTL: 1 hour) to avoid CPU-intensive re-decryption.
+ * Decrypt document content with encrypted Redis caching (TTL: 15 min).
+ * Cache values are AES-256-GCM encrypted so a Redis compromise does not expose plaintext.
  */
 export async function decryptDocumentContentWithCache(
   documentId: string,
@@ -103,13 +130,12 @@ export async function decryptDocumentContentWithCache(
   try {
     const cached = await redis.get(cacheKey);
     if (cached) {
-      return cached;
+      return decryptFromCache(cached, documentId);
     }
   } catch (err) {
     Logger.warn('Redis cache get error in document decryption:', (err as any).message);
   }
 
-  // Fallback to plain text if not encrypted yet (legacy records)
   if (!ivHex || !authTagHex) {
     return encryptedContent;
   }
@@ -123,7 +149,8 @@ export async function decryptDocumentContentWithCache(
   );
 
   try {
-    await redis.set(cacheKey, decrypted, 'EX', 3600); // 1 hour TTL
+    const encrypted = encryptForCache(decrypted, documentId);
+    await redis.set(cacheKey, encrypted, 'EX', 900);
   } catch (err) {
     Logger.warn('Redis cache set error in document decryption:', (err as any).message);
   }

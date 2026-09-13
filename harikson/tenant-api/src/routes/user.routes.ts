@@ -736,8 +736,9 @@ router.post(['/billing/change-plan', '/user/billing/change-plan'], async (req: a
       await pool.query(
         `UPDATE subscriptions SET plan_id = $2, status = 'active', updated_at = NOW() WHERE tenant_id = $1`,
         [tenantId, planId]
-      ).catch(() => {});
-      await pool.query(`UPDATE tenants SET plan = $2, updated_at = NOW() WHERE id = $1`, [tenantId, planId]).catch(() => {});
+      ).catch((err: any) => logger.warn('Failed to update subscription on plan change:', err?.message || err));
+      await pool.query(`UPDATE tenants SET plan = $2, updated_at = NOW() WHERE id = $1`, [tenantId, planId])
+        .catch((err: any) => logger.warn('Failed to update tenant plan:', err?.message || err));
     }
     res.json({ success: true, message: `Successfully updated subscription to ${plan.name}` });
   } catch (e) {
@@ -869,7 +870,8 @@ router.post(['/billing/verify-payment', '/user/billing/verify-payment'], async (
       [invoiceId, tenantId, subscriptionId, razorpay_payment_id, invoiceNumber, amountRupees, `/api/v1/user/billing/invoices/${invoiceId}/receipt`]
     );
 
-    await pool.query(`UPDATE tenants SET plan = $2, status = 'active', updated_at = NOW() WHERE id = $1`, [tenantId, planId]).catch(() => {});
+    await pool.query(`UPDATE tenants SET plan = $2, status = 'active', updated_at = NOW() WHERE id = $1`, [tenantId, planId])
+      .catch((err: any) => logger.warn('Failed to update tenant plan after Razorpay payment:', err?.message || err));
 
     logger.info(`Razorpay payment verified and plan activated: tenant=${tenantId} plan=${planId} payment=${razorpay_payment_id}`);
     res.json({ success: true, message: `Successfully upgraded to ${plan.name}` });
@@ -1349,16 +1351,14 @@ router.get('/developer/keys', async (req: any, res) => {
   if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
 
   try {
-    const userRes = await pool.query('SELECT tenant_id FROM users WHERE id = $1', [req.user.userId]).catch(() => ({ rows: [] }));
-    const tenantId = userRes.rows[0]?.tenant_id || req.tenant.id;
-
-    const keysRes = await pool.query(
-      'SELECT id, name, key_prefix as prefix, scopes, created_at as "createdAt", last_used_at as "lastUsedAt" FROM tenant_api_keys WHERE tenant_id = $1 AND status = \'active\' ORDER BY created_at DESC',
-      [tenantId]
-    ).catch(() => ({ rows: [] }));
-
+    const keysRes = await executeTenantQuery(req.tenant.id, (client) =>
+      client.query(
+        'SELECT id, name, key_prefix as prefix, scopes, created_at as "createdAt", last_used_at as "lastUsedAt" FROM tenant_api_keys WHERE status = \'active\' ORDER BY created_at DESC'
+      )
+    );
     res.json(keysRes.rows || []);
   } catch (err: any) {
+    logger.error('Fetch developer keys error:', err);
     res.json([]);
   }
 });
@@ -1373,14 +1373,13 @@ router.post('/developer/keys', async (req: any, res) => {
   const keyHash = crypto.createHash('sha256').update(rawKey).digest('hex');
 
   try {
-    const userRes = await pool.query('SELECT tenant_id FROM users WHERE id = $1', [req.user.userId]).catch(() => ({ rows: [] }));
-    const tenantId = userRes.rows[0]?.tenant_id || req.tenant.id;
-
-    const insertRes = await pool.query(
-      `INSERT INTO tenant_api_keys (tenant_id, user_id, name, key_hash, key_prefix, scopes, status, created_at)
-       VALUES ($1, $2, $3, $4, $5, $6, 'active', NOW())
-       RETURNING id, name, key_prefix as prefix, scopes, created_at as "createdAt"`,
-      [tenantId, req.user.userId, name || 'API Key', keyHash, prefix, JSON.stringify(scopes || ['read'])]
+    const insertRes = await executeTenantQuery(req.tenant.id, (client) =>
+      client.query(
+        `INSERT INTO tenant_api_keys (tenant_id, user_id, name, key_hash, key_prefix, scopes, status, created_at)
+         VALUES ($1, $2, $3, $4, $5, $6, 'active', NOW())
+         RETURNING id, name, key_prefix as prefix, scopes, created_at as "createdAt"`,
+        [req.tenant.id, req.user.userId, name || 'API Key', keyHash, prefix, JSON.stringify(scopes || ['read'])]
+      )
     );
 
     res.status(201).json({
@@ -1399,18 +1398,18 @@ router.delete('/developer/keys/:id', async (req: any, res) => {
 
   const { id } = req.params;
   try {
-    const userRes = await pool.query('SELECT tenant_id FROM users WHERE id = $1', [req.user.userId]).catch(() => ({ rows: [] }));
-    const tenantId = userRes.rows[0]?.tenant_id || req.tenant.id;
-
-    const result = await pool.query(
-      'UPDATE tenant_api_keys SET status = \'revoked\', revoked_at = NOW() WHERE id = $1 AND tenant_id = $2',
-      [id, tenantId]
+    const result = await executeTenantQuery(req.tenant.id, (client) =>
+      client.query(
+        'UPDATE tenant_api_keys SET status = \'revoked\', revoked_at = NOW() WHERE id = $1',
+        [id]
+      )
     );
     if (result.rowCount === 0) {
       return res.status(404).json({ error: 'API key not found' });
     }
     res.json({ success: true, message: 'API key revoked successfully' });
   } catch (err: any) {
+    logger.error('Revoke developer key error:', err);
     res.status(500).json({ error: 'Failed to revoke API key' });
   }
 });
@@ -1611,12 +1610,13 @@ router.delete('/account', async (req: any, res) => {
     await pool.query(
       `UPDATE tenant_api_keys SET status = 'revoked', revoked_at = NOW() WHERE user_id = $1 AND status = 'active'`,
       [req.user.userId]
-    ).catch(() => {});
+    ).catch((err: any) => logger.warn('Failed to revoke API keys during account deletion:', err?.message || err));
 
     await invalidateUserCache(req.user.userId);
 
-    res.clearCookie('hk_access_token');
-    res.clearCookie('hk_refresh_token');
+    const cookieOpts = { httpOnly: true, secure: true, sameSite: 'strict' as const };
+    res.clearCookie('hk_access_token', cookieOpts);
+    res.clearCookie('hk_refresh_token', cookieOpts);
     res.json({ success: true, message: 'Your account has been deleted.' });
   } catch (err: any) {
     logger.error('Account deletion error:', err);

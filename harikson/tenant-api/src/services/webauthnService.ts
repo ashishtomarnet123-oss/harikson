@@ -33,7 +33,7 @@ export async function generatePasskeyRegistrationOptions(userId: string, email: 
       { alg: -257, type: 'public-key' }, // RS256
     ],
     timeout: 60000,
-    attestation: 'none',
+    attestation: 'direct',
   };
 }
 
