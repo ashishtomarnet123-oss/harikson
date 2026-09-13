@@ -1452,7 +1452,16 @@ router.delete('/developer/keys/:id', async (req: any, res) => {
 
   const { id } = req.params;
   try {
-    await pool.query('UPDATE tenant_api_keys SET status = \'revoked\', revoked_at = NOW() WHERE id = $1', [id]);
+    const userRes = await pool.query('SELECT tenant_id FROM users WHERE id = $1', [req.user.userId]).catch(() => ({ rows: [] }));
+    const tenantId = userRes.rows[0]?.tenant_id || req.tenant.id;
+
+    const result = await pool.query(
+      'UPDATE tenant_api_keys SET status = \'revoked\', revoked_at = NOW() WHERE id = $1 AND tenant_id = $2',
+      [id, tenantId]
+    );
+    if (result.rowCount === 0) {
+      return res.status(404).json({ error: 'API key not found' });
+    }
     res.json({ success: true, message: 'API key revoked successfully' });
   } catch (err: any) {
     res.status(500).json({ error: 'Failed to revoke API key' });

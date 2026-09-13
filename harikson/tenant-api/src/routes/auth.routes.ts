@@ -236,6 +236,16 @@ async function handleLogin(req: any, res: any) {
 async function handleRegister(req: any, res: any) {
   const { email, password, name, companyName, tenantSlug } = req.body;
   try {
+    const ip =
+      ((req.headers['x-forwarded-for'] as any) || req.socket?.remoteAddress || '')
+        .split(',')[0]
+        .trim() || '127.0.0.1';
+    const regKey = `ratelimit:register:${ip}`;
+    const regAttempts = await redis.incr(regKey);
+    if (regAttempts === 1) await redis.expire(regKey, 300);
+    if (regAttempts > 5) {
+      return res.status(429).json({ error: 'Too many registration attempts. Try again in 5 minutes.' });
+    }
     const existing = await pool.query('SELECT id, status FROM users WHERE email = $1 AND deleted_at IS NULL', [email]);
     if (existing.rows.length > 0) {
       const existingUser = existing.rows[0];
@@ -309,7 +319,7 @@ async function handleRegister(req: any, res: any) {
        )
        VALUES ($1, 'pro', 'system', $2, 'active', NOW(), NOW() + INTERVAL '14 days', 0, 'USD', NOW())`,
       [tenantId, 'sub_trial_' + crypto.randomBytes(8).toString('hex')]
-    ).catch(() => {});
+    ).catch((err) => logger.error('Failed to create trial subscription:', err?.message || err));
 
     const verifyUrl = `https://xarwiz.com/verify-email?token=${verificationToken}`;
     sendVerificationEmail(user.email, verifyUrl).catch((err) =>
@@ -555,6 +565,16 @@ router.post('/v1/logout', handleLogout);
 async function handleForgotPassword(req: any, res: any) {
   const { email } = req.body;
   try {
+    const ip =
+      ((req.headers['x-forwarded-for'] as any) || req.socket?.remoteAddress || '')
+        .split(',')[0]
+        .trim() || '127.0.0.1';
+    const fpKey = `ratelimit:forgot:${ip}`;
+    const fpAttempts = await redis.incr(fpKey);
+    if (fpAttempts === 1) await redis.expire(fpKey, 300);
+    if (fpAttempts > 5) {
+      return res.json({ message: 'If that email exists, a password reset link has been sent.' });
+    }
     const userRes = await pool.query('SELECT * FROM users WHERE email = $1 AND deleted_at IS NULL', [email]);
     if (userRes.rows.length === 0) {
       return res.json({ message: 'If that email exists, a password reset link has been sent.' });

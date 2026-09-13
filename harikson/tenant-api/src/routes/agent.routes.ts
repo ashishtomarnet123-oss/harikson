@@ -2,11 +2,12 @@ import { Router } from 'express';
 import { executeTenantQuery } from '../db/pool.js';
 import logger from '../utils/logger.js';
 import { HariksonOrchestrator } from '../services/agents/orchestrator.js';
+import { requireScopes } from '../middleware/scopeAuth.js';
 
 const router = Router();
 
 // GET /api/agents
-router.get('/', async (req: any, res) => {
+router.get('/', requireScopes('chat:read'), async (req: any, res) => {
 
 
   try {
@@ -28,7 +29,7 @@ router.get('/', async (req: any, res) => {
 });
 
 // POST /api/agents
-router.post('/', async (req: any, res) => {
+router.post('/', requireScopes('chat:write'), async (req: any, res) => {
 
 
   const { name, model = 'qwen3-coder', systemPrompt = 'You are a helpful AI assistant.' } = req.body;
@@ -51,7 +52,7 @@ router.post('/', async (req: any, res) => {
 });
 
 // GET /api/agents/:id
-router.get('/:id', async (req: any, res) => {
+router.get('/:id', requireScopes('chat:read'), async (req: any, res) => {
 
   const { id } = req.params;
 
@@ -77,7 +78,7 @@ router.get('/:id', async (req: any, res) => {
 });
 
 // PUT /api/agents/:id
-router.put('/:id', async (req: any, res) => {
+router.put('/:id', requireScopes('chat:write'), async (req: any, res) => {
 
   const { id } = req.params;
   const { name, model, systemPrompt, status } = req.body;
@@ -109,7 +110,7 @@ router.put('/:id', async (req: any, res) => {
 });
 
 // POST /api/agents/:id/execute
-router.post('/:id/execute', async (req: any, res) => {
+router.post('/:id/execute', requireScopes('chat:write'), async (req: any, res) => {
   const { id } = req.params;
   const { message, workspacePath = '/workspace' } = req.body;
 
@@ -169,7 +170,7 @@ router.post('/:id/execute', async (req: any, res) => {
 });
 
 // DELETE /api/agents/:id
-router.delete('/:id', async (req: any, res) => {
+router.delete('/:id', requireScopes('chat:write'), async (req: any, res) => {
 
   const { id } = req.params;
 

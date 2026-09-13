@@ -187,11 +187,6 @@ app.use(async (req, res, next) => {
     }
 
     if (!tenant) {
-      const defaultTenantRes = await pool.query("SELECT * FROM tenants ORDER BY created_at ASC LIMIT 1").catch(() => ({ rows: [] }));
-      tenant = defaultTenantRes.rows[0];
-    }
-
-    if (!tenant) {
       // Health/readiness probes must work without a tenant
       if (req.path === '/health' || req.path === '/ready') {
         return next();

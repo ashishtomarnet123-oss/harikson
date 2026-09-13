@@ -6,6 +6,7 @@ import { pool, executeTenantQuery } from '../db/pool.js';
 import { RagService } from '../services/rag.service.js';
 import { countExactTokens } from '../services/tokenCountingService.js';
 import logger from '../utils/logger.js';
+import { requireScopes } from '../middleware/scopeAuth.js';
 
 const router = Router();
 const redis = new Redis(process.env.REDIS_URL || 'redis://redis:6379', {
@@ -53,7 +54,7 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
 
 
 // GET /api/chat/conversations
-router.get('/conversations', async (req: any, res) => {
+router.get('/conversations', requireScopes('chat:read'), async (req: any, res) => {
 
   const userId = req.user.userId;
 
@@ -79,7 +80,7 @@ router.get('/conversations', async (req: any, res) => {
 });
 
 // GET /api/chat/conversations/:id/messages
-router.get('/conversations/:id/messages', async (req: any, res) => {
+router.get('/conversations/:id/messages', requireScopes('chat:read'), async (req: any, res) => {
 
   const { id } = req.params;
   const userId = req.user.userId;
@@ -110,7 +111,7 @@ router.get('/conversations/:id/messages', async (req: any, res) => {
 });
 
 // DELETE /api/chat/conversations/:id
-router.delete('/conversations/:id', async (req: any, res) => {
+router.delete('/conversations/:id', requireScopes('chat:write'), async (req: any, res) => {
 
   const { id } = req.params;
   const userId = req.user.userId;
@@ -460,7 +461,7 @@ async function handleChat(req: any, res: any) {
   }
 }
 
-router.post('/', handleChat);
+router.post('/', requireScopes('chat:write'), handleChat);
 router.post('/v1', handleChat);
 
 export default router;

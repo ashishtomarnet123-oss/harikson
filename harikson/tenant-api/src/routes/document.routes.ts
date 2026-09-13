@@ -4,6 +4,7 @@ import { executeTenantQuery } from '../db/pool.js';
 import { RagService } from '../services/rag.service.js';
 import { decryptDocumentContent } from '../services/documentEncryptionService.js';
 import logger from '../utils/logger.js';
+import { requireScopes } from '../middleware/scopeAuth.js';
 
 const router = Router();
 const upload = multer({
@@ -11,7 +12,7 @@ const upload = multer({
 });
 
 // POST /api/documents/upload
-router.post('/upload', upload.single('file'), async (req: any, res) => {
+router.post('/upload', requireScopes('documents:write'), upload.single('file'), async (req: any, res) => {
 
   if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
 
@@ -40,7 +41,7 @@ router.post('/upload', upload.single('file'), async (req: any, res) => {
 });
 
 // GET /api/documents
-router.get('/', async (req: any, res) => {
+router.get('/', requireScopes('documents:read'), async (req: any, res) => {
 
 
   try {
@@ -62,7 +63,7 @@ router.get('/', async (req: any, res) => {
 });
 
 // DELETE /api/documents/:id
-router.delete('/:id', async (req: any, res) => {
+router.delete('/:id', requireScopes('documents:write'), async (req: any, res) => {
 
   const { id } = req.params;
 
@@ -86,7 +87,7 @@ router.delete('/:id', async (req: any, res) => {
 });
 
 // GET /api/documents/:id/download
-router.get('/:id/download', async (req: any, res) => {
+router.get('/:id/download', requireScopes('documents:read'), async (req: any, res) => {
 
   const { id } = req.params;
 
