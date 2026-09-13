@@ -4,6 +4,7 @@ import { OllamaClient } from '../llm/ollama.js';
 import pdf from 'pdf-parse';
 import crypto from 'crypto';
 import pLimit from 'p-limit';
+import axios from 'axios';
 import { encryptDocumentContent } from './documentEncryptionService.js';
 
 export class RagService {
@@ -201,8 +202,19 @@ export class RagService {
     userId: string,
     url: string
   ): Promise<number> {
-    // Mock crawler fetching content from remote webpage
-    const text = `Xarwiz AI agent documentation for ${url}. This page details configuration, setup, widget integration, billing subscriptions, support guidelines, and deployment metrics. The platform executes on isolated VPS nodes using Qwen3-Coder models.`;
+    const res = await axios.get(url, {
+      timeout: 15000,
+      maxContentLength: 5 * 1024 * 1024,
+      headers: { 'User-Agent': 'XarwizBot/1.0 (+https://xarwiz.com)' },
+      responseType: 'text',
+    });
+    const html = typeof res.data === 'string' ? res.data : String(res.data);
+    const text = html.replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
+      .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
+      .replace(/<[^>]+>/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+    if (!text) throw new Error('No extractable text content at URL');
     const result = await this.indexText(tenantId, userId, url, text, 'url', text.length);
     return result.chunksIndexed;
   }

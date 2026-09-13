@@ -91,7 +91,7 @@ export async function handleDunningMilestoneJob(job: Job): Promise<void> {
 
   // Fetch admin user email for email notification
   const userRes = await pool.query(
-    `SELECT email FROM users WHERE tenant_id = $1 AND role = 'admin' AND deleted_at IS NULL ORDER BY created_at ASC LIMIT 1`,
+    `SELECT email FROM users WHERE tenant_id = $1 AND role IN ('owner', 'admin') AND deleted_at IS NULL ORDER BY created_at ASC LIMIT 1`,
     [tenantId]
   );
   const email = userRes.rows[0]?.email;

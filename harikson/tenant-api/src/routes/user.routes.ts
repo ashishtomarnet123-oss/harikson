@@ -697,11 +697,15 @@ router.post(['/billing/cancel', '/user/billing/cancel'], async (req: any, res) =
     const userRes = await pool.query('SELECT tenant_id FROM users WHERE id = $1', [req.user.userId]).catch(() => ({ rows: [] }));
     const tenantId = userRes.rows[0]?.tenant_id || req.tenant?.id;
     if (tenantId) {
-      await pool.query('UPDATE subscriptions SET status = \'canceling\', updated_at = NOW() WHERE tenant_id = $1', [tenantId]).catch(() => {});
+      const result = await pool.query('UPDATE subscriptions SET status = \'canceling\', updated_at = NOW() WHERE tenant_id = $1 AND status = \'active\'', [tenantId]);
+      if (result.rowCount === 0) {
+        return res.status(404).json({ error: 'No active subscription found to cancel' });
+      }
     }
     res.json({ success: true, message: 'Subscription scheduled for cancellation' });
-  } catch (e) {
-    res.json({ success: true, message: 'Subscription scheduled for cancellation' });
+  } catch (e: any) {
+    logger.error('Subscription cancellation error:', e?.message || e);
+    res.status(500).json({ error: 'Failed to cancel subscription' });
   }
 });
 
@@ -1235,70 +1239,16 @@ router.get('/activity', async (req: any, res) => {
     const formattedLogs = (logsRes.rows || []).map((log: any) => ({
       id: log.id,
       action: log.action || 'User Activity',
-      device: log.device || 'Chrome 122 on macOS',
-      ip: log.ip || '154.201.127.68',
+      device: log.device || 'Unknown device',
+      ip: log.ip || 'Unknown',
       date: new Date(log.timestamp).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }),
       color: log.action?.includes('Login') ? '#10b981' : log.action?.includes('Key') ? '#8b5cf6' : '#3b82f6'
     }));
 
-    if (formattedLogs.length > 0) {
-      return res.json(formattedLogs);
-    }
-
-    // Default timeline items for user session activity
-    res.json([
-      {
-        id: 'log_1',
-        action: 'User Authentication & Login',
-        device: 'Chrome 122 on macOS',
-        ip: '154.201.127.68',
-        date: 'Today at 01:25 AM',
-        color: '#10b981'
-      },
-      {
-        id: 'log_2',
-        action: 'Professional Subscription Plan Activated',
-        device: 'Chrome 122 on macOS',
-        ip: '154.201.127.68',
-        date: 'Yesterday at 07:40 PM',
-        color: '#3b82f6'
-      },
-      {
-        id: 'log_3',
-        action: 'API Secret Key Generated (hk_live_...)',
-        device: 'Chrome 122 on macOS',
-        ip: '154.201.127.68',
-        date: 'Jul 24, 2026 at 04:15 PM',
-        color: '#8b5cf6'
-      },
-      {
-        id: 'log_4',
-        action: 'Security 2FA Verification Preference Updated',
-        device: 'Chrome 122 on macOS',
-        ip: '154.201.127.68',
-        date: 'Jul 24, 2026 at 02:30 PM',
-        color: '#f59e0b'
-      }
-    ]);
+    res.json(formattedLogs);
   } catch (err: any) {
-    res.json([
-      {
-        id: 'log_1',
-        action: 'User Authentication & Login',
-        device: 'Chrome 122 on macOS',
-        ip: '154.201.127.68',
-        date: 'Today at 01:25 AM',
-        color: '#10b981'
-      },
-      {
-        id: 'log_2',
-        action: 'Professional Subscription Plan Activated',
-        device: 'Chrome 122 on macOS',
-        ip: '154.201.127.68',
-        date: 'Yesterday at 07:40 PM',
-        color: '#3b82f6'
-      }
-    ]);
+    logger.error('Fetch activity logs error:', err);
+    res.json([]);
   }
 });
 
@@ -1325,13 +1275,10 @@ router.get('/devices', async (req: any, res) => {
       current: idx === 0,
     }));
 
-    res.json(devices.length > 0 ? devices : [
-      { id: '1', name: 'MacBook Pro', browser: 'Chrome 122', os: 'macOS', ip: '127.0.0.1', lastActive: 'Active now', current: true }
-    ]);
+    res.json(devices);
   } catch (err: any) {
-    res.json([
-      { id: '1', name: 'MacBook Pro', browser: 'Chrome 122', os: 'macOS', ip: '127.0.0.1', lastActive: 'Active now', current: true }
-    ]);
+    logger.error('Fetch devices error:', err);
+    res.json([]);
   }
 });
 

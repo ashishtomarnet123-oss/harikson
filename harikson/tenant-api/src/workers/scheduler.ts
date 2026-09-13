@@ -41,6 +41,7 @@ export class HariksonScheduler {
   public static cleanupQueue: Queue;
   public static workflowQueue: Queue;
   public static failedQueue: Queue;
+  private static dlqWorker: Worker;
 
   private static memoryWorker: Worker;
   private static summarizerWorker: Worker;
@@ -114,6 +115,21 @@ export class HariksonScheduler {
     this.cleanupQueue = new Queue('cleanupQueue', { connection: queueConnection });
     this.workflowQueue = new Queue('workflowQueue', { connection: queueConnection });
     this.failedQueue = new Queue('failedQueue', { connection: queueConnection });
+
+    // DLQ worker: log and persist failed jobs so they don't accumulate silently
+    const dlqWorkerConn = createRedisConnection();
+    this.dlqWorker = new Worker('failedQueue', async (job: Job) => {
+      Logger.warn(`🪦 [DLQ WORKER] Processing dead-letter job: queue=${job.data.originalQueue} jobId=${job.data.jobId} reason=${job.data.failedReason}`);
+      try {
+        await pool.query(
+          `INSERT INTO activity_logs (user_id, action, details, ip_address, created_at)
+           VALUES ('00000000-0000-0000-0000-000000000000', 'system.dlq.processed', $1, '127.0.0.1', NOW())`,
+          [JSON.stringify({ queue: job.data.originalQueue, jobId: job.data.jobId, reason: job.data.failedReason, failedAt: job.data.failedAt })]
+        );
+      } catch (dbErr) {
+        Logger.warn('DLQ worker failed to persist to activity_logs:', dbErr);
+      }
+    }, { connection: dlqWorkerConn, concurrency: 1 });
 
     // 1. File Watcher Indexer (Incremental Indexer)
     this.startIndexerWorker(tenantId || 'system', workspacePath || './');
@@ -210,6 +226,7 @@ export class HariksonScheduler {
       if (this.cacheWorker) await this.cacheWorker.close();
       if (this.cleanupWorker) await this.cleanupWorker.close();
       if (this.workflowWorker) await this.workflowWorker.close();
+      if (this.dlqWorker) await this.dlqWorker.close();
 
       // Close all queues
       if (this.memoryQueue) await this.memoryQueue.close();

@@ -263,8 +263,10 @@ async function startServer() {
     try {
       await HariksonScheduler.startAll();
       logger.info('Xarwiz background scheduler initialized.');
+      (app as any).schedulerHealthy = true;
     } catch (schedErr: any) {
-      logger.warn('Scheduler failed to start:', schedErr.message);
+      logger.error('Scheduler failed to start — background jobs will not run:', schedErr.message);
+      (app as any).schedulerHealthy = false;
     }
 
     app.listen(PORT, () => {

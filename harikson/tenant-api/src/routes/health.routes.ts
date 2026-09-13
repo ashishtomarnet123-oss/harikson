@@ -27,8 +27,13 @@ router.get('/health/readiness', async (_req, res) => {
 });
 
 // GET /health/scheduler - Scheduler health check
-router.get('/health/scheduler', (_req, res) => {
-  res.json({ status: 'active', scheduler: 'running' });
+router.get('/health/scheduler', (req, res) => {
+  const healthy = (req.app as any).schedulerHealthy === true;
+  const status = healthy ? 200 : 503;
+  res.status(status).json({
+    status: healthy ? 'active' : 'failed',
+    scheduler: healthy ? 'running' : 'not_started',
+  });
 });
 
 export default router;
