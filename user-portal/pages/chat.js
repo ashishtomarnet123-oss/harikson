@@ -805,6 +805,8 @@ function ChatPage() {
   const [customInstructions, setCustomInstructions] = useState('');
   const [attachedFiles, setAttachedFiles] = useState([]);
   const [pinnedChats, setPinnedChats] = useState([]);
+  const [convSearch, setConvSearch] = useState('');
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const hasProcessingFiles = attachedFiles.some(
     (f) => f.status === 'processing'
   );
@@ -940,6 +942,7 @@ function ChatPage() {
 
   const [isDragging, setIsDragging] = useState(false);
   const [toast, setToast] = useState(null);
+  const [tokenUsage, setTokenUsage] = useState(null);
 
   const chatEndRef = useRef(null);
   const textareaRef = useRef(null);
@@ -1044,9 +1047,24 @@ function ChatPage() {
     fetchFreshProfile();
   }, [router]);
 
-  /* ── Load conversations once user is ready ── */
+  /* ── Load conversations + usage once user is ready ── */
   useEffect(() => {
-    if (user) fetchConversations();
+    if (user) {
+      fetchConversations();
+      const fetchUsage = async () => {
+        try {
+          const res = await fetch(`${apiBase}/api/v1/user/usage?days=7`, {
+            headers: authHeaders(),
+            credentials: 'include',
+          });
+          if (res.ok) {
+            const data = await res.json();
+            setTokenUsage({ tokens: data.totalTokens || 0, queries: data.totalQueries || 0 });
+          }
+        } catch (e) {}
+      };
+      fetchUsage();
+    }
   }, [user]);
 
   /* ── Load shared conversation link if present on mount or URL change ── */
@@ -2012,6 +2030,26 @@ If any check fails, revise the relevant section before output.`;
     textareaRef.current?.focus();
   };
 
+  useEffect(() => {
+    const handleGlobalKeys = (e) => {
+      const mod = e.metaKey || e.ctrlKey;
+      if (mod && e.key === 'n') {
+        e.preventDefault();
+        startNewChat();
+      }
+      if (mod && e.key === '/') {
+        e.preventDefault();
+        setSidebarCollapsed((prev) => !prev);
+      }
+      if (mod && e.key === 'Enter') {
+        e.preventDefault();
+        sendMessage();
+      }
+    };
+    window.addEventListener('keydown', handleGlobalKeys);
+    return () => window.removeEventListener('keydown', handleGlobalKeys);
+  }, []);
+
   const userInitial = user?.email?.[0]?.toUpperCase() || 'U';
 
   if (!user) return null; // Wait for mount
@@ -2084,7 +2122,7 @@ If any check fails, revise the relevant section before output.`;
         <NavigationRail onSettingsClick={() => setShowSettingsModal(true)} />
 
         {/* ─── Sidebar ─────────────────────────────────────── */}
-        <aside className="sidebar">
+        <aside className="sidebar" style={sidebarCollapsed ? { width: 0, minWidth: 0, padding: 0, overflow: 'hidden', borderRight: 'none' } : {}}>
           {/* Logo */}
           <div className="sidebar-header">
             <img src="/assets/xarwiz-logo.png" alt="Xarwiz" className="brand-logo-img" />
@@ -2108,6 +2146,25 @@ If any check fails, revise the relevant section before output.`;
             */}
           </div>
 
+          {/* Conversation Search */}
+          <div style={{ padding: '0 12px 8px' }}>
+            <div style={{ position: 'relative' }}>
+              <Search size={14} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-tertiary, #94a3b8)', pointerEvents: 'none' }} />
+              <input
+                type="text"
+                placeholder="Search conversations..."
+                value={convSearch}
+                onChange={(e) => setConvSearch(e.target.value)}
+                style={{
+                  width: '100%', padding: '7px 10px 7px 30px', fontSize: '12px',
+                  borderRadius: '8px', border: '1px solid var(--border, rgba(148,163,184,0.15))',
+                  background: 'var(--input-bg, rgba(255,255,255,0.04))', color: 'var(--text-primary, #e2e8f0)',
+                  outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit',
+                }}
+              />
+            </div>
+          </div>
+
           {/* Conversation List */}
           <div className="conv-section-label">Recent</div>
           <div className="conv-list">
@@ -2117,7 +2174,9 @@ If any check fails, revise the relevant section before output.`;
                 Start a new conversation.
               </div>
             ) : (
-              conversations.map((conv) => (
+              conversations
+              .filter((conv) => !convSearch || (conv.title || '').toLowerCase().includes(convSearch.toLowerCase()))
+              .map((conv) => (
                 <div
                   key={conv.id}
                   className={`conv-item${activeConvId === conv.id ? ' active' : ''}`}
@@ -2208,6 +2267,22 @@ If any check fails, revise the relevant section before output.`;
                   : 'New Conversation'}
               </span>
               <div className="topbar-actions">
+                {/* Token Usage */}
+                {tokenUsage && (
+                  <div style={{
+                    display: 'flex', alignItems: 'center', gap: '12px',
+                    padding: '4px 12px', borderRadius: '8px',
+                    background: 'var(--input-bg, rgba(0,0,0,0.03))',
+                    border: '1px solid var(--border, rgba(148,163,184,0.12))',
+                    fontSize: '11px', color: 'var(--text-tertiary, #94a3b8)',
+                    fontFamily: 'JetBrains Mono, monospace',
+                  }}>
+                    <span title="Tokens used (7 days)">{tokenUsage.tokens >= 1000000 ? (tokenUsage.tokens / 1000000).toFixed(1) + 'M' : tokenUsage.tokens >= 1000 ? (tokenUsage.tokens / 1000).toFixed(1) + 'K' : tokenUsage.tokens} tokens</span>
+                    <span style={{ color: 'var(--border, rgba(148,163,184,0.3))' }}>|</span>
+                    <span title="API requests (7 days)">{tokenUsage.queries} requests</span>
+                  </div>
+                )}
+
                 {/* Export Menu Dropdown */}
                 <div style={{ position: 'relative' }}>
                   <button
