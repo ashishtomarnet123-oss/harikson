@@ -11,6 +11,7 @@ import {
   TrendingUp,
   Repeat,
   AlertCircle,
+  Mail,
 } from 'lucide-react';
 
 export default function BillingSettings() {
@@ -20,6 +21,8 @@ export default function BillingSettings() {
   const [showCancelModal, setShowCancelModal] = useState(false);
   const [showPlanModal, setShowPlanModal] = useState(false);
   const [showInvoicesModal, setShowInvoicesModal] = useState(false);
+  const [showContactSales, setShowContactSales] = useState(false);
+  const [selectedPlanName, setSelectedPlanName] = useState('');
   const [actionLoading, setActionLoading] = useState(false);
 
   // Display only — the backend owns the actual price charged (PLAN_CONFIG in
@@ -175,7 +178,9 @@ export default function BillingSettings() {
 
       if (!checkoutRes || !checkoutRes.ok) {
         const data = await checkoutRes?.json().catch(() => ({}));
-        setError(data?.error || 'Failed to start checkout. Please try again.');
+        setSelectedPlanName(plan.name);
+        setShowContactSales(true);
+        setShowPlanModal(false);
         setActionLoading(false);
         return;
       }
@@ -231,7 +236,9 @@ export default function BillingSettings() {
       razorpayCheckout.open();
       return;
     } catch (err) {
-      setError(err.message);
+      setSelectedPlanName(plan.name);
+      setShowContactSales(true);
+      setShowPlanModal(false);
       setActionLoading(false);
     }
   };
@@ -892,6 +899,78 @@ export default function BillingSettings() {
                 </thead>
                 <tbody>{renderInvoiceRows(billing?.invoices)}</tbody>
               </table>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Contact Sales Modal */}
+      {showContactSales && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(15, 23, 42, 0.45)',
+            backdropFilter: 'blur(4px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 10000,
+            padding: '20px',
+          }}
+        >
+          <div
+            style={{
+              background: '#ffffff',
+              borderRadius: '16px',
+              maxWidth: '460px',
+              width: '100%',
+              padding: '28px',
+              border: '1px solid #e2e8f0',
+              boxShadow: '0 20px 50px rgba(0,0,0,0.15)',
+              textAlign: 'center',
+            }}
+          >
+            <div style={{
+              width: '48px', height: '48px', borderRadius: '50%',
+              backgroundColor: 'rgba(59,130,246,0.1)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              margin: '0 auto 16px',
+            }}>
+              <Mail size={24} color="#3b82f6" />
+            </div>
+            <h3 style={{ fontSize: '18px', fontWeight: 700, margin: '0 0 8px 0', color: '#0f172a' }}>
+              Contact Our Sales Team
+            </h3>
+            <p style={{ fontSize: '14px', color: '#64748b', lineHeight: '1.6', margin: '0 0 8px 0' }}>
+              {selectedPlanName ? `To upgrade to the ${selectedPlanName}, please` : 'To upgrade your plan, please'} reach out to our sales team. We&apos;ll help you get set up with the right plan for your needs.
+            </p>
+            <p style={{ fontSize: '13px', color: '#475569', margin: '0 0 24px 0' }}>
+              Online payments will be available soon. In the meantime, our team can process your upgrade directly.
+            </p>
+            <div style={{ display: 'flex', gap: '10px', justifyContent: 'center', flexWrap: 'wrap' }}>
+              <a
+                href="mailto:sales@xarwiz.com?subject=Plan%20Upgrade%20Request"
+                style={{
+                  display: 'inline-flex', alignItems: 'center', gap: '6px',
+                  padding: '10px 20px', borderRadius: '8px',
+                  backgroundColor: '#3b82f6', color: '#fff',
+                  border: 'none', fontSize: '13px', fontWeight: 600,
+                  textDecoration: 'none', cursor: 'pointer',
+                }}
+              >
+                <Mail size={15} /> Email Sales Team
+              </a>
+              <button
+                onClick={() => setShowContactSales(false)}
+                style={{
+                  padding: '10px 20px', borderRadius: '8px',
+                  backgroundColor: '#ffffff', border: '1px solid #cbd5e1',
+                  fontSize: '13px', fontWeight: 500, color: '#475569', cursor: 'pointer',
+                }}
+              >
+                Close
+              </button>
             </div>
           </div>
         </div>

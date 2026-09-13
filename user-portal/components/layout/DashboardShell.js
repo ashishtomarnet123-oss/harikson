@@ -8,6 +8,10 @@ import {
   Bell,
   Menu,
   X,
+  Info,
+  AlertTriangle,
+  CheckCircle2,
+  AlertCircle,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import SettingsModal from '../SettingsModal';
@@ -58,6 +62,39 @@ export default function DashboardShell({ children, title = 'Dashboard' }) {
       setNotifications(prev => prev.map(n => ({ ...n, read: true })));
       setUnreadCount(0);
     } catch (e) { /* silent */ }
+  };
+
+  const handleDismissNotification = async (id) => {
+    try {
+      const { apiBase } = getApiConfig();
+      await authenticatedFetch(`${apiBase}/api/v1/notifications/${id}`, { method: 'DELETE' });
+      setNotifications(prev => prev.filter(n => n.id !== id));
+      setUnreadCount(prev => {
+        const dismissed = notifications.find(n => n.id === id);
+        return dismissed && !dismissed.read ? Math.max(0, prev - 1) : prev;
+      });
+    } catch (e) { /* silent */ }
+  };
+
+  const handleNotificationClick = (n) => {
+    if (!n.read) {
+      authenticatedFetch(`${getApiConfig().apiBase}/api/v1/notifications/${n.id}/read`, { method: 'PUT' }).catch(() => {});
+      setNotifications(prev => prev.map(x => x.id === n.id ? { ...x, read: true } : x));
+      setUnreadCount(prev => Math.max(0, prev - 1));
+    }
+    setShowNotifications(false);
+    const typeRoutes = { agent: '/agents', document: '/documents', workflow: '/workflows', security: '/security', billing: '/settings' };
+    const route = typeRoutes[n.type] || '/dashboard';
+    router.push(route);
+  };
+
+  const notifTypeStyle = (type) => {
+    const styles = {
+      warning: { color: '#f59e0b', Icon: AlertTriangle },
+      error: { color: '#ef4444', Icon: AlertCircle },
+      success: { color: '#10b981', Icon: CheckCircle2 },
+    };
+    return styles[type] || { color: '#6366f1', Icon: Info };
   };
 
   return (
@@ -192,12 +229,28 @@ export default function DashboardShell({ children, title = 'Dashboard' }) {
                   </div>
                   {notifications.length === 0 ? (
                     <p style={{ padding: '20px', textAlign: 'center', color: 'var(--shell-text-muted)', fontSize: '13px' }}>No notifications</p>
-                  ) : notifications.map(n => (
-                    <div key={n.id} style={{ padding: '10px 12px', borderBottom: '1px solid var(--shell-card-border-subtle)', opacity: n.read ? 0.6 : 1 }}>
-                      <p style={{ fontSize: '13px', color: 'var(--shell-text)', margin: 0 }}>{n.title}</p>
-                      <p style={{ fontSize: '11px', color: 'var(--shell-text-muted)', margin: '2px 0 0' }}>{n.message}</p>
-                    </div>
-                  ))}
+                  ) : notifications.map(n => {
+                    const { color: typeColor, Icon: TypeIcon } = notifTypeStyle(n.type);
+                    return (
+                      <div key={n.id} style={{
+                        padding: '10px 12px', borderBottom: '1px solid var(--shell-card-border-subtle)',
+                        opacity: n.read ? 0.6 : 1, display: 'flex', gap: '10px', alignItems: 'flex-start',
+                        cursor: 'pointer', borderLeft: `3px solid ${n.read ? 'transparent' : typeColor}`,
+                      }} onClick={() => handleNotificationClick(n)}>
+                        <TypeIcon size={16} color={typeColor} style={{ marginTop: '2px', flexShrink: 0 }} />
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <p style={{ fontSize: '13px', color: 'var(--shell-text)', margin: 0, fontWeight: n.read ? 400 : 600 }}>{n.title}</p>
+                          <p style={{ fontSize: '11px', color: 'var(--shell-text-muted)', margin: '2px 0 0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{n.message}</p>
+                        </div>
+                        <button onClick={(e) => { e.stopPropagation(); handleDismissNotification(n.id); }} title="Dismiss" style={{
+                          background: 'none', border: 'none', color: 'var(--shell-text-muted)',
+                          cursor: 'pointer', padding: '2px', flexShrink: 0, opacity: 0.6,
+                        }}>
+                          <X size={14} />
+                        </button>
+                      </div>
+                    );
+                  })}
                 </div>
               )}
             </div>

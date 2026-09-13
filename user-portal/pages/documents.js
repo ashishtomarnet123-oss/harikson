@@ -3,14 +3,18 @@ import Head from 'next/head';
 import { withAuth } from '../components/withAuth';
 import DashboardShell from '../components/layout/DashboardShell';
 import { authenticatedFetch, getApiConfig } from '../components/settings/apiHelper';
-import { FileText, Upload, Trash2, Download, Database, AlertCircle } from 'lucide-react';
+import { FileText, Upload, Trash2, Download, Database, AlertCircle, UploadCloud } from 'lucide-react';
 import { useToast } from '../context/ToastContext';
 
 function DocumentsPage() {
   const [documents, setDocuments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
   const [error, setError] = useState(null);
+  const [dragOver, setDragOver] = useState(false);
+  const [page, setPage] = useState(1);
+  const PAGE_SIZE = 20;
   const toast = useToast();
   const fileInputRef = useRef(null);
 
@@ -38,32 +42,59 @@ function DocumentsPage() {
     }
   };
 
-  const handleUpload = async (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setUploading(true);
-    try {
+  const uploadFile = (file) => {
+    return new Promise((resolve) => {
       const { apiBase } = getApiConfig();
+      const token = (() => {
+        try { return JSON.parse(localStorage.getItem('hk_user') || '{}').token; } catch { return null; }
+      })();
       const formData = new FormData();
       formData.append('file', file);
-      const res = await authenticatedFetch(`${apiBase}/api/documents/upload`, {
-        method: 'POST',
-        body: formData,
-      });
-      if (res?.ok) {
-        fetchDocuments();
-        toast.success('Document uploaded');
-      } else {
-        toast.error('Upload failed');
-      }
-    } catch (err) {
-      console.error('Upload error:', err);
-      toast.error('Upload failed');
-    } finally {
-      setUploading(false);
-      if (fileInputRef.current) fileInputRef.current.value = '';
+      const xhr = new XMLHttpRequest();
+      xhr.open('POST', `${apiBase}/api/documents/upload`);
+      if (token) xhr.setRequestHeader('Authorization', `Bearer ${token}`);
+      xhr.upload.onprogress = (e) => {
+        if (e.lengthComputable) setUploadProgress(Math.round((e.loaded / e.total) * 100));
+      };
+      xhr.onload = () => resolve(xhr.status >= 200 && xhr.status < 300);
+      xhr.onerror = () => resolve(false);
+      xhr.send(formData);
+    });
+  };
+
+  const handleUploadFiles = async (files) => {
+    if (!files || files.length === 0) return;
+    setUploading(true);
+    setUploadProgress(0);
+    let successCount = 0;
+    for (const file of files) {
+      setUploadProgress(0);
+      const ok = await uploadFile(file);
+      if (ok) successCount++;
+    }
+    setUploading(false);
+    setUploadProgress(0);
+    if (fileInputRef.current) fileInputRef.current.value = '';
+    if (successCount > 0) {
+      fetchDocuments();
+      toast.success(`${successCount} document${successCount > 1 ? 's' : ''} uploaded`);
+    }
+    if (successCount < files.length) {
+      toast.error(`${files.length - successCount} upload${files.length - successCount > 1 ? 's' : ''} failed`);
     }
   };
+
+  const handleUpload = (e) => handleUploadFiles(Array.from(e.target.files || []));
+
+  const handleDrop = (e) => {
+    e.preventDefault();
+    setDragOver(false);
+    const files = Array.from(e.dataTransfer.files);
+    if (files.length > 0) handleUploadFiles(files);
+  };
+
+  const handleDragOver = (e) => { e.preventDefault(); setDragOver(true); };
+  const handleDragLeave = (e) => { e.preventDefault(); setDragOver(false); };
 
   const handleDelete = async (id) => {
     if (!confirm('Delete this document?')) return;
@@ -110,6 +141,9 @@ function DocumentsPage() {
     return new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
   };
 
+  const totalPages = Math.max(1, Math.ceil(documents.length / PAGE_SIZE));
+  const pagedDocs = documents.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+
   const getTypeBadgeColor = (type) => {
     const colors = {
       pdf: '#ef4444', docx: '#3b82f6', txt: '#6b7280', md: '#8b5cf6',
@@ -123,7 +157,7 @@ function DocumentsPage() {
       <Head><title>Knowledge Base — Xarwiz</title></Head>
 
       {/* Header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', flexWrap: 'wrap', gap: '12px' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', flexWrap: 'wrap', gap: '12px' }}>
         <p style={{ color: 'var(--shell-text-secondary)', fontSize: '14px', margin: 0 }}>
           Upload and manage documents for RAG-powered search
         </p>
@@ -133,6 +167,7 @@ function DocumentsPage() {
             ref={fileInputRef}
             onChange={handleUpload}
             accept=".pdf,.docx,.txt,.md,.html,.csv,.json"
+            multiple
             style={{ display: 'none' }}
           />
           <button
@@ -147,9 +182,57 @@ function DocumentsPage() {
               opacity: uploading ? 0.6 : 1,
             }}
           >
-            <Upload size={16} /> {uploading ? 'Uploading...' : 'Upload Document'}
+            <Upload size={16} /> {uploading ? 'Uploading...' : 'Upload Documents'}
           </button>
         </div>
+      </div>
+
+      {/* Drag & Drop Zone */}
+      <div
+        onDragOver={handleDragOver}
+        onDragLeave={handleDragLeave}
+        onDrop={handleDrop}
+        onClick={() => { if (!uploading) fileInputRef.current?.click(); }}
+        style={{
+          border: `2px dashed ${dragOver ? '#6366f1' : 'var(--shell-card-border, #e2e8f0)'}`,
+          borderRadius: '12px',
+          padding: uploading ? '16px 24px' : '28px 24px',
+          textAlign: 'center',
+          marginBottom: '24px',
+          backgroundColor: dragOver ? 'rgba(99,102,241,0.06)' : 'transparent',
+          cursor: uploading ? 'default' : 'pointer',
+          transition: 'all 0.15s ease',
+        }}
+      >
+        {uploading ? (
+          <div>
+            <div style={{ fontSize: '13px', color: 'var(--shell-text-secondary)', marginBottom: '10px' }}>
+              Uploading... {uploadProgress}%
+            </div>
+            <div style={{
+              height: '6px', borderRadius: '3px',
+              backgroundColor: 'var(--shell-input-bg, #f4f6f9)',
+              overflow: 'hidden', maxWidth: '400px', margin: '0 auto',
+            }}>
+              <div style={{
+                height: '100%', borderRadius: '3px',
+                backgroundColor: '#6366f1',
+                width: `${uploadProgress}%`,
+                transition: 'width 0.2s ease',
+              }} />
+            </div>
+          </div>
+        ) : (
+          <>
+            <UploadCloud size={28} color={dragOver ? '#6366f1' : 'var(--shell-text-muted, #6b7280)'} />
+            <p style={{ color: 'var(--shell-text-muted)', fontSize: '13px', margin: '8px 0 0' }}>
+              {dragOver ? 'Drop files here' : 'Drag & drop files here, or click to browse'}
+            </p>
+            <p style={{ color: 'var(--shell-text-muted)', fontSize: '11px', margin: '4px 0 0', opacity: 0.7 }}>
+              PDF, DOCX, TXT, MD, HTML, CSV, JSON
+            </p>
+          </>
+        )}
       </div>
 
       {loading ? (
@@ -198,7 +281,7 @@ function DocumentsPage() {
             <span>Actions</span>
           </div>
 
-          {documents.map((doc) => (
+          {pagedDocs.map((doc) => (
             <div key={doc.id} style={{
               display: 'grid', gridTemplateColumns: '2fr 80px 80px 100px 100px 90px',
               padding: '14px 20px', gap: '12px', alignItems: 'center',
@@ -244,6 +327,27 @@ function DocumentsPage() {
               </div>
             </div>
           ))}
+        </div>
+      )}
+
+      {/* Pagination */}
+      {!loading && !error && totalPages > 1 && (
+        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px', marginTop: '20px' }}>
+          <button disabled={page <= 1} onClick={() => setPage(p => p - 1)} style={{
+            padding: '6px 14px', borderRadius: '6px', fontSize: '13px', fontWeight: 500,
+            backgroundColor: 'var(--shell-surface)', color: 'var(--shell-text-secondary)',
+            border: '1px solid var(--shell-card-border)', cursor: page <= 1 ? 'default' : 'pointer',
+            opacity: page <= 1 ? 0.4 : 1,
+          }}>Previous</button>
+          <span style={{ fontSize: '13px', color: 'var(--shell-text-muted)' }}>
+            Page {page} of {totalPages} · {documents.length} document{documents.length !== 1 ? 's' : ''}
+          </span>
+          <button disabled={page >= totalPages} onClick={() => setPage(p => p + 1)} style={{
+            padding: '6px 14px', borderRadius: '6px', fontSize: '13px', fontWeight: 500,
+            backgroundColor: 'var(--shell-surface)', color: 'var(--shell-text-secondary)',
+            border: '1px solid var(--shell-card-border)', cursor: page >= totalPages ? 'default' : 'pointer',
+            opacity: page >= totalPages ? 0.4 : 1,
+          }}>Next</button>
         </div>
       )}
     </DashboardShell>
