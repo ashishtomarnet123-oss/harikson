@@ -103,23 +103,21 @@ function SecurityPage() {
       ) : (
         <>
           {/* Security Score + Quick Stats */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: '16px', marginBottom: '28px' }}>
+          <div className="ds-grid-2col" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: '16px', marginBottom: '28px' }}>
             <div style={{
-              padding: '20px',
-              borderRadius: '12px',
-              backgroundColor: 'rgba(17, 24, 39, 0.6)',
-              border: '1px solid rgba(255,255,255,0.06)',
+              padding: '20px', borderRadius: '12px',
+              backgroundColor: 'var(--shell-surface)',
+              border: '1px solid var(--shell-card-border)',
             }}>
-              <div style={{ fontSize: '11px', fontWeight: 600, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Security Score</div>
+              <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--shell-text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Security Score</div>
               <div style={{ fontSize: '32px', fontWeight: 800, color: scoreColor, marginTop: '4px', fontFamily: 'JetBrains Mono, monospace' }}>{securityScore}%</div>
             </div>
             <div style={{
-              padding: '20px',
-              borderRadius: '12px',
-              backgroundColor: 'rgba(17, 24, 39, 0.6)',
-              border: '1px solid rgba(255,255,255,0.06)',
+              padding: '20px', borderRadius: '12px',
+              backgroundColor: 'var(--shell-surface)',
+              border: '1px solid var(--shell-card-border)',
             }}>
-              <div style={{ fontSize: '11px', fontWeight: 600, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.04em' }}>2FA Status</div>
+              <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--shell-text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>2FA Status</div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '8px' }}>
                 {twoFactorEnabled ? (
                   <><CheckCircle2 size={18} color="#10b981" /><span style={{ fontSize: '14px', fontWeight: 600, color: '#10b981' }}>Enabled</span></>
@@ -129,49 +127,46 @@ function SecurityPage() {
               </div>
             </div>
             <div style={{
-              padding: '20px',
-              borderRadius: '12px',
-              backgroundColor: 'rgba(17, 24, 39, 0.6)',
-              border: '1px solid rgba(255,255,255,0.06)',
+              padding: '20px', borderRadius: '12px',
+              backgroundColor: 'var(--shell-surface)',
+              border: '1px solid var(--shell-card-border)',
             }}>
-              <div style={{ fontSize: '11px', fontWeight: 600, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Active Sessions</div>
-              <div style={{ fontSize: '32px', fontWeight: 800, color: '#e5e7eb', marginTop: '4px', fontFamily: 'JetBrains Mono, monospace' }}>{sessions.length}</div>
+              <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--shell-text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Active Sessions</div>
+              <div style={{ fontSize: '32px', fontWeight: 800, color: 'var(--shell-text-bright)', marginTop: '4px', fontFamily: 'JetBrains Mono, monospace' }}>{sessions.length}</div>
             </div>
             <div style={{
-              padding: '20px',
-              borderRadius: '12px',
-              backgroundColor: 'rgba(17, 24, 39, 0.6)',
-              border: '1px solid rgba(255,255,255,0.06)',
+              padding: '20px', borderRadius: '12px',
+              backgroundColor: 'var(--shell-surface)',
+              border: '1px solid var(--shell-card-border)',
             }}>
-              <div style={{ fontSize: '11px', fontWeight: 600, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.04em' }}>API Keys</div>
-              <div style={{ fontSize: '32px', fontWeight: 800, color: '#e5e7eb', marginTop: '4px', fontFamily: 'JetBrains Mono, monospace' }}>{apiKeys.length}</div>
+              <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--shell-text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>API Keys</div>
+              <div style={{ fontSize: '32px', fontWeight: 800, color: 'var(--shell-text-bright)', marginTop: '4px', fontFamily: 'JetBrains Mono, monospace' }}>{apiKeys.length}</div>
             </div>
           </div>
 
           {/* Active Sessions */}
           <div style={{
-            marginBottom: '28px',
-            borderRadius: '12px',
-            backgroundColor: 'rgba(17, 24, 39, 0.6)',
-            border: '1px solid rgba(255,255,255,0.06)',
+            marginBottom: '28px', borderRadius: '12px',
+            backgroundColor: 'var(--shell-surface)',
+            border: '1px solid var(--shell-card-border)',
             overflow: 'hidden',
           }}>
-            <div style={{ padding: '16px 20px', borderBottom: '1px solid rgba(255,255,255,0.06)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--shell-card-border)', display: 'flex', alignItems: 'center', gap: '8px' }}>
               <Smartphone size={16} color="#818cf8" />
-              <span style={{ fontSize: '14px', fontWeight: 700, color: '#f3f4f6' }}>Active Sessions</span>
+              <span style={{ fontSize: '14px', fontWeight: 700, color: 'var(--shell-text)' }}>Active Sessions</span>
             </div>
             {sessions.length === 0 ? (
-              <p style={{ padding: '20px', color: '#6b7280', fontSize: '13px', textAlign: 'center' }}>No active sessions found</p>
+              <p style={{ padding: '20px', color: 'var(--shell-text-muted)', fontSize: '13px', textAlign: 'center' }}>No active sessions found</p>
             ) : sessions.map((s) => (
               <div key={s.id} style={{
                 display: 'flex', justifyContent: 'space-between', alignItems: 'center',
                 padding: '12px 20px',
-                borderBottom: '1px solid rgba(255,255,255,0.03)',
+                borderBottom: '1px solid var(--shell-card-border-subtle)',
                 fontSize: '13px',
               }}>
                 <div>
-                  <div style={{ color: '#e5e7eb', fontWeight: 500 }}>{s.device || s.user_agent || 'Unknown device'}</div>
-                  <div style={{ color: '#6b7280', fontSize: '11px', marginTop: '2px' }}>
+                  <div style={{ color: 'var(--shell-text-bright)', fontWeight: 500 }}>{s.device || s.user_agent || 'Unknown device'}</div>
+                  <div style={{ color: 'var(--shell-text-muted)', fontSize: '11px', marginTop: '2px' }}>
                     {s.ip_address || s.ip || '—'} · {formatDate(s.created_at || s.last_active)}
                   </div>
                 </div>
@@ -192,28 +187,27 @@ function SecurityPage() {
 
           {/* API Keys Overview */}
           <div style={{
-            marginBottom: '28px',
-            borderRadius: '12px',
-            backgroundColor: 'rgba(17, 24, 39, 0.6)',
-            border: '1px solid rgba(255,255,255,0.06)',
+            marginBottom: '28px', borderRadius: '12px',
+            backgroundColor: 'var(--shell-surface)',
+            border: '1px solid var(--shell-card-border)',
             overflow: 'hidden',
           }}>
-            <div style={{ padding: '16px 20px', borderBottom: '1px solid rgba(255,255,255,0.06)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--shell-card-border)', display: 'flex', alignItems: 'center', gap: '8px' }}>
               <Key size={16} color="#818cf8" />
-              <span style={{ fontSize: '14px', fontWeight: 700, color: '#f3f4f6' }}>API Keys</span>
+              <span style={{ fontSize: '14px', fontWeight: 700, color: 'var(--shell-text)' }}>API Keys</span>
             </div>
             {apiKeys.length === 0 ? (
-              <p style={{ padding: '20px', color: '#6b7280', fontSize: '13px', textAlign: 'center' }}>No API keys created yet</p>
+              <p style={{ padding: '20px', color: 'var(--shell-text-muted)', fontSize: '13px', textAlign: 'center' }}>No API keys created yet</p>
             ) : apiKeys.map((k) => (
               <div key={k.id} style={{
                 display: 'flex', justifyContent: 'space-between', alignItems: 'center',
                 padding: '12px 20px',
-                borderBottom: '1px solid rgba(255,255,255,0.03)',
+                borderBottom: '1px solid var(--shell-card-border-subtle)',
                 fontSize: '13px',
               }}>
                 <div>
-                  <div style={{ color: '#e5e7eb', fontWeight: 500 }}>{k.name || 'Unnamed key'}</div>
-                  <div style={{ color: '#6b7280', fontSize: '11px', marginTop: '2px', fontFamily: 'monospace' }}>
+                  <div style={{ color: 'var(--shell-text-bright)', fontWeight: 500 }}>{k.name || 'Unnamed key'}</div>
+                  <div style={{ color: 'var(--shell-text-muted)', fontSize: '11px', marginTop: '2px', fontFamily: 'monospace' }}>
                     {k.prefix || k.key_prefix || 'hk_live_'}•••• · Created {formatDate(k.created_at)}
                   </div>
                 </div>
@@ -230,23 +224,22 @@ function SecurityPage() {
 
           {/* Recent Security Activity */}
           <div style={{
-            marginBottom: '28px',
-            borderRadius: '12px',
-            backgroundColor: 'rgba(17, 24, 39, 0.6)',
-            border: '1px solid rgba(255,255,255,0.06)',
+            marginBottom: '28px', borderRadius: '12px',
+            backgroundColor: 'var(--shell-surface)',
+            border: '1px solid var(--shell-card-border)',
             overflow: 'hidden',
           }}>
-            <div style={{ padding: '16px 20px', borderBottom: '1px solid rgba(255,255,255,0.06)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--shell-card-border)', display: 'flex', alignItems: 'center', gap: '8px' }}>
               <Activity size={16} color="#818cf8" />
-              <span style={{ fontSize: '14px', fontWeight: 700, color: '#f3f4f6' }}>Recent Activity</span>
+              <span style={{ fontSize: '14px', fontWeight: 700, color: 'var(--shell-text)' }}>Recent Activity</span>
             </div>
             {activity.length === 0 ? (
-              <p style={{ padding: '20px', color: '#6b7280', fontSize: '13px', textAlign: 'center' }}>No recent activity</p>
+              <p style={{ padding: '20px', color: 'var(--shell-text-muted)', fontSize: '13px', textAlign: 'center' }}>No recent activity</p>
             ) : activity.map((a, i) => (
               <div key={a.id || i} style={{
                 display: 'flex', alignItems: 'center', gap: '12px',
                 padding: '12px 20px',
-                borderBottom: '1px solid rgba(255,255,255,0.03)',
+                borderBottom: '1px solid var(--shell-card-border-subtle)',
                 fontSize: '13px',
               }}>
                 <div style={{
@@ -255,10 +248,10 @@ function SecurityPage() {
                   flexShrink: 0,
                 }} />
                 <div style={{ flex: 1 }}>
-                  <span style={{ color: '#e5e7eb' }}>{a.action || a.event || 'Activity'}</span>
-                  {a.ip && <span style={{ color: '#6b7280', marginLeft: '8px' }}>from {a.ip}</span>}
+                  <span style={{ color: 'var(--shell-text-bright)' }}>{a.action || a.event || 'Activity'}</span>
+                  {a.ip && <span style={{ color: 'var(--shell-text-muted)', marginLeft: '8px' }}>from {a.ip}</span>}
                 </div>
-                <span style={{ color: '#6b7280', fontSize: '11px', whiteSpace: 'nowrap' }}>
+                <span style={{ color: 'var(--shell-text-muted)', fontSize: '11px', whiteSpace: 'nowrap' }}>
                   {formatDate(a.date || a.created_at)}
                 </span>
               </div>
@@ -267,17 +260,14 @@ function SecurityPage() {
 
           {/* Security Policy Link */}
           <div style={{
-            padding: '16px 20px',
-            borderRadius: '12px',
-            backgroundColor: 'rgba(17, 24, 39, 0.6)',
-            border: '1px solid rgba(255,255,255,0.06)',
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
+            padding: '16px 20px', borderRadius: '12px',
+            backgroundColor: 'var(--shell-surface)',
+            border: '1px solid var(--shell-card-border)',
+            display: 'flex', justifyContent: 'space-between', alignItems: 'center',
           }}>
             <div>
-              <div style={{ fontSize: '14px', fontWeight: 600, color: '#f3f4f6' }}>Security & Compliance Policy</div>
-              <div style={{ fontSize: '12px', color: '#6b7280', marginTop: '2px' }}>
+              <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--shell-text)' }}>Security & Compliance Policy</div>
+              <div style={{ fontSize: '12px', color: 'var(--shell-text-muted)', marginTop: '2px' }}>
                 DPDP Act 2023, ISO 27001, SOC 2 Type II compliance documentation
               </div>
             </div>

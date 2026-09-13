@@ -29,8 +29,8 @@ export default function NavigationRail({ onSettingsClick }) {
       width: '56px',
       minWidth: '56px',
       height: '100vh',
-      backgroundColor: '#0B1120',
-      borderRight: '1px solid rgba(255,255,255,0.06)',
+      backgroundColor: 'var(--shell-nav-bg)',
+      borderRight: '1px solid var(--shell-card-border)',
       display: 'flex',
       flexDirection: 'column',
       alignItems: 'center',
@@ -39,15 +39,9 @@ export default function NavigationRail({ onSettingsClick }) {
       position: 'relative',
       zIndex: 30,
     }}>
-      {/* Logo */}
       <Link href="/dashboard" style={{
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        width: '36px',
-        height: '36px',
-        marginBottom: '16px',
-        textDecoration: 'none',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        width: '36px', height: '36px', marginBottom: '16px', textDecoration: 'none',
       }}>
         <img
           src="/assets/xarwiz-logo-icon.png"
@@ -60,21 +54,15 @@ export default function NavigationRail({ onSettingsClick }) {
         />
       </Link>
 
-      {/* Divider */}
       <div style={{
-        width: '24px',
-        height: '1px',
-        backgroundColor: 'rgba(255,255,255,0.08)',
+        width: '24px', height: '1px',
+        backgroundColor: 'var(--shell-card-border)',
         marginBottom: '8px',
       }} />
 
-      {/* Nav Items */}
       <div style={{
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        gap: '2px',
-        flex: 1,
+        display: 'flex', flexDirection: 'column', alignItems: 'center',
+        gap: '2px', flex: 1,
       }}>
         {navItems.map((item) => {
           const Icon = item.icon;
@@ -85,15 +73,11 @@ export default function NavigationRail({ onSettingsClick }) {
               href={item.href}
               title={item.label}
               style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                width: '40px',
-                height: '40px',
-                borderRadius: '10px',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                width: '40px', height: '40px', borderRadius: '10px',
                 backgroundColor: isActive ? 'rgba(99,102,241,0.15)' : 'transparent',
                 border: isActive ? '1px solid rgba(99,102,241,0.25)' : '1px solid transparent',
-                color: isActive ? '#818cf8' : '#64748b',
+                color: isActive ? '#818cf8' : 'var(--shell-text-muted)',
                 textDecoration: 'none',
                 transition: 'all 0.15s ease',
               }}
@@ -104,22 +88,15 @@ export default function NavigationRail({ onSettingsClick }) {
         })}
       </div>
 
-      {/* Settings at bottom */}
       {onSettingsClick && (
         <button
           onClick={onSettingsClick}
           title="Settings"
           style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            width: '40px',
-            height: '40px',
-            borderRadius: '10px',
-            backgroundColor: 'transparent',
-            border: 'none',
-            color: '#64748b',
-            cursor: 'pointer',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            width: '40px', height: '40px', borderRadius: '10px',
+            backgroundColor: 'transparent', border: 'none',
+            color: 'var(--shell-text-muted)', cursor: 'pointer',
             transition: 'all 0.15s ease',
           }}
         >

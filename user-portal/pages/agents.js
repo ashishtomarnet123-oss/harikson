@@ -16,7 +16,6 @@ function AgentsPage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
 
-  // Form fields
   const [name, setName] = useState('');
   const [model, setModel] = useState('qwen3-coder');
   const [systemPrompt, setSystemPrompt] = useState('You are a helpful AI assistant.');
@@ -116,8 +115,8 @@ function AgentsPage() {
       <Head><title>AI Agents — Xarwiz</title></Head>
 
       {/* Header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
-        <p style={{ color: '#9ca3af', fontSize: '14px', margin: 0 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', flexWrap: 'wrap', gap: '12px' }}>
+        <p style={{ color: 'var(--shell-text-secondary)', fontSize: '14px', margin: 0 }}>
           Create and manage AI agents for your workspace
         </p>
         <button onClick={handleNew} style={{
@@ -151,28 +150,26 @@ function AgentsPage() {
         </div>
       ) : (
         <>
-          {/* Agent Cards Grid */}
           {agents.length === 0 && !editing ? (
             <div style={{ textAlign: 'center', padding: '60px 0' }}>
-              <Cpu size={40} color="#4b5563" />
-              <p style={{ color: '#6b7280', fontSize: '14px', marginTop: '12px' }}>No agents yet. Create your first AI agent to get started.</p>
+              <Cpu size={40} color="var(--shell-text-muted)" />
+              <p style={{ color: 'var(--shell-text-muted)', fontSize: '14px', marginTop: '12px' }}>No agents yet. Create your first AI agent to get started.</p>
             </div>
           ) : (
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '16px', marginBottom: editing ? '24px' : 0 }}>
               {agents.map((agent) => (
                 <div key={agent.id} style={{
-                  padding: '20px',
-                  borderRadius: '12px',
-                  backgroundColor: 'rgba(17, 24, 39, 0.6)',
-                  border: '1px solid rgba(255, 255, 255, 0.06)',
+                  padding: '20px', borderRadius: '12px',
+                  backgroundColor: 'var(--shell-surface)',
+                  border: '1px solid var(--shell-card-border)',
                 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '12px' }}>
                     <div>
-                      <h3 style={{ fontSize: '15px', fontWeight: 600, color: '#f3f4f6', margin: 0 }}>{agent.name}</h3>
+                      <h3 style={{ fontSize: '15px', fontWeight: 600, color: 'var(--shell-text)', margin: 0 }}>{agent.name}</h3>
                       <span style={{
                         display: 'inline-block', marginTop: '6px',
                         fontSize: '11px', padding: '2px 8px', borderRadius: '4px',
-                        backgroundColor: 'rgba(99,102,241,0.15)', color: '#a5b4fc', fontWeight: 500,
+                        backgroundColor: 'var(--shell-badge-bg)', color: '#a5b4fc', fontWeight: 500,
                       }}>{agent.model}</span>
                     </div>
                     <span style={{
@@ -184,7 +181,7 @@ function AgentsPage() {
                     </span>
                   </div>
 
-                  <div style={{ display: 'flex', gap: '16px', fontSize: '12px', color: '#6b7280', marginBottom: '14px' }}>
+                  <div style={{ display: 'flex', gap: '16px', fontSize: '12px', color: 'var(--shell-text-muted)', marginBottom: '14px' }}>
                     <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                       <Play size={12} /> {agent.total_requests || 0} requests
                     </span>
@@ -197,8 +194,8 @@ function AgentsPage() {
                     <button onClick={() => handleEdit(agent)} style={{
                       display: 'flex', alignItems: 'center', gap: '4px',
                       padding: '6px 12px', borderRadius: '6px', fontSize: '12px', fontWeight: 500,
-                      backgroundColor: 'rgba(255,255,255,0.06)', color: '#d1d5db',
-                      border: '1px solid rgba(255,255,255,0.1)', cursor: 'pointer',
+                      backgroundColor: 'var(--shell-badge-bg)', color: 'var(--shell-text-bright)',
+                      border: '1px solid var(--shell-card-border)', cursor: 'pointer',
                     }}>
                       <Pencil size={12} /> Edit
                     </button>
@@ -216,47 +213,45 @@ function AgentsPage() {
             </div>
           )}
 
-          {/* Edit / Create Panel */}
           {editing && (
             <div style={{
-              padding: '24px',
-              borderRadius: '12px',
-              backgroundColor: 'rgba(17, 24, 39, 0.8)',
+              padding: '24px', borderRadius: '12px',
+              backgroundColor: 'var(--shell-surface)',
               border: '1px solid rgba(99, 102, 241, 0.25)',
               marginTop: '16px',
             }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-                <h3 style={{ fontSize: '16px', fontWeight: 600, color: '#f3f4f6', margin: 0 }}>
+                <h3 style={{ fontSize: '16px', fontWeight: 600, color: 'var(--shell-text)', margin: 0 }}>
                   {isNew ? 'Create Agent' : 'Edit Agent'}
                 </h3>
-                <button onClick={() => setEditing(null)} style={{ background: 'none', border: 'none', color: '#9ca3af', cursor: 'pointer' }}>
+                <button onClick={() => setEditing(null)} style={{ background: 'none', border: 'none', color: 'var(--shell-text-secondary)', cursor: 'pointer' }}>
                   <X size={20} />
                 </button>
               </div>
 
               <form onSubmit={handleSave} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                 <div>
-                  <label style={{ fontSize: '13px', color: '#9ca3af', display: 'block', marginBottom: '6px' }}>Name</label>
+                  <label style={{ fontSize: '13px', color: 'var(--shell-text-secondary)', display: 'block', marginBottom: '6px' }}>Name</label>
                   <input
                     value={name} onChange={(e) => setName(e.target.value)}
                     placeholder="My Agent"
                     style={{
                       width: '100%', padding: '10px 12px', borderRadius: '8px', fontSize: '14px',
-                      backgroundColor: 'rgba(31,41,55,0.8)', color: '#f3f4f6',
-                      border: '1px solid rgba(255,255,255,0.1)', outline: 'none',
+                      backgroundColor: 'var(--shell-input-bg)', color: 'var(--shell-text)',
+                      border: '1px solid var(--shell-card-border)', outline: 'none',
                       boxSizing: 'border-box',
                     }}
                   />
                 </div>
 
                 <div>
-                  <label style={{ fontSize: '13px', color: '#9ca3af', display: 'block', marginBottom: '6px' }}>Model</label>
+                  <label style={{ fontSize: '13px', color: 'var(--shell-text-secondary)', display: 'block', marginBottom: '6px' }}>Model</label>
                   <select
                     value={model} onChange={(e) => setModel(e.target.value)}
                     style={{
                       width: '100%', padding: '10px 12px', borderRadius: '8px', fontSize: '14px',
-                      backgroundColor: 'rgba(31,41,55,0.8)', color: '#f3f4f6',
-                      border: '1px solid rgba(255,255,255,0.1)', outline: 'none',
+                      backgroundColor: 'var(--shell-input-bg)', color: 'var(--shell-text)',
+                      border: '1px solid var(--shell-card-border)', outline: 'none',
                     }}
                   >
                     {MODELS.map((m) => <option key={m} value={m}>{m}</option>)}
@@ -264,27 +259,27 @@ function AgentsPage() {
                 </div>
 
                 <div>
-                  <label style={{ fontSize: '13px', color: '#9ca3af', display: 'block', marginBottom: '6px' }}>System Prompt</label>
+                  <label style={{ fontSize: '13px', color: 'var(--shell-text-secondary)', display: 'block', marginBottom: '6px' }}>System Prompt</label>
                   <textarea
                     value={systemPrompt} onChange={(e) => setSystemPrompt(e.target.value)}
                     rows={4}
                     style={{
                       width: '100%', padding: '10px 12px', borderRadius: '8px', fontSize: '14px',
-                      backgroundColor: 'rgba(31,41,55,0.8)', color: '#f3f4f6',
-                      border: '1px solid rgba(255,255,255,0.1)', outline: 'none',
+                      backgroundColor: 'var(--shell-input-bg)', color: 'var(--shell-text)',
+                      border: '1px solid var(--shell-card-border)', outline: 'none',
                       resize: 'vertical', fontFamily: 'inherit', boxSizing: 'border-box',
                     }}
                   />
                 </div>
 
                 <div>
-                  <label style={{ fontSize: '13px', color: '#9ca3af', display: 'block', marginBottom: '6px' }}>Status</label>
+                  <label style={{ fontSize: '13px', color: 'var(--shell-text-secondary)', display: 'block', marginBottom: '6px' }}>Status</label>
                   <select
                     value={status} onChange={(e) => setStatus(e.target.value)}
                     style={{
                       width: '100%', padding: '10px 12px', borderRadius: '8px', fontSize: '14px',
-                      backgroundColor: 'rgba(31,41,55,0.8)', color: '#f3f4f6',
-                      border: '1px solid rgba(255,255,255,0.1)', outline: 'none',
+                      backgroundColor: 'var(--shell-input-bg)', color: 'var(--shell-text)',
+                      border: '1px solid var(--shell-card-border)', outline: 'none',
                     }}
                   >
                     <option value="active">Active</option>
@@ -295,8 +290,8 @@ function AgentsPage() {
                 <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
                   <button type="button" onClick={() => setEditing(null)} style={{
                     padding: '8px 16px', borderRadius: '8px', fontSize: '13px', fontWeight: 500,
-                    backgroundColor: 'transparent', color: '#9ca3af',
-                    border: '1px solid rgba(255,255,255,0.1)', cursor: 'pointer',
+                    backgroundColor: 'transparent', color: 'var(--shell-text-secondary)',
+                    border: '1px solid var(--shell-card-border)', cursor: 'pointer',
                   }}>
                     Cancel
                   </button>

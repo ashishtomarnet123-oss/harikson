@@ -1,8 +1,10 @@
 import { authenticatedFetch, getApiConfig } from './apiHelper';
 import React, { useState, useEffect } from 'react';
 import { Save } from 'lucide-react';
+import { useTheme } from '../../context/ThemeContext';
 
 export default function AppearanceSettings() {
+  const { theme: currentTheme, setTheme: applyTheme } = useTheme();
   const [settings, setSettings] = useState({
     theme: 'system',
     density: 'comfortable',
@@ -41,10 +43,12 @@ export default function AppearanceSettings() {
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
-    setSettings((prev) => ({
-      ...prev,
-      [name]: type === 'checkbox' ? checked : value,
-    }));
+    const newValue = type === 'checkbox' ? checked : value;
+    setSettings((prev) => ({ ...prev, [name]: newValue }));
+
+    if (name === 'theme') {
+      applyTheme(newValue);
+    }
   };
 
   const handleSave = async (e) => {

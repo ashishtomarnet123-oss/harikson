@@ -123,8 +123,8 @@ function DocumentsPage() {
       <Head><title>Knowledge Base — Xarwiz</title></Head>
 
       {/* Header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
-        <p style={{ color: '#9ca3af', fontSize: '14px', margin: 0 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', flexWrap: 'wrap', gap: '12px' }}>
+        <p style={{ color: 'var(--shell-text-secondary)', fontSize: '14px', margin: 0 }}>
           Upload and manage documents for RAG-powered search
         </p>
         <div>
@@ -173,22 +173,22 @@ function DocumentsPage() {
         </div>
       ) : documents.length === 0 ? (
         <div style={{ textAlign: 'center', padding: '60px 0' }}>
-          <Database size={40} color="#4b5563" />
-          <p style={{ color: '#6b7280', fontSize: '14px', marginTop: '12px' }}>No documents yet. Upload files to build your knowledge base.</p>
+          <Database size={40} color="var(--shell-text-muted)" />
+          <p style={{ color: 'var(--shell-text-muted)', fontSize: '14px', marginTop: '12px' }}>No documents yet. Upload files to build your knowledge base.</p>
         </div>
       ) : (
         <div style={{
           borderRadius: '12px',
-          backgroundColor: 'rgba(17, 24, 39, 0.6)',
-          border: '1px solid rgba(255, 255, 255, 0.06)',
+          backgroundColor: 'var(--shell-surface)',
+          border: '1px solid var(--shell-card-border)',
           overflow: 'hidden',
         }}>
           {/* Table Header */}
           <div style={{
             display: 'grid', gridTemplateColumns: '2fr 80px 80px 100px 100px 90px',
             padding: '12px 20px', gap: '12px',
-            borderBottom: '1px solid rgba(255,255,255,0.06)',
-            fontSize: '11px', fontWeight: 600, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.05em',
+            borderBottom: '1px solid var(--shell-card-border)',
+            fontSize: '11px', fontWeight: 600, color: 'var(--shell-text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em',
           }}>
             <span>Filename</span>
             <span>Type</span>
@@ -198,16 +198,15 @@ function DocumentsPage() {
             <span>Actions</span>
           </div>
 
-          {/* Table Rows */}
           {documents.map((doc) => (
             <div key={doc.id} style={{
               display: 'grid', gridTemplateColumns: '2fr 80px 80px 100px 100px 90px',
               padding: '14px 20px', gap: '12px', alignItems: 'center',
-              borderBottom: '1px solid rgba(255,255,255,0.03)',
+              borderBottom: '1px solid var(--shell-card-border-subtle)',
               fontSize: '13px',
             }}>
-              <span style={{ color: '#e5e7eb', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <FileText size={14} color="#6b7280" />
+              <span style={{ color: 'var(--shell-text-bright)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <FileText size={14} color="var(--shell-text-muted)" />
                 {doc.filename}
               </span>
               <span>
@@ -220,7 +219,7 @@ function DocumentsPage() {
                   {doc.file_type || '?'}
                 </span>
               </span>
-              <span style={{ color: '#9ca3af' }}>{formatSize(doc.file_size_bytes)}</span>
+              <span style={{ color: 'var(--shell-text-secondary)' }}>{formatSize(doc.file_size_bytes)}</span>
               <span>
                 <span style={{
                   fontSize: '11px', padding: '2px 8px', borderRadius: '10px', fontWeight: 500,
@@ -230,7 +229,7 @@ function DocumentsPage() {
                   {doc.status || 'pending'}
                 </span>
               </span>
-              <span style={{ color: '#6b7280', fontSize: '12px' }}>{formatDate(doc.created_at)}</span>
+              <span style={{ color: 'var(--shell-text-muted)', fontSize: '12px' }}>{formatDate(doc.created_at)}</span>
               <div style={{ display: 'flex', gap: '6px' }}>
                 <button onClick={() => handleDownload(doc)} title="Download" style={{
                   background: 'none', border: 'none', color: '#818cf8', cursor: 'pointer', padding: '4px',

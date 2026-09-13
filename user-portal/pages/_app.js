@@ -2,6 +2,7 @@ import '../styles/globals.css';
 import '../styles/settings-addon.css';
 import { AuthProvider } from '../context/AuthContext';
 import { ToastProvider } from '../context/ToastContext';
+import { ThemeProvider } from '../context/ThemeContext';
 
 if (typeof window !== 'undefined' && !window.__fetchIntercepted) {
   window.__fetchIntercepted = true;
@@ -38,6 +39,7 @@ import CookieConsent from '../components/CookieConsent';
 
 export default function App({ Component, pageProps }) {
   return (
+    <ThemeProvider>
     <AuthProvider>
       <ToastProvider>
         <Head>
@@ -53,5 +55,6 @@ export default function App({ Component, pageProps }) {
         <CookieConsent />
       </ToastProvider>
     </AuthProvider>
+    </ThemeProvider>
   );
 }

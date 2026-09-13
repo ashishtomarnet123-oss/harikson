@@ -51,6 +51,23 @@
   --topbar-height: 48px;
 
   --transition: 0.15s cubic-bezier(0.16, 1, 0.3, 1);
+
+  /* Shell-specific (DashboardShell pages) */
+  --shell-bg: #fafafc;
+  --shell-surface: #ffffff;
+  --shell-surface-alt: rgba(244, 246, 249, 0.6);
+  --shell-sidebar: #f4f6f9;
+  --shell-nav-bg: #f0f2f5;
+  --shell-header-bg: rgba(255, 255, 255, 0.8);
+  --shell-input-bg: #f4f6f9;
+  --shell-card-border: #e2e8f0;
+  --shell-card-border-subtle: #f1f5f9;
+  --shell-text: #0f172a;
+  --shell-text-secondary: #475569;
+  --shell-text-muted: #6b7280;
+  --shell-text-bright: #1e293b;
+  --shell-badge-bg: rgba(59, 130, 246, 0.08);
+  --shell-dropdown-bg: #ffffff;
 }
 
 html,
@@ -96,6 +113,227 @@ h6 {
 }
 ::-webkit-scrollbar-thumb:hover {
   background: var(--accent);
+}
+
+/* ── Dark Theme ──────────────────────────────────── */
+:root[data-theme="dark"] {
+  --bg-primary: #0a0f1a;
+  --bg-surface: #111827;
+  --bg-secondary: #0f1629;
+  --bg-hover: rgba(255, 255, 255, 0.06);
+  --bg-active: rgba(255, 255, 255, 0.1);
+  --bg-accent-light: rgba(59, 130, 246, 0.15);
+  --bg-glass: rgba(10, 15, 26, 0.85);
+
+  --border: rgba(255, 255, 255, 0.08);
+  --border-subtle: rgba(255, 255, 255, 0.05);
+  --border-hover: rgba(255, 255, 255, 0.15);
+
+  --text-primary: #f9fafb;
+  --text-secondary: #9ca3af;
+  --text-muted: #6b7280;
+
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.3);
+  --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.5);
+  --shadow-composer: 0 4px 20px rgba(0, 0, 0, 0.3);
+
+  --shell-bg: #030712;
+  --shell-surface: rgba(17, 24, 39, 0.6);
+  --shell-surface-alt: rgba(31, 41, 55, 0.6);
+  --shell-sidebar: rgba(17, 24, 39, 0.6);
+  --shell-nav-bg: #0B1120;
+  --shell-header-bg: rgba(17, 24, 39, 0.4);
+  --shell-input-bg: rgba(31, 41, 55, 0.8);
+  --shell-card-border: rgba(255, 255, 255, 0.06);
+  --shell-card-border-subtle: rgba(255, 255, 255, 0.04);
+  --shell-text: #f9fafb;
+  --shell-text-secondary: #9ca3af;
+  --shell-text-muted: #6b7280;
+  --shell-text-bright: #e5e7eb;
+  --shell-badge-bg: rgba(99, 102, 241, 0.15);
+  --shell-dropdown-bg: #1f2937;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg-primary: #0a0f1a;
+    --bg-surface: #111827;
+    --bg-secondary: #0f1629;
+    --bg-hover: rgba(255, 255, 255, 0.06);
+    --bg-active: rgba(255, 255, 255, 0.1);
+    --bg-accent-light: rgba(59, 130, 246, 0.15);
+    --bg-glass: rgba(10, 15, 26, 0.85);
+
+    --border: rgba(255, 255, 255, 0.08);
+    --border-subtle: rgba(255, 255, 255, 0.05);
+    --border-hover: rgba(255, 255, 255, 0.15);
+
+    --text-primary: #f9fafb;
+    --text-secondary: #9ca3af;
+    --text-muted: #6b7280;
+
+    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
+    --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.3);
+    --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.5);
+    --shadow-composer: 0 4px 20px rgba(0, 0, 0, 0.3);
+
+    --shell-bg: #030712;
+    --shell-surface: rgba(17, 24, 39, 0.6);
+    --shell-surface-alt: rgba(31, 41, 55, 0.6);
+    --shell-sidebar: rgba(17, 24, 39, 0.6);
+    --shell-nav-bg: #0B1120;
+    --shell-header-bg: rgba(17, 24, 39, 0.4);
+    --shell-input-bg: rgba(31, 41, 55, 0.8);
+    --shell-card-border: rgba(255, 255, 255, 0.06);
+    --shell-card-border-subtle: rgba(255, 255, 255, 0.04);
+    --shell-text: #f9fafb;
+    --shell-text-secondary: #9ca3af;
+    --shell-text-muted: #6b7280;
+    --shell-text-bright: #e5e7eb;
+    --shell-badge-bg: rgba(99, 102, 241, 0.15);
+    --shell-dropdown-bg: #1f2937;
+  }
+}
+
+/* ── Dashboard Shell Layout ─────────────────────── */
+.ds-root {
+  min-height: 100vh;
+  background-color: var(--shell-bg);
+  color: var(--shell-text);
+  display: flex;
+  font-family: Inter, system-ui, sans-serif;
+}
+
+.ds-nav-rail {
+  position: fixed;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 51;
+}
+
+.ds-sidebar {
+  width: 220px;
+  background-color: var(--shell-sidebar);
+  border-right: 1px solid var(--shell-card-border);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 20px 16px;
+  position: fixed;
+  top: 0;
+  bottom: 0;
+  left: 56px;
+  z-index: 50;
+}
+
+.ds-main {
+  flex: 1;
+  margin-left: 276px;
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+.ds-header {
+  height: 64px;
+  background-color: var(--shell-header-bg);
+  border-bottom: 1px solid var(--shell-card-border);
+  padding: 0 28px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  backdrop-filter: blur(8px);
+}
+
+.ds-content {
+  flex: 1;
+  padding: 28px;
+}
+
+/* Hamburger toggle — hidden on desktop */
+.ds-hamburger {
+  display: none;
+  background: none;
+  border: none;
+  color: var(--shell-text);
+  cursor: pointer;
+  padding: 4px;
+}
+
+/* Mobile overlay for sidebar */
+.ds-mobile-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 49;
+}
+
+/* ── Responsive: Dashboard Shell ────────────────── */
+@media (max-width: 1024px) {
+  .ds-sidebar {
+    width: 0;
+    min-width: 0;
+    padding: 0;
+    overflow: hidden;
+    border-right: none;
+  }
+  .ds-sidebar.open {
+    width: 220px;
+    padding: 20px 16px;
+    border-right: 1px solid var(--shell-card-border);
+  }
+  .ds-main {
+    margin-left: 56px;
+  }
+}
+
+@media (max-width: 768px) {
+  .ds-nav-rail {
+    display: none;
+  }
+  .ds-sidebar {
+    left: 0;
+    z-index: 52;
+    width: 0;
+    min-width: 0;
+    padding: 0;
+    overflow: hidden;
+    border-right: none;
+  }
+  .ds-sidebar.open {
+    width: 260px;
+    padding: 20px 16px;
+    border-right: 1px solid var(--shell-card-border);
+    background-color: var(--shell-bg);
+  }
+  .ds-mobile-overlay.open {
+    display: block;
+  }
+  .ds-main {
+    margin-left: 0;
+  }
+  .ds-hamburger {
+    display: flex;
+  }
+  .ds-header {
+    padding: 0 16px;
+  }
+  .ds-content {
+    padding: 16px;
+  }
+}
+
+/* ── Responsive: Grid helpers ───────────────────── */
+@media (max-width: 768px) {
+  .ds-grid-2col {
+    grid-template-columns: 1fr !important;
+  }
 }
 
 /* ── Utility ─────────────────────────────────────── */

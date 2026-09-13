@@ -5,7 +5,9 @@ import {
   Settings,
   LogOut,
   Search,
-  Bell
+  Bell,
+  Menu,
+  X,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import SettingsModal from '../SettingsModal';
@@ -21,6 +23,7 @@ export default function DashboardShell({ children, title = 'Dashboard' }) {
   const [notifications, setNotifications] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [showNotifications, setShowNotifications] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   useEffect(() => {
     const fetchNotifications = async () => {
@@ -58,44 +61,29 @@ export default function DashboardShell({ children, title = 'Dashboard' }) {
   };
 
   return (
-    <div style={{
-      minHeight: '100vh',
-      backgroundColor: '#030712',
-      color: '#f9fafb',
-      display: 'flex',
-      fontFamily: 'Inter, system-ui, sans-serif'
-    }}>
-      {/* Navigation Rail — shared icon sidebar */}
-      <div style={{ position: 'fixed', top: 0, bottom: 0, left: 0, zIndex: 51 }}>
+    <div className="ds-root">
+      {/* Navigation Rail */}
+      <div className="ds-nav-rail">
         <NavigationRail onSettingsClick={() => setShowSettingsModal(true)} />
       </div>
 
+      {/* Mobile overlay */}
+      <div
+        className={`ds-mobile-overlay${sidebarOpen ? ' open' : ''}`}
+        onClick={() => setSidebarOpen(false)}
+      />
+
       {/* Context Sidebar */}
-      <aside style={{
-        width: '220px',
-        backgroundColor: 'rgba(17, 24, 39, 0.6)',
-        borderRight: '1px solid rgba(255, 255, 255, 0.08)',
-        display: 'flex',
-        flexDirection: 'column',
-        justifyContent: 'space-between',
-        padding: '20px 16px',
-        position: 'fixed',
-        top: 0,
-        bottom: 0,
-        left: '56px',
-        zIndex: 50
-      }}>
+      <aside className={`ds-sidebar${sidebarOpen ? ' open' : ''}`}>
         <div>
-          {/* Brand Logo */}
           <Link href="/dashboard" style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '20px', paddingLeft: '4px' }}>
             <img src="/assets/xarwiz-logo.png" alt="Xarwiz" style={{ height: '22px', width: 'auto' }} />
           </Link>
 
-          {/* Page context — current section title */}
           <div style={{
             fontSize: '11px',
             fontWeight: 600,
-            color: '#6b7280',
+            color: 'var(--shell-text-muted)',
             textTransform: 'uppercase',
             letterSpacing: '0.05em',
             padding: '0 4px',
@@ -105,80 +93,50 @@ export default function DashboardShell({ children, title = 'Dashboard' }) {
           </div>
         </div>
 
-        {/* Footer Settings & User Card */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
           <button
-            onClick={() => setShowSearch(true)}
+            onClick={() => { setShowSearch(true); setSidebarOpen(false); }}
             style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '12px',
-              padding: '10px 12px',
-              borderRadius: '8px',
-              color: '#9ca3af',
-              backgroundColor: 'transparent',
-              border: 'none',
-              cursor: 'pointer',
-              fontSize: '14px',
-              fontWeight: 500,
-              width: '100%',
-              textAlign: 'left'
+              display: 'flex', alignItems: 'center', gap: '12px',
+              padding: '10px 12px', borderRadius: '8px',
+              color: 'var(--shell-text-secondary)', backgroundColor: 'transparent',
+              border: 'none', cursor: 'pointer', fontSize: '14px', fontWeight: 500,
+              width: '100%', textAlign: 'left',
             }}
           >
-            <Search size={18} color="#9ca3af" />
+            <Search size={18} />
             Search
-            <span style={{ marginLeft: 'auto', fontSize: '11px', color: '#4b5563', padding: '1px 5px', borderRadius: '4px', border: '1px solid rgba(255,255,255,0.08)' }}>⌘K</span>
+            <span style={{ marginLeft: 'auto', fontSize: '11px', color: 'var(--shell-text-muted)', padding: '1px 5px', borderRadius: '4px', border: '1px solid var(--shell-card-border)' }}>⌘K</span>
           </button>
           <button
-            onClick={() => setShowSettingsModal(true)}
+            onClick={() => { setShowSettingsModal(true); setSidebarOpen(false); }}
             style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '12px',
-              padding: '10px 12px',
-              borderRadius: '8px',
-              color: '#9ca3af',
-              backgroundColor: 'transparent',
-              border: 'none',
-              cursor: 'pointer',
-              fontSize: '14px',
-              fontWeight: 500,
-              width: '100%',
-              textAlign: 'left'
+              display: 'flex', alignItems: 'center', gap: '12px',
+              padding: '10px 12px', borderRadius: '8px',
+              color: 'var(--shell-text-secondary)', backgroundColor: 'transparent',
+              border: 'none', cursor: 'pointer', fontSize: '14px', fontWeight: 500,
+              width: '100%', textAlign: 'left',
             }}
           >
-            <Settings size={18} color="#9ca3af" />
+            <Settings size={18} />
             Workspace Settings
           </button>
 
           <div style={{
-            padding: '12px',
-            borderRadius: '10px',
-            backgroundColor: 'rgba(31, 41, 55, 0.6)',
-            border: '1px solid rgba(255, 255, 255, 0.06)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between'
+            padding: '12px', borderRadius: '10px',
+            backgroundColor: 'var(--shell-surface-alt)',
+            border: '1px solid var(--shell-card-border-subtle)',
+            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
           }}>
             <div style={{ overflow: 'hidden' }}>
-              <p style={{ fontSize: '13px', fontWeight: 600, color: '#f3f4f6', margin: 0, textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>
+              <p style={{ fontSize: '13px', fontWeight: 600, color: 'var(--shell-text)', margin: 0, textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>
                 {user?.name || user?.email || 'Authenticated User'}
               </p>
-              <p style={{ fontSize: '11px', color: '#6b7280', margin: '2px 0 0 0', textTransform: 'capitalize' }}>
+              <p style={{ fontSize: '11px', color: 'var(--shell-text-muted)', margin: '2px 0 0 0', textTransform: 'capitalize' }}>
                 {user?.tenantSlug || 'Xarwiz Cloud'}
               </p>
             </div>
-            <button
-              onClick={logout}
-              title="Sign Out"
-              style={{
-                background: 'none',
-                border: 'none',
-                color: '#ef4444',
-                cursor: 'pointer',
-                padding: '4px'
-              }}
-            >
+            <button onClick={logout} title="Sign Out" style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', padding: '4px' }}>
               <LogOut size={16} />
             </button>
           </div>
@@ -186,37 +144,23 @@ export default function DashboardShell({ children, title = 'Dashboard' }) {
       </aside>
 
       {/* Main Content Area */}
-      <main style={{
-        flex: 1,
-        marginLeft: '276px',
-        display: 'flex',
-        flexDirection: 'column',
-        minHeight: '100vh'
-      }}>
-        {/* Top Header Bar */}
-        <header style={{
-          height: '64px',
-          backgroundColor: 'rgba(17, 24, 39, 0.4)',
-          borderBottom: '1px solid rgba(255, 255, 255, 0.08)',
-          padding: '0 28px',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          position: 'sticky',
-          top: 0,
-          zIndex: 40,
-          backdropFilter: 'blur(8px)'
-        }}>
-          <h1 style={{ fontSize: '18px', fontWeight: 700, color: '#ffffff', margin: 0 }}>
-            {title}
-          </h1>
+      <main className="ds-main">
+        <header className="ds-header">
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <button className="ds-hamburger" onClick={() => setSidebarOpen(prev => !prev)}>
+              {sidebarOpen ? <X size={22} /> : <Menu size={22} />}
+            </button>
+            <h1 style={{ fontSize: '18px', fontWeight: 700, color: 'var(--shell-text)', margin: 0 }}>
+              {title}
+            </h1>
+          </div>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
             {/* Notification Bell */}
             <div style={{ position: 'relative' }}>
               <button
                 onClick={() => setShowNotifications(!showNotifications)}
-                style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9ca3af', padding: '4px', position: 'relative' }}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--shell-text-secondary)', padding: '4px', position: 'relative' }}
               >
                 <Bell size={20} />
                 {unreadCount > 0 && (
@@ -234,12 +178,12 @@ export default function DashboardShell({ children, title = 'Dashboard' }) {
               {showNotifications && (
                 <div style={{
                   position: 'absolute', top: '36px', right: 0, width: '340px', maxHeight: '400px',
-                  overflow: 'auto', backgroundColor: '#1f2937',
-                  border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px',
+                  overflow: 'auto', backgroundColor: 'var(--shell-dropdown-bg)',
+                  border: '1px solid var(--shell-card-border)', borderRadius: '12px',
                   boxShadow: '0 8px 24px rgba(0,0,0,0.4)', zIndex: 100, padding: '8px',
                 }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 12px', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
-                    <span style={{ fontSize: '14px', fontWeight: 600, color: '#f3f4f6' }}>Notifications</span>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 12px', borderBottom: '1px solid var(--shell-card-border-subtle)' }}>
+                    <span style={{ fontSize: '14px', fontWeight: 600, color: 'var(--shell-text)' }}>Notifications</span>
                     {unreadCount > 0 && (
                       <button onClick={handleMarkAllRead} style={{ fontSize: '11px', color: '#818cf8', background: 'none', border: 'none', cursor: 'pointer' }}>
                         Mark all read
@@ -247,11 +191,11 @@ export default function DashboardShell({ children, title = 'Dashboard' }) {
                     )}
                   </div>
                   {notifications.length === 0 ? (
-                    <p style={{ padding: '20px', textAlign: 'center', color: '#6b7280', fontSize: '13px' }}>No notifications</p>
+                    <p style={{ padding: '20px', textAlign: 'center', color: 'var(--shell-text-muted)', fontSize: '13px' }}>No notifications</p>
                   ) : notifications.map(n => (
-                    <div key={n.id} style={{ padding: '10px 12px', borderBottom: '1px solid rgba(255,255,255,0.04)', opacity: n.read ? 0.6 : 1 }}>
-                      <p style={{ fontSize: '13px', color: '#f3f4f6', margin: 0 }}>{n.title}</p>
-                      <p style={{ fontSize: '11px', color: '#6b7280', margin: '2px 0 0' }}>{n.message}</p>
+                    <div key={n.id} style={{ padding: '10px 12px', borderBottom: '1px solid var(--shell-card-border-subtle)', opacity: n.read ? 0.6 : 1 }}>
+                      <p style={{ fontSize: '13px', color: 'var(--shell-text)', margin: 0 }}>{n.title}</p>
+                      <p style={{ fontSize: '11px', color: 'var(--shell-text-muted)', margin: '2px 0 0' }}>{n.message}</p>
                     </div>
                   ))}
                 </div>
@@ -259,20 +203,16 @@ export default function DashboardShell({ children, title = 'Dashboard' }) {
             </div>
 
             <span style={{
-              fontSize: '12px',
-              padding: '4px 10px',
-              borderRadius: '20px',
-              backgroundColor: 'rgba(16, 185, 129, 0.15)',
-              color: '#34d399',
-              border: '1px solid rgba(16, 185, 129, 0.3)',
-              fontWeight: 500
+              fontSize: '12px', padding: '4px 10px', borderRadius: '20px',
+              backgroundColor: 'rgba(16, 185, 129, 0.15)', color: '#34d399',
+              border: '1px solid rgba(16, 185, 129, 0.3)', fontWeight: 500,
             }}>
               ● System Normal
             </span>
           </div>
         </header>
 
-        <div style={{ flex: 1, padding: '28px' }}>
+        <div className="ds-content">
           {children}
         </div>
       </main>
