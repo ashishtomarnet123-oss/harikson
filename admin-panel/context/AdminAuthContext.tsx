@@ -31,6 +31,16 @@ const AdminAuthContext = createContext<AdminAuthContextType>({
 });
 
 // ─────────────────────────────────────────────────────────────
+//  Detect if served under /admin prefix (user-portal proxy)
+// ─────────────────────────────────────────────────────────────
+function getApiPrefix(): string {
+  if (typeof window !== 'undefined' && window.location.pathname.startsWith('/admin')) {
+    return '/admin';
+  }
+  return '';
+}
+
+// ─────────────────────────────────────────────────────────────
 //  Safe JSON fetch helper — never throws on HTML or invalid JSON
 // ─────────────────────────────────────────────────────────────
 async function safeFetchJson(
@@ -105,14 +115,15 @@ export const AdminAuthProvider = ({ children }: { children: React.ReactNode }) =
 
     try {
       // PRIMARY: /api/auth/me — internal Next.js API route (direct DB, no proxy needed)
-      const { res: r1, data: d1 } = await safeFetchJson('/api/auth/me');
+      const prefix = getApiPrefix();
+      const { res: r1, data: d1 } = await safeFetchJson(`${prefix}/api/auth/me`);
       if (r1?.ok) {
         const u = parseUser(d1);
         if (u) { setUser(u); return; }
       }
 
       // FALLBACK: /api-proxy/v1/admin/auth/me — proxy to admin-api
-      const { res: r2, data: d2 } = await safeFetchJson('/api-proxy/v1/admin/auth/me');
+      const { res: r2, data: d2 } = await safeFetchJson(`${prefix}/api-proxy/v1/admin/auth/me`);
       if (r2?.ok) {
         const u = parseUser(d2);
         if (u) { setUser(u); return; }
@@ -142,7 +153,8 @@ export const AdminAuthProvider = ({ children }: { children: React.ReactNode }) =
 
     try {
       // PRIMARY: /api/auth/login — internal Next.js route (direct DB)
-      const { res: r1, data: d1 } = await safeFetchJson('/api/auth/login', {
+      const prefix = getApiPrefix();
+      const { res: r1, data: d1 } = await safeFetchJson(`${prefix}/api/auth/login`, {
         method: 'POST',
         headers,
         body,
@@ -165,7 +177,7 @@ export const AdminAuthProvider = ({ children }: { children: React.ReactNode }) =
       }
 
       // FALLBACK: try proxy /api-proxy/v1/admin/login
-      const { res: r2, data: d2 } = await safeFetchJson('/api-proxy/v1/admin/login', {
+      const { res: r2, data: d2 } = await safeFetchJson(`${prefix}/api-proxy/v1/admin/login`, {
         method: 'POST',
         headers,
         body,
@@ -197,8 +209,9 @@ export const AdminAuthProvider = ({ children }: { children: React.ReactNode }) =
 
   const logout = async () => {
     try {
-      await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' }).catch(() => {});
-      await fetch('/api-proxy/v1/admin/logout', { method: 'POST', credentials: 'include' }).catch(() => {});
+      const prefix = getApiPrefix();
+      await fetch(`${prefix}/api/auth/logout`, { method: 'POST', credentials: 'include' }).catch(() => {});
+      await fetch(`${prefix}/api-proxy/v1/admin/logout`, { method: 'POST', credentials: 'include' }).catch(() => {});
     } finally {
       clearAuthCookies();
       setUser(null);

@@ -1,5 +1,6 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  assetPrefix: '/admin-assets',
   async rewrites() {
     const adminApiUrl = process.env.ADMIN_API_URL || 'http://admin-api:4000';
     return [

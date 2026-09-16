@@ -16,7 +16,30 @@ const nextConfig = {
     const tenantApiUrl =
       process.env.TENANT_API_URL ||
       'http://tenant-api:3008';
+    const adminPanelUrl =
+      process.env.ADMIN_PANEL_URL ||
+      'http://admin-panel:3001';
     return [
+      {
+        source: '/admin/api-proxy/:path*',
+        destination: `${adminPanelUrl}/api-proxy/:path*`,
+      },
+      {
+        source: '/admin/api/:path*',
+        destination: `${adminPanelUrl}/api/:path*`,
+      },
+      {
+        source: '/admin/:path*',
+        destination: `${adminPanelUrl}/admin/:path*`,
+      },
+      {
+        source: '/admin-assets/:path*',
+        destination: `${adminPanelUrl}/admin-assets/:path*`,
+      },
+      {
+        source: '/api-proxy/:path*',
+        destination: `${adminPanelUrl}/api-proxy/:path*`,
+      },
       {
         source: '/api/:path*',
         destination: `${tenantApiUrl}/api/:path*`,

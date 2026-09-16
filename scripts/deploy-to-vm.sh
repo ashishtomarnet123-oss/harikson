@@ -6,7 +6,7 @@ set -e
 
 # Configuration
 VM_USER="xarwiz"
-VM_HOST="34.131.140.10"
+VM_HOST="34.131.237.79"
 # Same key pair used for the GitHub Actions PROD_SSH_KEY secret — see
 # deploy-prod.yml. This script is a manual alternative to that CD pipeline
 # and needs its own local copy of the private key (GitHub Secrets are only

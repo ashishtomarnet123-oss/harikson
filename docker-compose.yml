@@ -280,7 +280,7 @@ services:
       - '127.0.0.1:3018:3001'
     environment:
       - PORT=3001
-      - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-http://34.131.140.10:3028}
+      - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-http://34.131.237.79:3028}
       - ADMIN_API_URL=http://admin-api:4000
       - DATABASE_URL=postgresql://neuravolt:${POSTGRES_PASSWORD:-neuravolt_dev_pwd}@postgres:5432/neuravolt
       - JWT_SECRET
@@ -317,9 +317,9 @@ services:
     environment:
       - PORT=3002
       - TENANT_API_URL=http://tenant-api:3008
-      - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-http://34.131.140.10:3028}
+      - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-http://34.131.237.79:3028}
       - NEXTAUTH_SECRET
-      - NEXTAUTH_URL=${NEXTAUTH_URL:-http://34.131.140.10:3028}
+      - NEXTAUTH_URL=${NEXTAUTH_URL:-http://34.131.237.79:3028}
     networks:
       - harikson-network
     labels:

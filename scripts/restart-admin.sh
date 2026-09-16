@@ -1,7 +1,7 @@
 #!/bin/bash
 # ============================================================
 # Harikson Admin API + Admin Panel Restart Script
-# Run this ON the server: ssh root@34.131.140.10 then bash this
+# Run this ON the server: ssh root@34.131.237.79 then bash this
 # ============================================================
 
 set -e
@@ -63,6 +63,6 @@ echo "📋 Recent admin-api logs:"
 docker compose logs --tail=20 admin-api
 
 echo ""
-echo "✅ Done! Try logging in at http://34.131.140.10:3018/admin/login"
+echo "✅ Done! Try logging in at http://34.131.237.79:3018/admin/login"
 echo "   Email:    admin@harikson.ai"
 echo "   Password: Admin@neurovalt@2620"
