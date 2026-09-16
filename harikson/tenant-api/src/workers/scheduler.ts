@@ -336,7 +336,7 @@ export class HariksonScheduler {
                 SELECT m.id, m.content, m.conversation_id, c.user_id, m.created_at
                 FROM messages m
                 JOIN conversations c ON m.conversation_id = c.id
-                WHERE m.role = 'user'
+                WHERE m.sender = 'user'
                 ORDER BY m.created_at ASC
                 LIMIT 100
               `);

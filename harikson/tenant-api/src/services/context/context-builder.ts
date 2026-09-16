@@ -202,7 +202,7 @@ export class ContextBuilder {
       try {
         const messages = await this.executeQuery(tenantId, async (client) => {
           const res = await client.query(
-            'SELECT id, role, content FROM messages WHERE conversation_id = $1 ORDER BY created_at ASC',
+            'SELECT id, sender as role, content FROM messages WHERE conversation_id = $1 ORDER BY created_at ASC',
             [conversationId]
           );
           return res.rows as { id: string; role: string; content: string }[];

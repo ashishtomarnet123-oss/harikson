@@ -632,7 +632,7 @@ router.get('/billing', async (req: any, res) => {
       client.query(
         `SELECT COUNT(*) as msg_count
          FROM messages m JOIN conversations c ON m.conversation_id = c.id
-         WHERE c.tenant_id = $1 AND m.role = 'user' AND m.created_at >= date_trunc('month', NOW())`,
+         WHERE c.tenant_id = $1 AND m.sender = 'user' AND m.created_at >= date_trunc('month', NOW())`,
         [tenantId]
       )
     ).catch(() => ({ rows: [{ msg_count: 0 }] }));

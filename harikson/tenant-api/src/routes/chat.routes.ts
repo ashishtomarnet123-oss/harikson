@@ -93,11 +93,10 @@ router.get('/conversations/:id/messages', requireScopes('chat:read'), async (req
   try {
     const msgRes = await executeTenantQuery(req.tenant.id, (client) =>
       client.query(
-        `SELECT m.id, m.conversation_id, m.role, m.content, m.tokens_used, m.created_at
+        `SELECT m.id, m.conversation_id, m.sender as role, m.content, m.tokens_used, m.created_at
          FROM messages m
          JOIN conversations c ON c.id = m.conversation_id
          WHERE m.conversation_id = $1 AND m.tenant_id = $2 AND c.user_id = $3
-           AND m.deleted_at IS NULL AND c.deleted_at IS NULL
          ORDER BY m.created_at ASC`,
         [id, req.tenant.id, userId]
       )
@@ -218,7 +217,7 @@ async function handleChat(req: any, res: any) {
         client.query(
           `SELECT COUNT(*) as msg_count FROM messages m
            JOIN conversations c ON m.conversation_id = c.id
-           WHERE c.tenant_id = $1 AND m.role = 'user'
+           WHERE c.tenant_id = $1 AND m.sender = 'user'
              AND m.created_at >= date_trunc('month', NOW())`,
           [req.tenant.id]
         )
@@ -300,12 +299,10 @@ async function handleChat(req: any, res: any) {
     const promptTokens = countExactTokens(message) + countExactTokens(ragContext);
 
     // Save user message — must be awaited so it persists before the response streams.
-    // sender is a NOT NULL legacy column with no default, kept in sync with
-    // role (its replacement) — omitting it makes the insert fail outright.
     try {
       await executeTenantQuery(req.tenant.id, (client) =>
         client.query(
-          'INSERT INTO messages (tenant_id, conversation_id, role, sender, content, tokens_used) VALUES ($1, $2, $3, $3, $4, $5)',
+          'INSERT INTO messages (tenant_id, conversation_id, sender, content, tokens_used) VALUES ($1, $2, $3, $4, $5)',
           [req.tenant.id, currentConvId, 'user', message, countExactTokens(message)]
         )
       );
@@ -417,8 +414,8 @@ async function handleChat(req: any, res: any) {
           try {
             await executeTenantQuery(req.tenant.id, (client) =>
               client.query(
-                `INSERT INTO messages (tenant_id, conversation_id, role, sender, content, tokens_used, prompt_tokens, completion_tokens)
-                 VALUES ($1, $2, $3, $3, $4, $5, $6, $7)`,
+                `INSERT INTO messages (tenant_id, conversation_id, sender, content, tokens_used, prompt_tokens, completion_tokens)
+                 VALUES ($1, $2, $3, $4, $5, $6, $7)`,
                 [req.tenant.id, currentConvId, 'assistant', fullResponseText, completionTokens,
                  ollamaPromptTokens || promptTokens, completionTokens]
               )
