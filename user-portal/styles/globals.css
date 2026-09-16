@@ -293,6 +293,12 @@ h6 {
   }
 }
 
+@media (max-width: 1024px) {
+  .ds-top-nav {
+    display: none !important;
+  }
+}
+
 @media (max-width: 768px) {
   .ds-nav-rail {
     display: none;

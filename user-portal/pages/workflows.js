@@ -324,7 +324,7 @@ function WorkflowsPage() {
   };
 
   return (
-    <DashboardShell title="Agent Workflows">
+    <DashboardShell title="AI Automations">
       <Head>
         <title>Workflow Builder — Xarwiz Cloud</title>
       </Head>

@@ -12,6 +12,9 @@ import {
   AlertTriangle,
   CheckCircle2,
   AlertCircle,
+  Workflow,
+  Cpu,
+  HelpCircle,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import SettingsModal from '../SettingsModal';
@@ -23,11 +26,21 @@ export default function DashboardShell({ children, title = 'Dashboard' }) {
   const router = useRouter();
   const { user, logout } = useAuth();
   const [showSettingsModal, setShowSettingsModal] = useState(false);
+  const [settingsInitialTab, setSettingsInitialTab] = useState('profile');
   const [showSearch, setShowSearch] = useState(false);
   const [notifications, setNotifications] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [showNotifications, setShowNotifications] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  useEffect(() => {
+    const settingsTab = router.query.settings;
+    if (settingsTab) {
+      setSettingsInitialTab(settingsTab);
+      setShowSettingsModal(true);
+      router.replace(router.pathname, undefined, { shallow: true });
+    }
+  }, [router.query.settings]);
 
   useEffect(() => {
     const fetchNotifications = async () => {
@@ -83,7 +96,11 @@ export default function DashboardShell({ children, title = 'Dashboard' }) {
       setUnreadCount(prev => Math.max(0, prev - 1));
     }
     setShowNotifications(false);
-    const typeRoutes = { agent: '/agents', document: '/documents', workflow: '/workflows', security: '/security', billing: '/settings' };
+    const typeRoutes = { agent: '/agents', document: '/documents', workflow: '/workflows', billing: '/dashboard' };
+    if (n.type === 'security') {
+      setShowSettingsModal(true);
+      return;
+    }
     const route = typeRoutes[n.type] || '/dashboard';
     router.push(route);
   };
@@ -101,7 +118,7 @@ export default function DashboardShell({ children, title = 'Dashboard' }) {
     <div className="ds-root">
       {/* Navigation Rail */}
       <div className="ds-nav-rail">
-        <NavigationRail onSettingsClick={() => setShowSettingsModal(true)} />
+        <NavigationRail onSettingsClick={() => { setSettingsInitialTab('profile'); setShowSettingsModal(true); }} />
       </div>
 
       {/* Mobile overlay */}
@@ -146,7 +163,7 @@ export default function DashboardShell({ children, title = 'Dashboard' }) {
             <span style={{ marginLeft: 'auto', fontSize: '11px', color: 'var(--shell-text-muted)', padding: '1px 5px', borderRadius: '4px', border: '1px solid var(--shell-card-border)' }}>⌘K</span>
           </button>
           <button
-            onClick={() => { setShowSettingsModal(true); setSidebarOpen(false); }}
+            onClick={() => { setSettingsInitialTab('profile'); setShowSettingsModal(true); setSidebarOpen(false); }}
             style={{
               display: 'flex', alignItems: 'center', gap: '12px',
               padding: '10px 12px', borderRadius: '8px',
@@ -183,16 +200,53 @@ export default function DashboardShell({ children, title = 'Dashboard' }) {
       {/* Main Content Area */}
       <main className="ds-main">
         <header className="ds-header">
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
             <button className="ds-hamburger" onClick={() => setSidebarOpen(prev => !prev)}>
               {sidebarOpen ? <X size={22} /> : <Menu size={22} />}
             </button>
             <h1 style={{ fontSize: '18px', fontWeight: 700, color: 'var(--shell-text)', margin: 0 }}>
               {title}
             </h1>
+
+            <nav className="ds-top-nav" style={{ display: 'flex', alignItems: 'center', gap: '4px', marginLeft: '12px' }}>
+              <Link href="/workflows" style={{
+                display: 'flex', alignItems: 'center', gap: '6px',
+                padding: '6px 12px', borderRadius: '8px', fontSize: '13px', fontWeight: 600,
+                textDecoration: 'none', transition: 'all 0.15s ease',
+                backgroundColor: router.pathname === '/workflows' ? 'rgba(99,102,241,0.15)' : 'transparent',
+                color: router.pathname === '/workflows' ? '#818cf8' : 'var(--shell-text-secondary)',
+                border: router.pathname === '/workflows' ? '1px solid rgba(99,102,241,0.25)' : '1px solid transparent',
+              }}>
+                <Workflow size={15} />
+                <span>AI Automations</span>
+              </Link>
+              <Link href="/agents" style={{
+                display: 'flex', alignItems: 'center', gap: '6px',
+                padding: '6px 12px', borderRadius: '8px', fontSize: '13px', fontWeight: 600,
+                textDecoration: 'none', transition: 'all 0.15s ease',
+                backgroundColor: router.pathname === '/agents' ? 'rgba(99,102,241,0.15)' : 'transparent',
+                color: router.pathname === '/agents' ? '#818cf8' : 'var(--shell-text-secondary)',
+                border: router.pathname === '/agents' ? '1px solid rgba(99,102,241,0.25)' : '1px solid transparent',
+              }}>
+                <Cpu size={15} />
+                <span>Agents</span>
+              </Link>
+            </nav>
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            {/* Search */}
+            <button
+              onClick={() => setShowSearch(true)}
+              title="Search (⌘K)"
+              style={{
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                background: 'none', border: 'none', cursor: 'pointer',
+                color: 'var(--shell-text-secondary)', padding: '4px',
+              }}
+            >
+              <Search size={18} />
+            </button>
             {/* Notification Bell */}
             <div style={{ position: 'relative' }}>
               <button
@@ -272,8 +326,8 @@ export default function DashboardShell({ children, title = 'Dashboard' }) {
 
       <SettingsModal
         isOpen={showSettingsModal}
-        onClose={() => setShowSettingsModal(false)}
-        initialTab="profile"
+        onClose={() => { setShowSettingsModal(false); setSettingsInitialTab('profile'); }}
+        initialTab={settingsInitialTab}
         handleLogout={logout}
       />
 

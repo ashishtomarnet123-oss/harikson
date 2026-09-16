@@ -7,7 +7,6 @@ import {
   Cpu,
   Workflow,
   Database,
-  Shield,
   Settings,
 } from 'lucide-react';
 
@@ -15,9 +14,8 @@ const navItems = [
   { href: '/dashboard', icon: Layers, label: 'Dashboard' },
   { href: '/chat', icon: MessageSquare, label: 'AI Workspaces' },
   { href: '/agents', icon: Cpu, label: 'AI Agents' },
-  { href: '/workflows', icon: Workflow, label: 'Workflows' },
+  { href: '/workflows', icon: Workflow, label: 'AI Automations' },
   { href: '/documents', icon: Database, label: 'Knowledge Base' },
-  { href: '/security', icon: Shield, label: 'Security' },
 ];
 
 export default function NavigationRail({ onSettingsClick }) {
