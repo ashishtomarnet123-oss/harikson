@@ -142,9 +142,11 @@ app.use((req, _res, next) => {
   const cookieHeader = req.headers.cookie || '';
   const cookies: Record<string, string> = {};
   cookieHeader.split(';').forEach((cookie) => {
-    const parts = cookie.split('=');
-    if (parts.length === 2) {
-      cookies[parts[0].trim()] = parts[1].trim();
+    const idx = cookie.indexOf('=');
+    if (idx > 0) {
+      const name = cookie.substring(0, idx).trim();
+      const value = cookie.substring(idx + 1).trim();
+      if (name) cookies[name] = value;
     }
   });
   (req as any).cookies = cookies;
