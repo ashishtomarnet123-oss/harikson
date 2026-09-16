@@ -58,25 +58,11 @@ export default function UsageSettings() {
         const data = await res.json();
         setUsage(data);
       } else {
-        setUsage({
-          totalTokens: 0,
-          totalQueries: 0,
-          tokensChangePct: 0,
-          queriesChangePct: 0,
-          limitTokens: 100000,
-          daily: []
-        });
+        setError('Unable to load usage data. Please try again.');
       }
     } catch (err) {
       console.error('Fetch usage error:', err);
-      setUsage({
-        totalTokens: 0,
-        totalQueries: 0,
-        tokensChangePct: 0,
-        queriesChangePct: 0,
-        limitTokens: 100000,
-        daily: []
-      });
+      setError('Unable to reach the usage service. Please check your connection.');
     } finally {
       setLoading(false);
     }
@@ -112,6 +98,24 @@ export default function UsageSettings() {
 
   if (loading && !usage)
     return <div className="settings-loading">Loading usage analytics...</div>;
+
+  if (error && !usage) {
+    return (
+      <div className="settings-section" style={{ textAlign: 'center', padding: '40px 20px' }}>
+        <div style={{ fontSize: '14px', color: 'var(--shell-text-muted)', marginBottom: '16px' }}>{error}</div>
+        <button
+          onClick={() => fetchUsage(timeRange)}
+          style={{
+            padding: '8px 20px', borderRadius: '8px', border: '1px solid var(--shell-card-border)',
+            background: 'var(--shell-surface-alt)', color: 'var(--shell-text)', cursor: 'pointer',
+            fontSize: '13px', fontWeight: 600,
+          }}
+        >
+          Retry
+        </button>
+      </div>
+    );
+  }
 
   const daily = usage?.daily || [];
   const peakTokens =

@@ -379,6 +379,9 @@ async function handleChat(req: any, res: any) {
 
         let firstByteLogged = false;
         let streamEnded = false;
+        let ollamaPromptTokens = 0;
+        let ollamaCompletionTokens = 0;
+        let ollamaLatencyMs = 0;
         ollamaRes.data.on('data', (chunk: Buffer) => {
           if (streamEnded) return;
           if (!firstByteLogged) {
@@ -396,6 +399,11 @@ async function handleChat(req: any, res: any) {
                 fullResponseText += parsed.message.content;
                 res.write(`data: ${JSON.stringify({ content: parsed.message.content, conversationId: currentConvId })}\n\n`);
               }
+              if (parsed.done === true) {
+                ollamaPromptTokens = parsed.prompt_eval_count || 0;
+                ollamaCompletionTokens = parsed.eval_count || 0;
+                ollamaLatencyMs = Math.round((parsed.total_duration || 0) / 1e6);
+              }
             } catch (e) {
               // Ignore line parse edge cases
             }
@@ -405,12 +413,14 @@ async function handleChat(req: any, res: any) {
         ollamaRes.data.on('end', async () => {
           if (streamEnded) return;
           streamEnded = true;
-          const completionTokens = countExactTokens(fullResponseText);
+          const completionTokens = ollamaCompletionTokens || countExactTokens(fullResponseText);
           try {
             await executeTenantQuery(req.tenant.id, (client) =>
               client.query(
-                'INSERT INTO messages (tenant_id, conversation_id, role, sender, content, tokens_used) VALUES ($1, $2, $3, $3, $4, $5)',
-                [req.tenant.id, currentConvId, 'assistant', fullResponseText, completionTokens]
+                `INSERT INTO messages (tenant_id, conversation_id, role, sender, content, tokens_used, prompt_tokens, completion_tokens)
+                 VALUES ($1, $2, $3, $3, $4, $5, $6, $7)`,
+                [req.tenant.id, currentConvId, 'assistant', fullResponseText, completionTokens,
+                 ollamaPromptTokens || promptTokens, completionTokens]
               )
             );
           } catch (e) {

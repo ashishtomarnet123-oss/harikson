@@ -612,7 +612,7 @@ router.get('/billing', async (req: any, res) => {
     if (sub) {
       plan = sub;
     } else {
-      const planRes = await pool.query('SELECT * FROM plans WHERE id = $1', [tenant.plan]);
+      const planRes = await pool.query('SELECT * FROM plans WHERE LOWER(id) = LOWER($1)', [tenant.plan]);
       plan = planRes.rows[0] || null;
     }
     if (!plan) {
