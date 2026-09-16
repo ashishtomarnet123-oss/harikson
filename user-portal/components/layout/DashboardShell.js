@@ -19,7 +19,6 @@ import {
 import { useAuth } from '../../context/AuthContext';
 import SettingsModal from '../SettingsModal';
 import GlobalSearch from '../GlobalSearch';
-import NavigationRail from './NavigationRail';
 import { authenticatedFetch, getApiConfig } from '../settings/apiHelper';
 
 export default function DashboardShell({ children, title = 'Dashboard' }) {
@@ -116,11 +115,6 @@ export default function DashboardShell({ children, title = 'Dashboard' }) {
 
   return (
     <div className="ds-root">
-      {/* Navigation Rail */}
-      <div className="ds-nav-rail">
-        <NavigationRail onSettingsClick={() => { setSettingsInitialTab('profile'); setShowSettingsModal(true); }} />
-      </div>
-
       {/* Mobile overlay */}
       <div
         className={`ds-mobile-overlay${sidebarOpen ? ' open' : ''}`}
@@ -246,6 +240,18 @@ export default function DashboardShell({ children, title = 'Dashboard' }) {
               }}
             >
               <Search size={18} />
+            </button>
+            {/* Settings */}
+            <button
+              onClick={() => { setSettingsInitialTab('profile'); setShowSettingsModal(true); }}
+              title="Settings"
+              style={{
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                background: 'none', border: 'none', cursor: 'pointer',
+                color: 'var(--shell-text-secondary)', padding: '4px',
+              }}
+            >
+              <Settings size={18} />
             </button>
             {/* Notification Bell */}
             <div style={{ position: 'relative' }}>
