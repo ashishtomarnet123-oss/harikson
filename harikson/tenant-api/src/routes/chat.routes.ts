@@ -241,15 +241,14 @@ async function handleChat(req: any, res: any) {
   const { message, conversationId, agentId, model: rawModel = 'harikson-plus', stream = true, clientHistory } = req.body || {};
   if (!message) return res.status(400).json({ error: 'Message text is required' });
 
-  // Single-GPU VM (16GB) can only serve one 7B model at a time.
-  // plus/max/pro all map to qwen2.5:7b until multi-model infra is available.
+  // Single-GPU VM — all tiers map to the loaded model until multi-model infra is available.
   const MODEL_MAP: Record<string, string> = {
-    'harikson-plus':    'qwen2.5:7b',
-    'harikson-max':     'qwen2.5:7b',
-    'harikson-pro':     'qwen2.5:7b',
+    'harikson-plus':    'qwen2.5:3b',
+    'harikson-max':     'qwen2.5:3b',
+    'harikson-pro':     'qwen2.5:3b',
     'harikson-mini':    'qwen2.5:3b',
-    'harikson-8b':      'qwen2.5:7b',
-    'harikson-plus-8b': 'qwen2.5:7b',
+    'harikson-8b':      'qwen2.5:3b',
+    'harikson-plus-8b': 'qwen2.5:3b',
     'general':          'qwen2.5:3b',
     'qwen3-coder':      'qwen2.5:3b',
   };
