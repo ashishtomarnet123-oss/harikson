@@ -193,7 +193,13 @@ app.use(async (req, res, next) => {
       if (req.path === '/health' || req.path === '/ready') {
         return next();
       }
-      return res.status(400).json({ error: 'Tenant not found. Provide a valid x-tenant-slug header, API key, or use a tenant subdomain.' });
+      // Single-tenant fallback: if only one tenant exists, use it
+      const fallbackRes = await pool.query('SELECT * FROM tenants LIMIT 2').catch(() => ({ rows: [] }));
+      if (fallbackRes.rows.length === 1) {
+        tenant = fallbackRes.rows[0];
+      } else {
+        return res.status(400).json({ error: 'Tenant not found. Provide a valid x-tenant-slug header, API key, or use a tenant subdomain.' });
+      }
     }
 
     req.tenant = tenant;
