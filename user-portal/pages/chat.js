@@ -1,10 +1,12 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useReducer } from 'react';
 import { useRouter } from 'next/router';
 import Head from 'next/head';
 import NextLink from 'next/link';
 import { withAuth } from '../components/withAuth';
 import {
   Mic,
+  MicOff,
+  Volume2,
   Paperclip,
   ArrowUp,
   Square,
@@ -33,9 +35,24 @@ import {
   MoreVertical,
   Shield,
   Sparkles,
+  Sliders,
 } from 'lucide-react';
 import SettingsModal from '../components/SettingsModal';
 import { trackEvent } from '../lib/analytics';
+import {
+  voiceFSMReducer,
+  INITIAL_FSM_STATE,
+  isVoiceActive,
+  isListening,
+  isAISpeaking,
+  isBusy,
+  canBargeIn,
+} from '../src/voice/fsm.js';
+import { BrowserSTTProvider } from '../src/voice/providers/BrowserSTTProvider';
+import { BrowserTTSProvider } from '../src/voice/providers/BrowserTTSProvider';
+import { ChunkedSpeaker } from '../src/voice/tts/chunked-speaker';
+import { VADController } from '../src/voice/vad-controller';
+import VoiceModeOverlay from '../components/voice/VoiceModeOverlay';
 
 /* ────────────────────────────────────────────────────────────
    Clipboard helper — navigator.clipboard is only defined in
@@ -603,183 +620,6 @@ function ChatPage() {
     window.location.href = `${adminPanelUrl}/admin/users`;
   };
 
-  // Voice dictation initialization
-  const toggleRecording = () => {
-    if (isRecording) {
-      recognitionRef.current?.stop();
-    } else {
-      try {
-        if (!recognitionRef.current) {
-          const SpeechRecognition =
-            window.SpeechRecognition || window.webkitSpeechRecognition;
-          if (!SpeechRecognition)
-            throw new Error('Speech recognition not supported');
-
-          recognitionRef.current = new SpeechRecognition();
-          recognitionRef.current.continuous = false;
-          recognitionRef.current.interimResults = false;
-          recognitionRef.current.onresult = (event) => {
-            const transcript = event.results[0][0].transcript;
-            setInputText((prev) =>
-              prev ? prev + ' ' + transcript : transcript
-            );
-            setIsRecording(false);
-          };
-          recognitionRef.current.onerror = (e) => {
-            console.error('Mic error:', e);
-            setIsRecording(false);
-          };
-          recognitionRef.current.onend = () => setIsRecording(false);
-        }
-        recognitionRef.current.start();
-        setIsRecording(true);
-      } catch (err) {
-        console.error('Speech API Error:', err);
-        alert(
-          'Voice dictation is not available in this browser or requires HTTPS.'
-        );
-        setIsRecording(false);
-      }
-    }
-  };
-
-  const speakText = (text) => {
-    if (typeof window === 'undefined' || !window.speechSynthesis) return;
-
-    // Clean text of markdown, icons, emojis, etc.
-    const cleanText = text
-      .replace(/[#*`⚠️🔒💡]/g, '')
-      .replace(/\(.*?\)/g, '')
-      .trim();
-
-    if (!cleanText) return;
-
-    const utterance = new SpeechSynthesisUtterance(cleanText);
-    const voices = window.speechSynthesis.getVoices();
-    const naturalVoice =
-      voices.find(
-        (v) =>
-          v.lang.startsWith('en') &&
-          (v.name.includes('Google') ||
-            v.name.includes('Natural') ||
-            v.name.includes('Samantha'))
-      ) || voices[0];
-    if (naturalVoice) utterance.voice = naturalVoice;
-
-    utterance.onstart = () => {
-      isSpeakingRef.current = true;
-    };
-    utterance.onend = () => {
-      isSpeakingRef.current = false;
-    };
-
-    window.speechSynthesis.speak(utterance);
-  };
-
-  const startVoiceMode = () => {
-    setIsVoiceMode(true);
-    setError(null);
-    if (typeof window === 'undefined') return;
-
-    window.speechSynthesis?.cancel();
-
-    try {
-      const SpeechRecognition =
-        window.SpeechRecognition || window.webkitSpeechRecognition;
-      if (!SpeechRecognition) {
-        alert('Speech recognition not supported in this browser.');
-        setIsVoiceMode(false);
-        return;
-      }
-
-      const recognition = new SpeechRecognition();
-      recognition.continuous = true;
-      recognition.interimResults = true;
-      recognition.lang = 'en-US';
-
-      let silenceTimer = null;
-
-      recognition.onresult = (event) => {
-        if (window.speechSynthesis && window.speechSynthesis.speaking) {
-          window.speechSynthesis.cancel();
-        }
-
-        let interimTranscript = '';
-        let finalTranscript = '';
-
-        for (let i = event.resultIndex; i < event.results.length; ++i) {
-          if (event.results[i].isFinal) {
-            finalTranscript += event.results[i][0].transcript;
-          } else {
-            interimTranscript += event.results[i][0].transcript;
-          }
-        }
-
-        const currentText = (finalTranscript || interimTranscript).trim();
-        if (currentText) {
-          setVoiceTranscript(currentText);
-
-          if (silenceTimer) clearTimeout(silenceTimer);
-
-          silenceTimer = setTimeout(() => {
-            sendVoiceMessage(currentText);
-            setVoiceTranscript('');
-            recognition.stop();
-          }, 1500);
-        }
-      };
-
-      recognition.onerror = (e) => {
-        console.error('Voice mode error:', e);
-      };
-
-      recognition.onend = () => {
-        if (isVoiceMode && !loading) {
-          try {
-            recognition.start();
-          } catch (err) {
-            console.warn('Failed to restart voice recognition:', err.message);
-          }
-        }
-      };
-
-      voiceRecognitionRef.current = recognition;
-      recognition.start();
-    } catch (err) {
-      console.error('Failed to start voice recognition:', err);
-      setIsVoiceMode(false);
-    }
-  };
-
-  const stopVoiceMode = () => {
-    setIsVoiceMode(false);
-    setVoiceTranscript('');
-    if (voiceRecognitionRef.current) {
-      voiceRecognitionRef.current.onend = null;
-      voiceRecognitionRef.current.stop();
-      voiceRecognitionRef.current = null;
-    }
-    if (typeof window !== 'undefined') {
-      window.speechSynthesis?.cancel();
-    }
-  };
-
-  const toggleVoiceMode = () => {
-    if (isVoiceMode) {
-      stopVoiceMode();
-    } else {
-      startVoiceMode();
-    }
-  };
-
-  const sendVoiceMessage = (text) => {
-    if (!text.trim()) return;
-    setInputText(text);
-    setTimeout(() => {
-      sendMessage();
-    }, 50);
-  };
-
   // Auth & config
   const [user, setUser] = useState(null);
   const [apiBase, setApiBase] = useState('');
@@ -812,16 +652,465 @@ function ChatPage() {
   const [showSlashMenu, setShowSlashMenu] = useState(false);
   const [slashIndex, setSlashIndex] = useState(0);
   const [activeArtifact, setActiveArtifact] = useState(null);
-  const [isRecording, setIsRecording] = useState(false);
   const [useDeepSearch, setUseDeepSearch] = useState(false);
   const [useReasoning, setUseReasoning] = useState(false);
-  const recognitionRef = useRef(null);
 
-  // Voice mode state variables
-  const [isVoiceMode, setIsVoiceMode] = useState(false);
-  const [voiceTranscript, setVoiceTranscript] = useState('');
-  const voiceRecognitionRef = useRef(null);
-  const isSpeakingRef = useRef(false);
+  // ── Production Voice State Machine (FSM) & Audio Controllers ──────────
+  const [voiceState, dispatchVoice] = useReducer(voiceFSMReducer, INITIAL_FSM_STATE);
+  const voiceStateRef = useRef(voiceState);
+  useEffect(() => { voiceStateRef.current = voiceState; }, [voiceState]);
+
+  const [voiceDevices, setVoiceDevices] = useState([]);
+  const [showVoiceSettings, setShowVoiceSettings] = useState(false);
+  const [audioRms, setAudioRms] = useState(0);
+
+  // Extended voice settings (rate, pitch, VAD threshold, echo gate)
+  const [voiceRate, setVoiceRate] = useState(1.05);
+  const [voicePitch, setVoicePitch] = useState(1.0);
+  const [vadThreshold, setVadThreshold] = useState(-42);
+  const [echoGateEnabled, setEchoGateEnabled] = useState(true);
+
+  const sttProviderRef = useRef(null);
+  const chunkedSpeakerRef = useRef(null);
+  const vadControllerRef = useRef(null);
+  const voiceSessionIdRef = useRef(null);
+  const voiceTurnCountRef = useRef(0);
+  const abortControllerRef = useRef(null);
+  const sendMessageRef = useRef(null);
+  const loadingRef = useRef(false);
+  const pendingVoiceTranscriptRef = useRef('');
+  const isPttActiveRef = useRef(false);
+  // Ref holds current STT callbacks so resumeListeningForNextTurn can reuse them
+  const sttCallbacksRef = useRef(null);
+
+  // Observability & Telemetry Timestamps
+  const vadEndOfSpeechTimeRef = useRef(null);
+  const sttFinalizeTimeRef = useRef(null);
+  const firstTtsAudioTimeRef = useRef(null);
+  const lastTurnTtfaRef = useRef(null);
+  const lastUserVoiceTextRef = useRef('');
+  const lastBotVoiceTextRef = useRef('');
+
+  const detectBrowserName = () => {
+    if (typeof navigator === 'undefined') return 'Unknown';
+    const ua = navigator.userAgent;
+    if (ua.includes('Edg/')) return 'Edge';
+    if (ua.includes('Chrome') && !ua.includes('Edg/')) return 'Chrome';
+    if (ua.includes('Safari') && !ua.includes('Chrome')) return 'Safari';
+    if (ua.includes('Firefox')) return 'Firefox';
+    return 'Other';
+  };
+
+  const recordVoiceTurnUsage = (opts = {}) => {
+    const sessId = voiceSessionIdRef.current;
+    const userText = lastUserVoiceTextRef.current || '';
+    const botText = lastBotVoiceTextRef.current || '';
+    const ttfa = lastTurnTtfaRef.current;
+
+    fetch(`${apiBase || ''}/api/v1/voice/usage`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-tenant-slug': tenantSlug || 'default',
+      },
+      credentials: 'include',
+      body: JSON.stringify({
+        sessionId: sessId || null,
+        sttChars: userText.length,
+        ttsChars: botText.length,
+        llmTokens: Math.ceil(botText.length / 4),
+        ttfaMs: ttfa || null,
+        browser: detectBrowserName(),
+        interrupted: !!opts.interrupted,
+        sttError: !!opts.sttError,
+        errorType: opts.errorType || null,
+      }),
+    }).catch((e) => console.warn('[Voice] Telemetry logging warning:', e));
+
+    if (!opts.keepTtfa) {
+      lastTurnTtfaRef.current = null;
+    }
+  };
+
+  const handleTurnCommit = () => {
+    const text = pendingVoiceTranscriptRef.current.trim();
+    if (!text) return;
+
+    sttFinalizeTimeRef.current = Date.now();
+    lastUserVoiceTextRef.current = text;
+    lastBotVoiceTextRef.current = '';
+    lastTurnTtfaRef.current = null;
+
+    console.debug(`[Voice] Turn commit: "${text}"`);
+    dispatchVoice({ type: 'STT_FINAL', transcript: text });
+    setInputText(text);
+    pendingVoiceTranscriptRef.current = '';
+
+    // Stop microphone & VAD immediately so it does not keep relistening
+    sttProviderRef.current?.stop();
+    vadControllerRef.current?.stop();
+
+    if (sendMessageRef.current) {
+      voiceTurnCountRef.current += 1;
+      sendMessageRef.current(null, text);
+    }
+  };
+
+  const handleBargeIn = () => {
+    console.debug('[Voice] Barge-in triggered — stopping audio and cancelling server generation');
+    chunkedSpeakerRef.current?.cancel();
+    vadControllerRef.current?.setEchoGated(false);
+
+    if (abortControllerRef.current) {
+      try { abortControllerRef.current.abort(); } catch (_) {}
+      abortControllerRef.current = null;
+    }
+
+    if (activeConvId) {
+      fetch(`${apiBase || ''}/api/v1/chat/${activeConvId}/interrupt`, {
+        method: 'POST',
+        headers: { 'x-tenant-slug': tenantSlug || 'default' },
+        credentials: 'include',
+      }).catch(() => {});
+    }
+
+    // Record turn as interrupted in telemetry
+    recordVoiceTurnUsage({ interrupted: true });
+
+    dispatchVoice({ type: 'BARGE_IN' });
+    pendingVoiceTranscriptRef.current = '';
+    setLoading(false);
+
+    setTimeout(() => {
+      if (isVoiceActive(voiceStateRef.current.state)) {
+        dispatchVoice({ type: 'RESUME_LISTENING' });
+      }
+    }, 120);
+  };
+
+  // ── Audio Engine & Providers Initialization ─────────────────────────
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    // 1. Initialize STT Provider
+    const stt = new BrowserSTTProvider();
+    sttProviderRef.current = stt;
+
+    // 2. Initialize TTS & Chunked Speaker
+    const tts = new BrowserTTSProvider();
+    const speaker = new ChunkedSpeaker(tts);
+    chunkedSpeakerRef.current = speaker;
+
+    speaker.setCallbacks({
+      onFirstAudio: (ttfa) => {
+        firstTtsAudioTimeRef.current = Date.now();
+        const computedTtfa =
+          ttfa ||
+          (vadEndOfSpeechTimeRef.current
+            ? Date.now() - vadEndOfSpeechTimeRef.current
+            : null);
+        console.debug(`[Voice] First audio playback started. TTFA: ${computedTtfa}ms`);
+        lastTurnTtfaRef.current = computedTtfa;
+        dispatchVoice({ type: 'TTS_START' });
+        vadControllerRef.current?.setEchoGated(true);
+      },
+      onSentenceStart: () => {
+        dispatchVoice({ type: 'TTS_START' });
+        vadControllerRef.current?.setEchoGated(true);
+      },
+      onFinished: () => {
+        console.debug('[Voice] TTS finished — resuming listening for next turn');
+        vadControllerRef.current?.setEchoGated(false);
+        vadControllerRef.current?.stop();
+        sttProviderRef.current?.stop();
+        // FSM goes speaking → listening (not idle) — multi-turn loop continues
+        dispatchVoice({ type: 'TTS_END' });
+        recordVoiceTurnUsage({ interrupted: false });
+        // Auto-relisten for the next turn if session is still active
+        resumeListeningForNextTurnRef.current?.();
+      },
+      onError: (err) => {
+        console.warn('[Voice] TTS playback error:', err);
+        vadControllerRef.current?.setEchoGated(false);
+        vadControllerRef.current?.stop();
+        sttProviderRef.current?.stop();
+        // Still relisten even after TTS error — conversation should continue
+        dispatchVoice({ type: 'TTS_END' });
+        resumeListeningForNextTurnRef.current?.();
+      },
+    });
+
+    // 3. Initialize VAD Controller
+    // speechHangoverMs: 700ms — comfortable natural pause (was 2000ms, too aggressive)
+    const vad = new VADController({
+      speechHangoverMs: 700,
+      silenceThresholdDb: -42,
+      echoGateThresholdDb: -26,
+    });
+    vadControllerRef.current = vad;
+
+    vad.setCallbacks({
+      onSpeechStart: () => {
+        dispatchVoice({ type: 'VAD_SPEECH_START' });
+      },
+      onSpeechEnd: () => {
+        vadEndOfSpeechTimeRef.current = Date.now();
+        dispatchVoice({ type: 'VAD_SPEECH_END' });
+        if (pendingVoiceTranscriptRef.current && pendingVoiceTranscriptRef.current.trim()) {
+          handleTurnCommit();
+        }
+      },
+      onRms: (rms) => {
+        setAudioRms(rms);
+      },
+      onBargeIn: () => {
+        handleBargeIn();
+      },
+      onError: (err) => {
+        console.warn('[Voice] VAD audio warning:', err);
+      },
+    });
+
+    // 4. Fetch User Voice Settings from Backend (full settings object)
+    fetch(`${apiBase || ''}/api/v1/voice/settings`, {
+      credentials: 'include',
+    })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (data?.settings) {
+          if (data.settings.language) {
+            dispatchVoice({ type: 'SET_LANGUAGE', language: data.settings.language });
+          }
+          if (typeof data.settings.pushToTalk === 'boolean') {
+            dispatchVoice({ type: 'SET_PUSH_TO_TALK', pushToTalk: data.settings.pushToTalk });
+          }
+          if (typeof data.settings.rate === 'number') setVoiceRate(data.settings.rate);
+          if (typeof data.settings.pitch === 'number') setVoicePitch(data.settings.pitch);
+          if (typeof data.settings.vadThreshold === 'number') {
+            setVadThreshold(data.settings.vadThreshold);
+            vadControllerRef.current?.options && (vadControllerRef.current.options.silenceThresholdDb = data.settings.vadThreshold);
+          }
+          if (typeof data.settings.echoGateEnabled === 'boolean') setEchoGateEnabled(data.settings.echoGateEnabled);
+          // Apply rate/pitch to chunked speaker
+          chunkedSpeakerRef.current?.setOptions({
+            rate: data.settings.rate || 1.05,
+            pitch: data.settings.pitch || 1.0,
+          });
+        }
+      })
+      .catch(() => {});
+
+    // 5. Query Available Microphones
+    if (navigator.mediaDevices && navigator.mediaDevices.enumerateDevices) {
+      navigator.mediaDevices.enumerateDevices().then((devices) => {
+        const audioInputs = devices.filter((d) => d.kind === 'audioinput');
+        setVoiceDevices(audioInputs);
+      }).catch(() => {});
+    }
+
+    return () => {
+      stt.stop();
+      speaker.cancel();
+      vad.stop();
+    };
+  }, []);
+
+  const startVoiceMode = async () => {
+    setError(null);
+    if (typeof window === 'undefined') return;
+
+    if (!sttProviderRef.current?.isSupported()) {
+      dispatchVoice({ type: 'UNSUPPORTED_BROWSER' });
+      return;
+    }
+
+    try {
+      // 1. Create session record on backend
+      try {
+        const res = await fetch(`${apiBase || ''}/api/v1/voice/session`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-tenant-slug': tenantSlug || 'default',
+          },
+          credentials: 'include',
+          body: JSON.stringify({
+            conversationId: activeConvId,
+            language: voiceStateRef.current.language,
+          }),
+        });
+        if (res.ok) {
+          const data = await res.json();
+          voiceSessionIdRef.current = data.session?.id;
+          voiceTurnCountRef.current = 0;
+        }
+      } catch (sessErr) {
+        console.warn('[Voice] Session init warning:', sessErr);
+      }
+
+      // 2. Start VAD
+      await vadControllerRef.current?.start(voiceStateRef.current.deviceId);
+
+      // 3. Build STT callbacks (stored in ref so they can be reused each turn)
+      const sttCbs = {
+        onStart: () => {
+          // First turn: dispatch START; for re-listen turns FSM is already in listening
+          if (voiceStateRef.current.state === 'idle') {
+            dispatchVoice({ type: 'START' });
+          }
+        },
+        onPartial: (partial) => {
+          pendingVoiceTranscriptRef.current = partial;
+          dispatchVoice({ type: 'STT_PARTIAL', transcript: partial });
+          setInputText(partial);
+        },
+        onFinal: (finalPart) => {
+          pendingVoiceTranscriptRef.current = (pendingVoiceTranscriptRef.current + ' ' + finalPart).trim();
+          setInputText(pendingVoiceTranscriptRef.current);
+        },
+        onError: (err) => {
+          if (err === 'permission_denied' || err === 'not-allowed') {
+            dispatchVoice({ type: 'PERMISSION_DENIED' });
+            stopVoiceMode();
+          } else if (err === 'unsupported_browser') {
+            dispatchVoice({ type: 'UNSUPPORTED_BROWSER' });
+          } else {
+            console.warn('[Voice] STT warning:', err);
+            recordVoiceTurnUsage({ sttError: true, errorType: String(err) });
+          }
+        },
+        onEnd: () => {
+          // Not restarting here — restart is managed by resumeListeningForNextTurn
+        },
+      };
+      sttCallbacksRef.current = sttCbs;
+      sttProviderRef.current?.start(
+        sttCbs,
+        voiceStateRef.current.language,
+        voiceStateRef.current.deviceId
+      );
+
+      dispatchVoice({ type: 'START' });
+    } catch (err) {
+      console.error('[Voice] Failed to start voice mode:', err);
+      dispatchVoice({ type: 'ERROR', message: err.message });
+    }
+  };
+
+  const stopVoiceMode = () => {
+    sttProviderRef.current?.stop();
+    chunkedSpeakerRef.current?.cancel();
+    vadControllerRef.current?.stop();
+
+    if (voiceSessionIdRef.current) {
+      fetch(`${apiBase || ''}/api/v1/voice/session/${voiceSessionIdRef.current}/end`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-tenant-slug': tenantSlug || 'default',
+        },
+        credentials: 'include',
+        body: JSON.stringify({
+          turnCount: voiceTurnCountRef.current,
+          endedReason: 'completed',
+        }),
+      }).catch(() => {});
+      voiceSessionIdRef.current = null; // null signals: do NOT resume
+    }
+
+    dispatchVoice({ type: 'STOP' });
+    pendingVoiceTranscriptRef.current = '';
+    setInputText('');
+  };
+
+  /**
+   * resumeListeningForNextTurn — restart VAD + STT for the next turn.
+   * Called after AI finishes speaking (TTS_END) to enable hands-free continuous mode.
+   * Does NOT create a new voice session or change FSM state (already in 'listening').
+   */
+  const resumeListeningForNextTurnRef = useRef(null);
+  // Keep the ref in sync with the latest closure (avoids stale state in callbacks)
+  const _resumeListeningForNextTurn = useCallback(async () => {
+    // Guard: only resume if session still open (user hasn't pressed Stop)
+    if (!voiceSessionIdRef.current) {
+      console.debug('[Voice] Session closed — not resuming listen loop');
+      return;
+    }
+    // Guard: don't restart if a new turn is already processing
+    const curState = voiceStateRef.current.state;
+    if (curState === 'processing' || curState === 'streaming' || curState === 'speaking') {
+      console.debug('[Voice] Already busy — skipping relisten');
+      return;
+    }
+
+    console.debug('[Voice] Resuming listen for next turn…');
+    pendingVoiceTranscriptRef.current = '';
+    setInputText('');
+
+    try {
+      await vadControllerRef.current?.start(voiceStateRef.current.deviceId);
+      if (sttCallbacksRef.current) {
+        sttProviderRef.current?.start(
+          sttCallbacksRef.current,
+          voiceStateRef.current.language,
+          voiceStateRef.current.deviceId
+        );
+      }
+    } catch (err) {
+      console.warn('[Voice] Relisten start error:', err);
+      dispatchVoice({ type: 'ERROR', message: err.message });
+    }
+  }, []);
+  resumeListeningForNextTurnRef.current = _resumeListeningForNextTurn;
+
+  const toggleVoiceMode = () => {
+    if (isVoiceActive(voiceState.state)) {
+      if (pendingVoiceTranscriptRef.current?.trim()) {
+        handleTurnCommit();
+      } else {
+        stopVoiceMode();
+      }
+    } else {
+      startVoiceMode();
+    }
+  };
+
+  // Push-to-Talk Spacebar Listener
+  useEffect(() => {
+    if (!voiceState.pushToTalk || !isVoiceActive(voiceState.state)) return;
+
+    const onKeyDown = (e) => {
+      if (e.code === 'Space' && !e.repeat) {
+        const tag = document.activeElement?.tagName?.toLowerCase();
+        if (tag === 'input' || tag === 'textarea' || document.activeElement?.isContentEditable) return;
+        e.preventDefault();
+        if (!isPttActiveRef.current) {
+          isPttActiveRef.current = true;
+          dispatchVoice({ type: 'VAD_SPEECH_START' });
+        }
+      }
+    };
+
+    const onKeyUp = (e) => {
+      if (e.code === 'Space' && isPttActiveRef.current) {
+        e.preventDefault();
+        isPttActiveRef.current = false;
+        dispatchVoice({ type: 'VAD_SPEECH_STOP' });
+        handleTurnCommit();
+      }
+    };
+
+    window.addEventListener('keydown', onKeyDown);
+    window.addEventListener('keyup', onKeyUp);
+    return () => {
+      window.removeEventListener('keydown', onKeyDown);
+      window.removeEventListener('keyup', onKeyUp);
+    };
+  }, [voiceState.pushToTalk, voiceState.state]);
+
+  useEffect(() => {
+    loadingRef.current = loading;
+  }, [loading]);
 
   // Custom presets and export dropdown states
   const [customPresets, setCustomPresets] = useState([]);
@@ -945,7 +1234,6 @@ function ChatPage() {
 
   const chatEndRef = useRef(null);
   const textareaRef = useRef(null);
-  const abortControllerRef = useRef(null);
   // Flag to prevent the URL effect from re-loading the old conversation
   // when we intentionally start a new chat (state updates before URL changes)
   const isNewChatMode = useRef(false);
@@ -1389,25 +1677,32 @@ function ChatPage() {
   };
 
   /* ── Send message ── */
-  const sendMessage = async (e) => {
+  const sendMessage = async (e, overrideText) => {
     if (e) e.preventDefault();
     const readyAttachments = attachedFiles.filter(
       (f) => f.status !== 'error' && f.status !== 'processing'
     );
+    const textToUse = overrideText || inputText;
     if (
-      (!inputText.trim() && readyAttachments.length === 0) ||
+      (!textToUse.trim() && readyAttachments.length === 0) ||
       loading ||
       hasProcessingFiles
     )
       return;
 
-    const userText = inputText.trim();
+    const userText = textToUse.trim();
+    if (isVoiceActive(voiceStateRef.current.state)) {
+      sttProviderRef.current?.stop();
+      vadControllerRef.current?.stop();
+    }
     setInputText('');
     setError(null);
     setLoading(true);
 
     // Determine loading status based on toggles and URLs
-    if (useDeepSearch) {
+    if (useReasoning) {
+      setLoadingStatus('Thinking deeply...');
+    } else if (useDeepSearch) {
       setLoadingStatus('Searching the web...');
     } else if (userText.match(/(https?:\/\/[^\s]+)/g)) {
       setLoadingStatus('Crawling websites...');
@@ -1667,11 +1962,18 @@ If any check fails, revise the relevant section before output.`;
       }
     }
 
+    if (useReasoning) {
+      selectedPresetContent += '\n\nIMPORTANT: Think step-by-step. Break down the problem into logical parts. For each step, explain your reasoning clearly before moving to the next. Show your thought process, consider edge cases, and arrive at a well-reasoned conclusion. Structure your response with numbered steps.';
+    }
+    if (useDeepSearch) {
+      selectedPresetContent += '\n\nIMPORTANT: The user has enabled deep search mode. Provide comprehensive, in-depth analysis. Cover multiple angles and perspectives. Include relevant context, examples, and references where applicable. Be thorough and detailed in your response.';
+    }
+
     // Build client-side history to send to backend (ChatGPT approach — no DB race condition)
     const clientHistory = [
       {
         role: 'system',
-        content: isVoiceMode
+        content: isVoiceActive(voiceStateRef.current.state)
           ? voiceInstructions
           : selectedPresetContent +
             fileInstructions +
@@ -1758,6 +2060,14 @@ If any check fails, revise the relevant section before output.`;
         router.replace(`/chat?conversation=${cId}`, undefined, { shallow: true });
       };
 
+      if (isVoiceActive(voiceStateRef.current.state)) {
+        dispatchVoice({ type: 'LLM_STREAM_START' });
+        chunkedSpeakerRef.current?.setOptions({
+          language: voiceStateRef.current.language || 'en-US',
+        });
+        chunkedSpeakerRef.current?.startStream(Date.now());
+      }
+
       const res = await fetch(`${apiBase}/api/v1/chat`, {
         method: 'POST',
         headers: {
@@ -1793,6 +2103,12 @@ If any check fails, revise the relevant section before output.`;
         const text = data.message || data.content || data.error || 'No response received.';
         if (data.conversationId) updateConvStateAndCache(data.conversationId, userText);
         setMessages((prev) => [...prev, { sender: 'bot', text, model }]);
+        lastBotVoiceTextRef.current = text;
+        if (isVoiceActive(voiceStateRef.current.state)) {
+          chunkedSpeakerRef.current?.pushChunk(text);
+          chunkedSpeakerRef.current?.finishStream();
+          dispatchVoice({ type: 'LLM_STREAM_END' });
+        }
         fetchConversations();
         setLoading(false);
         return;
@@ -1828,13 +2144,18 @@ If any check fails, revise the relevant section before output.`;
               if (parsed.conversationId && !currentConvId) {
                 updateConvStateAndCache(parsed.conversationId, userText);
               }
-              // Append only the text content
+              // Append text content and stream to TTS speaker
               if (parsed.content) {
                 fullText += parsed.content;
+                lastBotVoiceTextRef.current = fullText;
+                if (isVoiceActive(voiceStateRef.current.state)) {
+                  chunkedSpeakerRef.current?.pushChunk(parsed.content);
+                }
               }
             } catch (e) {
               // If not JSON, treat as raw text
               fullText += jsonStr;
+              lastBotVoiceTextRef.current = fullText;
             }
           }
         }
@@ -1847,28 +2168,11 @@ If any check fails, revise the relevant section before output.`;
           }
           return updated;
         });
-
-        if (isVoiceMode) {
-          const remainingText = fullText.substring(spokenOffset);
-          const sentenceBoundary = /[^.!?\n]+[.!?\n]+/g;
-          let match;
-          let lastIndex = 0;
-          while ((match = sentenceBoundary.exec(remainingText)) !== null) {
-            const sentence = match[0].trim();
-            if (sentence) {
-              speakText(sentence);
-            }
-            lastIndex = sentenceBoundary.lastIndex;
-          }
-          spokenOffset += lastIndex;
-        }
       }
 
-      if (isVoiceMode && spokenOffset < fullText.length) {
-        const remaining = fullText.substring(spokenOffset).trim();
-        if (remaining) {
-          speakText(remaining);
-        }
+      if (isVoiceActive(voiceStateRef.current.state)) {
+        chunkedSpeakerRef.current?.finishStream();
+        dispatchVoice({ type: 'LLM_STREAM_END' });
       }
 
       // Cache full messages locally for instant persistence
@@ -1889,6 +2193,9 @@ If any check fails, revise the relevant section before output.`;
         return;
       }
       console.error('Chat error:', err);
+      if (isVoiceActive(voiceStateRef.current.state)) {
+        dispatchVoice({ type: 'ERROR', message: err.message });
+      }
       setError(err.message || 'Failed to send message. Please try again.');
       setMessages((prev) =>
         prev.filter((m) => !(m.sender === 'bot' && m.text === ''))
@@ -1898,6 +2205,8 @@ If any check fails, revise the relevant section before output.`;
       abortControllerRef.current = null;
     }
   };
+
+  sendMessageRef.current = sendMessage;
 
   /* ── Delete conversation ── */
   const deleteConversation = async (convId, e) => {
@@ -2141,6 +2450,7 @@ If any check fails, revise the relevant section before output.`;
             </button>
             */}
           </div>
+
 
           {/* Conversation Search */}
           <div style={{ padding: '0 12px 8px' }}>
@@ -2681,19 +2991,11 @@ If any check fails, revise the relevant section before output.`;
                     value={inputText}
                     onChange={handleInputChange}
                     onKeyDown={handleKeyDown}
-                    placeholder="Message Xarwiz…"
+                    placeholder="Ask anything..."
                     disabled={loading}
                   />
                   <div className="composer-toolbar">
                     <div className="composer-toolbar-left">
-                      <button
-                        type="button"
-                        className="toolbar-icon-btn"
-                        onClick={toggleVoiceMode}
-                        title="Voice Mode Assistant"
-                      >
-                        <Mic size={18} />
-                      </button>
                       <input
                         type="file"
                         id="file-upload"
@@ -2703,11 +3005,11 @@ If any check fails, revise the relevant section before output.`;
                       />
                       <label
                         htmlFor="file-upload"
-                        className="toolbar-icon-btn"
+                        className="toolbar-icon-btn attach-btn"
                         title="Attach Files"
                         style={{ cursor: 'pointer' }}
                       >
-                        <Paperclip size={18} />
+                        <Plus size={18} />
                       </label>
                       <div className="toolbar-divider" />
                       <button
@@ -2722,10 +3024,52 @@ If any check fails, revise the relevant section before output.`;
                         className={`compute-toggle ${useReasoning ? 'active' : ''}`}
                         onClick={() => setUseReasoning(!useReasoning)}
                       >
-                        <BrainCircuit size={14} /> Reason
+                        <BrainCircuit size={14} /> Think
                       </button>
                     </div>
                     <div className="composer-toolbar-right">
+                      {isVoiceActive(voiceState.state) && (
+                        <div
+                          className="voice-inline-status"
+                          style={
+                            isAISpeaking(voiceState.state) || isBusy(voiceState.state)
+                              ? { color: 'var(--accent)', background: 'rgba(99,102,241,0.08)', borderColor: 'rgba(99,102,241,0.2)' }
+                              : {}
+                          }
+                        >
+                          {voiceState.state === 'processing' ? (
+                            <><Volume2 size={13} className="voice-status-icon" /> Thinking...</>
+                          ) : voiceState.state === 'streaming' ? (
+                            <><Volume2 size={13} className="voice-status-icon" /> Generating...</>
+                          ) : isAISpeaking(voiceState.state) ? (
+                            <><Volume2 size={13} className="voice-status-icon" /> Speaking...</>
+                          ) : voiceState.state === 'vad_detecting' ? (
+                            <><span className="voice-pulse-dot" style={{ background: '#10b981' }} /> Hearing you...</>
+                          ) : voiceState.state === 'interrupted' ? (
+                            <><span className="voice-pulse-dot" style={{ background: '#f59e0b' }} /> Interrupted...</>
+                          ) : (
+                            <><span className="voice-pulse-dot" /> Listening...</>
+                          )}
+                        </div>
+                      )}
+                      <button
+                        type="button"
+                        className={`toolbar-icon-btn${isVoiceActive(voiceState.state) ? ' voice-active' : ''}`}
+                        onClick={toggleVoiceMode}
+                        title={isVoiceActive(voiceState.state) ? 'Stop voice' : 'Voice input'}
+                      >
+                        {isVoiceActive(voiceState.state) ? <MicOff size={18} /> : <Mic size={18} />}
+                      </button>
+                      {isVoiceActive(voiceState.state) && (
+                        <button
+                          type="button"
+                          className={`toolbar-icon-btn ${showVoiceSettings ? 'active' : ''}`}
+                          onClick={() => setShowVoiceSettings((prev) => !prev)}
+                          title="Voice Settings"
+                        >
+                          <Sliders size={16} />
+                        </button>
+                      )}
                       {loading ? (
                         <button
                           type="button"
@@ -2753,10 +3097,296 @@ If any check fails, revise the relevant section before output.`;
                       )}
                     </div>
                   </div>
+                  {showVoiceSettings && (
+                    <div className="voice-settings-popover" style={{
+                      position: 'absolute',
+                      bottom: '100%',
+                      right: '16px',
+                      marginBottom: '10px',
+                      width: '320px',
+                      background: 'var(--surface, #1e293b)',
+                      border: '1px solid var(--border, #334155)',
+                      borderRadius: '12px',
+                      padding: '16px',
+                      boxShadow: '0 10px 25px -5px rgba(0,0,0,0.4)',
+                      zIndex: 50,
+                      color: 'var(--text-primary, #f8fafc)',
+                      fontSize: '13px',
+                    }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                        <span style={{ fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <Sliders size={14} /> Voice Assistant Settings
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => setShowVoiceSettings(false)}
+                          style={{ background: 'none', border: 'none', color: 'var(--text-muted, #94a3b8)', cursor: 'pointer', padding: '2px' }}
+                        >
+                          <X size={14} />
+                        </button>
+                      </div>
+
+                      {/* Language Selection */}
+                      <div style={{ marginBottom: '12px' }}>
+                        <label style={{ display: 'block', marginBottom: '4px', fontSize: '11px', color: 'var(--text-muted, #94a3b8)', textTransform: 'uppercase' }}>
+                          Language (BCP-47)
+                        </label>
+                        <select
+                          value={voiceState.language}
+                          onChange={(e) => {
+                            const lang = e.target.value;
+                            dispatchVoice({ type: 'SET_LANGUAGE', language: lang });
+                            if (typeof window !== 'undefined') localStorage.setItem('hk_voice_lang', lang);
+                            fetch(`${apiBase}/api/v1/voice/settings`, {
+                              method: 'PUT',
+                              headers: { 'Content-Type': 'application/json' },
+                              credentials: 'include',
+                              body: JSON.stringify({ language: lang }),
+                            }).catch(() => {});
+                          }}
+                          style={{ width: '100%', padding: '6px 8px', borderRadius: '6px', background: 'rgba(0,0,0,0.2)', border: '1px solid var(--border, #334155)', color: 'inherit' }}
+                        >
+                          <option value="en-US">English (US)</option>
+                          <option value="en-GB">English (UK)</option>
+                          <option value="es-ES">Spanish (Español)</option>
+                          <option value="fr-FR">French (Français)</option>
+                          <option value="de-DE">German (Deutsch)</option>
+                          <option value="hi-IN">Hindi (हिन्दी)</option>
+                          <option value="ja-JP">Japanese (日本語)</option>
+                          <option value="zh-CN">Chinese (中文)</option>
+                          <option value="pt-BR">Portuguese (Brasil)</option>
+                        </select>
+                      </div>
+
+                      {/* Microphone Input */}
+                      {voiceDevices.length > 0 && (
+                        <div style={{ marginBottom: '12px' }}>
+                          <label style={{ display: 'block', marginBottom: '4px', fontSize: '11px', color: 'var(--text-muted, #94a3b8)', textTransform: 'uppercase' }}>
+                            Microphone Device
+                          </label>
+                          <select
+                            value={voiceState.deviceId || ''}
+                            onChange={(e) => {
+                              const dev = e.target.value || null;
+                              dispatchVoice({ type: 'SET_DEVICE_ID', deviceId: dev });
+                              if (typeof window !== 'undefined') {
+                                if (dev) localStorage.setItem('hk_voice_device', dev);
+                                else localStorage.removeItem('hk_voice_device');
+                              }
+                            }}
+                            style={{ width: '100%', padding: '6px 8px', borderRadius: '6px', background: 'rgba(0,0,0,0.2)', border: '1px solid var(--border, #334155)', color: 'inherit' }}
+                          >
+                            <option value="">Default Microphone</option>
+                            {voiceDevices.map((d) => (
+                              <option key={d.deviceId} value={d.deviceId}>
+                                {d.label || `Microphone ${d.deviceId.slice(0, 6)}...`}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      )}
+
+                      {/* Push-to-Talk Toggle */}
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', padding: '8px 0', borderTop: '1px solid var(--border, #334155)' }}>
+                        <div>
+                          <div style={{ fontWeight: 500 }}>Push-to-Talk</div>
+                          <div style={{ fontSize: '11px', color: 'var(--text-muted, #94a3b8)' }}>Hold Spacebar to speak</div>
+                        </div>
+                        <input
+                          type="checkbox"
+                          checked={voiceState.pushToTalk}
+                          onChange={(e) => {
+                            const val = e.target.checked;
+                            dispatchVoice({ type: 'SET_PUSH_TO_TALK', pushToTalk: val });
+                            fetch(`${apiBase}/api/v1/voice/settings`, {
+                              method: 'PUT',
+                              headers: { 'Content-Type': 'application/json' },
+                              credentials: 'include',
+                              body: JSON.stringify({
+                                language: voiceState.language,
+                                pushToTalk: val,
+                                rate: voiceRate,
+                                pitch: voicePitch,
+                                vadThreshold,
+                                echoGateEnabled,
+                              }),
+                            }).catch(() => {});
+                          }}
+                        />
+                      </div>
+
+                      {/* Echo Gate Toggle */}
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', padding: '8px 0', borderTop: '1px solid var(--border, #334155)' }}>
+                        <div>
+                          <div style={{ fontWeight: 500 }}>Echo Gate</div>
+                          <div style={{ fontSize: '11px', color: 'var(--text-muted, #94a3b8)' }}>Filter speaker bleed during AI speech</div>
+                        </div>
+                        <input
+                          type="checkbox"
+                          checked={echoGateEnabled}
+                          onChange={(e) => {
+                            const val = e.target.checked;
+                            setEchoGateEnabled(val);
+                            fetch(`${apiBase}/api/v1/voice/settings`, {
+                              method: 'PUT',
+                              headers: { 'Content-Type': 'application/json' },
+                              credentials: 'include',
+                              body: JSON.stringify({
+                                language: voiceState.language,
+                                pushToTalk: voiceState.pushToTalk,
+                                rate: voiceRate,
+                                pitch: voicePitch,
+                                vadThreshold,
+                                echoGateEnabled: val,
+                              }),
+                            }).catch(() => {});
+                          }}
+                        />
+                      </div>
+
+                      {/* Speech Rate Slider */}
+                      <div style={{ marginBottom: '12px', borderTop: '1px solid var(--border, #334155)', paddingTop: '12px' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px', fontSize: '11px', color: 'var(--text-muted, #94a3b8)', textTransform: 'uppercase' }}>
+                          <span>Speech Rate</span>
+                          <span style={{ color: '#6366f1', fontWeight: 600 }}>{voiceRate.toFixed(2)}x</span>
+                        </div>
+                        <input
+                          type="range"
+                          min="0.5"
+                          max="2.0"
+                          step="0.05"
+                          value={voiceRate}
+                          onChange={(e) => {
+                            const val = parseFloat(e.target.value);
+                            setVoiceRate(val);
+                            chunkedSpeakerRef.current?.setOptions({ rate: val, pitch: voicePitch });
+                          }}
+                          onMouseUp={(e) => {
+                            const val = parseFloat(e.target.value);
+                            fetch(`${apiBase}/api/v1/voice/settings`, {
+                              method: 'PUT',
+                              headers: { 'Content-Type': 'application/json' },
+                              credentials: 'include',
+                              body: JSON.stringify({
+                                language: voiceState.language,
+                                pushToTalk: voiceState.pushToTalk,
+                                rate: val,
+                                pitch: voicePitch,
+                                vadThreshold,
+                                echoGateEnabled,
+                              }),
+                            }).catch(() => {});
+                          }}
+                          style={{ width: '100%', accentColor: '#6366f1' }}
+                        />
+                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px', color: '#475569' }}>
+                          <span>0.5x Slow</span><span>1.0x Normal</span><span>2.0x Fast</span>
+                        </div>
+                      </div>
+
+                      {/* Pitch Slider */}
+                      <div style={{ marginBottom: '12px' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px', fontSize: '11px', color: 'var(--text-muted, #94a3b8)', textTransform: 'uppercase' }}>
+                          <span>Voice Pitch</span>
+                          <span style={{ color: '#06b6d4', fontWeight: 600 }}>{voicePitch.toFixed(2)}</span>
+                        </div>
+                        <input
+                          type="range"
+                          min="0.5"
+                          max="2.0"
+                          step="0.05"
+                          value={voicePitch}
+                          onChange={(e) => {
+                            const val = parseFloat(e.target.value);
+                            setVoicePitch(val);
+                            chunkedSpeakerRef.current?.setOptions({ rate: voiceRate, pitch: val });
+                          }}
+                          onMouseUp={(e) => {
+                            const val = parseFloat(e.target.value);
+                            fetch(`${apiBase}/api/v1/voice/settings`, {
+                              method: 'PUT',
+                              headers: { 'Content-Type': 'application/json' },
+                              credentials: 'include',
+                              body: JSON.stringify({
+                                language: voiceState.language,
+                                pushToTalk: voiceState.pushToTalk,
+                                rate: voiceRate,
+                                pitch: val,
+                                vadThreshold,
+                                echoGateEnabled,
+                              }),
+                            }).catch(() => {});
+                          }}
+                          style={{ width: '100%', accentColor: '#06b6d4' }}
+                        />
+                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px', color: '#475569' }}>
+                          <span>0.5 Low</span><span>1.0 Normal</span><span>2.0 High</span>
+                        </div>
+                      </div>
+
+                      {/* VAD Sensitivity Slider */}
+                      <div style={{ marginBottom: '12px' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px', fontSize: '11px', color: 'var(--text-muted, #94a3b8)', textTransform: 'uppercase' }}>
+                          <span>Mic Sensitivity</span>
+                          <span style={{ color: '#10b981', fontWeight: 600 }}>{vadThreshold} dBFS</span>
+                        </div>
+                        <input
+                          type="range"
+                          min="-55"
+                          max="-28"
+                          step="1"
+                          value={vadThreshold}
+                          onChange={(e) => {
+                            const val = parseInt(e.target.value, 10);
+                            setVadThreshold(val);
+                            if (vadControllerRef.current?.options) {
+                              vadControllerRef.current.options.silenceThresholdDb = val;
+                            }
+                          }}
+                          onMouseUp={(e) => {
+                            const val = parseInt(e.target.value, 10);
+                            fetch(`${apiBase}/api/v1/voice/settings`, {
+                              method: 'PUT',
+                              headers: { 'Content-Type': 'application/json' },
+                              credentials: 'include',
+                              body: JSON.stringify({
+                                language: voiceState.language,
+                                pushToTalk: voiceState.pushToTalk,
+                                rate: voiceRate,
+                                pitch: voicePitch,
+                                vadThreshold: val,
+                                echoGateEnabled,
+                              }),
+                            }).catch(() => {});
+                          }}
+                          style={{ width: '100%', accentColor: '#10b981' }}
+                        />
+                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px', color: '#475569' }}>
+                          <span>-55 Very sensitive</span><span>-28 Less sensitive</span>
+                        </div>
+                      </div>
+
+                      {/* Live VAD Audio Energy Meter */}
+                      <div style={{ borderTop: '1px solid var(--border, #334155)', paddingTop: '8px' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: 'var(--text-muted, #94a3b8)', marginBottom: '4px' }}>
+                          <span>Live Voice Energy (VAD)</span>
+                          <span>{Math.round(audioRms * 100)}%</span>
+                        </div>
+                        <div style={{ width: '100%', height: '4px', background: 'rgba(255,255,255,0.1)', borderRadius: '2px', overflow: 'hidden' }}>
+                          <div style={{
+                            width: `${Math.min(100, audioRms * 300)}%`,
+                            height: '100%',
+                            background: audioRms > 0.12 ? '#10b981' : '#6366f1',
+                            transition: 'width 60ms ease-out',
+                          }} />
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </form>
               <p className="composer-hint">
-                Press Enter to send · Shift+Enter for new line · Attach code files
+                Xarwiz AI can make mistakes. Check important info.
               </p>
             </div>
           </main>
@@ -2821,41 +3451,14 @@ If any check fails, revise the relevant section before output.`;
 
         {toast && <div className="toast-msg">{toast}</div>}
 
-        {isVoiceMode && (
-          <div className="voice-overlay">
-            <div className="voice-container">
-              <div className="voice-status">
-                {loading
-                  ? 'Thinking...'
-                  : isSpeakingRef.current
-                    ? 'Speaking...'
-                    : 'Listening...'}
-              </div>
-              <div className="voice-visualizer">
-                <div className="voice-wave" />
-                <div className="voice-wave" />
-                <div className="voice-wave" />
-                <button
-                  type="button"
-                  className="voice-icon-btn"
-                  onClick={stopVoiceMode}
-                >
-                  <Mic size={36} />
-                </button>
-              </div>
-              <div className="voice-transcript-box">
-                {voiceTranscript || 'Say something...'}
-              </div>
-              <button
-                type="button"
-                className="voice-close-btn"
-                onClick={stopVoiceMode}
-              >
-                End Session
-              </button>
-            </div>
-          </div>
-        )}
+        {/* Voice Mode Overlay — floating panel above chat input */}
+        <VoiceModeOverlay
+          voiceState={voiceState}
+          audioRms={audioRms}
+          isVisible={isVoiceActive(voiceState.state)}
+          onStop={stopVoiceMode}
+          onSettings={() => setShowVoiceSettings(true)}
+        />
 
         <SettingsModal
           isOpen={showSettingsModal}
