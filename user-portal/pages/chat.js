@@ -757,15 +757,20 @@ function ChatPage() {
   };
 
   const handleBargeIn = () => {
-    console.debug('[Voice] Barge-in triggered — stopping audio and cancelling server generation');
+    console.debug('[Voice] ⚡ Barge-in — immediate cancel, fire-and-forget interrupt');
+
+    // Phase 4: Cancel audio FIRST (synchronous) so user hears silence immediately.
+    // Do NOT await the server — fire-and-forget.
     chunkedSpeakerRef.current?.cancel();
     vadControllerRef.current?.setEchoGated(false);
 
+    // Abort any in-flight SSE stream immediately
     if (abortControllerRef.current) {
       try { abortControllerRef.current.abort(); } catch (_) {}
       abortControllerRef.current = null;
     }
 
+    // Fire-and-forget server interrupt (don't block on this)
     if (activeConvId) {
       fetch(`${apiBase || ''}/api/v1/chat/${activeConvId}/interrupt`, {
         method: 'POST',
@@ -777,15 +782,16 @@ function ChatPage() {
     // Record turn as interrupted in telemetry
     recordVoiceTurnUsage({ interrupted: true });
 
+    // FSM transition and immediate relisten — no setTimeout needed
     dispatchVoice({ type: 'BARGE_IN' });
     pendingVoiceTranscriptRef.current = '';
     setLoading(false);
 
-    setTimeout(() => {
-      if (isVoiceActive(voiceStateRef.current.state)) {
-        dispatchVoice({ type: 'RESUME_LISTENING' });
-      }
-    }, 120);
+    // Resume listening immediately (Phase 2: persistent session — just resume, not restart)
+    if (isVoiceActive(voiceStateRef.current.state)) {
+      vadControllerRef.current?.resume();
+      dispatchVoice({ type: 'RESUME_LISTENING' });
+    }
   };
 
   // ── Audio Engine & Providers Initialization ─────────────────────────
@@ -819,9 +825,11 @@ function ChatPage() {
         vadControllerRef.current?.setEchoGated(true);
       },
       onFinished: () => {
-        console.debug('[Voice] TTS finished — resuming listening for next turn');
+        console.debug('[Voice] TTS finished — suspending VAD (not stopping), resuming next turn');
         vadControllerRef.current?.setEchoGated(false);
-        vadControllerRef.current?.stop();
+        // Phase 2: suspend() keeps AudioContext alive instead of stop() + start()
+        // This eliminates ~150–300ms AudioContext re-init gap between turns.
+        vadControllerRef.current?.suspend();
         sttProviderRef.current?.stop();
         // FSM goes speaking → listening (not idle) — multi-turn loop continues
         dispatchVoice({ type: 'TTS_END' });
@@ -832,7 +840,8 @@ function ChatPage() {
       onError: (err) => {
         console.warn('[Voice] TTS playback error:', err);
         vadControllerRef.current?.setEchoGated(false);
-        vadControllerRef.current?.stop();
+        // Phase 2: suspend() even on error — keeps hardware alive
+        vadControllerRef.current?.suspend();
         sttProviderRef.current?.stop();
         // Still relisten even after TTS error — conversation should continue
         dispatchVoice({ type: 'TTS_END' });
@@ -841,9 +850,10 @@ function ChatPage() {
     });
 
     // 3. Initialize VAD Controller
-    // speechHangoverMs: 700ms — comfortable natural pause (was 2000ms, too aggressive)
+    // Phase 1: speechHangoverMs: 600ms default, overridden adaptively per partial transcript.
+    // adaptiveHangoverMs() is called on every STT_PARTIAL to dynamically adjust endpointing.
     const vad = new VADController({
-      speechHangoverMs: 700,
+      speechHangoverMs: 600,  // Phase 1: was 700ms (previously 2000ms)
       silenceThresholdDb: -42,
       echoGateThresholdDb: -26,
     });
@@ -963,6 +973,10 @@ function ChatPage() {
           pendingVoiceTranscriptRef.current = partial;
           dispatchVoice({ type: 'STT_PARTIAL', transcript: partial });
           setInputText(partial);
+          // Phase 1: Adaptive endpointing — adjust VAD hangover based on transcript
+          // completeness. Complete questions/sentences get shorter hangover (commit faster).
+          const adaptiveMs = vadControllerRef.current?.adaptiveHangoverMs?.(partial);
+          if (adaptiveMs) vadControllerRef.current.setHangoverMs(adaptiveMs);
         },
         onFinal: (finalPart) => {
           pendingVoiceTranscriptRef.current = (pendingVoiceTranscriptRef.current + ' ' + finalPart).trim();
@@ -1043,12 +1057,24 @@ function ChatPage() {
       return;
     }
 
-    console.debug('[Voice] Resuming listen for next turn…');
+    console.debug('[Voice] ▶ Resuming listen for next turn (persistent session)…');
     pendingVoiceTranscriptRef.current = '';
     setInputText('');
 
     try {
-      await vadControllerRef.current?.start(voiceStateRef.current.deviceId);
+      // Phase 2: Use resume() instead of start() to avoid re-initializing AudioContext.
+      // VAD was suspended (not stopped) after TTS finished, so hardware is still acquired.
+      // This saves ~150–300ms of AudioContext init time per turn.
+      if (vadControllerRef.current?.isSuspended) {
+        vadControllerRef.current.resume();
+      } else {
+        // First turn or VAD was fully stopped — full init needed
+        await vadControllerRef.current?.start(voiceStateRef.current.deviceId);
+      }
+
+      // Reset adaptive hangover to default for the new turn
+      vadControllerRef.current?.setHangoverMs(600);
+
       if (sttCallbacksRef.current) {
         sttProviderRef.current?.start(
           sttCallbacksRef.current,
