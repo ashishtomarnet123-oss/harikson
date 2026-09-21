@@ -65,11 +65,18 @@ router.get('/', async (req: any, res) => {
     if (!tenantId) return res.status(400).json({ error: 'No tenant associated with this account' });
 
     const connRes = await pool.query(
-      `SELECT provider_id, status, provider_email, provider_name, provider_picture_url, last_sync_at, files_indexed_count, last_error
+      `SELECT provider_id, status, provider_email, provider_name, provider_picture_url, last_sync_at, connected_at, files_indexed_count, last_error
        FROM integration_connections WHERE tenant_id = $1 AND user_id = $2`,
       [tenantId, req.user.userId]
     );
     const byProvider = new Map(connRes.rows.map((r: any) => [r.provider_id, r]));
+
+    let vscodeKeyPrefix: string | null = null;
+    const vscodeKeyRes = await pool.query(
+      `SELECT key_prefix FROM tenant_api_keys WHERE tenant_id = $1 AND user_id = $2 AND status = 'active' AND scopes = $3::jsonb ORDER BY created_at DESC LIMIT 1`,
+      [tenantId, req.user.userId, JSON.stringify(['ide'])]
+    ).catch(() => ({ rows: [] }));
+    vscodeKeyPrefix = vscodeKeyRes.rows[0]?.key_prefix || null;
 
     const integrations = KNOWN_PROVIDERS.map((providerId) => {
       if (!LIVE_PROVIDERS.includes(providerId)) {
@@ -84,7 +91,9 @@ router.get('/', async (req: any, res) => {
         name: conn.provider_name,
         picture: conn.provider_picture_url,
         lastSyncAt: conn.last_sync_at,
+        connectedAt: conn.connected_at,
         filesIndexed: conn.files_indexed_count,
+        keyPrefix: providerId === 'vscode' ? vscodeKeyPrefix : undefined,
         error: conn.last_error,
       };
     });
@@ -96,11 +105,25 @@ router.get('/', async (req: any, res) => {
   }
 });
 
+// POST /api/integrations/waitlist — track user interest in upcoming integrations (GitHub, Slack, Notion, etc.)
+router.post('/waitlist', async (req: any, res) => {
+  if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
+  const { providerId } = req.body || {};
+  if (!providerId || !KNOWN_PROVIDERS.includes(providerId)) {
+    return res.status(400).json({ error: 'Invalid provider' });
+  }
+  logger.info(`User ${req.user.userId} joined waitlist for ${providerId}`);
+  return res.json({ success: true, message: `You're on the early access list for this integration.` });
+});
+
 // GET /api/integrations/google/auth — starts the OAuth flow, returns the consent URL for the frontend to redirect to.
 router.get('/google/auth', async (req: any, res) => {
   if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
   if (!isGoogleOAuthConfigured()) {
-    return res.status(500).json({ error: 'Google integration is not configured on this server' });
+    return res.status(503).json({
+      configured: false,
+      error: 'Google Workspace integration requires Google Cloud OAuth credentials (GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET) configured on the server.',
+    });
   }
 
   try {
