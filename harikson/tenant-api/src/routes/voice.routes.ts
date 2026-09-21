@@ -79,6 +79,13 @@ router.post('/session/:id/end', async (req: any, res: Response) => {
 
 /**
  * POST /api/voice/usage — Record turn metrics (TTFA, STT/TTS chars, tokens, interrupts, errors)
+ *
+ * Phase 5: Extended to accept full stage-by-stage latency telemetry.
+ * stageLatency fields (all ms relative to VAD speech-end = t0):
+ *   sttStart, sttFirstPartial, sttFinal,
+ *   llmRequest, llmFirstToken,
+ *   ttsRequest, ttsFirstAudio, ttsEnd,
+ *   bargeIn (null if not interrupted)
  */
 router.post('/usage', async (req: any, res: Response) => {
   const {
@@ -91,10 +98,29 @@ router.post('/usage', async (req: any, res: Response) => {
     interrupted = false,
     sttError = false,
     errorType = null,
+    // Phase 5: stage-by-stage latency breakdown
+    stageLatency = null,
+    turnTotalMs = null,
   } = req.body || {};
 
   const tenantId = req.tenant.id;
   const userId = req.user.userId;
+
+  // Sanitize stageLatency — only accept plain object with numeric values
+  let sanitizedStageLatency: Record<string, number | null> | null = null;
+  if (stageLatency && typeof stageLatency === 'object' && !Array.isArray(stageLatency)) {
+    const ALLOWED_KEYS = [
+      'sttStart', 'sttFirstPartial', 'sttFinal',
+      'llmRequest', 'llmFirstToken',
+      'ttsRequest', 'ttsFirstAudio', 'ttsEnd',
+      'bargeIn',
+    ];
+    sanitizedStageLatency = {};
+    for (const key of ALLOWED_KEYS) {
+      const val = stageLatency[key];
+      sanitizedStageLatency[key] = (typeof val === 'number' && isFinite(val)) ? Math.round(val) : null;
+    }
+  }
 
   try {
     await executeTenantQuery(tenantId, (client) =>
@@ -102,9 +128,10 @@ router.post('/usage', async (req: any, res: Response) => {
         `INSERT INTO voice_usage (
            session_id, tenant_id, user_id,
            stt_chars, tts_chars, llm_tokens, ttfa_ms,
-           browser, interrupted, stt_error, error_type, created_at
+           browser, interrupted, stt_error, error_type,
+           stage_latency, turn_total_ms, created_at
          )
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, NOW())`,
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, NOW())`,
         [
           sessionId || null,
           tenantId,
@@ -117,6 +144,8 @@ router.post('/usage', async (req: any, res: Response) => {
           !!interrupted,
           !!sttError,
           errorType || null,
+          sanitizedStageLatency ? JSON.stringify(sanitizedStageLatency) : null,
+          typeof turnTotalMs === 'number' ? Math.round(turnTotalMs) : null,
         ]
       )
     );
@@ -127,6 +156,7 @@ router.post('/usage', async (req: any, res: Response) => {
     return res.status(500).json({ error: 'Failed to log voice usage' });
   }
 });
+
 
 /**
  * GET /api/voice/settings — Get user's voice preferences

@@ -52,6 +52,7 @@ import { BrowserSTTProvider } from '../src/voice/providers/BrowserSTTProvider';
 import { BrowserTTSProvider } from '../src/voice/providers/BrowserTTSProvider';
 import { ChunkedSpeaker } from '../src/voice/tts/chunked-speaker';
 import { VADController } from '../src/voice/vad-controller';
+import { turnTelemetry } from '../src/voice/telemetry';
 import VoiceModeOverlay from '../components/voice/VoiceModeOverlay';
 
 /* ────────────────────────────────────────────────────────────
@@ -705,7 +706,10 @@ function ChatPage() {
     const sessId = voiceSessionIdRef.current;
     const userText = lastUserVoiceTextRef.current || '';
     const botText = lastBotVoiceTextRef.current || '';
-    const ttfa = lastTurnTtfaRef.current;
+
+    // Phase 5: finalize stage telemetry and include in payload
+    const { stageLatency, turnTotalMs, ttfaMs: computedTtfa } = turnTelemetry.finalize(opts);
+    const ttfa = computedTtfa || lastTurnTtfaRef.current;
 
     fetch(`${apiBase || ''}/api/v1/voice/usage`, {
       method: 'POST',
@@ -724,8 +728,14 @@ function ChatPage() {
         interrupted: !!opts.interrupted,
         sttError: !!opts.sttError,
         errorType: opts.errorType || null,
+        // Phase 5: stage-by-stage latency breakdown
+        stageLatency,
+        turnTotalMs,
       }),
     }).catch((e) => console.warn('[Voice] Telemetry logging warning:', e));
+
+    // Reset telemetry for next turn
+    turnTelemetry.reset();
 
     if (!opts.keepTtfa) {
       lastTurnTtfaRef.current = null;
@@ -740,6 +750,17 @@ function ChatPage() {
     lastUserVoiceTextRef.current = text;
     lastBotVoiceTextRef.current = '';
     lastTurnTtfaRef.current = null;
+
+    // Phase 5: mark sttStart (= VAD speech-end) and sttFinal
+    turnTelemetry.reset();
+    if (vadEndOfSpeechTimeRef.current) {
+      // Retroactively mark sttStart as VAD speech-end time
+      turnTelemetry._marks.sttStart = vadEndOfSpeechTimeRef.current;
+      turnTelemetry._origin = vadEndOfSpeechTimeRef.current;
+    } else {
+      turnTelemetry.mark('sttStart');
+    }
+    turnTelemetry.mark('sttFinal');
 
     console.debug(`[Voice] Turn commit: "${text}"`);
     dispatchVoice({ type: 'STT_FINAL', transcript: text });
@@ -779,6 +800,9 @@ function ChatPage() {
       }).catch(() => {});
     }
 
+    // Phase 5: mark bargeIn timestamp
+    turnTelemetry.mark('bargeIn');
+
     // Record turn as interrupted in telemetry
     recordVoiceTurnUsage({ interrupted: true });
 
@@ -817,6 +841,8 @@ function ChatPage() {
             : null);
         console.debug(`[Voice] First audio playback started. TTFA: ${computedTtfa}ms`);
         lastTurnTtfaRef.current = computedTtfa;
+        // Phase 5: mark ttsFirstAudio
+        turnTelemetry.mark('ttsFirstAudio');
         dispatchVoice({ type: 'TTS_START' });
         vadControllerRef.current?.setEchoGated(true);
       },
@@ -826,6 +852,8 @@ function ChatPage() {
       },
       onFinished: () => {
         console.debug('[Voice] TTS finished — suspending VAD (not stopping), resuming next turn');
+        // Phase 5: mark ttsEnd
+        turnTelemetry.mark('ttsEnd');
         vadControllerRef.current?.setEchoGated(false);
         // Phase 2: suspend() keeps AudioContext alive instead of stop() + start()
         // This eliminates ~150–300ms AudioContext re-init gap between turns.
@@ -865,6 +893,8 @@ function ChatPage() {
       },
       onSpeechEnd: () => {
         vadEndOfSpeechTimeRef.current = Date.now();
+        // Phase 5: mark sttStart at VAD speech-end
+        turnTelemetry.mark('sttStart');
         dispatchVoice({ type: 'VAD_SPEECH_END' });
         if (pendingVoiceTranscriptRef.current && pendingVoiceTranscriptRef.current.trim()) {
           handleTurnCommit();
@@ -973,6 +1003,10 @@ function ChatPage() {
           pendingVoiceTranscriptRef.current = partial;
           dispatchVoice({ type: 'STT_PARTIAL', transcript: partial });
           setInputText(partial);
+          // Phase 5: mark sttFirstPartial on the very first partial result
+          if (!turnTelemetry.has('sttFirstPartial')) {
+            turnTelemetry.mark('sttFirstPartial');
+          }
           // Phase 1: Adaptive endpointing — adjust VAD hangover based on transcript
           // completeness. Complete questions/sentences get shorter hangover (commit faster).
           const adaptiveMs = vadControllerRef.current?.adaptiveHangoverMs?.(partial);
@@ -2091,8 +2125,13 @@ If any check fails, revise the relevant section before output.`;
         chunkedSpeakerRef.current?.setOptions({
           language: voiceStateRef.current.language || 'en-US',
         });
+        // Phase 5: mark ttsRequest (= LLM stream start = ChunkedSpeaker activated)
+        turnTelemetry.mark('ttsRequest');
         chunkedSpeakerRef.current?.startStream(Date.now());
       }
+
+      // Phase 5: mark llmRequest just before the fetch
+      turnTelemetry.mark('llmRequest');
 
       const res = await fetch(`${apiBase}/api/v1/chat`, {
         method: 'POST',
@@ -2175,6 +2214,10 @@ If any check fails, revise the relevant section before output.`;
                 fullText += parsed.content;
                 lastBotVoiceTextRef.current = fullText;
                 if (isVoiceActive(voiceStateRef.current.state)) {
+                  // Phase 5: mark llmFirstToken on the very first content chunk
+                  if (!turnTelemetry.has('llmFirstToken')) {
+                    turnTelemetry.mark('llmFirstToken');
+                  }
                   chunkedSpeakerRef.current?.pushChunk(parsed.content);
                 }
               }
