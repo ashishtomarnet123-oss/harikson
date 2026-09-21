@@ -36,7 +36,6 @@ import DeveloperConfigSettings from './settings/developerConfig';
 import AppearanceSettings from './settings/appearance';
 import LanguageSettings from './settings/language';
 import HelpSettings from './settings/help';
-import PromptLibrarySettings from './settings/promptLibrary';
 
 function RagDriveSettings() {
   const router = useRouter();
@@ -101,12 +100,6 @@ const navSections = [
         name: 'My RAG Drive',
         icon: HardDrive,
         Component: RagDriveSettings,
-      },
-      {
-        id: 'custom_presets',
-        name: 'Prompt Library',
-        icon: Code,
-        Component: PromptLibrarySettings,
       },
       {
         id: 'usage',
