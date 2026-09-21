@@ -10,7 +10,7 @@ const nextConfig = {
   // was never going to be enough regardless of how many Ollama-side
   // fixes landed.
   experimental: {
-    proxyTimeout: 120000,
+    proxyTimeout: 300000,
   },
   async rewrites() {
     const tenantApiUrl =

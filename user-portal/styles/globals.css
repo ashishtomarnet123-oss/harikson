@@ -1353,30 +1353,37 @@ h6 {
   justify-content: space-between;
   margin-top: 4px;
   padding-top: 2px;
+  gap: 8px;
 }
 
 .composer-toolbar-left {
   display: flex;
   align-items: center;
   gap: 4px;
+  flex-wrap: wrap;
 }
 
 .toolbar-icon-btn {
-  width: 26px;
-  height: 26px;
+  width: 32px;
+  height: 32px;
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 6px;
+  border-radius: 50%;
   background: transparent;
   border: none;
   color: var(--text-secondary);
   cursor: pointer;
   transition: all var(--transition);
+  flex-shrink: 0;
 }
 .toolbar-icon-btn:hover {
   background: var(--bg-hover);
   color: var(--text-primary);
+}
+.toolbar-icon-btn.attach-btn {
+  background: var(--bg-hover);
+  border: 1px solid var(--border);
 }
 
 .toolbar-divider {
@@ -1390,17 +1397,18 @@ h6 {
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  height: 26px;
-  padding: 0 8px;
-  border-radius: 12px;
+  height: 30px;
+  padding: 0 12px;
+  border-radius: 16px;
   background: var(--bg-surface);
   border: 1px solid var(--border);
   color: var(--text-secondary);
-  font-size: 11.5px;
+  font-size: 12.5px;
   font-weight: 500;
   font-family: var(--font-sans);
   cursor: pointer;
   transition: all var(--transition);
+  flex-shrink: 0;
 }
 .compute-toggle:hover {
   background: var(--bg-hover);
@@ -1414,10 +1422,66 @@ h6 {
   font-weight: 600;
 }
 
+.composer-toolbar-right {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+/* ── Inline voice mode ── */
+.toolbar-icon-btn.voice-active {
+  background: #ef4444 !important;
+  color: #fff !important;
+  border-color: #ef4444 !important;
+  animation: voice-btn-pulse 1.5s ease-in-out infinite;
+}
+@keyframes voice-btn-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(239,68,68,0.4); }
+  50% { box-shadow: 0 0 0 8px rgba(239,68,68,0); }
+}
+
+.voice-inline-status {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #ef4444;
+  padding: 4px 10px;
+  border-radius: 14px;
+  background: rgba(239,68,68,0.08);
+  border: 1px solid rgba(239,68,68,0.2);
+  white-space: nowrap;
+  animation: fadeIn 0.2s ease-out;
+}
+.voice-inline-status .speaking {
+  color: var(--accent);
+}
+.voice-inline-status .speaking ~ * { color: var(--accent); }
+
+.voice-pulse-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #ef4444;
+  animation: voice-dot-pulse 1s ease-in-out infinite;
+}
+@keyframes voice-dot-pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.4; transform: scale(0.7); }
+}
+.voice-status-icon {
+  animation: voice-speaker-pulse 0.8s ease-in-out infinite alternate;
+}
+@keyframes voice-speaker-pulse {
+  from { opacity: 0.5; }
+  to { opacity: 1; }
+}
 .send-btn {
-  width: 28px;
-  height: 28px;
-  border-radius: 8px;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
   background: var(--accent);
   border: none;
   color: #ffffff;
@@ -1426,6 +1490,7 @@ h6 {
   justify-content: center;
   cursor: pointer;
   transition: all var(--transition);
+  flex-shrink: 0;
 }
 .send-btn:hover:not(:disabled) {
   background: var(--accent-hover);
