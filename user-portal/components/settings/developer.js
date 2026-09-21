@@ -1,11 +1,14 @@
 import { authenticatedFetch, getApiConfig } from './apiHelper';
 import React, { useState, useEffect } from 'react';
-import { Plus, Key, Copy, Trash2 } from 'lucide-react';
+import { Plus, Key, Copy, Trash2, Lock, ArrowUpRight } from 'lucide-react';
 
 export default function DeveloperSettings() {
   const [keys, setKeys] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  // true when the backend returns 403 PLAN_UPGRADE_REQUIRED
+  const [planGated, setPlanGated] = useState(false);
+  const [currentPlan, setCurrentPlan] = useState('free');
   // Holds the plaintext secret only for the few seconds between creation and
   // the user dismissing the reveal dialog — never stored alongside the list,
   // which only ever holds prefixes from the backend.
@@ -24,22 +27,26 @@ export default function DeveloperSettings() {
       try {
         res = await authenticatedFetch(`${apiBase}/api/v1/user/developer/keys`, {
           credentials: 'include',
-          headers: {
-            'x-tenant-slug': tenantSlug,
-          },
+          headers: { 'x-tenant-slug': tenantSlug },
         });
       } catch (e) {
         res = await authenticatedFetch(`/api/v1/user/developer/keys`, {
           credentials: 'include',
-          headers: {
-            'x-tenant-slug': tenantSlug,
-          },
+          headers: { 'x-tenant-slug': tenantSlug },
         });
       }
 
       if (res && res.ok) {
         const data = await res.json();
         setKeys(data);
+        setPlanGated(false);
+      } else if (res && res.status === 403) {
+        const errData = await res.json().catch(() => ({}));
+        if (errData.code === 'PLAN_UPGRADE_REQUIRED') {
+          setPlanGated(true);
+          setCurrentPlan(errData.currentPlan || 'free');
+        }
+        setKeys([]);
       } else {
         setKeys([]);
       }
@@ -51,6 +58,10 @@ export default function DeveloperSettings() {
   };
 
   const handleCreateKey = async () => {
+    if (planGated) {
+      window.location.href = '/settings?tab=billing';
+      return;
+    }
     const name = prompt('Enter a name for the new API Key:');
     if (!name || !name.trim()) return;
 
@@ -71,11 +82,16 @@ export default function DeveloperSettings() {
       });
       if (res.ok) {
         const data = await res.json();
-        // The create endpoint returns the one-time plaintext secretKey on
-        // this single response only — it is never retrievable again after
-        // this point, and the list endpoint only ever returns key prefixes.
         setRevealedKey(data.secretKey);
         await fetchKeys();
+      } else if (res.status === 403) {
+        const errData = await res.json().catch(() => ({}));
+        if (errData.code === 'PLAN_UPGRADE_REQUIRED') {
+          setPlanGated(true);
+          alert('API Keys require a paid plan. Please upgrade your subscription.');
+        } else {
+          alert(errData.error || 'Failed to generate key');
+        }
       } else {
         alert('Failed to generate key');
       }
@@ -133,12 +149,61 @@ export default function DeveloperSettings() {
         </p>
       </div>
 
+      {/* ── Plan upgrade gate ─────────────────────────────── */}
+      {planGated && (
+        <div style={{
+          background: 'linear-gradient(135deg, rgba(99,102,241,0.12) 0%, rgba(139,92,246,0.08) 100%)',
+          border: '1px solid rgba(99,102,241,0.3)',
+          borderRadius: '12px',
+          padding: '28px 24px',
+          textAlign: 'center',
+          marginBottom: '24px',
+        }}>
+          <div style={{ fontSize: '36px', marginBottom: '12px' }}>🔒</div>
+          <h3 style={{ color: 'var(--text-primary)', fontWeight: 700, fontSize: '16px', margin: '0 0 8px' }}>
+            API Access — Paid Feature
+          </h3>
+          <p style={{ color: 'var(--text-secondary)', fontSize: '14px', margin: '0 0 20px', lineHeight: '1.6' }}>
+            Your current <strong style={{ color: '#f59e0b', textTransform: 'capitalize' }}>{currentPlan}</strong> plan
+            does not include API key access.<br />
+            Upgrade to <strong>Starter, Professional, or Enterprise</strong> to generate and use API keys.
+          </p>
+          <button
+            onClick={() => window.location.href = '/settings?tab=billing'}
+            style={{
+              display: 'inline-flex', alignItems: 'center', gap: '8px',
+              background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
+              color: '#fff', border: 'none', borderRadius: '8px',
+              padding: '10px 22px', fontSize: '14px', fontWeight: 600,
+              cursor: 'pointer',
+            }}
+          >
+            <ArrowUpRight size={16} /> Upgrade Plan
+          </button>
+        </div>
+      )}
+
       <div className="settings-section">
         <div className="settings-section-header">
           <h2>Personal API Keys</h2>
-          <button className="btn-primary" onClick={handleCreateKey}>
-            <Plus size={15} /> New Key
-          </button>
+          {planGated ? (
+            <button
+              disabled
+              style={{
+                display: 'inline-flex', alignItems: 'center', gap: '6px',
+                opacity: 0.45, cursor: 'not-allowed',
+                background: 'var(--bg-tertiary)', color: 'var(--text-secondary)',
+                border: '1px solid var(--border)', borderRadius: '8px',
+                padding: '7px 14px', fontSize: '13px', fontWeight: 500,
+              }}
+            >
+              <Lock size={13} /> New Key
+            </button>
+          ) : (
+            <button className="btn-primary" onClick={handleCreateKey}>
+              <Plus size={15} /> New Key
+            </button>
+          )}
         </div>
 
         <p

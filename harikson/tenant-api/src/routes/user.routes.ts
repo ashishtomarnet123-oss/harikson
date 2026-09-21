@@ -250,8 +250,20 @@ router.post('/2fa/disable', async (req: any, res) => {
 });
 
 // API Keys Endpoints
-router.get('/api-keys', async (req: any, res) => {
+// Only Starter, Professional, and Enterprise plans include API access.
+const API_KEY_PLANS = ['starter', 'professional', 'enterprise'];
 
+router.get('/api-keys', async (req: any, res) => {
+  // Entitlement check
+  const planId = req.entitlements?.planId || 'free';
+  if (!API_KEY_PLANS.includes(planId)) {
+    return res.status(403).json({
+      error: 'API key access is not available on your current plan.',
+      code: 'PLAN_UPGRADE_REQUIRED',
+      requiredPlans: API_KEY_PLANS,
+      currentPlan: planId,
+    });
+  }
 
   try {
     const keysRes = await executeTenantQuery(req.tenant.id, (client) =>
@@ -268,7 +280,16 @@ router.get('/api-keys', async (req: any, res) => {
 });
 
 router.post('/api-keys', async (req: any, res) => {
-
+  // Plan entitlement check — API keys are a paid feature
+  const planId = req.entitlements?.planId || 'free';
+  if (!API_KEY_PLANS.includes(planId)) {
+    return res.status(403).json({
+      error: 'API key creation requires a Starter, Professional, or Enterprise plan.',
+      code: 'PLAN_UPGRADE_REQUIRED',
+      requiredPlans: API_KEY_PLANS,
+      currentPlan: planId,
+    });
+  }
 
   const { name, scopes } = req.body;
   const rawKey = 'hk_live_' + crypto.randomBytes(24).toString('hex');
@@ -1366,6 +1387,17 @@ router.get('/developer/keys', async (req: any, res) => {
 // POST /api/user/developer/keys
 router.post('/developer/keys', async (req: any, res) => {
   if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
+
+  // Plan entitlement check — API keys are a paid feature
+  const planId = req.entitlements?.planId || 'free';
+  if (!API_KEY_PLANS.includes(planId)) {
+    return res.status(403).json({
+      error: 'API key creation requires a Starter, Professional, or Enterprise plan. Please upgrade to continue.',
+      code: 'PLAN_UPGRADE_REQUIRED',
+      requiredPlans: API_KEY_PLANS,
+      currentPlan: planId,
+    });
+  }
 
   const { name, scopes } = req.body;
   const rawKey = 'hk_live_' + crypto.randomBytes(24).toString('hex');
