@@ -263,15 +263,11 @@ export default function LoginPage() {
       if (tokenToSave) {
         localStorage.setItem('hk_access_token', tokenToSave);
       }
-      localStorage.setItem('hk_user', JSON.stringify({ ...data.user, tenantSlug }));
-      localStorage.setItem('hk_tenant', tenantSlug);
+      const serverSlug = data.user?.tenantSlug || tenantSlug;
+      localStorage.setItem('hk_user', JSON.stringify({ ...data.user, tenantSlug: serverSlug }));
+      localStorage.setItem('hk_tenant', serverSlug);
       localStorage.setItem('hk_api_base', apiBase);
       trackEvent('login_success');
-      // AuthContext only checks auth once, when the app first loads — before
-      // this login even happened, so it still thinks the user is signed out.
-      // Without re-running it here, the /chat page (wrapped in withAuth)
-      // reads that stale isAuthenticated=false the instant it mounts and
-      // bounces straight back to /login.
       await checkAuth();
       const onboarded = localStorage.getItem('hk_onboarded');
       router.replace(onboarded ? '/chat' : '/onboarding');
@@ -311,8 +307,9 @@ export default function LoginPage() {
       if (tokenToSave2FA) {
         localStorage.setItem('hk_access_token', tokenToSave2FA);
       }
-      localStorage.setItem('hk_user', JSON.stringify({ ...data.user, tenantSlug }));
-      localStorage.setItem('hk_tenant', tenantSlug);
+      const serverSlug2FA = data.user?.tenantSlug || tenantSlug;
+      localStorage.setItem('hk_user', JSON.stringify({ ...data.user, tenantSlug: serverSlug2FA }));
+      localStorage.setItem('hk_tenant', serverSlug2FA);
       localStorage.setItem('hk_api_base', apiBase);
       trackEvent('login_success');
       await checkAuth();

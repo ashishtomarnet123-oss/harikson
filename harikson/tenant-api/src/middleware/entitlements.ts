@@ -27,8 +27,7 @@ export function loadEntitlements() {
 
     try {
       const result: any = await executeCachedQuery(
-        `SELECT p.id as plan_id, p.name as plan_name, p.token_limit, p.storage_limit_gb, p.features,
-                t.is_trial, t.trial_ends_at
+        `SELECT p.id as plan_id, p.name as plan_name, p.token_limit, p.storage_limit_gb, p.features
          FROM tenants t
          LEFT JOIN plans p ON LOWER(t.plan) = LOWER(p.id)
          WHERE t.id = $1`,
@@ -45,8 +44,8 @@ export function loadEntitlements() {
           tokenLimit: row.token_limit ?? -1,
           storageLimitGb: row.storage_limit_gb ?? -1,
           features: Array.isArray(row.features) ? row.features : [],
-          isTrial: row.is_trial || false,
-          trialEndsAt: row.trial_ends_at || null,
+          isTrial: false,
+          trialEndsAt: null,
         };
       }
     } catch (err) {

@@ -215,7 +215,7 @@ setInterval(checkReplicationLag, 5000);
 import crypto from 'crypto';
 import { Redis } from 'ioredis';
 
-const redis = new Redis(process.env.REDIS_URL || 'redis://redis:6379', {
+export const redis = new Redis(process.env.REDIS_URL || 'redis://redis:6379', {
   retryStrategy: (times) => Math.min(times * 50, 2000),
   maxRetriesPerRequest: 3,
   enableReadyCheck: true,

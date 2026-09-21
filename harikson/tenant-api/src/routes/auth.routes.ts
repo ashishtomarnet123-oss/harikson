@@ -39,16 +39,33 @@ const getJwtSecret = () => {
 async function handleLogin(req: any, res: any) {
   const { email, password } = req.body;
   try {
-    const ip =
-      ((req.headers['x-forwarded-for'] as any) || req.socket?.remoteAddress || '')
-        .split(',')[0]
-        .trim() || '127.0.0.1';
-    const key = `ratelimit:login:${ip}`;
+    const xForwardedFor = (req.headers['x-forwarded-for'] as any) || '';
+    const realIp = (req.headers['x-real-ip'] as any) || '';
+    let clientIp = '';
+    if (xForwardedFor) {
+      const parts = xForwardedFor.split(',').map((p: string) => p.trim()).filter(Boolean);
+      clientIp = parts[0] || '';
+    }
+    if (!clientIp && realIp) {
+      clientIp = realIp.trim();
+    }
+    if (!clientIp) {
+      clientIp = req.socket?.remoteAddress || '127.0.0.1';
+    }
+
+    const cleanEmail = (email || '').toLowerCase().trim();
+    const key = `ratelimit:login:${clientIp}:${cleanEmail || 'unknown'}`;
+    const legacyKey = `ratelimit:login:${clientIp}`;
     const attempts = await redis.incr(key);
     if (attempts === 1) {
       await redis.expire(key, 60);
+    } else {
+      const ttl = await redis.ttl(key);
+      if (ttl < 0) {
+        await redis.expire(key, 60);
+      }
     }
-    if (attempts > 10) {
+    if (attempts > 15) {
       return res.status(429).json({
         error: 'Too many login attempts. Rate limit exceeded. Try again in a minute.',
       });
@@ -133,6 +150,7 @@ async function handleLogin(req: any, res: any) {
       [user.id]
     );
     await redis.del(key).catch(() => {});
+    await redis.del(legacyKey).catch(() => {});
 
     // Invite-only / Admin approval status check gate
     const userStatus = user.status || 'active';

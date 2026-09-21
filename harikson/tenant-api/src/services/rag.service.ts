@@ -1,5 +1,5 @@
 import pg from 'pg';
-import { pool } from '../db/pool.js';
+import { pool, redis } from '../db/pool.js';
 import { OllamaClient } from '../llm/ollama.js';
 import pdf from 'pdf-parse';
 import crypto from 'crypto';
@@ -219,14 +219,53 @@ export class RagService {
     return result.chunksIndexed;
   }
 
-  // Hybrid (Semantic Vector + Full-Text BM25) search to find relevant context
+  // Hybrid (Semantic Vector + Full-Text BM25) search to find relevant context with Redis caching
   static async queryContext(
     tenantId: string,
     query: string,
     maxResults = 3
   ): Promise<string> {
+    const startTime = Date.now();
+    const queryHash = crypto
+      .createHash('sha256')
+      .update(query.trim().toLowerCase())
+      .digest('hex')
+      .slice(0, 32);
+
+    const ctxCacheKey = `rag:ctx:${tenantId}:${queryHash}:${maxResults}`;
+    const embCacheKey = `rag:emb:${queryHash}`;
+
     try {
-      const queryEmbedding = await OllamaClient.embed(query);
+      // 1. Check Query-Level Context Cache
+      try {
+        const cachedCtx = await redis.get(ctxCacheKey);
+        if (cachedCtx !== null) {
+          const duration = Date.now() - startTime;
+          console.log(`⚡ [TIMING] RAG Context Cache HIT in ${duration}ms for "${query.slice(0, 30)}..."`);
+          return cachedCtx;
+        }
+      } catch (cacheErr: any) {
+        // Cache read failure is non-fatal
+      }
+
+      // 2. Check Embedding Cache or compute embedding
+      let queryEmbedding: number[] | null = null;
+      try {
+        const cachedEmb = await redis.get(embCacheKey);
+        if (cachedEmb) {
+          queryEmbedding = JSON.parse(cachedEmb);
+        }
+      } catch (_) {}
+
+      if (!queryEmbedding) {
+        const embStart = Date.now();
+        queryEmbedding = await OllamaClient.embed(query);
+        console.log(`[TIMING] Ollama embedding generation took ${Date.now() - embStart}ms`);
+        try {
+          await redis.setex(embCacheKey, 86400, JSON.stringify(queryEmbedding)); // 24hr TTL
+        } catch (_) {}
+      }
+
       const embeddingString = `[${queryEmbedding.join(',')}]`;
 
       const ragRows = await this.executeQuery(tenantId, async (client) => {
@@ -255,11 +294,18 @@ export class RagService {
         .filter((row) => (row.final_score || row.vector_score) > 0.25)
         .map((row) => `[Source: ${row.filename}]: ${row.content}`);
 
-      if (matched.length === 0) {
-        return 'No matching context found in knowledge base.';
-      }
+      const result = matched.length === 0
+        ? 'No matching context found in knowledge base.'
+        : matched.join('\n\n');
 
-      return matched.join('\n\n');
+      // 3. Cache Query Context (TTL 300s = 5m)
+      try {
+        await redis.setex(ctxCacheKey, 300, result);
+      } catch (_) {}
+
+      const totalDuration = Date.now() - startTime;
+      console.log(`[TIMING] RAG Context lookup completed in ${totalDuration}ms for "${query.slice(0, 30)}..."`);
+      return result;
     } catch (error: any) {
       console.warn(
         '⚠️ [Xarwiz RAG] Query failed, returning empty context:',

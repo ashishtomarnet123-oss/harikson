@@ -18,6 +18,7 @@ import helmet from 'helmet';
 import dotenv from 'dotenv';
 import path from 'path';
 import fs from 'fs';
+import jwt from 'jsonwebtoken';
 import { runMigrations } from './utils/migrate.js';
 import { pool, checkDbHealth } from './db/pool.js';
 import { validateMasterKeyConfig } from './services/documentEncryptionService.js';
@@ -37,6 +38,7 @@ import adminRoutes from './routes/admin.routes.js';
 import integrationsRoutes from './routes/integrations.routes.js';
 import workflowRoutes from './routes/workflow.routes.js';
 import notificationRoutes from './routes/notification.routes.js';
+import voiceRoutes from './routes/voice.routes.js';
 
 // Import existing API sub-routers
 import chatRouter from './routes/chat.js';
@@ -71,6 +73,7 @@ if (!process.env.JWT_SECRET || process.env.JWT_SECRET.length < 32) {
 }
 
 const app = express();
+app.set('trust proxy', true);
 
 // Request-level logging — first middleware in the chain, before body
 // parsing or anything else that could throw, so every request that
@@ -188,17 +191,63 @@ app.use(async (req, res, next) => {
       }
     }
 
+    // Try resolving tenant from authenticated user's JWT if present (cookie or Bearer)
+    if (!tenant) {
+      const token =
+        ((req as any).cookies?.hk_access_token as string) ||
+        (authHeader.startsWith('Bearer ') && !authHeader.startsWith('Bearer hk_live_')
+          ? authHeader.substring(7)
+          : '');
+      if (token && process.env.JWT_SECRET) {
+        try {
+          const decoded: any = jwt.verify(token, process.env.JWT_SECRET);
+          if (decoded?.userId) {
+            const userTenantRes = await pool.query(
+              'SELECT t.* FROM tenants t JOIN users u ON u.tenant_id = t.id WHERE u.id = $1',
+              [decoded.userId]
+            ).catch(() => ({ rows: [] }));
+            if (userTenantRes.rows.length > 0) {
+              tenant = userTenantRes.rows[0];
+            }
+          }
+        } catch (_) {}
+      }
+    }
+
     if (!tenant) {
       // Health/readiness probes must work without a tenant
       if (req.path === '/health' || req.path === '/ready') {
         return next();
       }
-      // Single-tenant fallback: if only one tenant exists, use it
-      const fallbackRes = await pool.query('SELECT * FROM tenants LIMIT 2').catch(() => ({ rows: [] }));
-      if (fallbackRes.rows.length === 1) {
-        tenant = fallbackRes.rows[0];
-      } else {
-        return res.status(400).json({ error: 'Tenant not found. Provide a valid x-tenant-slug header, API key, or use a tenant subdomain.' });
+
+      // Public authentication and onboarding routes (login, register, email verification, password reset, unlock)
+      // must work without an existing tenant (e.g. self-serve registration creating a new tenant, or bare-domain login)
+      const isAuthRoute =
+        req.path.startsWith('/api/auth') ||
+        req.path.startsWith('/api/v1/auth') ||
+        req.path.startsWith('/auth');
+      if (isAuthRoute) {
+        return next();
+      }
+
+      // Fallback for 'default' tenant slug to primary workspace
+      if (tenantHeader === 'default') {
+        const defaultTenantRes = await pool.query(
+          "SELECT * FROM tenants WHERE slug = 'default' OR slug != 'system' ORDER BY created_at ASC LIMIT 1"
+        ).catch(() => ({ rows: [] }));
+        if (defaultTenantRes.rows.length > 0) {
+          tenant = defaultTenantRes.rows[0];
+        }
+      }
+
+      if (!tenant) {
+        // Single-tenant fallback: if only one tenant exists, use it
+        const fallbackRes = await pool.query('SELECT * FROM tenants LIMIT 2').catch(() => ({ rows: [] }));
+        if (fallbackRes.rows.length === 1) {
+          tenant = fallbackRes.rows[0];
+        } else {
+          return res.status(400).json({ error: 'Tenant not found. Provide a valid x-tenant-slug header, API key, or use a tenant subdomain.' });
+        }
       }
     }
 
@@ -235,6 +284,8 @@ app.use('/api/workflows', workflowRoutes);
 app.use('/api/v1/workflows', workflowRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/v1/notifications', notificationRoutes);
+app.use('/api/voice', voiceRoutes);
+app.use('/api/v1/voice', voiceRoutes);
 // Google's registered OAuth redirect_uri is .../api/v1/user/integrations/google/callback
 // (set up before the /api/integrations prefix above existed) — mounted here
 // too so that exact, already-registered URL keeps resolving correctly.
@@ -251,6 +302,7 @@ app.use('/api/search', searchRouter);
 app.use('/api/context', contextRouter);
 app.use('/api/tools', toolsRouter);
 app.use('/api/orchestrator', orchestratorRouter);
+
 
 // Global Error Handler Middleware
 app.use((err: any, _req: express.Request, res: express.Response, _next: express.NextFunction) => {

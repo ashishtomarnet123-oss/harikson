@@ -94,8 +94,8 @@ router.get('/:id/download', requireScopes('documents:read'), async (req: any, re
   try {
     const docRes = await executeTenantQuery(req.tenant.id, (client) =>
       client.query(
-        `SELECT filename, file_type, content, content_iv, content_tag, key_id 
-         FROM knowledge_documents 
+        `SELECT id, filename, file_type, content, content_iv, content_tag, key_id
+         FROM knowledge_documents
          WHERE id = $1 AND tenant_id = $2 AND is_active = true`,
         [id, req.tenant.id]
       )
