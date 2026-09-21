@@ -95,41 +95,6 @@ export default function SecurityComplianceSettings() {
         <p>Monitor your security posture, sessions, and compliance status.</p>
       </div>
 
-      {/* Quick Stats */}
-      <div className="settings-section">
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '12px', marginBottom: '8px' }}>
-          <div style={{
-            padding: '16px', borderRadius: '10px',
-            backgroundColor: 'var(--bg-hover, rgba(255,255,255,0.04))',
-            border: '1px solid var(--border, rgba(255,255,255,0.08))',
-          }}>
-            <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>2FA Status</div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '8px' }}>
-              {twoFactorEnabled ? (
-                <><CheckCircle2 size={16} color="#10b981" /><span style={{ fontSize: '13px', fontWeight: 600, color: '#10b981' }}>Enabled</span></>
-              ) : (
-                <><AlertTriangle size={16} color="#f59e0b" /><span style={{ fontSize: '13px', fontWeight: 600, color: '#f59e0b' }}>Not enabled</span></>
-              )}
-            </div>
-          </div>
-          <div style={{
-            padding: '16px', borderRadius: '10px',
-            backgroundColor: 'var(--bg-hover, rgba(255,255,255,0.04))',
-            border: '1px solid var(--border, rgba(255,255,255,0.08))',
-          }}>
-            <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Active Sessions</div>
-            <div style={{ fontSize: '28px', fontWeight: 800, color: 'var(--text-primary)', marginTop: '4px', fontFamily: 'JetBrains Mono, monospace' }}>{sessions.length}</div>
-          </div>
-          <div style={{
-            padding: '16px', borderRadius: '10px',
-            backgroundColor: 'var(--bg-hover, rgba(255,255,255,0.04))',
-            border: '1px solid var(--border, rgba(255,255,255,0.08))',
-          }}>
-            <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>API Keys</div>
-            <div style={{ fontSize: '28px', fontWeight: 800, color: 'var(--text-primary)', marginTop: '4px', fontFamily: 'JetBrains Mono, monospace' }}>{apiKeys.length}</div>
-          </div>
-        </div>
-      </div>
 
       {/* Active Sessions */}
       <div className="settings-section">
