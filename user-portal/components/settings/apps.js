@@ -694,7 +694,7 @@ export default function ConnectedAppsSettings() {
             onClick={handleConnectGoogle}
             disabled={isBusy}
             className="btn-primary"
-            style={{ height: '36px', padding: '0 18px', fontSize: '13px', fontWeight: 600, borderRadius: '8px' }}
+            style={{ height: '34px', padding: '0 16px', fontSize: '13px', fontWeight: 600, borderRadius: '8px', whiteSpace: 'nowrap' }}
           >
             {isBusy ? <Loader2 size={14} className="spin-icon" /> : 'Connect'}
           </button>
@@ -702,11 +702,25 @@ export default function ConnectedAppsSettings() {
       }
       if (app.id === 'vscode') {
         return (
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
             <button
               type="button"
               onClick={() => setShowVsCodeGuide(true)}
-              style={{ height: '36px', padding: '0 12px', background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '8px', color: '#475569', fontSize: '12.5px', fontWeight: 500, cursor: 'pointer' }}
+              style={{
+                height: '34px',
+                padding: '0 12px',
+                background: '#ffffff',
+                border: '1px solid #cbd5e1',
+                borderRadius: '8px',
+                color: '#334155',
+                fontSize: '12.5px',
+                fontWeight: 500,
+                cursor: 'pointer',
+                whiteSpace: 'nowrap',
+                transition: 'all 0.15s ease',
+              }}
+              onMouseEnter={(e) => { e.currentTarget.style.background = '#f8fafc'; e.currentTarget.style.borderColor = '#94a3b8'; }}
+              onMouseLeave={(e) => { e.currentTarget.style.background = '#ffffff'; e.currentTarget.style.borderColor = '#cbd5e1'; }}
             >
               Guide
             </button>
@@ -715,7 +729,7 @@ export default function ConnectedAppsSettings() {
               onClick={handleConnectVsCode}
               disabled={isBusy}
               className="btn-primary"
-              style={{ height: '36px', padding: '0 18px', fontSize: '13px', fontWeight: 600, borderRadius: '8px' }}
+              style={{ height: '34px', padding: '0 16px', fontSize: '13px', fontWeight: 600, borderRadius: '8px', whiteSpace: 'nowrap' }}
             >
               {isBusy ? <Loader2 size={14} className="spin-icon" /> : 'Connect'}
             </button>
@@ -730,7 +744,7 @@ export default function ConnectedAppsSettings() {
           onClick={() => handleOpenConnectModal(app)}
           disabled={isBusy}
           className="btn-primary"
-          style={{ height: '36px', padding: '0 18px', fontSize: '13px', fontWeight: 600, borderRadius: '8px' }}
+          style={{ height: '34px', padding: '0 16px', fontSize: '13px', fontWeight: 600, borderRadius: '8px', whiteSpace: 'nowrap' }}
         >
           Connect
         </button>
@@ -740,11 +754,22 @@ export default function ConnectedAppsSettings() {
     // ── CONNECTED: Actions per provider ──
     if (app.id === 'vscode') {
       return (
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
           <button
             type="button"
             onClick={() => setShowVsCodeGuide(true)}
-            style={{ height: '34px', padding: '0 12px', background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '8px', color: '#475569', fontSize: '12.5px', fontWeight: 500, cursor: 'pointer' }}
+            style={{
+              height: '34px',
+              padding: '0 12px',
+              background: '#ffffff',
+              border: '1px solid #cbd5e1',
+              borderRadius: '8px',
+              color: '#334155',
+              fontSize: '12.5px',
+              fontWeight: 500,
+              cursor: 'pointer',
+              whiteSpace: 'nowrap',
+            }}
           >
             Guide
           </button>
@@ -753,7 +778,7 @@ export default function ConnectedAppsSettings() {
             onClick={handleConnectVsCode}
             disabled={isBusy}
             className="btn-change-plan-outline"
-            style={{ height: '34px', padding: '0 12px', fontSize: '12.5px', fontWeight: 500 }}
+            style={{ height: '34px', padding: '0 12px', fontSize: '12.5px', fontWeight: 500, whiteSpace: 'nowrap' }}
           >
             {isBusy ? <Loader2 size={13} className="spin-icon" /> : 'Regenerate'}
           </button>
@@ -761,7 +786,18 @@ export default function ConnectedAppsSettings() {
             type="button"
             onClick={() => handleGenericDisconnect('vscode', 'VS Code Extension')}
             disabled={isBusy}
-            style={{ height: '34px', padding: '0 12px', background: 'transparent', border: '1px solid #fecaca', borderRadius: '8px', color: '#dc2626', fontSize: '12.5px', fontWeight: 500, cursor: 'pointer' }}
+            style={{
+              height: '34px',
+              padding: '0 12px',
+              background: 'transparent',
+              border: '1px solid #fecaca',
+              borderRadius: '8px',
+              color: '#dc2626',
+              fontSize: '12.5px',
+              fontWeight: 500,
+              cursor: 'pointer',
+              whiteSpace: 'nowrap',
+            }}
           >
             Disconnect
           </button>
@@ -932,13 +968,83 @@ export default function ConnectedAppsSettings() {
           border: 1px solid #e2e8f0;
           border-radius: 14px;
           background: #ffffff;
-          padding: 18px 20px;
+          padding: 16px 20px;
           transition: all 0.2s ease;
           box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
+          box-sizing: border-box;
+          overflow: hidden;
         }
         .app-card:hover {
           border-color: #cbd5e1;
           box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+        }
+        .app-card-inner {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 16px;
+          flex-wrap: wrap;
+          width: 100%;
+          box-sizing: border-box;
+        }
+        .app-card-info {
+          display: flex;
+          align-items: flex-start;
+          gap: 14px;
+          flex: 1 1 300px;
+          min-width: 0;
+        }
+        .app-card-icon {
+          width: 44px;
+          height: 44px;
+          border-radius: 12px;
+          border: 1px solid #e2e8f0;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          overflow: hidden;
+          flex-shrink: 0;
+        }
+        .app-card-details {
+          flex: 1;
+          min-width: 0;
+        }
+        .app-card-title-row {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          flex-wrap: wrap;
+        }
+        .app-card-title {
+          font-size: 15px;
+          font-weight: 600;
+          color: #0f172a;
+          letter-spacing: -0.01em;
+        }
+        .app-card-category {
+          font-size: 12.5px;
+          color: #64748b;
+          margin: 2px 0 0 0;
+        }
+        .app-card-actions {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          flex-shrink: 0;
+          margin-left: auto;
+        }
+        @media (max-width: 640px) {
+          .app-card-inner {
+            flex-direction: column;
+            align-items: stretch;
+            gap: 12px;
+          }
+          .app-card-actions {
+            justify-content: flex-end;
+            padding-top: 10px;
+            border-top: 1px solid #f1f5f9;
+            width: 100%;
+          }
         }
       `}</style>
 
@@ -1041,21 +1147,13 @@ export default function ConnectedAppsSettings() {
 
             return (
               <div key={app.id} className="app-card">
-                <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '16px', flexWrap: 'wrap' }}>
+                <div className="app-card-inner">
                   {/* Left: Icon + Content */}
-                  <div style={{ display: 'flex', gap: '16px', flex: 1, minWidth: '280px' }}>
+                  <div className="app-card-info">
                     <div
+                      className="app-card-icon"
                       style={{
-                        width: '46px',
-                        height: '46px',
-                        borderRadius: '12px',
                         background: app.iconBg || '#f8fafc',
-                        border: '1px solid #e2e8f0',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        overflow: 'hidden',
-                        flexShrink: 0,
                       }}
                     >
                       {isConnected && status?.picture ? (
@@ -1069,13 +1167,13 @@ export default function ConnectedAppsSettings() {
                       )}
                     </div>
 
-                    <div style={{ flex: 1 }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
-                        <span style={{ fontSize: '15.5px', fontWeight: 600, color: '#0f172a' }}>{app.name}</span>
+                    <div className="app-card-details">
+                      <div className="app-card-title-row">
+                        <span className="app-card-title">{app.name}</span>
                         {renderStatusBadge(app)}
                       </div>
 
-                      <p style={{ fontSize: '12.5px', color: '#64748b', margin: '3px 0 0 0' }}>{app.category}</p>
+                      <p className="app-card-category">{app.category}</p>
 
                       {/* Connected Details */}
                       {isConnected ? (
@@ -1143,7 +1241,7 @@ export default function ConnectedAppsSettings() {
                   </div>
 
                   {/* Right: Actions */}
-                  <div style={{ display: 'flex', alignItems: 'center', alignSelf: 'center', flexShrink: 0 }}>
+                  <div className="app-card-actions">
                     {renderActions(app)}
                   </div>
                 </div>
