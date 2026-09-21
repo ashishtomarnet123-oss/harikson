@@ -1137,6 +1137,38 @@ router.post('/presets', async (req: any, res) => {
   }
 });
 
+// PUT /api/user/presets/:id & /api/v1/user/presets/:id
+router.put('/presets/:id', async (req: any, res) => {
+  if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
+  const { id } = req.params;
+  const { name, description, systemPrompt } = req.body;
+  if (!name || !systemPrompt) return res.status(400).json({ error: 'name and systemPrompt are required' });
+
+  try {
+    const userRes = await pool.query('SELECT tenant_id FROM users WHERE id = $1', [req.user.userId]).catch(() => ({ rows: [] }));
+    const tenantId = userRes.rows[0]?.tenant_id || req.tenant?.id;
+    if (!tenantId) return res.status(400).json({ error: 'No tenant associated with this account' });
+
+    const updateRes = await executeTenantQuery(tenantId, (client) =>
+      client.query(
+        `UPDATE user_prompt_presets
+         SET name = $1, description = $2, system_prompt = $3, updated_at = NOW()
+         WHERE id = $4 AND tenant_id = $5 AND user_id = $6`,
+        [name, description || null, systemPrompt, id, tenantId, req.user.userId]
+      )
+    );
+
+    if (updateRes.rowCount === 0) {
+      return res.status(404).json({ error: 'Preset not found' });
+    }
+
+    res.json(await listPresets(tenantId, req.user.userId));
+  } catch (err: any) {
+    logger.error('Update preset error:', err);
+    res.status(500).json({ error: 'Failed to update preset' });
+  }
+});
+
 // DELETE /api/user/presets/:id & /api/v1/user/presets/:id
 router.delete('/presets/:id', async (req: any, res) => {
   if (!req.user) return res.status(401).json({ error: 'Unauthorized' });

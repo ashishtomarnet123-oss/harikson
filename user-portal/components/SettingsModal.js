@@ -36,36 +36,7 @@ import DeveloperConfigSettings from './settings/developerConfig';
 import AppearanceSettings from './settings/appearance';
 import LanguageSettings from './settings/language';
 import HelpSettings from './settings/help';
-
-function PromptLibrarySettings() {
-  const router = useRouter();
-  return (
-    <>
-      <div className="settings-page-header">
-        <h1>Prompt Library</h1>
-        <p>Create and manage AI agents with custom system prompts.</p>
-      </div>
-      <div className="settings-section">
-        <div className="settings-card" style={{ textAlign: 'center', padding: '32px' }}>
-          <Code size={32} style={{ color: 'var(--accent)', marginBottom: '12px' }} />
-          <p style={{ fontSize: '14px', color: 'var(--text-primary)', fontWeight: 600, margin: '0 0 6px' }}>
-            Agent management has moved
-          </p>
-          <p style={{ fontSize: '13px', color: 'var(--text-secondary)', margin: '0 0 16px' }}>
-            Create, edit, and manage your AI agents from the dedicated Agents page with a full-featured interface.
-          </p>
-          <button
-            className="btn-primary"
-            onClick={() => router.push('/agents')}
-            style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
-          >
-            Open AI Agents
-          </button>
-        </div>
-      </div>
-    </>
-  );
-}
+import PromptLibrarySettings from './settings/promptLibrary';
 
 function RagDriveSettings() {
   const router = useRouter();

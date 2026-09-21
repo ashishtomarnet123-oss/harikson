@@ -88,6 +88,23 @@ function copyToClipboard(text) {
   });
 }
 
+function maskModelName(rawModel) {
+  if (!rawModel) return 'Xarwiz Plus';
+  const m = String(rawModel).toLowerCase();
+  if (m.includes('70b') || m.includes('72b') || m.includes('65b')) return 'Xarwiz Ultra-70B';
+  if (m.includes('32b') || m.includes('34b') || m.includes('30b')) return 'Xarwiz Pro-32B';
+  if (m.includes('14b') || m.includes('13b')) return 'Xarwiz Plus-14B';
+  if (m.includes('8b') || m.includes('7b') || m.includes('6b')) return 'Xarwiz Plus-8B';
+  if (m.includes('3b') || m.includes('2b') || m.includes('1b')) return 'Xarwiz Plus-8B';
+  if (m.includes('deepseek')) return 'Xarwiz Plus-14B';
+  if (m.includes('codellama') || m.includes('codegemma')) return 'Xarwiz Code';
+  if (m.includes('qwen') || m.includes('llama') || m.includes('mistral') ||
+      m.includes('mixtral') || m.includes('gemma') || m.includes('phi')) return 'Xarwiz Plus-8B';
+  if (m.startsWith('harikson-plus')) return 'Xarwiz Plus · 8B';
+  if (m.startsWith('harikson-max')) return 'Xarwiz Max · 14B';
+  return 'Xarwiz Plus';
+}
+
 /* ────────────────────────────────────────────────────────────
    Markdown renderer — converts plain text/markdown to JSX
    without external deps (Next.js 14 Pages Router, no Tailwind)
@@ -1445,6 +1462,13 @@ function ChatPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, router.isReady, router.query.conversation, activeConvId]);
 
+  /* ── Sync preset from URL query (e.g. from Prompt Library) ── */
+  useEffect(() => {
+    if (router.isReady && router.query.preset) {
+      setSystemPreset(String(router.query.preset));
+    }
+  }, [router.isReady, router.query.preset]);
+
   /* ── Auto scroll on new messages ── */
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -1501,13 +1525,14 @@ function ChatPage() {
         (a, b) => new Date(b.updated_at || b.createdAt || 0) - new Date(a.updated_at || a.createdAt || 0)
       );
 
-      setConversations(merged);
+      const maskedMerged = merged.map((c) => ({ ...c, model: maskModelName(c.model) }));
+      setConversations(maskedMerged);
       if (typeof window !== 'undefined') {
-        localStorage.setItem('hk_recent_conversations', JSON.stringify(merged));
+        localStorage.setItem('hk_recent_conversations', JSON.stringify(maskedMerged));
       }
     } catch (err) {
       console.error('Failed to fetch conversations from API, using local fallback:', err);
-      setConversations(localConvs);
+      setConversations(localConvs.map((c) => ({ ...c, model: maskModelName(c.model) })));
     }
   };
 
@@ -2106,7 +2131,7 @@ If any check fails, revise the relevant section before output.`;
         const newObj = {
           id: cId,
           title: convTitle,
-          model,
+          model: maskModelName(model),
           updated_at: new Date().toISOString(),
         };
         setConversations((prev) => {
