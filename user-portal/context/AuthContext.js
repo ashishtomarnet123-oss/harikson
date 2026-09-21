@@ -42,20 +42,50 @@ export function AuthProvider({ children }) {
     const storedToken = localStorage.getItem('hk_access_token');
     const storedUser = localStorage.getItem('hk_user');
 
+    /** Attempt a silent token refresh. Returns new access token string or null. */
+    const tryRefresh = async () => {
+      try {
+        const refreshToken = localStorage.getItem('hk_refresh_token');
+        const res = await fetch(`${apiBase}/api/auth/refresh`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'x-tenant-slug': tenantSlug },
+          credentials: 'include',
+          body: JSON.stringify({ refreshToken: refreshToken || undefined }),
+        });
+        if (!res.ok) return null;
+        const data = await res.json();
+        if (data.accessToken) {
+          localStorage.setItem('hk_access_token', data.accessToken);
+          if (data.refreshToken) localStorage.setItem('hk_refresh_token', data.refreshToken);
+          return data.accessToken;
+        }
+      } catch { /* network error — fall through */ }
+      return null;
+    };
+
     try {
       setIsLoading(true);
-      const headers = {
-        'x-tenant-slug': tenantSlug,
-      };
-      if (storedToken) {
-        headers['Authorization'] = `Bearer ${storedToken}`;
-      }
+      const headers = { 'x-tenant-slug': tenantSlug };
+      if (storedToken) headers['Authorization'] = `Bearer ${storedToken}`;
 
-      const res = await fetch(`${apiBase}/api/auth/me`, {
+      let res = await fetch(`${apiBase}/api/auth/me`, {
         method: 'GET',
         headers,
         credentials: 'include',
       });
+
+      // --- Silent refresh on 401 ---
+      if (res.status === 401) {
+        const newToken = await tryRefresh();
+        if (newToken) {
+          // Retry /me with the fresh token
+          res = await fetch(`${apiBase}/api/auth/me`, {
+            method: 'GET',
+            headers: { 'x-tenant-slug': tenantSlug, Authorization: `Bearer ${newToken}` },
+            credentials: 'include',
+          });
+        }
+      }
 
       if (res.status === 200) {
         const data = await res.json();
@@ -89,6 +119,7 @@ export function AuthProvider({ children }) {
           router.replace('/verify-email');
         }
       } else if (res.status === 401) {
+        // Refresh also failed — only now do we sign out
         if (!storedToken && !storedUser) {
           clearAuthData();
           if (!isPublicPage && router.pathname !== '/impersonate') {

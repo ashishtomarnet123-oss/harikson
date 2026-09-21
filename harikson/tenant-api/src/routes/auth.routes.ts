@@ -54,10 +54,19 @@ async function handleLogin(req: any, res: any) {
       });
     }
 
-    const userResult = await pool.query(
+    let userResult = await pool.query(
       'SELECT * FROM users WHERE email = $1 AND tenant_id = $2 AND deleted_at IS NULL',
       [email, req.tenant?.id]
     );
+    // Bare-domain login: tenant slug may be 'default' but user belongs to
+    // a different tenant. Fall back to email-only lookup (limited to 1 row
+    // so ambiguous multi-tenant emails still fail safely).
+    if (userResult.rows.length === 0) {
+      userResult = await pool.query(
+        'SELECT * FROM users WHERE email = $1 AND deleted_at IS NULL LIMIT 1',
+        [email]
+      );
+    }
     const user = userResult.rows[0];
 
     if (!user) {
@@ -177,7 +186,7 @@ async function handleLogin(req: any, res: any) {
       }
     }
 
-    const accessToken = jwt.sign({ userId: user.id, role: user.role }, getJwtSecret(), { expiresIn: '15m' });
+    const accessToken = jwt.sign({ userId: user.id, role: user.role }, getJwtSecret(), { expiresIn: '1h' });
     const refreshToken = crypto.randomBytes(64).toString('hex');
     const refreshTokenHash = crypto.createHash('sha256').update(refreshToken).digest('hex');
     const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
@@ -234,7 +243,7 @@ async function handleLogin(req: any, res: any) {
 
 // POST /register and POST /v1/register
 async function handleRegister(req: any, res: any) {
-  const { email, password, name, companyName, tenantSlug } = req.body;
+  const { email, password, name, phone, companyName, tenantSlug } = req.body;
   try {
     const ip =
       ((req.headers['x-forwarded-for'] as any) || req.socket?.remoteAddress || '')
@@ -274,7 +283,8 @@ async function handleRegister(req: any, res: any) {
     // of getting genuine per-customer isolation. Joining an existing
     // tenant is exclusively done via an admin explicitly adding a member
     // (POST /workspace/members), never via public self-serve registration.
-    const slugBase = (tenantSlug || companyName || name || 'workspace')
+    const effectiveSlug = (tenantSlug && tenantSlug !== 'default') ? tenantSlug : (companyName || name || 'workspace');
+    const slugBase = effectiveSlug
       .toLowerCase()
       .replace(/[^a-z0-9-]/g, '')
       .slice(0, 50) || 'workspace';
@@ -282,10 +292,10 @@ async function handleRegister(req: any, res: any) {
     const slugToUse = slugTaken.rows.length > 0 ? `${slugBase}-${crypto.randomBytes(3).toString('hex')}` : slugBase;
 
     const newTenantRes = await pool.query(
-      `INSERT INTO tenants (name, slug, status, created_at)
-       VALUES ($1, $2, 'active', NOW())
+      `INSERT INTO tenants (name, slug, plan, status, created_at)
+       VALUES ($1, $2, 'professional', 'active', NOW())
        RETURNING id`,
-      [companyName || name + "'s Workspace", slugToUse]
+      [companyName || (name ? `${name}'s Workspace` : 'My Workspace'), slugToUse]
     );
     const tenantId = newTenantRes.rows[0].id;
 
@@ -303,11 +313,11 @@ async function handleRegister(req: any, res: any) {
     // the admin control plane for every tenant, not just their own.
     const newUserRes = await pool.query(
       `INSERT INTO users (
-        tenant_id, email, password_hash, name, role, email_verified, email_verification_token, verification_token, status, created_at
+        tenant_id, email, password_hash, name, phone, role, email_verified, email_verification_token, verification_token, status, created_at
        )
-       VALUES ($1, $2, $3, $4, 'owner', true, $5, $5, 'pending', NOW())
+       VALUES ($1, $2, $3, $4, $5, 'owner', true, $6, $6, 'pending', NOW())
        RETURNING id, email, name, role, status, created_at`,
-      [tenantId, email, passwordHash, name, verificationTokenHash]
+      [tenantId, email, passwordHash, name, phone || null, verificationTokenHash]
     );
 
     const user = newUserRes.rows[0];
@@ -317,7 +327,7 @@ async function handleRegister(req: any, res: any) {
       `INSERT INTO subscriptions (
         tenant_id, plan_id, provider, provider_subscription_id, status, current_period_start, current_period_end, amount, currency, created_at
        )
-       VALUES ($1, 'pro', 'system', $2, 'active', NOW(), NOW() + INTERVAL '14 days', 0, 'USD', NOW())`,
+       VALUES ($1, 'professional', 'system', $2, 'active', NOW(), NOW() + INTERVAL '14 days', 0, 'USD', NOW())`,
       [tenantId, 'sub_trial_' + crypto.randomBytes(8).toString('hex')]
     ).catch((err) => logger.error('Failed to create trial subscription:', err?.message || err));
 
@@ -388,7 +398,7 @@ router.post('/login/2fa', async (req, res) => {
       return res.status(401).json({ error: 'Invalid 2FA code' });
     }
 
-    const accessToken = jwt.sign({ userId: user.id, role: user.role }, getJwtSecret(), { expiresIn: '15m' });
+    const accessToken = jwt.sign({ userId: user.id, role: user.role }, getJwtSecret(), { expiresIn: '1h' });
     const refreshToken = crypto.randomBytes(64).toString('hex');
     const refreshTokenHash = crypto.createHash('sha256').update(refreshToken).digest('hex');
     const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
@@ -492,7 +502,7 @@ async function handleRefresh(req: any, res: any) {
       return res.status(401).json({ error: 'User no longer exists' });
     }
 
-    const newAccessToken = jwt.sign({ userId: user.id, role: user.role }, getJwtSecret(), { expiresIn: '15m' });
+    const newAccessToken = jwt.sign({ userId: user.id, role: user.role }, getJwtSecret(), { expiresIn: '1h' });
     const newRefreshToken = crypto.randomBytes(64).toString('hex');
     const newRefreshTokenHash = crypto.createHash('sha256').update(newRefreshToken).digest('hex');
 
