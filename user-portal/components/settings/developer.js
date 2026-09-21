@@ -67,6 +67,23 @@ export default function DeveloperSettings({ onClose, onTabChange, setActiveTab }
       setLoading(true);
       setError(null);
       const { apiBase, tenantSlug } = getApiConfig();
+
+      // Check tenant plan from billing to ensure plan gating is accurate
+      try {
+        const bRes = await authenticatedFetch(`${apiBase}/api/v1/user/billing`, {
+          credentials: 'include',
+          headers: { 'x-tenant-slug': tenantSlug },
+        }).catch(() => null);
+        if (bRes && bRes.ok) {
+          const bData = await bRes.json();
+          const p = (bData?.plan?.id || bData?.plan || 'free').toLowerCase();
+          setCurrentPlan(p);
+          if (!['starter', 'professional', 'enterprise'].includes(p)) {
+            setPlanGated(true);
+          }
+        }
+      } catch (_) {}
+
       let res;
       try {
         res = await authenticatedFetch(`${apiBase}/api/v1/user/developer/keys`, {
@@ -83,7 +100,6 @@ export default function DeveloperSettings({ onClose, onTabChange, setActiveTab }
       if (res && res.ok) {
         const data = await res.json();
         setKeys(Array.isArray(data) ? data : []);
-        setPlanGated(false);
       } else if (res && res.status === 403) {
         const errData = await res.json().catch(() => ({}));
         if (errData.code === 'PLAN_UPGRADE_REQUIRED') {
@@ -266,26 +282,6 @@ export default function DeveloperSettings({ onClose, onTabChange, setActiveTab }
               Manage your secret API keys and authentication tokens for programmatic API access.
             </p>
           </div>
-
-          {!planGated && (
-            <button
-              className="btn-primary"
-              onClick={handleOpenCreateModal}
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '7px',
-                padding: '8px 16px',
-                borderRadius: '8px',
-                fontSize: '13.5px',
-                fontWeight: 600,
-                cursor: 'pointer',
-              }}
-            >
-              <Plus size={15} />
-              <span>Create Secret Key</span>
-            </button>
-          )}
         </div>
       </div>
 

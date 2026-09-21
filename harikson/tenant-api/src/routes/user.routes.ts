@@ -1371,6 +1371,17 @@ router.post('/security/change-password', async (req: any, res) => {
 router.get('/developer/keys', async (req: any, res) => {
   if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
 
+  // Plan entitlement check — API keys are a paid feature
+  const planId = req.entitlements?.planId || 'free';
+  if (!API_KEY_PLANS.includes(planId)) {
+    return res.status(403).json({
+      error: 'API key access is not available on your current plan.',
+      code: 'PLAN_UPGRADE_REQUIRED',
+      requiredPlans: API_KEY_PLANS,
+      currentPlan: planId,
+    });
+  }
+
   try {
     const keysRes = await executeTenantQuery(req.tenant.id, (client) =>
       client.query(
