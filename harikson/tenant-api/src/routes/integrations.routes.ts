@@ -16,6 +16,27 @@ import {
   enqueueGoogleDriveSync,
   getValidAccessToken,
 } from '../services/googleDriveSyncService.js';
+import { decryptDocumentContent } from '../services/documentEncryptionService.js';
+import {
+  verifyGitHubToken,
+  listUserRepositories,
+  syncGitHubRepository,
+} from '../services/githubService.js';
+import {
+  verifyNotionToken,
+  searchNotionPages,
+  syncNotionPages,
+} from '../services/notionService.js';
+import {
+  verifySlackToken,
+  listSlackChannels,
+  syncSlackChannel,
+} from '../services/slackService.js';
+import {
+  verifyFigmaToken,
+  inspectFigmaFile,
+  syncFigmaFile,
+} from '../services/figmaService.js';
 
 const router = Router();
 
@@ -54,7 +75,52 @@ async function getGoogleConnection(tenantId: string, userId: string) {
   return res.rows[0] || null;
 }
 
-const LIVE_PROVIDERS = ['google_drive', 'vscode'];
+async function saveGenericConnection(
+  tenantId: string,
+  userId: string,
+  providerId: string,
+  profile: { id: string; name: string; email?: string | null; avatarUrl?: string },
+  token: string,
+  settings: any = {}
+) {
+  const connRes = await pool.query(
+    `INSERT INTO integration_connections
+       (tenant_id, user_id, provider_id, status, connected_by, connected_at, provider_account_id, provider_email, provider_name, provider_picture_url, settings)
+     VALUES ($1, $2, $3, 'connected', $4, NOW(), $5, $6, $7, $8, $9)
+     ON CONFLICT (tenant_id, user_id, provider_id) DO UPDATE SET
+       status = 'connected', connected_at = NOW(), disconnected_at = NULL,
+       provider_account_id = EXCLUDED.provider_account_id,
+       provider_email = EXCLUDED.provider_email,
+       provider_name = EXCLUDED.provider_name,
+       provider_picture_url = EXCLUDED.provider_picture_url,
+       settings = EXCLUDED.settings,
+       last_error = NULL, error_count = 0, updated_at = NOW()
+     RETURNING id`,
+    [tenantId, userId, providerId, userId, profile.id, profile.email || null, profile.name, profile.avatarUrl || null, JSON.stringify(settings)]
+  );
+  const connectionId = connRes.rows[0].id;
+  await saveConnectionTokens(connectionId, token, null, new Date(Date.now() + 365 * 86400000));
+  return connectionId;
+}
+
+async function getGenericConnectionToken(tenantId: string, userId: string, providerId: string): Promise<{ token: string; conn: any } | null> {
+  const res = await pool.query(
+    `SELECT * FROM integration_connections WHERE tenant_id = $1 AND user_id = $2 AND provider_id = $3 AND status = 'connected'`,
+    [tenantId, userId, providerId]
+  );
+  const conn = res.rows[0];
+  if (!conn || !conn.access_token_encrypted) return null;
+  const token = decryptDocumentContent(
+    `${conn.id}:access`,
+    conn.access_token_encrypted,
+    conn.access_token_iv,
+    conn.access_token_tag,
+    conn.token_key_id || 'v1'
+  );
+  return { token, conn };
+}
+
+const LIVE_PROVIDERS = ['google_drive', 'github', 'vscode', 'slack', 'notion', 'figma'];
 const KNOWN_PROVIDERS = ['google_drive', 'github', 'vscode', 'slack', 'notion', 'figma'];
 
 // GET /api/integrations — list every provider's connection status for the Connected Apps page.
@@ -408,6 +474,443 @@ router.post('/vscode/disconnect', async (req: any, res) => {
   } catch (err: any) {
     logger.error(err, 'VS Code disconnect error');
     res.status(500).json({ error: 'Failed to disconnect VS Code extension' });
+  }
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// GITHUB REPOSITORY SYNC
+// ─────────────────────────────────────────────────────────────────────────────
+
+// POST /api/integrations/github/connect
+router.post('/github/connect', async (req: any, res) => {
+  if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
+  const { token } = req.body || {};
+  if (!token || typeof token !== 'string') {
+    return res.status(400).json({ error: 'GitHub Personal Access Token is required' });
+  }
+
+  try {
+    const tenantId = await resolveTenantId(req);
+    if (!tenantId) return res.status(400).json({ error: 'No tenant associated with this account' });
+
+    const profile = await verifyGitHubToken(token);
+    await saveGenericConnection(tenantId, req.user.userId, 'github', profile, token.trim(), {
+      login: profile.login,
+    });
+
+    logger.info(`GitHub connected: tenant=${tenantId} user=${req.user.userId} login=${profile.login}`);
+    res.json({ success: true, profile });
+  } catch (err: any) {
+    logger.error('GitHub connect error:', err);
+    res.status(400).json({ error: err.message || 'Failed to connect GitHub account' });
+  }
+});
+
+// GET /api/integrations/github/repos
+router.get('/github/repos', async (req: any, res) => {
+  if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
+  try {
+    const tenantId = await resolveTenantId(req);
+    if (!tenantId) return res.status(400).json({ error: 'No tenant associated with this account' });
+
+    const tokenData = await getGenericConnectionToken(tenantId, req.user.userId, 'github');
+    if (!tokenData) return res.status(400).json({ error: 'GitHub is not connected' });
+
+    const repos = await listUserRepositories(tokenData.token);
+    res.json({ repos });
+  } catch (err: any) {
+    logger.error('GitHub repos list error:', err);
+    res.status(500).json({ error: err.message || 'Failed to list GitHub repositories' });
+  }
+});
+
+// POST /api/integrations/github/sync
+router.post('/github/sync', async (req: any, res) => {
+  if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
+  const { fullName, branch } = req.body || {};
+  if (!fullName) return res.status(400).json({ error: 'Repository full name is required (e.g. owner/repo)' });
+
+  try {
+    const tenantId = await resolveTenantId(req);
+    if (!tenantId) return res.status(400).json({ error: 'No tenant associated with this account' });
+
+    const tokenData = await getGenericConnectionToken(tenantId, req.user.userId, 'github');
+    if (!tokenData) return res.status(400).json({ error: 'GitHub is not connected' });
+
+    await pool.query(
+      `UPDATE integration_connections SET status = 'syncing', updated_at = NOW() WHERE id = $1`,
+      [tokenData.conn.id]
+    );
+
+    const result = await syncGitHubRepository(tenantId, req.user.userId, fullName, branch || 'main', tokenData.token);
+
+    await pool.query(
+      `UPDATE integration_connections
+       SET status = 'connected', last_sync_at = NOW(), files_indexed_count = $1,
+           settings = jsonb_set(COALESCE(settings, '{}'::jsonb), '{syncedRepo}', $2::jsonb),
+           updated_at = NOW()
+       WHERE id = $3`,
+      [result.filesCount, JSON.stringify({ fullName, branch: branch || 'main' }), tokenData.conn.id]
+    );
+
+    res.json({ success: true, filesIndexed: result.filesCount });
+  } catch (err: any) {
+    logger.error('GitHub sync error:', err);
+    res.status(500).json({ error: err.message || 'Failed to index GitHub repository' });
+  }
+});
+
+// POST /api/integrations/github/disconnect
+router.post('/github/disconnect', async (req: any, res) => {
+  if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
+  try {
+    const tenantId = await resolveTenantId(req);
+    if (!tenantId) return res.status(400).json({ error: 'No tenant associated with this account' });
+
+    await pool.query(
+      `UPDATE integration_connections
+       SET status = 'disconnected', disconnected_at = NOW(),
+           access_token_encrypted = NULL, access_token_iv = NULL, access_token_tag = NULL,
+           updated_at = NOW()
+       WHERE tenant_id = $1 AND user_id = $2 AND provider_id = 'github'`,
+      [tenantId, req.user.userId]
+    );
+
+    res.json({ success: true });
+  } catch (err: any) {
+    logger.error('GitHub disconnect error:', err);
+    res.status(500).json({ error: 'Failed to disconnect GitHub' });
+  }
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// NOTION KNOWLEDGE SYNC
+// ─────────────────────────────────────────────────────────────────────────────
+
+// POST /api/integrations/notion/connect
+router.post('/notion/connect', async (req: any, res) => {
+  if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
+  const { token } = req.body || {};
+  if (!token || typeof token !== 'string') {
+    return res.status(400).json({ error: 'Notion integration token is required' });
+  }
+
+  try {
+    const tenantId = await resolveTenantId(req);
+    if (!tenantId) return res.status(400).json({ error: 'No tenant associated with this account' });
+
+    const profile = await verifyNotionToken(token);
+    await saveGenericConnection(tenantId, req.user.userId, 'notion', profile, token.trim(), {
+      workspaceName: profile.workspaceName,
+    });
+
+    logger.info(`Notion connected: tenant=${tenantId} user=${req.user.userId} workspace=${profile.workspaceName}`);
+    res.json({ success: true, profile });
+  } catch (err: any) {
+    logger.error('Notion connect error:', err);
+    res.status(400).json({ error: err.message || 'Failed to connect Notion workspace' });
+  }
+});
+
+// GET /api/integrations/notion/pages
+router.get('/notion/pages', async (req: any, res) => {
+  if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
+  try {
+    const tenantId = await resolveTenantId(req);
+    if (!tenantId) return res.status(400).json({ error: 'No tenant associated with this account' });
+
+    const tokenData = await getGenericConnectionToken(tenantId, req.user.userId, 'notion');
+    if (!tokenData) return res.status(400).json({ error: 'Notion is not connected' });
+
+    const pages = await searchNotionPages(tokenData.token);
+    res.json({ pages });
+  } catch (err: any) {
+    logger.error('Notion pages list error:', err);
+    res.status(500).json({ error: err.message || 'Failed to fetch Notion pages' });
+  }
+});
+
+// POST /api/integrations/notion/sync
+router.post('/notion/sync', async (req: any, res) => {
+  if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
+  const { pageIds } = req.body || {};
+  if (!Array.isArray(pageIds) || pageIds.length === 0) {
+    return res.status(400).json({ error: 'At least one page ID is required' });
+  }
+
+  try {
+    const tenantId = await resolveTenantId(req);
+    if (!tenantId) return res.status(400).json({ error: 'No tenant associated with this account' });
+
+    const tokenData = await getGenericConnectionToken(tenantId, req.user.userId, 'notion');
+    if (!tokenData) return res.status(400).json({ error: 'Notion is not connected' });
+
+    await pool.query(
+      `UPDATE integration_connections SET status = 'syncing', updated_at = NOW() WHERE id = $1`,
+      [tokenData.conn.id]
+    );
+
+    const result = await syncNotionPages(tenantId, req.user.userId, pageIds, tokenData.token);
+
+    await pool.query(
+      `UPDATE integration_connections
+       SET status = 'connected', last_sync_at = NOW(), files_indexed_count = $1, updated_at = NOW()
+       WHERE id = $2`,
+      [result.indexedCount, tokenData.conn.id]
+    );
+
+    res.json({ success: true, indexedCount: result.indexedCount });
+  } catch (err: any) {
+    logger.error('Notion sync error:', err);
+    res.status(500).json({ error: err.message || 'Failed to sync Notion pages' });
+  }
+});
+
+// POST /api/integrations/notion/disconnect
+router.post('/notion/disconnect', async (req: any, res) => {
+  if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
+  try {
+    const tenantId = await resolveTenantId(req);
+    if (!tenantId) return res.status(400).json({ error: 'No tenant associated with this account' });
+
+    await pool.query(
+      `UPDATE integration_connections
+       SET status = 'disconnected', disconnected_at = NOW(),
+           access_token_encrypted = NULL, access_token_iv = NULL, access_token_tag = NULL,
+           updated_at = NOW()
+       WHERE tenant_id = $1 AND user_id = $2 AND provider_id = 'notion'`,
+      [tenantId, req.user.userId]
+    );
+
+    res.json({ success: true });
+  } catch (err: any) {
+    logger.error('Notion disconnect error:', err);
+    res.status(500).json({ error: 'Failed to disconnect Notion' });
+  }
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SLACK WORKSPACE BOT
+// ─────────────────────────────────────────────────────────────────────────────
+
+// POST /api/integrations/slack/connect
+router.post('/slack/connect', async (req: any, res) => {
+  if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
+  const { token } = req.body || {};
+  if (!token || typeof token !== 'string') {
+    return res.status(400).json({ error: 'Slack Bot User OAuth token is required (xoxb-...)' });
+  }
+
+  try {
+    const tenantId = await resolveTenantId(req);
+    if (!tenantId) return res.status(400).json({ error: 'No tenant associated with this account' });
+
+    const profile = await verifySlackToken(token);
+    await saveGenericConnection(
+      tenantId,
+      req.user.userId,
+      'slack',
+      { id: profile.id, name: `${profile.teamName} (${profile.botName})`, email: null, avatarUrl: '' },
+      token.trim(),
+      { teamId: profile.teamId, teamName: profile.teamName, botUserId: profile.botUserId }
+    );
+
+    logger.info(`Slack connected: tenant=${tenantId} user=${req.user.userId} team=${profile.teamName}`);
+    res.json({ success: true, profile });
+  } catch (err: any) {
+    logger.error('Slack connect error:', err);
+    res.status(400).json({ error: err.message || 'Failed to connect Slack workspace' });
+  }
+});
+
+// GET /api/integrations/slack/channels
+router.get('/slack/channels', async (req: any, res) => {
+  if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
+  try {
+    const tenantId = await resolveTenantId(req);
+    if (!tenantId) return res.status(400).json({ error: 'No tenant associated with this account' });
+
+    const tokenData = await getGenericConnectionToken(tenantId, req.user.userId, 'slack');
+    if (!tokenData) return res.status(400).json({ error: 'Slack is not connected' });
+
+    const channels = await listSlackChannels(tokenData.token);
+    res.json({ channels });
+  } catch (err: any) {
+    logger.error('Slack channels error:', err);
+    res.status(500).json({ error: err.message || 'Failed to fetch Slack channels' });
+  }
+});
+
+// POST /api/integrations/slack/sync
+router.post('/slack/sync', async (req: any, res) => {
+  if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
+  const { channelId, channelName } = req.body || {};
+  if (!channelId) return res.status(400).json({ error: 'Channel ID is required' });
+
+  try {
+    const tenantId = await resolveTenantId(req);
+    if (!tenantId) return res.status(400).json({ error: 'No tenant associated with this account' });
+
+    const tokenData = await getGenericConnectionToken(tenantId, req.user.userId, 'slack');
+    if (!tokenData) return res.status(400).json({ error: 'Slack is not connected' });
+
+    await pool.query(
+      `UPDATE integration_connections SET status = 'syncing', updated_at = NOW() WHERE id = $1`,
+      [tokenData.conn.id]
+    );
+
+    const result = await syncSlackChannel(tenantId, req.user.userId, channelId, tokenData.token);
+
+    await pool.query(
+      `UPDATE integration_connections
+       SET status = 'connected', last_sync_at = NOW(), files_indexed_count = files_indexed_count + $1,
+           settings = jsonb_set(COALESCE(settings, '{}'::jsonb), '{syncedChannel}', $2::jsonb),
+           updated_at = NOW()
+       WHERE id = $3`,
+      [result.messagesProcessed, JSON.stringify({ channelId, channelName }), tokenData.conn.id]
+    );
+
+    res.json({ success: true, messagesProcessed: result.messagesProcessed });
+  } catch (err: any) {
+    logger.error('Slack sync error:', err);
+    res.status(500).json({ error: err.message || 'Failed to sync Slack channel' });
+  }
+});
+
+// POST /api/integrations/slack/disconnect
+router.post('/slack/disconnect', async (req: any, res) => {
+  if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
+  try {
+    const tenantId = await resolveTenantId(req);
+    if (!tenantId) return res.status(400).json({ error: 'No tenant associated with this account' });
+
+    await pool.query(
+      `UPDATE integration_connections
+       SET status = 'disconnected', disconnected_at = NOW(),
+           access_token_encrypted = NULL, access_token_iv = NULL, access_token_tag = NULL,
+           updated_at = NOW()
+       WHERE tenant_id = $1 AND user_id = $2 AND provider_id = 'slack'`,
+      [tenantId, req.user.userId]
+    );
+
+    res.json({ success: true });
+  } catch (err: any) {
+    logger.error('Slack disconnect error:', err);
+    res.status(500).json({ error: 'Failed to disconnect Slack' });
+  }
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// FIGMA DESIGN COPILOT
+// ─────────────────────────────────────────────────────────────────────────────
+
+// POST /api/integrations/figma/connect
+router.post('/figma/connect', async (req: any, res) => {
+  if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
+  const { token } = req.body || {};
+  if (!token || typeof token !== 'string') {
+    return res.status(400).json({ error: 'Figma Personal Access Token is required' });
+  }
+
+  try {
+    const tenantId = await resolveTenantId(req);
+    if (!tenantId) return res.status(400).json({ error: 'No tenant associated with this account' });
+
+    const profile = await verifyFigmaToken(token);
+    await saveGenericConnection(
+      tenantId,
+      req.user.userId,
+      'figma',
+      { id: profile.id, name: profile.handle, email: profile.email, avatarUrl: profile.avatarUrl },
+      token.trim(),
+      { email: profile.email, handle: profile.handle }
+    );
+
+    logger.info(`Figma connected: tenant=${tenantId} user=${req.user.userId} handle=${profile.handle}`);
+    res.json({ success: true, profile });
+  } catch (err: any) {
+    logger.error('Figma connect error:', err);
+    res.status(400).json({ error: err.message || 'Failed to connect Figma account' });
+  }
+});
+
+// POST /api/integrations/figma/inspect
+router.post('/figma/inspect', async (req: any, res) => {
+  if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
+  const { fileUrl } = req.body || {};
+  if (!fileUrl) return res.status(400).json({ error: 'Figma file URL or Key is required' });
+
+  try {
+    const tenantId = await resolveTenantId(req);
+    if (!tenantId) return res.status(400).json({ error: 'No tenant associated with this account' });
+
+    const tokenData = await getGenericConnectionToken(tenantId, req.user.userId, 'figma');
+    if (!tokenData) return res.status(400).json({ error: 'Figma is not connected' });
+
+    const info = await inspectFigmaFile(tokenData.token, fileUrl);
+    res.json({ fileInfo: info });
+  } catch (err: any) {
+    logger.error('Figma inspect error:', err);
+    res.status(500).json({ error: err.message || 'Failed to inspect Figma file' });
+  }
+});
+
+// POST /api/integrations/figma/sync
+router.post('/figma/sync', async (req: any, res) => {
+  if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
+  const { fileUrl } = req.body || {};
+  if (!fileUrl) return res.status(400).json({ error: 'Figma file URL or Key is required' });
+
+  try {
+    const tenantId = await resolveTenantId(req);
+    if (!tenantId) return res.status(400).json({ error: 'No tenant associated with this account' });
+
+    const tokenData = await getGenericConnectionToken(tenantId, req.user.userId, 'figma');
+    if (!tokenData) return res.status(400).json({ error: 'Figma is not connected' });
+
+    await pool.query(
+      `UPDATE integration_connections SET status = 'syncing', updated_at = NOW() WHERE id = $1`,
+      [tokenData.conn.id]
+    );
+
+    const info = await syncFigmaFile(tenantId, req.user.userId, fileUrl, tokenData.token);
+
+    await pool.query(
+      `UPDATE integration_connections
+       SET status = 'connected', last_sync_at = NOW(), files_indexed_count = files_indexed_count + $1,
+           settings = jsonb_set(COALESCE(settings, '{}'::jsonb), '{syncedFile}', $2::jsonb),
+           updated_at = NOW()
+       WHERE id = $3`,
+      [info.framesCount, JSON.stringify({ key: info.key, name: info.name }), tokenData.conn.id]
+    );
+
+    res.json({ success: true, fileInfo: info });
+  } catch (err: any) {
+    logger.error('Figma sync error:', err);
+    res.status(500).json({ error: err.message || 'Failed to sync Figma file' });
+  }
+});
+
+// POST /api/integrations/figma/disconnect
+router.post('/figma/disconnect', async (req: any, res) => {
+  if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
+  try {
+    const tenantId = await resolveTenantId(req);
+    if (!tenantId) return res.status(400).json({ error: 'No tenant associated with this account' });
+
+    await pool.query(
+      `UPDATE integration_connections
+       SET status = 'disconnected', disconnected_at = NOW(),
+           access_token_encrypted = NULL, access_token_iv = NULL, access_token_tag = NULL,
+           updated_at = NOW()
+       WHERE tenant_id = $1 AND user_id = $2 AND provider_id = 'figma'`,
+      [tenantId, req.user.userId]
+    );
+
+    res.json({ success: true });
+  } catch (err: any) {
+    logger.error('Figma disconnect error:', err);
+    res.status(500).json({ error: 'Failed to disconnect Figma' });
   }
 });
 

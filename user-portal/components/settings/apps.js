@@ -23,6 +23,10 @@ import {
   ShieldCheck,
   Bell,
   Code2,
+  Search,
+  Hash,
+  Eye,
+  Key,
 } from 'lucide-react';
 
 const APPS_META = [
@@ -32,15 +36,9 @@ const APPS_META = [
     category: 'Cloud Storage & Docs',
     categoryKey: 'cloud',
     permissions: ['Read Document Embeddings', 'Sync RAG Drive Files'],
-    badgeColor: '#2563eb',
     iconBg: '#eff6ff',
     description:
       'Connect your Google Workspace or personal Drive to sync documents, sheets, and presentations directly into your workspace RAG index.',
-    features: [
-      'Selective folder and file indexing into vector storage',
-      'Automatic sync of modified documents for live RAG accuracy',
-      'Read-only permissions with enterprise AES-256 token encryption',
-    ],
   },
   {
     id: 'vscode',
@@ -48,15 +46,9 @@ const APPS_META = [
     category: 'IDE Integration',
     categoryKey: 'developer',
     permissions: ['Code Completion', 'Inline Chat Assistant'],
-    badgeColor: '#7c3aed',
     iconBg: '#f5f3ff',
     description:
       'Pair your editor with Xarwiz to receive intelligent ghost-text completions, an in-editor sidebar chat, and instant diff reviews.',
-    features: [
-      'Ghost-text code completions streamed as you type',
-      'In-editor activity bar chat connected to your active models',
-      'Review Selection diff generator for rapid code refactoring',
-    ],
   },
   {
     id: 'github',
@@ -64,31 +56,9 @@ const APPS_META = [
     category: 'Developer Tools',
     categoryKey: 'developer',
     permissions: ['Code Base Indexing', 'Repo Context Analysis'],
-    badgeColor: '#0f172a',
     iconBg: '#f8fafc',
     description:
       'Index public and private repositories to give Xarwiz deep codebase context for architecture analysis, bug finding, and pull request reviews.',
-    features: [
-      'Tree scanning and AST-aware file chunking for major languages',
-      'PGVector semantic search across your entire codebase',
-      'Accurate line and symbol citations in every chat response',
-    ],
-  },
-  {
-    id: 'slack',
-    name: 'Slack Workspace Bot',
-    category: 'Team Messaging',
-    categoryKey: 'collaboration',
-    permissions: ['Channel Summarization', 'AI Query Bot'],
-    badgeColor: '#059669',
-    iconBg: '#ecfdf5',
-    description:
-      'Bring Xarwiz into team channels to summarize discussion threads, draft project updates, and answer knowledge questions in real time.',
-    features: [
-      'Thread summarization and action-item extraction',
-      'Mention-driven AI answers powered by your workspace RAG',
-      'Scheduled daily digests for project channels',
-    ],
   },
   {
     id: 'notion',
@@ -96,15 +66,19 @@ const APPS_META = [
     category: 'Documentation & Wiki',
     categoryKey: 'cloud',
     permissions: ['Page Import', 'Vector Indexing'],
-    badgeColor: '#d97706',
     iconBg: '#fffbeb',
     description:
       'Continuously synchronize your team’s Notion wikis, meeting notes, and roadmap databases directly into your knowledge base.',
-    features: [
-      'Bi-directional sync of Notion pages, tables, and docs',
-      'Preservation of page hierarchies and inline markdown formatting',
-      'Instant vector search across company policies and guides',
-    ],
+  },
+  {
+    id: 'slack',
+    name: 'Slack Workspace Bot',
+    category: 'Team Messaging',
+    categoryKey: 'collaboration',
+    permissions: ['Channel Summarization', 'AI Query Bot'],
+    iconBg: '#ecfdf5',
+    description:
+      'Bring Xarwiz into team channels to summarize discussion threads, draft project updates, and answer knowledge questions in real time.',
   },
   {
     id: 'figma',
@@ -112,15 +86,9 @@ const APPS_META = [
     category: 'Design & UX',
     categoryKey: 'developer',
     permissions: ['Inspect Design Assets', 'UI Component Generation'],
-    badgeColor: '#e11d48',
     iconBg: '#fff1f2',
     description:
       'Inspect Figma frames and design tokens to automatically generate clean, production-ready React and HTML/CSS components.',
-    features: [
-      'Frame-to-code component generation with responsive styles',
-      'Color palette and typography token extraction',
-      'Design spec comparisons against live frontend components',
-    ],
   },
 ];
 
@@ -162,6 +130,12 @@ export default function ConnectedAppsSettings() {
   const [actionLoading, setActionLoading] = useState(null);
   const [activeFilter, setActiveFilter] = useState('all');
 
+  // Modals management
+  const [connectModalApp, setConnectModalApp] = useState(null);
+  const [inputToken, setInputToken] = useState('');
+  const [connectLoading, setConnectLoading] = useState(false);
+  const [connectError, setConnectError] = useState('');
+
   // Google Drive picker modal states
   const [showPicker, setShowPicker] = useState(false);
   const [pickerFiles, setPickerFiles] = useState([]);
@@ -175,10 +149,30 @@ export default function ConnectedAppsSettings() {
   const [vsCodeCopied, setVsCodeCopied] = useState(false);
   const [showVsCodeGuide, setShowVsCodeGuide] = useState(false);
 
-  // Coming Soon preview modal state
-  const [previewApp, setPreviewApp] = useState(null);
-  const [waitlistSuccess, setWaitlistSuccess] = useState({});
-  const [waitlistLoading, setWaitlistLoading] = useState(false);
+  // GitHub Repos Picker Modal states
+  const [showGitHubModal, setShowGitHubModal] = useState(false);
+  const [gitHubRepos, setGitHubRepos] = useState([]);
+  const [reposLoading, setReposLoading] = useState(false);
+  const [repoSearch, setRepoSearch] = useState('');
+  const [selectedRepo, setSelectedRepo] = useState(null);
+
+  // Notion Pages Picker Modal states
+  const [showNotionModal, setShowNotionModal] = useState(false);
+  const [notionPages, setNotionPages] = useState([]);
+  const [pagesLoading, setPagesLoading] = useState(false);
+  const [selectedPageIds, setSelectedPageIds] = useState([]);
+
+  // Slack Channels Picker Modal states
+  const [showSlackModal, setShowSlackModal] = useState(false);
+  const [slackChannels, setSlackChannels] = useState([]);
+  const [channelsLoading, setChannelsLoading] = useState(false);
+  const [selectedChannel, setSelectedChannel] = useState(null);
+
+  // Figma File Inspector Modal states
+  const [showFigmaModal, setShowFigmaModal] = useState(false);
+  const [figmaFileUrl, setFigmaFileUrl] = useState('');
+  const [figmaInspectLoading, setFigmaInspectLoading] = useState(false);
+  const [figmaResult, setFigmaResult] = useState(null);
 
   const fetchStatus = useCallback(async () => {
     try {
@@ -219,14 +213,69 @@ export default function ConnectedAppsSettings() {
     }
   }, [fetchStatus]);
 
-  // Auto-poll while Google Drive is actively syncing
-  useEffect(() => {
-    const gStatus = statusByProvider.google_drive;
-    if (gStatus?.status !== 'syncing') return undefined;
-    const interval = setInterval(fetchStatus, 3000);
-    return () => clearInterval(interval);
-  }, [statusByProvider, fetchStatus]);
+  // ── Generic Connect by Token (GitHub, Notion, Slack, Figma) ──
+  const handleOpenConnectModal = (app) => {
+    setConnectModalApp(app);
+    setInputToken('');
+    setConnectError('');
+  };
 
+  const handleSubmitConnectModal = async () => {
+    if (!inputToken.trim()) {
+      setConnectError('Please enter a valid token or secret.');
+      return;
+    }
+    setConnectLoading(true);
+    setConnectError('');
+    const app = connectModalApp;
+    try {
+      const { apiBase, tenantSlug } = getApiConfig();
+      const res = await authenticatedFetch(`${apiBase}/api/integrations/${app.id}/connect`, {
+        method: 'POST',
+        headers: { 'x-tenant-slug': tenantSlug, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token: inputToken.trim() }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data.success) {
+        setMessage({ type: 'success', text: `${app.name} connected successfully.` });
+        setConnectModalApp(null);
+        await fetchStatus();
+      } else {
+        setConnectError(data.error || `Failed to connect ${app.name}.`);
+      }
+    } catch (e) {
+      setConnectError(e.message || `Failed to connect ${app.name}.`);
+    } finally {
+      setConnectLoading(false);
+    }
+  };
+
+  // ── Generic Disconnect ──
+  const handleGenericDisconnect = async (providerId, providerName) => {
+    if (!confirm(`Disconnect ${providerName}? Previously synced data will remain in your workspace RAG index.`)) {
+      return;
+    }
+    setActionLoading(providerId);
+    try {
+      const { apiBase, tenantSlug } = getApiConfig();
+      const res = await authenticatedFetch(`${apiBase}/api/integrations/${providerId}/disconnect`, {
+        method: 'POST',
+        headers: { 'x-tenant-slug': tenantSlug, 'Content-Type': 'application/json' },
+      });
+      if (res.ok) {
+        setMessage({ type: 'success', text: `${providerName} disconnected.` });
+        await fetchStatus();
+      } else {
+        setMessage({ type: 'error', text: `Failed to disconnect ${providerName}.` });
+      }
+    } catch (e) {
+      setMessage({ type: 'error', text: `Failed to disconnect ${providerName}.` });
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  // ── Google Workspace & Drive Handlers ──
   const handleConnectGoogle = async () => {
     setActionLoading('google_drive');
     setMessage(null);
@@ -249,106 +298,6 @@ export default function ConnectedAppsSettings() {
       setMessage({ type: 'error', text: 'Failed to initiate Google connection.' });
     } finally {
       setActionLoading(null);
-    }
-  };
-
-  const handleDisconnectGoogle = async () => {
-    if (!confirm('Disconnect Google Drive? Previously indexed documents will remain in your RAG knowledge base.')) {
-      return;
-    }
-    setActionLoading('google_drive');
-    setMessage(null);
-    try {
-      const { apiBase, tenantSlug } = getApiConfig();
-      const res = await authenticatedFetch(`${apiBase}/api/integrations/google/disconnect`, {
-        method: 'POST',
-        headers: { 'x-tenant-slug': tenantSlug, 'Content-Type': 'application/json' },
-      });
-      if (res.ok) {
-        setMessage({ type: 'success', text: 'Google Drive disconnected.' });
-        await fetchStatus();
-      } else {
-        setMessage({ type: 'error', text: 'Failed to disconnect. Please try again.' });
-      }
-    } catch (e) {
-      setMessage({ type: 'error', text: 'Failed to disconnect. Please try again.' });
-    } finally {
-      setActionLoading(null);
-    }
-  };
-
-  const handleConnectVsCode = async () => {
-    setActionLoading('vscode');
-    setMessage(null);
-    try {
-      const { apiBase, tenantSlug } = getApiConfig();
-      const res = await authenticatedFetch(`${apiBase}/api/integrations/vscode/connect`, {
-        method: 'POST',
-        headers: { 'x-tenant-slug': tenantSlug, 'Content-Type': 'application/json' },
-      });
-      if (res.ok) {
-        const data = await res.json();
-        setVsCodeToken(data.apiKey);
-        await fetchStatus();
-      } else {
-        const data = await res.json().catch(() => ({}));
-        setMessage({ type: 'error', text: data.error || 'Failed to connect VS Code extension.' });
-      }
-    } catch (e) {
-      setMessage({ type: 'error', text: 'Failed to connect VS Code extension.' });
-    } finally {
-      setActionLoading(null);
-    }
-  };
-
-  const handleDisconnectVsCode = async () => {
-    if (!confirm('Disconnect the VS Code extension? Its active access token will be revoked immediately.')) {
-      return;
-    }
-    setActionLoading('vscode');
-    setMessage(null);
-    try {
-      const { apiBase, tenantSlug } = getApiConfig();
-      const res = await authenticatedFetch(`${apiBase}/api/integrations/vscode/disconnect`, {
-        method: 'POST',
-        headers: { 'x-tenant-slug': tenantSlug, 'Content-Type': 'application/json' },
-      });
-      if (res.ok) {
-        setMessage({ type: 'success', text: 'VS Code extension disconnected and token revoked.' });
-        await fetchStatus();
-      } else {
-        setMessage({ type: 'error', text: 'Failed to disconnect. Please try again.' });
-      }
-    } catch (e) {
-      setMessage({ type: 'error', text: 'Failed to disconnect. Please try again.' });
-    } finally {
-      setActionLoading(null);
-    }
-  };
-
-  const copyVsCodeToken = () => {
-    if (!vsCodeToken) return;
-    navigator.clipboard.writeText(vsCodeToken);
-    setVsCodeCopied(true);
-    setTimeout(() => setVsCodeCopied(false), 2000);
-  };
-
-  const handleJoinWaitlist = async (providerId) => {
-    setWaitlistLoading(true);
-    try {
-      const { apiBase, tenantSlug } = getApiConfig();
-      const res = await authenticatedFetch(`${apiBase}/api/integrations/waitlist`, {
-        method: 'POST',
-        headers: { 'x-tenant-slug': tenantSlug, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ providerId }),
-      });
-      if (res.ok) {
-        setWaitlistSuccess((prev) => ({ ...prev, [providerId]: true }));
-      }
-    } catch (e) {
-      console.error('Waitlist join error:', e);
-    } finally {
-      setWaitlistLoading(false);
     }
   };
 
@@ -411,7 +360,7 @@ export default function ConnectedAppsSettings() {
         body: JSON.stringify({ selectedFileIds, selectedFolderIds: [] }),
       });
       if (res.ok) {
-        setMessage({ type: 'success', text: 'Sync initiated — running in the background.' });
+        setMessage({ type: 'success', text: 'Google Drive sync initiated — running in background.' });
         setShowPicker(false);
         await fetchStatus();
       } else {
@@ -425,27 +374,197 @@ export default function ConnectedAppsSettings() {
     }
   };
 
-  const quickSyncNow = async () => {
-    setActionLoading('google_drive');
+  // ── VS Code Extension Handlers ──
+  const handleConnectVsCode = async () => {
+    setActionLoading('vscode');
     setMessage(null);
     try {
       const { apiBase, tenantSlug } = getApiConfig();
-      const res = await authenticatedFetch(`${apiBase}/api/integrations/google/sync`, {
+      const res = await authenticatedFetch(`${apiBase}/api/integrations/vscode/connect`, {
         method: 'POST',
         headers: { 'x-tenant-slug': tenantSlug, 'Content-Type': 'application/json' },
-        body: JSON.stringify({}),
       });
       if (res.ok) {
-        setMessage({ type: 'success', text: 'Sync initiated — running in the background.' });
+        const data = await res.json();
+        setVsCodeToken(data.apiKey);
         await fetchStatus();
       } else {
         const data = await res.json().catch(() => ({}));
-        setMessage({ type: 'error', text: data.error || 'Failed to start sync.' });
+        setMessage({ type: 'error', text: data.error || 'Failed to connect VS Code extension.' });
       }
     } catch (e) {
-      setMessage({ type: 'error', text: 'Failed to start sync.' });
+      setMessage({ type: 'error', text: 'Failed to connect VS Code extension.' });
     } finally {
       setActionLoading(null);
+    }
+  };
+
+  const copyVsCodeToken = () => {
+    if (!vsCodeToken) return;
+    navigator.clipboard.writeText(vsCodeToken);
+    setVsCodeCopied(true);
+    setTimeout(() => setVsCodeCopied(false), 2000);
+  };
+
+  // ── GitHub Repos Modal & Sync ──
+  const openGitHubModal = async () => {
+    setShowGitHubModal(true);
+    setReposLoading(true);
+    try {
+      const { apiBase, tenantSlug } = getApiConfig();
+      const res = await authenticatedFetch(`${apiBase}/api/integrations/github/repos`, {
+        headers: { 'x-tenant-slug': tenantSlug },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setGitHubRepos(data.repos || []);
+      }
+    } catch (e) {
+      console.error('Failed to load GitHub repos', e);
+    } finally {
+      setReposLoading(false);
+    }
+  };
+
+  const handleSyncGitHubRepo = async () => {
+    if (!selectedRepo) return;
+    setActionLoading('github');
+    try {
+      const { apiBase, tenantSlug } = getApiConfig();
+      const res = await authenticatedFetch(`${apiBase}/api/integrations/github/sync`, {
+        method: 'POST',
+        headers: { 'x-tenant-slug': tenantSlug, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ fullName: selectedRepo.fullName, branch: selectedRepo.defaultBranch }),
+      });
+      if (res.ok) {
+        setMessage({ type: 'success', text: `Repository ${selectedRepo.fullName} indexed into RAG memory.` });
+        setShowGitHubModal(false);
+        await fetchStatus();
+      } else {
+        const data = await res.json().catch(() => ({}));
+        setMessage({ type: 'error', text: data.error || 'Failed to index GitHub repository.' });
+      }
+    } catch (e) {
+      setMessage({ type: 'error', text: 'Failed to index GitHub repository.' });
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  // ── Notion Pages Modal & Sync ──
+  const openNotionModal = async () => {
+    setShowNotionModal(true);
+    setPagesLoading(true);
+    try {
+      const { apiBase, tenantSlug } = getApiConfig();
+      const res = await authenticatedFetch(`${apiBase}/api/integrations/notion/pages`, {
+        headers: { 'x-tenant-slug': tenantSlug },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setNotionPages(data.pages || []);
+      }
+    } catch (e) {
+      console.error('Failed to load Notion pages', e);
+    } finally {
+      setPagesLoading(false);
+    }
+  };
+
+  const handleSyncNotionPages = async () => {
+    if (selectedPageIds.length === 0) return;
+    setActionLoading('notion');
+    try {
+      const { apiBase, tenantSlug } = getApiConfig();
+      const res = await authenticatedFetch(`${apiBase}/api/integrations/notion/sync`, {
+        method: 'POST',
+        headers: { 'x-tenant-slug': tenantSlug, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ pageIds: selectedPageIds }),
+      });
+      if (res.ok) {
+        setMessage({ type: 'success', text: `Successfully synced ${selectedPageIds.length} Notion page(s).` });
+        setShowNotionModal(false);
+        await fetchStatus();
+      } else {
+        const data = await res.json().catch(() => ({}));
+        setMessage({ type: 'error', text: data.error || 'Failed to sync Notion pages.' });
+      }
+    } catch (e) {
+      setMessage({ type: 'error', text: 'Failed to sync Notion pages.' });
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  // ── Slack Channels Modal & Sync ──
+  const openSlackModal = async () => {
+    setShowSlackModal(true);
+    setChannelsLoading(true);
+    try {
+      const { apiBase, tenantSlug } = getApiConfig();
+      const res = await authenticatedFetch(`${apiBase}/api/integrations/slack/channels`, {
+        headers: { 'x-tenant-slug': tenantSlug },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setSlackChannels(data.channels || []);
+      }
+    } catch (e) {
+      console.error('Failed to load Slack channels', e);
+    } finally {
+      setChannelsLoading(false);
+    }
+  };
+
+  const handleSyncSlackChannel = async () => {
+    if (!selectedChannel) return;
+    setActionLoading('slack');
+    try {
+      const { apiBase, tenantSlug } = getApiConfig();
+      const res = await authenticatedFetch(`${apiBase}/api/integrations/slack/sync`, {
+        method: 'POST',
+        headers: { 'x-tenant-slug': tenantSlug, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ channelId: selectedChannel.id, channelName: selectedChannel.name }),
+      });
+      if (res.ok) {
+        setMessage({ type: 'success', text: `Channel #${selectedChannel.name} synced to workspace context.` });
+        setShowSlackModal(false);
+        await fetchStatus();
+      } else {
+        const data = await res.json().catch(() => ({}));
+        setMessage({ type: 'error', text: data.error || 'Failed to sync Slack channel.' });
+      }
+    } catch (e) {
+      setMessage({ type: 'error', text: 'Failed to sync Slack channel.' });
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  // ── Figma File Modal & Sync ──
+  const handleInspectFigmaFile = async () => {
+    if (!figmaFileUrl.trim()) return;
+    setFigmaInspectLoading(true);
+    try {
+      const { apiBase, tenantSlug } = getApiConfig();
+      const res = await authenticatedFetch(`${apiBase}/api/integrations/figma/sync`, {
+        method: 'POST',
+        headers: { 'x-tenant-slug': tenantSlug, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ fileUrl: figmaFileUrl.trim() }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setFigmaResult(data.fileInfo);
+        setMessage({ type: 'success', text: `Figma file ${data.fileInfo.name} synced with ${data.fileInfo.framesCount} frames.` });
+        await fetchStatus();
+      } else {
+        const data = await res.json().catch(() => ({}));
+        setMessage({ type: 'error', text: data.error || 'Failed to inspect Figma file.' });
+      }
+    } catch (e) {
+      setMessage({ type: 'error', text: 'Failed to inspect Figma file.' });
+    } finally {
+      setFigmaInspectLoading(false);
     }
   };
 
@@ -471,28 +590,8 @@ export default function ConnectedAppsSettings() {
 
   const renderStatusBadge = (app) => {
     const status = statusByProvider[app.id];
-    if (app.id !== 'google_drive' && app.id !== 'vscode') {
-      return (
-        <span
-          style={{
-            fontSize: '11.5px',
-            fontWeight: 500,
-            padding: '3px 9px',
-            borderRadius: '20px',
-            background: '#f1f5f9',
-            color: '#64748b',
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: '5px',
-          }}
-        >
-          <Sparkles size={11} style={{ color: '#94a3b8' }} />
-          Coming Soon
-        </span>
-      );
-    }
-
     const s = status?.status || 'disconnected';
+
     if (s === 'connected') {
       return (
         <span
@@ -583,82 +682,31 @@ export default function ConnectedAppsSettings() {
 
   const renderActions = (app) => {
     const status = statusByProvider[app.id];
+    const isBusy = actionLoading === app.id;
+    const connState = status?.status || 'disconnected';
 
-    if (app.id !== 'google_drive' && app.id !== 'vscode') {
-      return (
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+    // ── NOT CONNECTED: Provide Connect Button ──
+    if (connState === 'disconnected') {
+      if (app.id === 'google_drive') {
+        return (
           <button
             type="button"
-            onClick={() => setPreviewApp(app)}
-            style={{
-              height: '36px',
-              padding: '0 14px',
-              background: '#ffffff',
-              border: '1px solid #e2e8f0',
-              borderRadius: '8px',
-              color: '#475569',
-              fontSize: '13px',
-              fontWeight: 500,
-              cursor: 'pointer',
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '6px',
-              transition: 'all 0.15s ease',
-            }}
-            onMouseOver={(e) => {
-              e.currentTarget.style.borderColor = '#cbd5e1';
-              e.currentTarget.style.background = '#f8fafc';
-            }}
-            onMouseOut={(e) => {
-              e.currentTarget.style.borderColor = '#e2e8f0';
-              e.currentTarget.style.background = '#ffffff';
-            }}
+            onClick={handleConnectGoogle}
+            disabled={isBusy}
+            className="btn-primary"
+            style={{ height: '36px', padding: '0 18px', fontSize: '13px', fontWeight: 600, borderRadius: '8px' }}
           >
-            <BookOpen size={13} />
-            Preview
+            {isBusy ? <Loader2 size={14} className="spin-icon" /> : 'Connect'}
           </button>
-          <button
-            type="button"
-            disabled
-            style={{
-              height: '36px',
-              padding: '0 16px',
-              background: '#f1f5f9',
-              border: '1px solid #e2e8f0',
-              borderRadius: '8px',
-              color: '#94a3b8',
-              fontSize: '13px',
-              fontWeight: 600,
-              cursor: 'not-allowed',
-            }}
-          >
-            Connect
-          </button>
-        </div>
-      );
-    }
-
-    if (app.id === 'vscode') {
-      const isBusy = actionLoading === 'vscode';
-      const connState = status?.status || 'disconnected';
-
-      if (connState === 'disconnected') {
+        );
+      }
+      if (app.id === 'vscode') {
         return (
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <button
               type="button"
               onClick={() => setShowVsCodeGuide(true)}
-              style={{
-                height: '36px',
-                padding: '0 12px',
-                background: '#ffffff',
-                border: '1px solid #e2e8f0',
-                borderRadius: '8px',
-                color: '#475569',
-                fontSize: '12.5px',
-                fontWeight: 500,
-                cursor: 'pointer',
-              }}
+              style={{ height: '36px', padding: '0 12px', background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '8px', color: '#475569', fontSize: '12.5px', fontWeight: 500, cursor: 'pointer' }}
             >
               Guide
             </button>
@@ -667,13 +715,7 @@ export default function ConnectedAppsSettings() {
               onClick={handleConnectVsCode}
               disabled={isBusy}
               className="btn-primary"
-              style={{
-                height: '36px',
-                padding: '0 18px',
-                fontSize: '13px',
-                fontWeight: 600,
-                borderRadius: '8px',
-              }}
+              style={{ height: '36px', padding: '0 18px', fontSize: '13px', fontWeight: 600, borderRadius: '8px' }}
             >
               {isBusy ? <Loader2 size={14} className="spin-icon" /> : 'Connect'}
             </button>
@@ -681,22 +723,28 @@ export default function ConnectedAppsSettings() {
         );
       }
 
+      // GitHub, Notion, Slack, Figma: Open Connect Token Modal
+      return (
+        <button
+          type="button"
+          onClick={() => handleOpenConnectModal(app)}
+          disabled={isBusy}
+          className="btn-primary"
+          style={{ height: '36px', padding: '0 18px', fontSize: '13px', fontWeight: 600, borderRadius: '8px' }}
+        >
+          Connect
+        </button>
+      );
+    }
+
+    // ── CONNECTED: Actions per provider ──
+    if (app.id === 'vscode') {
       return (
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           <button
             type="button"
             onClick={() => setShowVsCodeGuide(true)}
-            style={{
-              height: '34px',
-              padding: '0 12px',
-              background: '#ffffff',
-              border: '1px solid #e2e8f0',
-              borderRadius: '8px',
-              color: '#475569',
-              fontSize: '12.5px',
-              fontWeight: 500,
-              cursor: 'pointer',
-            }}
+            style={{ height: '34px', padding: '0 12px', background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '8px', color: '#475569', fontSize: '12.5px', fontWeight: 500, cursor: 'pointer' }}
           >
             Guide
           </button>
@@ -705,33 +753,15 @@ export default function ConnectedAppsSettings() {
             onClick={handleConnectVsCode}
             disabled={isBusy}
             className="btn-change-plan-outline"
-            style={{
-              height: '34px',
-              padding: '0 12px',
-              fontSize: '12.5px',
-              fontWeight: 500,
-            }}
+            style={{ height: '34px', padding: '0 12px', fontSize: '12.5px', fontWeight: 500 }}
           >
             {isBusy ? <Loader2 size={13} className="spin-icon" /> : 'Regenerate'}
           </button>
           <button
             type="button"
-            onClick={handleDisconnectVsCode}
+            onClick={() => handleGenericDisconnect('vscode', 'VS Code Extension')}
             disabled={isBusy}
-            style={{
-              height: '34px',
-              padding: '0 12px',
-              background: 'transparent',
-              border: '1px solid #fecaca',
-              borderRadius: '8px',
-              color: '#dc2626',
-              fontSize: '12.5px',
-              fontWeight: 500,
-              cursor: isBusy ? 'default' : 'pointer',
-              transition: 'all 0.15s ease',
-            }}
-            onMouseOver={(e) => (e.currentTarget.style.background = '#fef2f2')}
-            onMouseOut={(e) => (e.currentTarget.style.background = 'transparent')}
+            style={{ height: '34px', padding: '0 12px', background: 'transparent', border: '1px solid #fecaca', borderRadius: '8px', color: '#dc2626', fontSize: '12.5px', fontWeight: 500, cursor: 'pointer' }}
           >
             Disconnect
           </button>
@@ -739,93 +769,132 @@ export default function ConnectedAppsSettings() {
       );
     }
 
-    const isBusy = actionLoading === 'google_drive';
-    const connState = status?.status || 'disconnected';
-
-    if (connState === 'disconnected') {
+    if (app.id === 'google_drive') {
       return (
-        <button
-          type="button"
-          onClick={handleConnectGoogle}
-          disabled={isBusy}
-          className="btn-primary"
-          style={{
-            height: '36px',
-            padding: '0 18px',
-            fontSize: '13px',
-            fontWeight: 600,
-            borderRadius: '8px',
-          }}
-        >
-          {isBusy ? <Loader2 size={14} className="spin-icon" /> : 'Connect'}
-        </button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <button
+            type="button"
+            onClick={openPicker}
+            disabled={isBusy || connState === 'syncing'}
+            className="btn-change-plan-outline"
+            style={{ height: '34px', padding: '0 12px', fontSize: '12.5px', fontWeight: 500, display: 'flex', alignItems: 'center', gap: '6px' }}
+          >
+            <Folder size={13} />
+            Choose Files
+          </button>
+          <button
+            type="button"
+            onClick={() => handleGenericDisconnect('google_drive', 'Google Drive')}
+            disabled={isBusy}
+            style={{ height: '34px', padding: '0 12px', background: 'transparent', border: '1px solid #fecaca', borderRadius: '8px', color: '#dc2626', fontSize: '12.5px', fontWeight: 500, cursor: 'pointer' }}
+          >
+            Disconnect
+          </button>
+        </div>
       );
     }
 
-    return (
-      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-        <button
-          type="button"
-          onClick={openPicker}
-          disabled={isBusy || connState === 'syncing'}
-          className="btn-change-plan-outline"
-          style={{
-            height: '34px',
-            padding: '0 12px',
-            fontSize: '12.5px',
-            fontWeight: 500,
-            display: 'flex',
-            alignItems: 'center',
-            gap: '6px',
-          }}
-        >
-          <Folder size={13} />
-          Choose Files
-        </button>
-        <button
-          type="button"
-          onClick={quickSyncNow}
-          disabled={isBusy || connState === 'syncing'}
-          style={{
-            height: '34px',
-            padding: '0 12px',
-            background: '#f8fafc',
-            border: '1px solid #cbd5e1',
-            borderRadius: '8px',
-            color: '#1e293b',
-            fontSize: '12.5px',
-            fontWeight: 500,
-            cursor: isBusy || connState === 'syncing' ? 'default' : 'pointer',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '5px',
-          }}
-        >
-          <RefreshCw size={12} className={connState === 'syncing' ? 'spin-icon' : ''} />
-          {connState === 'syncing' ? 'Syncing…' : 'Sync Now'}
-        </button>
-        <button
-          type="button"
-          onClick={handleDisconnectGoogle}
-          disabled={isBusy}
-          style={{
-            height: '34px',
-            padding: '0 12px',
-            background: 'transparent',
-            border: '1px solid #fecaca',
-            borderRadius: '8px',
-            color: '#dc2626',
-            fontSize: '12.5px',
-            fontWeight: 500,
-            cursor: isBusy ? 'default' : 'pointer',
-          }}
-          onMouseOver={(e) => (e.currentTarget.style.background = '#fef2f2')}
-          onMouseOut={(e) => (e.currentTarget.style.background = 'transparent')}
-        >
-          Disconnect
-        </button>
-      </div>
-    );
+    if (app.id === 'github') {
+      return (
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <button
+            type="button"
+            onClick={openGitHubModal}
+            disabled={isBusy}
+            className="btn-change-plan-outline"
+            style={{ height: '34px', padding: '0 12px', fontSize: '12.5px', fontWeight: 500, display: 'flex', alignItems: 'center', gap: '6px' }}
+          >
+            <GitBranch size={13} />
+            Select Repo
+          </button>
+          <button
+            type="button"
+            onClick={() => handleGenericDisconnect('github', 'GitHub')}
+            disabled={isBusy}
+            style={{ height: '34px', padding: '0 12px', background: 'transparent', border: '1px solid #fecaca', borderRadius: '8px', color: '#dc2626', fontSize: '12.5px', fontWeight: 500, cursor: 'pointer' }}
+          >
+            Disconnect
+          </button>
+        </div>
+      );
+    }
+
+    if (app.id === 'notion') {
+      return (
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <button
+            type="button"
+            onClick={openNotionModal}
+            disabled={isBusy}
+            className="btn-change-plan-outline"
+            style={{ height: '34px', padding: '0 12px', fontSize: '12.5px', fontWeight: 500, display: 'flex', alignItems: 'center', gap: '6px' }}
+          >
+            <FileText size={13} />
+            Select Pages
+          </button>
+          <button
+            type="button"
+            onClick={() => handleGenericDisconnect('notion', 'Notion')}
+            disabled={isBusy}
+            style={{ height: '34px', padding: '0 12px', background: 'transparent', border: '1px solid #fecaca', borderRadius: '8px', color: '#dc2626', fontSize: '12.5px', fontWeight: 500, cursor: 'pointer' }}
+          >
+            Disconnect
+          </button>
+        </div>
+      );
+    }
+
+    if (app.id === 'slack') {
+      return (
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <button
+            type="button"
+            onClick={openSlackModal}
+            disabled={isBusy}
+            className="btn-change-plan-outline"
+            style={{ height: '34px', padding: '0 12px', fontSize: '12.5px', fontWeight: 500, display: 'flex', alignItems: 'center', gap: '6px' }}
+          >
+            <Hash size={13} />
+            Channels
+          </button>
+          <button
+            type="button"
+            onClick={() => handleGenericDisconnect('slack', 'Slack')}
+            disabled={isBusy}
+            style={{ height: '34px', padding: '0 12px', background: 'transparent', border: '1px solid #fecaca', borderRadius: '8px', color: '#dc2626', fontSize: '12.5px', fontWeight: 500, cursor: 'pointer' }}
+          >
+            Disconnect
+          </button>
+        </div>
+      );
+    }
+
+    if (app.id === 'figma') {
+      return (
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <button
+            type="button"
+            onClick={() => setShowFigmaModal(true)}
+            disabled={isBusy}
+            className="btn-change-plan-outline"
+            style={{ height: '34px', padding: '0 12px', fontSize: '12.5px', fontWeight: 500, display: 'flex', alignItems: 'center', gap: '6px' }}
+          >
+            <Eye size={13} />
+            Inspect File
+          </button>
+          <button
+            type="button"
+            onClick={() => handleGenericDisconnect('figma', 'Figma')}
+            disabled={isBusy}
+            style={{ height: '34px', padding: '0 12px', background: 'transparent', border: '1px solid #fecaca', borderRadius: '8px', color: '#dc2626', fontSize: '12.5px', fontWeight: 500, cursor: 'pointer' }}
+          >
+            Disconnect
+          </button>
+        </div>
+      );
+    }
+
+    return null;
   };
 
   return (
@@ -879,7 +948,7 @@ export default function ConnectedAppsSettings() {
           Connected Apps
         </h1>
         <p style={{ fontSize: '13.5px', color: '#64748b', margin: 0, lineHeight: 1.5 }}>
-          Manage third-party integrations, OAuth connections, and authorized AI extensions across your workspace.
+          Manage cloud drives, code repositories, team bots, and design extensions across your workspace.
         </p>
       </div>
 
@@ -968,8 +1037,7 @@ export default function ConnectedAppsSettings() {
         <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
           {filteredApps.map((app) => {
             const status = statusByProvider[app.id];
-            const isConnected =
-              (app.id === 'google_drive' || app.id === 'vscode') && status && status.status !== 'disconnected';
+            const isConnected = status && status.status && status.status !== 'disconnected' && status.status !== 'coming_soon';
 
             return (
               <div key={app.id} className="app-card">
@@ -1010,40 +1078,7 @@ export default function ConnectedAppsSettings() {
                       <p style={{ fontSize: '12.5px', color: '#64748b', margin: '3px 0 0 0' }}>{app.category}</p>
 
                       {/* Connected Details */}
-                      {isConnected && app.id === 'google_drive' ? (
-                        <div
-                          style={{
-                            display: 'flex',
-                            flexWrap: 'wrap',
-                            gap: '14px',
-                            marginTop: '8px',
-                            padding: '8px 12px',
-                            background: '#f8fafc',
-                            borderRadius: '8px',
-                            fontSize: '12px',
-                            color: '#475569',
-                            border: '1px solid #edf2f7',
-                          }}
-                        >
-                          <span>
-                            Account: <strong>{status.email}</strong>
-                          </span>
-                          <span>
-                            Last Sync: <strong>{timeAgo(status.lastSyncAt)}</strong>
-                          </span>
-                          <span>
-                            Files Indexed: <strong>{status.filesIndexed ?? 0}</strong>
-                          </span>
-                          {status.status === 'syncing' && status.currentJob?.totalItems > 0 && (
-                            <span style={{ color: '#2563eb', fontWeight: 600 }}>
-                              Progress: {status.currentJob.processedItems}/{status.currentJob.totalItems}
-                            </span>
-                          )}
-                          {status.status === 'error' && status.error && (
-                            <span style={{ color: '#dc2626' }}>Error: {status.error}</span>
-                          )}
-                        </div>
-                      ) : isConnected && app.id === 'vscode' ? (
+                      {isConnected ? (
                         <div
                           style={{
                             display: 'flex',
@@ -1059,12 +1094,30 @@ export default function ConnectedAppsSettings() {
                             border: '1px solid #edf2f7',
                           }}
                         >
-                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-                            <ShieldCheck size={14} style={{ color: '#10b981' }} />
-                            Token active: <code>{status.keyPrefix || 'hk_live_'}••••••••</code>
-                          </span>
-                          {status.connectedAt && (
-                            <span>Connected: {timeAgo(status.connectedAt)}</span>
+                          {status.name && (
+                            <span>
+                              Account: <strong>{status.name}</strong>
+                            </span>
+                          )}
+                          {status.email && (
+                            <span>
+                              Email: <strong>{status.email}</strong>
+                            </span>
+                          )}
+                          {status.keyPrefix && (
+                            <span>
+                              Token: <code>{status.keyPrefix}••••••••</code>
+                            </span>
+                          )}
+                          {status.filesIndexed > 0 && (
+                            <span>
+                              Indexed: <strong>{status.filesIndexed}</strong>
+                            </span>
+                          )}
+                          {status.lastSyncAt && (
+                            <span>
+                              Last Sync: <strong>{timeAgo(status.lastSyncAt)}</strong>
+                            </span>
                           )}
                         </div>
                       ) : (
@@ -1100,7 +1153,563 @@ export default function ConnectedAppsSettings() {
         </div>
       )}
 
-      {/* ── Google Drive File/Folder Picker Modal ── */}
+      {/* ── Connect Token Modal (GitHub, Notion, Slack, Figma) ── */}
+      {connectModalApp && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(15, 23, 42, 0.45)',
+            backdropFilter: 'blur(4px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 10000,
+            padding: '20px',
+          }}
+        >
+          <div
+            style={{
+              background: '#ffffff',
+              borderRadius: '16px',
+              maxWidth: '520px',
+              width: '100%',
+              border: '1px solid #e2e8f0',
+              boxShadow: '0 20px 50px rgba(0,0,0,0.15)',
+              padding: '24px',
+            }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+              <div style={{ display: 'flex', gap: '12px' }}>
+                <div
+                  style={{
+                    width: '42px',
+                    height: '42px',
+                    borderRadius: '12px',
+                    background: connectModalApp.iconBg || '#f8fafc',
+                    border: '1px solid #e2e8f0',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                >
+                  {appIcon(connectModalApp.id)}
+                </div>
+                <div>
+                  <h3 style={{ fontSize: '17px', fontWeight: 700, margin: 0, color: '#0f172a' }}>
+                    Connect {connectModalApp.name}
+                  </h3>
+                  <p style={{ fontSize: '12.5px', color: '#64748b', margin: '3px 0 0 0' }}>
+                    {connectModalApp.category}
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setConnectModalApp(null)}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#64748b' }}
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div style={{ marginTop: '18px' }}>
+              <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: '#0f172a', marginBottom: '6px' }}>
+                {connectModalApp.id === 'github' && 'GitHub Personal Access Token (classic or fine-grained)'}
+                {connectModalApp.id === 'notion' && 'Notion Internal Integration Secret (secret_...)'}
+                {connectModalApp.id === 'slack' && 'Slack Bot User OAuth Token (xoxb-...)'}
+                {connectModalApp.id === 'figma' && 'Figma Personal Access Token (figd_...)'}
+              </label>
+
+              <input
+                type="password"
+                value={inputToken}
+                onChange={(e) => setInputToken(e.target.value)}
+                placeholder={
+                  connectModalApp.id === 'github'
+                    ? 'ghp_... or github_pat_...'
+                    : connectModalApp.id === 'notion'
+                    ? 'secret_...'
+                    : connectModalApp.id === 'slack'
+                    ? 'xoxb-...'
+                    : 'figd_...'
+                }
+                style={{
+                  width: '100%',
+                  padding: '10px 14px',
+                  borderRadius: '8px',
+                  border: '1px solid #cbd5e1',
+                  fontSize: '13px',
+                  outline: 'none',
+                  boxSizing: 'border-box',
+                }}
+              />
+
+              {connectError && (
+                <div style={{ marginTop: '8px', fontSize: '12px', color: '#dc2626' }}>
+                  {connectError}
+                </div>
+              )}
+
+              <p style={{ fontSize: '12px', color: '#64748b', margin: '8px 0 0 0', lineHeight: 1.5 }}>
+                {connectModalApp.id === 'github' && (
+                  <span>
+                    Generate a token in GitHub under{' '}
+                    <a href="https://github.com/settings/tokens" target="_blank" rel="noreferrer" style={{ color: '#2563eb' }}>
+                      Settings → Developer settings → Personal access tokens ↗
+                    </a>{' '}
+                    with <code>repo</code> scope.
+                  </span>
+                )}
+                {connectModalApp.id === 'notion' && (
+                  <span>
+                    Create an integration secret in{' '}
+                    <a href="https://www.notion.so/my-integrations" target="_blank" rel="noreferrer" style={{ color: '#2563eb' }}>
+                      Notion Developers Portal ↗
+                    </a>{' '}
+                    and invite it to your pages.
+                  </span>
+                )}
+                {connectModalApp.id === 'slack' && (
+                  <span>
+                    Get your Bot User OAuth Token in{' '}
+                    <a href="https://api.slack.com/apps" target="_blank" rel="noreferrer" style={{ color: '#2563eb' }}>
+                      Slack API Apps ↗
+                    </a>{' '}
+                    under OAuth & Permissions.
+                  </span>
+                )}
+                {connectModalApp.id === 'figma' && (
+                  <span>
+                    Generate a personal access token under Figma Settings → Security → Personal access tokens.
+                  </span>
+                )}
+              </p>
+            </div>
+
+            <div style={{ display: 'flex', gap: '10px', marginTop: '22px' }}>
+              <button
+                onClick={() => setConnectModalApp(null)}
+                style={{ flex: 1, padding: '10px', borderRadius: '8px', background: '#ffffff', border: '1px solid #cbd5e1', color: '#475569', fontSize: '13px', fontWeight: 500, cursor: 'pointer' }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSubmitConnectModal}
+                disabled={connectLoading || !inputToken.trim()}
+                className="btn-primary"
+                style={{ flex: 1, padding: '10px', fontSize: '13px', borderRadius: '8px', opacity: connectLoading || !inputToken.trim() ? 0.6 : 1 }}
+              >
+                {connectLoading ? <Loader2 size={14} className="spin-icon" /> : 'Authorize & Connect'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── GitHub Repositories Selector Modal ── */}
+      {showGitHubModal && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(15, 23, 42, 0.45)',
+            backdropFilter: 'blur(4px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 10000,
+            padding: '20px',
+          }}
+        >
+          <div
+            style={{
+              background: '#ffffff',
+              borderRadius: '16px',
+              maxWidth: '580px',
+              width: '100%',
+              maxHeight: '80vh',
+              display: 'flex',
+              flexDirection: 'column',
+              border: '1px solid #e2e8f0',
+              boxShadow: '0 20px 50px rgba(0,0,0,0.15)',
+            }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '20px' }}>
+              <div>
+                <h3 style={{ fontSize: '17px', fontWeight: 700, margin: 0, color: '#0f172a' }}>Select GitHub Repository</h3>
+                <p style={{ fontSize: '12px', color: '#64748b', margin: '4px 0 0 0' }}>
+                  Index a repository into your workspace RAG drive for whole-codebase AI context.
+                </p>
+              </div>
+              <button onClick={() => setShowGitHubModal(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#64748b' }}>
+                <X size={18} />
+              </button>
+            </div>
+
+            <div style={{ padding: '0 20px 14px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px' }}>
+                <Search size={15} color="#94a3b8" />
+                <input
+                  type="text"
+                  placeholder="Filter repositories..."
+                  value={repoSearch}
+                  onChange={(e) => setRepoSearch(e.target.value)}
+                  style={{ border: 'none', background: 'transparent', outline: 'none', width: '100%', fontSize: '13px' }}
+                />
+              </div>
+            </div>
+
+            <div style={{ flex: 1, overflowY: 'auto', padding: '0 20px', minHeight: '220px' }}>
+              {reposLoading ? (
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '40px 0', gap: '8px', color: '#64748b' }}>
+                  <Loader2 size={24} className="spin-icon" style={{ color: '#2563eb' }} />
+                  <span style={{ fontSize: '12.5px' }}>Loading repositories...</span>
+                </div>
+              ) : gitHubRepos.length === 0 ? (
+                <p style={{ fontSize: '13px', color: '#94a3b8', textAlign: 'center', padding: '30px 0' }}>No repositories found.</p>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                  {gitHubRepos
+                    .filter((r) => r.fullName.toLowerCase().includes(repoSearch.toLowerCase()))
+                    .map((repo) => (
+                      <div
+                        key={repo.id}
+                        onClick={() => setSelectedRepo(repo)}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          padding: '12px 14px',
+                          borderRadius: '8px',
+                          cursor: 'pointer',
+                          background: selectedRepo?.id === repo.id ? '#eff6ff' : '#ffffff',
+                          border: `1px solid ${selectedRepo?.id === repo.id ? '#bfdbfe' : '#e2e8f0'}`,
+                        }}
+                      >
+                        <div style={{ minWidth: 0 }}>
+                          <div style={{ fontSize: '13.5px', fontWeight: 600, color: '#0f172a' }}>{repo.fullName}</div>
+                          {repo.description && (
+                            <div style={{ fontSize: '12px', color: '#64748b', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                              {repo.description}
+                            </div>
+                          )}
+                        </div>
+                        <span style={{ fontSize: '11px', background: '#f1f5f9', padding: '2px 8px', borderRadius: '4px', color: '#475569' }}>
+                          {repo.defaultBranch}
+                        </span>
+                      </div>
+                    ))}
+                </div>
+              )}
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 20px', borderTop: '1px solid #e2e8f0' }}>
+              <span style={{ fontSize: '12px', color: '#64748b' }}>
+                {selectedRepo ? `Selected: ${selectedRepo.fullName}` : 'Select a repository'}
+              </span>
+              <div style={{ display: 'flex', gap: '10px' }}>
+                <button onClick={() => setShowGitHubModal(false)} style={{ padding: '8px 16px', borderRadius: '8px', background: '#ffffff', border: '1px solid #cbd5e1', fontSize: '13px', color: '#475569' }}>
+                  Cancel
+                </button>
+                <button
+                  onClick={handleSyncGitHubRepo}
+                  disabled={!selectedRepo || actionLoading === 'github'}
+                  className="btn-primary"
+                  style={{ padding: '8px 16px', fontSize: '13px', opacity: !selectedRepo ? 0.5 : 1 }}
+                >
+                  {actionLoading === 'github' ? 'Indexing…' : 'Index Repository'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Notion Pages Picker Modal ── */}
+      {showNotionModal && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(15, 23, 42, 0.45)',
+            backdropFilter: 'blur(4px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 10000,
+            padding: '20px',
+          }}
+        >
+          <div
+            style={{
+              background: '#ffffff',
+              borderRadius: '16px',
+              maxWidth: '560px',
+              width: '100%',
+              maxHeight: '80vh',
+              display: 'flex',
+              flexDirection: 'column',
+              border: '1px solid #e2e8f0',
+              boxShadow: '0 20px 50px rgba(0,0,0,0.15)',
+            }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '20px' }}>
+              <div>
+                <h3 style={{ fontSize: '17px', fontWeight: 700, margin: 0, color: '#0f172a' }}>Select Notion Pages</h3>
+                <p style={{ fontSize: '12px', color: '#64748b', margin: '4px 0 0 0' }}>
+                  Select pages and databases to sync into your knowledge base.
+                </p>
+              </div>
+              <button onClick={() => setShowNotionModal(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#64748b' }}>
+                <X size={18} />
+              </button>
+            </div>
+
+            <div style={{ flex: 1, overflowY: 'auto', padding: '0 20px', minHeight: '220px' }}>
+              {pagesLoading ? (
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '40px 0', gap: '8px', color: '#64748b' }}>
+                  <Loader2 size={24} className="spin-icon" style={{ color: '#2563eb' }} />
+                  <span style={{ fontSize: '12.5px' }}>Loading Notion pages...</span>
+                </div>
+              ) : notionPages.length === 0 ? (
+                <p style={{ fontSize: '13px', color: '#94a3b8', textAlign: 'center', padding: '30px 0' }}>No accessible pages found.</p>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                  {notionPages.map((page) => (
+                    <div
+                      key={page.id}
+                      onClick={() =>
+                        setSelectedPageIds((prev) =>
+                          prev.includes(page.id) ? prev.filter((id) => id !== page.id) : [...prev, page.id]
+                        )
+                      }
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '12px',
+                        padding: '10px 14px',
+                        borderRadius: '8px',
+                        cursor: 'pointer',
+                        background: selectedPageIds.includes(page.id) ? '#eff6ff' : '#ffffff',
+                        border: `1px solid ${selectedPageIds.includes(page.id) ? '#bfdbfe' : '#e2e8f0'}`,
+                      }}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={selectedPageIds.includes(page.id)}
+                        onChange={() => {}}
+                      />
+                      <FileText size={16} color="#d97706" />
+                      <span style={{ fontSize: '13.5px', color: '#0f172a', flex: 1 }}>{page.title}</span>
+                      <span style={{ fontSize: '11px', color: '#94a3b8' }}>{page.objectType}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 20px', borderTop: '1px solid #e2e8f0' }}>
+              <span style={{ fontSize: '12px', color: '#64748b' }}>{selectedPageIds.length} page(s) selected</span>
+              <div style={{ display: 'flex', gap: '10px' }}>
+                <button onClick={() => setShowNotionModal(false)} style={{ padding: '8px 16px', borderRadius: '8px', background: '#ffffff', border: '1px solid #cbd5e1', fontSize: '13px', color: '#475569' }}>
+                  Cancel
+                </button>
+                <button
+                  onClick={handleSyncNotionPages}
+                  disabled={selectedPageIds.length === 0 || actionLoading === 'notion'}
+                  className="btn-primary"
+                  style={{ padding: '8px 16px', fontSize: '13px', opacity: selectedPageIds.length === 0 ? 0.5 : 1 }}
+                >
+                  {actionLoading === 'notion' ? 'Syncing…' : 'Sync Pages'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Slack Channels Selector Modal ── */}
+      {showSlackModal && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(15, 23, 42, 0.45)',
+            backdropFilter: 'blur(4px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 10000,
+            padding: '20px',
+          }}
+        >
+          <div
+            style={{
+              background: '#ffffff',
+              borderRadius: '16px',
+              maxWidth: '520px',
+              width: '100%',
+              maxHeight: '80vh',
+              display: 'flex',
+              flexDirection: 'column',
+              border: '1px solid #e2e8f0',
+              boxShadow: '0 20px 50px rgba(0,0,0,0.15)',
+            }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '20px' }}>
+              <div>
+                <h3 style={{ fontSize: '17px', fontWeight: 700, margin: 0, color: '#0f172a' }}>Select Slack Channel</h3>
+                <p style={{ fontSize: '12px', color: '#64748b', margin: '4px 0 0 0' }}>
+                  Sync channel discussion history into workspace knowledge context.
+                </p>
+              </div>
+              <button onClick={() => setShowSlackModal(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#64748b' }}>
+                <X size={18} />
+              </button>
+            </div>
+
+            <div style={{ flex: 1, overflowY: 'auto', padding: '0 20px', minHeight: '200px' }}>
+              {channelsLoading ? (
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '40px 0', gap: '8px', color: '#64748b' }}>
+                  <Loader2 size={24} className="spin-icon" style={{ color: '#2563eb' }} />
+                  <span style={{ fontSize: '12.5px' }}>Loading Slack channels...</span>
+                </div>
+              ) : slackChannels.length === 0 ? (
+                <p style={{ fontSize: '13px', color: '#94a3b8', textAlign: 'center', padding: '30px 0' }}>No channels found.</p>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                  {slackChannels.map((channel) => (
+                    <div
+                      key={channel.id}
+                      onClick={() => setSelectedChannel(channel)}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        padding: '12px 14px',
+                        borderRadius: '8px',
+                        cursor: 'pointer',
+                        background: selectedChannel?.id === channel.id ? '#eff6ff' : '#ffffff',
+                        border: `1px solid ${selectedChannel?.id === channel.id ? '#bfdbfe' : '#e2e8f0'}`,
+                      }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <Hash size={16} color="#059669" />
+                        <span style={{ fontSize: '13.5px', fontWeight: 600, color: '#0f172a' }}>{channel.name}</span>
+                      </div>
+                      <span style={{ fontSize: '11px', color: '#64748b' }}>{channel.memberCount} members</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 20px', borderTop: '1px solid #e2e8f0' }}>
+              <span style={{ fontSize: '12px', color: '#64748b' }}>
+                {selectedChannel ? `#${selectedChannel.name}` : 'Select a channel'}
+              </span>
+              <div style={{ display: 'flex', gap: '10px' }}>
+                <button onClick={() => setShowSlackModal(false)} style={{ padding: '8px 16px', borderRadius: '8px', background: '#ffffff', border: '1px solid #cbd5e1', fontSize: '13px', color: '#475569' }}>
+                  Cancel
+                </button>
+                <button
+                  onClick={handleSyncSlackChannel}
+                  disabled={!selectedChannel || actionLoading === 'slack'}
+                  className="btn-primary"
+                  style={{ padding: '8px 16px', fontSize: '13px', opacity: !selectedChannel ? 0.5 : 1 }}
+                >
+                  {actionLoading === 'slack' ? 'Syncing…' : 'Sync Channel'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Figma File Inspector Modal ── */}
+      {showFigmaModal && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(15, 23, 42, 0.45)',
+            backdropFilter: 'blur(4px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 10000,
+            padding: '20px',
+          }}
+        >
+          <div
+            style={{
+              background: '#ffffff',
+              borderRadius: '16px',
+              maxWidth: '520px',
+              width: '100%',
+              border: '1px solid #e2e8f0',
+              boxShadow: '0 20px 50px rgba(0,0,0,0.15)',
+              padding: '24px',
+            }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+              <div>
+                <h3 style={{ fontSize: '17px', fontWeight: 700, margin: 0, color: '#0f172a' }}>Inspect Figma Design File</h3>
+                <p style={{ fontSize: '12.5px', color: '#64748b', margin: '3px 0 0 0' }}>
+                  Import frames and design components to guide UI code generation.
+                </p>
+              </div>
+              <button onClick={() => setShowFigmaModal(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#64748b' }}>
+                <X size={18} />
+              </button>
+            </div>
+
+            <div style={{ marginTop: '18px' }}>
+              <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: '#0f172a', marginBottom: '6px' }}>
+                Figma File URL or Key
+              </label>
+              <input
+                type="text"
+                value={figmaFileUrl}
+                onChange={(e) => setFigmaFileUrl(e.target.value)}
+                placeholder="https://www.figma.com/design/abcdef123456/My-App-Design"
+                style={{
+                  width: '100%',
+                  padding: '10px 14px',
+                  borderRadius: '8px',
+                  border: '1px solid #cbd5e1',
+                  fontSize: '13px',
+                  outline: 'none',
+                  boxSizing: 'border-box',
+                }}
+              />
+
+              {figmaResult && (
+                <div style={{ marginTop: '14px', padding: '12px', background: '#f8fafc', borderRadius: '8px', border: '1px solid #e2e8f0', fontSize: '12.5px' }}>
+                  <div style={{ fontWeight: 600, color: '#0f172a' }}>{figmaResult.name}</div>
+                  <div style={{ color: '#64748b', marginTop: '2px' }}>{figmaResult.framesCount} frames extracted</div>
+                </div>
+              )}
+            </div>
+
+            <div style={{ display: 'flex', gap: '10px', marginTop: '22px' }}>
+              <button onClick={() => setShowFigmaModal(false)} style={{ flex: 1, padding: '10px', borderRadius: '8px', background: '#ffffff', border: '1px solid #cbd5e1', color: '#475569', fontSize: '13px' }}>
+                Close
+              </button>
+              <button
+                onClick={handleInspectFigmaFile}
+                disabled={figmaInspectLoading || !figmaFileUrl.trim()}
+                className="btn-primary"
+                style={{ flex: 1, padding: '10px', fontSize: '13px', borderRadius: '8px' }}
+              >
+                {figmaInspectLoading ? <Loader2 size={14} className="spin-icon" /> : 'Inspect & Sync'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Google Drive File Picker Modal ── */}
       {showPicker && (
         <div
           style={{
@@ -1135,10 +1744,7 @@ export default function ConnectedAppsSettings() {
                   Choose Drive files you want indexed into your RAG knowledge base.
                 </p>
               </div>
-              <button
-                onClick={() => setShowPicker(false)}
-                style={{ background: 'none', border: 'none', fontSize: '18px', cursor: 'pointer', color: '#64748b' }}
-              >
+              <button onClick={() => setShowPicker(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#64748b' }}>
                 <X size={18} />
               </button>
             </div>
@@ -1146,18 +1752,7 @@ export default function ConnectedAppsSettings() {
             {folderStack.length > 0 && (
               <button
                 onClick={goBack}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '4px',
-                  background: 'none',
-                  border: 'none',
-                  color: '#2563eb',
-                  fontSize: '12px',
-                  fontWeight: 600,
-                  cursor: 'pointer',
-                  padding: '0 20px 8px 20px',
-                }}
+                style={{ display: 'flex', alignItems: 'center', gap: '4px', background: 'none', border: 'none', color: '#2563eb', fontSize: '12px', fontWeight: 600, cursor: 'pointer', padding: '0 20px 8px 20px' }}
               >
                 <ChevronLeft size={14} /> Back
               </button>
@@ -1170,9 +1765,7 @@ export default function ConnectedAppsSettings() {
                   <span style={{ fontSize: '12.5px' }}>Loading files...</span>
                 </div>
               ) : pickerFiles.length === 0 ? (
-                <p style={{ fontSize: '13px', color: '#94a3b8', textAlign: 'center', padding: '30px 0' }}>
-                  No compatible files found in this folder.
-                </p>
+                <p style={{ fontSize: '13px', color: '#94a3b8', textAlign: 'center', padding: '30px 0' }}>No files found in this folder.</p>
               ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
                   {pickerFiles.map((file) => (
@@ -1187,19 +1780,6 @@ export default function ConnectedAppsSettings() {
                         borderRadius: '8px',
                         cursor: 'pointer',
                         background: !file.isFolder && selectedFileIds.includes(file.id) ? '#eff6ff' : 'transparent',
-                        transition: 'background 0.15s ease',
-                      }}
-                      onMouseOver={(e) => {
-                        if (file.isFolder || !selectedFileIds.includes(file.id)) {
-                          e.currentTarget.style.background = '#f8fafc';
-                        }
-                      }}
-                      onMouseOut={(e) => {
-                        if (!file.isFolder && selectedFileIds.includes(file.id)) {
-                          e.currentTarget.style.background = '#eff6ff';
-                        } else {
-                          e.currentTarget.style.background = 'transparent';
-                        }
                       }}
                     >
                       {!file.isFolder && (
@@ -1214,9 +1794,6 @@ export default function ConnectedAppsSettings() {
                       <span style={{ fontSize: '13px', color: '#0f172a', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                         {file.name}
                       </span>
-                      {!file.isFolder && file.size > 0 && (
-                        <span style={{ fontSize: '11px', color: '#94a3b8' }}>{(file.size / 1024).toFixed(0)} KB</span>
-                      )}
                     </div>
                   ))}
                 </div>
@@ -1226,19 +1803,7 @@ export default function ConnectedAppsSettings() {
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 20px', borderTop: '1px solid #e2e8f0' }}>
               <span style={{ fontSize: '12px', color: '#64748b' }}>{selectedFileIds.length} file(s) selected</span>
               <div style={{ display: 'flex', gap: '10px' }}>
-                <button
-                  onClick={() => setShowPicker(false)}
-                  style={{
-                    padding: '8px 16px',
-                    borderRadius: '8px',
-                    background: '#ffffff',
-                    border: '1px solid #cbd5e1',
-                    fontSize: '13px',
-                    fontWeight: 500,
-                    color: '#475569',
-                    cursor: 'pointer',
-                  }}
-                >
+                <button onClick={() => setShowPicker(false)} style={{ padding: '8px 16px', borderRadius: '8px', background: '#ffffff', border: '1px solid #cbd5e1', fontSize: '13px', color: '#475569' }}>
                   Cancel
                 </button>
                 <button
@@ -1255,7 +1820,7 @@ export default function ConnectedAppsSettings() {
         </div>
       )}
 
-      {/* ── VS Code Extension Token Reveal Modal ── */}
+      {/* ── VS Code Token Reveal Modal ── */}
       {vsCodeToken && (
         <div
           style={{
@@ -1283,18 +1848,7 @@ export default function ConnectedAppsSettings() {
           >
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
               <div style={{ display: 'flex', gap: '12px' }}>
-                <div
-                  style={{
-                    width: '38px',
-                    height: '38px',
-                    borderRadius: '10px',
-                    background: '#f5f3ff',
-                    color: '#7c3aed',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                  }}
-                >
+                <div style={{ width: '38px', height: '38px', borderRadius: '10px', background: '#f5f3ff', color: '#7c3aed', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                   <Zap size={20} />
                 </div>
                 <div>
@@ -1306,36 +1860,18 @@ export default function ConnectedAppsSettings() {
                   </p>
                 </div>
               </div>
-              <button
-                onClick={() => {
-                  setVsCodeToken(null);
-                  setVsCodeCopied(false);
-                }}
-                style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#64748b' }}
-              >
+              <button onClick={() => { setVsCodeToken(null); setVsCodeCopied(false); }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#64748b' }}>
                 <X size={18} />
               </button>
             </div>
 
-            <div
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '8px',
-                marginTop: '18px',
-                padding: '10px 14px',
-                background: '#f8fafc',
-                border: '1px solid #e2e8f0',
-                borderRadius: '10px',
-              }}
-            >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '18px', padding: '10px 14px', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '10px' }}>
               <code style={{ flex: 1, fontSize: '12.5px', color: '#0f172a', overflowX: 'auto', whiteSpace: 'nowrap', fontFamily: 'monospace' }}>
                 {vsCodeToken}
               </code>
               <button
                 type="button"
                 onClick={copyVsCodeToken}
-                title="Copy token"
                 style={{
                   background: vsCodeCopied ? '#ecfdf5' : '#ffffff',
                   border: `1px solid ${vsCodeCopied ? '#a7f3d0' : '#cbd5e1'}`,
@@ -1348,60 +1884,17 @@ export default function ConnectedAppsSettings() {
                   gap: '5px',
                   fontSize: '12px',
                   fontWeight: 600,
-                  flexShrink: 0,
                 }}
               >
-                {vsCodeCopied ? (
-                  <>
-                    <Check size={14} /> Copied!
-                  </>
-                ) : (
-                  <>
-                    <Copy size={14} /> Copy
-                  </>
-                )}
+                {vsCodeCopied ? <Check size={14} /> : <Copy size={14} />} {vsCodeCopied ? 'Copied' : 'Copy'}
               </button>
-            </div>
-
-            <div style={{ marginTop: '18px', padding: '14px', background: '#f8fafc', borderRadius: '10px', border: '1px solid #e2e8f0' }}>
-              <p style={{ margin: '0 0 8px 0', fontSize: '13px', fontWeight: 600, color: '#0f172a' }}>Quick Setup in VS Code:</p>
-              <ol style={{ margin: 0, paddingLeft: '18px', fontSize: '12.5px', color: '#475569', lineHeight: 1.6 }}>
-                <li>Open VS Code Settings (<kbd style={{ background: '#e2e8f0', padding: '1px 5px', borderRadius: '4px' }}>Ctrl+,</kbd> or <kbd style={{ background: '#e2e8f0', padding: '1px 5px', borderRadius: '4px' }}>Cmd+,</kbd>).</li>
-                <li>Search for <strong>Harikson</strong>.</li>
-                <li>Set <strong>Tenant Url</strong> to <code>https://xarwiz.com</code>.</li>
-                <li>Paste this token into <strong>Api Key</strong>.</li>
-              </ol>
             </div>
 
             <div style={{ display: 'flex', gap: '10px', marginTop: '20px' }}>
-              <button
-                onClick={() => {
-                  setVsCodeToken(null);
-                  setVsCodeCopied(false);
-                  setShowVsCodeGuide(true);
-                }}
-                style={{
-                  flex: 1,
-                  padding: '10px',
-                  borderRadius: '8px',
-                  background: '#ffffff',
-                  border: '1px solid #cbd5e1',
-                  color: '#475569',
-                  fontSize: '13px',
-                  fontWeight: 500,
-                  cursor: 'pointer',
-                }}
-              >
-                View Full Guide
+              <button onClick={() => { setVsCodeToken(null); setShowVsCodeGuide(true); }} style={{ flex: 1, padding: '10px', borderRadius: '8px', background: '#ffffff', border: '1px solid #cbd5e1', color: '#475569', fontSize: '13px' }}>
+                View Guide
               </button>
-              <button
-                onClick={() => {
-                  setVsCodeToken(null);
-                  setVsCodeCopied(false);
-                }}
-                className="btn-primary"
-                style={{ flex: 1, padding: '10px', fontSize: '13px', borderRadius: '8px' }}
-              >
+              <button onClick={() => setVsCodeToken(null)} className="btn-primary" style={{ flex: 1, padding: '10px', fontSize: '13px', borderRadius: '8px' }}>
                 Done
               </button>
             </div>
@@ -1439,18 +1932,7 @@ export default function ConnectedAppsSettings() {
           >
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
               <div style={{ display: 'flex', gap: '12px' }}>
-                <div
-                  style={{
-                    width: '38px',
-                    height: '38px',
-                    borderRadius: '10px',
-                    background: '#f5f3ff',
-                    color: '#7c3aed',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                  }}
-                >
+                <div style={{ width: '38px', height: '38px', borderRadius: '10px', background: '#f5f3ff', color: '#7c3aed', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                   <BookOpen size={20} />
                 </div>
                 <div>
@@ -1462,10 +1944,7 @@ export default function ConnectedAppsSettings() {
                   </p>
                 </div>
               </div>
-              <button
-                onClick={() => setShowVsCodeGuide(false)}
-                style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#64748b' }}
-              >
+              <button onClick={() => setShowVsCodeGuide(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#64748b' }}>
                 <X size={18} />
               </button>
             </div>
@@ -1476,9 +1955,6 @@ export default function ConnectedAppsSettings() {
                   <span style={{ width: '20px', height: '20px', borderRadius: '50%', background: '#7c3aed', color: '#ffffff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', fontWeight: 700 }}>1</span>
                   <span style={{ fontSize: '13.5px', fontWeight: 600, color: '#0f172a' }}>Install the Extension</span>
                 </div>
-                <p style={{ fontSize: '12.5px', color: '#475569', margin: 0, lineHeight: 1.5 }}>
-                  Install from the VSIX package in your terminal:
-                </p>
                 <pre style={{ margin: '8px 0 0 0', padding: '8px 10px', background: '#0f172a', color: '#f8fafc', borderRadius: '6px', fontSize: '11.5px', overflowX: 'auto' }}>
                   code --install-extension harikson-vscode-extension-1.0.0.vsix
                 </pre>
@@ -1489,165 +1965,16 @@ export default function ConnectedAppsSettings() {
                   <span style={{ width: '20px', height: '20px', borderRadius: '50%', background: '#7c3aed', color: '#ffffff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', fontWeight: 700 }}>2</span>
                   <span style={{ fontSize: '13.5px', fontWeight: 600, color: '#0f172a' }}>Configure Credentials</span>
                 </div>
-                <p style={{ fontSize: '12.5px', color: '#475569', margin: '0 0 6px 0', lineHeight: 1.5 }}>
-                  Open VS Code Settings (<kbd style={{ background: '#e2e8f0', padding: '1px 5px', borderRadius: '4px' }}>Cmd+,</kbd> or <kbd style={{ background: '#e2e8f0', padding: '1px 5px', borderRadius: '4px' }}>Ctrl+,</kbd>) and configure:
-                </p>
                 <div style={{ fontSize: '12px', color: '#334155', display: 'flex', flexDirection: 'column', gap: '4px' }}>
                   <div>• <code>Harikson: Tenant Url</code> → <code>https://xarwiz.com</code></div>
                   <div>• <code>Harikson: Api Key</code> → your personal access token</div>
                 </div>
               </div>
-
-              <div style={{ padding: '14px', background: '#f8fafc', borderRadius: '10px', border: '1px solid #e2e8f0' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
-                  <span style={{ width: '20px', height: '20px', borderRadius: '50%', background: '#7c3aed', color: '#ffffff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', fontWeight: 700 }}>3</span>
-                  <span style={{ fontSize: '13.5px', fontWeight: 600, color: '#0f172a' }}>Features Included</span>
-                </div>
-                <ul style={{ margin: 0, paddingLeft: '18px', fontSize: '12px', color: '#475569', lineHeight: 1.6 }}>
-                  <li><strong>Inline Ghost Text</strong>: Real-time code completions as you type.</li>
-                  <li><strong>Sidebar Assistant</strong>: Chat with your models inside the editor activity bar.</li>
-                  <li><strong>Review Selection</strong>: Run <code>Harikson: Review Selection</code> from the Command Palette for instant code diff suggestions.</li>
-                </ul>
-              </div>
             </div>
 
-            <button
-              onClick={() => setShowVsCodeGuide(false)}
-              className="btn-primary"
-              style={{ marginTop: '20px', width: '100%', padding: '10px', fontSize: '13px', borderRadius: '8px' }}
-            >
+            <button onClick={() => setShowVsCodeGuide(false)} className="btn-primary" style={{ marginTop: '20px', width: '100%', padding: '10px', fontSize: '13px', borderRadius: '8px' }}>
               Close
             </button>
-          </div>
-        </div>
-      )}
-
-      {/* ── Coming Soon / Preview Modal ── */}
-      {previewApp && (
-        <div
-          style={{
-            position: 'fixed',
-            inset: 0,
-            background: 'rgba(15, 23, 42, 0.45)',
-            backdropFilter: 'blur(4px)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            zIndex: 10000,
-            padding: '20px',
-          }}
-        >
-          <div
-            style={{
-              background: '#ffffff',
-              borderRadius: '16px',
-              maxWidth: '520px',
-              width: '100%',
-              border: '1px solid #e2e8f0',
-              boxShadow: '0 20px 50px rgba(0,0,0,0.15)',
-              padding: '24px',
-            }}
-          >
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-              <div style={{ display: 'flex', gap: '14px' }}>
-                <div
-                  style={{
-                    width: '44px',
-                    height: '44px',
-                    borderRadius: '12px',
-                    background: previewApp.iconBg || '#f8fafc',
-                    border: '1px solid #e2e8f0',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                  }}
-                >
-                  {appIcon(previewApp.id)}
-                </div>
-                <div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <h3 style={{ fontSize: '17px', fontWeight: 700, margin: 0, color: '#0f172a' }}>
-                      {previewApp.name}
-                    </h3>
-                  </div>
-                  <p style={{ fontSize: '12.5px', color: '#64748b', margin: '3px 0 0 0' }}>
-                    {previewApp.category} • Early Access Preview
-                  </p>
-                </div>
-              </div>
-              <button
-                onClick={() => setPreviewApp(null)}
-                style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#64748b' }}
-              >
-                <X size={18} />
-              </button>
-            </div>
-
-            <p style={{ fontSize: '13px', color: '#334155', lineHeight: 1.5, margin: '16px 0 14px 0' }}>
-              {previewApp.description}
-            </p>
-
-            <div style={{ padding: '14px', background: '#f8fafc', borderRadius: '10px', border: '1px solid #e2e8f0' }}>
-              <p style={{ margin: '0 0 8px 0', fontSize: '12.5px', fontWeight: 600, color: '#0f172a' }}>
-                Key Capabilities:
-              </p>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                {(previewApp.features || []).map((feat, idx) => (
-                  <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px', color: '#475569' }}>
-                    <CheckCircle2 size={14} style={{ color: '#10b981', flexShrink: 0 }} />
-                    <span>{feat}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <div style={{ display: 'flex', gap: '10px', marginTop: '20px' }}>
-              <button
-                onClick={() => setPreviewApp(null)}
-                style={{
-                  flex: 1,
-                  padding: '10px',
-                  borderRadius: '8px',
-                  background: '#ffffff',
-                  border: '1px solid #cbd5e1',
-                  color: '#475569',
-                  fontSize: '13px',
-                  fontWeight: 500,
-                  cursor: 'pointer',
-                }}
-              >
-                Close
-              </button>
-              <button
-                onClick={() => handleJoinWaitlist(previewApp.id)}
-                disabled={waitlistSuccess[previewApp.id] || waitlistLoading}
-                className="btn-primary"
-                style={{
-                  flex: 1,
-                  padding: '10px',
-                  fontSize: '13px',
-                  borderRadius: '8px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: '6px',
-                  background: waitlistSuccess[previewApp.id] ? '#10b981' : undefined,
-                  borderColor: waitlistSuccess[previewApp.id] ? '#10b981' : undefined,
-                }}
-              >
-                {waitlistLoading ? (
-                  <Loader2 size={14} className="spin-icon" />
-                ) : waitlistSuccess[previewApp.id] ? (
-                  <>
-                    <Check size={14} /> On Early Access List
-                  </>
-                ) : (
-                  <>
-                    <Bell size={14} /> Notify Me When Ready
-                  </>
-                )}
-              </button>
-            </div>
           </div>
         </div>
       )}
