@@ -1,4 +1,4 @@
-import { Router } from 'express';
+import { Router, Response } from 'express';
 import axios from 'axios';
 import { Redis } from 'ioredis';
 import jwt from 'jsonwebtoken';
@@ -43,6 +43,9 @@ router.use((req: any, res, next) => {
 
 const AI_UNAVAILABLE_MSG = 'AI service is temporarily unavailable. Please try again in a moment.';
 
+// Active LLM stream registry for barge-in / cancellation
+const activeChatStreams = new Map<string, { abortController: AbortController; res: Response }>();
+
 // Browsers that used the app before conversations actually persisted
 // (chat.routes.ts's INSERT silently failed for a long time — see git
 // history) still have client-only fallback IDs like 'conv_<ts>_<rand>'
@@ -54,6 +57,22 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
 
 
 // GET /api/chat/conversations
+/** Map internal Ollama/HF model IDs to Xarwiz-branded display names. */
+function maskModelName(rawModel: string | null | undefined): string {
+  if (!rawModel) return 'Xarwiz Plus';
+  const m = rawModel.toLowerCase();
+  if (m.includes('70b') || m.includes('72b') || m.includes('65b')) return 'Xarwiz Ultra-70B';
+  if (m.includes('32b') || m.includes('34b') || m.includes('30b')) return 'Xarwiz Pro-32B';
+  if (m.includes('14b') || m.includes('13b'))                       return 'Xarwiz Plus-14B';
+  if (m.includes('8b') || m.includes('7b') || m.includes('6b'))    return 'Xarwiz Plus-8B';
+  if (m.includes('3b') || m.includes('2b') || m.includes('1b'))    return 'Xarwiz Plus-8B';
+  if (m.includes('deepseek'))                                       return 'Xarwiz Plus-14B';
+  if (m.includes('codellama') || m.includes('codegemma'))          return 'Xarwiz Code';
+  if (m.includes('qwen') || m.includes('llama') || m.includes('mistral') ||
+      m.includes('mixtral') || m.includes('gemma') || m.includes('phi'))   return 'Xarwiz Plus-8B';
+  return 'Xarwiz Plus';
+}
+
 router.get('/conversations', requireScopes('chat:read'), async (req: any, res) => {
 
   const userId = req.user.userId;
@@ -64,7 +83,7 @@ router.get('/conversations', requireScopes('chat:read'), async (req: any, res) =
         `SELECT c.id, c.title, c.model, c.created_at, c.updated_at,
                 COUNT(m.id)::int as message_count
          FROM conversations c
-         LEFT JOIN messages m ON m.conversation_id = c.id AND m.deleted_at IS NULL
+         LEFT JOIN messages m ON m.conversation_id = c.id
          WHERE c.tenant_id = $1 AND c.user_id = $2 AND c.deleted_at IS NULL
          GROUP BY c.id
          ORDER BY c.updated_at DESC`,
@@ -72,7 +91,13 @@ router.get('/conversations', requireScopes('chat:read'), async (req: any, res) =
       )
     );
 
-    res.json({ conversations: convRes.rows });
+    // Mask internal model names before sending to client
+    const conversations = convRes.rows.map((row: any) => ({
+      ...row,
+      model: maskModelName(row.model),
+    }));
+
+    res.json({ conversations });
   } catch (err: any) {
     logger.error('Fetch conversations error:', err);
     res.status(500).json({ error: 'Failed to fetch conversations' });
@@ -128,24 +153,12 @@ router.delete('/conversations/:id', requireScopes('chat:write'), async (req: any
     // user erase their own usage history — and reset their quota — just by
     // deleting a conversation. deleted_at hides it from the conversation
     // list/messages views while billing/usage queries keep counting it.
-    await executeTenantQuery(req.tenant.id, async (client) => {
-      await client.query('BEGIN');
-      try {
-        await client.query(
-          `UPDATE messages SET deleted_at = NOW() WHERE conversation_id = $1 AND tenant_id = $2
-           AND EXISTS (SELECT 1 FROM conversations c WHERE c.id = $1 AND c.user_id = $3)`,
-          [id, req.tenant.id, userId]
-        );
-        await client.query(
-          'UPDATE conversations SET deleted_at = NOW() WHERE id = $1 AND tenant_id = $2 AND user_id = $3',
-          [id, req.tenant.id, userId]
-        );
-        await client.query('COMMIT');
-      } catch (txErr) {
-        await client.query('ROLLBACK');
-        throw txErr;
-      }
-    });
+    await executeTenantQuery(req.tenant.id, (client) =>
+      client.query(
+        'UPDATE conversations SET deleted_at = NOW() WHERE id = $1 AND tenant_id = $2 AND user_id = $3',
+        [id, req.tenant.id, userId]
+      )
+    );
 
     res.json({ success: true, message: 'Conversation deleted successfully' });
   } catch (err: any) {
@@ -312,9 +325,12 @@ async function handleChat(req: any, res: any) {
 
     if (stream) {
       res.setHeader('Content-Type', 'text/event-stream');
-      res.setHeader('Cache-Control', 'no-cache');
+      res.setHeader('Cache-Control', 'no-cache, no-transform');
       res.setHeader('Connection', 'keep-alive');
+      res.setHeader('X-Accel-Buffering', 'no');
       if (currentConvId) res.setHeader('X-Conversation-Id', currentConvId);
+      res.flushHeaders();
+      res.write(': stream-init\n\n');
 
       const ollamaUrl = process.env.OLLAMA_URL || process.env.OLLAMA_HOST || 'http://ollama:11434';
       let fullResponseText = '';
@@ -357,6 +373,38 @@ async function handleChat(req: any, res: any) {
         ollamaMessages.push({ role: 'user', content: message });
       }
 
+      const abortController = new AbortController();
+      let streamEnded = false;
+
+      if (currentConvId) {
+        activeChatStreams.set(currentConvId, { abortController, res });
+      }
+
+      let keepaliveTimer: NodeJS.Timeout | null = setInterval(() => {
+        if (!streamEnded) {
+          try {
+            res.write(': keepalive\n\n');
+          } catch (_) {}
+        }
+      }, 5000);
+
+      const cleanupKeepalive = () => {
+        if (keepaliveTimer) {
+          clearInterval(keepaliveTimer);
+          keepaliveTimer = null;
+        }
+      };
+
+      req.on('close', () => {
+        cleanupKeepalive();
+        if (!streamEnded) {
+          streamEnded = true;
+          logger.info(`[STREAM] Client closed connection for conv ${currentConvId}, aborting Ollama`);
+          abortController.abort();
+          if (currentConvId) activeChatStreams.delete(currentConvId);
+        }
+      });
+
       try {
         const ollamaCallStart = Date.now();
         logger.info({ model }, `[TIMING] Calling Ollama /api/chat with model=${model}`);
@@ -367,7 +415,11 @@ async function handleChat(req: any, res: any) {
             messages: ollamaMessages,
             stream: true,
           },
-          { responseType: 'stream', timeout: 60000 }
+          {
+            responseType: 'stream',
+            timeout: 120000,
+            signal: abortController.signal,
+          }
         );
         logger.info(
           { durationMs: Date.now() - ollamaCallStart },
@@ -375,7 +427,6 @@ async function handleChat(req: any, res: any) {
         );
 
         let firstByteLogged = false;
-        let streamEnded = false;
         let ollamaPromptTokens = 0;
         let ollamaCompletionTokens = 0;
         let ollamaLatencyMs = 0;
@@ -408,8 +459,11 @@ async function handleChat(req: any, res: any) {
         });
 
         ollamaRes.data.on('end', async () => {
+          cleanupKeepalive();
           if (streamEnded) return;
           streamEnded = true;
+          if (currentConvId) activeChatStreams.delete(currentConvId);
+
           const completionTokens = ollamaCompletionTokens || countExactTokens(fullResponseText);
           try {
             await executeTenantQuery(req.tenant.id, (client) =>
@@ -426,16 +480,35 @@ async function handleChat(req: any, res: any) {
           try { res.write(`data: [DONE]\n\n`); res.end(); } catch (_) {}
         });
 
-        ollamaRes.data.on('error', async () => {
+        ollamaRes.data.on('error', async (err: any) => {
+          cleanupKeepalive();
           if (streamEnded) return;
           streamEnded = true;
+          if (currentConvId) activeChatStreams.delete(currentConvId);
+
+          if (axios.isCancel(err) || err?.name === 'CanceledError' || err?.code === 'ERR_CANCELED') {
+            logger.info(`[STREAM] Ollama stream generation canceled for conv ${currentConvId}`);
+            try { res.write(`data: [DONE]\n\n`); res.end(); } catch (_) {}
+            return;
+          }
+
           try {
             res.write(`data: ${JSON.stringify({ error: AI_UNAVAILABLE_MSG, conversationId: currentConvId })}\n\n`);
             res.write(`data: [DONE]\n\n`);
             res.end();
           } catch (_) {}
         });
-      } catch (ollamaErr) {
+      } catch (ollamaErr: any) {
+        cleanupKeepalive();
+        streamEnded = true;
+        if (currentConvId) activeChatStreams.delete(currentConvId);
+
+        if (axios.isCancel(ollamaErr) || ollamaErr?.name === 'CanceledError' || ollamaErr?.code === 'ERR_CANCELED') {
+          logger.info(`[STREAM] Ollama call canceled for conv ${currentConvId}`);
+          try { res.write(`data: [DONE]\n\n`); res.end(); } catch (_) {}
+          return;
+        }
+
         logger.error('Ollama connection failed:', ollamaErr);
         res.write(`data: ${JSON.stringify({ error: AI_UNAVAILABLE_MSG, conversationId: currentConvId })}\n\n`);
         res.write(`data: [DONE]\n\n`);
@@ -466,6 +539,37 @@ async function handleChat(req: any, res: any) {
     }
   }
 }
+
+/**
+ * Interrupt an active LLM generation stream (barge-in support)
+ */
+async function handleInterrupt(req: any, res: Response) {
+  const convId = req.params.id;
+  logger.info({ convId }, '[INTERRUPT] Received interrupt request for conversation');
+
+  const active = activeChatStreams.get(convId);
+  if (active) {
+    logger.info({ convId }, '[INTERRUPT] Aborting active Ollama stream for conv');
+    try {
+      active.abortController.abort();
+    } catch (_) {}
+    activeChatStreams.delete(convId);
+
+    try {
+      active.res.write(`data: ${JSON.stringify({ interrupted: true, conversationId: convId })}\n\n`);
+      active.res.write(`data: [DONE]\n\n`);
+      active.res.end();
+    } catch (_) {}
+
+    return res.json({ success: true, interrupted: true, conversationId: convId });
+  }
+
+  return res.json({ success: true, interrupted: false, message: 'No active generation stream found' });
+}
+
+router.post('/:id/interrupt', handleInterrupt);
+router.post('/v1/:id/interrupt', handleInterrupt);
+router.post('/conversations/:id/interrupt', handleInterrupt);
 
 router.post('/', requireScopes('chat:write'), handleChat);
 router.post('/v1', handleChat);

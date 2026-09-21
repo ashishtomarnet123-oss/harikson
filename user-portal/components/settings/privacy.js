@@ -47,6 +47,31 @@ export default function DataPrivacySettings() {
     }
   };
 
+  /**
+   * Masks internal model names (Ollama/HuggingFace identifiers) with
+   * Xarwiz-branded display names. Users should never see underlying
+   * infrastructure model names in their exported data.
+   */
+  const maskModelName = (rawModel) => {
+    if (!rawModel) return 'Xarwiz Plus';
+    const m = String(rawModel).toLowerCase();
+    // Parameter-count based mapping
+    if (m.includes('70b') || m.includes('72b') || m.includes('65b')) return 'Xarwiz Ultra-70B';
+    if (m.includes('32b') || m.includes('34b') || m.includes('30b')) return 'Xarwiz Pro-32B';
+    if (m.includes('14b') || m.includes('13b')) return 'Xarwiz Plus-14B';
+    if (m.includes('8b') || m.includes('7b') || m.includes('6b')) return 'Xarwiz Plus-8B';
+    if (m.includes('3b') || m.includes('2b') || m.includes('1b')) return 'Xarwiz Plus-8B';
+    // Model family fallbacks
+    if (m.includes('qwen')) return 'Xarwiz Plus-8B';
+    if (m.includes('llama')) return 'Xarwiz Plus-8B';
+    if (m.includes('mistral') || m.includes('mixtral')) return 'Xarwiz Plus-8B';
+    if (m.includes('gemma')) return 'Xarwiz Plus-8B';
+    if (m.includes('phi')) return 'Xarwiz Plus-8B';
+    if (m.includes('deepseek')) return 'Xarwiz Plus-14B';
+    if (m.includes('codellama') || m.includes('codegemma')) return 'Xarwiz Code';
+    return 'Xarwiz Plus';
+  };
+
   const handleExport = async () => {
     setExportingData(true);
     setMessage(null);
@@ -57,17 +82,25 @@ export default function DataPrivacySettings() {
       });
       if (res.ok) {
         const profileData = await res.json();
+
+        // Mask internal model names in conversation history
+        const rawConversations = JSON.parse(localStorage.getItem('hk_recent_conversations') || '[]');
+        const maskedConversations = rawConversations.map((conv) => ({
+          ...conv,
+          model: maskModelName(conv.model),
+        }));
+
         const exportObj = {
           exportedAt: new Date().toISOString(),
           platform: 'Xarwiz AI',
           user: profileData,
-          localConversations: JSON.parse(localStorage.getItem('hk_recent_conversations') || '[]'),
+          localConversations: maskedConversations,
         };
         const blob = new Blob([JSON.stringify(exportObj, null, 2)], { type: 'application/json' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `harikson-privacy-export-${Date.now()}.json`;
+        a.download = `xarwiz-data-export-${Date.now()}.json`;
         a.click();
         URL.revokeObjectURL(url);
         setMessage({ type: 'success', text: 'Data export downloaded successfully.' });
