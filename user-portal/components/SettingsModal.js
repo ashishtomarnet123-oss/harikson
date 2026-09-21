@@ -231,6 +231,17 @@ export default function SettingsModal({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isOpen, onClose]);
 
+  // Handle programmatic tab navigation from within setting tabs (e.g. Upgrade -> Billing)
+  useEffect(() => {
+    const handleNav = (e) => {
+      if (e.detail && typeof e.detail === 'string') {
+        setActiveTab(e.detail);
+      }
+    };
+    window.addEventListener('settings:navigate', handleNav);
+    return () => window.removeEventListener('settings:navigate', handleNav);
+  }, []);
+
   if (!isOpen) return null;
 
   const activeItem = allItems.find((i) => i.id === activeTab) || allItems[0];
@@ -302,7 +313,7 @@ export default function SettingsModal({
           {/* ── Content ── */}
           <div className="settings-content-wrapper">
             <div className="settings-content">
-              <ActiveComponent onClose={onClose} />
+              <ActiveComponent onClose={onClose} onTabChange={setActiveTab} setActiveTab={setActiveTab} />
             </div>
           </div>
         </div>
