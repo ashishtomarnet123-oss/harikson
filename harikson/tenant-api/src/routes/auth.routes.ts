@@ -293,7 +293,7 @@ async function handleRegister(req: any, res: any) {
 
     const newTenantRes = await pool.query(
       `INSERT INTO tenants (name, slug, plan, status, created_at)
-       VALUES ($1, $2, 'professional', 'active', NOW())
+       VALUES ($1, $2, 'free', 'active', NOW())
        RETURNING id`,
       [companyName || (name ? `${name}'s Workspace` : 'My Workspace'), slugToUse]
     );
@@ -322,14 +322,16 @@ async function handleRegister(req: any, res: any) {
 
     const user = newUserRes.rows[0];
 
-    // Assign active 14-day Professional Plan Free Trial
+    // Assign Free Plan — users must purchase a paid plan to get more features.
+    // No auto-trial of Professional or any paid plan.
     await pool.query(
       `INSERT INTO subscriptions (
-        tenant_id, plan_id, provider, provider_subscription_id, status, current_period_start, current_period_end, amount, currency, created_at
+        tenant_id, plan_id, provider, provider_subscription_id, status,
+        current_period_start, current_period_end, amount, currency, created_at
        )
-       VALUES ($1, 'professional', 'system', $2, 'active', NOW(), NOW() + INTERVAL '14 days', 0, 'USD', NOW())`,
-      [tenantId, 'sub_trial_' + crypto.randomBytes(8).toString('hex')]
-    ).catch((err) => logger.error('Failed to create trial subscription:', err?.message || err));
+       VALUES ($1, 'free', 'system', $2, 'active', NOW(), NULL, 0, 'INR', NOW())`,
+      [tenantId, 'sub_free_' + crypto.randomBytes(8).toString('hex')]
+    ).catch((err) => logger.error('Failed to create free subscription:', err?.message || err));
 
     const verifyUrl = `https://xarwiz.com/verify-email?token=${verificationToken}`;
     sendVerificationEmail(user.email, verifyUrl).catch((err) =>
