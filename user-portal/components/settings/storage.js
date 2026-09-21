@@ -12,7 +12,6 @@ import {
   ArrowUpRight,
   Sparkles,
   RefreshCw,
-  FolderOpen,
   Check,
 } from 'lucide-react';
 
@@ -485,68 +484,6 @@ export default function StorageSettings({ onClose }) {
             ))}
           </div>
         )}
-      </div>
-
-      {/* ── Knowledge Base Quick-Link Banner ── */}
-      <div
-        className="settings-card"
-        style={{
-          background: 'linear-gradient(135deg, #eff6ff 0%, #f8fafc 100%)',
-          border: '1px solid #bfdbfe',
-          borderRadius: '12px',
-          padding: '16px 18px',
-          display: 'flex',
-          flexDirection: 'row',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          gap: '12px',
-          flexWrap: 'nowrap',
-        }}
-      >
-        {/* Left: icon + text */}
-        <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', gap: '12px', flex: 1, minWidth: 0 }}>
-          <div
-            style={{
-              width: '38px',
-              height: '38px',
-              borderRadius: '10px',
-              background: '#2563eb',
-              color: '#ffffff',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              flexShrink: 0,
-            }}
-          >
-            <FolderOpen size={19} />
-          </div>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: '13.5px', fontWeight: 600, color: '#1e3a8a', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-              Full Knowledge Base & Document Browser
-            </div>
-            <div style={{ fontSize: '12px', color: '#3b82f6', marginTop: '3px', lineHeight: '1.4' }}>
-              Search chunks, download originals, manage batches, or purge vector data.
-            </div>
-          </div>
-        </div>
-
-        {/* Right: CTA button */}
-        <button
-          className="btn-primary"
-          onClick={openKnowledgeBase}
-          style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: '6px',
-            flexShrink: 0,
-            whiteSpace: 'nowrap',
-            fontSize: '13px',
-            padding: '8px 14px',
-          }}
-        >
-          <span>Open Knowledge Base</span>
-          <ArrowUpRight size={14} />
-        </button>
       </div>
     </>
   );
