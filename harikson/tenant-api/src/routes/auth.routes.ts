@@ -453,6 +453,8 @@ router.post('/login/2fa', async (req, res) => {
 });
 
 // POST /refresh - Refresh Token
+// Rolling refresh: each successful refresh extends the session by another 30 days.
+// Users stay logged in indefinitely until they explicitly log out.
 async function handleRefresh(req: any, res: any) {
   const refreshToken = req.body?.refreshToken || req.cookies?.hk_refresh_token;
   if (!refreshToken) {
@@ -470,31 +472,13 @@ async function handleRefresh(req: any, res: any) {
 
     if (new Date(rtRecord.expires_at) < new Date()) {
       await pool.query('DELETE FROM refresh_tokens WHERE id = $1', [rtRecord.id]);
-      return res.status(401).json({ error: 'Refresh token expired. Please log in again.' });
+      return res.status(401).json({ error: 'Session expired. Please log in again.' });
     }
 
-    // Fingerprint Mismatch Check
+    // NOTE: Device fingerprint check removed intentionally.
+    // It was causing sign-outs on every IP change (WiFi→cellular, VPN, ISP rotation).
+    // We log the current fingerprint for audit purposes only.
     const currentFingerprint = computeDeviceFingerprint(req);
-    if (rtRecord.device_hash && rtRecord.device_hash !== currentFingerprint.deviceHash) {
-      await pool.query('DELETE FROM refresh_tokens WHERE refresh_token_family = $1', [
-        rtRecord.refresh_token_family,
-      ]);
-      const host = req.headers.host || '';
-      const domainSuffix = host.includes('xarwiz.com') ? '; Domain=.xarwiz.com' : '';
-      res.setHeader('Set-Cookie', [
-        `hk_access_token=; HttpOnly; SameSite=Strict; Path=/; Max-Age=0${domainSuffix}`,
-        `hk_refresh_token=; HttpOnly; SameSite=Strict; Path=/; Max-Age=0${domainSuffix}`,
-      ]);
-
-      const userRes = await pool.query('SELECT email FROM users WHERE id = $1', [rtRecord.user_id]);
-      if (userRes.rows[0]?.email) {
-        sendDeviceMismatchAlert(userRes.rows[0].email, currentFingerprint.ip, currentFingerprint.deviceName).catch(
-          (err) => logger.error('Failed to send device mismatch email:', err)
-        );
-      }
-
-      return res.status(403).json({ error: 'Device mismatch detected. Please log in again.' });
-    }
 
     const userRes = await pool.query('SELECT * FROM users WHERE id = $1 AND deleted_at IS NULL', [rtRecord.user_id]);
     const user = userRes.rows[0];
@@ -502,9 +486,13 @@ async function handleRefresh(req: any, res: any) {
       return res.status(401).json({ error: 'User no longer exists' });
     }
 
+    // Issue new access token (1h) and rolling refresh token
     const newAccessToken = jwt.sign({ userId: user.id, role: user.role }, getJwtSecret(), { expiresIn: '1h' });
     const newRefreshToken = crypto.randomBytes(64).toString('hex');
     const newRefreshTokenHash = crypto.createHash('sha256').update(newRefreshToken).digest('hex');
+
+    // Rolling expiry: 30 days from NOW (not from original issue date)
+    const rollingExpiry = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
 
     await pool.query('DELETE FROM refresh_tokens WHERE id = $1', [rtRecord.id]);
     await pool.query(
@@ -517,9 +505,9 @@ async function handleRefresh(req: any, res: any) {
         newRefreshTokenHash,
         user.id,
         user.tenant_id,
-        new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+        rollingExpiry,
         rtRecord.refresh_token_family,
-        currentFingerprint.deviceHash,
+        currentFingerprint.deviceHash, // stored for audit, NOT enforced on next request
         currentFingerprint.deviceName,
         currentFingerprint.ip,
         currentFingerprint.countryCode,
@@ -529,16 +517,18 @@ async function handleRefresh(req: any, res: any) {
     const host = req.headers.host || '';
     const domainSuffix = host.includes('xarwiz.com') ? '; Domain=.xarwiz.com' : '';
     const isHttps = req.headers['x-forwarded-proto'] === 'https' || (req.socket as any)?.encrypted;
-    const secureFlag = isHttps ? 'Secure;' : '';
+    const secureFlag = isHttps ? 'Secure; ' : '';
 
+    // Cookie max-age matches actual token lifetimes
     res.setHeader('Set-Cookie', [
-      `hk_access_token=${newAccessToken}; HttpOnly; ${secureFlag} SameSite=Strict; Path=/; Max-Age=${15 * 60}${domainSuffix}`,
-      `hk_refresh_token=${newRefreshToken}; HttpOnly; ${secureFlag} SameSite=Strict; Path=/; Max-Age=${30 * 24 * 60 * 60}${domainSuffix}`,
+      `hk_access_token=${newAccessToken}; HttpOnly; ${secureFlag}SameSite=Strict; Path=/; Max-Age=${60 * 60}${domainSuffix}`,
+      `hk_refresh_token=${newRefreshToken}; HttpOnly; ${secureFlag}SameSite=Strict; Path=/; Max-Age=${30 * 24 * 60 * 60}${domainSuffix}`,
     ]);
 
     res.json({
       success: true,
-      token: newAccessToken,
+      accessToken: newAccessToken,   // consistent key used by AuthContext
+      token: newAccessToken,         // legacy alias
       refreshToken: newRefreshToken,
     });
   } catch (err: any) {
