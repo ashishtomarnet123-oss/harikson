@@ -74,16 +74,6 @@ export default function SecurityComplianceSettings() {
 
   const twoFactorEnabled = profile?.two_factor_enabled || profile?.twoFactorEnabled;
 
-  const securityScore = (() => {
-    let score = 40;
-    if (twoFactorEnabled) score += 30;
-    if (apiKeys.length > 0) score += 10;
-    if (sessions.length <= 3) score += 20;
-    return Math.min(score, 100);
-  })();
-
-  const scoreColor = securityScore >= 80 ? '#10b981' : securityScore >= 50 ? '#f59e0b' : '#ef4444';
-
   if (loading) {
     return (
       <>
@@ -105,17 +95,9 @@ export default function SecurityComplianceSettings() {
         <p>Monitor your security posture, sessions, and compliance status.</p>
       </div>
 
-      {/* Security Score + Quick Stats */}
+      {/* Quick Stats */}
       <div className="settings-section">
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '12px', marginBottom: '8px' }}>
-          <div style={{
-            padding: '16px', borderRadius: '10px',
-            backgroundColor: 'var(--bg-hover, rgba(255,255,255,0.04))',
-            border: '1px solid var(--border, rgba(255,255,255,0.08))',
-          }}>
-            <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Security Score</div>
-            <div style={{ fontSize: '28px', fontWeight: 800, color: scoreColor, marginTop: '4px', fontFamily: 'JetBrains Mono, monospace' }}>{securityScore}%</div>
-          </div>
           <div style={{
             padding: '16px', borderRadius: '10px',
             backgroundColor: 'var(--bg-hover, rgba(255,255,255,0.04))',
