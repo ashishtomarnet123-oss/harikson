@@ -18,7 +18,7 @@ import {
   Link2,
   Key,
   Lock,
-  ShieldCheck,
+
 } from 'lucide-react';
 import { useRouter } from 'next/router';
 
@@ -33,7 +33,6 @@ import SecuritySettings from './settings/security';
 import DataPrivacySettings from './settings/privacy';
 import DeveloperSettings from './settings/developer';
 import DeveloperConfigSettings from './settings/developerConfig';
-import SecurityComplianceSettings from './settings/securityCompliance';
 import AppearanceSettings from './settings/appearance';
 import LanguageSettings from './settings/language';
 import HelpSettings from './settings/help';
@@ -183,12 +182,6 @@ const navSections = [
   {
     title: 'SECURITY & PRIVACY',
     items: [
-      {
-        id: 'security_compliance',
-        name: 'Security & Compliance',
-        icon: ShieldCheck,
-        Component: SecurityComplianceSettings,
-      },
       {
         id: 'security',
         name: 'Authentication',
