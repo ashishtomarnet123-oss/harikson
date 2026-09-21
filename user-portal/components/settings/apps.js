@@ -702,38 +702,15 @@ export default function ConnectedAppsSettings() {
       }
       if (app.id === 'vscode') {
         return (
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
-            <button
-              type="button"
-              onClick={() => setShowVsCodeGuide(true)}
-              style={{
-                height: '34px',
-                padding: '0 12px',
-                background: '#ffffff',
-                border: '1px solid #cbd5e1',
-                borderRadius: '8px',
-                color: '#334155',
-                fontSize: '12.5px',
-                fontWeight: 500,
-                cursor: 'pointer',
-                whiteSpace: 'nowrap',
-                transition: 'all 0.15s ease',
-              }}
-              onMouseEnter={(e) => { e.currentTarget.style.background = '#f8fafc'; e.currentTarget.style.borderColor = '#94a3b8'; }}
-              onMouseLeave={(e) => { e.currentTarget.style.background = '#ffffff'; e.currentTarget.style.borderColor = '#cbd5e1'; }}
-            >
-              Guide
-            </button>
-            <button
-              type="button"
-              onClick={handleConnectVsCode}
-              disabled={isBusy}
-              className="btn-primary"
-              style={{ height: '34px', padding: '0 16px', fontSize: '13px', fontWeight: 600, borderRadius: '8px', whiteSpace: 'nowrap' }}
-            >
-              {isBusy ? <Loader2 size={14} className="spin-icon" /> : 'Connect'}
-            </button>
-          </div>
+          <button
+            type="button"
+            onClick={handleConnectVsCode}
+            disabled={isBusy}
+            className="btn-primary"
+            style={{ height: '34px', padding: '0 16px', fontSize: '13px', fontWeight: 600, borderRadius: '8px', whiteSpace: 'nowrap' }}
+          >
+            {isBusy ? <Loader2 size={14} className="spin-icon" /> : 'Connect'}
+          </button>
         );
       }
 
@@ -757,30 +734,13 @@ export default function ConnectedAppsSettings() {
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
           <button
             type="button"
-            onClick={() => setShowVsCodeGuide(true)}
-            style={{
-              height: '34px',
-              padding: '0 12px',
-              background: '#ffffff',
-              border: '1px solid #cbd5e1',
-              borderRadius: '8px',
-              color: '#334155',
-              fontSize: '12.5px',
-              fontWeight: 500,
-              cursor: 'pointer',
-              whiteSpace: 'nowrap',
-            }}
-          >
-            Guide
-          </button>
-          <button
-            type="button"
             onClick={handleConnectVsCode}
             disabled={isBusy}
             className="btn-change-plan-outline"
-            style={{ height: '34px', padding: '0 12px', fontSize: '12.5px', fontWeight: 500, whiteSpace: 'nowrap' }}
+            style={{ height: '34px', padding: '0 12px', fontSize: '12.5px', fontWeight: 500, whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: '6px' }}
           >
-            {isBusy ? <Loader2 size={13} className="spin-icon" /> : 'Regenerate'}
+            {isBusy ? <Loader2 size={13} className="spin-icon" /> : <Key size={13} />}
+            Extension Token
           </button>
           <button
             type="button"
@@ -1173,7 +1133,31 @@ export default function ConnectedAppsSettings() {
                         {renderStatusBadge(app)}
                       </div>
 
-                      <p className="app-card-category">{app.category}</p>
+                      <p className="app-card-category">
+                        {app.category}
+                        {app.id === 'vscode' && (
+                          <button
+                            type="button"
+                            onClick={() => setShowVsCodeGuide(true)}
+                            style={{
+                              marginLeft: '8px',
+                              background: 'none',
+                              border: 'none',
+                              padding: 0,
+                              color: '#2563eb',
+                              fontSize: '12px',
+                              fontWeight: 500,
+                              cursor: 'pointer',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '4px',
+                              verticalAlign: 'middle',
+                            }}
+                          >
+                            • <BookOpen size={12} /> Setup Guide
+                          </button>
+                        )}
+                      </p>
 
                       {/* Connected Details */}
                       {isConnected ? (
