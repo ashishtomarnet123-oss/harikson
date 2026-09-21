@@ -36,36 +36,7 @@ import DeveloperConfigSettings from './settings/developerConfig';
 import AppearanceSettings from './settings/appearance';
 import LanguageSettings from './settings/language';
 import HelpSettings from './settings/help';
-
-function RagDriveSettings() {
-  const router = useRouter();
-  return (
-    <>
-      <div className="settings-page-header">
-        <h1>My RAG Drive</h1>
-        <p>Upload and manage documents for RAG-powered search in your conversations.</p>
-      </div>
-      <div className="settings-section">
-        <div className="settings-card" style={{ textAlign: 'center', padding: '32px' }}>
-          <HardDrive size={32} style={{ color: 'var(--accent)', marginBottom: '12px' }} />
-          <p style={{ fontSize: '14px', color: 'var(--text-primary)', fontWeight: 600, margin: '0 0 6px' }}>
-            Document management has moved
-          </p>
-          <p style={{ fontSize: '13px', color: 'var(--text-secondary)', margin: '0 0 16px' }}>
-            Upload, download, and manage your knowledge base documents from the dedicated Knowledge Base page.
-          </p>
-          <button
-            className="btn-primary"
-            onClick={() => router.push('/documents')}
-            style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
-          >
-            Open Knowledge Base
-          </button>
-        </div>
-      </div>
-    </>
-  );
-}
+import StorageSettings from './settings/storage';
 
 
 const navSections = [
@@ -97,9 +68,9 @@ const navSections = [
     items: [
       {
         id: 'storage',
-        name: 'My RAG Drive',
+        name: 'Storage & RAG Drive',
         icon: HardDrive,
-        Component: RagDriveSettings,
+        Component: StorageSettings,
       },
       {
         id: 'usage',
