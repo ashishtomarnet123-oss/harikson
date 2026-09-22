@@ -1307,7 +1307,6 @@ function ChatPage() {
 
   const [isDragging, setIsDragging] = useState(false);
   const [toast, setToast] = useState(null);
-  const [tokenUsage, setTokenUsage] = useState(null);
 
   const chatEndRef = useRef(null);
   const textareaRef = useRef(null);
@@ -1415,19 +1414,6 @@ function ChatPage() {
   useEffect(() => {
     if (user) {
       fetchConversations();
-      const fetchUsage = async () => {
-        try {
-          const res = await fetch(`${apiBase}/api/v1/user/usage?days=7`, {
-            headers: authHeaders(),
-            credentials: 'include',
-          });
-          if (res.ok) {
-            const data = await res.json();
-            setTokenUsage({ tokens: data.totalTokens || 0, queries: data.totalQueries || 0 });
-          }
-        } catch (e) {}
-      };
-      fetchUsage();
     }
   }, [user]);
 
@@ -2667,22 +2653,6 @@ If any check fails, revise the relevant section before output.`;
                   : 'New Conversation'}
               </span>
               <div className="topbar-actions">
-                {/* Token Usage */}
-                {tokenUsage && (
-                  <div style={{
-                    display: 'flex', alignItems: 'center', gap: '12px',
-                    padding: '4px 12px', borderRadius: '8px',
-                    background: 'var(--input-bg, rgba(0,0,0,0.03))',
-                    border: '1px solid var(--border, rgba(148,163,184,0.12))',
-                    fontSize: '11px', color: 'var(--text-tertiary, #94a3b8)',
-                    fontFamily: 'JetBrains Mono, monospace',
-                  }}>
-                    <span title="Tokens used (7 days)">{tokenUsage.tokens >= 1000000 ? (tokenUsage.tokens / 1000000).toFixed(1) + 'M' : tokenUsage.tokens >= 1000 ? (tokenUsage.tokens / 1000).toFixed(1) + 'K' : tokenUsage.tokens} tokens</span>
-                    <span style={{ color: 'var(--border, rgba(148,163,184,0.3))' }}>|</span>
-                    <span title="API requests (7 days)">{tokenUsage.queries} requests</span>
-                  </div>
-                )}
-
                 {/* Export Menu Dropdown */}
                 <div style={{ position: 'relative' }}>
                   <button
