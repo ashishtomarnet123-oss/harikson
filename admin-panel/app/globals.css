@@ -140,14 +140,48 @@ aside .bg-indigo-600 svg {
   color: var(--text-muted) !important;
 }
 
-/* Ensure buttons text remains white for contrast */
-button,
-.btn,
+/* Ensure primary/accent buttons text remains white for contrast */
 .btn-primary,
-[role='button'],
+.bg-indigo-600,
 .bg-indigo-600 *,
-.bg-indigo-500 * {
+.bg-indigo-500,
+.bg-indigo-500 *,
+.bg-blue-600,
+.bg-blue-600 *,
+.bg-purple-600,
+.bg-purple-600 * {
   color: #ffffff !important;
+}
+
+/* Secondary / surface / outline buttons have dark, high-contrast readable text in light mode */
+button.bg-gray-800,
+button.bg-gray-900,
+button.bg-slate-800,
+button.bg-slate-900,
+button.bg-white,
+button.bg-gray-100,
+button.bg-gray-200,
+button.border,
+button[class*='border-'],
+button[class*='bg-gray-'],
+button[class*='bg-slate-'],
+.btn-secondary {
+  color: var(--text-heading, #0f172a) !important;
+}
+
+button.bg-gray-800 svg,
+button.bg-gray-900 svg,
+button.bg-slate-800 svg,
+button.bg-slate-900 svg,
+button.bg-white svg,
+button.bg-gray-100 svg,
+button.bg-gray-200 svg,
+button.border svg,
+button[class*='border-'] svg,
+button[class*='bg-gray-'] svg,
+button[class*='bg-slate-'] svg,
+.btn-secondary svg {
+  color: inherit !important;
 }
 
 /* Ensure custom button overrides can still have custom text color */

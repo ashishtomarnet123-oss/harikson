@@ -187,22 +187,24 @@ export default function VoiceTelemetryPage() {
         </div>
 
         <div className="flex items-center gap-3">
-          <label className="flex items-center gap-2 text-xs text-gray-400 cursor-pointer select-none">
+          <label className="flex items-center gap-2 text-xs text-gray-500 cursor-pointer select-none">
             <input
               type="checkbox"
               checked={autoRefresh}
               onChange={(e) => setAutoRefresh(e.target.checked)}
-              className="rounded bg-gray-900 border-gray-700 text-purple-600 focus:ring-purple-500"
+              className="rounded border-gray-300 text-purple-600 focus:ring-purple-500"
             />
             Auto-refresh (15s)
           </label>
           <button
+            type="button"
             onClick={handleManualRefresh}
             disabled={refreshing}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gray-800 hover:bg-gray-700 border border-gray-700 text-sm font-medium text-gray-200 transition-colors disabled:opacity-50"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gray-100 hover:bg-gray-200 border border-gray-300 text-sm font-semibold text-gray-800 shadow-sm transition-all disabled:opacity-50"
+            style={{ color: '#0f172a' }}
           >
-            <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin text-purple-400' : ''}`} />
-            Refresh
+            <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin text-purple-600' : 'text-purple-600'}`} style={{ color: refreshing ? '#9333ea' : '#475569' }} />
+            <span style={{ color: '#0f172a' }}>Refresh</span>
           </button>
         </div>
       </div>

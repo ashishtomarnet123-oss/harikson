@@ -26,6 +26,7 @@ import {
   Bell,
   Search,
   Scale,
+  Mic,
 } from 'lucide-react';
 import { useAdminAuth } from '../../context/AdminAuthContext';
 import { getCookie, deleteCookie } from 'cookies-next';
@@ -47,6 +48,7 @@ const menuSections = [
       { name: 'Tenants & Plans', path: '/admin/tenants', icon: Users },
       { name: 'Legal Holds', path: '/admin/tenants/legal-holds', icon: Scale },
       { name: 'Users', path: '/admin/users', icon: Users },
+      { name: 'Voice Telemetry', path: '/admin/voice', icon: Mic },
       { name: 'Email Telemetry', path: '/admin/emails', icon: Mail },
       { name: 'Workflows', path: '/admin/workflows', icon: GitBranch },
       { name: 'Billing', path: '/admin/billing/providers', icon: CreditCard },
