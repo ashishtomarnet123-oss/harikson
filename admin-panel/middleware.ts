@@ -7,11 +7,12 @@ export function middleware(request: NextRequest) {
     request.cookies.get('admin_token')?.value ||
     request.cookies.get('admin_access_token')?.value;
 
-  // Protect /admin routes (except /admin/login and /admin/first-login)
+  // Protect /admin routes (except /admin/login, /admin/first-login, and /admin/api)
   if (
     pathname.startsWith('/admin') &&
     pathname !== '/admin/login' &&
-    pathname !== '/admin/first-login'
+    pathname !== '/admin/first-login' &&
+    !pathname.startsWith('/admin/api')
   ) {
     if (!adminToken) {
       const loginUrl = new URL('/admin/login', request.url);

@@ -38,8 +38,14 @@ const AdminAuthContext = createContext<AdminAuthContextType>({
 //  Detect if served under /admin prefix (user-portal proxy)
 // ─────────────────────────────────────────────────────────────
 function getApiPrefix(): string {
-  if (typeof window !== 'undefined' && window.location.pathname.startsWith('/admin')) {
-    return '/admin';
+  if (typeof window !== 'undefined') {
+    const host = window.location.hostname;
+    if (host.startsWith('admin.') || host === 'localhost' || host === '127.0.0.1') {
+      return '';
+    }
+    if (window.location.pathname.startsWith('/admin')) {
+      return '/admin';
+    }
   }
   return '';
 }
