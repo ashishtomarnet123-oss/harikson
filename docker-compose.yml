@@ -119,7 +119,7 @@ services:
     image: redis:7-alpine
     container_name: harikson-redis
     restart: unless-stopped
-    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD:?REDIS_PASSWORD must be set} --stop-writes-on-bgsave-error no --maxmemory-policy allkeys-lru
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD:-harikson_redis_pwd} --stop-writes-on-bgsave-error no --maxmemory-policy allkeys-lru
     expose:
       - '6379'
     volumes:
@@ -131,7 +131,7 @@ services:
         limits:
           memory: 256m
     healthcheck:
-      test: ['CMD', 'redis-cli', '-a', '${REDIS_PASSWORD:?REDIS_PASSWORD must be set}', '--no-auth-warning', 'ping']
+      test: ['CMD', 'redis-cli', '-a', '${REDIS_PASSWORD:-harikson_redis_pwd}', '--no-auth-warning', 'ping']
       interval: 10s
       timeout: 5s
       retries: 5
@@ -176,8 +176,8 @@ services:
     ports:
       - '127.0.0.1:3008:3008'
     environment:
-      - DATABASE_URL=postgresql://neuravolt:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}@postgres:5432/neuravolt
-      - REDIS_URL=redis://:${REDIS_PASSWORD:?REDIS_PASSWORD must be set}@redis:6379
+      - DATABASE_URL=postgresql://neuravolt:${POSTGRES_PASSWORD:-neuravolt_dev_pwd}@postgres:5432/neuravolt
+      - REDIS_URL=redis://:${REDIS_PASSWORD:-harikson_redis_pwd}@redis:6379
       - JWT_SECRET
       - TENANT_MASTER_KEY
       - INTERNAL_API_SECRET
@@ -235,8 +235,8 @@ services:
     ports:
       - '127.0.0.1:4000:4000'
     environment:
-      - DATABASE_URL=postgresql://neuravolt:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}@postgres:5432/neuravolt
-      - REDIS_URL=redis://:${REDIS_PASSWORD:?REDIS_PASSWORD must be set}@redis:6379
+      - DATABASE_URL=postgresql://neuravolt:${POSTGRES_PASSWORD:-neuravolt_dev_pwd}@postgres:5432/neuravolt
+      - REDIS_URL=redis://:${REDIS_PASSWORD:-harikson_redis_pwd}@redis:6379
       - JWT_SECRET
       - PORT=4000
       - NODE_ENV=${NODE_ENV:-development}
@@ -291,7 +291,7 @@ services:
       - PORT=3001
       - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-http://34.131.237.79:3028}
       - ADMIN_API_URL=http://admin-api:4000
-      - DATABASE_URL=postgresql://neuravolt:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}@postgres:5432/neuravolt
+      - DATABASE_URL=postgresql://neuravolt:${POSTGRES_PASSWORD:-neuravolt_dev_pwd}@postgres:5432/neuravolt
       - JWT_SECRET
       - NEXTAUTH_SECRET
     networks:
