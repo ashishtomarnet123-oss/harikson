@@ -39,7 +39,7 @@ if (!process.env.JWT_SECRET) {
   }
 }
 
-import { sendInvoiceReceipt, sendImpersonationAlert, sendAccountApprovalEmail, sendWelcomeEmail, sendPasswordReset, getActiveSmtpConfig, verifySmtpConnection, sendEmail, renderAndSendTemplate, resetEmailRateLimit } from './services/email.js';
+import { sendInvoiceReceipt, sendImpersonationAlert, sendAccountApprovalEmail, sendWelcomeEmail, sendPasswordReset, getActiveSmtpConfig, verifySmtpConnection, sendEmail, renderAndSendTemplate, resetEmailRateLimit, resolveSmtpHost } from './services/email.js';
 import { createInvoice } from './services/invoiceService.js';
 import { validate } from './middleware/validation.middleware.js';
 import { loginSchema, taxRateSchema, userStatusSchema, legalHoldSchema, legalHoldLiftSchema, sendEmailSchema, smtpConfigSchema, adminResetPasswordSchema } from './validators/admin.schema.js';
@@ -2308,9 +2308,33 @@ app.get('/v1/admin/emails/smtp', adminAuth, handleGetSmtpConfig);
 
 // PUT /admin/emails/smtp & /v1/admin/emails/smtp - Update SMTP config
 const handleUpdateSmtpConfig = async (req, res) => {
-  const { provider, resend_api_key, smtp_host, smtp_port, smtp_user, smtp_pass, smtp_secure, from_email, from_name } = req.body;
+  let { provider, resend_api_key, smtp_host, smtp_port, smtp_user, smtp_pass, smtp_secure, from_email, from_name } = req.body;
 
   try {
+    const portNum = smtp_port ? parseInt(smtp_port) : 587;
+    const isSecure = portNum === 465;
+
+    // If host was entered as bare domain without mail./smtp., check if it resolves to a candidate host
+    if (provider === 'smtp' && smtp_host) {
+      try {
+        const candidates = await resolveSmtpHost(smtp_host);
+        if (candidates.length > 0 && candidates[0] !== smtp_host) {
+          const testRes = await verifySmtpConnection({
+            smtp_host: candidates[0],
+            smtp_port: portNum,
+            smtp_user,
+            smtp_pass,
+            smtp_secure: isSecure
+          });
+          if (testRes.success) {
+            smtp_host = candidates[0];
+          }
+        }
+      } catch {
+        // Fallback to provided host
+      }
+    }
+
     // Deactivate previous active configs
     await pool.query('UPDATE smtp_configs SET is_active = false WHERE is_active = true');
 
@@ -2318,10 +2342,15 @@ const handleUpdateSmtpConfig = async (req, res) => {
       `INSERT INTO smtp_configs (provider, resend_api_key, smtp_host, smtp_port, smtp_user, smtp_pass, smtp_secure, from_email, from_name, is_active)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, true)
        RETURNING *`,
-      [provider || 'resend', resend_api_key, smtp_host, smtp_port ? parseInt(smtp_port) : 587, smtp_user, smtp_pass, smtp_secure !== false, from_email || 'noreply@xarwiz.com', from_name || 'Xarwiz']
+      [provider || 'resend', resend_api_key, smtp_host, portNum, smtp_user, smtp_pass, isSecure, from_email || 'noreply@xarwiz.com', from_name || 'Xarwiz']
     );
 
-    res.json({ success: true, message: 'SMTP settings updated and activated successfully', config: insertRes.rows[0] });
+    res.json({
+      success: true,
+      message: 'SMTP settings updated and activated successfully',
+      config: insertRes.rows[0],
+      resolvedHost: smtp_host
+    });
   } catch (err) {
     logger.error('Failed to update SMTP config:', err);
     res.status(500).json({ success: false, error: err.message || 'Failed to update SMTP configuration' });
@@ -2338,7 +2367,11 @@ const handleTestSmtpConfig = async (req, res) => {
     if (!testResult.success) {
       return res.status(400).json({ success: false, error: testResult.error });
     }
-    res.json({ success: true, message: testResult.message || 'SMTP Server Connection Verified Successfully!' });
+    res.json({
+      success: true,
+      message: testResult.message || 'SMTP Server Connection Verified Successfully!',
+      resolvedHost: testResult.resolvedHost
+    });
   } catch (err) {
     logger.error('SMTP Test Failed:', err);
     res.status(400).json({ success: false, error: err.message || 'Failed to verify SMTP server connection' });

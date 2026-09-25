@@ -3,6 +3,7 @@ import { Resend } from 'resend';
 import Redis from 'ioredis';
 import nodemailer from 'nodemailer';
 import pool from '../db.js';
+import dns from 'dns/promises';
 
 const resend = new Resend(process.env.RESEND_API_KEY || 're_dev_key');
 const redis = new Redis(process.env.REDIS_URL || 'redis://redis:6379');
@@ -10,6 +11,43 @@ const redis = new Redis(process.env.REDIS_URL || 'redis://redis:6379');
 function escapeHtml(str) {
   if (typeof str !== 'string') return str;
   return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+
+// Helper to resolve potential host candidates (e.g., bare domain -> MX host or mail.domain)
+export async function resolveSmtpHost(inputHost) {
+  const host = (inputHost || '').trim();
+  if (!host) return [host];
+
+  // If host already starts with mail. or smtp. or is an IP address
+  if (host.startsWith('mail.') || host.startsWith('smtp.') || /^(\d{1,3}\.){3}\d{1,3}$/.test(host)) {
+    return [host];
+  }
+
+  const mxCandidates = [];
+  try {
+    const mxRecords = await dns.resolveMx(host);
+    if (mxRecords && mxRecords.length > 0) {
+      const sorted = mxRecords.sort((a, b) => a.priority - b.priority);
+      for (const r of sorted) {
+        if (r.exchange && !mxCandidates.includes(r.exchange)) {
+          mxCandidates.push(r.exchange);
+        }
+      }
+    }
+  } catch {
+    // ignore DNS MX lookup errors
+  }
+
+  const mailPrefix = `mail.${host}`;
+  const smtpPrefix = `smtp.${host}`;
+
+  // Prioritize MX records and common mail prefixes before the bare domain
+  const candidates = [...mxCandidates];
+  if (!candidates.includes(mailPrefix)) candidates.push(mailPrefix);
+  if (!candidates.includes(smtpPrefix)) candidates.push(smtpPrefix);
+  if (!candidates.includes(host)) candidates.push(host);
+
+  return candidates;
 }
 
 // Helper to log all email dispatches into email_logs table
@@ -61,41 +99,57 @@ export async function verifySmtpConnection(config) {
   }
 
   const port = parseInt(config.smtp_port) || 587;
+  const is465 = port === 465;
+  const hostCandidates = await resolveSmtpHost(config.smtp_host);
+  let lastError = null;
 
-  try {
-    const transporter = nodemailer.createTransport({
-      host: config.smtp_host,
-      port,
-      secure: config.smtp_secure !== false && port === 465,
-      auth: (config.smtp_user && config.smtp_pass) ? {
-        user: config.smtp_user,
-        pass: config.smtp_pass
-      } : undefined,
-      tls: {
-        rejectUnauthorized: process.env.SMTP_TLS_REJECT_UNAUTHORIZED !== 'false'
-      },
-      connectionTimeout: 8000,
-      greetingTimeout: 5000,
-      socketTimeout: 8000
-    });
+  for (const candidateHost of hostCandidates) {
+    try {
+      const transporter = nodemailer.createTransport({
+        host: candidateHost,
+        port,
+        secure: config.smtp_secure !== false && is465,
+        auth: (config.smtp_user && config.smtp_pass) ? {
+          user: config.smtp_user,
+          pass: config.smtp_pass
+        } : undefined,
+        tls: {
+          rejectUnauthorized: false
+        },
+        connectionTimeout: 5000,
+        greetingTimeout: 4000,
+        socketTimeout: 5000
+      });
 
-    await transporter.verify();
-    return { success: true, message: 'SMTP server connection verified successfully!' };
-  } catch (err) {
-    logger.error('[SMTP VERIFICATION ERROR]:', err.message);
-    let errorMsg = err.message || 'Failed to connect to SMTP server';
-    const lowerMsg = (err.message || '').toLowerCase();
-    if (err.code === 'ETIMEDOUT' || lowerMsg.includes('etimedout') || lowerMsg.includes('timedout') || lowerMsg.includes('timeout') || lowerMsg.includes('greeting never received')) {
-      errorMsg = `Connection timeout: Could not connect to SMTP server at ${config.smtp_host}:${port}. Please verify the host, port, and network firewall.`;
-    } else if (err.code === 'ECONNREFUSED' || lowerMsg.includes('econnrefused')) {
-      errorMsg = `Connection refused: SMTP server at ${config.smtp_host}:${port} rejected the connection.`;
-    } else if (err.code === 'ENOTFOUND' || lowerMsg.includes('enotfound')) {
-      errorMsg = `Host not found: Could not resolve hostname "${config.smtp_host}".`;
-    } else if (err.code === 'EAUTH' || err.responseCode === 535 || lowerMsg.includes('authentication failed')) {
-      errorMsg = 'Authentication failed: Invalid SMTP username or password.';
+      await transporter.verify();
+      const message = candidateHost !== config.smtp_host
+        ? `SMTP server connection verified successfully via ${candidateHost}!`
+        : 'SMTP server connection verified successfully!';
+      return { success: true, message, resolvedHost: candidateHost };
+    } catch (err) {
+      lastError = err;
+      logger.warn(`[SMTP VERIFICATION ATTEMPT FAILED on ${candidateHost}]: ${err.message}`);
+      // If authentication error, do not keep trying other candidates
+      const lower = (err.message || '').toLowerCase();
+      if (err.code === 'EAUTH' || err.responseCode === 535 || lower.includes('auth')) {
+        break;
+      }
     }
-    return { success: false, error: errorMsg };
   }
+
+  logger.error('[SMTP VERIFICATION ERROR]:', lastError?.message);
+  let errorMsg = lastError?.message || 'Failed to connect to SMTP server';
+  const lowerMsg = (lastError?.message || '').toLowerCase();
+  if (lastError?.code === 'ETIMEDOUT' || lowerMsg.includes('etimedout') || lowerMsg.includes('timedout') || lowerMsg.includes('timeout') || lowerMsg.includes('greeting never received')) {
+    errorMsg = `Connection timeout: Could not connect to SMTP server at ${config.smtp_host}:${port}. Please verify the host, port, and network firewall.`;
+  } else if (lastError?.code === 'ECONNREFUSED' || lowerMsg.includes('econnrefused')) {
+    errorMsg = `Connection refused: SMTP server at ${config.smtp_host}:${port} rejected the connection.`;
+  } else if (lastError?.code === 'ENOTFOUND' || lowerMsg.includes('enotfound')) {
+    errorMsg = `Host not found: Could not resolve hostname "${config.smtp_host}".`;
+  } else if (lastError?.code === 'EAUTH' || lastError?.responseCode === 535 || lowerMsg.includes('auth')) {
+    errorMsg = 'Authentication failed: Invalid SMTP username or password.';
+  }
+  return { success: false, error: errorMsg };
 }
 
 // Universal Email Dispatcher (Supports both Resend & Custom SMTP)
@@ -109,39 +163,51 @@ export async function sendEmail({ to, subject, html, text, emailType = 'custom',
   const fromAddress = `"${config.from_name || 'Xarwiz'}" <${config.from_email || 'noreply@xarwiz.com'}>`;
 
   if (config.provider === 'smtp') {
-    try {
-      const port = parseInt(config.smtp_port) || 587;
-      const transporter = nodemailer.createTransport({
-        host: config.smtp_host,
-        port,
-        secure: config.smtp_secure !== false && port === 465,
-        auth: (config.smtp_user && config.smtp_pass) ? {
-          user: config.smtp_user,
-          pass: config.smtp_pass
-        } : undefined,
-        tls: {
-          rejectUnauthorized: process.env.SMTP_TLS_REJECT_UNAUTHORIZED !== 'false'
-        },
-        connectionTimeout: 8000,
-        greetingTimeout: 5000,
-        socketTimeout: 8000
-      });
+    const port = parseInt(config.smtp_port) || 587;
+    const is465 = port === 465;
+    const hostCandidates = await resolveSmtpHost(config.smtp_host);
+    let lastError = null;
 
-      const info = await transporter.sendMail({
-        from: fromAddress,
-        to,
-        subject,
-        html,
-        text
-      });
+    for (const candidateHost of hostCandidates) {
+      try {
+        const transporter = nodemailer.createTransport({
+          host: candidateHost,
+          port,
+          secure: config.smtp_secure !== false && is465,
+          auth: (config.smtp_user && config.smtp_pass) ? {
+            user: config.smtp_user,
+            pass: config.smtp_pass
+          } : undefined,
+          tls: {
+            rejectUnauthorized: false
+          },
+          connectionTimeout: 5000,
+          greetingTimeout: 4000,
+          socketTimeout: 5000
+        });
 
-      await logEmailDispatch(to, emailType, subject, 'sent', null, info.messageId, metadata);
-      return { success: true, messageId: info.messageId };
-    } catch (err) {
-      logger.error(`[SMTP SEND ERROR - ${emailType}]:`, err.message);
-      await logEmailDispatch(to, emailType, subject, 'failed', err.message, null, metadata);
-      return { success: false, error: err.message || 'Failed to send email via SMTP' };
+        const info = await transporter.sendMail({
+          from: fromAddress,
+          to,
+          subject,
+          html,
+          text
+        });
+
+        await logEmailDispatch(to, emailType, subject, 'sent', null, info.messageId, metadata);
+        return { success: true, messageId: info.messageId };
+      } catch (err) {
+        lastError = err;
+        logger.error(`[SMTP SEND ERROR - ${emailType} on ${candidateHost}]:`, err.message);
+        const lower = (err.message || '').toLowerCase();
+        if (err.code === 'EAUTH' || err.responseCode === 535 || lower.includes('auth')) {
+          break;
+        }
+      }
     }
+
+    await logEmailDispatch(to, emailType, subject, 'failed', lastError?.message, null, metadata);
+    return { success: false, error: lastError?.message || 'Failed to send email via SMTP' };
   } else {
     // Fallback to Resend SDK
     const apiKey = config.resend_api_key || process.env.RESEND_API_KEY;

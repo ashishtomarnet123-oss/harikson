@@ -295,6 +295,9 @@ export default function AdminEmailsPage() {
       });
       const data = await safeJsonParse(res);
       if (res.ok && data.success) {
+        if (data.resolvedHost && data.resolvedHost !== smtpConfig.smtp_host) {
+          setSmtpConfig(prev => ({ ...prev, smtp_host: data.resolvedHost }));
+        }
         setSmtpStatusMessage({ type: 'success', text: data.message || 'SMTP Connection Verified!' });
       } else {
         setSmtpStatusMessage({ type: 'error', text: data.error || 'SMTP Connection Test Failed' });
@@ -319,6 +322,9 @@ export default function AdminEmailsPage() {
       });
       const data = await safeJsonParse(res);
       if (res.ok && data.success) {
+        if (data.resolvedHost && data.resolvedHost !== smtpConfig.smtp_host) {
+          setSmtpConfig(prev => ({ ...prev, smtp_host: data.resolvedHost }));
+        }
         setSmtpStatusMessage({ type: 'success', text: data.message || 'SMTP Settings Saved & Activated!' });
       } else {
         setSmtpStatusMessage({ type: 'error', text: data.error || 'Failed to save SMTP settings' });
@@ -872,7 +878,7 @@ export default function AdminEmailsPage() {
                       type="text"
                       value={smtpConfig.smtp_host || ''}
                       onChange={(e) => setSmtpConfig({ ...smtpConfig, smtp_host: e.target.value })}
-                      placeholder="smtp.gmail.com or smtp.mailgun.org"
+                      placeholder="mail.xarwiz.com or smtp.gmail.com"
                       className="w-full px-3 py-2 rounded-xl bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 outline-none text-gray-900 dark:text-white"
                     />
                   </div>
