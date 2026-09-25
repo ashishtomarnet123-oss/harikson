@@ -2706,12 +2706,12 @@ const handleAdminSetPassword = async (req, res) => {
            locked_until = NULL,
            lockout_count = 0,
            unlock_token = NULL,
-           password_reset_token = NULL,
-           password_reset_expires = NULL,
            updated_at = NOW()
        WHERE id = $4`,
       [passwordHash, !!forceChangeOnNextLogin, callerEmail, userId]
     );
+
+    await pool.query('DELETE FROM password_reset_tokens WHERE user_id = $1', [userId]).catch(() => {});
 
     // Invalidate existing sessions if requested
     if (revokeSessions) {
@@ -2829,12 +2829,12 @@ const handleAdminGeneratePassword = async (req, res) => {
            locked_until = NULL,
            lockout_count = 0,
            unlock_token = NULL,
-           password_reset_token = NULL,
-           password_reset_expires = NULL,
            updated_at = NOW()
        WHERE id = $4`,
       [passwordHash, !!forceChangeOnNextLogin, callerEmail, userId]
     );
+
+    await pool.query('DELETE FROM password_reset_tokens WHERE user_id = $1', [userId]).catch(() => {});
 
     if (revokeSessions) {
       await invalidateUserSessions(userId);

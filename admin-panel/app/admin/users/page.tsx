@@ -207,7 +207,7 @@ export default function UsersPage() {
 
   // Superadmin authorization context
   const { user: currentAdmin } = useAdminAuth();
-  const isSuperAdmin = currentAdmin?.role === 'superadmin' || currentAdmin?.role === 'founder';
+  const isSuperAdmin = currentAdmin?.role === 'superadmin' || currentAdmin?.role === 'founder' || currentAdmin?.role === 'admin';
 
   // Action Menu dropdown state
   const [actionMenuUserId, setActionMenuUserId] = useState<string | null>(null);
@@ -415,7 +415,14 @@ export default function UsersPage() {
         }),
       });
 
-      const data = await res.json();
+      const text = await res.text();
+      let data: any = {};
+      try {
+        data = JSON.parse(text);
+      } catch {
+        data = { success: false, error: text || `Server error (${res.status})` };
+      }
+
       if (res.ok && data.success) {
         setResetResult({
           success: true,
@@ -458,7 +465,14 @@ export default function UsersPage() {
         }),
       });
 
-      const data = await res.json();
+      const text = await res.text();
+      let data: any = {};
+      try {
+        data = JSON.parse(text);
+      } catch {
+        data = { success: false, error: text || `Server error (${res.status})` };
+      }
+
       if (res.ok && data.success && data.temporaryPassword) {
         setGeneratedTempPassword(data.temporaryPassword);
         fetchUsers();
@@ -490,7 +504,13 @@ export default function UsersPage() {
         credentials: 'include',
         body: JSON.stringify({ forceChange: newVal }),
       });
-      const data = await res.json();
+      const text = await res.text();
+      let data: any = {};
+      try {
+        data = JSON.parse(text);
+      } catch {
+        data = { success: false, error: text || `Server error (${res.status})` };
+      }
       if (res.ok && data.success) {
         setUsers((prev) =>
           prev.map((u) => (u.id === userId ? { ...u, force_password_change: newVal, must_change_password: newVal } : u))
