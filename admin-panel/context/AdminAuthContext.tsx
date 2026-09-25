@@ -17,7 +17,9 @@ interface AdminAuthContextType {
   loading: boolean;
   isAuthenticated: boolean;
   isAdmin: boolean;
-  login: (email: string, password: string) => Promise<void>;
+  requires2FA: boolean;
+  login: (email: string, password: string, redirectUrl?: string) => Promise<void>;
+  verify2FA: (code: string, redirectUrl?: string) => Promise<void>;
   logout: () => Promise<void>;
 }
 
@@ -26,7 +28,9 @@ const AdminAuthContext = createContext<AdminAuthContextType>({
   loading: true,
   isAuthenticated: false,
   isAdmin: false,
+  requires2FA: false,
   login: async () => {},
+  verify2FA: async () => {},
   logout: async () => {},
 });
 
@@ -103,6 +107,8 @@ function parseUser(data: any): AdminUser | null {
 export const AdminAuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [user, setUser] = useState<AdminUser | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
+  const [requires2FA, setRequires2FA] = useState(false);
+  const [tempToken2FA, setTempToken2FA] = useState<string | null>(null);
   const router = useRouter();
   const pathname = usePathname();
 
@@ -146,10 +152,11 @@ export const AdminAuthProvider = ({ children }: { children: React.ReactNode }) =
   }, []);
 
   // ── login: try direct internal API first, then proxy fallback ──
-  const login = async (email: string, password: string) => {
+  const login = async (email: string, password: string, redirectUrl?: string) => {
     setLoading(true);
     const body = JSON.stringify({ email: email.trim().toLowerCase(), password });
     const headers = { 'Content-Type': 'application/json' };
+    const destination = redirectUrl || '/admin/dashboard';
 
     try {
       // PRIMARY: /api/auth/login — internal Next.js route (direct DB)
@@ -160,9 +167,17 @@ export const AdminAuthProvider = ({ children }: { children: React.ReactNode }) =
         body,
       });
 
+      // Check 2FA challenge BEFORE treating as successful login
+      if (r1 && d1?.requires2FA && d1?.tempToken) {
+        setRequires2FA(true);
+        setTempToken2FA(d1.tempToken);
+        setLoading(false);
+        return;
+      }
+
       if (r1 && r1.ok) {
         await checkAuth();
-        router.replace('/admin/dashboard');
+        router.replace(destination);
         return;
       }
 
@@ -183,9 +198,16 @@ export const AdminAuthProvider = ({ children }: { children: React.ReactNode }) =
         body,
       });
 
+      if (r2 && d2?.requires2FA && d2?.tempToken) {
+        setRequires2FA(true);
+        setTempToken2FA(d2.tempToken);
+        setLoading(false);
+        return;
+      }
+
       if (r2 && r2.ok) {
         await checkAuth();
-        router.replace('/admin/dashboard');
+        router.replace(destination);
         return;
       }
 
@@ -201,6 +223,32 @@ export const AdminAuthProvider = ({ children }: { children: React.ReactNode }) =
       // Both paths failed (5xx error or unreachable)
       const serverErrMsg = d1?.error || d1?.message || d2?.error || d2?.message || 'Authentication service error (500). Please check backend database and API server.';
       throw new Error(serverErrMsg);
+    } catch (err) {
+      setLoading(false);
+      throw err;
+    }
+  };
+
+  const verify2FA = async (code: string, redirectUrl?: string) => {
+    if (!tempToken2FA) throw new Error('No pending 2FA session');
+    setLoading(true);
+    const destination = redirectUrl || '/admin/dashboard';
+    try {
+      const prefix = getApiPrefix();
+      const { res, data } = await safeFetchJson(`${prefix}/api/auth/verify-2fa`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tempToken: tempToken2FA, code }),
+      });
+
+      if (!res?.ok) {
+        throw new Error(data?.error || 'Invalid 2FA code');
+      }
+
+      setRequires2FA(false);
+      setTempToken2FA(null);
+      await checkAuth();
+      router.replace(destination);
     } catch (err) {
       setLoading(false);
       throw err;
@@ -229,7 +277,9 @@ export const AdminAuthProvider = ({ children }: { children: React.ReactNode }) =
         loading,
         isAuthenticated,
         isAdmin,
+        requires2FA,
         login,
+        verify2FA,
         logout,
       }}
     >

@@ -71,20 +71,7 @@ export default function BillingProvidersPage() {
         setProviders(data.providers || []);
       }
     } catch (err) {
-      console.warn('Failed to fetch providers, running mock config values');
-      setProviders([
-        {
-          id: '1',
-          provider: 'razorpay',
-          name: 'Bharat AI Razorpay',
-          merchant_id: 'rzp_test_keyid',
-          is_active: true,
-          is_test_mode: true,
-          created_at: new Date().toISOString(),
-          api_key_masked: 'rzp_test****',
-          api_secret_masked: 'secret****',
-        },
-      ]);
+      console.error('Failed to fetch billing providers:', err);
     } finally {
       setLoading(false);
     }
@@ -167,8 +154,8 @@ export default function BillingProvidersPage() {
   return (
     <div className="space-y-6 max-w-7xl mx-auto p-4 sm:p-6">
       {/* Title block */}
-      <div className="pb-5 border-b border-gray-100">
-        <h1 className="text-2xl sm:text-3xl font-extrabold text-gray-900 tracking-tight flex items-center gap-2.5">
+      <div className="pb-5 border-b border-gray-800">
+        <h1 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight flex items-center gap-2.5">
           <CreditCard className="w-7 h-7 text-blue-600 shrink-0" /> Live Payment
           Providers Manager
         </h1>
@@ -180,9 +167,9 @@ export default function BillingProvidersPage() {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Form Column */}
-        <div className="bg-white border border-gray-100 rounded-2xl p-6 shadow-sm flex flex-col justify-between">
+        <div className="bg-gray-900/40 border border-gray-800/80 rounded-2xl p-6 flex flex-col justify-between">
           <div>
-            <h3 className="text-base font-bold text-gray-900 uppercase tracking-wider mb-1">
+            <h3 className="text-base font-bold text-white uppercase tracking-wider mb-1">
               Connect Account
             </h3>
             <p className="text-xs text-gray-500 mb-6">
@@ -196,7 +183,7 @@ export default function BillingProvidersPage() {
                   Merchant Provider
                 </span>
                 <div className="flex gap-4">
-                  <label className="flex items-center gap-2 text-xs font-semibold text-gray-700 cursor-pointer select-none">
+                  <label className="flex items-center gap-2 text-xs font-semibold text-gray-300 cursor-pointer select-none">
                     <input
                       type="radio"
                       name="provider"
@@ -207,7 +194,7 @@ export default function BillingProvidersPage() {
                     />
                     <span>Razorpay (India)</span>
                   </label>
-                  <label className="flex items-center gap-2 text-xs font-semibold text-gray-700 cursor-pointer select-none">
+                  <label className="flex items-center gap-2 text-xs font-semibold text-gray-300 cursor-pointer select-none">
                     <input
                       type="radio"
                       name="provider"
@@ -230,7 +217,7 @@ export default function BillingProvidersPage() {
                   type="text"
                   required
                   placeholder="e.g. Bharat AI Sandbox"
-                  className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm text-gray-700 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 bg-white"
+                  className="w-full border border-gray-700 rounded-xl px-3 py-2 text-sm text-gray-200 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 bg-gray-800"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                 />
@@ -249,7 +236,7 @@ export default function BillingProvidersPage() {
                   placeholder={
                     providerType === 'razorpay' ? 'rzp_test_xxxx' : 'acct_xxxx'
                   }
-                  className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm text-gray-700 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 bg-white"
+                  className="w-full border border-gray-700 rounded-xl px-3 py-2 text-sm text-gray-200 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 bg-gray-800"
                   value={merchantId}
                   onChange={(e) => setMerchantId(e.target.value)}
                 />
@@ -267,7 +254,7 @@ export default function BillingProvidersPage() {
                     type={showApiKey ? 'text' : 'password'}
                     required
                     placeholder="pk_test_xxxx"
-                    className="w-full border border-gray-200 rounded-xl px-3 py-2 pr-10 text-sm text-gray-700 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 bg-white"
+                    className="w-full border border-gray-700 rounded-xl px-3 py-2 pr-10 text-sm text-gray-200 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 bg-gray-800"
                     value={apiKey}
                     onChange={(e) => setApiKey(e.target.value)}
                   />
@@ -302,7 +289,7 @@ export default function BillingProvidersPage() {
                         ? 'secret_xxxx'
                         : 'sk_test_xxxx'
                     }
-                    className="w-full border border-gray-200 rounded-xl px-3 py-2 pr-10 text-sm text-gray-700 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 bg-white"
+                    className="w-full border border-gray-700 rounded-xl px-3 py-2 pr-10 text-sm text-gray-200 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 bg-gray-800"
                     value={apiSecret}
                     onChange={(e) => setApiSecret(e.target.value)}
                   />
@@ -331,7 +318,7 @@ export default function BillingProvidersPage() {
                     type={showWebhookSecret ? 'text' : 'password'}
                     required
                     placeholder="whsec_xxxx"
-                    className="w-full border border-gray-200 rounded-xl px-3 py-2 pr-10 text-sm text-gray-700 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 bg-white"
+                    className="w-full border border-gray-700 rounded-xl px-3 py-2 pr-10 text-sm text-gray-200 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 bg-gray-800"
                     value={webhookSecret}
                     onChange={(e) => setWebhookSecret(e.target.value)}
                   />
@@ -351,8 +338,8 @@ export default function BillingProvidersPage() {
               </div>
 
               {/* Mode Toggle */}
-              <label className="flex items-center justify-between p-3 bg-gray-50/50 rounded-xl border border-gray-100 cursor-pointer select-none">
-                <span className="text-xs font-semibold text-gray-700">
+              <label className="flex items-center justify-between p-3 bg-gray-800/50 rounded-xl border border-gray-700 cursor-pointer select-none">
+                <span className="text-xs font-semibold text-gray-300">
                   Sandbox Test Mode
                 </span>
                 <input
@@ -379,9 +366,9 @@ export default function BillingProvidersPage() {
         {/* Configurations list & Webhooks Config instructions */}
         <div className="lg:col-span-2 space-y-6">
           {/* Active List */}
-          <div className="bg-white border border-gray-100 rounded-2xl overflow-hidden shadow-sm">
-            <div className="p-5 border-b border-gray-100 bg-gray-50/50">
-              <h3 className="text-base font-bold text-gray-900 uppercase tracking-wider">
+          <div className="bg-gray-900/40 border border-gray-800/80 rounded-2xl overflow-hidden">
+            <div className="p-5 border-b border-gray-800 bg-gray-950/30">
+              <h3 className="text-base font-bold text-white uppercase tracking-wider">
                 Configured Merchants
               </h3>
               <p className="text-xs text-gray-500 mt-0.5">
@@ -392,7 +379,7 @@ export default function BillingProvidersPage() {
             <div className="overflow-x-auto">
               <table className="w-full text-left border-collapse text-xs">
                 <thead>
-                  <tr className="bg-gray-50/25 border-b border-gray-100 text-xs font-bold text-gray-500 uppercase tracking-wider">
+                  <tr className="bg-gray-950/20 border-b border-gray-800 text-xs font-bold text-gray-500 uppercase tracking-wider">
                     <th className="py-3.5 px-5">Label</th>
                     <th className="py-3.5 px-5">Provider</th>
                     <th className="py-3.5 px-5">Merchant ID</th>
@@ -400,7 +387,7 @@ export default function BillingProvidersPage() {
                     <th className="py-3.5 px-5 text-right">Actions</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-gray-100 text-gray-700">
+                <tbody className="divide-y divide-gray-800 text-gray-300">
                   {providers.length === 0 ? (
                     <tr>
                       <td
@@ -414,31 +401,31 @@ export default function BillingProvidersPage() {
                     providers.map((p) => (
                       <tr
                         key={p.id}
-                        className="hover:bg-slate-50/50 transition-colors"
+                        className="hover:bg-gray-800/50 transition-colors"
                       >
-                        <td className="py-4 px-5 font-bold text-gray-900">
+                        <td className="py-4 px-5 font-bold text-white">
                           {p.name}
                         </td>
                         <td className="py-4 px-5">
                           <span
                             className={`px-2.5 py-0.5 text-[10px] font-bold rounded-lg border uppercase ${
                               p.provider === 'stripe'
-                                ? 'bg-purple-50 text-purple-700 border-purple-100'
-                                : 'bg-blue-50 text-blue-700 border-blue-100'
+                                ? 'bg-purple-900/30 text-purple-400 border-purple-800'
+                                : 'bg-blue-900/30 text-blue-400 border-blue-800'
                             }`}
                           >
                             {p.provider}
                           </span>
                         </td>
-                        <td className="py-4 px-5 font-mono text-gray-600">
+                        <td className="py-4 px-5 font-mono text-gray-400">
                           {p.merchant_id}
                         </td>
                         <td className="py-4 px-5">
                           <span
                             className={`px-2 py-0.5 rounded-lg text-[10px] font-bold border uppercase ${
                               p.is_test_mode
-                                ? 'bg-gray-50 text-gray-600 border-gray-100'
-                                : 'bg-emerald-50 text-emerald-700 border-emerald-100'
+                                ? 'bg-gray-800 text-gray-400 border-gray-700'
+                                : 'bg-emerald-900/30 text-emerald-400 border-emerald-800'
                             }`}
                           >
                             {p.is_test_mode ? 'Test Mode' : 'Live Mode'}
@@ -448,7 +435,7 @@ export default function BillingProvidersPage() {
                           <button
                             onClick={() => handleDeleteProvider(p.id)}
                             style={{ color: '#E11D48' }}
-                            className="p-1.5 bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-100 rounded-lg shadow-xs transition-all"
+                            className="p-1.5 bg-rose-900/30 hover:bg-rose-900/50 text-rose-400 border border-rose-800 rounded-lg transition-all"
                             title="Disconnect Merchant"
                           >
                             <Trash2
@@ -466,9 +453,9 @@ export default function BillingProvidersPage() {
           </div>
 
           {/* Webhooks config panel */}
-          <div className="bg-white border border-gray-100 rounded-2xl p-6 shadow-sm space-y-6">
+          <div className="bg-gray-900/40 border border-gray-800/80 rounded-2xl p-6 space-y-6">
             <div>
-              <h3 className="text-base font-bold text-gray-900 uppercase tracking-wider">
+              <h3 className="text-base font-bold text-white uppercase tracking-wider">
                 Gateway Webhook Integration
               </h3>
               <p className="text-xs text-gray-500 mt-0.5">
@@ -478,7 +465,7 @@ export default function BillingProvidersPage() {
             </div>
 
             {/* Razorpay Box */}
-            <div className="p-4 bg-gray-50/50 border border-gray-100 rounded-xl space-y-3">
+            <div className="p-4 bg-gray-950/30 border border-gray-800 rounded-xl space-y-3">
               <div className="flex justify-between items-center gap-4">
                 <span className="text-xs font-bold text-blue-600 uppercase tracking-wider">
                   Razorpay webhook endpoint
@@ -493,7 +480,7 @@ export default function BillingProvidersPage() {
                   </span>
                 </button>
               </div>
-              <div className="bg-white border border-gray-200 p-2.5 rounded-xl font-mono text-xs text-gray-600 break-all select-all shadow-inner">
+              <div className="bg-gray-800 border border-gray-700 p-2.5 rounded-xl font-mono text-xs text-gray-400 break-all select-all">
                 {getWebhookUrl('razorpay')}
               </div>
               <p className="text-[10px] text-gray-500 leading-relaxed">
@@ -506,7 +493,7 @@ export default function BillingProvidersPage() {
             </div>
 
             {/* Stripe Box */}
-            <div className="p-4 bg-gray-50/50 border border-gray-100 rounded-xl space-y-3">
+            <div className="p-4 bg-gray-950/30 border border-gray-800 rounded-xl space-y-3">
               <div className="flex justify-between items-center gap-4">
                 <span className="text-xs font-bold text-purple-600 uppercase tracking-wider">
                   Stripe webhook endpoint
@@ -521,7 +508,7 @@ export default function BillingProvidersPage() {
                   </span>
                 </button>
               </div>
-              <div className="bg-white border border-gray-200 p-2.5 rounded-xl font-mono text-xs text-gray-600 break-all select-all shadow-inner">
+              <div className="bg-gray-800 border border-gray-700 p-2.5 rounded-xl font-mono text-xs text-gray-400 break-all select-all">
                 {getWebhookUrl('stripe')}
               </div>
               <p className="text-[10px] text-gray-500 leading-relaxed">

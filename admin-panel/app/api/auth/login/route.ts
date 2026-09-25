@@ -20,7 +20,7 @@ function getPool() {
 async function queryUser(email: string) {
   const normalizedEmail = email.toLowerCase().trim();
   const query = `
-    SELECT id, tenant_id, email, role, password_hash
+    SELECT id, tenant_id, email, role, password_hash, two_factor_enabled, two_factor_secret
     FROM users
     WHERE email = $1
     ORDER BY created_at ASC LIMIT 1
@@ -82,6 +82,20 @@ export async function POST(req: NextRequest) {
 
     if (!matches) {
       return NextResponse.json({ error: 'Invalid credentials' }, { status: 401 });
+    }
+
+    if (user.two_factor_enabled) {
+      const tempToken = jwt.sign(
+        { userId: user.id, role: user.role, type: '2fa_pending' },
+        JWT_SECRET,
+        { expiresIn: '5m' }
+      );
+      return NextResponse.json({
+        success: false,
+        requires2FA: true,
+        tempToken,
+        userId: user.id,
+      });
     }
 
     const accessToken = jwt.sign(

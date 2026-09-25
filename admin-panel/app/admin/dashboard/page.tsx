@@ -18,16 +18,16 @@ import {
 import { Card, Metric, Text, Grid, Flex, BadgeDelta } from '@tremor/react';
 import { getCookie } from 'cookies-next';
 
-interface Metric {
+interface ResourceMetric {
   used: number;
   total: number;
 }
 
 interface StatusPayload {
-  gpu: Metric;
-  ram: Metric;
+  gpu: ResourceMetric;
+  ram: ResourceMetric;
   cpu: { percent: number };
-  disk: Metric;
+  disk: ResourceMetric;
   uptime: string;
   vllm_status: string;
   active_model: string;
@@ -38,9 +38,7 @@ interface StatusPayload {
 export default function SystemMonitor() {
   const [metrics, setMetrics] = useState<StatusPayload | null>(null);
   const [kpis, setKpis] = useState<any>(null);
-  const [cpuHistory, setCpuHistory] = useState<number[]>([
-    12, 15, 10, 18, 14, 25, 20, 16, 22, 19, 15, 12,
-  ]);
+  const [cpuHistory, setCpuHistory] = useState<number[]>([]);
   const apiBase = '/api-proxy';
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -275,13 +273,13 @@ export default function SystemMonitor() {
   const ramUsedGB = metrics ? (metrics.ram.used / 1024).toFixed(1) : '0';
   const ramTotalGB = metrics ? (metrics.ram.total / 1024).toFixed(0) : '16';
 
-  const vramPercent = metrics
+  const vramPercent = metrics && metrics.gpu.total
     ? Math.round((metrics.gpu.used / metrics.gpu.total) * 100)
     : 0;
-  const ramPercent = metrics
+  const ramPercent = metrics && metrics.ram.total
     ? Math.round((metrics.ram.used / metrics.ram.total) * 100)
     : 0;
-  const diskPercent = metrics
+  const diskPercent = metrics && metrics.disk.total
     ? Math.round((metrics.disk.used / metrics.disk.total) * 100)
     : 0;
 
@@ -324,7 +322,7 @@ export default function SystemMonitor() {
             >
               <Text className="text-gray-400">Active Tenants</Text>
               <Flex className="mt-2 items-baseline">
-                <Metric className="text-white">{kpis.activeTenants}</Metric>
+                <Metric className="text-white">{kpis.activeTenants ?? 0}</Metric>
                 <BadgeDelta deltaType="moderateIncrease">Stable</BadgeDelta>
               </Flex>
             </Card>
@@ -335,7 +333,7 @@ export default function SystemMonitor() {
             >
               <Text className="text-gray-400">Active API Keys</Text>
               <Flex className="mt-2 items-baseline">
-                <Metric className="text-white">{kpis.activeKeys}</Metric>
+                <Metric className="text-white">{kpis.activeKeys ?? 0}</Metric>
                 <BadgeDelta deltaType="moderateIncrease">Stable</BadgeDelta>
               </Flex>
             </Card>
@@ -346,7 +344,7 @@ export default function SystemMonitor() {
             >
               <Text className="text-gray-400">Active Agents</Text>
               <Flex className="mt-2 items-baseline">
-                <Metric className="text-white">{kpis.activeAgents}</Metric>
+                <Metric className="text-white">{kpis.activeAgents ?? 0}</Metric>
                 <BadgeDelta deltaType="moderateIncrease">Stable</BadgeDelta>
               </Flex>
             </Card>
@@ -357,7 +355,7 @@ export default function SystemMonitor() {
             >
               <Text className="text-gray-400">Knowledge Bases</Text>
               <Flex className="mt-2 items-baseline">
-                <Metric className="text-white">{kpis.knowledgeBases}</Metric>
+                <Metric className="text-white">{kpis.knowledgeBases ?? 0}</Metric>
                 <BadgeDelta deltaType="unchanged">Stable</BadgeDelta>
               </Flex>
             </Card>
@@ -369,7 +367,7 @@ export default function SystemMonitor() {
               <Text className="text-gray-400">Requests Today</Text>
               <Flex className="mt-2 items-baseline">
                 <Metric className="text-white">
-                  {kpis.requestsToday.toLocaleString()}
+                  {(kpis.requestsToday ?? 0).toLocaleString()}
                 </Metric>
                 <BadgeDelta deltaType="moderateIncrease">Active</BadgeDelta>
               </Flex>
@@ -382,9 +380,9 @@ export default function SystemMonitor() {
               <Text className="text-gray-400">Tokens Today</Text>
               <Flex className="mt-2 items-baseline">
                 <Metric className="text-white">
-                  {kpis.tokensToday > 1000000
-                    ? (kpis.tokensToday / 1000000).toFixed(1) + 'M'
-                    : kpis.tokensToday.toLocaleString()}
+                  {(kpis.tokensToday ?? 0) > 1000000
+                    ? ((kpis.tokensToday ?? 0) / 1000000).toFixed(1) + 'M'
+                    : (kpis.tokensToday ?? 0).toLocaleString()}
                 </Metric>
                 <BadgeDelta deltaType="moderateIncrease">Active</BadgeDelta>
               </Flex>
@@ -397,7 +395,7 @@ export default function SystemMonitor() {
               <Text className="text-gray-400">Revenue Today</Text>
               <Flex className="mt-2 items-baseline">
                 <Metric className="text-white">
-                  ₹{kpis.revenueToday.toLocaleString()}
+                  ₹{(kpis.revenueToday ?? 0).toLocaleString()}
                 </Metric>
                 <BadgeDelta deltaType="moderateIncrease">Active</BadgeDelta>
               </Flex>

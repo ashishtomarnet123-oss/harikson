@@ -59,11 +59,36 @@ describe('Workflow Engine & Automation Test Suite', () => {
     expect(res).toBe('Missing token: {{trigger.payload.nonExistentKey}}');
   });
 
-  it('3. Workflow Step Types: supports prompt, webhook, email, rag_search, filter, and agent', () => {
-    const stepTypes = ['prompt', 'webhook', 'email', 'rag_search', 'filter', 'agent'];
-    expect(stepTypes.length).toBe(6);
-    expect(stepTypes).toContain('prompt');
-    expect(stepTypes).toContain('rag_search');
-    expect(stepTypes).toContain('webhook');
+  it('3. Workflow Step Types: supports prompt, webhook, email, rag_search, filter, agent, router, code, and slack', () => {
+    const stepTypes = ['prompt', 'webhook', 'email', 'rag_search', 'filter', 'agent', 'router', 'code', 'slack'];
+    expect(stepTypes.length).toBe(9);
+    expect(stepTypes).toContain('router');
+    expect(stepTypes).toContain('code');
+    expect(stepTypes).toContain('slack');
+  });
+
+  it('4. DAG $node expression syntax: parses $node["id"].output and direct node_id.output', () => {
+    const context = {
+      nodesOutputs: {
+        node_trigger: {
+          event: 'lead_created',
+          customer: { email: 'alex@example.com', name: 'Alex' },
+        },
+        node_llm: {
+          sentiment: 'positive',
+          confidence: 0.95,
+        },
+      },
+      triggerPayload: {},
+      variables: {},
+    };
+
+    const expr1 = 'Customer: {{$node["node_trigger"].output.customer.name}} <{{$node["node_trigger"].output.customer.email}}>';
+    const res1 = WorkflowEngine.interpolate(expr1, context);
+    expect(res1).toBe('Customer: Alex <alex@example.com>');
+
+    const expr2 = 'Sentiment score: {{node_llm.sentiment}} ({{node_llm.confidence}})';
+    const res2 = WorkflowEngine.interpolate(expr2, context);
+    expect(res2).toBe('Sentiment score: positive (0.95)');
   });
 });

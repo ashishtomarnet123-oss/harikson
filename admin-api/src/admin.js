@@ -1,9 +1,8 @@
 import logger from './utils/logger.js';
-import { traceQuery, redactPII } from './utils/queryLogger.js';
+import { redactPII } from './utils/queryLogger.js';
 import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
-import pg from 'pg';
 import bcrypt from 'bcrypt';
 import dotenv from 'dotenv';
 import jwt from 'jsonwebtoken';
@@ -24,6 +23,7 @@ import {
 } from './routers/integrations.js';
 import fs from 'fs';
 import path from 'path';
+import pool from './db.js';
 
 dotenv.config();
 
@@ -39,55 +39,18 @@ if (!process.env.JWT_SECRET) {
   }
 }
 
-import { sendInvoiceReceipt, sendImpersonationAlert, sendAccountApprovalEmail, sendWelcomeEmail, sendPasswordReset, getActiveSmtpConfig, verifySmtpConnection, sendEmail, renderAndSendTemplate } from './services/email.js';
+import { sendInvoiceReceipt, sendImpersonationAlert, sendAccountApprovalEmail, sendWelcomeEmail, sendPasswordReset, getActiveSmtpConfig, verifySmtpConnection, sendEmail, renderAndSendTemplate, resetEmailRateLimit } from './services/email.js';
 import { createInvoice } from './services/invoiceService.js';
+import { validate } from './middleware/validation.middleware.js';
+import { loginSchema, taxRateSchema, userStatusSchema, legalHoldSchema, legalHoldLiftSchema, sendEmailSchema, smtpConfigSchema, adminResetPasswordSchema } from './validators/admin.schema.js';
+import { validatePasswordPolicy, generateCryptographicPassword } from './validators/passwordPolicy.js';
 
 if (!process.env.JWT_SECRET || process.env.JWT_SECRET.length < 32) {
   logger.error('FATAL: JWT_SECRET not set or too short (min 32 characters)');
   process.exit(1);
 }
 
-const { Pool } = pg;
-if (!process.env.DATABASE_URL) {
-  throw new Error('DATABASE_URL environment variable is required');
-}
-export const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-});
-
-// Wrap pool query functions for tracing
-const originalPoolQuery = pool.query;
-pool.query = function (text, params, callback) {
-  return traceQuery(logger, 'AdminPool', text, originalPoolQuery, pool, Array.from(arguments));
-};
-
-const originalPoolConnect = pool.connect;
-pool.connect = function (callback) {
-  if (callback) {
-    return originalPoolConnect.call(pool, (err, client, done) => {
-      if (err) return callback(err);
-      if (client && !client.query.__wrapped) {
-        const originalClientQuery = client.query;
-        client.query = function (text, params, cb) {
-          return traceQuery(logger, 'AdminClient', text, originalClientQuery, client, Array.from(arguments));
-        };
-        client.query.__wrapped = true;
-      }
-      callback(null, client, done);
-    });
-  }
-
-  return originalPoolConnect.apply(pool, arguments).then((client) => {
-    if (client && !client.query.__wrapped) {
-      const originalClientQuery = client.query;
-      client.query = function (text, params, cb) {
-        return traceQuery(logger, 'AdminClient', text, originalClientQuery, client, Array.from(arguments));
-      };
-      client.query.__wrapped = true;
-    }
-    return client;
-  });
-};
+export { default as pool } from './db.js';
 
 // Encryption Helpers for credentials at rest
 export function validatePaymentKeyConfig() {
@@ -250,6 +213,22 @@ app.use((req, res, next) => {
   } else if (req.url.startsWith('/admin/')) {
     res.setHeader('Deprecation', 'true');
     res.setHeader('Sunset', new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toUTCString());
+  }
+  next();
+});
+
+// General rate limiter: 100 requests per minute per IP for admin endpoints
+const rateLimitStore = new Map();
+setInterval(() => rateLimitStore.clear(), 60000);
+app.use((req, res, next) => {
+  if (req.method === 'OPTIONS') return next();
+  const ip = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.socket.remoteAddress || 'unknown';
+  const count = (rateLimitStore.get(ip) || 0) + 1;
+  rateLimitStore.set(ip, count);
+  res.setHeader('X-RateLimit-Limit', '100');
+  res.setHeader('X-RateLimit-Remaining', String(Math.max(0, 100 - count)));
+  if (count > 100) {
+    return res.status(429).json({ error: 'Too many requests. Please slow down.' });
   }
   next();
 });
@@ -458,7 +437,7 @@ app.get('/api/user/billing', (req, res, next) => {
 });
 
 // POST /admin/login
-app.post('/admin/login', async (req, res) => {
+app.post('/admin/login', validate(loginSchema), async (req, res) => {
   const { email, password } = req.body;
   if (!email || !password) {
     return res.status(400).json({ error: 'Email and password are required' });
@@ -575,8 +554,8 @@ app.post(['/admin/auth/refresh', '/admin/refresh'], async (req, res) => {
   try {
     const parseCookie = (cookieHeader, key) => {
       if (!cookieHeader) return null;
-      const match = cookieHeader.match(new RegExp('(^| )' + key + '=([^;]+)'));
-      return match ? match[2] : null;
+      const match = cookieHeader.match(new RegExp('(?:^|;\\s*)' + key + '=([^;]+)'));
+      return match ? match[1] : null;
     };
 
     const refreshToken = req.headers.cookie ? parseCookie(req.headers.cookie, 'admin_refresh_token') : null;
@@ -589,10 +568,25 @@ app.post(['/admin/auth/refresh', '/admin/refresh'], async (req, res) => {
       return res.status(401).json({ error: 'Invalid refresh token' });
     }
 
-    const newAccessToken = jwt.sign({ userId: decoded.userId, role: decoded.role, type: 'access' }, jwtSecret, {
+    const userCheck = await pool.query(
+      "SELECT id, role, status FROM users WHERE id = $1 AND deleted_at IS NULL",
+      [decoded.userId]
+    );
+    if (userCheck.rows.length === 0) {
+      return res.status(401).json({ error: 'User no longer exists' });
+    }
+    const currentUser = userCheck.rows[0];
+    if (currentUser.status === 'suspended' || currentUser.status === 'inactive') {
+      return res.status(403).json({ error: 'Account suspended or inactive' });
+    }
+    if (!['superadmin', 'admin', 'founder'].includes(currentUser.role)) {
+      return res.status(403).json({ error: 'Insufficient privileges' });
+    }
+
+    const newAccessToken = jwt.sign({ userId: decoded.userId, role: currentUser.role, type: 'access' }, jwtSecret, {
       expiresIn: '15m',
     });
-    const newRefreshToken = jwt.sign({ userId: decoded.userId, role: decoded.role, type: 'refresh' }, jwtSecret, {
+    const newRefreshToken = jwt.sign({ userId: decoded.userId, role: currentUser.role, type: 'refresh' }, jwtSecret, {
       expiresIn: '30d',
     });
 
@@ -834,7 +828,7 @@ app.get(['/admin/tax-rates', '/v1/admin/tax-rates'], adminAuth, async (req, res)
 });
 
 // POST /admin/tax-rates - Create or update tax rate
-app.post(['/admin/tax-rates', '/v1/admin/tax-rates'], adminAuth, async (req, res) => {
+app.post(['/admin/tax-rates', '/v1/admin/tax-rates'], adminAuth, validate(taxRateSchema), async (req, res) => {
   try {
     const { country_code, region_code, tax_name, rate_percent, type, hsn_code, is_active, id } = req.body;
     if (!country_code || !tax_name || rate_percent === undefined) {
@@ -1030,7 +1024,7 @@ app.post('/admin/users/:id/reset-2fa', adminAuth, async (req, res) => {
 });
 
 // POST /admin/users/:id/force-password-reset - Force password reset for any user (Admin only, bypasses rate limit)
-app.post('/admin/users/:id/force-password-reset', adminAuth, async (req, res) => {
+app.post(['/admin/users/:id/force-password-reset', '/v1/admin/users/:id/force-password-reset'], adminAuth, async (req, res) => {
   try {
     const { id } = req.params;
     const userRes = await pool.query(
@@ -1061,11 +1055,33 @@ app.post('/admin/users/:id/force-password-reset', adminAuth, async (req, res) =>
 
     logger.info(`🚨 [ADMIN FORCE RESET] Admin ${req.admin?.email} initiated password reset for user ${user.email}`);
 
+    let emailSent = false;
+    let emailError = null;
+
+    try {
+      await resetEmailRateLimit(user.email);
+      const emailResult = await sendPasswordReset(user.email, resetLink, { bypassRateLimit: true });
+      if (emailResult && emailResult.success) {
+        emailSent = true;
+      } else {
+        emailError = emailResult?.error || 'Email dispatch failed';
+        logger.warn(`[FORCE RESET EMAIL WARNING] Could not email reset link to ${user.email}: ${emailError}`);
+      }
+    } catch (emailErr) {
+      emailError = emailErr.message || 'Email delivery failed';
+      logger.error('Failed to send password reset email:', emailErr);
+    }
+
     res.status(200).json({
       success: true,
-      message: 'Password reset link generated and dispatched to user email',
+      message: emailSent
+        ? 'Password reset link generated and dispatched to user email.'
+        : `Password reset link generated successfully. (Email notification skipped: ${emailError})`,
       userId: id,
       email: user.email,
+      resetLink,
+      emailSent,
+      emailError,
     });
   } catch (err) {
     logger.error('Force password reset error:', err);
@@ -1301,7 +1317,7 @@ app.get('/admin/tenants/:id/legal-holds', adminAuth, async (req, res) => {
 });
 
 // POST /admin/tenants/:id/legal-holds - Place a legal hold on a tenant
-app.post('/admin/tenants/:id/legal-holds', adminAuth, async (req, res) => {
+app.post('/admin/tenants/:id/legal-holds', adminAuth, validate(legalHoldSchema), async (req, res) => {
   try {
     const { id } = req.params;
     const { caseName, description, expiresAt } = req.body;
@@ -1334,7 +1350,6 @@ app.post('/admin/tenants/:id/legal-holds', adminAuth, async (req, res) => {
       [
         newHold.id,
         id,
-        'LEGAL_HOLD_CREATED',
         adminId,
         adminEmail,
         caseName,
@@ -1357,7 +1372,7 @@ app.post('/admin/tenants/:id/legal-holds', adminAuth, async (req, res) => {
 });
 
 // POST /admin/tenants/:id/legal-holds/:holdId/lift - Lift an active legal hold
-app.post('/admin/tenants/:id/legal-holds/:holdId/lift', adminAuth, async (req, res) => {
+app.post('/admin/tenants/:id/legal-holds/:holdId/lift', adminAuth, validate(legalHoldLiftSchema), async (req, res) => {
   try {
     const { id, holdId } = req.params;
     const { reason = 'Litigation concluded' } = req.body;
@@ -1389,7 +1404,6 @@ app.post('/admin/tenants/:id/legal-holds/:holdId/lift', adminAuth, async (req, r
       [
         liftedHold.id,
         id,
-        'LEGAL_HOLD_LIFTED',
         adminId,
         adminEmail,
         liftedHold.case_name,
@@ -1577,7 +1591,7 @@ app.get('/admin/metrics', metricsAuthGuard, async (req, res) => {
 app.use('/admin', adminAuth);
 
 // 0. GET /admin/kpis
-app.get('/admin/kpis', async (req, res) => {
+app.get('/admin/kpis', adminAuth, async (req, res) => {
   try {
     const tenants = await pool.query(
       "SELECT COUNT(*) FROM tenants WHERE status='active'"
@@ -1619,7 +1633,7 @@ app.get('/admin/kpis', async (req, res) => {
 });
 
 // 1. GET /admin/system-status
-app.get('/admin/system-status', async (req, res) => {
+app.get('/admin/system-status', adminAuth, async (req, res) => {
   const cacheKey = 'admin:system-status';
   try {
     let cached = null;
@@ -1948,7 +1962,7 @@ app.post(['/auth/impersonate/confirm', '/api/auth/impersonate/confirm', '/admin/
 });
 
 // 1.6 GET /admin/users
-app.get(['/admin/users', '/v1/admin/users'], async (req, res) => {
+app.get(['/admin/users', '/v1/admin/users'], adminAuth, async (req, res) => {
   try {
     const query = `
       SELECT 
@@ -1983,7 +1997,7 @@ app.get(['/admin/users', '/v1/admin/users'], async (req, res) => {
 });
 
 // PUT /admin/users/:userId/status - Approve or update user access status (active, pending, suspended)
-app.put(['/admin/users/:userId/status', '/v1/admin/users/:userId/status'], async (req, res) => {
+app.put(['/admin/users/:userId/status', '/v1/admin/users/:userId/status'], adminAuth, validate(userStatusSchema), async (req, res) => {
   const { userId } = req.params;
   const { status } = req.body;
 
@@ -2015,7 +2029,7 @@ app.put(['/admin/users/:userId/status', '/v1/admin/users/:userId/status'], async
 
     // Write audit log to activity_logs
     await pool.query(
-      `INSERT INTO activity_logs (user_id, action, details, created_at)
+      `INSERT INTO activity_logs (user_id, action, metadata, created_at)
        VALUES ($1, $2, $3, NOW())`,
       [userId, status === 'active' ? 'user_access_approved' : 'user_status_updated', JSON.stringify({ previousStatus, newStatus: status })]
     ).catch(err => logger.warn('Audit log write failed:', err.message));
@@ -2138,6 +2152,9 @@ const handleSendUserEmail = async (req, res) => {
     }
     const user = userRes.rows[0];
 
+    // Admin initiated action: reset any rate limit block and dispatch
+    await resetEmailRateLimit(user.email);
+
     let result = { success: false };
     if (emailType === 'approval') {
       result = await sendAccountApprovalEmail(user.email, user.name);
@@ -2145,7 +2162,7 @@ const handleSendUserEmail = async (req, res) => {
       result = await sendWelcomeEmail(user.email, user.name);
     } else if (emailType === 'password_reset') {
       const resetUrl = `https://app.xarwiz.com/reset-password?email=${encodeURIComponent(user.email)}`;
-      result = await sendPasswordReset(user.email, resetUrl);
+      result = await sendPasswordReset(user.email, resetUrl, { bypassRateLimit: true });
     } else {
       return res.status(400).json({ error: 'Invalid emailType specified' });
     }
@@ -2167,6 +2184,26 @@ const handleSendUserEmail = async (req, res) => {
 
 app.post('/admin/users/:userId/send-email', adminAuth, handleSendUserEmail);
 app.post('/v1/admin/users/:userId/send-email', adminAuth, handleSendUserEmail);
+
+// Reset email rate limit for a specific user
+const handleResetEmailRateLimit = async (req, res) => {
+  const { userId } = req.params;
+  try {
+    const userRes = await pool.query('SELECT id, email FROM users WHERE id = $1', [userId]);
+    if (userRes.rows.length === 0) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    const user = userRes.rows[0];
+    await resetEmailRateLimit(user.email);
+    res.json({ success: true, message: `Email rate limit has been reset for ${user.email}` });
+  } catch (err) {
+    logger.error('Failed to reset email rate limit for user:', err);
+    res.status(500).json({ error: 'Failed to reset email rate limit' });
+  }
+};
+
+app.post('/admin/users/:userId/reset-email-rate-limit', adminAuth, handleResetEmailRateLimit);
+app.post('/v1/admin/users/:userId/reset-email-rate-limit', adminAuth, handleResetEmailRateLimit);
 
 // --- EMAIL TEMPLATES CRUD ---
 
@@ -2287,7 +2324,7 @@ const handleUpdateSmtpConfig = async (req, res) => {
     res.json({ success: true, message: 'SMTP settings updated and activated successfully', config: insertRes.rows[0] });
   } catch (err) {
     logger.error('Failed to update SMTP config:', err);
-    res.status(500).json({ error: 'Failed to update SMTP configuration' });
+    res.status(500).json({ success: false, error: err.message || 'Failed to update SMTP configuration' });
   }
 };
 app.put('/admin/emails/smtp', adminAuth, handleUpdateSmtpConfig);
@@ -2304,7 +2341,7 @@ const handleTestSmtpConfig = async (req, res) => {
     res.json({ success: true, message: testResult.message || 'SMTP Server Connection Verified Successfully!' });
   } catch (err) {
     logger.error('SMTP Test Failed:', err);
-    res.status(500).json({ error: err.message || 'Failed to verify SMTP server connection' });
+    res.status(400).json({ success: false, error: err.message || 'Failed to verify SMTP server connection' });
   }
 };
 app.post('/admin/emails/smtp/test', adminAuth, handleTestSmtpConfig);
@@ -2518,8 +2555,427 @@ const handleUpdateUserProfile = async (req, res) => {
 app.put('/admin/users/:userId', adminAuth, handleUpdateUserProfile);
 app.put('/v1/admin/users/:userId', adminAuth, handleUpdateUserProfile);
 
+// ────────────────────────────────────────────────────────────
+// SUPERADMIN USER CREDENTIAL MANAGEMENT SUITE
+// ────────────────────────────────────────────────────────────
+
+// Rate limiting: Max 20 credential operations per admin per 5 minutes
+async function checkAdminCredentialRateLimit(adminId) {
+  try {
+    const key = `rate_limit:admin_cred_manage:${adminId}`;
+    const count = await redis.incr(key);
+    if (count === 1) {
+      await redis.expire(key, 300);
+    }
+    if (count > 20) {
+      return false;
+    }
+    return true;
+  } catch (err) {
+    logger.warn('Redis rate limit check error for admin credential management:', err.message);
+    return true; // Fail open if Redis is temporarily unreachable
+  }
+}
+
+// Invalidate user sessions helper (refresh tokens + Redis caches)
+async function invalidateUserSessions(userId) {
+  try {
+    await pool.query('DELETE FROM refresh_tokens WHERE user_id = $1', [userId]);
+  } catch (tokenErr) {
+    logger.warn('Failed to delete refresh tokens on user session invalidation:', tokenErr.message);
+  }
+
+  try {
+    await redis.del(`user:${userId}:sessions`).catch(() => {});
+    await redis.del(`user_session:${userId}`).catch(() => {});
+    await redis.del(`user:${userId}`).catch(() => {});
+  } catch (rErr) {
+    logger.warn('Failed to clear user Redis sessions:', rErr.message);
+  }
+}
+
+// Verify authorization & Superadmin protection hierarchy
+async function verifyAdminCredentialPermission(req, res, targetUserId) {
+  const caller = req.admin;
+  if (!caller || !['superadmin', 'founder', 'admin'].includes(caller.role)) {
+    res.status(403).json({ error: 'Access Denied: Administrative privileges required' });
+    return null;
+  }
+
+  // Self-password management must use user profile security settings
+  if (caller.id === targetUserId) {
+    res.status(400).json({ error: 'You cannot manage credentials for your own account via Admin management. Use User Profile settings.' });
+    return null;
+  }
+
+  // Rate limit check
+  const allowed = await checkAdminCredentialRateLimit(caller.id);
+  if (!allowed) {
+    res.status(429).json({ error: 'Rate limit exceeded: Too many password management operations. Please wait a few minutes before trying again.' });
+    return null;
+  }
+
+  const userRes = await pool.query(
+    'SELECT id, email, name, role, tenant_id, force_password_change, must_change_password FROM users WHERE id = $1 AND deleted_at IS NULL',
+    [targetUserId]
+  );
+
+  if (userRes.rows.length === 0) {
+    res.status(404).json({ error: 'User not found or has been deleted' });
+    return null;
+  }
+
+  const targetUser = userRes.rows[0];
+
+  // Superadmin protection: Ordinary admins CANNOT modify credentials of superadmin or founder
+  const isSuperadminTarget = ['superadmin', 'founder'].includes(targetUser.role);
+  const isCallerSuperadmin = ['superadmin', 'founder'].includes(caller.role);
+
+  if (isSuperadminTarget && !isCallerSuperadmin) {
+    res.status(403).json({ error: 'Access Denied: Ordinary administrators cannot manage Superadmin credentials.' });
+    return null;
+  }
+
+  return targetUser;
+}
+
+// 1. POST /admin/users/:userId/password/reset & /password/set - Set/Reset user password directly
+const handleAdminSetPassword = async (req, res) => {
+  const userId = req.params.userId || req.params.id;
+  const targetUser = await verifyAdminCredentialPermission(req, res, userId);
+  if (!targetUser) return;
+
+  const password = req.body.password || req.body.newPassword;
+  const forceChangeOnNextLogin = req.body.forceChangeOnNextLogin ?? req.body.forcePasswordChange ?? true;
+  const revokeSessions = req.body.revokeSessions ?? true;
+  const sendEmailNotification = req.body.sendEmailNotification ?? false;
+
+  // Strict backend password policy validation
+  const validation = validatePasswordPolicy(password);
+  if (!validation.valid) {
+    return res.status(400).json({ error: validation.error });
+  }
+
+  try {
+    const passwordHash = await bcrypt.hash(password, 12);
+    const callerEmail = req.admin?.email || req.admin?.id || 'admin';
+
+    // Update credentials, flags, and audit metadata in database
+    await pool.query(
+      `UPDATE users
+       SET password_hash = $1,
+           force_password_change = $2,
+           must_change_password = $2,
+           password_changed_at = NOW(),
+           password_reset_at = NOW(),
+           password_reset_by = $3,
+           failed_login_attempts = 0,
+           locked_until = NULL,
+           lockout_count = 0,
+           unlock_token = NULL,
+           password_reset_token = NULL,
+           password_reset_expires = NULL,
+           updated_at = NOW()
+       WHERE id = $4`,
+      [passwordHash, !!forceChangeOnNextLogin, callerEmail, userId]
+    );
+
+    // Invalidate existing sessions if requested
+    if (revokeSessions) {
+      await invalidateUserSessions(userId);
+    }
+
+    // Audit Log: USER_PASSWORD_SET / USER_PASSWORD_RESET (Never log password or hash!)
+    await logAdminAction(
+      req.admin.id,
+      'USER_PASSWORD_RESET',
+      'user',
+      userId,
+      null,
+      {
+        email: targetUser.email,
+        forceChangeOnNextLogin: !!forceChangeOnNextLogin,
+        revokeSessions: !!revokeSessions,
+        sendEmailNotification: !!sendEmailNotification,
+        adminEmail: callerEmail,
+      },
+      req
+    );
+
+    if (revokeSessions) {
+      await logAdminAction(
+        req.admin.id,
+        'USER_SESSIONS_INVALIDATED',
+        'user',
+        userId,
+        null,
+        { email: targetUser.email, reason: 'password_reset' },
+        req
+      );
+    }
+
+    // Optional transactional notification email
+    let emailSent = false;
+    if (sendEmailNotification) {
+      try {
+        const appUrl = process.env.USER_PORTAL_URL || 'https://app.xarwiz.com/login';
+        const mailResult = await sendEmail({
+          to: targetUser.email,
+          subject: 'Your Xarwiz Account Password Has Been Reset',
+          emailType: 'password_reset_admin',
+          html: `
+            <div style="font-family: system-ui, -apple-system, sans-serif; padding: 24px; color: #1e293b; max-width: 600px; margin: 0 auto; border: 1px solid #e2e8f0; border-radius: 12px; background: #ffffff;">
+              <h2 style="color: #6366f1; border-bottom: 2px solid #6366f1; padding-bottom: 12px; margin-top: 0;">Password Reset by Administrator</h2>
+              <p>Hello ${targetUser.name || 'there'},</p>
+              <p>Your password for your Xarwiz account (<strong>${targetUser.email}</strong>) has been updated by an administrator.</p>
+              ${
+                forceChangeOnNextLogin
+                  ? '<div style="background-color: #fef3c7; border-left: 4px solid #f59e0b; padding: 12px; margin: 16px 0; border-radius: 4px; color: #92400e; font-weight: 600;">You will be prompted to choose a new password upon your next login.</div>'
+                  : ''
+              }
+              <p>Please log in using your newly assigned credentials.</p>
+              <div style="text-align: center; margin: 28px 0;">
+                <a href="${appUrl}" style="background-color: #6366f1; color: #ffffff; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: 600; display: inline-block;">Log In to Xarwiz</a>
+              </div>
+              <hr style="border: 0; border-top: 1px solid #e2e8f0; margin: 24px 0;" />
+              <p style="font-size: 12px; color: #64748b;">If you did not request or expect this change, please contact your workspace administrator immediately.</p>
+            </div>
+          `,
+        });
+        emailSent = mailResult?.success || false;
+      } catch (mailErr) {
+        logger.error('Failed to dispatch password notification email:', mailErr.message);
+      }
+    }
+
+    res.status(200).json({
+      success: true,
+      message: `Password reset successfully for ${targetUser.email}.${emailSent ? ' Notification email sent.' : ''}`,
+      forceChangeOnNextLogin: !!forceChangeOnNextLogin,
+      sessionsRevoked: !!revokeSessions,
+      emailSent,
+    });
+  } catch (err) {
+    logger.error('Admin set password error:', err);
+    res.status(500).json({ error: 'Failed to reset user password', message: err.message });
+  }
+};
+
+app.post([
+  '/admin/users/:userId/password/reset',
+  '/v1/admin/users/:userId/password/reset',
+  '/admin/users/:userId/password/set',
+  '/v1/admin/users/:userId/password/set',
+  '/admin/users/:userId/reset-password',
+  '/v1/admin/users/:userId/reset-password',
+], adminAuth, handleAdminSetPassword);
+
+// 2. POST /admin/users/:userId/password/generate - Generate temporary password (returned once)
+const handleAdminGeneratePassword = async (req, res) => {
+  const userId = req.params.userId || req.params.id;
+  const targetUser = await verifyAdminCredentialPermission(req, res, userId);
+  if (!targetUser) return;
+
+  const forceChangeOnNextLogin = req.body.forceChangeOnNextLogin ?? true;
+  const revokeSessions = req.body.revokeSessions ?? true;
+
+  try {
+    const tempPassword = generateCryptographicPassword(16);
+    const passwordHash = await bcrypt.hash(tempPassword, 12);
+    const callerEmail = req.admin?.email || req.admin?.id || 'admin';
+
+    await pool.query(
+      `UPDATE users
+       SET password_hash = $1,
+           force_password_change = $2,
+           must_change_password = $2,
+           password_changed_at = NOW(),
+           password_reset_at = NOW(),
+           password_reset_by = $3,
+           failed_login_attempts = 0,
+           locked_until = NULL,
+           lockout_count = 0,
+           unlock_token = NULL,
+           password_reset_token = NULL,
+           password_reset_expires = NULL,
+           updated_at = NOW()
+       WHERE id = $4`,
+      [passwordHash, !!forceChangeOnNextLogin, callerEmail, userId]
+    );
+
+    if (revokeSessions) {
+      await invalidateUserSessions(userId);
+    }
+
+    // Audit event: NEVER log temporary password or hash!
+    await logAdminAction(
+      req.admin.id,
+      'USER_TEMP_PASSWORD_GENERATED',
+      'user',
+      userId,
+      null,
+      {
+        email: targetUser.email,
+        forceChangeOnNextLogin: !!forceChangeOnNextLogin,
+        revokeSessions: !!revokeSessions,
+        adminEmail: callerEmail,
+      },
+      req
+    );
+
+    if (revokeSessions) {
+      await logAdminAction(
+        req.admin.id,
+        'USER_SESSIONS_INVALIDATED',
+        'user',
+        userId,
+        null,
+        { email: targetUser.email, reason: 'temp_password_generated' },
+        req
+      );
+    }
+
+    // Return temporary password ONLY ONCE in this response. Never stored in plaintext anywhere.
+    res.status(200).json({
+      success: true,
+      message: 'Temporary password generated successfully. It will only be shown once.',
+      temporaryPassword: tempPassword,
+      forceChangeOnNextLogin: !!forceChangeOnNextLogin,
+      sessionsRevoked: !!revokeSessions,
+    });
+  } catch (err) {
+    logger.error('Admin generate temporary password error:', err);
+    res.status(500).json({ error: 'Failed to generate temporary password', message: err.message });
+  }
+};
+
+app.post([
+  '/admin/users/:userId/password/generate',
+  '/v1/admin/users/:userId/password/generate',
+], adminAuth, handleAdminGeneratePassword);
+
+// 3. POST /admin/users/:userId/password/force-change - Toggle force password change requirement
+const handleAdminForcePasswordChange = async (req, res) => {
+  const userId = req.params.userId || req.params.id;
+  const targetUser = await verifyAdminCredentialPermission(req, res, userId);
+  if (!targetUser) return;
+
+  const forceChange = req.body.forceChange ?? true;
+
+  try {
+    await pool.query(
+      `UPDATE users
+       SET force_password_change = $1,
+           must_change_password = $1,
+           updated_at = NOW()
+       WHERE id = $2`,
+      [!!forceChange, userId]
+    );
+
+    await logAdminAction(
+      req.admin.id,
+      forceChange ? 'USER_PASSWORD_FORCE_CHANGE_ENABLED' : 'USER_PASSWORD_FORCE_CHANGE_DISABLED',
+      'user',
+      userId,
+      null,
+      { email: targetUser.email, forceChange: !!forceChange, adminEmail: req.admin?.email },
+      req
+    );
+
+    res.status(200).json({
+      success: true,
+      message: forceChange
+        ? `Password change will be required for ${targetUser.email} on next login.`
+        : `Password change requirement cleared for ${targetUser.email}.`,
+      forcePasswordChange: !!forceChange,
+      mustChangePassword: !!forceChange,
+    });
+  } catch (err) {
+    logger.error('Admin force password change error:', err);
+    res.status(500).json({ error: 'Failed to update password change requirement', message: err.message });
+  }
+};
+
+app.post([
+  '/admin/users/:userId/password/force-change',
+  '/v1/admin/users/:userId/password/force-change',
+], adminAuth, handleAdminForcePasswordChange);
+
+// 4. POST /admin/users/:userId/sessions/sign-out - Invalidate all active user sessions
+const handleAdminSignOutSessions = async (req, res) => {
+  const userId = req.params.userId || req.params.id;
+  const targetUser = await verifyAdminCredentialPermission(req, res, userId);
+  if (!targetUser) return;
+
+  try {
+    await invalidateUserSessions(userId);
+
+    await logAdminAction(
+      req.admin.id,
+      'USER_SESSIONS_INVALIDATED',
+      'user',
+      userId,
+      null,
+      { email: targetUser.email, adminEmail: req.admin?.email },
+      req
+    );
+
+    res.status(200).json({
+      success: true,
+      message: `All active sessions for ${targetUser.email} have been terminated.`,
+    });
+  } catch (err) {
+    logger.error('Admin sign out user sessions error:', err);
+    res.status(500).json({ error: 'Failed to invalidate user sessions', message: err.message });
+  }
+};
+
+app.post([
+  '/admin/users/:userId/sessions/sign-out',
+  '/v1/admin/users/:userId/sessions/sign-out',
+], adminAuth, handleAdminSignOutSessions);
+
+// 5. GET /admin/users/:userId/security-activity - Fetch recent security activity logs for user
+const handleGetUserSecurityActivity = async (req, res) => {
+  const userId = req.params.userId || req.params.id;
+
+  try {
+    const activityRes = await pool.query(
+      `SELECT id, admin_id, action, target_type, target_id, ip_address, user_agent, created_at, new_value
+       FROM admin_audit_log
+       WHERE target_type = 'user' AND target_id = $1
+       ORDER BY created_at DESC
+       LIMIT 25`,
+      [userId]
+    );
+
+    const safeActivities = activityRes.rows.map((row) => ({
+      id: row.id,
+      action: row.action,
+      adminId: row.admin_id,
+      ipAddress: row.ip_address,
+      userAgent: row.user_agent,
+      createdAt: row.created_at,
+      details: row.new_value || null,
+    }));
+
+    res.status(200).json({
+      success: true,
+      activities: safeActivities,
+    });
+  } catch (err) {
+    logger.error('Get user security activity error:', err);
+    res.status(500).json({ error: 'Failed to fetch security activity', message: err.message });
+  }
+};
+
+app.get([
+  '/admin/users/:userId/security-activity',
+  '/v1/admin/users/:userId/security-activity',
+], adminAuth, handleGetUserSecurityActivity);
+
 // DELETE /admin/users/:userId - Permanently delete a user
-app.delete('/admin/users/:userId', async (req, res) => {
+app.delete('/admin/users/:userId', adminAuth, async (req, res) => {
   const { userId } = req.params;
 
   try {
@@ -2562,7 +3018,7 @@ app.delete('/admin/users/:userId', async (req, res) => {
   }
 });
 
-app.get('/admin/users/:userId/conversations', async (req, res) => {
+app.get('/admin/users/:userId/conversations', adminAuth, async (req, res) => {
   const { userId } = req.params;
   try {
     const query = `
@@ -2586,8 +3042,12 @@ app.get('/admin/users/:userId/conversations', async (req, res) => {
 });
 
 // 2. POST /admin/models/:name/load
-app.post('/admin/models/:name/load', async (req, res) => {
+const ALLOWED_MODELS = ['Qwen3-0.6B', 'Qwen3-1.7B', 'Qwen3-4B', 'Qwen3-8B', 'Qwen3-14B', 'Qwen3-32B', 'Qwen2.5-Coder-7B', 'Qwen2.5-Coder-14B', 'Qwen2.5-Coder-32B'];
+app.post('/admin/models/:name/load', adminAuth, async (req, res) => {
   const { name } = req.params;
+  if (!ALLOWED_MODELS.includes(name)) {
+    return res.status(400).json({ error: `Invalid model name. Allowed: ${ALLOWED_MODELS.join(', ')}` });
+  }
   try {
     logger.info(
       `🤖 Spawning vLLM OpenAI API Server for model Qwen/${name}-Instruct`
@@ -2645,7 +3105,7 @@ app.post('/admin/models/:name/load', async (req, res) => {
 });
 
 // 3. POST /admin/models/:name/unload
-app.post('/admin/models/:name/unload', async (req, res) => {
+app.post('/admin/models/:name/unload', adminAuth, async (req, res) => {
   const { name } = req.params;
   try {
     // Kill the vLLM processes gracefully
@@ -2671,7 +3131,7 @@ app.post('/admin/models/:name/unload', async (req, res) => {
 });
 
 // 4. POST /admin/models/unload-all
-app.post('/admin/models/unload-all', async (req, res) => {
+app.post('/admin/models/unload-all', adminAuth, async (req, res) => {
   try {
     await execPromise("pkill -f 'vllm.entrypoints'").catch(() => {});
     await logAdminAction(
@@ -2694,7 +3154,7 @@ app.post('/admin/models/unload-all', async (req, res) => {
 });
 
 // 5. POST /admin/vllm/restart
-app.post('/admin/vllm/restart', async (req, res) => {
+app.post('/admin/vllm/restart', adminAuth, async (req, res) => {
   try {
     await execPromise("pkill -f 'vllm.entrypoints'").catch(() => {});
     await new Promise((resolve) => setTimeout(resolve, 5000));
@@ -2736,7 +3196,7 @@ app.post('/admin/vllm/restart', async (req, res) => {
 });
 
 // 6. GET /admin/tenants
-app.get('/admin/tenants', async (req, res) => {
+app.get('/admin/tenants', adminAuth, async (req, res) => {
   const page = parseInt(req.query.page) || 1;
   const limit = parseInt(req.query.limit) || 10;
   const offset = (page - 1) * limit;
@@ -2744,14 +3204,11 @@ app.get('/admin/tenants', async (req, res) => {
   try {
     const listQuery = `
       SELECT t.id, t.name, t.slug, t.plan, t.status, t.created_at,
-             COUNT(DISTINCT u.id)::int as user_count,
-             COALESCE(SUM(m.tokens_used), 0)::int as tokens_used,
+             (SELECT COUNT(*)::int FROM users u WHERE u.tenant_id = t.id) as user_count,
+             (SELECT COALESCE(SUM(tokens_used), 0)::int FROM messages m WHERE m.tenant_id = t.id) as tokens_used,
              p.price, p.billing, p.currency, p.token_limit, p.tenant_limit, p.agent_limit, p.features, p.model_access
       FROM tenants t
-      LEFT JOIN users u ON t.id = u.tenant_id
-      LEFT JOIN messages m ON t.id = m.tenant_id
       LEFT JOIN plans p ON LOWER(t.plan) = LOWER(p.id)
-      GROUP BY t.id, p.id
       ORDER BY t.created_at DESC
       LIMIT $1 OFFSET $2
     `;
@@ -2764,7 +3221,7 @@ app.get('/admin/tenants', async (req, res) => {
 });
 
 // POST /admin/tenants
-app.post('/admin/tenants', async (req, res) => {
+app.post('/admin/tenants', adminAuth, async (req, res) => {
   const { name, slug, plan, status } = req.body;
   if (!name || !slug || !plan) {
     return res.status(400).json({ error: 'Name, slug, and plan are required' });
@@ -2814,7 +3271,7 @@ app.post('/admin/tenants', async (req, res) => {
 });
 
 // PUT /admin/tenants/:id
-app.put('/admin/tenants/:id', async (req, res) => {
+app.put('/admin/tenants/:id', adminAuth, async (req, res) => {
   const { id } = req.params;
   const { name, slug, plan, status } = req.body;
 
@@ -2874,22 +3331,18 @@ app.put('/admin/tenants/:id', async (req, res) => {
 });
 
 // 7. GET /admin/tenants/:id
-app.get('/admin/tenants/:id', async (req, res) => {
+app.get('/admin/tenants/:id', adminAuth, async (req, res) => {
   const { id } = req.params;
   try {
     const query = `
       SELECT t.id, t.name, t.slug, t.plan, t.status, t.created_at,
-             COUNT(DISTINCT u.id)::int as user_count,
-             COALESCE(SUM(m.tokens_used), 0)::int as tokens_used,
-             COUNT(DISTINCT c.id)::int as conversations_count,
+             (SELECT COUNT(*)::int FROM users u WHERE u.tenant_id = t.id) as user_count,
+             (SELECT COALESCE(SUM(tokens_used), 0)::int FROM messages m WHERE m.tenant_id = t.id) as tokens_used,
+             (SELECT COUNT(*)::int FROM conversations c WHERE c.tenant_id = t.id) as conversations_count,
              p.price, p.billing, p.currency, p.token_limit, p.tenant_limit, p.agent_limit, p.features, p.model_access
       FROM tenants t
-      LEFT JOIN users u ON t.id = u.tenant_id
-      LEFT JOIN conversations c ON t.id = c.tenant_id
-      LEFT JOIN messages m ON t.id = m.tenant_id
       LEFT JOIN plans p ON LOWER(t.plan) = LOWER(p.id)
       WHERE t.id = $1
-      GROUP BY t.id, p.id
     `;
     const result = await pool.query(query, [id]);
     if (result.rows.length === 0)
@@ -2902,7 +3355,7 @@ app.get('/admin/tenants/:id', async (req, res) => {
 });
 
 // 8. PUT /admin/tenants/:id/plan
-app.put('/admin/tenants/:id/plan', async (req, res) => {
+app.put('/admin/tenants/:id/plan', adminAuth, async (req, res) => {
   const { id } = req.params;
   const { plan } = req.body;
   if (!plan) return res.status(400).json({ error: 'Plan is required' });
@@ -3038,7 +3491,7 @@ app.put('/admin/tenants/:id/plan', async (req, res) => {
 });
 
 // 9. POST /admin/tenants/:id/suspend
-app.post('/admin/tenants/:id/suspend', async (req, res) => {
+app.post('/admin/tenants/:id/suspend', adminAuth, async (req, res) => {
   const { id } = req.params;
   const { status } = req.body; // 'suspended' or 'active'
   const newStatus = status || 'suspended';
@@ -3075,7 +3528,7 @@ app.post('/admin/tenants/:id/suspend', async (req, res) => {
 });
 
 // 10. GET /admin/usage/daily (tokens daily line chart)
-app.get('/admin/usage/daily', async (req, res) => {
+app.get('/admin/usage/daily', adminAuth, async (req, res) => {
   try {
     // Return daily usage stats aggregated
     const query = `
@@ -3096,7 +3549,7 @@ app.get('/admin/usage/daily', async (req, res) => {
 });
 
 // 11. GET /admin/rate-limit-violations
-app.get('/admin/rate-limit-violations', async (req, res) => {
+app.get('/admin/rate-limit-violations', adminAuth, async (req, res) => {
   try {
     const keys = await redis.keys('ratelimit:*');
     const violations = [];
@@ -3113,7 +3566,7 @@ app.get('/admin/rate-limit-violations', async (req, res) => {
 });
 
 // 12. GET /admin/billing/reconciliation
-app.get('/admin/billing/reconciliation', async (req, res) => {
+app.get('/admin/billing/reconciliation', adminAuth, async (req, res) => {
   try {
     const result = await pool.query(`
       SELECT t.name as tenant, i.provider_invoice_id, i.amount, i.status,
@@ -3130,7 +3583,7 @@ app.get('/admin/billing/reconciliation', async (req, res) => {
 });
 
 // 13. GET /admin/logs/requests
-app.get('/admin/logs/requests', async (req, res) => {
+app.get('/admin/logs/requests', adminAuth, async (req, res) => {
   try {
     const query = `
       SELECT m.created_at as timestamp, t.name as tenant, c.model, '/api/chat' as endpoint,
@@ -3150,7 +3603,7 @@ app.get('/admin/logs/requests', async (req, res) => {
 });
 
 // 14. GET /admin/logs/errors
-app.get('/admin/logs/errors', async (req, res) => {
+app.get('/admin/logs/errors', adminAuth, async (req, res) => {
   try {
     const result = await pool.query(`
       SELECT a.model, a.status, COUNT(*)::int as count, t.name as tenant_name
@@ -3169,7 +3622,7 @@ app.get('/admin/logs/errors', async (req, res) => {
 });
 
 // 15. GET /admin/models/performance
-app.get('/admin/models/performance', async (req, res) => {
+app.get('/admin/models/performance', adminAuth, async (req, res) => {
   try {
     const result = await pool.query(`
       SELECT model,
@@ -3191,7 +3644,7 @@ app.get('/admin/models/performance', async (req, res) => {
 });
 
 // 16. GET /admin/logs/export
-app.get('/admin/logs/export', async (req, res) => {
+app.get('/admin/logs/export', adminAuth, async (req, res) => {
   try {
     const result = await pool.query(`
       SELECT m.created_at as timestamp, t.name as tenant, c.model, '/api/chat' as endpoint,
@@ -3216,7 +3669,7 @@ app.get('/admin/logs/export', async (req, res) => {
 });
 
 // 17. GET /admin/audit-log
-app.get('/admin/audit-log', async (req, res) => {
+app.get('/admin/audit-log', adminAuth, async (req, res) => {
   try {
     const result = await pool.query(
       `SELECT a.id, a.action, a.target_type, a.target_id, a.old_value, a.new_value, a.ip_address, a.created_at,
@@ -3302,7 +3755,7 @@ app.get('/admin/impersonation/audit-logs/export', adminAuth, async (req, res) =>
 });
 
 // 18. GET /admin/api-keys
-app.get('/admin/api-keys', async (req, res) => {
+app.get('/admin/api-keys', adminAuth, async (req, res) => {
   try {
     const result = await pool.query(
       `SELECT k.id, k.name, k.key_prefix, k.tpm_limit, k.rpm_limit, k.status, k.created_at, t.name as tenant_name
@@ -3318,7 +3771,7 @@ app.get('/admin/api-keys', async (req, res) => {
 });
 
 // 19. POST /admin/api-keys
-app.post('/admin/api-keys', async (req, res) => {
+app.post('/admin/api-keys', adminAuth, async (req, res) => {
   const { tenant_id, name, tpm_limit, rpm_limit } = req.body;
   if (!tenant_id || !name) {
     return res.status(400).json({ error: 'tenant_id and name are required' });
@@ -3369,7 +3822,7 @@ app.post('/admin/api-keys', async (req, res) => {
 });
 
 // 20. DELETE /admin/api-keys/:id
-app.delete('/admin/api-keys/:id', async (req, res) => {
+app.delete('/admin/api-keys/:id', adminAuth, async (req, res) => {
   const { id } = req.params;
   try {
     const result = await pool.query(
@@ -3398,7 +3851,7 @@ app.delete('/admin/api-keys/:id', async (req, res) => {
 });
 
 // 21. GET /admin/vllm/params
-app.get('/admin/vllm/params', async (req, res) => {
+app.get('/admin/vllm/params', adminAuth, async (req, res) => {
   try {
     let data = null;
     try {
@@ -3421,7 +3874,7 @@ app.get('/admin/vllm/params', async (req, res) => {
 });
 
 // 22. POST /admin/vllm/params
-app.post('/admin/vllm/params', async (req, res) => {
+app.post('/admin/vllm/params', adminAuth, async (req, res) => {
   const { temperature, top_p, max_tokens, system_restrict } = req.body;
   try {
     const payload = { temperature, top_p, max_tokens, system_restrict };
@@ -4272,7 +4725,7 @@ app.get('/admin/billing/dunning-dashboard', adminAuth, async (req, res) => {
 
 // ─── BILLING PLANS ENDPOINTS ────────────────────────────────────────────────
 // GET /admin/plans
-app.get('/admin/plans', async (req, res) => {
+app.get('/admin/plans', adminAuth, async (req, res) => {
   try {
     const result = await pool.query(
       'SELECT * FROM plans ORDER BY price ASC, created_at DESC'
@@ -4285,7 +4738,7 @@ app.get('/admin/plans', async (req, res) => {
 });
 
 // GET /admin/plans/:id
-app.get('/admin/plans/:id', async (req, res) => {
+app.get('/admin/plans/:id', adminAuth, async (req, res) => {
   const { id } = req.params;
   try {
     const result = await pool.query('SELECT * FROM plans WHERE id = $1', [id]);
@@ -4299,7 +4752,7 @@ app.get('/admin/plans/:id', async (req, res) => {
 });
 
 // POST /admin/plans
-app.post('/admin/plans', async (req, res) => {
+app.post('/admin/plans', adminAuth, async (req, res) => {
   const {
     id,
     name,
@@ -4369,7 +4822,7 @@ app.post('/admin/plans', async (req, res) => {
 });
 
 // PUT /admin/plans/:id
-app.put('/admin/plans/:id', async (req, res) => {
+app.put('/admin/plans/:id', adminAuth, async (req, res) => {
   const { id } = req.params;
   const {
     name,
@@ -4450,7 +4903,7 @@ app.put('/admin/plans/:id', async (req, res) => {
 });
 
 // DELETE /admin/plans/:id
-app.delete('/admin/plans/:id', async (req, res) => {
+app.delete('/admin/plans/:id', adminAuth, async (req, res) => {
   const { id } = req.params;
   try {
     const oldQuery = await pool.query('SELECT * FROM plans WHERE id = $1', [
@@ -4582,6 +5035,121 @@ app.get('/health', async (req, res) => {
       razorpay: { status: razorpayStatus, latencyMs: razorpayLatency },
     },
   });
+});
+
+// ── Voice Observability & Telemetry Endpoints ────────────────────────
+app.get('/admin/voice/stats', adminAuth, async (req, res) => {
+  try {
+    // 1. Global Overview
+    const overviewRes = await pool.query(`
+      SELECT
+        (SELECT COUNT(*) FROM voice_sessions) AS total_sessions,
+        COUNT(u.id) AS total_turns,
+        ROUND(AVG(u.ttfa_ms)) AS avg_ttfa_ms,
+        ROUND(COALESCE((COUNT(*) FILTER (WHERE u.interrupted = true)::numeric / NULLIF(COUNT(*), 0)) * 100, 0), 1) AS interrupt_rate_pct,
+        ROUND(COALESCE((COUNT(*) FILTER (WHERE u.stt_error = true)::numeric / NULLIF(COUNT(*), 0)) * 100, 0), 1) AS stt_error_rate_pct,
+        COALESCE(SUM(u.stt_chars), 0) AS total_stt_chars,
+        COALESCE(SUM(u.tts_chars), 0) AS total_tts_chars,
+        COALESCE(SUM(u.llm_tokens), 0) AS total_llm_tokens
+      FROM voice_usage u
+    `);
+
+    // 2. Breakdown by Tenant
+    const tenantRes = await pool.query(`
+      SELECT
+        t.id AS tenant_id,
+        t.name AS tenant_name,
+        t.slug AS tenant_slug,
+        COUNT(DISTINCT s.id) AS sessions_count,
+        COUNT(u.id) AS turns_count,
+        ROUND(AVG(u.ttfa_ms)) AS avg_ttfa_ms,
+        ROUND(COALESCE((COUNT(*) FILTER (WHERE u.interrupted = true)::numeric / NULLIF(COUNT(u.id), 0)) * 100, 0), 1) AS interrupt_rate_pct
+      FROM tenants t
+      LEFT JOIN voice_sessions s ON s.tenant_id = t.id
+      LEFT JOIN voice_usage u ON u.tenant_id = t.id
+      GROUP BY t.id, t.name, t.slug
+      HAVING COUNT(DISTINCT s.id) > 0 OR COUNT(u.id) > 0
+      ORDER BY sessions_count DESC, turns_count DESC
+      LIMIT 50
+    `);
+
+    // 3. Breakdown by Browser
+    const browserRes = await pool.query(`
+      SELECT
+        COALESCE(NULLIF(browser, ''), 'Unknown') AS browser,
+        COUNT(*) AS turns_count,
+        ROUND(AVG(ttfa_ms)) AS avg_ttfa_ms,
+        COUNT(*) FILTER (WHERE stt_error = true) AS stt_errors_count,
+        ROUND(COALESCE((COUNT(*) FILTER (WHERE stt_error = true)::numeric / NULLIF(COUNT(*), 0)) * 100, 0), 1) AS stt_error_rate_pct,
+        COUNT(*) FILTER (WHERE interrupted = true) AS interrupt_count,
+        ROUND(COALESCE((COUNT(*) FILTER (WHERE interrupted = true)::numeric / NULLIF(COUNT(*), 0)) * 100, 0), 1) AS interrupt_rate_pct
+      FROM voice_usage
+      GROUP BY COALESCE(NULLIF(browser, ''), 'Unknown')
+      ORDER BY turns_count DESC
+    `);
+
+    res.json({
+      overview: overviewRes.rows[0] || {
+        total_sessions: 0,
+        total_turns: 0,
+        avg_ttfa_ms: null,
+        interrupt_rate_pct: 0,
+        stt_error_rate_pct: 0,
+        total_stt_chars: 0,
+        total_tts_chars: 0,
+        total_llm_tokens: 0,
+      },
+      by_tenant: tenantRes.rows || [],
+      by_browser: browserRes.rows || [],
+    });
+  } catch (err) {
+    logger.error('Failed to get voice stats:', err);
+    res.status(500).json({ error: 'Failed to retrieve voice statistics' });
+  }
+});
+
+app.get('/admin/voice/sessions', adminAuth, async (req, res) => {
+  try {
+    const limit = Math.min(100, Math.max(1, parseInt(req.query.limit) || 25));
+    const offset = Math.max(0, parseInt(req.query.offset) || 0);
+
+    const query = `
+      SELECT
+        s.id,
+        s.tenant_id,
+        t.name AS tenant_name,
+        t.slug AS tenant_slug,
+        s.user_id,
+        u.email AS user_email,
+        s.conversation_id,
+        s.language,
+        s.started_at,
+        s.ended_at,
+        s.turn_count,
+        s.ended_reason,
+        ROUND(AVG(vu.ttfa_ms)) AS avg_ttfa_ms
+      FROM voice_sessions s
+      LEFT JOIN tenants t ON t.id = s.tenant_id
+      LEFT JOIN users u ON u.id = s.user_id
+      LEFT JOIN voice_usage vu ON vu.session_id = s.id
+      GROUP BY s.id, s.tenant_id, t.name, t.slug, s.user_id, u.email, s.conversation_id, s.language, s.started_at, s.ended_at, s.turn_count, s.ended_reason
+      ORDER BY s.started_at DESC
+      LIMIT $1 OFFSET $2
+    `;
+
+    const totalRes = await pool.query('SELECT COUNT(*) FROM voice_sessions');
+    const sessionsRes = await pool.query(query, [limit, offset]);
+
+    res.json({
+      total: parseInt(totalRes.rows[0].count, 10),
+      sessions: sessionsRes.rows,
+      limit,
+      offset,
+    });
+  } catch (err) {
+    logger.error('Failed to list voice sessions:', err);
+    res.status(500).json({ error: 'Failed to retrieve voice sessions' });
+  }
 });
 
 // Global Error Handler

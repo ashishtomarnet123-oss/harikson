@@ -25,10 +25,10 @@ async function queryUserById(userId: string) {
 // route modules to collect page data, which would run this before any
 // runtime env vars are injected and fail the build itself. Called instead
 // from inside the handler, where it only runs against a real request.
-function getJwtSecret(): string {
+function getJwtSecret(): string | null {
   const raw = process.env.JWT_SECRET || process.env.NEXTAUTH_SECRET;
   if (!raw || raw.length < 32) {
-    throw new Error('FATAL: JWT_SECRET (or NEXTAUTH_SECRET) must be set and at least 32 characters');
+    return null;
   }
   return raw;
 }
@@ -36,6 +36,9 @@ function getJwtSecret(): string {
 export async function GET(req: NextRequest) {
   try {
     const JWT_SECRET = getJwtSecret();
+    if (!JWT_SECRET) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
     const cookieHeader = req.headers.get('cookie') || '';
     const getToken = (name: string) => {
       const match = cookieHeader.match(new RegExp(`(?:^|;\\s*)${name}=([^;]+)`));

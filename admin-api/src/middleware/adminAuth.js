@@ -1,14 +1,6 @@
 import logger from '../utils/logger.js';
 import jwt from 'jsonwebtoken';
-import pg from 'pg';
-
-const { Pool } = pg;
-if (!process.env.DATABASE_URL) {
-  throw new Error('DATABASE_URL environment variable is required');
-}
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-});
+import pool from '../db.js';
 
 const parseCookie = (cookieHeader, key) => {
   if (!cookieHeader) return null;

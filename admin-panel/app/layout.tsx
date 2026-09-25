@@ -1,5 +1,6 @@
 import React from 'react';
 import './globals.css';
+import '@xyflow/react/dist/style.css';
 import ClientInitializer from '../components/ClientInitializer';
 import { AdminAuthProvider } from '../context/AdminAuthContext';
 

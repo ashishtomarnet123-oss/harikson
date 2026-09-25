@@ -5,17 +5,17 @@ import { Redis } from 'ioredis';
 const resend = new Resend(process.env.RESEND_API_KEY || 're_dev_key');
 const redis = new Redis(process.env.REDIS_URL || 'redis://redis:6379');
 
-// Rate limit: max 3 emails per address per hour
-async function checkEmailRateLimit(email: string): Promise<boolean> {
+// Rate limit: max emails per address per hour (default 20)
+export async function checkEmailRateLimit(email: string, maxLimit: number = 20): Promise<boolean> {
   try {
-    const key = `ratelimit:emails:${email.toLowerCase()}`;
+    const key = `ratelimit:emails:${email.toLowerCase().trim()}`;
     const attempts = await redis.incr(key);
     if (attempts === 1) {
       await redis.expire(key, 3600); // 1 hour expiration
     }
-    if (attempts > 3) {
+    if (attempts > maxLimit) {
       logger.warn(
-        `[EMAIL RATE LIMIT EXCEEDED] Email "${email}" has requested too many emails in the last hour.`
+        `[EMAIL RATE LIMIT EXCEEDED] Email "${email}" has requested too many emails in the last hour (${attempts}/${maxLimit}).`
       );
       return false;
     }
@@ -26,11 +26,25 @@ async function checkEmailRateLimit(email: string): Promise<boolean> {
   }
 }
 
-export const sendPasswordReset = async (to: string, resetUrl: string) => {
-  if (!(await checkEmailRateLimit(to))) {
+export async function resetEmailRateLimit(email: string): Promise<boolean> {
+  if (!email) return false;
+  try {
+    const key = `ratelimit:emails:${email.toLowerCase().trim()}`;
+    await redis.del(key);
+    return true;
+  } catch (err: any) {
+    logger.warn('[EMAIL RATE LIMIT RESET ERROR]:', err.message);
+    return false;
+  }
+}
+
+export const sendPasswordReset = async (to: string, resetUrl: string, options: { bypassRateLimit?: boolean; maxLimit?: number } = {}) => {
+  const bypassRateLimit = options.bypassRateLimit ?? false;
+  const maxLimit = options.maxLimit ?? 20;
+  if (!bypassRateLimit && !(await checkEmailRateLimit(to, maxLimit))) {
     return {
       success: false,
-      error: 'Rate limit exceeded. Max 3 emails per hour.',
+      error: 'Rate limit exceeded. Please wait a few minutes before requesting another email.',
     };
   }
 

@@ -29,6 +29,7 @@ import {
   Users,
   Code
 } from 'lucide-react';
+import { getCookie } from 'cookies-next';
 
 interface EmailLog {
   id: string;
@@ -137,21 +138,41 @@ export default function AdminEmailsPage() {
   const [sendingMail, setSendingMail] = useState<boolean>(false);
   const [mailerResult, setMailerResult] = useState<string | null>(null);
 
+  const getAuthHeaders = (extra: Record<string, string> = {}) => {
+    const token = getCookie('admin_token') || (typeof window !== 'undefined' ? localStorage.getItem('admin_token') : null);
+    const headers: Record<string, string> = { ...extra };
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+    return headers;
+  };
+
+  const safeJsonParse = async (res: Response) => {
+    try {
+      const text = await res.text();
+      return JSON.parse(text);
+    } catch {
+      return { success: false, error: `Server error (${res.status}): ${res.statusText || 'Unexpected response'}` };
+    }
+  };
+
   // Fetch Telemetry Data
   const fetchEmailData = async () => {
     setLoadingLogs(true);
     try {
+      const headers = getAuthHeaders();
       const [logsRes, statsRes] = await Promise.all([
         fetch(
           `/api-proxy/v1/admin/emails/logs?page=${page}&limit=15&search=${encodeURIComponent(
             searchTerm
-          )}&status=${statusFilter}&type=${typeFilter}`
+          )}&status=${statusFilter}&type=${typeFilter}`,
+          { credentials: 'include', headers }
         ),
-        fetch('/api-proxy/v1/admin/emails/stats')
+        fetch('/api-proxy/v1/admin/emails/stats', { credentials: 'include', headers })
       ]);
 
       if (logsRes.ok) {
-        const logsData = await logsRes.json();
+        const logsData = await safeJsonParse(logsRes);
         setLogs(logsData.logs || []);
         if (logsData.pagination) {
           setTotalPages(logsData.pagination.totalPages || 1);
@@ -159,7 +180,7 @@ export default function AdminEmailsPage() {
       }
 
       if (statsRes.ok) {
-        const statsData = await statsRes.json();
+        const statsData = await safeJsonParse(statsRes);
         if (statsData.stats) {
           setStats(statsData.stats);
         }
@@ -175,9 +196,12 @@ export default function AdminEmailsPage() {
   const fetchTemplates = async () => {
     setLoadingTemplates(true);
     try {
-      const res = await fetch('/api-proxy/v1/admin/emails/templates');
+      const res = await fetch('/api-proxy/v1/admin/emails/templates', {
+        credentials: 'include',
+        headers: getAuthHeaders()
+      });
       if (res.ok) {
-        const data = await res.json();
+        const data = await safeJsonParse(res);
         setTemplates(data.templates || []);
       }
     } catch (err) {
@@ -190,9 +214,12 @@ export default function AdminEmailsPage() {
   // Fetch SMTP Settings
   const fetchSmtpSettings = async () => {
     try {
-      const res = await fetch('/api-proxy/v1/admin/emails/smtp');
+      const res = await fetch('/api-proxy/v1/admin/emails/smtp', {
+        credentials: 'include',
+        headers: getAuthHeaders()
+      });
       if (res.ok) {
-        const data = await res.json();
+        const data = await safeJsonParse(res);
         if (data.config) {
           setSmtpConfig(data.config);
         }
@@ -217,18 +244,19 @@ export default function AdminEmailsPage() {
       const method = editingTemplate.id ? 'PUT' : 'POST';
 
       const res = await fetch(url, {
+        credentials: 'include',
         method,
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify(editingTemplate)
       });
 
-      if (res.ok) {
+      const data = await safeJsonParse(res);
+      if (res.ok && data.success !== false) {
         alert(`Template ${editingTemplate.id ? 'updated' : 'created'} successfully!`);
         setIsTemplateModalOpen(false);
         fetchTemplates();
       } else {
-        const err = await res.json();
-        alert(`Error: ${err.error || 'Failed to save template'}`);
+        alert(`Error: ${data.error || 'Failed to save template'}`);
       }
     } catch (err: any) {
       alert(`Error saving template: ${err?.message || err}`);
@@ -238,13 +266,17 @@ export default function AdminEmailsPage() {
   const handleDeleteTemplate = async (id: string) => {
     if (!confirm('Are you sure you want to delete this email template?')) return;
     try {
-      const res = await fetch(`/api-proxy/v1/admin/emails/templates/${id}`, { method: 'DELETE' });
-      if (res.ok) {
+      const res = await fetch(`/api-proxy/v1/admin/emails/templates/${id}`, {
+        credentials: 'include',
+        method: 'DELETE',
+        headers: getAuthHeaders()
+      });
+      const data = await safeJsonParse(res);
+      if (res.ok && data.success !== false) {
         alert('Template deleted successfully!');
         fetchTemplates();
       } else {
-        const err = await res.json();
-        alert(`Error: ${err.error || 'Failed to delete template'}`);
+        alert(`Error: ${data.error || 'Failed to delete template'}`);
       }
     } catch (err: any) {
       alert(`Error deleting template: ${err?.message || err}`);
@@ -256,11 +288,12 @@ export default function AdminEmailsPage() {
     setSmtpStatusMessage(null);
     try {
       const res = await fetch('/api-proxy/v1/admin/emails/smtp/test', {
+        credentials: 'include',
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify(smtpConfig)
       });
-      const data = await res.json();
+      const data = await safeJsonParse(res);
       if (res.ok && data.success) {
         setSmtpStatusMessage({ type: 'success', text: data.message || 'SMTP Connection Verified!' });
       } else {
@@ -279,13 +312,14 @@ export default function AdminEmailsPage() {
     setSmtpStatusMessage(null);
     try {
       const res = await fetch('/api-proxy/v1/admin/emails/smtp', {
+        credentials: 'include',
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify(smtpConfig)
       });
-      const data = await res.json();
+      const data = await safeJsonParse(res);
       if (res.ok && data.success) {
-        setSmtpStatusMessage({ type: 'success', text: 'SMTP Settings Saved & Activated!' });
+        setSmtpStatusMessage({ type: 'success', text: data.message || 'SMTP Settings Saved & Activated!' });
       } else {
         setSmtpStatusMessage({ type: 'error', text: data.error || 'Failed to save SMTP settings' });
       }
@@ -302,13 +336,14 @@ export default function AdminEmailsPage() {
     setMailerResult(null);
     try {
       const res = await fetch('/api-proxy/v1/admin/emails/send-custom', {
+        credentials: 'include',
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify(mailerForm)
       });
-      const data = await res.json();
+      const data = await safeJsonParse(res);
       if (res.ok && data.success) {
-        setMailerResult(`✅ Success: ${data.message}`);
+        setMailerResult(`✅ Success: ${data.message || 'Mail dispatched successfully'}`);
         fetchEmailData();
       } else {
         setMailerResult(`❌ Error: ${data.error || 'Failed to send mail'}`);
@@ -752,14 +787,14 @@ export default function AdminEmailsPage() {
                     <span className="text-xs font-bold text-gray-500 uppercase block mb-2">
                       Live HTML Render:
                     </span>
-                    <div
-                      className="border border-gray-200 dark:border-gray-800 rounded-xl p-4 bg-gray-50 dark:bg-gray-950 max-h-96 overflow-y-auto"
-                      dangerouslySetInnerHTML={{
-                        __html: selectedTemplate.body_html
-                          .replace(/\{\{name\}\}/g, 'John Doe')
-                          .replace(/\{\{email\}\}/g, 'user@example.com')
-                          .replace(/\{\{loginUrl\}\}/g, 'https://xarwiz.com/login')
-                      }}
+                    <iframe
+                      sandbox=""
+                      className="border border-gray-200 dark:border-gray-800 rounded-xl bg-white w-full"
+                      style={{ minHeight: '300px', maxHeight: '384px' }}
+                      srcDoc={selectedTemplate.body_html
+                        .replace(/\{\{name\}\}/g, 'John Doe')
+                        .replace(/\{\{email\}\}/g, 'user@example.com')
+                        .replace(/\{\{loginUrl\}\}/g, 'https://xarwiz.com/login')}
                     />
                   </div>
                 </>

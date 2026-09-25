@@ -714,7 +714,7 @@ export default function TenantPlanManager() {
   const [editTenantSlug, setEditTenantSlug] = useState('');
 
   // ── Plans state ──
-  const [plans, setPlans] = useState<Plan[]>([]);
+  const [plans, setPlans] = useState<Plan[]>(INITIAL_PLANS);
   const [editingPlan, setEditingPlan] = useState<Plan | null>(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [expandedPlan, setExpandedPlan] = useState<string | null>(null);
@@ -881,130 +881,13 @@ export default function TenantPlanManager() {
         if (d.providers_modes) setProvidersModes(d.providers_modes);
       }
     } catch (e) {
-      console.warn('API unavailable, loading mock data', e);
-      loadMockData();
+      console.error('Failed to load tenant data:', e);
+      setPlans(INITIAL_PLANS);
     } finally {
       setLoading(false);
     }
   };
 
-  const loadMockData = () => {
-    setPlans(INITIAL_PLANS);
-    setTenants([
-      {
-        id: 't-101',
-        name: 'Alpha Tech',
-        slug: 'alphatech',
-        plan: 'professional',
-        status: 'active',
-        user_count: 12,
-        tokens_used: 450000,
-        created_at: new Date().toISOString(),
-      },
-      {
-        id: 't-102',
-        name: 'Beta Systems',
-        slug: 'betasystems',
-        plan: 'enterprise',
-        status: 'active',
-        user_count: 34,
-        tokens_used: 1200000,
-        created_at: new Date().toISOString(),
-      },
-      {
-        id: 't-103',
-        name: 'Gamma Digital',
-        slug: 'gammadigital',
-        plan: 'starter',
-        status: 'suspended',
-        user_count: 3,
-        tokens_used: 15000,
-        created_at: new Date().toISOString(),
-      },
-      {
-        id: 't-104',
-        name: 'Delta Agency',
-        slug: 'delta-agency',
-        plan: 'enterprise',
-        status: 'active',
-        user_count: 58,
-        tokens_used: 3500000,
-        created_at: new Date().toISOString(),
-      },
-    ]);
-    setViolations([
-      {
-        tenant: 'Alpha Tech',
-        timestamp: new Date().toISOString(),
-        endpoint: '/api/chat',
-        limit: 10,
-        actual: 12,
-        action: 'blocked',
-      },
-      {
-        tenant: 'Beta Systems',
-        timestamp: new Date().toISOString(),
-        endpoint: '/api/chat',
-        limit: 60,
-        actual: 61,
-        action: 'throttled',
-      },
-    ]);
-    setReconcile([
-      {
-        tenant: 'Alpha Tech',
-        razorpay_id: 'pay_PQR12345678',
-        amount: 99.0,
-        status: 'captured',
-        tokens_credited: 500000,
-        mismatch: false,
-      },
-      {
-        tenant: 'Delta Agency',
-        razorpay_id: 'pay_XYZ87654321',
-        amount: 299.0,
-        status: 'captured',
-        tokens_credited: 2000000,
-        mismatch: true,
-      },
-    ]);
-    setApiKeys([
-      {
-        id: 'k-1',
-        name: 'Production Chat Key',
-        key_prefix: 'hk_live_a1b2',
-        tpm_limit: 100000,
-        rpm_limit: 100,
-        status: 'active',
-        created_at: new Date().toISOString(),
-        tenant_name: 'Alpha Tech',
-      },
-    ]);
-    setWebhooks([
-      {
-        id: 'wh-1',
-        event_id: 'evt_1O2x5cK',
-        provider: 'stripe',
-        event_type: 'invoice.paid',
-        status: 'success',
-        amount: 299.0,
-        tenant_name: 'Alpha Tech',
-        payload: { type: 'invoice.paid' },
-        created_at: new Date().toISOString(),
-      },
-      {
-        id: 'wh-2',
-        event_id: 'evt_1O2x9aX',
-        provider: 'stripe',
-        event_type: 'invoice.payment_failed',
-        status: 'failed',
-        amount: 299.0,
-        tenant_name: 'Gamma Digital',
-        payload: { type: 'invoice.payment_failed' },
-        created_at: new Date().toISOString(),
-      },
-    ]);
-  };
 
   useEffect(() => {
     fetchData();
@@ -1025,6 +908,7 @@ export default function TenantPlanManager() {
     try {
       const idempotencyKey = `plan:tenant:${id}:${plan}:${Date.now()}:${Math.random()}`;
       const res = await fetch(`${apiBase}/v1/admin/tenants/${id}/plan`, {
+        credentials: 'include',
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -1055,6 +939,7 @@ export default function TenantPlanManager() {
       '';
     try {
       const res = await fetch(`${apiBase}/v1/admin/tenants/${id}/suspend`, {
+        credentials: 'include',
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -1087,6 +972,7 @@ export default function TenantPlanManager() {
       '';
     try {
       const res = await fetch(`${apiBase}/v1/admin/tenants`, {
+        credentials: 'include',
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -1134,6 +1020,7 @@ export default function TenantPlanManager() {
       const res = await fetch(
         `${apiBase}/v1/admin/tenants/${editingTenantDetails.id}`,
         {
+          credentials: 'include',
           method: 'PUT',
           headers: {
             'Content-Type': 'application/json',
@@ -1174,6 +1061,7 @@ export default function TenantPlanManager() {
       '';
     try {
       const res = await fetch(`${apiBase}/v1/admin/plans/${id}`, {
+        credentials: 'include',
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -1204,6 +1092,7 @@ export default function TenantPlanManager() {
       '';
     try {
       const res = await fetch(`${apiBase}/v1/admin/plans/${id}`, {
+        credentials: 'include',
         method: 'DELETE',
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -1229,6 +1118,7 @@ export default function TenantPlanManager() {
           const checkRecommended = p.id === id;
           if (p.isRecommended !== checkRecommended) {
             return fetch(`${apiBase}/v1/admin/plans/${p.id}`, {
+              credentials: 'include',
               method: 'PUT',
               headers: {
                 'Content-Type': 'application/json',
@@ -1258,6 +1148,7 @@ export default function TenantPlanManager() {
     }, {});
     try {
       const res = await fetch(`${apiBase}/v1/admin/plans/${updated.id}`, {
+        credentials: 'include',
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -1303,6 +1194,7 @@ export default function TenantPlanManager() {
     }, {});
     try {
       const res = await fetch(`${apiBase}/v1/admin/plans`, {
+        credentials: 'include',
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -1349,6 +1241,7 @@ export default function TenantPlanManager() {
       '';
     try {
       const res = await fetch(`${apiBase}/v1/admin/api-keys`, {
+        credentials: 'include',
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -1385,6 +1278,7 @@ export default function TenantPlanManager() {
       '';
     try {
       const res = await fetch(`${apiBase}/v1/admin/api-keys/${id}`, {
+        credentials: 'include',
         method: 'DELETE',
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -1398,26 +1292,29 @@ export default function TenantPlanManager() {
 
   // ── Derived values ──
   const filteredTenants = tenants.filter((t) => {
+    const q = (tenantSearch || '').toLowerCase();
     const matchesSearch =
-      t.name.toLowerCase().includes(tenantSearch.toLowerCase()) ||
-      t.slug.toLowerCase().includes(tenantSearch.toLowerCase()) ||
-      t.id.toLowerCase().includes(tenantSearch.toLowerCase());
+      (t.name || '').toLowerCase().includes(q) ||
+      (t.slug || '').toLowerCase().includes(q) ||
+      (t.id || '').toLowerCase().includes(q);
     const matchesStatus =
       tenantStatusFilter === 'all'
         ? true
-        : t.status.toLowerCase() === tenantStatusFilter.toLowerCase();
+        : (t.status || '').toLowerCase() === (tenantStatusFilter || '').toLowerCase();
     const matchesPlan =
       tenantPlanFilter === 'all'
         ? true
-        : t.plan.toLowerCase() === tenantPlanFilter.toLowerCase();
+        : (t.plan || '').toLowerCase() === (tenantPlanFilter || '').toLowerCase();
     return matchesSearch && matchesStatus && matchesPlan;
   });
   const filteredViolations = violations.filter((v) =>
-    v.tenant.toLowerCase().includes(filterTenant.toLowerCase())
+    (v.tenant || '').toLowerCase().includes((filterTenant || '').toLowerCase())
   );
   // Subscriber counts derived from shared tenants state — no extra fetch needed
   const subscriberCount = (planId: string) =>
-    tenants.filter((t) => t.plan.toLowerCase() === planId.toLowerCase()).length;
+    tenants.filter(
+      (t) => (t.plan || '').toLowerCase() === (planId || '').toLowerCase()
+    ).length;
 
   const TABS: { id: ActiveTab; label: string; icon: React.ElementType }[] = [
     { id: 'tenants', label: 'Tenants', icon: Users },
@@ -1579,62 +1476,10 @@ export default function TenantPlanManager() {
                 </div>
                 <TrendingUp className="w-5 h-5 text-indigo-500" />
               </div>
-              <div className="h-44 w-full relative flex items-end">
-                <svg
-                  className="w-full h-full"
-                  viewBox="0 0 500 160"
-                  preserveAspectRatio="none"
-                >
-                  <line
-                    x1="0"
-                    y1="30"
-                    x2="500"
-                    y2="30"
-                    stroke="rgba(255,255,255,0.05)"
-                  />
-                  <line
-                    x1="0"
-                    y1="80"
-                    x2="500"
-                    y2="80"
-                    stroke="rgba(255,255,255,0.05)"
-                  />
-                  <line
-                    x1="0"
-                    y1="130"
-                    x2="500"
-                    y2="130"
-                    stroke="rgba(255,255,255,0.05)"
-                  />
-                  <path
-                    d="M10 140 L90 100 L170 120 L250 70 L330 90 L410 40 L490 30"
-                    fill="none"
-                    stroke="#6366f1"
-                    strokeWidth="2.5"
-                  />
-                  <path
-                    d="M10 130 L90 70 L170 90 L250 50 L330 60 L410 30 L490 20"
-                    fill="none"
-                    stroke="#22c55e"
-                    strokeWidth="2.5"
-                  />
-                </svg>
-              </div>
-              <div className="flex justify-between px-2 text-[10px] text-gray-400 mt-2 font-mono">
-                <span>7d ago</span>
-                <span>5d ago</span>
-                <span>3d ago</span>
-                <span>Today</span>
-              </div>
-              <div className="flex gap-4 mt-3 text-xs justify-center font-semibold">
-                <span className="flex items-center gap-1.5 text-indigo-400">
-                  <span className="w-2.5 h-2.5 bg-indigo-500 rounded-full" />
-                  Prompt (In)
-                </span>
-                <span className="flex items-center gap-1.5 text-green-400">
-                  <span className="w-2.5 h-2.5 bg-green-500 rounded-full" />
-                  Generation (Out)
-                </span>
+              <div className="h-44 w-full relative flex items-center justify-center">
+                <p className="text-sm text-gray-500 italic">
+                  No token consumption data available yet
+                </p>
               </div>
             </div>
 
@@ -1756,11 +1601,11 @@ export default function TenantPlanManager() {
                   {filteredTenants.map((t) => {
                     const planId = t.plan || '';
                     const planObj = plans.find(
-                      (p) => p.id.toLowerCase() === planId.toLowerCase()
+                      (p) => (p.id || '').toLowerCase() === planId.toLowerCase()
                     );
                     const tier = planObj?.tier || 'starter';
                     const meta = TIER_META[tier] || TIER_META.starter;
-                    const planName = planObj?.name || planId.toUpperCase();
+                    const planName = planObj?.name || (planId ? planId.toUpperCase() : 'STARTER');
 
                     return (
                       <tr
@@ -2181,7 +2026,7 @@ export default function TenantPlanManager() {
                       ) : (
                         <div className="text-lg font-black text-white font-sans">
                           {plan.currency === 'INR' ? '₹' : '$'}
-                          {plan.price.toLocaleString()}
+                          {(Number(plan.price) || 0).toLocaleString()}
                           <span className="text-[10px] text-gray-500 font-normal font-sans ml-0.5">
                             /mo
                           </span>
@@ -2253,8 +2098,8 @@ export default function TenantPlanManager() {
                             Feature Flags
                           </div>
                           <div className="space-y-2">
-                            {plan.features.map((f) => {
-                              const FIcon = f.icon;
+                            {(plan.features || []).map((f) => {
+                              const FIcon = f.icon || Shield;
                               return (
                                 <div
                                   key={f.key}
@@ -2833,7 +2678,7 @@ export default function TenantPlanManager() {
                     setEditingTenantPlan(null);
                   }}
                   className={`w-full text-left p-3.5 rounded-xl border flex justify-between items-center transition ${
-                    editingTenantPlan.plan.toLowerCase() === p.id.toLowerCase()
+                    (editingTenantPlan.plan || '').toLowerCase() === (p.id || '').toLowerCase()
                       ? 'bg-indigo-950/30 border-indigo-500/80 text-white font-bold'
                       : 'bg-gray-950/40 border-gray-800 hover:border-gray-700 text-gray-300'
                   }`}
@@ -2843,7 +2688,7 @@ export default function TenantPlanManager() {
                     <div className="text-[11px] text-gray-500 mt-0.5">
                       {p.billing === 'custom'
                         ? 'Custom price'
-                        : `₹${p.price.toLocaleString()}/mo`}
+                        : `₹${(Number(p.price) || 0).toLocaleString()}/mo`}
                     </div>
                   </div>
                   <span

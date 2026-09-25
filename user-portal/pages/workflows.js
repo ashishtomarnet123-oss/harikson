@@ -2,15 +2,32 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import Head from 'next/head';
 import Link from 'next/link';
+import dynamic from 'next/dynamic';
 import { withAuth } from '../components/withAuth';
 import DashboardShell from '../components/layout/DashboardShell';
 import { authenticatedFetch, getApiConfig } from '../components/settings/apiHelper';
+
+const VisualWorkflowEditor = dynamic(
+  () => import('../components/workflow/VisualWorkflowEditor'),
+  {
+    ssr: false,
+    loading: () => (
+      <div style={{ height: '600px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#070b14', color: '#94a3b8', borderRadius: '16px' }}>
+        Loading Visual Node Canvas...
+      </div>
+    ),
+  }
+);
 
 function WorkflowsPage() {
   const router = useRouter();
   const [workflows, setWorkflows] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+
+  // Visual Studio (n8n / Make Node Canvas) State
+  const [fullCanvasWorkflow, setFullCanvasWorkflow] = useState(null);
+  const [canvasExecution, setCanvasExecution] = useState(null);
 
   // Editor / Modal State
   const [editingWorkflow, setEditingWorkflow] = useState(null);
@@ -36,6 +53,7 @@ function WorkflowsPage() {
   const [runningWorkflowId, setRunningWorkflowId] = useState(null);
   const [runToast, setRunToast] = useState(null);
   const [copiedWebhookId, setCopiedWebhookId] = useState(null);
+  const [deleteConfirm, setDeleteConfirm] = useState(null);
 
   const [apiBase, setApiBase] = useState('');
   const [tenantSlug, setTenantSlug] = useState('system');
@@ -147,6 +165,8 @@ function WorkflowsPage() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Failed to run workflow');
       
+      setCanvasExecution(data);
+
       setRunToast({
         type: data.status === 'completed' || data.success ? 'success' : 'error',
         message: data.status === 'completed'
@@ -167,6 +187,50 @@ function WorkflowsPage() {
       setTimeout(() => setRunToast(null), 6000);
     } finally {
       setRunningWorkflowId(null);
+    }
+  };
+
+  const handleSaveFromCanvas = async ({ steps: compiledSteps, definition }) => {
+    if (!fullCanvasWorkflow) return;
+    try {
+      const isNewWf = String(fullCanvasWorkflow.id).startsWith('new_');
+      const url = isNewWf ? `${apiBase}/api/workflows` : `${apiBase}/api/workflows/${fullCanvasWorkflow.id}`;
+      const method = isNewWf ? 'POST' : 'PUT';
+
+      const res = await fetch(url, {
+        method,
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-tenant-slug': tenantSlug,
+        },
+        body: JSON.stringify({
+          name: fullCanvasWorkflow.name || 'Visual Workflow',
+          description: fullCanvasWorkflow.description || 'Built with Visual Node Studio',
+          trigger_type: fullCanvasWorkflow.trigger_type || 'manual',
+          cron_expression: fullCanvasWorkflow.cron_expression || null,
+          status: 'active',
+          steps: compiledSteps,
+          definition,
+        }),
+      });
+
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || 'Failed to save workflow canvas');
+      }
+
+      const savedWf = await res.json();
+      if (isNewWf) {
+        setFullCanvasWorkflow(savedWf);
+      }
+
+      setRunToast({ type: 'success', message: 'Visual workflow canvas saved successfully!' });
+      setTimeout(() => setRunToast(null), 4000);
+      fetchWorkflows(apiBase, tenantSlug);
+    } catch (err) {
+      setRunToast({ type: 'error', message: err.message });
+      setTimeout(() => setRunToast(null), 6000);
     }
   };
 
@@ -252,16 +316,25 @@ function WorkflowsPage() {
       }
 
       setEditingWorkflow(null);
+      setRunToast({ type: 'success', message: `Workflow ${isNew ? 'created' : 'updated'} successfully!` });
+      setTimeout(() => setRunToast(null), 4000);
       fetchWorkflows(apiBase, tenantSlug);
     } catch (err) {
-      alert(err.message);
+      setRunToast({ type: 'error', message: err.message });
+      setTimeout(() => setRunToast(null), 6000);
     } finally {
       setSaving(false);
     }
   };
 
   const handleDelete = async (id) => {
-    if (!confirm('Are you sure you want to delete this workflow?')) return;
+    // Use the styled confirmation modal instead of native confirm()
+    setDeleteConfirm(id);
+  };
+
+  const handleConfirmDelete = async () => {
+    const id = deleteConfirm;
+    setDeleteConfirm(null);
     try {
       const res = await fetch(`${apiBase}/api/workflows/${id}`, {
         method: 'DELETE',
@@ -274,9 +347,12 @@ function WorkflowsPage() {
         const data = await res.json();
         throw new Error(data.error || 'Failed to delete workflow');
       }
+      setRunToast({ type: 'success', message: 'Workflow deleted successfully.' });
+      setTimeout(() => setRunToast(null), 4000);
       fetchWorkflows(apiBase, tenantSlug);
     } catch (err) {
-      alert(err.message);
+      setRunToast({ type: 'error', message: err.message });
+      setTimeout(() => setRunToast(null), 6000);
     }
   };
 
@@ -297,7 +373,8 @@ function WorkflowsPage() {
       const data = await res.json();
       setExecutions(Array.isArray(data) ? data : []);
     } catch (err) {
-      alert(err.message);
+      setRunToast({ type: 'error', message: `Failed to load history: ${err.message}` });
+      setTimeout(() => setRunToast(null), 6000);
     } finally {
       setLoadingHistory(false);
     }
@@ -413,6 +490,38 @@ function WorkflowsPage() {
               </button>
 
               <button
+                onClick={() => {
+                  const newWf = {
+                    id: 'new_' + Date.now(),
+                    name: 'New Node Automation',
+                    description: 'Created with n8n/Make Visual Node Studio',
+                    trigger_type: 'manual',
+                    status: 'active',
+                    steps: [],
+                  };
+                  setFullCanvasWorkflow(newWf);
+                  setCanvasExecution(null);
+                }}
+                style={{
+                  padding: '10px 18px',
+                  borderRadius: '12px',
+                  background: 'linear-gradient(135deg, #06b6d4, #3b82f6)',
+                  color: 'white',
+                  border: 'none',
+                  fontSize: '13px',
+                  fontWeight: '800',
+                  cursor: 'pointer',
+                  boxShadow: '0 4px 14px rgba(6, 182, 212, 0.35)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  transition: 'all 0.2s'
+                }}
+              >
+                🔮 Visual Studio (n8n/Make)
+              </button>
+
+              <button
                 onClick={handleOpenNew}
                 style={{
                   padding: '10px 20px',
@@ -429,7 +538,6 @@ function WorkflowsPage() {
               >
                 + Create Workflow
               </button>
-
             </div>
           </div>
 
@@ -469,15 +577,35 @@ function WorkflowsPage() {
           {/* Workflow Cards Grid or Empty State */}
           {loading ? (
             <div style={{
-              background: '#ffffff',
-              padding: '60px',
-              borderRadius: '20px',
-              border: '1px solid #e2e8f0',
-              textAlign: 'center',
-              color: '#64748b',
-              fontWeight: '600'
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fill, minmax(360px, 1fr))',
+              gap: '20px'
             }}>
-              Loading active workflows...
+              {[1, 2, 3].map(i => (
+                <div key={i} style={{
+                  background: '#ffffff',
+                  borderRadius: '20px',
+                  border: '1px solid #e2e8f0',
+                  padding: '24px',
+                  animation: 'pulse 1.5s ease-in-out infinite'
+                }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '14px' }}>
+                    <div style={{ width: '70px', height: '22px', borderRadius: '20px', background: '#e2e8f0' }} />
+                    <div style={{ width: '90px', height: '22px', borderRadius: '20px', background: '#e2e8f0' }} />
+                  </div>
+                  <div style={{ width: '60%', height: '18px', borderRadius: '8px', background: '#e2e8f0', marginBottom: '8px' }} />
+                  <div style={{ width: '90%', height: '14px', borderRadius: '8px', background: '#f1f5f9', marginBottom: '16px' }} />
+                  <div style={{ background: '#f8fafc', padding: '12px', borderRadius: '12px', border: '1px solid #f1f5f9', marginBottom: '12px' }}>
+                    <div style={{ display: 'flex', gap: '6px' }}>
+                      {[1, 2, 3].map(j => (
+                        <div key={j} style={{ width: '80px', height: '20px', borderRadius: '6px', background: '#e2e8f0' }} />
+                      ))}
+                    </div>
+                  </div>
+                  <div style={{ width: '100%', height: '40px', borderRadius: '12px', background: '#e0e7ff' }} />
+                </div>
+              ))}
+              <style>{`@keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }`}</style>
             </div>
           ) : workflows.length === 0 ? (
             <div style={{
@@ -706,6 +834,30 @@ function WorkflowsPage() {
                         borderTop: '1px solid #f1f5f9',
                         paddingTop: '12px'
                       }}>
+                        <button
+                          onClick={() => {
+                            setFullCanvasWorkflow(wf);
+                            setCanvasExecution(null);
+                          }}
+                          style={{
+                            flex: 1.2,
+                            padding: '8px 12px',
+                            borderRadius: '10px',
+                            background: 'linear-gradient(135deg, #0e7490, #1d4ed8)',
+                            border: 'none',
+                            color: 'white',
+                            fontSize: '12px',
+                            fontWeight: '800',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            gap: '4px',
+                            boxShadow: '0 2px 8px rgba(14, 116, 144, 0.25)',
+                          }}
+                        >
+                          🔮 Visual Canvas
+                        </button>
                         <button
                           onClick={() => handleOpenEdit(wf)}
                           style={{
@@ -1334,6 +1486,158 @@ function WorkflowsPage() {
                 })}
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* DELETE CONFIRMATION MODAL */}
+      {deleteConfirm && (
+        <div style={{
+          position: 'fixed',
+          top: 0, left: 0, right: 0, bottom: 0,
+          background: 'rgba(15, 23, 42, 0.6)',
+          backdropFilter: 'blur(4px)',
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          zIndex: 1100,
+          padding: '20px'
+        }}>
+          <div style={{
+            background: '#ffffff',
+            borderRadius: '20px',
+            padding: '32px',
+            maxWidth: '420px',
+            width: '100%',
+            textAlign: 'center',
+            border: '1px solid #e2e8f0',
+            boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)'
+          }}>
+            <div style={{ fontSize: '40px', marginBottom: '12px' }}>⚠️</div>
+            <h3 style={{ fontSize: '18px', fontWeight: '800', margin: '0 0 8px 0', color: '#0f172a' }}>
+              Delete Workflow?
+            </h3>
+            <p style={{ color: '#64748b', fontSize: '13px', margin: '0 0 24px 0', lineHeight: '1.5' }}>
+              This action is permanent and will remove the workflow, all execution history, and associated data. This cannot be undone.
+            </p>
+            <div style={{ display: 'flex', gap: '12px', justifyContent: 'center' }}>
+              <button
+                onClick={() => setDeleteConfirm(null)}
+                style={{
+                  padding: '10px 24px',
+                  borderRadius: '12px',
+                  background: '#f1f5f9',
+                  border: '1px solid #cbd5e1',
+                  color: '#475569',
+                  fontSize: '13px',
+                  fontWeight: '700',
+                  cursor: 'pointer'
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleConfirmDelete}
+                style={{
+                  padding: '10px 24px',
+                  borderRadius: '12px',
+                  background: '#dc2626',
+                  border: 'none',
+                  color: 'white',
+                  fontSize: '13px',
+                  fontWeight: '800',
+                  cursor: 'pointer',
+                  boxShadow: '0 2px 10px rgba(220, 38, 38, 0.3)'
+                }}
+              >
+                Delete Permanently
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* FULL-SCREEN VISUAL STUDIO (n8n / Make Node Canvas) */}
+      {fullCanvasWorkflow && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            zIndex: 9999,
+            background: 'rgba(5, 8, 16, 0.95)',
+            backdropFilter: 'blur(12px)',
+            display: 'flex',
+            flexDirection: 'column',
+            padding: '16px',
+          }}
+        >
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              padding: '12px 20px',
+              background: '#0d1322',
+              borderRadius: '16px 16px 0 0',
+              border: '1px solid rgba(255, 255, 255, 0.1)',
+              borderBottom: 'none',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <span style={{ fontSize: '20px' }}>🔮</span>
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <h3 style={{ margin: 0, color: 'white', fontSize: '16px', fontWeight: '800' }}>
+                    {fullCanvasWorkflow.name || 'Visual Workflow Studio'}
+                  </h3>
+                  <span
+                    style={{
+                      fontSize: '10px',
+                      fontFamily: 'monospace',
+                      padding: '2px 8px',
+                      borderRadius: '4px',
+                      background: 'rgba(56, 189, 248, 0.1)',
+                      color: '#38bdf8',
+                      border: '1px solid rgba(56, 189, 248, 0.2)',
+                    }}
+                  >
+                    n8n &amp; Make DAG Canvas
+                  </span>
+                </div>
+                <p style={{ margin: 0, color: '#94a3b8', fontSize: '11px' }}>
+                  Drag &amp; drop actions, connect handles, configure branching routers, and test pipeline live.
+                </p>
+              </div>
+            </div>
+
+            <button
+              onClick={() => {
+                setFullCanvasWorkflow(null);
+                setCanvasExecution(null);
+              }}
+              style={{
+                padding: '8px 16px',
+                borderRadius: '10px',
+                background: 'rgba(255, 255, 255, 0.1)',
+                border: '1px solid rgba(255, 255, 255, 0.15)',
+                color: 'white',
+                fontSize: '12px',
+                fontWeight: '700',
+                cursor: 'pointer',
+              }}
+            >
+              ✕ Close Studio
+            </button>
+          </div>
+
+          <div style={{ flex: 1, position: 'relative' }}>
+            <VisualWorkflowEditor
+              workflow={fullCanvasWorkflow}
+              onSave={handleSaveFromCanvas}
+              onRun={() => handleRunWorkflow(fullCanvasWorkflow)}
+              isRunning={runningWorkflowId === fullCanvasWorkflow.id}
+              latestExecution={canvasExecution}
+            />
           </div>
         </div>
       )}

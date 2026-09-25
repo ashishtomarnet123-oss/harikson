@@ -11,6 +11,7 @@
     "@headlessui/react": "^2.2.10",
     "@heroicons/react": "^2.2.0",
     "@tremor/react": "^3.18.7",
+    "@xyflow/react": "^12.11.6",
     "bcryptjs": "^2.4.3",
     "cookies-next": "^4.2.1",
     "jsonwebtoken": "^9.0.2",

@@ -7,15 +7,27 @@ import { useAdminAuth } from '../../../context/AdminAuthContext';
 
 export default function LoginPage() {
   const router = useRouter();
-  const { login, isAuthenticated } = useAdminAuth();
+  const { login, verify2FA, requires2FA, isAuthenticated } = useAdminAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [twoFACode, setTwoFACode] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
+  const getRedirectUrl = () => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      const r = params.get('redirect');
+      if (r && r.startsWith('/admin') && r !== '/admin/login') {
+        return r;
+      }
+    }
+    return '/admin/dashboard';
+  };
+
   useEffect(() => {
     if (isAuthenticated) {
-      router.replace('/admin/dashboard');
+      router.replace(getRedirectUrl());
     }
   }, [isAuthenticated, router]);
 
@@ -25,7 +37,7 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
-      await login(email, password);
+      await login(email, password, getRedirectUrl());
     } catch (err: any) {
       const rawMsg = err?.message || '';
       if (rawMsg.includes('Unexpected token') || rawMsg.includes('is not valid JSON')) {
@@ -33,6 +45,20 @@ export default function LoginPage() {
       } else {
         setError(rawMsg || 'Connection failure to admin API gateway.');
       }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handle2FASubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+    setLoading(true);
+
+    try {
+      await verify2FA(twoFACode, getRedirectUrl());
+    } catch (err: any) {
+      setError(err?.message || 'Invalid 2FA code');
     } finally {
       setLoading(false);
     }
@@ -60,62 +86,103 @@ export default function LoginPage() {
           <span>Sessions protected by HttpOnly SameSite=Strict cookies.</span>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-6">
-          {/* Email Input */}
-          <div>
-            <label className="block text-[11px] font-bold text-slate-600 uppercase tracking-widest mb-2">
-              Email Address
-            </label>
-            <div className="relative flex items-center">
-              <Mail className="absolute left-4 w-5 h-5 text-slate-400 pointer-events-none" />
-              <input
-                type="email"
-                required
-                className="w-full pr-4 py-3 bg-slate-50 border border-slate-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 text-sm rounded-xl text-slate-900 outline-none transition-all placeholder:text-slate-400"
-                style={{ paddingLeft: '48px' }}
-                placeholder="admin@harikson.ai"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-              />
+        {requires2FA ? (
+          <form onSubmit={handle2FASubmit} className="space-y-6">
+            <div className="mb-2 p-3 bg-amber-50 border border-amber-100 rounded-xl text-xs text-amber-700 flex items-center gap-2">
+              <ShieldCheck className="w-4 h-4 flex-shrink-0 text-amber-600" />
+              <span>Two-factor authentication is enabled. Enter the code from your authenticator app.</span>
             </div>
-          </div>
 
-          {/* Password Input */}
-          <div>
-            <label className="block text-[11px] font-bold text-slate-600 uppercase tracking-widest mb-2">
-              Password
-            </label>
-            <div className="relative flex items-center">
-              <Lock className="absolute left-4 w-5 h-5 text-slate-400 pointer-events-none" />
-              <input
-                type="password"
-                required
-                className="w-full pr-4 py-3 bg-slate-50 border border-slate-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 text-sm rounded-xl text-slate-900 outline-none transition-all placeholder:text-slate-400"
-                style={{ paddingLeft: '48px' }}
-                placeholder="••••••••"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-              />
+            <div>
+              <label className="block text-[11px] font-bold text-slate-600 uppercase tracking-widest mb-2">
+                Authentication Code
+              </label>
+              <div className="relative flex items-center">
+                <Lock className="absolute left-4 w-5 h-5 text-slate-400 pointer-events-none" />
+                <input
+                  type="text"
+                  required
+                  autoFocus
+                  maxLength={8}
+                  className="w-full pr-4 py-3 bg-slate-50 border border-slate-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 text-sm rounded-xl text-slate-900 outline-none transition-all placeholder:text-slate-400 tracking-[0.3em] text-center font-mono"
+                  style={{ paddingLeft: '48px' }}
+                  placeholder="000000"
+                  value={twoFACode}
+                  onChange={(e) => setTwoFACode(e.target.value.replace(/\s/g, ''))}
+                />
+              </div>
+              <p className="text-[10px] text-slate-400 mt-2">Enter a 6-digit TOTP code or a backup code</p>
             </div>
-          </div>
 
-          {/* Error Message */}
-          {error && (
-            <div className="flex items-center gap-3 p-4 bg-red-50 border border-red-100 rounded-xl text-sm text-red-600">
-              <AlertCircle className="w-5 h-5 flex-shrink-0" />
-              <span className="font-medium">{error}</span>
+            {error && (
+              <div className="flex items-center gap-3 p-4 bg-red-50 border border-red-100 rounded-xl text-sm text-red-600">
+                <AlertCircle className="w-5 h-5 flex-shrink-0" />
+                <span className="font-medium">{error}</span>
+              </div>
+            )}
+
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full py-3.5 bg-blue-500 hover:bg-blue-600 disabled:opacity-50 text-white text-sm font-bold rounded-xl shadow-lg shadow-blue-500/30 transition-all flex items-center justify-center gap-2 mt-2"
+            >
+              {loading ? 'Verifying...' : 'Verify & Sign In'}
+            </button>
+          </form>
+        ) : (
+          <form onSubmit={handleSubmit} className="space-y-6">
+            <div>
+              <label className="block text-[11px] font-bold text-slate-600 uppercase tracking-widest mb-2">
+                Email Address
+              </label>
+              <div className="relative flex items-center">
+                <Mail className="absolute left-4 w-5 h-5 text-slate-400 pointer-events-none" />
+                <input
+                  type="email"
+                  required
+                  className="w-full pr-4 py-3 bg-slate-50 border border-slate-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 text-sm rounded-xl text-slate-900 outline-none transition-all placeholder:text-slate-400"
+                  style={{ paddingLeft: '48px' }}
+                  placeholder="admin@harikson.ai"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                />
+              </div>
             </div>
-          )}
 
-          {/* Submit Button */}
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full py-3.5 bg-blue-500 hover:bg-blue-600 disabled:opacity-50 text-white text-sm font-bold rounded-xl shadow-lg shadow-blue-500/30 transition-all flex items-center justify-center gap-2 mt-2"
-          >
-            {loading ? 'Authenticating...' : 'Sign In to Dashboard'}
-          </button>
-        </form>
+            <div>
+              <label className="block text-[11px] font-bold text-slate-600 uppercase tracking-widest mb-2">
+                Password
+              </label>
+              <div className="relative flex items-center">
+                <Lock className="absolute left-4 w-5 h-5 text-slate-400 pointer-events-none" />
+                <input
+                  type="password"
+                  required
+                  className="w-full pr-4 py-3 bg-slate-50 border border-slate-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 text-sm rounded-xl text-slate-900 outline-none transition-all placeholder:text-slate-400"
+                  style={{ paddingLeft: '48px' }}
+                  placeholder="••••••••"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                />
+              </div>
+            </div>
+
+            {error && (
+              <div className="flex items-center gap-3 p-4 bg-red-50 border border-red-100 rounded-xl text-sm text-red-600">
+                <AlertCircle className="w-5 h-5 flex-shrink-0" />
+                <span className="font-medium">{error}</span>
+              </div>
+            )}
+
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full py-3.5 bg-blue-500 hover:bg-blue-600 disabled:opacity-50 text-white text-sm font-bold rounded-xl shadow-lg shadow-blue-500/30 transition-all flex items-center justify-center gap-2 mt-2"
+            >
+              {loading ? 'Authenticating...' : 'Sign In to Dashboard'}
+            </button>
+          </form>
+        )}
 
         {/* Footer */}
         <p className="text-[11px] text-slate-600 text-center mt-10 uppercase tracking-widest font-bold">

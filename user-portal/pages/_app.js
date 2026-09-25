@@ -1,5 +1,6 @@
 import '../styles/globals.css';
 import '../styles/settings-addon.css';
+import '@xyflow/react/dist/style.css';
 import { AuthProvider } from '../context/AuthContext';
 import { ToastProvider } from '../context/ToastContext';
 import { ThemeProvider } from '../context/ThemeContext';

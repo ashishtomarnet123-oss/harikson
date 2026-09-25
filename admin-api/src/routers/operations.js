@@ -1,6 +1,5 @@
 import logger from '../utils/logger.js';
 import express from 'express';
-import pg from 'pg';
 import { exec } from 'child_process';
 import util from 'util';
 import axios from 'axios';
@@ -10,26 +9,27 @@ import {
   activitySchema,
   workflowSchema,
   updateWorkflowSchema,
+  statusToggleSchema,
+  bulkActionSchema,
   backupSchema,
   vectorSchema,
   costSchema,
   notificationSchema,
   integrationSchema,
 } from '../validators/operations.schema.js';
+import pool from '../db.js';
 
 const router = express.Router();
-const { Pool } = pg;
-const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 const execPromise = util.promisify(exec);
 
 const ollamaHost = process.env.OLLAMA_HOST || 'http://ollama:11434';
 
-// Apply adminAuth to ALL routes in this router
-// Exception: POST /admin/activity is called internally from tenant-api (no admin token)
-// so we apply auth per-route for that specific exception.
 router.use((req, res, next) => {
-  // Allow internal activity logging from tenant-api (no user session)
-  if (req.method === 'POST' && req.path === '/activity') return next();
+  if (req.method === 'POST' && req.path === '/activity') {
+    const secret = req.headers['x-internal-secret'];
+    if (secret && secret === process.env.INTERNAL_API_SECRET) return next();
+    return res.status(401).json({ error: 'Missing or invalid internal secret' });
+  }
   return adminAuth(req, res, next);
 });
 
@@ -214,28 +214,11 @@ router.post('/knowledge/:id/documents', async (req, res) => {
       `INSERT INTO knowledge_documents (knowledge_base_id, filename, file_type, file_size_bytes, status) VALUES ($1, $2, $3, $4, 'pending') RETURNING *`,
       [req.params.id, filename, file_type, file_size_bytes]
     );
-    // Simulate async indexing pipeline
-    setImmediate(async () => {
-      try {
-        await pool.query(
-          `UPDATE knowledge_documents SET status='processing' WHERE id=$1`,
-          [doc.rows[0].id]
-        );
-        await new Promise((r) => setTimeout(r, 2000));
-        const chunks = Math.max(1, Math.ceil((file_size_bytes || 1000) / 1000));
-        await pool.query(
-          `UPDATE knowledge_documents SET status='indexed', chunk_count=$1, embedding_count=$2 WHERE id=$3`,
-          [chunks, chunks, doc.rows[0].id]
-        );
-        await pool.query(
-          `UPDATE knowledge_bases SET total_documents = total_documents + 1, total_embeddings = total_embeddings + $1,
-           storage_bytes = storage_bytes + $2, index_status='completed', last_sync_at=NOW() WHERE id=$3`,
-          [chunks, file_size_bytes || 0, req.params.id]
-        );
-      } catch (err) {
-        logger.error('Error in background document indexing simulation:', err);
-      }
-    });
+    await pool.query(
+      `UPDATE knowledge_bases SET total_documents = total_documents + 1,
+       storage_bytes = storage_bytes + $1 WHERE id=$2`,
+      [file_size_bytes || 0, req.params.id]
+    );
     res.json(doc.rows[0]);
   } catch (err) {
     res.status(500).json({ error: 'Failed to add document' });
@@ -310,6 +293,9 @@ router.post('/playground/chat', async (req, res) => {
               fullText += parsed.message.content;
               res.write(parsed.message.content);
             }
+            if (parsed.eval_count) {
+              tokensOut = parsed.eval_count;
+            }
           } catch (e) {
             logger.warn(
               'Warning parsing playground Ollama stream chunk:',
@@ -344,9 +330,6 @@ router.post('/playground/chat', async (req, res) => {
       } catch (err) {
         logger.warn('Warning saving playground session to DB:', err.message);
       }
-      res.setHeader('X-Tokens-In', tokensIn);
-      res.setHeader('X-Tokens-Out', tokensOut);
-      res.setHeader('X-Latency-Ms', latency);
       res.end();
     });
     response.data.on('error', () => {
@@ -373,36 +356,88 @@ router.get('/playground/sessions', async (req, res) => {
 
 // ─── WORKFLOWS (Phase 2.2) ────────────────────────────────────────────────────
 
+router.get('/workflows/stats/summary', async (req, res) => {
+  try {
+    const result = await pool.query(`
+      SELECT
+        COUNT(*)::int as total_workflows,
+        COUNT(*) FILTER (WHERE status = 'active')::int as active_workflows,
+        COUNT(*) FILTER (WHERE status = 'disabled')::int as disabled_workflows,
+        COALESCE(SUM(execution_count), 0)::int as total_executions,
+        ROUND(AVG(NULLIF(success_rate, 0))::numeric, 1) as avg_success_rate,
+        COUNT(DISTINCT tenant_id)::int as tenant_count
+      FROM workflows
+    `);
+    res.json(result.rows[0]);
+  } catch (err) {
+    logger.error('Failed to fetch workflow stats:', err);
+    res.status(500).json({ error: 'Failed to fetch workflow stats' });
+  }
+});
+
 router.get('/workflows', async (req, res) => {
   try {
+    const { tenant_id, search, sort = 'created_at', order = 'desc' } = req.query;
+    const allowedSorts = ['created_at', 'name', 'execution_count', 'success_rate', 'last_execution_at'];
+    const sortCol = allowedSorts.includes(sort) ? `w.${sort}` : 'w.created_at';
+    const sortOrder = order === 'asc' ? 'ASC' : 'DESC';
+
+    let where = [];
+    let params = [];
+    let paramIdx = 1;
+
+    if (tenant_id) {
+      where.push(`w.tenant_id = $${paramIdx}`);
+      params.push(tenant_id);
+      paramIdx++;
+    }
+    if (search) {
+      where.push(`(w.name ILIKE $${paramIdx} OR w.description ILIKE $${paramIdx})`);
+      params.push(`%${search}%`);
+      paramIdx++;
+    }
+
+    const whereClause = where.length > 0 ? `WHERE ${where.join(' AND ')}` : '';
+
     const result = await pool.query(`
       SELECT w.*, t.name as tenant_name,
         (SELECT COUNT(*) FROM workflow_executions we WHERE we.workflow_id = w.id) as total_runs,
         (SELECT we2.status FROM workflow_executions we2 WHERE we2.workflow_id = w.id ORDER BY started_at DESC LIMIT 1) as last_status
       FROM workflows w LEFT JOIN tenants t ON w.tenant_id = t.id
-      ORDER BY w.created_at DESC
-    `);
+      ${whereClause}
+      ORDER BY ${sortCol} ${sortOrder} NULLS LAST
+    `, params);
     res.json(result.rows);
   } catch (err) {
+    logger.error('Failed to fetch workflows:', err);
     res.status(500).json({ error: 'Failed to fetch workflows' });
   }
 });
 
 router.post('/workflows', validate(workflowSchema), async (req, res) => {
-  const { name, description, trigger_type, steps, tenant_id } = req.body;
+  const { name, description, trigger_type, steps, definition, tenant_id } = req.body;
   try {
+    // Validate tenant_id exists if provided
+    if (tenant_id) {
+      const tenantCheck = await pool.query('SELECT id FROM tenants WHERE id=$1', [tenant_id]);
+      if (!tenantCheck.rows.length) {
+        return res.status(400).json({ error: 'Invalid tenant_id: tenant does not exist' });
+      }
+    }
     const result = await pool.query(
-      `INSERT INTO workflows (name, description, trigger_type, steps, tenant_id) VALUES ($1,$2,$3,$4,$5) RETURNING *`,
+      `INSERT INTO workflows (name, description, trigger_type, steps, definition, tenant_id) VALUES ($1,$2,$3,$4,$5,$6) RETURNING *`,
       [
         name,
         description,
         trigger_type || 'manual',
         JSON.stringify(steps || []),
+        definition ? JSON.stringify(definition) : null,
         tenant_id || null,
       ]
     );
-    res.json(result.rows[0]);
+    res.status(201).json(result.rows[0]);
   } catch (err) {
+    logger.error('Failed to create workflow:', err);
     res.status(500).json({ error: 'Failed to create workflow' });
   }
 });
@@ -411,15 +446,23 @@ router.put(
   '/workflows/:id',
   validate(updateWorkflowSchema),
   async (req, res) => {
-    const { name, description, trigger_type, steps, status } = req.body;
+    const { name, description, trigger_type, steps, definition, status } = req.body;
     try {
       const result = await pool.query(
-        `UPDATE workflows SET name=COALESCE($1,name), description=COALESCE($2,description), trigger_type=COALESCE($3,trigger_type), steps=COALESCE($4,steps), status=COALESCE($5,status) WHERE id=$6 RETURNING *`,
+        `UPDATE workflows SET 
+          name=COALESCE($1,name), 
+          description=COALESCE($2,description), 
+          trigger_type=COALESCE($3,trigger_type), 
+          steps=COALESCE($4,steps), 
+          definition=COALESCE($5,definition),
+          status=COALESCE($6,status) 
+        WHERE id=$7 RETURNING *`,
         [
           name,
           description,
           trigger_type,
           steps ? JSON.stringify(steps) : null,
+          definition ? JSON.stringify(definition) : null,
           status,
           req.params.id,
         ]
@@ -442,42 +485,119 @@ router.delete('/workflows/:id', async (req, res) => {
 
 router.post('/workflows/:id/run', async (req, res) => {
   try {
+    // First verify workflow exists
+    const wfCheck = await pool.query('SELECT id, name, status FROM workflows WHERE id=$1', [req.params.id]);
+    if (!wfCheck.rows.length) {
+      return res.status(404).json({ error: 'Workflow not found' });
+    }
+    if (wfCheck.rows[0].status === 'disabled' || wfCheck.rows[0].status === 'archived') {
+      return res.status(400).json({ error: `Workflow is ${wfCheck.rows[0].status} and cannot be run` });
+    }
+
     const tenantApiUrl = process.env.TENANT_API_URL || 'http://tenant-api:3008';
-    const response = await fetch(`${tenantApiUrl}/api/workflows/${req.params.id}/run`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        ...(process.env.INTERNAL_API_SECRET ? { 'x-internal-secret': process.env.INTERNAL_API_SECRET } : {}),
-      },
-      body: JSON.stringify(req.body || {}),
-    });
-    const data = await response.json();
-    return res.status(response.status).json(data);
-  } catch (err) {
-    // Fallback: check database directly
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 30000); // 30s timeout
+
     try {
-      const wf = await pool.query('SELECT * FROM workflows WHERE id=$1', [req.params.id]);
-      if (!wf.rows.length) return res.status(404).json({ error: 'Workflow not found' });
+      const response = await fetch(`${tenantApiUrl}/api/workflows/${req.params.id}/run`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(process.env.INTERNAL_API_SECRET ? { 'x-internal-secret': process.env.INTERNAL_API_SECRET } : {}),
+        },
+        body: JSON.stringify(req.body || {}),
+        signal: controller.signal,
+      });
+      clearTimeout(timeoutId);
+      const data = await response.json();
+      return res.status(response.status).json(data);
+    } catch (fetchErr) {
+      clearTimeout(timeoutId);
+      // Fallback: create execution record directly in DB
+      logger.warn('Tenant API unreachable for workflow run, falling back to DB:', fetchErr.message);
       const exec = await pool.query(
         `INSERT INTO workflow_executions (workflow_id, status, started_at) VALUES ($1,'running',NOW()) RETURNING *`,
         [req.params.id]
       );
-      res.json({ execution: exec.rows[0], message: 'Workflow execution queued' });
-    } catch (dbErr) {
-      res.status(500).json({ error: 'Failed to run workflow' });
+      res.json({ execution: exec.rows[0], message: 'Workflow execution queued (tenant API unavailable, queued locally)' });
     }
+  } catch (err) {
+    logger.error('Failed to run workflow:', err);
+    res.status(500).json({ error: 'Failed to run workflow' });
   }
 });
 
 router.get('/workflows/:id/executions', async (req, res) => {
   try {
+    const limit = Math.min(parseInt(req.query.limit) || 25, 100);
+    const offset = parseInt(req.query.offset) || 0;
     const result = await pool.query(
-      `SELECT * FROM workflow_executions WHERE workflow_id=$1 ORDER BY started_at DESC LIMIT 25`,
+      `SELECT id, workflow_id, status, started_at, completed_at, duration_ms, logs, error_message, step_results, trigger_type
+       FROM workflow_executions WHERE workflow_id=$1 ORDER BY started_at DESC LIMIT $2 OFFSET $3`,
+      [req.params.id, limit, offset]
+    );
+    const countResult = await pool.query(
+      `SELECT COUNT(*)::int as total FROM workflow_executions WHERE workflow_id=$1`,
       [req.params.id]
     );
-    res.json(result.rows);
+    res.json({ executions: result.rows, total: countResult.rows[0].total, limit, offset });
   } catch (err) {
+    logger.error('Failed to fetch executions:', err);
     res.status(500).json({ error: 'Failed to fetch executions' });
+  }
+});
+
+// PATCH /workflows/:id/status - Quick status toggle
+router.patch('/workflows/:id/status', async (req, res) => {
+  const { status } = req.body;
+  if (!status || !['active', 'disabled', 'archived'].includes(status)) {
+    return res.status(400).json({ error: 'Invalid status. Must be active, disabled, or archived.' });
+  }
+  try {
+    const result = await pool.query(
+      `UPDATE workflows SET status=$1 WHERE id=$2 RETURNING id, name, status`,
+      [status, req.params.id]
+    );
+    if (!result.rows.length) {
+      return res.status(404).json({ error: 'Workflow not found' });
+    }
+    res.json(result.rows[0]);
+  } catch (err) {
+    logger.error('Failed to toggle workflow status:', err);
+    res.status(500).json({ error: 'Failed to update workflow status' });
+  }
+});
+
+// POST /workflows/bulk-action - Batch operations
+router.post('/workflows/bulk-action', async (req, res) => {
+  const { action, workflow_ids } = req.body;
+  if (!action || !Array.isArray(workflow_ids) || workflow_ids.length === 0) {
+    return res.status(400).json({ error: 'action and workflow_ids[] are required' });
+  }
+  if (!['pause', 'resume', 'delete'].includes(action)) {
+    return res.status(400).json({ error: 'Invalid action. Must be pause, resume, or delete.' });
+  }
+
+  try {
+    let affected = 0;
+    if (action === 'delete') {
+      const result = await pool.query(
+        `DELETE FROM workflows WHERE id = ANY($1) RETURNING id`,
+        [workflow_ids]
+      );
+      affected = result.rowCount;
+    } else {
+      const newStatus = action === 'pause' ? 'disabled' : 'active';
+      const result = await pool.query(
+        `UPDATE workflows SET status=$1 WHERE id = ANY($2) RETURNING id`,
+        [newStatus, workflow_ids]
+      );
+      affected = result.rowCount;
+    }
+    res.json({ success: true, action, affected });
+  } catch (err) {
+    logger.error('Failed to perform bulk workflow action:', err);
+    res.status(500).json({ error: 'Failed to perform bulk action' });
   }
 });
 
@@ -500,7 +620,7 @@ async function seedWorkflows() {
     logger.error('Error seeding default workflows:', err);
   }
 }
-seedWorkflows();
+if (process.env.SEED_DATA === 'true') seedWorkflows();
 
 // ─── KNOWLEDGE BASE SEED DATA (auto-seed on first load) ───────────────────────
 async function seedKnowledge() {
@@ -555,7 +675,7 @@ async function seedKnowledge() {
     logger.error('Failed to seed knowledge base:', err);
   }
 }
-seedKnowledge();
+if (process.env.NODE_ENV !== 'production') seedKnowledge();
 
 // ─── GPU MONITORING (Phase 3.1) ───────────────────────────────────────────────
 
@@ -947,22 +1067,36 @@ router.get('/backups', async (req, res) => {
 router.post('/backups', validate(backupSchema), async (req, res) => {
   const { name, type = 'full', retention_days = 30 } = req.body;
   try {
+    const backupName = name || `backup_${new Date().toISOString().slice(0, 10)}_${Date.now().toString().slice(-4)}`;
     const backup = await pool.query(
       `INSERT INTO backups (name, type, status, retention_days, started_at) VALUES ($1,$2,'running',$3,NOW()) RETURNING *`,
-      [
-        name ||
-          `backup_${new Date().toISOString().slice(0, 10)}_${Date.now().toString().slice(-4)}`,
-        type,
-        retention_days,
-      ]
+      [backupName, type, retention_days]
     );
+    const backupId = backup.rows[0].id;
+    const storagePath = `/backups/${backupId}.sql.gz`;
+
     setImmediate(async () => {
-      await new Promise((r) => setTimeout(r, 3000));
-      const sizeBytes = Math.floor(Math.random() * 500000000) + 100000000;
-      await pool.query(
-        `UPDATE backups SET status='completed', completed_at=NOW(), size_bytes=$1, storage_path=$2 WHERE id=$3`,
-        [sizeBytes, `/backups/${backup.rows[0].id}.tar.gz`, backup.rows[0].id]
-      );
+      try {
+        const dbUrl = process.env.DATABASE_URL;
+        if (!dbUrl) throw new Error('DATABASE_URL not set');
+        const { stdout } = await execPromise(
+          `pg_dump "${dbUrl}" --no-owner --no-acl | gzip > "${storagePath}"`,
+          { timeout: 300000 }
+        );
+        const { stdout: sizeOut } = await execPromise(`stat -c%s "${storagePath}" 2>/dev/null || stat -f%z "${storagePath}"`);
+        const sizeBytes = parseInt(sizeOut.trim()) || 0;
+        await pool.query(
+          `UPDATE backups SET status='completed', completed_at=NOW(), size_bytes=$1, storage_path=$2 WHERE id=$3`,
+          [sizeBytes, storagePath, backupId]
+        );
+        logger.info(`Backup ${backupId} completed: ${storagePath} (${sizeBytes} bytes)`);
+      } catch (err) {
+        logger.error(`Backup ${backupId} failed:`, err.message);
+        await pool.query(
+          `UPDATE backups SET status='failed', completed_at=NOW(), error_message=$1 WHERE id=$2`,
+          [err.message, backupId]
+        ).catch(() => {});
+      }
     });
     res.json(backup.rows[0]);
   } catch (err) {
@@ -1037,7 +1171,7 @@ router.get('/stats/overview', async (req, res) => {
           .query(`SELECT COUNT(*) FROM tenants WHERE status='active'`)
           .catch(() => ({ rows: [{ count: 0 }] })),
         pool
-          .query(`SELECT COUNT(*) FROM api_keys WHERE is_active=true`)
+          .query(`SELECT COUNT(*) FROM tenant_api_keys WHERE is_active=true`)
           .catch(() => ({ rows: [{ count: 0 }] })),
         pool
           .query(`SELECT COUNT(*) FROM agents WHERE status='active'`)
@@ -1068,6 +1202,90 @@ router.get('/stats/overview', async (req, res) => {
     });
   } catch (err) {
     res.status(500).json({ error: 'Failed to fetch stats' });
+  }
+});
+
+// ── Session Management ──────────────────────────────────────
+router.get('/sessions', async (req, res) => {
+  try {
+    const { tenant_id, user_id, status } = req.query;
+    let query = `
+      SELECT s.id, s.user_id, u.email as user_email, s.tenant_id, t.name as tenant_name,
+             s.device_name, s.ip_address, s.user_agent, s.expires_at, s.revoked_at,
+             s.last_active_at, s.created_at
+      FROM user_sessions s
+      LEFT JOIN users u ON u.id = s.user_id
+      LEFT JOIN tenants t ON t.id = s.tenant_id
+      WHERE 1=1
+    `;
+    const params = [];
+    if (tenant_id) {
+      params.push(tenant_id);
+      query += ` AND s.tenant_id = $${params.length}`;
+    }
+    if (user_id) {
+      params.push(user_id);
+      query += ` AND s.user_id = $${params.length}`;
+    }
+    if (status === 'active') {
+      query += ` AND s.revoked_at IS NULL AND s.expires_at > NOW()`;
+    } else if (status === 'revoked') {
+      query += ` AND s.revoked_at IS NOT NULL`;
+    } else if (status === 'expired') {
+      query += ` AND s.revoked_at IS NULL AND s.expires_at <= NOW()`;
+    }
+    query += ` ORDER BY s.last_active_at DESC NULLS LAST LIMIT 200`;
+
+    const result = await pool.query(query, params);
+    const countResult = await pool.query(
+      `SELECT COUNT(*) as total, COUNT(*) FILTER (WHERE revoked_at IS NULL AND expires_at > NOW()) as active FROM user_sessions`
+    );
+    res.json({
+      sessions: result.rows,
+      total: parseInt(countResult.rows[0].total),
+      active: parseInt(countResult.rows[0].active),
+    });
+  } catch (err) {
+    logger.error('Failed to fetch sessions:', err);
+    res.status(500).json({ error: 'Failed to fetch sessions' });
+  }
+});
+
+router.post('/sessions/:id/revoke', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const result = await pool.query(
+      `UPDATE user_sessions SET revoked_at = NOW() WHERE id = $1 AND revoked_at IS NULL RETURNING id`,
+      [id]
+    );
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Session not found or already revoked' });
+    }
+    res.json({ success: true });
+  } catch (err) {
+    logger.error('Failed to revoke session:', err);
+    res.status(500).json({ error: 'Failed to revoke session' });
+  }
+});
+
+router.post('/sessions/revoke-all', async (req, res) => {
+  try {
+    const { tenant_id, user_id } = req.body;
+    let query = `UPDATE user_sessions SET revoked_at = NOW() WHERE revoked_at IS NULL AND expires_at > NOW()`;
+    const params = [];
+    if (tenant_id) {
+      params.push(tenant_id);
+      query += ` AND tenant_id = $${params.length}`;
+    }
+    if (user_id) {
+      params.push(user_id);
+      query += ` AND user_id = $${params.length}`;
+    }
+    const result = await pool.query(query, params);
+    res.json({ success: true, revoked: result.rowCount });
+  } catch (err) {
+    logger.error('Failed to revoke sessions:', err);
+    res.status(500).json({ error: 'Failed to revoke sessions' });
   }
 });
 

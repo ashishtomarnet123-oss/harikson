@@ -49,6 +49,7 @@ export default function Playground() {
 
     try {
       const res = await fetch(`${apiBase}/v1/admin/playground/chat`, {
+        credentials: 'include',
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

@@ -17,8 +17,15 @@ services:
       - '--providers.docker=true'
       - '--providers.docker.exposedbydefault=false'
       - '--entrypoints.web.address=:80'
+      - '--entrypoints.web.http.redirections.entryPoint.to=websecure'
+      - '--entrypoints.web.http.redirections.entryPoint.scheme=https'
       - '--entrypoints.websecure.address=:443'
-      - '--certificatesresolvers.letsencrypt.acme.tlschallenge=true'
+      - '--entrypoints.websecure.transport.respondingTimeouts.readTimeout=120s'
+      - '--entrypoints.websecure.transport.respondingTimeouts.writeTimeout=120s'
+      - '--entrypoints.web.transport.respondingTimeouts.readTimeout=120s'
+      - '--entrypoints.web.transport.respondingTimeouts.writeTimeout=120s'
+      - '--certificatesresolvers.letsencrypt.acme.httpchallenge=true'
+      - '--certificatesresolvers.letsencrypt.acme.httpchallenge.entrypoint=web'
       - '--certificatesresolvers.letsencrypt.acme.email=neuravolt@gmail.com'
       - '--certificatesresolvers.letsencrypt.acme.storage=/letsencrypt/acme.json'
       - '--providers.file.directory=/dynamic'
@@ -39,7 +46,7 @@ services:
       - "traefik.http.routers.dashboard.entrypoints=websecure"
       - "traefik.http.routers.dashboard.tls.certresolver=letsencrypt"
       - "traefik.http.routers.dashboard.service=api@internal"
-      - "traefik.http.routers.dashboard.middlewares=auth,ip-whitelist"
+      - "traefik.http.routers.dashboard.middlewares=auth,ip-whitelist,security-headers@file,rate-limit@file"
       - "traefik.http.middlewares.auth.basicauth.users=${TRAEFIK_DASHBOARD_AUTH}"
       # Restrict access to local host loopback and private VPN subnets in production
       - "traefik.http.middlewares.ip-whitelist.ipwhitelist.sourcerange=127.0.0.1/32,10.0.0.0/8,172.16.0.0/12,192.168.0.0/16"
@@ -112,7 +119,7 @@ services:
     image: redis:7-alpine
     container_name: harikson-redis
     restart: unless-stopped
-    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD:-harikson_redis_pwd} --stop-writes-on-bgsave-error no --maxmemory-policy allkeys-lru
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD:?REDIS_PASSWORD must be set} --stop-writes-on-bgsave-error no --maxmemory-policy allkeys-lru
     expose:
       - '6379'
     volumes:
@@ -124,7 +131,7 @@ services:
         limits:
           memory: 256m
     healthcheck:
-      test: ['CMD', 'redis-cli', '-a', '${REDIS_PASSWORD:-harikson_redis_pwd}', '--no-auth-warning', 'ping']
+      test: ['CMD', 'redis-cli', '-a', '${REDIS_PASSWORD:?REDIS_PASSWORD must be set}', '--no-auth-warning', 'ping']
       interval: 10s
       timeout: 5s
       retries: 5
@@ -169,8 +176,8 @@ services:
     ports:
       - '127.0.0.1:3008:3008'
     environment:
-      - DATABASE_URL=postgresql://neuravolt:${POSTGRES_PASSWORD:-neuravolt_dev_pwd}@postgres:5432/neuravolt
-      - REDIS_URL=redis://:${REDIS_PASSWORD:-harikson_redis_pwd}@redis:6379
+      - DATABASE_URL=postgresql://neuravolt:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}@postgres:5432/neuravolt
+      - REDIS_URL=redis://:${REDIS_PASSWORD:?REDIS_PASSWORD must be set}@redis:6379
       - JWT_SECRET
       - TENANT_MASTER_KEY
       - INTERNAL_API_SECRET
@@ -199,6 +206,7 @@ services:
       - 'traefik.http.routers.tenant-api.rule=Host(`api.xarwiz.com`)'
       - 'traefik.http.routers.tenant-api.entrypoints=websecure'
       - 'traefik.http.routers.tenant-api.tls.certresolver=letsencrypt'
+      - 'traefik.http.routers.tenant-api.middlewares=security-headers@file,rate-limit@file'
       - 'traefik.http.services.tenant-api.loadbalancer.server.port=3008'
       - 'traefik.http.services.tenant-api.loadbalancer.healthcheck.path=/health'
       - 'traefik.http.services.tenant-api.loadbalancer.healthcheck.interval=30s'
@@ -227,8 +235,8 @@ services:
     ports:
       - '127.0.0.1:4000:4000'
     environment:
-      - DATABASE_URL=postgresql://neuravolt:${POSTGRES_PASSWORD:-neuravolt_dev_pwd}@postgres:5432/neuravolt
-      - REDIS_URL=redis://:${REDIS_PASSWORD:-harikson_redis_pwd}@redis:6379
+      - DATABASE_URL=postgresql://neuravolt:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}@postgres:5432/neuravolt
+      - REDIS_URL=redis://:${REDIS_PASSWORD:?REDIS_PASSWORD must be set}@redis:6379
       - JWT_SECRET
       - PORT=4000
       - NODE_ENV=${NODE_ENV:-development}
@@ -252,6 +260,7 @@ services:
       - 'traefik.http.routers.admin-api.rule=Host(`admin-api.xarwiz.com`)'
       - 'traefik.http.routers.admin-api.entrypoints=websecure'
       - 'traefik.http.routers.admin-api.tls.certresolver=letsencrypt'
+      - 'traefik.http.routers.admin-api.middlewares=security-headers@file,rate-limit@file'
       - 'traefik.http.services.admin-api.loadbalancer.server.port=4000'
       - 'traefik.http.services.admin-api.loadbalancer.healthcheck.path=/health'
       - 'traefik.http.services.admin-api.loadbalancer.healthcheck.interval=30s'
@@ -282,7 +291,7 @@ services:
       - PORT=3001
       - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-http://34.131.237.79:3028}
       - ADMIN_API_URL=http://admin-api:4000
-      - DATABASE_URL=postgresql://neuravolt:${POSTGRES_PASSWORD:-neuravolt_dev_pwd}@postgres:5432/neuravolt
+      - DATABASE_URL=postgresql://neuravolt:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}@postgres:5432/neuravolt
       - JWT_SECRET
       - NEXTAUTH_SECRET
     networks:
@@ -292,10 +301,16 @@ services:
       - 'traefik.http.routers.admin-panel.rule=Host(`admin.xarwiz.com`)'
       - 'traefik.http.routers.admin-panel.entrypoints=websecure'
       - 'traefik.http.routers.admin-panel.tls.certresolver=letsencrypt'
+      - 'traefik.http.routers.admin-panel.middlewares=security-headers@file,rate-limit@file'
       - 'traefik.http.services.admin-panel.loadbalancer.server.port=3001'
     depends_on:
       - admin-api
       - tenant-api
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3001"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
     logging:
       driver: 'json-file'
       options:
@@ -327,9 +342,15 @@ services:
       - 'traefik.http.routers.user-portal.rule=Host(`xarwiz.com`) || Host(`www.xarwiz.com`)'
       - 'traefik.http.routers.user-portal.entrypoints=websecure'
       - 'traefik.http.routers.user-portal.tls.certresolver=letsencrypt'
+      - 'traefik.http.routers.user-portal.middlewares=security-headers@file,rate-limit@file'
       - 'traefik.http.services.user-portal.loadbalancer.server.port=3002'
     depends_on:
       - tenant-api
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3002"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
     logging:
       driver: 'json-file'
       options:
@@ -349,6 +370,11 @@ services:
       - ${DATA_DIR:-./data}/prometheus:/prometheus
     networks:
       - harikson-network
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '0.50'
     logging:
       driver: 'json-file'
       options:
@@ -370,11 +396,17 @@ services:
       - ${DATA_DIR:-./data}/grafana:/var/lib/grafana
     networks:
       - harikson-network
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: '0.25'
     labels:
       - 'traefik.enable=true'
       - 'traefik.http.routers.grafana.rule=Host(`monitor.xarwiz.com`)'
       - 'traefik.http.routers.grafana.entrypoints=websecure'
       - 'traefik.http.routers.grafana.tls.certresolver=letsencrypt'
+      - 'traefik.http.routers.grafana.middlewares=security-headers@file,rate-limit@file'
       - 'traefik.http.services.grafana.loadbalancer.server.port=3003'
     logging:
       driver: 'json-file'

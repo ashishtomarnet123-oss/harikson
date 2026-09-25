@@ -793,6 +793,7 @@ export default function IntegrationCenterPage() {
           const res = await fetch(
             `${apiBase}/v1/admin/integrations/${providerId}/sync/${jobId}`,
             {
+              credentials: 'include',
               headers: { Authorization: `Bearer ${token()}` },
             }
           );
@@ -845,6 +846,7 @@ export default function IntegrationCenterPage() {
       const res = await fetch(
         `${apiBase}/v1/admin/integrations/${provider.id}/connect`,
         {
+          credentials: 'include',
           method: 'POST',
           headers: {
             Authorization: `Bearer ${token()}`,
@@ -879,6 +881,7 @@ export default function IntegrationCenterPage() {
       const res = await fetch(
         `${apiBase}/v1/admin/integrations/postgres/connect`,
         {
+          credentials: 'include',
           method: 'POST',
           headers: {
             Authorization: `Bearer ${token()}`,
@@ -913,6 +916,7 @@ export default function IntegrationCenterPage() {
       const res = await fetch(
         `${apiBase}/v1/admin/integrations/${provider.id}/disconnect`,
         {
+          credentials: 'include',
           method: 'POST',
           headers: { Authorization: `Bearer ${token()}` },
         }
@@ -934,6 +938,7 @@ export default function IntegrationCenterPage() {
       const res = await fetch(
         `${apiBase}/v1/admin/integrations/${provider.id}/sync`,
         {
+          credentials: 'include',
           method: 'POST',
           headers: {
             Authorization: `Bearer ${token()}`,
@@ -964,6 +969,7 @@ export default function IntegrationCenterPage() {
       const res = await fetch(
         `${apiBase}/v1/admin/integrations/${provider.id}/settings`,
         {
+          credentials: 'include',
           method: 'PATCH',
           headers: {
             Authorization: `Bearer ${token()}`,
@@ -989,6 +995,7 @@ export default function IntegrationCenterPage() {
       const res = await fetch(
         `${apiBase}/v1/admin/integrations/${provider.id}/logs?limit=30`,
         {
+          credentials: 'include',
           headers: { Authorization: `Bearer ${token()}` },
         }
       );

@@ -22,20 +22,39 @@ export const activitySchema = z.object({
   error_message: z.string().optional().nullable(),
 });
 
+export const workflowStepSchema = z.object({
+  id: z.union([z.string(), z.number()]).optional(),
+  type: z.string(),
+  value: z.string().optional(),
+  name: z.string().optional(),
+  config: z.record(z.any()).optional(),
+});
+
 export const workflowSchema = z.object({
   name: z.string().min(1, 'Name is required'),
   description: z.string().optional().nullable(),
-  trigger_type: z.enum(['manual', 'scheduled', 'webhook', 'event']).optional(),
-  steps: z.array(z.any()).optional(),
+  trigger_type: z.enum(['manual', 'scheduled', 'webhook', 'event', 'cron']).optional(),
+  steps: z.array(workflowStepSchema).optional(),
+  definition: z.any().optional(),
   tenant_id: z.string().uuid('Invalid tenant ID').optional().nullable(),
 });
 
 export const updateWorkflowSchema = z.object({
   name: z.string().optional(),
   description: z.string().optional().nullable(),
-  trigger_type: z.enum(['manual', 'scheduled', 'webhook', 'event']).optional(),
-  steps: z.array(z.any()).optional(),
+  trigger_type: z.enum(['manual', 'scheduled', 'webhook', 'event', 'cron']).optional(),
+  steps: z.array(workflowStepSchema).optional(),
+  definition: z.any().optional(),
   status: z.enum(['active', 'disabled', 'archived']).optional(),
+});
+
+export const statusToggleSchema = z.object({
+  status: z.enum(['active', 'disabled', 'archived']),
+});
+
+export const bulkActionSchema = z.object({
+  action: z.enum(['pause', 'resume', 'delete']),
+  workflow_ids: z.array(z.string()).min(1, 'At least one workflow ID is required'),
 });
 
 export const backupSchema = z.object({

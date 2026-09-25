@@ -44,7 +44,7 @@ export default function TaxRatesPage() {
     setLoading(true);
     setError('');
     try {
-      const res = await fetch(`${apiBase}/admin/tax-rates`, {
+      const res = await fetch(`${apiBase}/v1/admin/tax-rates`, {
         credentials: 'include',
       });
       const data = await res.json();
@@ -66,7 +66,7 @@ export default function TaxRatesPage() {
   const handleSaveTaxRate = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const res = await fetch(`${apiBase}/admin/tax-rates`, {
+      const res = await fetch(`${apiBase}/v1/admin/tax-rates`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -86,7 +86,7 @@ export default function TaxRatesPage() {
 
   const handleExportGSTR1 = async () => {
     try {
-      const res = await fetch(`${apiBase}/admin/reports/gstr1`, {
+      const res = await fetch(`${apiBase}/v1/admin/reports/gstr1`, {
         credentials: 'include',
       });
       if (!res.ok) throw new Error('Failed to generate GSTR-1 report');

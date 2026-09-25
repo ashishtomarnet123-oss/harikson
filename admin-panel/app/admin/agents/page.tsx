@@ -60,6 +60,7 @@ export default function AgentsManagement() {
       getCookie('admin_token') || localStorage.getItem('admin_token');
     try {
       const res = await fetch(`${apiBase}/v1/admin/agents`, {
+        credentials: 'include',
         headers: { Authorization: `Bearer ${token}` },
       });
       if (res.ok) {
@@ -86,6 +87,7 @@ export default function AgentsManagement() {
     try {
       const res = await fetch(`${apiBase}${endpoint}`, {
         method,
+        credentials: 'include',
         headers: {
           Authorization: `Bearer ${token}`,
           'Content-Type': 'application/json',
@@ -112,6 +114,7 @@ export default function AgentsManagement() {
     try {
       await fetch(`${apiBase}/v1/admin/agents/${id}`, {
         method: 'DELETE',
+        credentials: 'include',
         headers: { Authorization: `Bearer ${token}` },
       });
       fetchAgents();

@@ -208,15 +208,16 @@ function buildProviderResponse(provider, connection) {
   };
 }
 
-// In-memory sync job runner (simulates real sync with progress)
+// In-memory sync job runner — marks job complete after a brief delay.
+// Real sync logic should replace the body of this function when a
+// provider adapter is wired up (Slack API, GitHub API, etc.).
 const activeSyncJobs = new Map();
 
-function simulateSyncJob(pool, jobId, tenantId, providerId, connectionId) {
-  const totalItems = Math.floor(Math.random() * 200) + 50; // 50–250 items
+function simulateSyncJob(pool, jobId, tenantId, providerId, connectionId, totalItems) {
   let processed = 0;
 
   const interval = setInterval(async () => {
-    const increment = Math.floor(Math.random() * 15) + 5;
+    const increment = Math.min(totalItems - processed, 10);
     processed = Math.min(processed + increment, totalItems);
     const isDone = processed >= totalItems;
 
@@ -235,7 +236,7 @@ function simulateSyncJob(pool, jobId, tenantId, providerId, connectionId) {
       );
 
       if (isDone) {
-        clearInterval(interval);
+        clearInterval(activeSyncJobs.get(jobId)?.interval || interval);
         activeSyncJobs.delete(jobId);
 
         // Update connection last_sync_at + status back to connected
@@ -255,12 +256,12 @@ function simulateSyncJob(pool, jobId, tenantId, providerId, connectionId) {
         );
       }
     } catch (e) {
-      clearInterval(interval);
+      clearInterval(activeSyncJobs.get(jobId)?.interval || interval);
       activeSyncJobs.delete(jobId);
     }
   }, 1200); // tick every 1.2s
 
-  activeSyncJobs.set(jobId, interval);
+  activeSyncJobs.set(jobId, { interval, connectionId });
 }
 
 // ─────────────────────────────────────────────────────────────────────
@@ -454,34 +455,9 @@ router.post('/:provider/connect', async (req, res) => {
       });
     }
 
-    // Simulated connect (no credentials configured — demo mode)
-    if (existing) {
-      await pool.query(
-        `UPDATE integration_connections
-         SET status='connected', connected_at=NOW(), last_error=NULL,
-             error_type=NULL, error_count=0, updated_at=NOW()
-         WHERE id=$1`,
-        [existing.id]
-      );
-    } else {
-      await pool.query(
-        `INSERT INTO integration_connections (tenant_id, provider_id, status, connected_at)
-         VALUES ($1, $2, 'connected', NOW())`,
-        [tenantId, provider]
-      );
-    }
-
-    await logActivity(
-      pool,
-      tenantId,
-      provider,
-      'success',
-      `${providerConfig.name} connected successfully (demo mode)`
-    );
-    return res.json({
-      success: true,
-      status: 'connected',
-      message: `${providerConfig.name} connected`,
+    return res.status(400).json({
+      success: false,
+      error: `OAuth credentials not configured for ${providerConfig.name}. Please set ${provider.toUpperCase()}_CLIENT_ID and ${provider.toUpperCase()}_CLIENT_SECRET environment variables.`,
     });
   } catch (e) {
     logger.error(`[POST /integrations/${provider}/connect]`, e);
@@ -643,10 +619,12 @@ router.post('/:provider/disconnect', async (req, res) => {
       [connection.id]
     );
 
-    // Cancel in-memory job if running
-    for (const [jobId, interval] of activeSyncJobs.entries()) {
-      // best-effort; production would check jobId → connectionId mapping
-      clearInterval(interval);
+    // Cancel in-memory jobs for this connection only
+    for (const [jobId, job] of activeSyncJobs.entries()) {
+      if (job.connectionId === connection.id) {
+        clearInterval(job.interval);
+        activeSyncJobs.delete(jobId);
+      }
     }
 
     await pool.query(
@@ -701,7 +679,7 @@ router.post('/:provider/sync', async (req, res) => {
         .json({ success: false, error: 'Sync already in progress' });
     }
 
-    const totalItems = Math.floor(Math.random() * 200) + 50;
+    const totalItems = parseInt(req.body.total_items) || 0;
 
     const { rows } = await pool.query(
       `INSERT INTO integration_sync_jobs
@@ -733,8 +711,19 @@ router.post('/:provider/sync', async (req, res) => {
       { job_id: jobId }
     );
 
-    // Start simulated sync
-    simulateSyncJob(pool, jobId, tenantId, provider, connection.id);
+    if (process.env.NODE_ENV === 'production') {
+      logger.warn(`[Integrations] Sync for ${provider} is simulated — no real data sync implemented`);
+      await pool.query(
+        `UPDATE integration_sync_jobs SET status='completed', processed_items=0, progress_detail='Simulated — real sync not yet implemented', completed_at=NOW() WHERE id=$1`,
+        [jobId]
+      );
+      await pool.query(
+        `UPDATE integration_connections SET status='connected', last_sync_at=NOW(), updated_at=NOW() WHERE id=$1`,
+        [connection.id]
+      );
+    } else {
+      simulateSyncJob(pool, jobId, tenantId, provider, connection.id, totalItems);
+    }
 
     res.status(202).json({
       success: true,
@@ -870,10 +859,6 @@ router.post('/webhooks/:provider', async (req, res) => {
   const pool = req.pool;
   const { provider } = req.params;
 
-  // Respond immediately to avoid provider timeout
-  res.status(200).json({ received: true });
-
-  // Validate signature (provider-specific)
   let signatureValid = false;
   const payload = JSON.stringify(req.body);
 
@@ -902,11 +887,18 @@ router.post('/webhooks/:provider', async (req, res) => {
           );
         }
       } else {
-        signatureValid = true; // Other providers: accept if secret not configured
+        signatureValid = true;
       }
     } else {
-      signatureValid = true; // No secret configured: accept (dev mode)
+      signatureValid = true;
     }
+
+    if (!signatureValid) {
+      logger.warn(`[Webhook] ${provider} rejected — invalid signature`);
+      return res.status(401).json({ error: 'Invalid webhook signature' });
+    }
+
+    res.status(200).json({ received: true });
 
     const eventId =
       req.headers['x-github-delivery'] ||
@@ -932,6 +924,9 @@ router.post('/webhooks/:provider', async (req, res) => {
     );
   } catch (e) {
     logger.error(`[Webhook Error - ${provider}]`, e.message);
+    if (!res.headersSent) {
+      res.status(500).json({ error: 'Webhook processing failed' });
+    }
   }
 });
 

@@ -25,7 +25,20 @@ import {
   Briefcase,
   Globe,
   RefreshCw,
+  Eye,
+  EyeOff,
+  Copy,
+  Check,
+  Lock,
+  Sparkles,
+  ShieldCheck,
+  MoreVertical,
+  LogOut,
+  Shield,
+  History,
+  AlertTriangle,
 } from 'lucide-react';
+import { useAdminAuth } from '../../../context/AdminAuthContext';
 
 interface User {
   id: string;
@@ -47,6 +60,11 @@ interface User {
   country?: string;
   bio?: string;
   billing_info?: any;
+  force_password_change?: boolean;
+  must_change_password?: boolean;
+  password_changed_at?: string;
+  password_reset_at?: string;
+  password_reset_by?: string;
 }
 
 export default function UsersPage() {
@@ -184,6 +202,412 @@ export default function UsersPage() {
       alert(`Error sending email: ${err?.message || err}`);
     } finally {
       setEmailSending(null);
+    }
+  };
+
+  // Superadmin authorization context
+  const { user: currentAdmin } = useAdminAuth();
+  const isSuperAdmin = currentAdmin?.role === 'superadmin' || currentAdmin?.role === 'founder';
+
+  // Action Menu dropdown state
+  const [actionMenuUserId, setActionMenuUserId] = useState<string | null>(null);
+
+  useEffect(() => {
+    const handleGlobalClick = () => setActionMenuUserId(null);
+    window.addEventListener('click', handleGlobalClick);
+    return () => window.removeEventListener('click', handleGlobalClick);
+  }, []);
+
+  // Password Strength Meter
+  const computePasswordStrength = (pwd: string) => {
+    if (!pwd) return { score: 0, label: 'None', color: 'bg-gray-200 dark:bg-gray-700', width: '0%' };
+    let score = 0;
+    if (pwd.length >= 12) score += 1;
+    if (pwd.length >= 16) score += 1;
+    if (/[A-Z]/.test(pwd) && /[a-z]/.test(pwd)) score += 1;
+    if (/[0-9]/.test(pwd)) score += 1;
+    if (/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?~`]/.test(pwd)) score += 1;
+
+    if (score <= 2) {
+      return { score, label: 'Weak (Need 12+ chars, mixed case, number, symbol)', color: 'bg-rose-500', width: '25%' };
+    } else if (score === 3) {
+      return { score, label: 'Fair (Min 12 characters recommended)', color: 'bg-amber-500', width: '50%' };
+    } else if (score === 4) {
+      return { score, label: 'Good', color: 'bg-blue-500', width: '75%' };
+    }
+    return { score, label: 'Strong (Enterprise Compliant)', color: 'bg-emerald-500', width: '100%' };
+  };
+
+  // Password Reset Modal State
+  const [resetModalOpen, setResetModalOpen] = useState(false);
+  const [userForReset, setUserForReset] = useState<User | null>(null);
+  const [resetNewPassword, setResetNewPassword] = useState('');
+  const [resetConfirmPassword, setResetConfirmPassword] = useState('');
+  const [showResetPassword, setShowResetPassword] = useState(false);
+  const [forcePasswordChange, setForcePasswordChange] = useState(true);
+  const [revokeSessionsOnReset, setRevokeSessionsOnReset] = useState(true);
+  const [sendEmailNotice, setSendEmailNotice] = useState(false);
+  const [submittingReset, setSubmittingReset] = useState(false);
+  const [sendingResetLink, setSendingResetLink] = useState(false);
+  const [resetResult, setResetResult] = useState<{
+    success: boolean;
+    message: string;
+    tempPassword?: string;
+  } | null>(null);
+  const [copiedResetPassword, setCopiedResetPassword] = useState(false);
+
+  // Temporary Password Modal State
+  const [tempPasswordModalOpen, setTempPasswordModalOpen] = useState(false);
+  const [userForTempPassword, setUserForTempPassword] = useState<User | null>(null);
+  const [generatedTempPassword, setGeneratedTempPassword] = useState<string | null>(null);
+  const [generatingTempPassword, setGeneratingTempPassword] = useState(false);
+  const [copiedTempPassword, setCopiedTempPassword] = useState(false);
+
+  // Generated Reset Link Modal State
+  const [generatedResetLink, setGeneratedResetLink] = useState<{
+    url: string;
+    email: string;
+    emailSent: boolean;
+    emailError?: string;
+  } | null>(null);
+
+  // Sign Out Sessions Modal State
+  const [signOutModalOpen, setSignOutModalOpen] = useState(false);
+  const [userForSignOut, setUserForSignOut] = useState<User | null>(null);
+  const [signingOutSessions, setSigningOutSessions] = useState(false);
+
+  // Security Activity Audit Feed State
+  const [securityActivity, setSecurityActivity] = useState<any[]>([]);
+  const [loadingSecurityActivity, setLoadingSecurityActivity] = useState(false);
+
+  const fetchSecurityActivity = async (userId: string) => {
+    setLoadingSecurityActivity(true);
+    const token = getCookie('admin_token') || localStorage.getItem('admin_token');
+    const headers: Record<string, string> = {};
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+
+    try {
+      const res = await fetch(`${apiBase}/v1/admin/users/${userId}/security-activity`, {
+        headers,
+        credentials: 'include',
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setSecurityActivity(data.activities || []);
+      }
+    } catch (err) {
+      console.error('Error fetching security activity:', err);
+    } finally {
+      setLoadingSecurityActivity(false);
+    }
+  };
+
+  useEffect(() => {
+    if (selectedUser?.id) {
+      fetchSecurityActivity(selectedUser.id);
+    } else {
+      setSecurityActivity([]);
+    }
+  }, [selectedUser?.id]);
+
+  const generateStrongPassword = () => {
+    const uppercase = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
+    const lowercase = 'abcdefghijkmnopqrstuvwxyz';
+    const numbers = '23456789';
+    const symbols = '!@#$%^&*_-+=';
+    const all = uppercase + lowercase + numbers + symbols;
+
+    let pwd = '';
+    pwd += uppercase[Math.floor(Math.random() * uppercase.length)];
+    pwd += lowercase[Math.floor(Math.random() * lowercase.length)];
+    pwd += numbers[Math.floor(Math.random() * numbers.length)];
+    pwd += symbols[Math.floor(Math.random() * symbols.length)];
+
+    for (let i = 4; i < 16; i++) {
+      pwd += all[Math.floor(Math.random() * all.length)];
+    }
+
+    const shuffled = pwd.split('').sort(() => 0.5 - Math.random()).join('');
+    setResetNewPassword(shuffled);
+    setResetConfirmPassword(shuffled);
+    setShowResetPassword(true);
+    setCopiedResetPassword(false);
+  };
+
+  const handleOpenResetModal = (user: User) => {
+    setUserForReset(user);
+    setResetNewPassword('');
+    setResetConfirmPassword('');
+    setShowResetPassword(false);
+    setForcePasswordChange(true);
+    setRevokeSessionsOnReset(true);
+    setSendEmailNotice(false);
+    setResetResult(null);
+    setCopiedResetPassword(false);
+    setResetModalOpen(true);
+  };
+
+  const handleCloseResetModal = () => {
+    setResetModalOpen(false);
+    setUserForReset(null);
+    setResetResult(null);
+    setResetNewPassword('');
+    setResetConfirmPassword('');
+    setCopiedResetPassword(false);
+  };
+
+  const handleCopyCredentials = (text: string) => {
+    if (!text) return;
+    navigator.clipboard.writeText(text);
+    setCopiedResetPassword(true);
+    setTimeout(() => setCopiedResetPassword(false), 2500);
+  };
+
+  const handleSubmitAdminPasswordReset = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!userForReset) return;
+
+    if (!resetNewPassword || resetNewPassword.length < 12) {
+      alert('Password must be at least 12 characters long according to enterprise security policy.');
+      return;
+    }
+
+    if (!/[A-Z]/.test(resetNewPassword)) {
+      alert('Password must contain at least one uppercase letter (A-Z).');
+      return;
+    }
+
+    if (!/[a-z]/.test(resetNewPassword)) {
+      alert('Password must contain at least one lowercase letter (a-z).');
+      return;
+    }
+
+    if (!/[0-9]/.test(resetNewPassword)) {
+      alert('Password must contain at least one numeric digit (0-9).');
+      return;
+    }
+
+    if (!/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?~`]/.test(resetNewPassword)) {
+      alert('Password must contain at least one special character (e.g. !@#$%^&*).');
+      return;
+    }
+
+    if (resetConfirmPassword && resetNewPassword !== resetConfirmPassword) {
+      alert('Passwords do not match. Please verify.');
+      return;
+    }
+
+    setSubmittingReset(true);
+    const token = getCookie('admin_token') || localStorage.getItem('admin_token');
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+
+    try {
+      const res = await fetch(`${apiBase}/v1/admin/users/${userForReset.id}/password/reset`, {
+        method: 'POST',
+        headers,
+        credentials: 'include',
+        body: JSON.stringify({
+          password: resetNewPassword,
+          forceChangeOnNextLogin: forcePasswordChange,
+          revokeSessions: revokeSessionsOnReset,
+          sendEmailNotification: sendEmailNotice,
+        }),
+      });
+
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setResetResult({
+          success: true,
+          message: data.message || 'Password reset successfully.',
+          tempPassword: resetNewPassword,
+        });
+        fetchUsers();
+        if (selectedUser?.id === userForReset.id) {
+          fetchSecurityActivity(userForReset.id);
+        }
+      } else {
+        alert(data.error || 'Failed to reset password');
+      }
+    } catch (err: any) {
+      alert(`Error resetting password: ${err?.message || err}`);
+    } finally {
+      setSubmittingReset(false);
+    }
+  };
+
+  const handleGenerateTempPassword = async (user: User) => {
+    setUserForTempPassword(user);
+    setGeneratingTempPassword(true);
+    setGeneratedTempPassword(null);
+    setCopiedTempPassword(false);
+    setTempPasswordModalOpen(true);
+
+    const token = getCookie('admin_token') || localStorage.getItem('admin_token');
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+
+    try {
+      const res = await fetch(`${apiBase}/v1/admin/users/${user.id}/password/generate`, {
+        method: 'POST',
+        headers,
+        credentials: 'include',
+        body: JSON.stringify({
+          forceChangeOnNextLogin: true,
+          revokeSessions: true,
+        }),
+      });
+
+      const data = await res.json();
+      if (res.ok && data.success && data.temporaryPassword) {
+        setGeneratedTempPassword(data.temporaryPassword);
+        fetchUsers();
+        if (selectedUser?.id === user.id) {
+          fetchSecurityActivity(user.id);
+        }
+      } else {
+        alert(data.error || 'Failed to generate temporary password');
+        setTempPasswordModalOpen(false);
+      }
+    } catch (err: any) {
+      alert(`Error generating temporary password: ${err?.message || err}`);
+      setTempPasswordModalOpen(false);
+    } finally {
+      setGeneratingTempPassword(false);
+    }
+  };
+
+  const handleToggleForcePasswordChange = async (userId: string, currentVal: boolean) => {
+    const newVal = !currentVal;
+    const token = getCookie('admin_token') || localStorage.getItem('admin_token');
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+
+    try {
+      const res = await fetch(`${apiBase}/v1/admin/users/${userId}/password/force-change`, {
+        method: 'POST',
+        headers,
+        credentials: 'include',
+        body: JSON.stringify({ forceChange: newVal }),
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setUsers((prev) =>
+          prev.map((u) => (u.id === userId ? { ...u, force_password_change: newVal, must_change_password: newVal } : u))
+        );
+        if (selectedUser?.id === userId) {
+          setSelectedUser((prev: any) =>
+            prev ? { ...prev, force_password_change: newVal, must_change_password: newVal } : null
+          );
+          fetchSecurityActivity(userId);
+        }
+      } else {
+        alert(data.error || 'Failed to update force password change setting');
+      }
+    } catch (err: any) {
+      alert(`Error: ${err?.message || err}`);
+    }
+  };
+
+  const handleOpenSignOutModal = (user: User) => {
+    setUserForSignOut(user);
+    setSignOutModalOpen(true);
+  };
+
+  const handleConfirmSignOutSessions = async () => {
+    if (!userForSignOut) return;
+    setSigningOutSessions(true);
+
+    const token = getCookie('admin_token') || localStorage.getItem('admin_token');
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+
+    try {
+      const res = await fetch(`${apiBase}/v1/admin/users/${userForSignOut.id}/sessions/sign-out`, {
+        method: 'POST',
+        headers,
+        credentials: 'include',
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        alert(`Success: ${data.message || 'All active sessions terminated.'}`);
+        setSignOutModalOpen(false);
+        if (selectedUser?.id === userForSignOut.id) {
+          fetchSecurityActivity(userForSignOut.id);
+        }
+      } else {
+        alert(data.error || 'Failed to sign out user sessions');
+      }
+    } catch (err: any) {
+      alert(`Error: ${err?.message || err}`);
+    } finally {
+      setSigningOutSessions(false);
+    }
+  };
+
+  const handleSendResetEmailLink = async () => {
+    if (!userForReset) return;
+    setSendingResetLink(true);
+    const token = getCookie('admin_token') || localStorage.getItem('admin_token');
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+
+    try {
+      // Proactively reset rate limit before dispatching admin reset
+      await fetch(`${apiBase}/v1/admin/users/${userForReset.id}/reset-email-rate-limit`, {
+        method: 'POST',
+        headers,
+        credentials: 'include',
+      }).catch(() => {});
+
+      const res = await fetch(`${apiBase}/v1/admin/users/${userForReset.id}/force-password-reset`, {
+        method: 'POST',
+        headers,
+        credentials: 'include',
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        if (data.resetLink) {
+          setGeneratedResetLink({
+            url: data.resetLink,
+            email: userForReset.email,
+            emailSent: !!data.emailSent,
+            emailError: data.emailError,
+          });
+          handleCloseResetModal();
+        } else {
+          alert(`Success: ${data.message || 'Password reset link dispatched to user email!'}`);
+          handleCloseResetModal();
+        }
+      } else {
+        alert(`Error: ${data.error || 'Failed to dispatch reset link'}`);
+      }
+    } catch (err: any) {
+      alert(`Error sending reset link: ${err?.message || err}`);
+    } finally {
+      setSendingResetLink(false);
+    }
+  };
+
+  const handleResetEmailRateLimit = async (userId: string) => {
+    const token = getCookie('admin_token') || localStorage.getItem('admin_token');
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+
+    try {
+      const res = await fetch(`${apiBase}/v1/admin/users/${userId}/reset-email-rate-limit`, {
+        method: 'POST',
+        headers,
+        credentials: 'include',
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        alert(data.message || 'Email rate limit has been reset successfully!');
+      } else {
+        alert(data.error || 'Failed to reset email rate limit');
+      }
+    } catch (err: any) {
+      alert(`Error resetting email rate limit: ${err?.message || err}`);
     }
   };
 
@@ -409,10 +833,11 @@ export default function UsersPage() {
   const suspendedCount = users.filter((u) => u.status === 'suspended').length;
 
   const filteredUsers = users.filter((user) => {
+    const q = (searchTerm || '').toLowerCase();
     const matchesSearch =
-      user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (user.tenant_name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-      user.role.toLowerCase().includes(searchTerm.toLowerCase());
+      (user.email || '').toLowerCase().includes(q) ||
+      (user.tenant_name || '').toLowerCase().includes(q) ||
+      (user.role || '').toLowerCase().includes(q);
     
     const userStatus = user.status || 'active';
     const matchesStatus = statusFilter === 'all' || userStatus === statusFilter;
@@ -732,9 +1157,10 @@ export default function UsersPage() {
 
                       {/* Row Actions */}
                       <td
-                        className="py-3 px-6 text-right whitespace-nowrap space-x-2"
+                        className="py-3 px-6 text-right whitespace-nowrap space-x-2 relative"
                         onClick={(e) => e.stopPropagation()}
                       >
+                        {/* Quick Access Status Action */}
                         {currentStatus === 'pending' ? (
                           <button
                             onClick={() => handleUpdateStatus(user.id, 'active')}
@@ -749,20 +1175,143 @@ export default function UsersPage() {
                           >
                             Reactivate
                           </button>
-                        ) : (
+                        ) : null}
+
+                        {/* User Action Dropdown Menu */}
+                        <div className="relative inline-block text-left">
                           <button
-                            onClick={() => handleUpdateStatus(user.id, 'suspended')}
-                            className="px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all duration-200 shadow-sm bg-rose-600 hover:bg-rose-700 text-white active:scale-95"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setActionMenuUserId(actionMenuUserId === user.id ? null : user.id);
+                            }}
+                            className="px-2.5 py-1.5 rounded-lg border border-gray-200 dark:border-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 font-bold text-xs inline-flex items-center gap-1 transition-all"
+                            title="Actions Menu"
                           >
-                            Suspend
+                            <MoreVertical className="w-3.5 h-3.5" /> Actions
                           </button>
-                        )}
-                        <button
-                          onClick={() => handleDeleteUser(user.id, user.email)}
-                          className="px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all duration-200 shadow-sm bg-red-600 hover:bg-red-700 text-white active:scale-95"
-                        >
-                          Delete
-                        </button>
+
+                          {actionMenuUserId === user.id && (
+                            <div
+                              onClick={(e) => e.stopPropagation()}
+                              className="absolute right-0 mt-1 w-56 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl shadow-2xl py-1 z-30 text-left animate-in fade-in zoom-in-95 duration-100"
+                            >
+                              <div className="px-3 py-1.5 border-b border-gray-100 dark:border-gray-800 text-[10px] font-bold text-gray-400 uppercase tracking-wider truncate">
+                                {user.name || user.email}
+                              </div>
+                              <button
+                                onClick={() => {
+                                  setSelectedUser(user);
+                                  setActionMenuUserId(null);
+                                }}
+                                className="w-full px-3 py-2 text-xs text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 flex items-center gap-2"
+                              >
+                                <Eye className="w-3.5 h-3.5 text-gray-400" /> View User
+                              </button>
+                              <button
+                                onClick={() => {
+                                  handleOpenEditProfile(user);
+                                  setActionMenuUserId(null);
+                                }}
+                                className="w-full px-3 py-2 text-xs text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 flex items-center gap-2"
+                              >
+                                <Edit3 className="w-3.5 h-3.5 text-gray-400" /> Edit Profile
+                              </button>
+
+                              {isSuperAdmin && (
+                                <>
+                                  <div className="my-1 border-t border-gray-100 dark:border-gray-800" />
+                                  <button
+                                    onClick={() => {
+                                      handleOpenResetModal(user);
+                                      setActionMenuUserId(null);
+                                    }}
+                                    className="w-full px-3 py-2 text-xs text-amber-600 dark:text-amber-400 hover:bg-amber-500/10 flex items-center gap-2 font-medium"
+                                  >
+                                    <Key className="w-3.5 h-3.5 text-amber-500" /> Reset Password
+                                  </button>
+                                  <button
+                                    onClick={() => {
+                                      handleOpenResetModal(user);
+                                      setActionMenuUserId(null);
+                                    }}
+                                    className="w-full px-3 py-2 text-xs text-indigo-600 dark:text-indigo-400 hover:bg-indigo-500/10 flex items-center gap-2 font-medium"
+                                  >
+                                    <Lock className="w-3.5 h-3.5 text-indigo-500" /> Set New Password
+                                  </button>
+                                  <button
+                                    onClick={() => {
+                                      handleGenerateTempPassword(user);
+                                      setActionMenuUserId(null);
+                                    }}
+                                    className="w-full px-3 py-2 text-xs text-purple-600 dark:text-purple-400 hover:bg-purple-500/10 flex items-center gap-2 font-medium"
+                                  >
+                                    <Sparkles className="w-3.5 h-3.5 text-purple-500" /> Generate Temp Password
+                                  </button>
+                                  <button
+                                    onClick={() => {
+                                      handleToggleForcePasswordChange(user.id, !!user.force_password_change);
+                                      setActionMenuUserId(null);
+                                    }}
+                                    className="w-full px-3 py-2 text-xs text-orange-600 dark:text-orange-400 hover:bg-orange-500/10 flex items-center gap-2 font-medium"
+                                  >
+                                    <ShieldAlert className="w-3.5 h-3.5 text-orange-500" />
+                                    {user.force_password_change ? 'Clear Password Change Gate' : 'Force Password Change'}
+                                  </button>
+                                  <button
+                                    onClick={() => {
+                                      handleOpenSignOutModal(user);
+                                      setActionMenuUserId(null);
+                                    }}
+                                    className="w-full px-3 py-2 text-xs text-rose-600 dark:text-rose-400 hover:bg-rose-500/10 flex items-center gap-2 font-medium"
+                                  >
+                                    <LogOut className="w-3.5 h-3.5 text-rose-500" /> Sign Out All Sessions
+                                  </button>
+                                  <button
+                                    onClick={() => {
+                                      handleResetEmailRateLimit(user.id);
+                                      setActionMenuUserId(null);
+                                    }}
+                                    className="w-full px-3 py-2 text-xs text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/10 flex items-center gap-2"
+                                  >
+                                    <RefreshCw className="w-3.5 h-3.5 text-emerald-500" /> Reset Email Limit
+                                  </button>
+                                </>
+                              )}
+
+                              <div className="my-1 border-t border-gray-100 dark:border-gray-800" />
+                              {currentStatus === 'suspended' ? (
+                                <button
+                                  onClick={() => {
+                                    handleUpdateStatus(user.id, 'active');
+                                    setActionMenuUserId(null);
+                                  }}
+                                  className="w-full px-3 py-2 text-xs text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/10 flex items-center gap-2"
+                                >
+                                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" /> Reactivate User
+                                </button>
+                              ) : currentStatus === 'active' ? (
+                                <button
+                                  onClick={() => {
+                                    handleUpdateStatus(user.id, 'suspended');
+                                    setActionMenuUserId(null);
+                                  }}
+                                  className="w-full px-3 py-2 text-xs text-rose-600 dark:text-rose-400 hover:bg-rose-500/10 flex items-center gap-2"
+                                >
+                                  <AlertCircle className="w-3.5 h-3.5 text-rose-500" /> Suspend User
+                                </button>
+                              ) : null}
+                              <button
+                                onClick={() => {
+                                  handleDeleteUser(user.id, user.email);
+                                  setActionMenuUserId(null);
+                                }}
+                                className="w-full px-3 py-2 text-xs text-red-600 dark:text-red-400 hover:bg-red-500/10 flex items-center gap-2 font-bold"
+                              >
+                                <X className="w-3.5 h-3.5 text-red-500" /> Delete User
+                              </button>
+                            </div>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   );
@@ -857,6 +1406,170 @@ export default function UsersPage() {
                   <div className="flex items-center gap-2 mt-1 font-bold text-xs text-gray-800 dark:text-gray-200">
                     <BadgeCheck className="w-4 h-4 text-purple-500" />
                     {selectedUser.role}
+                  </div>
+                </div>
+              </div>
+
+              {/* Dedicated Security & Access Section */}
+              <div className="pt-4 border-t border-gray-200 dark:border-gray-800 space-y-4">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider flex items-center gap-1.5">
+                    <Shield className="w-3.5 h-3.5 text-indigo-500" /> Security & Credentials
+                  </span>
+                  {selectedUser.force_password_change && (
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">
+                      Must Change Password
+                    </span>
+                  )}
+                </div>
+
+                <div className="bg-gray-50 dark:bg-gray-950/40 p-4 rounded-xl border border-gray-200 dark:border-gray-800/60 space-y-3.5 text-xs">
+                  {/* Password Info & Actions */}
+                  <div>
+                    <div className="text-[11px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">
+                      Password Management
+                    </div>
+                    <div className="text-[11px] text-gray-600 dark:text-gray-400 mb-2.5">
+                      Last changed:{' '}
+                      <span className="font-semibold text-gray-800 dark:text-gray-200">
+                        {selectedUser.password_changed_at
+                          ? new Date(selectedUser.password_changed_at).toLocaleString()
+                          : 'Not recorded'}
+                      </span>
+                    </div>
+
+                    {isSuperAdmin && (
+                      <div className="grid grid-cols-2 gap-2">
+                        <button
+                          onClick={() => handleOpenResetModal(selectedUser)}
+                          className="py-2 px-2.5 rounded-xl text-[11px] font-bold text-white bg-indigo-600 hover:bg-indigo-700 shadow-sm transition-all flex items-center justify-center gap-1.5"
+                        >
+                          <Key className="w-3.5 h-3.5" /> Reset / Set Password
+                        </button>
+                        <button
+                          onClick={() => handleGenerateTempPassword(selectedUser)}
+                          className="py-2 px-2.5 rounded-xl text-[11px] font-bold text-purple-700 dark:text-purple-300 bg-purple-500/10 hover:bg-purple-500/20 border border-purple-500/30 transition-all flex items-center justify-center gap-1.5"
+                        >
+                          <Sparkles className="w-3.5 h-3.5 text-purple-500" /> Generate Temp
+                        </button>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Force Password Change Toggle */}
+                  {isSuperAdmin && (
+                    <div className="pt-3 border-t border-gray-200 dark:border-gray-800/60 flex items-center justify-between">
+                      <div>
+                        <div className="font-bold text-gray-800 dark:text-gray-200 text-xs">
+                          Force Change on Next Login
+                        </div>
+                        <div className="text-[10px] text-gray-500">
+                          Requires user to create a new password on next sign in
+                        </div>
+                      </div>
+                      <button
+                        onClick={() =>
+                          handleToggleForcePasswordChange(selectedUser.id, !!selectedUser.force_password_change)
+                        }
+                        className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all border ${
+                          selectedUser.force_password_change
+                            ? 'bg-amber-500 text-white border-amber-600 shadow-sm'
+                            : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 border-gray-200 dark:border-gray-700 hover:bg-gray-200'
+                        }`}
+                      >
+                        {selectedUser.force_password_change ? 'Enabled' : 'Disabled'}
+                      </button>
+                    </div>
+                  )}
+
+                  {/* Session Invalidation */}
+                  {isSuperAdmin && (
+                    <div className="pt-3 border-t border-gray-200 dark:border-gray-800/60 flex items-center justify-between">
+                      <div>
+                        <div className="font-bold text-gray-800 dark:text-gray-200 text-xs">
+                          Active User Sessions
+                        </div>
+                        <div className="text-[10px] text-gray-500">
+                          Terminate all tokens & active device logins
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => handleOpenSignOutModal(selectedUser)}
+                        className="px-2.5 py-1.5 rounded-lg text-[10px] font-bold text-rose-600 dark:text-rose-400 bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 flex items-center gap-1 transition-all"
+                      >
+                        <LogOut className="w-3 h-3 text-rose-500" /> Sign Out All
+                      </button>
+                    </div>
+                  )}
+
+                  {/* Email Rate Limit Reset */}
+                  {isSuperAdmin && (
+                    <div className="pt-3 border-t border-gray-200 dark:border-gray-800/60 flex items-center justify-between">
+                      <div>
+                        <div className="font-bold text-gray-800 dark:text-gray-200 text-xs">
+                          Email Rate Limit
+                        </div>
+                        <div className="text-[10px] text-gray-500">
+                          Clear rate limit lock for transactional emails
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => handleResetEmailRateLimit(selectedUser.id)}
+                        className="px-2.5 py-1.5 rounded-lg text-[10px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 flex items-center gap-1 transition-all"
+                      >
+                        <RefreshCw className="w-3 h-3 text-emerald-500" /> Reset Limit
+                      </button>
+                    </div>
+                  )}
+
+                  {/* Security Activity Feed */}
+                  <div className="pt-3 border-t border-gray-200 dark:border-gray-800/60">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-[11px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider flex items-center gap-1">
+                        <History className="w-3 h-3" /> Security Activity
+                      </span>
+                      <button
+                        onClick={() => fetchSecurityActivity(selectedUser.id)}
+                        className="text-[10px] text-indigo-500 hover:underline flex items-center gap-0.5"
+                      >
+                        <RefreshCw className={`w-2.5 h-2.5 ${loadingSecurityActivity ? 'animate-spin' : ''}`} /> Refresh
+                      </button>
+                    </div>
+
+                    {loadingSecurityActivity ? (
+                      <div className="py-3 text-center text-gray-400 flex items-center justify-center gap-1 text-[11px]">
+                        <Loader2 className="w-3 h-3 animate-spin" /> Loading activity...
+                      </div>
+                    ) : securityActivity.length === 0 ? (
+                      <div className="py-2 text-[11px] text-gray-400 italic">
+                        No recent security events recorded.
+                      </div>
+                    ) : (
+                      <div className="space-y-1.5 max-h-40 overflow-y-auto pr-1">
+                        {securityActivity.slice(0, 5).map((act: any) => (
+                          <div
+                            key={act.id}
+                            className="p-2 rounded-lg bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 text-[10px] space-y-0.5"
+                          >
+                            <div className="flex items-center justify-between font-bold text-gray-800 dark:text-gray-200">
+                              <span>{act.action.replace(/_/g, ' ')}</span>
+                              <span className="text-[9px] font-normal text-gray-400">
+                                {new Date(act.createdAt).toLocaleString(undefined, {
+                                  month: 'short',
+                                  day: 'numeric',
+                                  hour: '2-digit',
+                                  minute: '2-digit',
+                                })}
+                              </span>
+                            </div>
+                            <div className="text-gray-500 text-[9px] flex items-center justify-between">
+                              <span>Actor: {act.adminId || 'System Admin'}</span>
+                              <span>IP: {act.ipAddress || 'Internal'}</span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
@@ -1165,6 +1878,546 @@ export default function UsersPage() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+      {/* Password Reset Modal */}
+      {resetModalOpen && userForReset && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl p-6 max-w-lg w-full space-y-5 shadow-2xl">
+            {/* Modal Header */}
+            <div className="flex items-start justify-between border-b border-gray-200 dark:border-gray-800 pb-3">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-amber-500/10 text-amber-500 flex items-center justify-center border border-amber-500/20">
+                  <Key className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-black text-gray-900 dark:text-white">
+                    Reset / Set Password
+                  </h3>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">
+                    Set a new password for <span className="font-semibold text-gray-800 dark:text-gray-200">{userForReset.email}</span>
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={handleCloseResetModal}
+                className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 p-1 rounded-lg"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Note banner */}
+            <div className="p-3 bg-amber-500/10 border border-amber-500/20 rounded-xl text-xs text-amber-700 dark:text-amber-300 flex items-start gap-2">
+              <ShieldAlert className="w-4 h-4 shrink-0 mt-0.5 text-amber-500" />
+              <div>
+                <strong>Security Protection:</strong> The user's current password is stored as an irreversible bcrypt hash and cannot be viewed or retrieved. Setting a new password will immediately replace it.
+              </div>
+            </div>
+
+            {/* If reset succeeded, show credentials summary box */}
+            {resetResult ? (
+              <div className="space-y-4">
+                <div className="p-4 bg-emerald-500/10 border border-emerald-500/30 rounded-xl space-y-2">
+                  <div className="flex items-center gap-2 text-emerald-600 dark:text-emerald-400 font-bold text-sm">
+                    <CheckCircle2 className="w-5 h-5" /> Password Successfully Updated!
+                  </div>
+                  <p className="text-xs text-gray-600 dark:text-gray-300">
+                    The user's password has been updated and existing lockout flags were cleared.
+                  </p>
+                </div>
+
+                {resetResult.tempPassword && (
+                  <div className="p-4 bg-gray-50 dark:bg-gray-950 rounded-xl border border-gray-200 dark:border-gray-800 space-y-2">
+                    <div className="text-[11px] font-bold text-gray-400 uppercase tracking-wider">
+                      User Credentials
+                    </div>
+                    <div className="flex items-center justify-between text-xs font-mono bg-white dark:bg-gray-900 p-2.5 rounded-lg border border-gray-200 dark:border-gray-800">
+                      <div>
+                        <span className="text-gray-400">Email: </span>
+                        <span className="font-bold text-gray-800 dark:text-gray-200">{userForReset.email}</span>
+                        <br />
+                        <span className="text-gray-400">Password: </span>
+                        <span className="font-bold text-amber-600 dark:text-amber-400">{resetResult.tempPassword}</span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          handleCopyCredentials(
+                            `Email: ${userForReset.email}\nPassword: ${resetResult.tempPassword}`
+                          )
+                        }
+                        className="px-2.5 py-1.5 text-xs font-semibold text-gray-700 dark:text-gray-200 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-lg transition-all flex items-center gap-1.5"
+                      >
+                        {copiedResetPassword ? (
+                          <>
+                            <Check className="w-3.5 h-3.5 text-emerald-500" /> Copied!
+                          </>
+                        ) : (
+                          <>
+                            <Copy className="w-3.5 h-3.5" /> Copy
+                          </>
+                        )}
+                      </button>
+                    </div>
+                    {forcePasswordChange && (
+                      <p className="text-[11px] text-amber-600 dark:text-amber-400 flex items-center gap-1">
+                        <Lock className="w-3 h-3" /> User will be prompted to change this password on next login.
+                      </p>
+                    )}
+                  </div>
+                )}
+
+                <div className="flex justify-end pt-2">
+                  <button
+                    type="button"
+                    onClick={handleCloseResetModal}
+                    className="px-5 py-2.5 bg-gray-900 hover:bg-gray-800 text-white dark:bg-gray-100 dark:text-gray-900 rounded-xl font-bold text-xs"
+                  >
+                    Done
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <form onSubmit={handleSubmitAdminPasswordReset} className="space-y-4 text-xs">
+                {/* User info banner */}
+                <div className="p-3 bg-gray-50 dark:bg-gray-950/60 rounded-xl border border-gray-200 dark:border-gray-800/80 flex items-center justify-between">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-8 h-8 rounded-lg bg-indigo-500/10 text-indigo-500 flex items-center justify-center font-bold text-xs">
+                      {userForReset.email.slice(0, 2).toUpperCase()}
+                    </div>
+                    <div>
+                      <div className="font-bold text-gray-900 dark:text-gray-100">
+                        {userForReset.name || userForReset.email}
+                      </div>
+                      <div className="text-[11px] text-gray-500">
+                        {userForReset.tenant_name || 'Xarwiz Workspace'} · Role: {userForReset.role}
+                      </div>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={generateStrongPassword}
+                    className="px-2.5 py-1.5 rounded-lg text-[11px] font-bold text-amber-700 dark:text-amber-300 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 flex items-center gap-1.5 transition-all"
+                  >
+                    <Sparkles className="w-3.5 h-3.5 text-amber-500" /> Generate Strong
+                  </button>
+                </div>
+
+                {/* New Password Input */}
+                <div>
+                  <label className="block font-bold text-gray-700 dark:text-gray-300 mb-1">
+                    New Password (Min 12 characters, uppercase, lowercase, number, symbol)
+                  </label>
+                  <div className="relative">
+                    <input
+                      type={showResetPassword ? 'text' : 'password'}
+                      required
+                      minLength={12}
+                      value={resetNewPassword}
+                      onChange={(e) => {
+                        setResetNewPassword(e.target.value);
+                        setCopiedResetPassword(false);
+                      }}
+                      placeholder="Enter new password (min 12 chars)"
+                      className="w-full pl-3 pr-20 py-2.5 rounded-xl bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white outline-none focus:border-amber-500 font-mono text-xs"
+                    />
+                    <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
+                      {resetNewPassword && (
+                        <button
+                          type="button"
+                          onClick={() => handleCopyCredentials(resetNewPassword)}
+                          title="Copy Password"
+                          className="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 rounded"
+                        >
+                          {copiedResetPassword ? (
+                            <Check className="w-3.5 h-3.5 text-emerald-500" />
+                          ) : (
+                            <Copy className="w-3.5 h-3.5" />
+                          )}
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => setShowResetPassword(!showResetPassword)}
+                        title={showResetPassword ? 'Hide password' : 'Show password'}
+                        className="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 rounded"
+                      >
+                        {showResetPassword ? (
+                          <EyeOff className="w-3.5 h-3.5" />
+                        ) : (
+                          <Eye className="w-3.5 h-3.5" />
+                        )}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Password Strength Meter */}
+                <div className="space-y-1">
+                  <div className="flex justify-between items-center text-[10px]">
+                    <span className="text-gray-400 font-bold uppercase tracking-wider">Password Strength</span>
+                    <span className="font-bold text-gray-700 dark:text-gray-300">
+                      {computePasswordStrength(resetNewPassword).label}
+                    </span>
+                  </div>
+                  <div className="h-1.5 w-full bg-gray-100 dark:bg-gray-800 rounded-full overflow-hidden">
+                    <div
+                      className={`h-full transition-all duration-300 ${computePasswordStrength(resetNewPassword).color}`}
+                      style={{ width: computePasswordStrength(resetNewPassword).width }}
+                    />
+                  </div>
+                </div>
+
+                {/* Confirm Password */}
+                <div>
+                  <label className="block font-bold text-gray-700 dark:text-gray-300 mb-1">
+                    Confirm Password
+                  </label>
+                  <input
+                    type={showResetPassword ? 'text' : 'password'}
+                    value={resetConfirmPassword}
+                    onChange={(e) => setResetConfirmPassword(e.target.value)}
+                    placeholder="Repeat new password"
+                    className="w-full px-3 py-2.5 rounded-xl bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white outline-none focus:border-amber-500 font-mono text-xs"
+                  />
+                  {resetConfirmPassword && resetNewPassword !== resetConfirmPassword && (
+                    <p className="text-[11px] text-rose-500 mt-1 flex items-center gap-1">
+                      <AlertTriangle size={12} /> Passwords do not match
+                    </p>
+                  )}
+                </div>
+
+                {/* Security options checklist */}
+                <div className="p-3 bg-gray-50 dark:bg-gray-950/40 rounded-xl border border-gray-200 dark:border-gray-800/60 space-y-2.5">
+                  <label className="flex items-start gap-2 cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      checked={forcePasswordChange}
+                      onChange={(e) => setForcePasswordChange(e.target.checked)}
+                      className="mt-0.5 rounded border-gray-300 text-amber-600 focus:ring-amber-500"
+                    />
+                    <div>
+                      <span className="font-bold text-gray-800 dark:text-gray-200 block">
+                        Force user to change password on next login
+                      </span>
+                      <span className="text-[11px] text-gray-500">
+                        Restricts normal application access until the user creates a new private password.
+                      </span>
+                    </div>
+                  </label>
+
+                  <label className="flex items-start gap-2 cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      checked={revokeSessionsOnReset}
+                      onChange={(e) => setRevokeSessionsOnReset(e.target.checked)}
+                      className="mt-0.5 rounded border-gray-300 text-amber-600 focus:ring-amber-500"
+                    />
+                    <div>
+                      <span className="font-bold text-gray-800 dark:text-gray-200 block">
+                        Invalidate all existing user sessions
+                      </span>
+                      <span className="text-[11px] text-gray-500">
+                        Terminates active sessions across all browsers and devices immediately.
+                      </span>
+                    </div>
+                  </label>
+
+                  <label className="flex items-start gap-2 cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      checked={sendEmailNotice}
+                      onChange={(e) => setSendEmailNotice(e.target.checked)}
+                      className="mt-0.5 rounded border-gray-300 text-amber-600 focus:ring-amber-500"
+                    />
+                    <div>
+                      <span className="font-bold text-gray-800 dark:text-gray-200 block">
+                        Send email notification to user
+                      </span>
+                      <span className="text-[11px] text-gray-500">
+                        Alerts user that their password was updated (without sending plaintext passwords).
+                      </span>
+                    </div>
+                  </label>
+                </div>
+
+                {/* Modal Actions */}
+                <div className="pt-3 border-t border-gray-200 dark:border-gray-800 flex items-center justify-between">
+                  <button
+                    type="button"
+                    onClick={handleSendResetEmailLink}
+                    disabled={sendingResetLink || submittingReset}
+                    className="text-[11px] font-bold text-indigo-600 dark:text-indigo-400 hover:underline flex items-center gap-1"
+                  >
+                    {sendingResetLink ? (
+                      <RefreshCw className="w-3 h-3 animate-spin" />
+                    ) : (
+                      <Mail className="w-3 h-3" />
+                    )}
+                    Or email a self-service reset link
+                  </button>
+
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={handleCloseResetModal}
+                      className="px-3.5 py-2 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 rounded-xl font-bold"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={submittingReset || !resetNewPassword || resetNewPassword.length < 12}
+                      className="px-4 py-2 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white rounded-xl font-bold flex items-center gap-1.5 shadow-sm disabled:opacity-50"
+                    >
+                      {submittingReset ? (
+                        <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                      ) : (
+                        <Key className="w-3.5 h-3.5" />
+                      )}
+                      Set Password
+                    </button>
+                  </div>
+                </div>
+              </form>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Temporary Password Generated Modal */}
+      {tempPasswordModalOpen && userForTempPassword && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl p-6 max-w-md w-full space-y-5 shadow-2xl">
+            <div className="flex items-start justify-between border-b border-gray-200 dark:border-gray-800 pb-3">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-purple-500/10 text-purple-500 flex items-center justify-center border border-purple-500/20">
+                  <Sparkles className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-black text-gray-900 dark:text-white">
+                    Temporary Password Generated
+                  </h3>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">
+                    User: <span className="font-semibold text-gray-800 dark:text-gray-200">{userForTempPassword.email}</span>
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setTempPasswordModalOpen(false)}
+                className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 p-1 rounded-lg"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {generatingTempPassword ? (
+              <div className="py-8 text-center space-y-2">
+                <RefreshCw className="w-8 h-8 animate-spin text-purple-500 mx-auto" />
+                <p className="text-xs text-gray-500">Generating cryptographic temporary password...</p>
+              </div>
+            ) : generatedTempPassword ? (
+              <div className="space-y-4">
+                <div className="p-3 bg-amber-500/10 border border-amber-500/20 rounded-xl text-xs text-amber-700 dark:text-amber-300 flex items-start gap-2">
+                  <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5 text-amber-500" />
+                  <div>
+                    <strong>One-Time Display Warning:</strong> This password is only shown right now and is never saved in plaintext. Copy it now to share with the user securely.
+                  </div>
+                </div>
+
+                <div className="p-4 bg-gray-50 dark:bg-gray-950 rounded-xl border border-gray-200 dark:border-gray-800 space-y-2 text-center">
+                  <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">
+                    Temporary Password
+                  </span>
+                  <div className="text-xl font-mono font-black text-purple-600 dark:text-purple-400 tracking-wider py-1 select-all">
+                    {generatedTempPassword}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      navigator.clipboard.writeText(generatedTempPassword);
+                      setCopiedTempPassword(true);
+                      setTimeout(() => setCopiedTempPassword(false), 2500);
+                    }}
+                    className="w-full py-2.5 px-3 rounded-xl text-xs font-bold text-white bg-purple-600 hover:bg-purple-700 shadow-sm transition-all flex items-center justify-center gap-1.5"
+                  >
+                    {copiedTempPassword ? (
+                      <>
+                        <Check className="w-4 h-4" /> Password Copied to Clipboard!
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="w-4 h-4" /> Copy Password
+                      </>
+                    )}
+                  </button>
+                </div>
+
+                <div className="p-3 bg-gray-50 dark:bg-gray-950/40 rounded-xl border border-gray-200 dark:border-gray-800/60 text-[11px] text-gray-600 dark:text-gray-400 space-y-1">
+                  <div className="flex items-center gap-1.5 text-amber-600 dark:text-amber-400 font-semibold">
+                    <Lock className="w-3.5 h-3.5" /> Force password change on next login is enabled
+                  </div>
+                  <div className="flex items-center gap-1.5 text-rose-600 dark:text-rose-400 font-semibold">
+                    <LogOut className="w-3.5 h-3.5" /> Existing sessions have been invalidated
+                  </div>
+                </div>
+
+                <div className="flex justify-end pt-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setTempPasswordModalOpen(false);
+                      setGeneratedTempPassword(null);
+                    }}
+                    className="px-5 py-2.5 bg-gray-900 hover:bg-gray-800 text-white dark:bg-gray-100 dark:text-gray-900 rounded-xl font-bold text-xs"
+                  >
+                    Done
+                  </button>
+                </div>
+              </div>
+            ) : null}
+          </div>
+        </div>
+      )}
+
+      {/* Sign Out All Sessions Modal */}
+      {signOutModalOpen && userForSignOut && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl p-6 max-w-md w-full space-y-4 shadow-2xl">
+            <div className="flex items-center gap-3 border-b border-gray-200 dark:border-gray-800 pb-3">
+              <div className="w-10 h-10 rounded-xl bg-rose-500/10 text-rose-500 flex items-center justify-center border border-rose-500/20">
+                <LogOut className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="text-base font-black text-gray-900 dark:text-white">
+                  Sign Out All Sessions
+                </h3>
+                <p className="text-xs text-gray-500 dark:text-gray-400">
+                  Target: <span className="font-semibold text-gray-800 dark:text-gray-200">{userForSignOut.email}</span>
+                </p>
+              </div>
+            </div>
+
+            <p className="text-xs text-gray-600 dark:text-gray-300">
+              Are you sure you want to terminate all active sessions for this user? This will revoke all refresh tokens and force immediate sign-out across all browsers and devices. Your own admin session will not be affected.
+            </p>
+
+            <div className="pt-3 border-t border-gray-200 dark:border-gray-800 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setSignOutModalOpen(false)}
+                className="px-4 py-2 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 rounded-xl font-bold text-xs"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={signingOutSessions}
+                onClick={handleConfirmSignOutSessions}
+                className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl font-bold text-xs flex items-center gap-1.5 shadow-sm"
+              >
+                {signingOutSessions ? (
+                  <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                ) : (
+                  <LogOut className="w-3.5 h-3.5" />
+                )}
+                Terminate All Sessions
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Generated Password Reset Link Modal */}
+      {generatedResetLink && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl p-6 max-w-lg w-full space-y-4 shadow-2xl">
+            <div className="flex items-start justify-between border-b border-gray-200 dark:border-gray-800 pb-3">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-indigo-500/10 text-indigo-500 flex items-center justify-center border border-indigo-500/20">
+                  <Key className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-black text-gray-900 dark:text-white">
+                    Password Reset Link Ready
+                  </h3>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">
+                    Target User: <span className="font-semibold text-gray-800 dark:text-gray-200">{generatedResetLink.email}</span>
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setGeneratedResetLink(null)}
+                className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 p-1 rounded-lg"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {generatedResetLink.emailSent ? (
+              <div className="p-3 bg-emerald-500/10 border border-emerald-500/20 rounded-xl text-xs text-emerald-700 dark:text-emerald-300 flex items-start gap-2">
+                <CheckCircle2 className="w-4 h-4 shrink-0 mt-0.5 text-emerald-500" />
+                <div>
+                  Reset email successfully dispatched to <strong>{generatedResetLink.email}</strong>. The user can also use the direct link below.
+                </div>
+              </div>
+            ) : (
+              <div className="p-3 bg-amber-500/10 border border-amber-500/20 rounded-xl text-xs text-amber-700 dark:text-amber-300 space-y-1">
+                <div className="flex items-start gap-2 font-bold">
+                  <AlertCircle className="w-4 h-4 shrink-0 mt-0.5 text-amber-500" />
+                  <span>Email delivery skipped (Provider not configured or API key invalid)</span>
+                </div>
+                <p className="text-[11px] text-amber-600 dark:text-amber-400 pl-6">
+                  {generatedResetLink.emailError || 'The email provider (Resend/SMTP) is not configured.'} You can copy the secure one-time link below and share it directly with the user.
+                </p>
+              </div>
+            )}
+
+            <div>
+              <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">
+                One-Time Password Reset Link
+              </label>
+              <div className="flex items-center gap-2">
+                <input
+                  type="text"
+                  readOnly
+                  value={generatedResetLink.url}
+                  className="w-full px-3 py-2 rounded-xl bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-xs font-mono text-gray-800 dark:text-gray-200 select-all outline-none"
+                />
+                <button
+                  type="button"
+                  onClick={() => {
+                    navigator.clipboard.writeText(generatedResetLink.url);
+                    alert('Password reset link copied to clipboard!');
+                  }}
+                  className="px-3 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-xl flex items-center gap-1.5 shrink-0"
+                >
+                  <Copy className="w-3.5 h-3.5" /> Copy
+                </button>
+              </div>
+              <p className="text-[10px] text-gray-500 mt-1">
+                This link is valid for 1 hour and can only be used once.
+              </p>
+            </div>
+
+            <div className="pt-3 border-t border-gray-200 dark:border-gray-800 flex justify-between items-center">
+              <a
+                href="/admin/emails"
+                target="_blank"
+                className="text-xs text-indigo-500 hover:underline flex items-center gap-1 font-semibold"
+              >
+                Configure Email Settings
+              </a>
+              <button
+                type="button"
+                onClick={() => setGeneratedResetLink(null)}
+                className="px-4 py-2 bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-xl font-bold text-xs"
+              >
+                Done
+              </button>
+            </div>
           </div>
         </div>
       )}

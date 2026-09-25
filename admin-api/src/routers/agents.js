@@ -1,19 +1,14 @@
 import logger from '../utils/logger.js';
 import express from 'express';
-import pg from 'pg';
 import dotenv from 'dotenv';
 import { validate } from '../middleware/validation.middleware.js';
 import {
   createAgentSchema,
   updateAgentSchema,
 } from '../validators/agents.schema.js';
+import pool from '../db.js';
 
 dotenv.config();
-
-const { Pool } = pg;
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-});
 
 const router = express.Router();
 

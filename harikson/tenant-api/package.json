@@ -9,6 +9,7 @@
     "typecheck": "tsc --noEmit",
     "start": "node dist/index.js",
     "dev": "tsx watch src/index.ts",
+    "migrate": "tsx src/utils/migrate-cli.ts",
     "harikson:index": "npx tsx src/services/indexer/cli.ts"
   },
   "dependencies": {

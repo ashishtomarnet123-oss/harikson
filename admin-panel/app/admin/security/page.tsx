@@ -44,6 +44,7 @@ export default function SecurityPage() {
     const token =
       getCookie('admin_token') || localStorage.getItem('admin_token');
     fetch(`${apiBase}/v1/admin/security`, {
+      credentials: 'include',
       headers: { Authorization: `Bearer ${token}` },
     })
       .then((r) => r.json())

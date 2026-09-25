@@ -44,39 +44,12 @@ export default function AuditLogs() {
         setAudits(data.audit || []);
       }
     } catch (e) {
-      console.warn('Failed to retrieve audits from API, using fallback mocks');
-      loadMockData();
+      console.error('Failed to retrieve audit logs:', e);
     } finally {
       setLoading(false);
     }
   };
 
-  const loadMockData = () => {
-    setAudits([
-      {
-        id: 'a-1',
-        admin_email: 'admin@harikson.ai',
-        action: 'vllm_restart',
-        target_type: 'system',
-        target_id: 'vllm',
-        old_value: null,
-        new_value: null,
-        ip_address: '154.201.127.68',
-        created_at: new Date().toISOString(),
-      },
-      {
-        id: 'a-2',
-        admin_email: 'admin@harikson.ai',
-        action: 'plan_change',
-        target_type: 'tenant',
-        target_id: 't-101',
-        old_value: { plan: 'STARTER' },
-        new_value: { plan: 'PRO' },
-        ip_address: '127.0.0.1',
-        created_at: new Date(Date.now() - 3600000).toISOString(),
-      },
-    ]);
-  };
 
   useEffect(() => {
     fetchAudits();

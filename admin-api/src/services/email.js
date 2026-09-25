@@ -1,19 +1,16 @@
 import logger from '../utils/logger.js';
 import { Resend } from 'resend';
 import Redis from 'ioredis';
-import pg from 'pg';
 import nodemailer from 'nodemailer';
-
-const { Pool } = pg;
-if (!process.env.DATABASE_URL) {
-  throw new Error('DATABASE_URL environment variable is required');
-}
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-});
+import pool from '../db.js';
 
 const resend = new Resend(process.env.RESEND_API_KEY || 're_dev_key');
 const redis = new Redis(process.env.REDIS_URL || 'redis://redis:6379');
+
+function escapeHtml(str) {
+  if (typeof str !== 'string') return str;
+  return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
 
 // Helper to log all email dispatches into email_logs table
 export async function logEmailDispatch(recipient, emailType, subject, status, errorMessage = null, resendId = null, metadata = {}) {
@@ -48,6 +45,10 @@ export async function getActiveSmtpConfig() {
 
 // Helper to test SMTP connection
 export async function verifySmtpConnection(config) {
+  if (!config) {
+    return { success: false, error: 'Configuration is required' };
+  }
+
   if (config.provider === 'resend') {
     if (!config.resend_api_key || config.resend_api_key === 're_dev_key') {
       return { success: false, error: 'Invalid or default dev Resend API key provided' };
@@ -55,33 +56,53 @@ export async function verifySmtpConnection(config) {
     return { success: true, message: 'Resend API key configured' };
   }
 
+  if (!config.smtp_host) {
+    return { success: false, error: 'SMTP host is required' };
+  }
+
+  const port = parseInt(config.smtp_port) || 587;
+
   try {
     const transporter = nodemailer.createTransport({
       host: config.smtp_host,
-      port: parseInt(config.smtp_port || 587),
-      secure: config.smtp_secure !== false && parseInt(config.smtp_port) === 465,
-      auth: config.smtp_user ? {
+      port,
+      secure: config.smtp_secure !== false && port === 465,
+      auth: (config.smtp_user && config.smtp_pass) ? {
         user: config.smtp_user,
         pass: config.smtp_pass
       } : undefined,
       tls: {
-        rejectUnauthorized: false
-      }
+        rejectUnauthorized: process.env.SMTP_TLS_REJECT_UNAUTHORIZED !== 'false'
+      },
+      connectionTimeout: 8000,
+      greetingTimeout: 5000,
+      socketTimeout: 8000
     });
 
     await transporter.verify();
     return { success: true, message: 'SMTP server connection verified successfully!' };
   } catch (err) {
     logger.error('[SMTP VERIFICATION ERROR]:', err.message);
-    return { success: false, error: err.message || 'Failed to connect to SMTP server' };
+    let errorMsg = err.message || 'Failed to connect to SMTP server';
+    const lowerMsg = (err.message || '').toLowerCase();
+    if (err.code === 'ETIMEDOUT' || lowerMsg.includes('etimedout') || lowerMsg.includes('timedout') || lowerMsg.includes('timeout') || lowerMsg.includes('greeting never received')) {
+      errorMsg = `Connection timeout: Could not connect to SMTP server at ${config.smtp_host}:${port}. Please verify the host, port, and network firewall.`;
+    } else if (err.code === 'ECONNREFUSED' || lowerMsg.includes('econnrefused')) {
+      errorMsg = `Connection refused: SMTP server at ${config.smtp_host}:${port} rejected the connection.`;
+    } else if (err.code === 'ENOTFOUND' || lowerMsg.includes('enotfound')) {
+      errorMsg = `Host not found: Could not resolve hostname "${config.smtp_host}".`;
+    } else if (err.code === 'EAUTH' || err.responseCode === 535 || lowerMsg.includes('authentication failed')) {
+      errorMsg = 'Authentication failed: Invalid SMTP username or password.';
+    }
+    return { success: false, error: errorMsg };
   }
 }
 
 // Universal Email Dispatcher (Supports both Resend & Custom SMTP)
-export async function sendEmail({ to, subject, html, text, emailType = 'custom', metadata = {} }) {
-  if (!(await checkEmailRateLimit(to))) {
-    await logEmailDispatch(to, emailType, subject, 'failed', 'Rate limit exceeded. Max 3 emails per hour.');
-    return { success: false, error: 'Rate limit exceeded. Max 3 emails per hour.' };
+export async function sendEmail({ to, subject, html, text, emailType = 'custom', metadata = {}, bypassRateLimit = true, maxLimit = 50 }) {
+  if (!bypassRateLimit && !(await checkEmailRateLimit(to, maxLimit))) {
+    await logEmailDispatch(to, emailType, subject, 'failed', `Rate limit exceeded. Max ${maxLimit} emails per hour.`);
+    return { success: false, error: `Rate limit exceeded. Max ${maxLimit} emails per hour.` };
   }
 
   const config = await getActiveSmtpConfig();
@@ -89,17 +110,21 @@ export async function sendEmail({ to, subject, html, text, emailType = 'custom',
 
   if (config.provider === 'smtp') {
     try {
+      const port = parseInt(config.smtp_port) || 587;
       const transporter = nodemailer.createTransport({
         host: config.smtp_host,
-        port: parseInt(config.smtp_port || 587),
-        secure: config.smtp_secure !== false && parseInt(config.smtp_port) === 465,
-        auth: config.smtp_user ? {
+        port,
+        secure: config.smtp_secure !== false && port === 465,
+        auth: (config.smtp_user && config.smtp_pass) ? {
           user: config.smtp_user,
           pass: config.smtp_pass
         } : undefined,
         tls: {
-          rejectUnauthorized: false
-        }
+          rejectUnauthorized: process.env.SMTP_TLS_REJECT_UNAUTHORIZED !== 'false'
+        },
+        connectionTimeout: 8000,
+        greetingTimeout: 5000,
+        socketTimeout: 8000
       });
 
       const info = await transporter.sendMail({
@@ -119,7 +144,18 @@ export async function sendEmail({ to, subject, html, text, emailType = 'custom',
     }
   } else {
     // Fallback to Resend SDK
-    const resendClient = config.resend_api_key ? new Resend(config.resend_api_key) : resend;
+    const apiKey = config.resend_api_key || process.env.RESEND_API_KEY;
+    if (!apiKey || apiKey === 're_dev_key' || !apiKey.startsWith('re_')) {
+      logger.warn(`[EMAIL NOT CONFIGURED] Resend API key missing or default dev key for recipient ${to}`);
+      await logEmailDispatch(to, emailType, subject, 'failed', 'Resend API key is not configured or invalid.', null, metadata);
+      return {
+        success: false,
+        notConfigured: true,
+        error: 'Email provider not configured. Please set RESEND_API_KEY in environment or configure custom SMTP in Admin Settings > Emails.'
+      };
+    }
+
+    const resendClient = new Resend(apiKey);
     try {
       const { data, error } = await resendClient.emails.send({
         from: fromAddress,
@@ -130,16 +166,24 @@ export async function sendEmail({ to, subject, html, text, emailType = 'custom',
 
       if (error) {
         logger.error(`[RESEND ERROR - ${emailType}]:`, error.message || error);
-        await logEmailDispatch(to, emailType, subject, 'failed', error.message || String(error), null, metadata);
-        return { success: false, error: error.message || 'Failed to send email via Resend' };
+        let errorMsg = error.message || String(error);
+        if (errorMsg.toLowerCase().includes('api key is invalid')) {
+          errorMsg = 'Resend API key is invalid. Please update your API key in Admin Settings > Emails or check environment variables.';
+        }
+        await logEmailDispatch(to, emailType, subject, 'failed', errorMsg, null, metadata);
+        return { success: false, error: errorMsg };
       }
 
       await logEmailDispatch(to, emailType, subject, 'sent', null, data?.id, metadata);
       return { success: true, data };
     } catch (err) {
       logger.error(`[RESEND ERROR - ${emailType}]:`, err.message);
-      await logEmailDispatch(to, emailType, subject, 'failed', err.message, null, metadata);
-      return { success: false, error: err.message || 'Failed to send email via Resend' };
+      let errorMsg = err.message || 'Failed to send email via Resend';
+      if (errorMsg.toLowerCase().includes('api key is invalid')) {
+        errorMsg = 'Resend API key is invalid. Please update your API key in Admin Settings > Emails or check environment variables.';
+      }
+      await logEmailDispatch(to, emailType, subject, 'failed', errorMsg, null, metadata);
+      return { success: false, error: errorMsg };
     }
   }
 }
@@ -157,12 +201,13 @@ export async function renderAndSendTemplate(templateKey, recipient, variables = 
     let html = template.body_html;
     let text = template.body_text || '';
 
-    // Replace variables
     Object.keys(variables).forEach((key) => {
       const regex = new RegExp(`\\{\\{${key}\\}\\}`, 'g');
-      subject = subject.replace(regex, variables[key] || '');
-      html = html.replace(regex, variables[key] || '');
-      text = text.replace(regex, variables[key] || '');
+      const raw = variables[key] || '';
+      const safe = escapeHtml(raw);
+      subject = subject.replace(regex, raw);
+      html = html.replace(regex, safe);
+      text = text.replace(regex, raw);
     });
 
     return await sendEmail({
@@ -179,17 +224,17 @@ export async function renderAndSendTemplate(templateKey, recipient, variables = 
   }
 }
 
-// Rate limit: max 3 emails per address per hour
-async function checkEmailRateLimit(email) {
+// Rate limit: configurable max emails per address per hour (default 50 for admin actions)
+export async function checkEmailRateLimit(email, maxLimit = 50) {
   try {
-    const key = `ratelimit:emails:${email.toLowerCase()}`;
+    const key = `ratelimit:emails:${email.toLowerCase().trim()}`;
     const attempts = await redis.incr(key);
     if (attempts === 1) {
       await redis.expire(key, 3600); // 1 hour expiration
     }
-    if (attempts > 3) {
+    if (attempts > maxLimit) {
       logger.warn(
-        `[EMAIL RATE LIMIT EXCEEDED] Email "${email}" has requested too many emails in the last hour.`
+        `[EMAIL RATE LIMIT EXCEEDED] Email "${email}" has requested too many emails in the last hour (${attempts}/${maxLimit}).`
       );
       return false;
     }
@@ -201,87 +246,62 @@ async function checkEmailRateLimit(email) {
   }
 }
 
-export const sendPasswordReset = async (to, resetUrl) => {
-  if (!(await checkEmailRateLimit(to))) {
-    return {
-      success: false,
-      error: 'Rate limit exceeded. Max 3 emails per hour.',
-    };
-  }
-
+// Reset / clear rate limit key for a specific email
+export async function resetEmailRateLimit(email) {
+  if (!email) return false;
   try {
-    const { data, error } = await resend.emails.send({
-      from: 'Xarwiz AI <noreply@xarwiz.com>',
-      to,
-      subject: 'Reset your password',
-      html: `
-        <div style="font-family: sans-serif; padding: 20px; color: #1e293b; max-width: 600px; margin: 0 auto; border: 1px solid #e2e8f0; border-radius: 8px;">
-          <h2 style="color: #3b82f6; border-bottom: 2px solid #3b82f6; padding-bottom: 10px;">Password Reset Request</h2>
-          <p>We received a request to reset your password for your Xarwiz AI account.</p>
-          <p>Please click the button below to reset your password (link is valid for 1 hour):</p>
-          <div style="text-align: center; margin: 30px 0;">
-            <a href="${resetUrl}" style="display: inline-block; padding: 12px 24px; background-color: #3b82f6; color: white; text-decoration: none; border-radius: 6px; font-weight: bold;">Reset Password</a>
-          </div>
-          <p style="font-size: 13px; color: #64748b;">If the button doesn't work, you can copy and paste this link into your browser:</p>
-          <p style="font-size: 13px; color: #3b82f6; word-break: break-all;">${resetUrl}</p>
-          <hr style="border: 0; border-top: 1px solid #e2e8f0; margin: 20px 0;" />
-          <p style="font-size: 12px; color: #94a3b8;">If you did not request a password reset, you can safely ignore this email.</p>
-        </div>
-      `,
-    });
-    if (error) {
-      logger.error(
-        '[EMAIL SEND ERROR - PASSWORD RESET]:',
-        error.message || error
-      );
-      return {
-        success: false,
-        error: error.message || 'Failed to send password reset email',
-      };
-    }
-    return { success: true, data };
+    const key = `ratelimit:emails:${email.toLowerCase().trim()}`;
+    await redis.del(key);
+    logger.info(`[EMAIL RATE LIMIT RESET] Cleared rate limit key for "${email}"`);
+    return true;
   } catch (err) {
-    logger.error('[EMAIL SEND ERROR - PASSWORD RESET]:', err.message);
-    return { success: false, error: 'Failed to send password reset email' };
+    logger.warn('[EMAIL RATE LIMIT RESET ERROR]:', err.message);
+    return false;
   }
+}
+
+export const sendPasswordReset = async (to, resetUrl, options = {}) => {
+  return await sendEmail({
+    to,
+    subject: 'Reset your password',
+    html: `
+      <div style="font-family: sans-serif; padding: 20px; color: #1e293b; max-width: 600px; margin: 0 auto; border: 1px solid #e2e8f0; border-radius: 8px;">
+        <h2 style="color: #3b82f6; border-bottom: 2px solid #3b82f6; padding-bottom: 10px;">Password Reset Request</h2>
+        <p>We received a request to reset your password for your Xarwiz AI account.</p>
+        <p>Please click the button below to reset your password (link is valid for 1 hour):</p>
+        <div style="text-align: center; margin: 30px 0;">
+          <a href="${escapeHtml(resetUrl)}" style="display: inline-block; padding: 12px 24px; background-color: #3b82f6; color: white; text-decoration: none; border-radius: 6px; font-weight: bold;">Reset Password</a>
+        </div>
+        <p style="font-size: 13px; color: #64748b;">If the button doesn't work, you can copy and paste this link into your browser:</p>
+        <p style="font-size: 13px; color: #3b82f6; word-break: break-all;">${escapeHtml(resetUrl)}</p>
+        <hr style="border: 0; border-top: 1px solid #e2e8f0; margin: 20px 0;" />
+        <p style="font-size: 12px; color: #94a3b8;">If you did not request a password reset, you can safely ignore this email.</p>
+      </div>
+    `,
+    emailType: 'password_reset',
+    bypassRateLimit: options.bypassRateLimit ?? true,
+    maxLimit: options.maxLimit ?? 50,
+  });
 };
 
-export const sendWelcomeEmail = async (to, name) => {
-  if (!(await checkEmailRateLimit(to))) {
-    return {
-      success: false,
-      error: 'Rate limit exceeded. Max 3 emails per hour.',
-    };
-  }
-
-  try {
-    const { data, error } = await resend.emails.send({
-      from: 'Xarwiz AI <noreply@xarwiz.com>',
-      to,
-      subject: 'Welcome to Xarwiz AI!',
-      html: `
-        <div style="font-family: sans-serif; padding: 20px; color: #1e293b; max-width: 600px; margin: 0 auto; border: 1px solid #e2e8f0; border-radius: 8px;">
-          <h2 style="color: #10b981; border-bottom: 2px solid #10b981; padding-bottom: 10px;">Welcome to Xarwiz AI!</h2>
-          <p>Hello ${name || 'there'},</p>
-          <p>Thank you for signing up to Xarwiz AI Platform. Your workspace is now active and ready to build state-of-the-art AI systems.</p>
-          <p>Visit your dashboard to create your first agent or knowledge base documents library.</p>
-          <hr style="border: 0; border-top: 1px solid #e2e8f0; margin: 20px 0;" />
-          <p style="font-size: 12px; color: #94a3b8;">Secured by Xarwiz · Enterprise AI Platform</p>
-        </div>
-      `,
-    });
-    if (error) {
-      logger.error('[EMAIL SEND ERROR - WELCOME]:', error.message || error);
-      return {
-        success: false,
-        error: error.message || 'Failed to send welcome email',
-      };
-    }
-    return { success: true, data };
-  } catch (err) {
-    logger.error('[EMAIL SEND ERROR - WELCOME]:', err.message);
-    return { success: false, error: 'Failed to send welcome email' };
-  }
+export const sendWelcomeEmail = async (to, name, options = {}) => {
+  return await sendEmail({
+    to,
+    subject: 'Welcome to Xarwiz AI!',
+    html: `
+      <div style="font-family: sans-serif; padding: 20px; color: #1e293b; max-width: 600px; margin: 0 auto; border: 1px solid #e2e8f0; border-radius: 8px;">
+        <h2 style="color: #10b981; border-bottom: 2px solid #10b981; padding-bottom: 10px;">Welcome to Xarwiz AI!</h2>
+        <p>Hello ${escapeHtml(name || 'there')},</p>
+        <p>Thank you for signing up to Xarwiz AI Platform. Your workspace is now active and ready to build state-of-the-art AI systems.</p>
+        <p>Visit your dashboard to create your first agent or knowledge base documents library.</p>
+        <hr style="border: 0; border-top: 1px solid #e2e8f0; margin: 20px 0;" />
+        <p style="font-size: 12px; color: #94a3b8;">Secured by Xarwiz · Enterprise AI Platform</p>
+      </div>
+    `,
+    emailType: 'welcome',
+    bypassRateLimit: options.bypassRateLimit ?? true,
+    maxLimit: options.maxLimit ?? 50,
+  });
 };
 
 export const sendAccountApprovalEmail = async (to, name) => {
@@ -296,11 +316,11 @@ export const sendAccountApprovalEmail = async (to, name) => {
     html: `
       <div style="font-family: system-ui, -apple-system, sans-serif; padding: 24px; color: #1e293b; max-width: 600px; margin: 0 auto; border: 1px solid #e2e8f0; border-radius: 12px; background: #ffffff;">
         <h2 style="color: #6366f1; border-bottom: 2px solid #6366f1; padding-bottom: 12px; margin-top: 0;">Access Approved</h2>
-        <p>Hi ${name || 'there'},</p>
+        <p>Hi ${escapeHtml(name || 'there')},</p>
         <p>Your access to Xarwiz has been approved.</p>
         <p>You can now sign in using the email address and password you used when requesting access.</p>
         <div style="text-align: center; margin: 32px 0;">
-          <a href="${loginUrl}" style="display: inline-block; padding: 14px 28px; background-color: #6366f1; color: white; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 15px;">Sign In to Xarwiz</a>
+          <a href="${escapeHtml(loginUrl)}" style="display: inline-block; padding: 14px 28px; background-color: #6366f1; color: white; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 15px;">Sign In to Xarwiz</a>
         </div>
         <hr style="border: 0; border-top: 1px solid #e2e8f0; margin: 24px 0;" />
         <p style="font-size: 12px; color: #94a3b8;">Xarwiz · Sovereign Enterprise AI Platform</p>
@@ -310,11 +330,13 @@ export const sendAccountApprovalEmail = async (to, name) => {
   });
 };
 
-export const sendInvoiceReceipt = async (to, invoiceDetails) => {
-  if (!(await checkEmailRateLimit(to))) {
+export const sendInvoiceReceipt = async (to, invoiceDetails, options = {}) => {
+  const bypassRateLimit = options.bypassRateLimit ?? true;
+  const maxLimit = options.maxLimit ?? 50;
+  if (!bypassRateLimit && !(await checkEmailRateLimit(to, maxLimit))) {
     return {
       success: false,
-      error: 'Rate limit exceeded. Max 3 emails per hour.',
+      error: `Rate limit exceeded. Max ${maxLimit} emails per hour.`,
     };
   }
 
@@ -448,49 +470,31 @@ export const sendInvoiceReceipt = async (to, invoiceDetails) => {
   };
 };
 
-export const sendImpersonationAlert = async (to, details = {}) => {
-  if (!(await checkEmailRateLimit(to))) {
-    return {
-      success: false,
-      error: 'Rate limit exceeded. Max 3 emails per hour.',
-    };
-  }
-
+export const sendImpersonationAlert = async (to, details = {}, options = {}) => {
   const adminName = details.adminName || 'System Administrator';
   const timestamp = details.timestamp || new Date().toISOString();
   const ip = details.ip || 'Unknown IP';
 
-  try {
-    const { data, error } = await resend.emails.send({
-      from: 'Xarwiz AI <noreply@xarwiz.com>',
-      to,
-      subject: 'Security Alert: Account Impersonation Access',
-      html: `
-        <div style="font-family: sans-serif; padding: 20px; color: #1e293b; max-width: 600px; margin: 0 auto; border: 1px solid #e2e8f0; border-radius: 8px;">
-          <h2 style="color: #e11d48; border-bottom: 2px solid #e11d48; padding-bottom: 10px;">Security Alert: Impersonation Access</h2>
-          <p>An administrator has initiated an impersonation session and accessed your account.</p>
-          <div style="background-color: #f8fafc; padding: 12px 16px; border-radius: 6px; border-left: 4px solid #e11d48; margin: 16px 0;">
-            <p style="margin: 4px 0;"><strong>Administrator:</strong> ${adminName}</p>
-            <p style="margin: 4px 0;"><strong>Timestamp:</strong> ${timestamp}</p>
-            <p style="margin: 4px 0;"><strong>IP Address:</strong> ${ip}</p>
-          </div>
-          <p>This is a standard security notification to inform you that your workspace was accessed by system administration.</p>
-          <hr style="border: 0; border-top: 1px solid #e2e8f0; margin: 20px 0;" />
-          <p style="font-size: 12px; color: #94a3b8;">Secured by Xarwiz · Enterprise AI Platform</p>
+  return await sendEmail({
+    to,
+    subject: 'Security Alert: Account Impersonation Access',
+    html: `
+      <div style="font-family: sans-serif; padding: 20px; color: #1e293b; max-width: 600px; margin: 0 auto; border: 1px solid #e2e8f0; border-radius: 8px;">
+        <h2 style="color: #e11d48; border-bottom: 2px solid #e11d48; padding-bottom: 10px;">Security Alert: Impersonation Access</h2>
+        <p>An administrator has initiated an impersonation session and accessed your account.</p>
+        <div style="background-color: #f8fafc; padding: 12px 16px; border-radius: 6px; border-left: 4px solid #e11d48; margin: 16px 0;">
+          <p style="margin: 4px 0;"><strong>Administrator:</strong> ${escapeHtml(adminName)}</p>
+          <p style="margin: 4px 0;"><strong>Timestamp:</strong> ${escapeHtml(timestamp)}</p>
+          <p style="margin: 4px 0;"><strong>IP Address:</strong> ${escapeHtml(ip)}</p>
         </div>
-      `,
-    });
-    if (error) {
-      logger.error('[EMAIL SEND ERROR - IMPERSONATION]:', error.message || error);
-      return {
-        success: false,
-        error: error.message || 'Failed to send impersonation alert',
-      };
-    }
-    return { success: true, data };
-  } catch (err) {
-    logger.error('[EMAIL SEND ERROR - IMPERSONATION]:', err.message);
-    return { success: false, error: 'Failed to send impersonation alert' };
-  }
+        <p>This is a standard security notification to inform you that your workspace was accessed by system administration.</p>
+        <hr style="border: 0; border-top: 1px solid #e2e8f0; margin: 20px 0;" />
+        <p style="font-size: 12px; color: #94a3b8;">Secured by Xarwiz · Enterprise AI Platform</p>
+      </div>
+    `,
+    emailType: 'impersonation_alert',
+    bypassRateLimit: options.bypassRateLimit ?? true,
+    maxLimit: options.maxLimit ?? 50,
+  });
 };
 

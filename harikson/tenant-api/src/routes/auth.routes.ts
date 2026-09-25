@@ -186,6 +186,19 @@ async function handleLogin(req: any, res: any) {
       });
     }
 
+    if (user.force_password_change || user.must_change_password) {
+      return res.status(200).json({
+        success: false,
+        error: 'Password change required before access.',
+        requirePasswordChange: true,
+        mustChangePassword: true,
+        code: 'FORCE_PASSWORD_CHANGE_REQUIRED',
+        message: 'Password change required before access.',
+        userId: user.id,
+        email: user.email,
+      });
+    }
+
     if (user.two_factor_enabled) {
       return res.json({
         success: false,

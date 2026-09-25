@@ -35,7 +35,7 @@ export default function TenantLegalHoldsPage() {
   const fetchLegalHolds = async () => {
     try {
       setLoading(true);
-      const res = await fetch(`/api/admin/tenants/${tenantId}/legal-holds`);
+      const res = await fetch(`/api-proxy/v1/admin/tenants/${tenantId}/legal-holds`, { credentials: 'include' });
       const data = await res.json();
       if (data.success) {
         setHolds(data.legalHolds);
@@ -58,8 +58,9 @@ export default function TenantLegalHoldsPage() {
 
     try {
       setSubmitting(true);
-      const res = await fetch(`/api/admin/tenants/${tenantId}/legal-holds`, {
+      const res = await fetch(`/api-proxy/v1/admin/tenants/${tenantId}/legal-holds`, {
         method: 'POST',
+        credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ caseName, description, expiresAt: expiresAt || null }),
       });
@@ -83,8 +84,9 @@ export default function TenantLegalHoldsPage() {
     if (!reason) return;
 
     try {
-      const res = await fetch(`/api/admin/tenants/${tenantId}/legal-holds/${holdId}/lift`, {
+      const res = await fetch(`/api-proxy/v1/admin/tenants/${tenantId}/legal-holds/${holdId}/lift`, {
         method: 'POST',
+        credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ reason }),
       });

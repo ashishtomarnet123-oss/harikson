@@ -132,10 +132,10 @@ export default function VoiceTelemetryPage() {
     if (!search) return true;
     const q = search.toLowerCase();
     return (
-      s.id.toLowerCase().includes(q) ||
-      (s.tenant_slug && s.tenant_slug.toLowerCase().includes(q)) ||
-      (s.user_email && s.user_email.toLowerCase().includes(q)) ||
-      (s.language && s.language.toLowerCase().includes(q))
+      (s.id || '').toLowerCase().includes(q) ||
+      ((s.tenant_slug || '').toLowerCase().includes(q)) ||
+      ((s.user_email || '').toLowerCase().includes(q)) ||
+      ((s.language || '').toLowerCase().includes(q))
     );
   });
 
@@ -452,11 +452,11 @@ export default function VoiceTelemetryPage() {
                 filteredSessions.map((s) => (
                   <tr key={s.id} className="hover:bg-gray-800/30 transition-colors">
                     <td className="py-2.5 px-3 text-gray-400 font-mono" title={s.id}>
-                      {s.id.slice(0, 8)}...
+                      {(s.id || '').slice(0, 8)}...
                     </td>
                     <td className="py-2.5 px-3 font-sans">
                       <div className="font-medium text-white">{s.tenant_name || s.tenant_slug || 'Default'}</div>
-                      <div className="text-[11px] text-gray-400">{s.user_email || s.user_id.slice(0, 8)}</div>
+                      <div className="text-[11px] text-gray-400">{s.user_email || (s.user_id ? s.user_id.slice(0, 8) : '—')}</div>
                     </td>
                     <td className="py-2.5 px-3">
                       <span className="px-2 py-0.5 rounded bg-gray-800/80 text-gray-300 text-[11px]">
@@ -473,7 +473,9 @@ export default function VoiceTelemetryPage() {
                       {getStatusBadge(s)}
                     </td>
                     <td className="py-2.5 px-3 text-right text-gray-400 font-sans text-xs">
-                      {new Date(s.started_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                      {s.started_at && !isNaN(new Date(s.started_at).getTime())
+                        ? new Date(s.started_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+                        : '—'}
                     </td>
                   </tr>
                 ))

@@ -56,6 +56,7 @@ export default function GpuPage() {
       getCookie('admin_token') || localStorage.getItem('admin_token');
     try {
       const res = await fetch(`${apiBase}/v1/admin/gpu`, {
+        credentials: 'include',
         headers: { Authorization: `Bearer ${token}` },
       });
       if (res.ok) {
