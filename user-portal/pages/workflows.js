@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/router';
 import Head from 'next/head';
 import Link from 'next/link';
@@ -6,14 +6,66 @@ import dynamic from 'next/dynamic';
 import { withAuth } from '../components/withAuth';
 import DashboardShell from '../components/layout/DashboardShell';
 import { authenticatedFetch, getApiConfig } from '../components/settings/apiHelper';
+import { useToast } from '../context/ToastContext';
+import {
+  Workflow,
+  Plus,
+  Play,
+  Clock,
+  Zap,
+  Activity,
+  Layers,
+  Sparkles,
+  GitBranch,
+  Network,
+  Cpu,
+  Bot,
+  Webhook,
+  Mail,
+  Database,
+  Filter,
+  Search,
+  CheckCircle2,
+  AlertCircle,
+  AlertTriangle,
+  XCircle,
+  Copy,
+  Check,
+  Pencil,
+  Trash2,
+  History,
+  X,
+  ChevronRight,
+  ArrowRight,
+  RefreshCw,
+  ExternalLink,
+  Code,
+  Terminal,
+  ShieldCheck,
+  Pause,
+  FileText,
+  Send,
+} from 'lucide-react';
 
 const VisualWorkflowEditor = dynamic(
   () => import('../components/workflow/VisualWorkflowEditor'),
   {
     ssr: false,
     loading: () => (
-      <div style={{ height: '600px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#070b14', color: '#94a3b8', borderRadius: '16px' }}>
-        Loading Visual Node Canvas...
+      <div style={{
+        height: '600px',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: '#070b14',
+        color: '#94a3b8',
+        borderRadius: '12px',
+        border: '1px solid rgba(255, 255, 255, 0.1)',
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '13px' }}>
+          <RefreshCw className="spin" size={18} />
+          <span>Loading Visual Node Canvas...</span>
+        </div>
       </div>
     ),
   }
@@ -21,11 +73,12 @@ const VisualWorkflowEditor = dynamic(
 
 function WorkflowsPage() {
   const router = useRouter();
+  const toast = useToast();
   const [workflows, setWorkflows] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
+  const [error, setError] = useState(null);
 
-  // Visual Studio (n8n / Make Node Canvas) State
+  // Visual Studio (DAG Node Canvas) State
   const [fullCanvasWorkflow, setFullCanvasWorkflow] = useState(null);
   const [canvasExecution, setCanvasExecution] = useState(null);
 
@@ -44,14 +97,23 @@ function WorkflowsPage() {
   // Template Library Modal State
   const [showTemplateModal, setShowTemplateModal] = useState(false);
 
+  // Webhook Test Runner Modal State
+  const [webhookTestWf, setWebhookTestWf] = useState(null);
+  const [testPayload, setTestPayload] = useState('{\n  "event": "customer.created",\n  "customer": {\n    "id": "cust_123",\n    "name": "Alex Smith",\n    "email": "alex@example.com"\n  }\n}');
+  const [sendingTest, setSendingTest] = useState(false);
+  const [testResult, setTestResult] = useState(null);
+
+  // Search & Filter State
+  const [searchQuery, setSearchQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all'); // all, active, paused, webhook, cron, manual
+
   // Execution History State
   const [selectedWorkflowForHistory, setSelectedWorkflowForHistory] = useState(null);
   const [executions, setExecutions] = useState([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
 
-  // Run State & Toast
+  // Run State
   const [runningWorkflowId, setRunningWorkflowId] = useState(null);
-  const [runToast, setRunToast] = useState(null);
   const [copiedWebhookId, setCopiedWebhookId] = useState(null);
   const [deleteConfirm, setDeleteConfirm] = useState(null);
 
@@ -66,14 +128,15 @@ function WorkflowsPage() {
       description: 'Analyze inbound support webhooks, classify customer intent using LLM, and dispatch response.',
       trigger_type: 'webhook',
       status: 'active',
-      icon: '🤖',
+      icon: Bot,
+      color: '#818cf8',
       badge: 'Support & CRM',
       steps: [
         { id: 1, type: 'filter', value: 'Filter: Check if request payload contains customer email & message' },
         { id: 2, type: 'prompt', value: 'Classify intent (Billing, Technical, Account) and draft high-priority reply' },
         { id: 3, type: 'email', value: 'Dispatch transactional notification to support@xarwiz.com' },
-        { id: 4, type: 'webhook', value: 'https://httpbin.org/post' }
-      ]
+        { id: 4, type: 'webhook', value: 'https://httpbin.org/post' },
+      ],
     },
     {
       id: 'template_rag_sync',
@@ -82,13 +145,14 @@ function WorkflowsPage() {
       trigger_type: 'cron',
       cron_expression: '0 6 * * *',
       status: 'active',
-      icon: '📚',
+      icon: Database,
+      color: '#f472b6',
       badge: 'RAG & Vector Search',
       steps: [
         { id: 1, type: 'rag_search', value: 'Latest platform features, billing questions, and API docs' },
         { id: 2, type: 'prompt', value: 'Extract key entity summaries and chunk text into 512-token segments' },
-        { id: 3, type: 'prompt', value: 'Verify index consistency across all tenant document tables' }
-      ]
+        { id: 3, type: 'prompt', value: 'Verify index consistency across all tenant document tables' },
+      ],
     },
     {
       id: 'template_doc_summarizer',
@@ -96,13 +160,14 @@ function WorkflowsPage() {
       description: 'Extract text from new uploaded documents, summarize key points, and email summary to team.',
       trigger_type: 'manual',
       status: 'active',
-      icon: '✉️',
+      icon: FileText,
+      color: '#34d399',
       badge: 'Document Automation',
       steps: [
         { id: 1, type: 'rag_search', value: 'Summary of executive contract and enterprise SLA terms' },
         { id: 2, type: 'prompt', value: 'Summarize uploaded document in 3 executive bullet points and action items' },
-        { id: 3, type: 'email', value: 'team-leads@xarwiz.com' }
-      ]
+        { id: 3, type: 'email', value: 'team-leads@xarwiz.com' },
+      ],
     },
     {
       id: 'template_slack_bot',
@@ -110,14 +175,15 @@ function WorkflowsPage() {
       description: 'Monitor incoming feedback webhooks, analyze sentiment score, and alert Slack on urgent negative sentiment.',
       trigger_type: 'webhook',
       status: 'active',
-      icon: '🔔',
+      icon: AlertCircle,
+      color: '#fbbf24',
       badge: 'Monitoring & Alerts',
       steps: [
         { id: 1, type: 'prompt', value: 'Analyze text sentiment (Positive, Neutral, Negative) and score 1-10' },
         { id: 2, type: 'filter', value: 'Negative' },
-        { id: 3, type: 'webhook', value: 'https://httpbin.org/post' }
-      ]
-    }
+        { id: 3, type: 'webhook', value: 'https://httpbin.org/post' },
+      ],
+    },
   ];
 
   useEffect(() => {
@@ -127,8 +193,9 @@ function WorkflowsPage() {
     fetchWorkflows(base, tenant);
   }, []);
 
-  const fetchWorkflows = async (base, tenant) => {
+  const fetchWorkflows = async (base = apiBase, tenant = tenantSlug) => {
     setLoading(true);
+    setError(null);
     try {
       const res = await fetch(`${base}/api/workflows`, {
         credentials: 'include',
@@ -141,10 +208,12 @@ function WorkflowsPage() {
         setWorkflows(Array.isArray(data) ? data : []);
       } else {
         setWorkflows([]);
+        setError('Failed to load workflows. Please try again.');
       }
     } catch (err) {
       console.error('Fetch workflows error:', err);
       setWorkflows([]);
+      setError('Unable to connect to the server. Check your connection and try again.');
     } finally {
       setLoading(false);
     }
@@ -170,10 +239,10 @@ function WorkflowsPage() {
       if (!execId) {
         setCanvasExecution(data);
         setRunningWorkflowId(null);
+        toast.success(`Workflow "${wf.name}" triggered`);
         return;
       }
 
-      // Initialize live execution state on canvas
       setCanvasExecution({
         id: execId,
         workflow_id: wf.id,
@@ -186,7 +255,6 @@ function WorkflowsPage() {
         step_results: [],
       });
 
-      // Open SSE telemetry stream
       const sseUrl = `${apiBase}/api/v1/workflows/${wf.id}/executions/${execId}/events`;
       sseSource = new EventSource(sseUrl, { withCredentials: true });
 
@@ -215,13 +283,11 @@ function WorkflowsPage() {
 
               const dur = detailData.execution.duration_ms || 0;
               const isSuccess = detailData.execution.status === 'completed';
-              setRunToast({
-                type: isSuccess ? 'success' : 'error',
-                message: isSuccess
-                  ? `Workflow "${wf.name}" completed in ${dur}ms!`
-                  : `Workflow finished with status "${detailData.execution.status}": ${detailData.execution.error_message || 'Failure encountered'}`,
-              });
-              setTimeout(() => setRunToast(null), 6000);
+              if (isSuccess) {
+                toast.success(`Workflow "${wf.name}" completed in ${dur}ms`);
+              } else {
+                toast.error(`Workflow finished with status "${detailData.execution.status}"`);
+              }
             }
           }
         } catch (detailErr) {
@@ -282,17 +348,6 @@ function WorkflowsPage() {
                 },
               },
             }));
-          } else if (evt.event === 'node.skipped') {
-            setCanvasExecution((prev) => ({
-              ...prev,
-              nodeStates: {
-                ...(prev?.nodeStates || {}),
-                [evt.nodeId]: {
-                  status: 'skipped',
-                  reason: evt.data?.reason,
-                },
-              },
-            }));
           } else if (evt.event === 'execution.completed' || evt.event === 'execution.failed') {
             finalizeAndFetchCheckpoints(evt.event === 'execution.completed' ? 'completed' : 'failed');
           }
@@ -308,11 +363,7 @@ function WorkflowsPage() {
     } catch (err) {
       if (sseSource) sseSource.close();
       setRunningWorkflowId(null);
-      setRunToast({
-        type: 'error',
-        message: `Run failed: ${err.message}`,
-      });
-      setTimeout(() => setRunToast(null), 6000);
+      toast.error(`Run failed: ${err.message}`);
     }
   };
 
@@ -347,16 +398,12 @@ function WorkflowsPage() {
       }
 
       const savedWf = await res.json();
-      if (isNewWf) {
-        setFullCanvasWorkflow(savedWf);
-      }
+      if (isNewWf) setFullCanvasWorkflow(savedWf);
 
-      setRunToast({ type: 'success', message: 'Visual workflow canvas saved successfully!' });
-      setTimeout(() => setRunToast(null), 4000);
+      toast.success('Visual workflow canvas saved');
       fetchWorkflows(apiBase, tenantSlug);
     } catch (err) {
-      setRunToast({ type: 'error', message: err.message });
-      setTimeout(() => setRunToast(null), 6000);
+      toast.error(err.message);
     }
   };
 
@@ -402,7 +449,7 @@ function WorkflowsPage() {
   };
 
   const handleStepChange = (id, field, val) => {
-    setSteps(steps.map(s => s.id === id ? { ...s, [field]: val } : s));
+    setSteps(steps.map(s => (s.id === id ? { ...s, [field]: val } : s)));
   };
 
   const handleRemoveStep = (id) => {
@@ -411,10 +458,11 @@ function WorkflowsPage() {
 
   const handleSave = async (e) => {
     e.preventDefault();
+    if (!name.trim()) return;
     setSaving(true);
     try {
-      const url = isNew 
-        ? `${apiBase}/api/workflows` 
+      const url = isNew
+        ? `${apiBase}/api/workflows`
         : `${apiBase}/api/workflows/${editingWorkflow.id}`;
       const method = isNew ? 'POST' : 'PUT';
 
@@ -442,19 +490,16 @@ function WorkflowsPage() {
       }
 
       setEditingWorkflow(null);
-      setRunToast({ type: 'success', message: `Workflow ${isNew ? 'created' : 'updated'} successfully!` });
-      setTimeout(() => setRunToast(null), 4000);
+      toast.success(isNew ? 'Workflow created' : 'Workflow updated');
       fetchWorkflows(apiBase, tenantSlug);
     } catch (err) {
-      setRunToast({ type: 'error', message: err.message });
-      setTimeout(() => setRunToast(null), 6000);
+      toast.error(err.message);
     } finally {
       setSaving(false);
     }
   };
 
-  const handleDelete = async (id) => {
-    // Use the styled confirmation modal instead of native confirm()
+  const handleDelete = (id) => {
     setDeleteConfirm(id);
   };
 
@@ -473,12 +518,10 @@ function WorkflowsPage() {
         const data = await res.json();
         throw new Error(data.error || 'Failed to delete workflow');
       }
-      setRunToast({ type: 'success', message: 'Workflow deleted successfully.' });
-      setTimeout(() => setRunToast(null), 4000);
+      toast.success('Workflow deleted');
       fetchWorkflows(apiBase, tenantSlug);
     } catch (err) {
-      setRunToast({ type: 'error', message: err.message });
-      setTimeout(() => setRunToast(null), 6000);
+      toast.error(err.message);
     }
   };
 
@@ -499,8 +542,7 @@ function WorkflowsPage() {
       const data = await res.json();
       setExecutions(Array.isArray(data) ? data : []);
     } catch (err) {
-      setRunToast({ type: 'error', message: `Failed to load history: ${err.message}` });
-      setTimeout(() => setRunToast(null), 6000);
+      toast.error(`Failed to load history: ${err.message}`);
     } finally {
       setLoadingHistory(false);
     }
@@ -512,662 +554,1311 @@ function WorkflowsPage() {
       : `/api/workflows/${wfId}/trigger`;
     navigator.clipboard.writeText(url);
     setCopiedWebhookId(wfId);
+    toast.success('Webhook URL copied to clipboard');
     setTimeout(() => setCopiedWebhookId(null), 3000);
   };
 
-  const getStepBadgeColor = (type) => {
-    switch (type) {
-      case 'prompt': return { bg: '#e0e7ff', color: '#3730a3', border: '#c7d2fe', label: 'AI Model' };
-      case 'webhook': return { bg: '#fef3c7', color: '#92400e', border: '#fde68a', label: 'Webhook POST' };
-      case 'email': return { bg: '#d1fae5', color: '#065f46', border: '#a7f3d0', label: 'Email Dispatch' };
-      case 'rag_search': return { bg: '#f3e8ff', color: '#6b21a8', border: '#e9d5ff', label: 'Vector RAG' };
-      case 'filter': return { bg: '#fee2e2', color: '#991b1b', border: '#fecaca', label: 'Logic Filter' };
-      default: return { bg: '#f1f5f9', color: '#475569', border: '#cbd5e1', label: 'Action' };
+  const handleSendTestWebhook = async () => {
+    if (!webhookTestWf) return;
+    setSendingTest(true);
+    setTestResult(null);
+    try {
+      let parsedBody = {};
+      try {
+        parsedBody = JSON.parse(testPayload);
+      } catch {
+        throw new Error('Invalid JSON format in test payload');
+      }
+      const t0 = Date.now();
+      const res = await fetch(`${apiBase}/api/workflows/${webhookTestWf.id}/trigger`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-tenant-slug': tenantSlug,
+        },
+        body: JSON.stringify(parsedBody),
+      });
+      const dur = Date.now() - t0;
+      const data = await res.json().catch(() => ({}));
+      setTestResult({
+        status: res.status,
+        ok: res.ok,
+        durationMs: dur,
+        data,
+      });
+      if (res.ok) {
+        toast.success(`Webhook triggered (${res.status} OK in ${dur}ms)`);
+        fetchWorkflows(apiBase, tenantSlug);
+      } else {
+        toast.error(`Webhook returned status ${res.status}: ${data.error || 'Failed'}`);
+      }
+    } catch (err) {
+      setTestResult({
+        status: 0,
+        ok: false,
+        error: err.message,
+      });
+      toast.error(err.message);
+    } finally {
+      setSendingTest(false);
     }
   };
+
+  const getCronDescription = (expr) => {
+    if (!expr) return 'Specify a 5-part cron pattern (Minute Hour Day Month Day-of-week)';
+    const clean = expr.trim();
+    if (clean === '*/15 * * * *') return 'Runs every 15 minutes';
+    if (clean === '0 * * * *') return 'Runs every hour at minute 0';
+    if (clean === '0 9 * * *') return 'Runs daily at 9:00 AM';
+    if (clean === '0 0 * * *') return 'Runs daily at midnight (00:00)';
+    if (clean === '0 6 * * *') return 'Runs daily at 6:00 AM';
+    if (clean === '0 9 * * 1') return 'Runs every Monday at 9:00 AM';
+    return `Cron schedule: ${clean}`;
+  };
+
+  const getStepBadgeInfo = (type) => {
+    switch (type) {
+      case 'prompt':
+        return { label: 'AI Model', icon: Bot, color: '#818cf8' };
+      case 'webhook':
+        return { label: 'Webhook POST', icon: Webhook, color: '#fbbf24' };
+      case 'email':
+        return { label: 'Email Dispatch', icon: Mail, color: '#34d399' };
+      case 'rag_search':
+        return { label: 'Vector RAG', icon: Database, color: '#f472b6' };
+      case 'filter':
+        return { label: 'Logic Filter', icon: Filter, color: '#f87171' };
+      default:
+        return { label: 'Action', icon: Zap, color: '#a5b4fc' };
+    }
+  };
+
+  // Filtered workflows based on search and status tabs
+  const filteredWorkflows = useMemo(() => {
+    return workflows.filter((wf) => {
+      const matchesSearch =
+        searchQuery === '' ||
+        wf.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        wf.description?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        wf.trigger_type?.toLowerCase().includes(searchQuery.toLowerCase());
+
+      if (!matchesSearch) return false;
+
+      if (statusFilter === 'all') return true;
+      if (statusFilter === 'active') return wf.status === 'active';
+      if (statusFilter === 'paused') return wf.status === 'paused';
+      if (statusFilter === 'webhook') return wf.trigger_type === 'webhook';
+      if (statusFilter === 'cron') return wf.trigger_type === 'cron';
+      if (statusFilter === 'manual') return wf.trigger_type === 'manual';
+
+      return true;
+    });
+  }, [workflows, searchQuery, statusFilter]);
+
+  const activeCount = workflows.filter(w => w.status === 'active').length;
+  const totalExecs = workflows.reduce((acc, w) => acc + (parseInt(w.execution_count || w.total_runs || 0, 10)), 0);
+  const connectedTriggers = workflows.filter(w => w.trigger_type === 'webhook' || w.trigger_type === 'cron').length;
+
+  const statCards = [
+    { label: 'Active Workflows', value: String(activeCount), icon: Zap, color: '#34d399' },
+    { label: 'Total Executions', value: String(totalExecs), icon: Activity, color: '#818cf8' },
+    { label: 'Connected Triggers', value: String(connectedTriggers), icon: Webhook, color: '#fbbf24' },
+    { label: 'Execution Engine', value: 'BullMQ', icon: Cpu, color: '#38bdf8' },
+  ];
 
   return (
     <DashboardShell title="AI Automations">
       <Head>
-        <title>Workflow Builder — Xarwiz Cloud</title>
+        <title>AI Automations — Xarwiz</title>
       </Head>
 
+      {/* ── User Panel Standard Header ───────────────────────────────── */}
       <div style={{
-        color: '#0f172a',
-        fontFamily: 'Inter, system-ui, -apple-system, sans-serif',
-        background: '#f8fafc',
-        borderRadius: '12px',
-        padding: '28px 24px',
-        minHeight: 'calc(100vh - 120px)',
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: '24px',
+        flexWrap: 'wrap',
+        gap: '12px',
       }}>
-        {/* Floating Notification Toast */}
-        {runToast && (
-          <div style={{
-            position: 'fixed',
-            top: '24px',
-            right: '24px',
-            zIndex: 9999,
-            background: runToast.type === 'success' ? '#065f46' : '#991b1b',
-            color: 'white',
-            padding: '14px 22px',
-            borderRadius: '12px',
-            boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.2)',
-            fontSize: '13px',
-            fontWeight: '700',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '10px'
-          }}>
-            <span>{runToast.type === 'success' ? '✅' : '❌'}</span>
-            <span>{runToast.message}</span>
-            <button
-              onClick={() => setRunToast(null)}
-              style={{ background: 'none', border: 'none', color: 'white', cursor: 'pointer', marginLeft: '10px', fontSize: '14px' }}
-            >
-              ✕
-            </button>
-          </div>
-        )}
+        <p style={{ color: 'var(--shell-text-secondary)', fontSize: '14px', margin: 0 }}>
+          Create and orchestrate automated AI workflows, webhook triggers, and event pipelines
+        </p>
 
-        <div style={{ maxWidth: '1240px', margin: '0 auto' }}>
-          {/* Header */}
-          <div style={{
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            marginBottom: '32px',
-            background: '#ffffff',
-            padding: '24px 32px',
-            borderRadius: '20px',
-            border: '1px solid #e2e8f0',
-            boxShadow: '0 4px 20px -2px rgba(0, 0, 0, 0.03)'
-          }}>
-            <div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <span style={{ fontSize: '24px' }}>⚡</span>
-                <h1 style={{ fontSize: '24px', fontWeight: '900', margin: 0, color: '#0f172a', letterSpacing: '-0.02em' }}>
-                  Autonomous Workflow Builder
-                </h1>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+          <button
+            onClick={() => setShowTemplateModal(true)}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              padding: '8px 14px',
+              borderRadius: '8px',
+              backgroundColor: 'var(--shell-surface)',
+              color: 'var(--shell-text-secondary)',
+              border: '1px solid var(--shell-card-border)',
+              cursor: 'pointer',
+              fontSize: '13px',
+              fontWeight: 500,
+              transition: 'all 0.15s ease',
+            }}
+          >
+            <Layers size={15} />
+            <span>Templates</span>
+          </button>
+
+          <button
+            onClick={() => {
+              const newWf = {
+                id: 'new_' + Date.now(),
+                name: 'New Node Automation',
+                description: 'Created with Visual Canvas',
+                trigger_type: 'manual',
+                status: 'active',
+                steps: [],
+              };
+              setFullCanvasWorkflow(newWf);
+              setCanvasExecution(null);
+            }}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              padding: '8px 14px',
+              borderRadius: '8px',
+              backgroundColor: 'var(--shell-badge-bg)',
+              color: '#818cf8',
+              border: '1px solid rgba(99,102,241,0.25)',
+              cursor: 'pointer',
+              fontSize: '13px',
+              fontWeight: 500,
+              transition: 'all 0.15s ease',
+            }}
+          >
+            <Network size={15} />
+            <span>Visual Canvas</span>
+          </button>
+
+          <button
+            onClick={handleOpenNew}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              padding: '8px 16px',
+              borderRadius: '8px',
+              backgroundColor: '#6366f1',
+              color: '#fff',
+              border: 'none',
+              cursor: 'pointer',
+              fontSize: '13px',
+              fontWeight: 600,
+              boxShadow: '0 2px 8px rgba(99,102,241,0.25)',
+              transition: 'all 0.15s ease',
+            }}
+          >
+            <Plus size={16} />
+            <span>Create Workflow</span>
+          </button>
+        </div>
+      </div>
+
+      {/* ── User Panel Stat Cards (Matching Dashboard & Agents) ──────── */}
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+        gap: '16px',
+        marginBottom: '24px',
+      }}>
+        {statCards.map((card) => {
+          const Icon = card.icon;
+          return (
+            <div
+              key={card.label}
+              style={{
+                padding: '20px',
+                borderRadius: '12px',
+                backgroundColor: 'var(--shell-surface)',
+                border: '1px solid var(--shell-card-border)',
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
+                <span style={{ fontSize: '13px', color: 'var(--shell-text-secondary)', fontWeight: 500 }}>
+                  {card.label}
+                </span>
+                <Icon size={18} color={card.color} />
               </div>
-              <p style={{ margin: '6px 0 0 0', color: '#64748b', fontSize: '13px', fontWeight: '500' }}>
-                Design multi-step AI automation pipelines, webhook triggers, RAG indexers, and transactional dispatches.
+              <p style={{ fontSize: '28px', fontWeight: 700, color: 'var(--shell-text)', margin: 0 }}>
+                {card.value}
               </p>
             </div>
-            
-            <div style={{ display: 'flex', gap: '12px' }}>
-              <button
-                onClick={() => setShowTemplateModal(true)}
-                style={{
-                  padding: '10px 18px',
-                  borderRadius: '12px',
-                  background: '#f1f5f9',
-                  border: '1px solid #cbd5e1',
-                  color: '#334155',
-                  fontSize: '13px',
-                  fontWeight: '700',
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '6px',
-                  transition: 'all 0.2s'
-                }}
-              >
-                ✨ Browse Templates
-              </button>
+          );
+        })}
+      </div>
 
-              <button
-                onClick={() => {
-                  const newWf = {
-                    id: 'new_' + Date.now(),
-                    name: 'New Node Automation',
-                    description: 'Created with n8n/Make Visual Node Studio',
-                    trigger_type: 'manual',
-                    status: 'active',
-                    steps: [],
-                  };
-                  setFullCanvasWorkflow(newWf);
-                  setCanvasExecution(null);
-                }}
-                style={{
-                  padding: '10px 18px',
-                  borderRadius: '12px',
-                  background: 'linear-gradient(135deg, #06b6d4, #3b82f6)',
-                  color: 'white',
-                  border: 'none',
-                  fontSize: '13px',
-                  fontWeight: '800',
-                  cursor: 'pointer',
-                  boxShadow: '0 4px 14px rgba(6, 182, 212, 0.35)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '6px',
-                  transition: 'all 0.2s'
-                }}
-              >
-                🔮 Visual Studio (n8n/Make)
-              </button>
+      {/* ── Search & Filter Bar ────────────────────────────────────── */}
+      <div style={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        gap: '12px',
+        marginBottom: '20px',
+        flexWrap: 'wrap',
+      }}>
+        <div style={{
+          position: 'relative',
+          flex: 1,
+          minWidth: '240px',
+          maxWidth: '420px',
+        }}>
+          <Search
+            size={15}
+            style={{
+              position: 'absolute',
+              left: '12px',
+              top: '50%',
+              transform: 'translateY(-50%)',
+              color: 'var(--shell-text-muted)',
+              pointerEvents: 'none',
+            }}
+          />
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Search workflows by name, trigger..."
+            style={{
+              width: '100%',
+              padding: '8px 32px 8px 36px',
+              borderRadius: '8px',
+              backgroundColor: 'var(--shell-surface)',
+              border: '1px solid var(--shell-card-border)',
+              color: 'var(--shell-text)',
+              fontSize: '13px',
+              outline: 'none',
+            }}
+          />
+          {searchQuery && (
+            <button
+              onClick={() => setSearchQuery('')}
+              style={{
+                position: 'absolute',
+                right: '10px',
+                top: '50%',
+                transform: 'translateY(-50%)',
+                background: 'none',
+                border: 'none',
+                color: 'var(--shell-text-muted)',
+                cursor: 'pointer',
+                padding: '2px',
+              }}
+            >
+              <X size={13} />
+            </button>
+          )}
+        </div>
 
+        {/* Filter Pills */}
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: '4px',
+          backgroundColor: 'var(--shell-surface)',
+          padding: '3px',
+          borderRadius: '8px',
+          border: '1px solid var(--shell-card-border)',
+        }}>
+          {[
+            { id: 'all', label: 'All', count: workflows.length },
+            { id: 'active', label: 'Active', count: activeCount },
+            { id: 'webhook', label: 'Webhooks', count: workflows.filter(w => w.trigger_type === 'webhook').length },
+            { id: 'cron', label: 'Scheduled', count: workflows.filter(w => w.trigger_type === 'cron').length },
+            { id: 'manual', label: 'Manual', count: workflows.filter(w => w.trigger_type === 'manual').length },
+          ].map(tab => (
+            <button
+              key={tab.id}
+              onClick={() => setStatusFilter(tab.id)}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                padding: '5px 10px',
+                borderRadius: '6px',
+                fontSize: '12px',
+                fontWeight: 500,
+                border: 'none',
+                cursor: 'pointer',
+                transition: 'all 0.15s ease',
+                backgroundColor: statusFilter === tab.id ? 'rgba(99,102,241,0.15)' : 'transparent',
+                color: statusFilter === tab.id ? '#818cf8' : 'var(--shell-text-secondary)',
+              }}
+            >
+              <span>{tab.label}</span>
+              <span style={{
+                fontSize: '10px',
+                padding: '1px 5px',
+                borderRadius: '4px',
+                backgroundColor: statusFilter === tab.id ? 'rgba(99,102,241,0.2)' : 'rgba(0,0,0,0.05)',
+                fontWeight: 600,
+              }}>
+                {tab.count}
+              </span>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* ── Main Workflows Content ──────────────────────────────────── */}
+      {loading ? (
+        <div style={{ display: 'flex', justifyContent: 'center', padding: '60px 0' }}>
+          <div style={{
+            width: '32px',
+            height: '32px',
+            border: '3px solid rgba(99,102,241,0.2)',
+            borderTopColor: '#6366f1',
+            borderRadius: '50%',
+            animation: 'spin 1s linear infinite',
+          }} />
+          <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+        </div>
+      ) : error ? (
+        <div style={{ textAlign: 'center', padding: '60px 0' }}>
+          <div style={{
+            width: '48px',
+            height: '48px',
+            borderRadius: '50%',
+            backgroundColor: 'rgba(239,68,68,0.1)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            margin: '0 auto 12px',
+          }}>
+            <AlertCircle size={24} color="#f87171" />
+          </div>
+          <p style={{ color: '#f87171', fontSize: '14px', marginBottom: '12px' }}>{error}</p>
+          <button
+            onClick={() => fetchWorkflows(apiBase, tenantSlug)}
+            style={{
+              padding: '8px 20px',
+              borderRadius: '8px',
+              fontSize: '13px',
+              fontWeight: 600,
+              backgroundColor: 'rgba(99,102,241,0.15)',
+              color: '#818cf8',
+              border: '1px solid rgba(99,102,241,0.3)',
+              cursor: 'pointer',
+            }}
+          >
+            Retry
+          </button>
+        </div>
+      ) : workflows.length === 0 ? (
+        /* ── User Panel Styled Empty State ── */
+        <div>
+          <div style={{
+            textAlign: 'center',
+            padding: '48px 24px',
+            backgroundColor: 'var(--shell-surface)',
+            borderRadius: '12px',
+            border: '1px solid var(--shell-card-border)',
+            marginBottom: '24px',
+          }}>
+            <div style={{
+              width: '48px',
+              height: '48px',
+              borderRadius: '50%',
+              backgroundColor: 'var(--shell-badge-bg)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              margin: '0 auto 14px',
+            }}>
+              <Workflow size={24} color="#818cf8" />
+            </div>
+            <h3 style={{ fontSize: '16px', fontWeight: 600, color: 'var(--shell-text)', margin: '0 0 6px 0' }}>
+              No automated workflows yet
+            </h3>
+            <p style={{
+              color: 'var(--shell-text-secondary)',
+              fontSize: '13.5px',
+              maxWidth: '460px',
+              margin: '0 auto 20px auto',
+              lineHeight: '1.5',
+            }}>
+              Create an automated workflow pipeline to orchestrate AI models, vector retrieval, and webhook actions.
+            </p>
+            <div style={{ display: 'flex', justifyContent: 'center', gap: '8px', flexWrap: 'wrap' }}>
               <button
                 onClick={handleOpenNew}
                 style={{
-                  padding: '10px 20px',
-                  borderRadius: '12px',
-                  background: '#4f46e5',
-                  color: 'white',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  padding: '8px 16px',
+                  borderRadius: '8px',
+                  backgroundColor: '#6366f1',
+                  color: '#fff',
                   border: 'none',
-                  fontSize: '13px',
-                  fontWeight: '800',
                   cursor: 'pointer',
-                  boxShadow: '0 2px 10px rgba(79, 70, 229, 0.25)',
-                  transition: 'all 0.2s'
+                  fontSize: '13px',
+                  fontWeight: 600,
                 }}
               >
-                + Create Workflow
+                <Plus size={16} /> Create Blank Workflow
+              </button>
+              <button
+                onClick={() => setShowTemplateModal(true)}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  padding: '8px 16px',
+                  borderRadius: '8px',
+                  backgroundColor: 'var(--shell-surface)',
+                  color: 'var(--shell-text-secondary)',
+                  border: '1px solid var(--shell-card-border)',
+                  cursor: 'pointer',
+                  fontSize: '13px',
+                  fontWeight: 500,
+                }}
+              >
+                <Layers size={15} /> Browse Presets
               </button>
             </div>
           </div>
 
-          {/* Quick Metrics Bar */}
-          <div style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
-            gap: '16px',
-            marginBottom: '28px'
-          }}>
-            <div style={{ background: '#ffffff', padding: '20px', borderRadius: '16px', border: '1px solid #e2e8f0' }}>
-              <span style={{ fontSize: '11px', fontWeight: '800', color: '#64748b', textTransform: 'uppercase' }}>Active Workflows</span>
-              <h2 style={{ fontSize: '28px', fontWeight: '900', margin: '6px 0 0 0', color: '#0f172a' }}>
-                {workflows.filter(w => w.status === 'active').length}
-              </h2>
-            </div>
-            <div style={{ background: '#ffffff', padding: '20px', borderRadius: '16px', border: '1px solid #e2e8f0' }}>
-              <span style={{ fontSize: '11px', fontWeight: '800', color: '#64748b', textTransform: 'uppercase' }}>Total Executions</span>
-              <h2 style={{ fontSize: '28px', fontWeight: '900', margin: '6px 0 0 0', color: '#0f172a' }}>
-                {workflows.reduce((acc, w) => acc + (parseInt(w.execution_count || w.total_runs || 0, 10)), 0)}
-              </h2>
-            </div>
-            <div style={{ background: '#ffffff', padding: '20px', borderRadius: '16px', border: '1px solid #e2e8f0' }}>
-              <span style={{ fontSize: '11px', fontWeight: '800', color: '#64748b', textTransform: 'uppercase' }}>Connected Triggers</span>
-              <h2 style={{ fontSize: '28px', fontWeight: '900', margin: '6px 0 0 0', color: '#0f172a' }}>
-                {workflows.filter(w => w.trigger_type === 'webhook' || w.trigger_type === 'cron').length}
-              </h2>
-            </div>
-            <div style={{ background: '#ffffff', padding: '20px', borderRadius: '16px', border: '1px solid #e2e8f0' }}>
-              <span style={{ fontSize: '11px', fontWeight: '800', color: '#64748b', textTransform: 'uppercase' }}>Execution Engine</span>
-              <h2 style={{ fontSize: '18px', fontWeight: '900', margin: '10px 0 0 0', color: '#16a34a', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                ● Online (BullMQ)
-              </h2>
-            </div>
-          </div>
+          {/* Quick Starter Templates in User Panel Card Style */}
+          <div style={{ marginBottom: '16px' }}>
+            <h4 style={{
+              fontSize: '14px',
+              fontWeight: 600,
+              color: 'var(--shell-text)',
+              margin: '0 0 14px 0',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+            }}>
+              <Sparkles size={16} color="#fbbf24" />
+              <span>Recommended Starter Templates</span>
+            </h4>
 
-          {/* Workflow Cards Grid or Empty State */}
-          {loading ? (
             <div style={{
               display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fill, minmax(360px, 1fr))',
-              gap: '20px'
+              gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
+              gap: '16px',
             }}>
-              {[1, 2, 3].map(i => (
-                <div key={i} style={{
-                  background: '#ffffff',
-                  borderRadius: '20px',
-                  border: '1px solid #e2e8f0',
-                  padding: '24px',
-                  animation: 'pulse 1.5s ease-in-out infinite'
-                }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '14px' }}>
-                    <div style={{ width: '70px', height: '22px', borderRadius: '20px', background: '#e2e8f0' }} />
-                    <div style={{ width: '90px', height: '22px', borderRadius: '20px', background: '#e2e8f0' }} />
-                  </div>
-                  <div style={{ width: '60%', height: '18px', borderRadius: '8px', background: '#e2e8f0', marginBottom: '8px' }} />
-                  <div style={{ width: '90%', height: '14px', borderRadius: '8px', background: '#f1f5f9', marginBottom: '16px' }} />
-                  <div style={{ background: '#f8fafc', padding: '12px', borderRadius: '12px', border: '1px solid #f1f5f9', marginBottom: '12px' }}>
-                    <div style={{ display: 'flex', gap: '6px' }}>
-                      {[1, 2, 3].map(j => (
-                        <div key={j} style={{ width: '80px', height: '20px', borderRadius: '6px', background: '#e2e8f0' }} />
-                      ))}
-                    </div>
-                  </div>
-                  <div style={{ width: '100%', height: '40px', borderRadius: '12px', background: '#e0e7ff' }} />
-                </div>
-              ))}
-              <style>{`@keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }`}</style>
-            </div>
-          ) : workflows.length === 0 ? (
-            <div style={{
-              background: '#ffffff',
-              padding: '60px 40px',
-              borderRadius: '20px',
-              border: '2px dashed #cbd5e1',
-              textAlign: 'center',
-              boxShadow: '0 4px 20px -2px rgba(0, 0, 0, 0.02)'
-            }}>
-              <div style={{ fontSize: '48px', marginBottom: '16px' }}>⚡</div>
-              <h3 style={{ fontSize: '20px', fontWeight: '800', margin: '0 0 8px 0', color: '#0f172a' }}>
-                No Autonomous Workflows Yet
-              </h3>
-              <p style={{ color: '#64748b', fontSize: '14px', maxWidth: '520px', margin: '0 auto 24px auto', lineHeight: '1.6' }}>
-                Create your first automated workflow pipeline. Connect Ollama LLMs, PgVector knowledge retrieval, outgoing webhooks, and email notifications into multi-step autonomous pipelines.
-              </p>
-              <div style={{ display: 'flex', justifyContent: 'center', gap: '12px' }}>
-                <button
-                  onClick={() => setShowTemplateModal(true)}
-                  style={{
-                    padding: '12px 24px',
-                    borderRadius: '12px',
-                    background: '#f1f5f9',
-                    border: '1px solid #cbd5e1',
-                    color: '#334155',
-                    fontSize: '14px',
-                    fontWeight: '700',
-                    cursor: 'pointer'
-                  }}
-                >
-                  ✨ Browse Presets Library
-                </button>
-                <button
-                  onClick={handleOpenNew}
-                  style={{
-                    padding: '12px 24px',
-                    borderRadius: '12px',
-                    background: '#4f46e5',
-                    color: 'white',
-                    border: 'none',
-                    fontSize: '14px',
-                    fontWeight: '800',
-                    cursor: 'pointer',
-                    boxShadow: '0 4px 14px rgba(79, 70, 229, 0.3)'
-                  }}
-                >
-                  + Create Blank Workflow
-                </button>
-              </div>
-            </div>
-          ) : (
-            <div style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fill, minmax(360px, 1fr))',
-              gap: '20px'
-            }}>
-              {workflows.map((wf) => {
-                let parsedSteps = [];
-                try {
-                  parsedSteps = Array.isArray(wf.steps) ? wf.steps : (typeof wf.steps === 'string' ? JSON.parse(wf.steps) : []);
-                } catch {
-                  parsedSteps = [];
-                }
-
+              {PRESET_TEMPLATES.map((tmpl) => {
+                const IconComponent = tmpl.icon;
                 return (
                   <div
-                    key={wf.id}
+                    key={tmpl.id}
                     style={{
-                      background: '#ffffff',
-                      borderRadius: '20px',
-                      border: '1px solid #e2e8f0',
-                      padding: '24px',
-                      boxShadow: '0 4px 20px -2px rgba(0, 0, 0, 0.04)',
+                      padding: '18px',
+                      borderRadius: '12px',
+                      backgroundColor: 'var(--shell-surface)',
+                      border: '1px solid var(--shell-card-border)',
                       display: 'flex',
                       flexDirection: 'column',
                       justifyContent: 'space-between',
-                      transition: 'all 0.2s'
                     }}
                   >
                     <div>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '14px' }}>
-                        <span style={{
-                          padding: '4px 10px',
-                          borderRadius: '20px',
-                          fontSize: '11px',
-                          fontWeight: '800',
-                          textTransform: 'uppercase',
-                          letterSpacing: '0.05em',
-                          background: wf.status === 'active' ? '#d1fae5' : '#f1f5f9',
-                          color: wf.status === 'active' ? '#065f46' : '#64748b',
-                          border: wf.status === 'active' ? '1px solid #a7f3d0' : '1px solid #cbd5e1'
+                      <div style={{
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'flex-start',
+                        marginBottom: '10px',
+                      }}>
+                        <div style={{
+                          width: '32px',
+                          height: '32px',
+                          borderRadius: '8px',
+                          backgroundColor: `${tmpl.color}15`,
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
                         }}>
-                          {wf.status || 'Active'}
-                        </span>
-
+                          <IconComponent size={16} color={tmpl.color} />
+                        </div>
                         <span style={{
-                          padding: '4px 10px',
-                          borderRadius: '20px',
                           fontSize: '11px',
-                          fontWeight: '700',
-                          background: '#e0e7ff',
-                          color: '#3730a3',
-                          border: '1px solid #c7d2fe'
+                          padding: '2px 8px',
+                          borderRadius: '4px',
+                          backgroundColor: 'var(--shell-badge-bg)',
+                          color: '#a5b4fc',
+                          fontWeight: 500,
                         }}>
-                          Trigger: {wf.trigger_type?.toUpperCase() || 'MANUAL'}
+                          {tmpl.badge}
                         </span>
                       </div>
 
-                      <h3 style={{ fontSize: '18px', fontWeight: '800', margin: '0 0 8px 0', color: '#0f172a' }}>
-                        {wf.name}
-                      </h3>
-                      <p style={{ fontSize: '13px', color: '#64748b', margin: '0 0 16px 0', minHeight: '38px', lineHeight: '1.5' }}>
-                        {wf.description || 'No description provided.'}
+                      <h4 style={{ fontSize: '14px', fontWeight: 600, color: 'var(--shell-text)', margin: '0 0 6px 0' }}>
+                        {tmpl.name}
+                      </h4>
+                      <p style={{ fontSize: '12px', color: 'var(--shell-text-secondary)', margin: '0 0 14px 0', lineHeight: '1.45' }}>
+                        {tmpl.description}
                       </p>
 
-                      {/* Step Visualizer Sequence */}
-                      <div style={{ background: '#f8fafc', padding: '12px', borderRadius: '12px', border: '1px solid #f1f5f9', marginBottom: '12px' }}>
-                        <span style={{ fontSize: '11px', fontWeight: '700', color: '#94a3b8', textTransform: 'uppercase', display: 'block', marginBottom: '8px' }}>
-                          Step Pipeline ({parsedSteps.length} Steps)
-                        </span>
-                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
-                          {parsedSteps.map((step, idx) => {
-                            const badge = getStepBadgeColor(step.type);
+                      <div style={{
+                        backgroundColor: 'var(--shell-input-bg, #f4f6f9)',
+                        padding: '8px 10px',
+                        borderRadius: '6px',
+                        border: '1px solid var(--shell-card-border)',
+                        marginBottom: '14px',
+                      }}>
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
+                          {tmpl.steps.map((st, sIdx) => {
+                            const badge = getStepBadgeInfo(st.type);
+                            const StepIcon = badge.icon;
                             return (
-                              <span key={idx} style={{
-                                fontSize: '11px',
-                                fontWeight: '700',
-                                padding: '3px 8px',
-                                borderRadius: '6px',
-                                background: badge.bg,
-                                color: badge.color,
-                                border: `1px solid ${badge.border}`
-                              }}>
-                                {idx + 1}. {badge.label}
+                              <span
+                                key={sIdx}
+                                style={{
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '3px',
+                                  fontSize: '10.5px',
+                                  padding: '2px 6px',
+                                  borderRadius: '4px',
+                                  backgroundColor: 'var(--shell-surface)',
+                                  color: 'var(--shell-text)',
+                                  border: '1px solid var(--shell-card-border)',
+                                }}
+                              >
+                                <StepIcon size={10} color={badge.color} />
+                                {badge.label}
                               </span>
                             );
                           })}
                         </div>
                       </div>
-
-                      {/* Metrics strip */}
-                      <div style={{
-                        display: 'grid',
-                        gridTemplateColumns: 'repeat(3, 1fr)',
-                        gap: '8px',
-                        marginBottom: '14px',
-                        background: '#f8fafc',
-                        padding: '10px 12px',
-                        borderRadius: '12px',
-                        border: '1px solid #f1f5f9'
-                      }}>
-                        <div>
-                          <div style={{ fontSize: '10px', fontWeight: '700', color: '#94a3b8', textTransform: 'uppercase' }}>Runs</div>
-                          <div style={{ fontSize: '13px', fontWeight: '800', color: '#0f172a' }}>{wf.execution_count || wf.total_runs || 0}</div>
-                        </div>
-                        <div>
-                          <div style={{ fontSize: '10px', fontWeight: '700', color: '#94a3b8', textTransform: 'uppercase' }}>Avg Time</div>
-                          <div style={{ fontSize: '13px', fontWeight: '800', color: '#0f172a' }}>{wf.avg_duration_ms ? `${wf.avg_duration_ms}ms` : '—'}</div>
-                        </div>
-                        <div>
-                          <div style={{ fontSize: '10px', fontWeight: '700', color: '#94a3b8', textTransform: 'uppercase' }}>Last Status</div>
-                          <div style={{ fontSize: '11px', fontWeight: '800', color: wf.last_status === 'failed' ? '#ef4444' : '#10b981' }}>
-                            {wf.last_status ? wf.last_status.toUpperCase() : 'READY'}
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Webhook trigger copy button if webhook */}
-                      {wf.trigger_type === 'webhook' && (
-                        <div style={{ marginBottom: '14px' }}>
-                          <button
-                            onClick={() => handleCopyWebhook(wf.id)}
-                            style={{
-                              width: '100%',
-                              padding: '8px',
-                              borderRadius: '8px',
-                              background: copiedWebhookId === wf.id ? '#dcfce7' : '#f0fdf4',
-                              color: copiedWebhookId === wf.id ? '#15803d' : '#166534',
-                              border: '1px solid #bbf7d0',
-                              fontSize: '11px',
-                              fontWeight: '700',
-                              cursor: 'pointer',
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              gap: '6px'
-                            }}
-                          >
-                            {copiedWebhookId === wf.id ? '✅ Copied Webhook URL!' : '🔗 Copy Inbound Webhook URL'}
-                          </button>
-                        </div>
-                      )}
                     </div>
 
-                    <div>
-                      {/* RUN BUTTON */}
-                      <button
-                        onClick={() => handleRunWorkflow(wf)}
-                        disabled={runningWorkflowId === wf.id}
-                        style={{
-                          width: '100%',
-                          padding: '10px 16px',
-                          borderRadius: '12px',
-                          background: runningWorkflowId === wf.id ? '#818cf8' : '#4f46e5',
-                          color: 'white',
-                          border: 'none',
-                          fontSize: '13px',
-                          fontWeight: '800',
-                          cursor: runningWorkflowId === wf.id ? 'not-allowed' : 'pointer',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          gap: '6px',
-                          boxShadow: '0 2px 10px rgba(79, 70, 229, 0.25)',
-                          transition: 'all 0.2s',
-                          marginBottom: '10px'
-                        }}
-                      >
-                        {runningWorkflowId === wf.id ? '⏳ Running Workflow...' : '▶️ Run Workflow Now'}
-                      </button>
-
-                      <div style={{
+                    <button
+                      onClick={() => handleApplyTemplate(tmpl)}
+                      style={{
                         display: 'flex',
-                        gap: '8px',
-                        borderTop: '1px solid #f1f5f9',
-                        paddingTop: '12px'
-                      }}>
-                        <button
-                          onClick={() => {
-                            setFullCanvasWorkflow(wf);
-                            setCanvasExecution(null);
-                          }}
-                          style={{
-                            flex: 1.2,
-                            padding: '8px 12px',
-                            borderRadius: '10px',
-                            background: 'linear-gradient(135deg, #0e7490, #1d4ed8)',
-                            border: 'none',
-                            color: 'white',
-                            fontSize: '12px',
-                            fontWeight: '800',
-                            cursor: 'pointer',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            gap: '4px',
-                            boxShadow: '0 2px 8px rgba(14, 116, 144, 0.25)',
-                          }}
-                        >
-                          🔮 Visual Canvas
-                        </button>
-                        <button
-                          onClick={() => handleOpenEdit(wf)}
-                          style={{
-                            flex: 1,
-                            padding: '8px 12px',
-                            borderRadius: '10px',
-                            background: '#f1f5f9',
-                            border: '1px solid #cbd5e1',
-                            color: '#334155',
-                            fontSize: '12px',
-                            fontWeight: '700',
-                            cursor: 'pointer'
-                          }}
-                        >
-                          ✏️ Edit
-                        </button>
-                        <button
-                          onClick={() => handleFetchExecutions(wf)}
-                          style={{
-                            flex: 1,
-                            padding: '8px 12px',
-                            borderRadius: '10px',
-                            background: '#e0e7ff',
-                            border: '1px solid #c7d2fe',
-                            color: '#3730a3',
-                            fontSize: '12px',
-                            fontWeight: '700',
-                            cursor: 'pointer'
-                          }}
-                        >
-                          📜 History
-                        </button>
-                        <button
-                          onClick={() => handleDelete(wf.id)}
-                          style={{
-                            padding: '8px 12px',
-                            borderRadius: '10px',
-                            background: '#fef2f2',
-                            border: '1px solid #fecaca',
-                            color: '#991b1b',
-                            fontSize: '12px',
-                            fontWeight: '700',
-                            cursor: 'pointer'
-                          }}
-                        >
-                          🗑️
-                        </button>
-                      </div>
-                    </div>
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '6px',
+                        padding: '7px 12px',
+                        borderRadius: '6px',
+                        fontSize: '12px',
+                        fontWeight: 500,
+                        backgroundColor: 'var(--shell-badge-bg)',
+                        color: '#818cf8',
+                        border: '1px solid rgba(99,102,241,0.25)',
+                        cursor: 'pointer',
+                        width: '100%',
+                      }}
+                    >
+                      <span>Use Template</span>
+                      <ArrowRight size={13} />
+                    </button>
                   </div>
                 );
               })}
             </div>
-          )}
+          </div>
         </div>
-      </div>
+      ) : filteredWorkflows.length === 0 ? (
+        <div style={{
+          textAlign: 'center',
+          padding: '48px 24px',
+          backgroundColor: 'var(--shell-surface)',
+          borderRadius: '12px',
+          border: '1px solid var(--shell-card-border)',
+        }}>
+          <Filter size={32} color="var(--shell-text-muted)" style={{ margin: '0 auto 10px' }} />
+          <p style={{ color: 'var(--shell-text)', fontSize: '14px', fontWeight: 600, margin: '0 0 6px 0' }}>
+            No matching workflows
+          </p>
+          <p style={{ color: 'var(--shell-text-muted)', fontSize: '13px', margin: '0 0 16px 0' }}>
+            No automations match your search filter "{searchQuery}".
+          </p>
+          <button
+            onClick={() => {
+              setSearchQuery('');
+              setStatusFilter('all');
+            }}
+            style={{
+              padding: '6px 14px',
+              borderRadius: '6px',
+              fontSize: '12px',
+              fontWeight: 500,
+              backgroundColor: 'var(--shell-surface)',
+              color: 'var(--shell-text-secondary)',
+              border: '1px solid var(--shell-card-border)',
+              cursor: 'pointer',
+            }}
+          >
+            Reset Filters
+          </button>
+        </div>
+      ) : (
+        /* ── User Panel Styled Workflow Cards Grid ── */
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))',
+          gap: '16px',
+        }}>
+          {filteredWorkflows.map((wf) => {
+            let parsedSteps = [];
+            try {
+              parsedSteps = Array.isArray(wf.steps) ? wf.steps : (typeof wf.steps === 'string' ? JSON.parse(wf.steps) : []);
+            } catch {
+              parsedSteps = [];
+            }
 
-      {/* TEMPLATE LIBRARY MODAL */}
-      {showTemplateModal && (
+            const isWebhook = wf.trigger_type === 'webhook';
+            const isCron = wf.trigger_type === 'cron';
+            const isRunning = runningWorkflowId === wf.id;
+
+            return (
+              <div
+                key={wf.id}
+                style={{
+                  padding: '20px',
+                  borderRadius: '12px',
+                  backgroundColor: 'var(--shell-surface)',
+                  border: '1px solid var(--shell-card-border)',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  justifyContent: 'space-between',
+                }}
+              >
+                <div>
+                  {/* Top Bar: Title, Trigger & Status */}
+                  <div style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'flex-start',
+                    marginBottom: '10px',
+                  }}>
+                    <div>
+                      <h3 style={{ fontSize: '15px', fontWeight: 600, color: 'var(--shell-text)', margin: 0 }}>
+                        {wf.name}
+                      </h3>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '6px' }}>
+                        <span style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '4px',
+                          fontSize: '11px',
+                          padding: '2px 8px',
+                          borderRadius: '4px',
+                          backgroundColor: 'var(--shell-badge-bg)',
+                          color: '#a5b4fc',
+                          fontWeight: 500,
+                        }}>
+                          {isWebhook ? <Webhook size={11} /> : isCron ? <Clock size={11} /> : <Play size={11} />}
+                          <span>{wf.trigger_type?.toUpperCase() || 'MANUAL'}</span>
+                        </span>
+                        {isCron && wf.cron_expression && (
+                          <span style={{
+                            fontSize: '11px',
+                            fontFamily: 'monospace',
+                            color: 'var(--shell-text-muted)',
+                          }}>
+                            {wf.cron_expression}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    <span style={{
+                      fontSize: '11px',
+                      padding: '2px 8px',
+                      borderRadius: '10px',
+                      fontWeight: 500,
+                      backgroundColor: wf.status === 'active' ? 'rgba(16,185,129,0.15)' : 'rgba(245,158,11,0.15)',
+                      color: wf.status === 'active' ? '#34d399' : '#fbbf24',
+                    }}>
+                      {wf.status || 'Active'}
+                    </span>
+                  </div>
+
+                  <p style={{
+                    fontSize: '13px',
+                    color: 'var(--shell-text-secondary)',
+                    margin: '0 0 14px 0',
+                    lineHeight: '1.45',
+                    minHeight: '36px',
+                  }}>
+                    {wf.description || 'No description provided.'}
+                  </p>
+
+                  {/* Step Sequence Preview */}
+                  <div style={{
+                    backgroundColor: 'var(--shell-input-bg, #f4f6f9)',
+                    padding: '8px 10px',
+                    borderRadius: '8px',
+                    border: '1px solid var(--shell-card-border)',
+                    marginBottom: '14px',
+                  }}>
+                    <span style={{
+                      fontSize: '10px',
+                      fontWeight: 600,
+                      textTransform: 'uppercase',
+                      color: 'var(--shell-text-muted)',
+                      display: 'block',
+                      marginBottom: '6px',
+                    }}>
+                      Pipeline Nodes ({parsedSteps.length})
+                    </span>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
+                      {parsedSteps.length === 0 ? (
+                        <span style={{ fontSize: '11px', color: 'var(--shell-text-muted)' }}>No steps configured</span>
+                      ) : (
+                        parsedSteps.map((step, idx) => {
+                          const badge = getStepBadgeInfo(step.type);
+                          const StepIcon = badge.icon;
+                          return (
+                            <span
+                              key={idx}
+                              style={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '4px',
+                                fontSize: '11px',
+                                padding: '2px 6px',
+                                borderRadius: '4px',
+                                backgroundColor: 'var(--shell-surface)',
+                                color: 'var(--shell-text)',
+                                border: '1px solid var(--shell-card-border)',
+                              }}
+                              title={step.value}
+                            >
+                              <StepIcon size={11} color={badge.color} />
+                              <span>{idx + 1}. {badge.label}</span>
+                            </span>
+                          );
+                        })
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Telemetry Stats Strip */}
+                  <div style={{
+                    display: 'flex',
+                    gap: '16px',
+                    fontSize: '12px',
+                    color: 'var(--shell-text-muted)',
+                    marginBottom: '14px',
+                  }}>
+                    <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                      <Play size={12} /> {wf.execution_count || wf.total_runs || 0} runs
+                    </span>
+                    <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                      <Clock size={12} /> {wf.avg_duration_ms ? `${wf.avg_duration_ms}ms` : '—'}
+                    </span>
+                    <span style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '4px',
+                      color: wf.last_status === 'failed' ? '#f87171' : '#34d399',
+                    }}>
+                      <Activity size={12} /> {wf.last_status ? wf.last_status.toUpperCase() : 'READY'}
+                    </span>
+                  </div>
+
+                  {/* Webhook copy & test runner actions */}
+                  {isWebhook && (
+                    <div style={{ display: 'flex', gap: '6px', marginBottom: '14px' }}>
+                      <button
+                        onClick={() => handleCopyWebhook(wf.id)}
+                        style={{
+                          flex: 1,
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          gap: '6px',
+                          padding: '6px 10px',
+                          borderRadius: '6px',
+                          fontSize: '11.5px',
+                          fontWeight: 500,
+                          backgroundColor: copiedWebhookId === wf.id ? 'rgba(16,185,129,0.15)' : 'var(--shell-badge-bg)',
+                          color: copiedWebhookId === wf.id ? '#34d399' : '#818cf8',
+                          border: '1px solid var(--shell-card-border)',
+                          cursor: 'pointer',
+                        }}
+                      >
+                        {copiedWebhookId === wf.id ? (
+                          <>
+                            <Check size={12} />
+                            <span>Webhook Copied</span>
+                          </>
+                        ) : (
+                          <>
+                            <Copy size={12} />
+                            <span>Copy URL</span>
+                          </>
+                        )}
+                      </button>
+
+                      <button
+                        onClick={() => {
+                          setWebhookTestWf(wf);
+                          setTestResult(null);
+                        }}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '4px',
+                          padding: '6px 10px',
+                          borderRadius: '6px',
+                          fontSize: '11.5px',
+                          fontWeight: 500,
+                          backgroundColor: 'rgba(99,102,241,0.12)',
+                          color: '#818cf8',
+                          border: '1px solid rgba(99,102,241,0.25)',
+                          cursor: 'pointer',
+                        }}
+                        title="Send test payload to webhook"
+                      >
+                        <Send size={12} />
+                        <span>Test Webhook</span>
+                      </button>
+                    </div>
+                  )}
+                </div>
+
+                {/* Subactions Bar matching Agents Page */}
+                <div style={{
+                  display: 'flex',
+                  gap: '6px',
+                  flexWrap: 'wrap',
+                  borderTop: '1px solid var(--shell-card-border)',
+                  paddingTop: '12px',
+                }}>
+                  <button
+                    onClick={() => handleRunWorkflow(wf)}
+                    disabled={isRunning}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '4px',
+                      padding: '6px 12px',
+                      borderRadius: '6px',
+                      fontSize: '12px',
+                      fontWeight: 500,
+                      backgroundColor: isRunning ? 'rgba(99,102,241,0.2)' : 'rgba(16,185,129,0.12)',
+                      color: isRunning ? '#818cf8' : '#34d399',
+                      border: '1px solid rgba(16,185,129,0.25)',
+                      cursor: isRunning ? 'not-allowed' : 'pointer',
+                    }}
+                  >
+                    {isRunning ? (
+                      <>
+                        <RefreshCw size={12} className="spin" />
+                        <span>Running...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Play size={12} />
+                        <span>Run</span>
+                      </>
+                    )}
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      setFullCanvasWorkflow(wf);
+                      setCanvasExecution(null);
+                    }}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '4px',
+                      padding: '6px 10px',
+                      borderRadius: '6px',
+                      fontSize: '12px',
+                      fontWeight: 500,
+                      backgroundColor: 'rgba(99,102,241,0.12)',
+                      color: '#818cf8',
+                      border: '1px solid rgba(99,102,241,0.25)',
+                      cursor: 'pointer',
+                    }}
+                    title="Open Visual Canvas"
+                  >
+                    <Network size={12} />
+                    <span>Canvas</span>
+                  </button>
+
+                  <button
+                    onClick={() => handleOpenEdit(wf)}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '4px',
+                      padding: '6px 10px',
+                      borderRadius: '6px',
+                      fontSize: '12px',
+                      fontWeight: 500,
+                      backgroundColor: 'var(--shell-badge-bg)',
+                      color: 'var(--shell-text-bright)',
+                      border: '1px solid var(--shell-card-border)',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    <Pencil size={12} />
+                    <span>Edit</span>
+                  </button>
+
+                  <button
+                    onClick={() => handleFetchExecutions(wf)}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '4px',
+                      padding: '6px 10px',
+                      borderRadius: '6px',
+                      fontSize: '12px',
+                      fontWeight: 500,
+                      backgroundColor: 'var(--shell-badge-bg)',
+                      color: 'var(--shell-text-bright)',
+                      border: '1px solid var(--shell-card-border)',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    <History size={12} />
+                    <span>Logs</span>
+                  </button>
+
+                  <button
+                    onClick={() => handleDelete(wf.id)}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '4px',
+                      padding: '6px 10px',
+                      borderRadius: '6px',
+                      fontSize: '12px',
+                      fontWeight: 500,
+                      backgroundColor: 'rgba(239,68,68,0.1)',
+                      color: '#f87171',
+                      border: '1px solid rgba(239,68,68,0.2)',
+                      cursor: 'pointer',
+                      marginLeft: 'auto',
+                    }}
+                    title="Delete workflow"
+                  >
+                    <Trash2 size={12} />
+                  </button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* ── WEBHOOK TEST RUNNER MODAL ─────────────────────────────────── */}
+      {webhookTestWf && (
         <div style={{
           position: 'fixed',
-          top: 0, left: 0, right: 0, bottom: 0,
-          background: 'rgba(15, 23, 42, 0.6)',
+          inset: 0,
+          backgroundColor: 'rgba(15, 23, 42, 0.65)',
           backdropFilter: 'blur(4px)',
           display: 'flex',
-          justifyContent: 'center',
           alignItems: 'center',
+          justifyContent: 'center',
           zIndex: 1000,
-          padding: '20px'
+          padding: '20px',
         }}>
           <div style={{
-            background: '#ffffff',
-            borderRadius: '24px',
+            backgroundColor: 'var(--shell-surface)',
+            borderRadius: '12px',
+            border: '1px solid var(--shell-card-border)',
             width: '100%',
-            maxWidth: '800px',
+            maxWidth: '560px',
             maxHeight: '90vh',
             overflowY: 'auto',
-            padding: '32px',
-            border: '1px solid #e2e8f0',
-            boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)'
+            padding: '24px',
+            boxShadow: '0 20px 40px rgba(0, 0, 0, 0.25)',
           }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
               <div>
-                <h2 style={{ fontSize: '22px', fontWeight: '900', margin: 0, color: '#0f172a' }}>
-                  ✨ Preset Workflow Templates Library
-                </h2>
-                <p style={{ color: '#64748b', fontSize: '13px', margin: '4px 0 0 0' }}>
-                  Select a pre-built autonomous AI template to instantly populate your step canvas.
+                <h3 style={{ fontSize: '16px', fontWeight: 600, color: 'var(--shell-text)', margin: 0 }}>
+                  Test Webhook — {webhookTestWf.name}
+                </h3>
+                <p style={{ color: 'var(--shell-text-secondary)', fontSize: '13px', margin: '4px 0 0 0' }}>
+                  Send a mock JSON payload to simulate an inbound webhook event.
                 </p>
               </div>
               <button
-                onClick={() => setShowTemplateModal(false)}
-                style={{ background: 'none', border: 'none', fontSize: '20px', cursor: 'pointer', color: '#94a3b8' }}
+                onClick={() => setWebhookTestWf(null)}
+                style={{ background: 'none', border: 'none', color: 'var(--shell-text-secondary)', cursor: 'pointer' }}
               >
-                ✕
+                <X size={18} />
               </button>
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))', gap: '16px' }}>
-              {PRESET_TEMPLATES.map((tmpl) => (
-                <div key={tmpl.id} style={{
-                  background: '#f8fafc',
-                  border: '1px solid #e2e8f0',
-                  borderRadius: '16px',
-                  padding: '20px',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  justifyContent: 'space-between'
-                }}>
-                  <div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
-                      <span style={{ fontSize: '24px' }}>{tmpl.icon}</span>
-                      <span style={{
-                        fontSize: '11px',
-                        fontWeight: '800',
-                        padding: '3px 8px',
-                        borderRadius: '6px',
-                        background: '#e0e7ff',
-                        color: '#3730a3'
-                      }}>
-                        {tmpl.badge}
-                      </span>
-                    </div>
-                    <h4 style={{ fontSize: '16px', fontWeight: '800', margin: '0 0 6px 0', color: '#0f172a' }}>
-                      {tmpl.name}
-                    </h4>
-                    <p style={{ fontSize: '12px', color: '#64748b', margin: '0 0 14px 0', lineHeight: '1.5' }}>
-                      {tmpl.description}
-                    </p>
-                  </div>
-                  <button
-                    onClick={() => handleApplyTemplate(tmpl)}
-                    style={{
-                      width: '100%',
-                      padding: '10px',
-                      borderRadius: '10px',
-                      background: '#4f46e5',
-                      color: 'white',
-                      border: 'none',
-                      fontSize: '13px',
-                      fontWeight: '800',
-                      cursor: 'pointer'
-                    }}
-                  >
-                    Use Template →
-                  </button>
+            <div style={{ marginBottom: '14px' }}>
+              <label style={{ fontSize: '12px', color: 'var(--shell-text-muted)', display: 'block', marginBottom: '4px' }}>
+                Target Endpoint
+              </label>
+              <code style={{
+                display: 'block',
+                padding: '8px 10px',
+                borderRadius: '6px',
+                backgroundColor: 'var(--shell-input-bg, #f4f6f9)',
+                border: '1px solid var(--shell-card-border)',
+                fontSize: '11.5px',
+                fontFamily: 'monospace',
+                color: '#34d399',
+                wordBreak: 'break-all',
+              }}>
+                POST {typeof window !== 'undefined' ? `${window.location.origin}/api/workflows/${webhookTestWf.id}/trigger` : `/api/workflows/${webhookTestWf.id}/trigger`}
+              </code>
+            </div>
+
+            <div style={{ marginBottom: '14px' }}>
+              <label style={{ fontSize: '12px', color: 'var(--shell-text-muted)', display: 'block', marginBottom: '4px' }}>
+                Test Request Payload (JSON)
+              </label>
+              <textarea
+                value={testPayload}
+                onChange={(e) => setTestPayload(e.target.value)}
+                rows={6}
+                style={{
+                  width: '100%',
+                  padding: '10px',
+                  borderRadius: '8px',
+                  backgroundColor: 'var(--shell-input-bg, #f4f6f9)',
+                  border: '1px solid var(--shell-card-border)',
+                  color: 'var(--shell-text)',
+                  fontSize: '12px',
+                  fontFamily: 'monospace',
+                  outline: 'none',
+                  boxSizing: 'border-box',
+                }}
+              />
+            </div>
+
+            {testResult && (
+              <div style={{
+                marginBottom: '14px',
+                padding: '10px 12px',
+                borderRadius: '8px',
+                backgroundColor: testResult.ok ? 'rgba(16,185,129,0.12)' : 'rgba(239,68,68,0.12)',
+                border: `1px solid ${testResult.ok ? 'rgba(16,185,129,0.3)' : 'rgba(239,68,68,0.3)'}`,
+              }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                  <span style={{ fontSize: '12px', fontWeight: 600, color: testResult.ok ? '#34d399' : '#f87171' }}>
+                    {testResult.ok ? `HTTP 200 OK (${testResult.durationMs}ms)` : `HTTP Error ${testResult.status || ''}`}
+                  </span>
                 </div>
-              ))}
+                <pre style={{
+                  margin: 0,
+                  fontSize: '11px',
+                  fontFamily: 'monospace',
+                  color: 'var(--shell-text)',
+                  whiteSpace: 'pre-wrap',
+                  maxHeight: '100px',
+                  overflowY: 'auto',
+                }}>
+                  {JSON.stringify(testResult.data || testResult.error, null, 2)}
+                </pre>
+              </div>
+            )}
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
+              <button
+                type="button"
+                onClick={() => setWebhookTestWf(null)}
+                style={{
+                  padding: '7px 14px',
+                  borderRadius: '6px',
+                  fontSize: '12.5px',
+                  fontWeight: 500,
+                  backgroundColor: 'var(--shell-surface)',
+                  color: 'var(--shell-text-secondary)',
+                  border: '1px solid var(--shell-card-border)',
+                  cursor: 'pointer',
+                }}
+              >
+                Close
+              </button>
+              <button
+                type="button"
+                onClick={handleSendTestWebhook}
+                disabled={sendingTest}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  padding: '7px 16px',
+                  borderRadius: '6px',
+                  fontSize: '12.5px',
+                  fontWeight: 600,
+                  backgroundColor: '#6366f1',
+                  color: '#fff',
+                  border: 'none',
+                  cursor: sendingTest ? 'not-allowed' : 'pointer',
+                }}
+              >
+                {sendingTest ? (
+                  <>
+                    <RefreshCw size={12} className="spin" />
+                    <span>Sending...</span>
+                  </>
+                ) : (
+                  <>
+                    <Send size={12} />
+                    <span>Send Test Payload</span>
+                  </>
+                )}
+              </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* WORKFLOW EDIT / CREATE MODAL */}
+      {/* ── TEMPLATES MODAL ─────────────────────────────────────────── */}
+      {showTemplateModal && (
+        <div style={{
+          position: 'fixed',
+          inset: 0,
+          backgroundColor: 'rgba(15, 23, 42, 0.65)',
+          backdropFilter: 'blur(4px)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 1000,
+          padding: '20px',
+        }}>
+          <div style={{
+            backgroundColor: 'var(--shell-surface)',
+            borderRadius: '12px',
+            border: '1px solid var(--shell-card-border)',
+            width: '100%',
+            maxWidth: '780px',
+            maxHeight: '90vh',
+            overflowY: 'auto',
+            padding: '24px',
+            boxShadow: '0 20px 40px rgba(0, 0, 0, 0.25)',
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+              <div>
+                <h3 style={{ fontSize: '16px', fontWeight: 600, color: 'var(--shell-text)', margin: 0 }}>
+                  Workflow Templates
+                </h3>
+                <p style={{ color: 'var(--shell-text-secondary)', fontSize: '13px', margin: '4px 0 0 0' }}>
+                  Select a pre-configured recipe to populate your pipeline.
+                </p>
+              </div>
+              <button
+                onClick={() => setShowTemplateModal(false)}
+                style={{ background: 'none', border: 'none', color: 'var(--shell-text-secondary)', cursor: 'pointer' }}
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))',
+              gap: '14px',
+            }}>
+              {PRESET_TEMPLATES.map((tmpl) => {
+                const IconComponent = tmpl.icon;
+                return (
+                  <div
+                    key={tmpl.id}
+                    style={{
+                      padding: '16px',
+                      borderRadius: '10px',
+                      backgroundColor: 'var(--shell-input-bg, #f4f6f9)',
+                      border: '1px solid var(--shell-card-border)',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      justifyContent: 'space-between',
+                    }}
+                  >
+                    <div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <IconComponent size={16} color={tmpl.color} />
+                          <span style={{ fontSize: '13.5px', fontWeight: 600, color: 'var(--shell-text)' }}>{tmpl.name}</span>
+                        </div>
+                        <span style={{
+                          fontSize: '10.5px',
+                          padding: '1px 6px',
+                          borderRadius: '4px',
+                          backgroundColor: 'var(--shell-badge-bg)',
+                          color: '#a5b4fc',
+                        }}>
+                          {tmpl.badge}
+                        </span>
+                      </div>
+                      <p style={{ fontSize: '12px', color: 'var(--shell-text-secondary)', margin: '0 0 12px 0', lineHeight: '1.4' }}>
+                        {tmpl.description}
+                      </p>
+                    </div>
+
+                    <button
+                      onClick={() => handleApplyTemplate(tmpl)}
+                      style={{
+                        padding: '6px 12px',
+                        borderRadius: '6px',
+                        fontSize: '12px',
+                        fontWeight: 600,
+                        backgroundColor: '#6366f1',
+                        color: '#fff',
+                        border: 'none',
+                        cursor: 'pointer',
+                        width: '100%',
+                      }}
+                    >
+                      Use Recipe
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── CREATE / EDIT WORKFLOW MODAL ────────────────────────────── */}
       {editingWorkflow && (
         <div style={{
           position: 'fixed',
-          top: 0, left: 0, right: 0, bottom: 0,
-          background: 'rgba(15, 23, 42, 0.6)',
+          inset: 0,
+          backgroundColor: 'rgba(15, 23, 42, 0.65)',
           backdropFilter: 'blur(4px)',
           display: 'flex',
-          justifyContent: 'center',
           alignItems: 'center',
+          justifyContent: 'center',
           zIndex: 1000,
-          padding: '20px'
+          padding: '20px',
         }}>
           <div style={{
-            background: '#ffffff',
-            borderRadius: '24px',
+            backgroundColor: 'var(--shell-surface)',
+            borderRadius: '12px',
+            border: '1px solid var(--shell-card-border)',
             width: '100%',
-            maxWidth: '680px',
+            maxWidth: '620px',
             maxHeight: '90vh',
             overflowY: 'auto',
-            padding: '32px',
-            border: '1px solid #e2e8f0',
-            boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)'
+            padding: '24px',
+            boxShadow: '0 20px 40px rgba(0, 0, 0, 0.25)',
           }}>
-            <h2 style={{ fontSize: '20px', fontWeight: '900', margin: '0 0 20px 0', color: '#0f172a' }}>
-              {isNew ? 'Create New Autonomous Workflow' : 'Edit Workflow Configuration'}
-            </h2>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+              <h3 style={{ fontSize: '16px', fontWeight: 600, color: 'var(--shell-text)', margin: 0 }}>
+                {isNew ? 'Create Workflow' : 'Edit Workflow'}
+              </h3>
+              <button
+                onClick={() => setEditingWorkflow(null)}
+                style={{ background: 'none', border: 'none', color: 'var(--shell-text-secondary)', cursor: 'pointer' }}
+              >
+                <X size={18} />
+              </button>
+            </div>
 
-            <form onSubmit={handleSave} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            <form onSubmit={handleSave} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
               <div>
-                <label style={{ display: 'block', fontSize: '12px', fontWeight: '800', marginBottom: '6px', color: '#334155' }}>
+                <label style={{ fontSize: '13px', color: 'var(--shell-text-secondary)', display: 'block', marginBottom: '6px' }}>
                   Workflow Name
                 </label>
                 <input
@@ -1175,75 +1866,72 @@ function WorkflowsPage() {
                   required
                   value={name}
                   onChange={(e) => setName(e.target.value)}
+                  placeholder="e.g. Support Ticket Router"
                   style={{
                     width: '100%',
-                    padding: '12px 14px',
-                    borderRadius: '10px',
-                    background: '#f8fafc',
-                    border: '1px solid #cbd5e1',
-                    color: '#0f172a',
-                    fontSize: '14px',
-                    fontWeight: '600',
+                    padding: '8px 12px',
+                    borderRadius: '8px',
+                    backgroundColor: 'var(--shell-input-bg, #f4f6f9)',
+                    border: '1px solid var(--shell-card-border)',
+                    color: 'var(--shell-text)',
+                    fontSize: '13px',
                     outline: 'none',
-                    boxSizing: 'border-box'
+                    boxSizing: 'border-box',
                   }}
-                  placeholder="e.g. AI Customer Support Auto-Router"
                 />
               </div>
 
               <div>
-                <label style={{ display: 'block', fontSize: '12px', fontWeight: '800', marginBottom: '6px', color: '#334155' }}>
+                <label style={{ fontSize: '13px', color: 'var(--shell-text-secondary)', display: 'block', marginBottom: '6px' }}>
                   Description
                 </label>
                 <input
                   type="text"
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
+                  placeholder="Purpose of this automation..."
                   style={{
                     width: '100%',
-                    padding: '12px 14px',
-                    borderRadius: '10px',
-                    background: '#f8fafc',
-                    border: '1px solid #cbd5e1',
-                    color: '#0f172a',
-                    fontSize: '14px',
-                    fontWeight: '500',
+                    padding: '8px 12px',
+                    borderRadius: '8px',
+                    backgroundColor: 'var(--shell-input-bg, #f4f6f9)',
+                    border: '1px solid var(--shell-card-border)',
+                    color: 'var(--shell-text)',
+                    fontSize: '13px',
                     outline: 'none',
-                    boxSizing: 'border-box'
+                    boxSizing: 'border-box',
                   }}
-                  placeholder="Describe what this workflow automates..."
                 />
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
                 <div>
-                  <label style={{ display: 'block', fontSize: '12px', fontWeight: '800', marginBottom: '6px', color: '#334155' }}>
-                    Trigger Event
+                  <label style={{ fontSize: '13px', color: 'var(--shell-text-secondary)', display: 'block', marginBottom: '6px' }}>
+                    Trigger Type
                   </label>
                   <select
                     value={triggerType}
                     onChange={(e) => setTriggerType(e.target.value)}
                     style={{
                       width: '100%',
-                      padding: '12px 14px',
-                      borderRadius: '10px',
-                      background: '#f8fafc',
-                      border: '1px solid #cbd5e1',
-                      color: '#0f172a',
+                      padding: '8px 10px',
+                      borderRadius: '8px',
+                      backgroundColor: 'var(--shell-input-bg, #f4f6f9)',
+                      border: '1px solid var(--shell-card-border)',
+                      color: 'var(--shell-text)',
                       fontSize: '13px',
-                      fontWeight: '700',
                       outline: 'none',
-                      boxSizing: 'border-box'
+                      boxSizing: 'border-box',
                     }}
                   >
-                    <option value="manual">Manual Trigger (On Demand)</option>
-                    <option value="webhook">Webhook HTTP Endpoint</option>
+                    <option value="manual">Manual Trigger</option>
+                    <option value="webhook">Inbound Webhook</option>
                     <option value="cron">Scheduled Cron Job</option>
                   </select>
                 </div>
 
                 <div>
-                  <label style={{ display: 'block', fontSize: '12px', fontWeight: '800', marginBottom: '6px', color: '#334155' }}>
+                  <label style={{ fontSize: '13px', color: 'var(--shell-text-secondary)', display: 'block', marginBottom: '6px' }}>
                     Status
                   </label>
                   <select
@@ -1251,176 +1939,184 @@ function WorkflowsPage() {
                     onChange={(e) => setStatus(e.target.value)}
                     style={{
                       width: '100%',
-                      padding: '12px 14px',
-                      borderRadius: '10px',
-                      background: '#f8fafc',
-                      border: '1px solid #cbd5e1',
-                      color: '#0f172a',
+                      padding: '8px 10px',
+                      borderRadius: '8px',
+                      backgroundColor: 'var(--shell-input-bg, #f4f6f9)',
+                      border: '1px solid var(--shell-card-border)',
+                      color: 'var(--shell-text)',
                       fontSize: '13px',
-                      fontWeight: '700',
                       outline: 'none',
-                      boxSizing: 'border-box'
+                      boxSizing: 'border-box',
                     }}
                   >
-                    <option value="active">Active (Enabled)</option>
-                    <option value="paused">Paused (Disabled)</option>
+                    <option value="active">Active</option>
+                    <option value="paused">Paused</option>
                   </select>
                 </div>
               </div>
 
-              {/* Cron Expression Input */}
+              {/* Visual Schedule Picker */}
               {triggerType === 'cron' && (
                 <div>
-                  <label style={{ display: 'block', fontSize: '12px', fontWeight: '800', marginBottom: '6px', color: '#334155' }}>
-                    Cron Schedule Pattern
+                  <label style={{ fontSize: '13px', color: 'var(--shell-text-secondary)', display: 'block', marginBottom: '6px' }}>
+                    Schedule Frequency
                   </label>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px', marginBottom: '8px' }}>
+                    {[
+                      { label: 'Every 15 Minutes', expr: '*/15 * * * *' },
+                      { label: 'Every Hour', expr: '0 * * * *' },
+                      { label: 'Daily at 9:00 AM', expr: '0 9 * * *' },
+                      { label: 'Weekly (Mondays at 9 AM)', expr: '0 9 * * 1' },
+                    ].map((p) => (
+                      <button
+                        key={p.expr}
+                        type="button"
+                        onClick={() => setCronExpression(p.expr)}
+                        style={{
+                          padding: '6px 8px',
+                          borderRadius: '6px',
+                          fontSize: '11px',
+                          fontWeight: 500,
+                          border: '1px solid var(--shell-card-border)',
+                          backgroundColor: cronExpression === p.expr ? 'rgba(99,102,241,0.15)' : 'var(--shell-surface)',
+                          color: cronExpression === p.expr ? '#818cf8' : 'var(--shell-text-secondary)',
+                          cursor: 'pointer',
+                          textAlign: 'left',
+                        }}
+                      >
+                        {p.label}
+                      </button>
+                    ))}
+                  </div>
+
                   <input
                     type="text"
                     value={cronExpression}
                     onChange={(e) => setCronExpression(e.target.value)}
+                    placeholder="e.g. 0 9 * * *"
                     style={{
                       width: '100%',
-                      padding: '12px 14px',
-                      borderRadius: '10px',
-                      background: '#f8fafc',
-                      border: '1px solid #cbd5e1',
-                      color: '#0f172a',
+                      padding: '8px 12px',
+                      borderRadius: '8px',
+                      backgroundColor: 'var(--shell-input-bg, #f4f6f9)',
+                      border: '1px solid var(--shell-card-border)',
+                      color: 'var(--shell-text)',
                       fontSize: '13px',
                       fontFamily: 'monospace',
                       outline: 'none',
-                      boxSizing: 'border-box'
+                      boxSizing: 'border-box',
                     }}
-                    placeholder="e.g. 0 6 * * * (Daily at 6:00 AM)"
                   />
-                </div>
-              )}
-
-              {/* Webhook Endpoint Info Box */}
-              {triggerType === 'webhook' && editingWorkflow?.id && (
-                <div style={{ background: '#f0fdf4', padding: '12px 16px', borderRadius: '12px', border: '1px solid #bbf7d0' }}>
-                  <span style={{ fontSize: '11px', fontWeight: '800', color: '#166534', display: 'block', marginBottom: '4px' }}>
-                    🔗 Inbound Webhook Endpoint:
+                  <span style={{ fontSize: '11px', color: 'var(--shell-text-muted)', marginTop: '4px', display: 'block' }}>
+                    {getCronDescription(cronExpression)}
                   </span>
-                  <code style={{ fontSize: '11px', fontFamily: 'monospace', color: '#15803d', wordBreak: 'break-all', display: 'block', marginBottom: '8px' }}>
-                    {typeof window !== 'undefined' ? `${window.location.origin}/api/workflows/${editingWorkflow.id}/trigger` : `/api/workflows/${editingWorkflow.id}/trigger`}
-                  </code>
-                  <button
-                    type="button"
-                    onClick={() => handleCopyWebhook(editingWorkflow.id)}
-                    style={{
-                      padding: '4px 10px',
-                      borderRadius: '6px',
-                      background: '#166534',
-                      color: 'white',
-                      border: 'none',
-                      fontSize: '11px',
-                      fontWeight: '700',
-                      cursor: 'pointer'
-                    }}
-                  >
-                    {copiedWebhookId === editingWorkflow.id ? 'Copied!' : 'Copy URL'}
-                  </button>
                 </div>
               )}
 
-              {/* Steps Sequence Canvas */}
+              {/* Step Sequence Builder */}
               <div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
-                  <label style={{ fontSize: '12px', fontWeight: '800', color: '#334155' }}>
-                    Step Pipeline Canvas ({steps.length})
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                  <label style={{ fontSize: '13px', color: 'var(--shell-text-secondary)' }}>
+                    Steps ({steps.length})
                   </label>
                   <button
                     type="button"
                     onClick={handleAddStep}
                     style={{
-                      padding: '4px 10px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '4px',
+                      padding: '4px 8px',
                       borderRadius: '6px',
-                      background: '#e0e7ff',
-                      color: '#3730a3',
-                      border: '1px solid #c7d2fe',
                       fontSize: '12px',
-                      fontWeight: '700',
-                      cursor: 'pointer'
+                      fontWeight: 500,
+                      backgroundColor: 'var(--shell-badge-bg)',
+                      color: '#818cf8',
+                      border: '1px solid rgba(99,102,241,0.25)',
+                      cursor: 'pointer',
                     }}
                   >
-                    + Add Step Node
+                    <Plus size={12} /> Add Step
                   </button>
                 </div>
 
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', maxHeight: '240px', overflowY: 'auto' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '200px', overflowY: 'auto' }}>
                   {steps.map((step, idx) => (
-                    <div key={step.id || idx} style={{
-                      display: 'flex',
-                      gap: '8px',
-                      alignItems: 'center',
-                      background: '#f8fafc',
-                      padding: '10px',
-                      borderRadius: '10px',
-                      border: '1px solid #e2e8f0'
-                    }}>
-                      <span style={{ fontSize: '12px', fontWeight: '800', color: '#94a3b8', width: '20px' }}>
+                    <div
+                      key={step.id || idx}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        padding: '6px',
+                        borderRadius: '6px',
+                        backgroundColor: 'var(--shell-input-bg, #f4f6f9)',
+                        border: '1px solid var(--shell-card-border)',
+                      }}
+                    >
+                      <span style={{ fontSize: '11px', color: 'var(--shell-text-muted)', width: '18px', textAlign: 'center' }}>
                         #{idx + 1}
                       </span>
                       <select
                         value={step.type}
                         onChange={(e) => handleStepChange(step.id, 'type', e.target.value)}
                         style={{
-                          padding: '8px',
-                          borderRadius: '8px',
-                          background: '#ffffff',
-                          border: '1px solid #cbd5e1',
+                          padding: '6px 8px',
+                          borderRadius: '6px',
+                          backgroundColor: 'var(--shell-surface)',
+                          border: '1px solid var(--shell-card-border)',
                           fontSize: '12px',
-                          fontWeight: '700',
-                          color: '#0f172a'
+                          color: 'var(--shell-text)',
+                          outline: 'none',
                         }}
                       >
-                        <option value="prompt">AI Prompt / LLM Call</option>
-                        <option value="webhook">Webhook HTTP POST</option>
-                        <option value="email">Transactional Email</option>
-                        <option value="rag_search">Vector RAG Search</option>
-                        <option value="filter">Data Logic Filter</option>
+                        <option value="prompt">AI Prompt</option>
+                        <option value="webhook">Webhook POST</option>
+                        <option value="email">Email</option>
+                        <option value="rag_search">Vector Search</option>
+                        <option value="filter">Filter</option>
                       </select>
                       <input
                         type="text"
                         value={step.value || ''}
                         onChange={(e) => handleStepChange(step.id, 'value', e.target.value)}
-                        placeholder="Instruction, query, webhook URL, or email target..."
+                        placeholder="Instruction, query, URL..."
                         style={{
                           flex: 1,
-                          padding: '8px 10px',
-                          borderRadius: '8px',
-                          background: '#ffffff',
-                          border: '1px solid #cbd5e1',
+                          padding: '6px 8px',
+                          borderRadius: '6px',
+                          backgroundColor: 'var(--shell-surface)',
+                          border: '1px solid var(--shell-card-border)',
                           fontSize: '12px',
-                          color: '#0f172a',
-                          outline: 'none'
+                          color: 'var(--shell-text)',
+                          outline: 'none',
                         }}
                       />
                       <button
                         type="button"
                         onClick={() => handleRemoveStep(step.id)}
-                        style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', fontWeight: 'bold' }}
+                        style={{ background: 'none', border: 'none', color: '#f87171', cursor: 'pointer', padding: '4px' }}
                       >
-                        ✕
+                        <Trash2 size={13} />
                       </button>
                     </div>
                   ))}
                 </div>
               </div>
 
-              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '16px' }}>
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '12px' }}>
                 <button
                   type="button"
                   onClick={() => setEditingWorkflow(null)}
                   style={{
-                    padding: '10px 18px',
-                    borderRadius: '10px',
-                    background: '#f1f5f9',
-                    border: '1px solid #cbd5e1',
-                    color: '#475569',
+                    padding: '8px 16px',
+                    borderRadius: '8px',
                     fontSize: '13px',
-                    fontWeight: '700',
-                    cursor: 'pointer'
+                    fontWeight: 500,
+                    backgroundColor: 'var(--shell-surface)',
+                    color: 'var(--shell-text-secondary)',
+                    border: '1px solid var(--shell-card-border)',
+                    cursor: 'pointer',
                   }}
                 >
                   Cancel
@@ -1429,15 +2125,14 @@ function WorkflowsPage() {
                   type="submit"
                   disabled={saving}
                   style={{
-                    padding: '10px 22px',
-                    borderRadius: '10px',
-                    background: '#4f46e5',
-                    color: 'white',
-                    border: 'none',
+                    padding: '8px 18px',
+                    borderRadius: '8px',
                     fontSize: '13px',
-                    fontWeight: '800',
+                    fontWeight: 600,
+                    backgroundColor: '#6366f1',
+                    color: '#fff',
+                    border: 'none',
                     cursor: 'pointer',
-                    boxShadow: '0 2px 10px rgba(79, 70, 229, 0.3)'
                   }}
                 >
                   {saving ? 'Saving...' : 'Save Workflow'}
@@ -1448,71 +2143,75 @@ function WorkflowsPage() {
         </div>
       )}
 
-      {/* EXECUTION HISTORY MODAL */}
+      {/* ── EXECUTION HISTORY & AUDIT MODAL ──────────────────────────── */}
       {selectedWorkflowForHistory && (
         <div style={{
           position: 'fixed',
-          top: 0, left: 0, right: 0, bottom: 0,
-          background: 'rgba(15, 23, 42, 0.6)',
+          inset: 0,
+          backgroundColor: 'rgba(15, 23, 42, 0.65)',
           backdropFilter: 'blur(4px)',
           display: 'flex',
-          justifyContent: 'center',
           alignItems: 'center',
+          justifyContent: 'center',
           zIndex: 1000,
-          padding: '20px'
+          padding: '20px',
         }}>
           <div style={{
-            background: '#ffffff',
-            borderRadius: '24px',
+            backgroundColor: 'var(--shell-surface)',
+            borderRadius: '12px',
+            border: '1px solid var(--shell-card-border)',
             width: '100%',
-            maxWidth: '780px',
+            maxWidth: '720px',
             maxHeight: '90vh',
             overflowY: 'auto',
-            padding: '32px',
-            border: '1px solid #e2e8f0',
-            boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)'
+            padding: '24px',
+            boxShadow: '0 20px 40px rgba(0, 0, 0, 0.25)',
           }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
               <div>
-                <h2 style={{ fontSize: '18px', fontWeight: '900', margin: 0, color: '#0f172a' }}>
-                  📜 Execution Telemetry — {selectedWorkflowForHistory.name}
-                </h2>
-                <p style={{ margin: '4px 0 0 0', color: '#64748b', fontSize: '12px' }}>
-                  Step-by-step audit logs, execution timing, inputs, and outputs.
+                <h3 style={{ fontSize: '16px', fontWeight: 600, color: 'var(--shell-text)', margin: 0 }}>
+                  Execution Logs — {selectedWorkflowForHistory.name}
+                </h3>
+                <p style={{ color: 'var(--shell-text-secondary)', fontSize: '13px', margin: '4px 0 0 0' }}>
+                  Audit telemetry, node timing, inputs, and outputs.
                 </p>
               </div>
               <button
                 onClick={() => setSelectedWorkflowForHistory(null)}
-                style={{ background: 'none', border: 'none', fontSize: '20px', cursor: 'pointer', color: '#94a3b8' }}
+                style={{ background: 'none', border: 'none', color: 'var(--shell-text-secondary)', cursor: 'pointer' }}
               >
-                ✕
+                <X size={18} />
               </button>
             </div>
 
             {loadingHistory ? (
-              <p style={{ textAlign: 'center', color: '#64748b', padding: '40px' }}>Fetching execution telemetry...</p>
+              <div style={{ textAlign: 'center', padding: '40px' }}>
+                <RefreshCw size={20} className="spin" color="#818cf8" style={{ margin: '0 auto 8px' }} />
+                <p style={{ color: 'var(--shell-text-muted)', fontSize: '13px' }}>Fetching execution telemetry...</p>
+              </div>
             ) : executions.length === 0 ? (
-              <div style={{ textAlign: 'center', color: '#94a3b8', padding: '40px' }}>
-                <p style={{ fontSize: '14px', fontWeight: '600' }}>No execution telemetry recorded for this workflow yet.</p>
+              <div style={{ textAlign: 'center', padding: '40px' }}>
+                <p style={{ color: 'var(--shell-text-muted)', fontSize: '13px', margin: '0 0 12px 0' }}>
+                  No execution telemetry recorded for this workflow yet.
+                </p>
                 <button
                   onClick={() => handleRunWorkflow(selectedWorkflowForHistory)}
                   style={{
-                    marginTop: '12px',
-                    padding: '8px 16px',
-                    borderRadius: '10px',
-                    background: '#4f46e5',
-                    color: 'white',
-                    border: 'none',
+                    padding: '6px 14px',
+                    borderRadius: '6px',
                     fontSize: '12px',
-                    fontWeight: '800',
-                    cursor: 'pointer'
+                    fontWeight: 500,
+                    backgroundColor: 'rgba(16,185,129,0.12)',
+                    color: '#34d399',
+                    border: '1px solid rgba(16,185,129,0.25)',
+                    cursor: 'pointer',
                   }}
                 >
-                  ▶️ Trigger First Run
+                  Trigger Run
                 </button>
               </div>
             ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                 {executions.map((ex) => {
                   let stepResults = [];
                   try {
@@ -1522,89 +2221,80 @@ function WorkflowsPage() {
                   } catch {
                     stepResults = [];
                   }
-
                   const isSuccess = ex.status === 'completed' || ex.status === 'SUCCESS';
 
                   return (
-                    <div key={ex.id} style={{
-                      background: '#f8fafc',
-                      border: '1px solid #e2e8f0',
-                      borderRadius: '16px',
-                      padding: '16px',
-                      fontSize: '12px'
-                    }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                    <div
+                      key={ex.id}
+                      style={{
+                        padding: '14px',
+                        borderRadius: '8px',
+                        backgroundColor: 'var(--shell-input-bg, #f4f6f9)',
+                        border: '1px solid var(--shell-card-border)',
+                        fontSize: '12px',
+                      }}
+                    >
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                           <span style={{
-                            fontWeight: '800',
-                            color: isSuccess ? '#166534' : '#991b1b',
-                            background: isSuccess ? '#d1fae5' : '#fee2e2',
-                            padding: '3px 10px',
-                            borderRadius: '8px',
+                            fontSize: '10.5px',
+                            fontWeight: 600,
+                            padding: '2px 6px',
+                            borderRadius: '4px',
+                            backgroundColor: isSuccess ? 'rgba(16,185,129,0.15)' : 'rgba(239,68,68,0.15)',
+                            color: isSuccess ? '#34d399' : '#f87171',
                             textTransform: 'uppercase',
-                            fontSize: '11px'
                           }}>
                             {ex.status}
                           </span>
-                          <span style={{ color: '#64748b', fontSize: '11px' }}>
+                          <span style={{ color: 'var(--shell-text-muted)' }}>
                             Trigger: {ex.trigger_type?.toUpperCase() || 'MANUAL'}
                           </span>
                         </div>
-                        <span style={{ color: '#94a3b8', fontWeight: '500', fontSize: '11px' }}>
+                        <span style={{ color: 'var(--shell-text-muted)' }}>
                           {ex.started_at ? new Date(ex.started_at).toLocaleString() : ''}
                         </span>
                       </div>
 
-                      <div style={{ display: 'flex', gap: '16px', color: '#475569', fontSize: '11px', marginBottom: '10px', fontFamily: 'monospace' }}>
+                      <div style={{ display: 'flex', gap: '12px', color: 'var(--shell-text-secondary)', fontFamily: 'monospace', marginBottom: '8px' }}>
                         <span>Duration: {ex.duration_ms || 0}ms</span>
                         <span>Steps: {stepResults.length}</span>
                       </div>
 
-                      {/* Step Results Timeline */}
                       {stepResults.length > 0 && (
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginTop: '10px' }}>
-                          {stepResults.map((sr, sIdx) => {
-                            const badge = getStepBadgeColor(sr.type);
-                            return (
-                              <div key={sIdx} style={{
-                                background: '#ffffff',
-                                border: '1px solid #e2e8f0',
-                                borderRadius: '10px',
-                                padding: '10px',
-                                fontSize: '11px'
-                              }}>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
-                                  <span style={{ fontWeight: '700', color: badge.color }}>
-                                    Step {sIdx + 1}: {badge.label}
-                                  </span>
-                                  <span style={{ color: '#64748b', fontFamily: 'monospace' }}>
-                                    {sr.durationMs}ms
-                                  </span>
-                                </div>
-                                {sr.output && (
-                                  <div style={{
-                                    background: '#f8fafc',
-                                    padding: '6px 8px',
-                                    borderRadius: '6px',
-                                    fontFamily: 'monospace',
-                                    fontSize: '10px',
-                                    color: '#334155',
-                                    maxHeight: '80px',
-                                    overflowY: 'auto',
-                                    wordBreak: 'break-all'
-                                  }}>
-                                    {typeof sr.output === 'object' ? JSON.stringify(sr.output) : String(sr.output)}
-                                  </div>
-                                )}
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                          {stepResults.map((sr, sIdx) => (
+                            <div
+                              key={sIdx}
+                              style={{
+                                padding: '8px',
+                                borderRadius: '6px',
+                                backgroundColor: 'var(--shell-surface)',
+                                border: '1px solid var(--shell-card-border)',
+                              }}
+                            >
+                              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px', fontWeight: 500, color: 'var(--shell-text)' }}>
+                                <span>Step {sIdx + 1}: {sr.type}</span>
+                                <span style={{ fontFamily: 'monospace', color: 'var(--shell-text-muted)' }}>{sr.durationMs}ms</span>
                               </div>
-                            );
-                          })}
-                        </div>
-                      )}
-
-                      {ex.error_message && (
-                        <div style={{ marginTop: '8px', padding: '8px', borderRadius: '8px', background: '#fef2f2', color: '#991b1b', fontSize: '11px' }}>
-                          ⚠️ Error: {ex.error_message}
+                              {sr.output && (
+                                <pre style={{
+                                  margin: 0,
+                                  padding: '6px',
+                                  borderRadius: '4px',
+                                  backgroundColor: 'var(--shell-input-bg, #f4f6f9)',
+                                  fontSize: '11px',
+                                  fontFamily: 'monospace',
+                                  color: 'var(--shell-text)',
+                                  whiteSpace: 'pre-wrap',
+                                  maxHeight: '80px',
+                                  overflowY: 'auto',
+                                }}>
+                                  {typeof sr.output === 'object' ? JSON.stringify(sr.output, null, 2) : String(sr.output)}
+                                </pre>
+                              )}
+                            </div>
+                          ))}
                         </div>
                       )}
                     </div>
@@ -1616,48 +2306,59 @@ function WorkflowsPage() {
         </div>
       )}
 
-      {/* DELETE CONFIRMATION MODAL */}
+      {/* ── DELETE CONFIRMATION MODAL ─────────────────────────────────── */}
       {deleteConfirm && (
         <div style={{
           position: 'fixed',
-          top: 0, left: 0, right: 0, bottom: 0,
-          background: 'rgba(15, 23, 42, 0.6)',
+          inset: 0,
+          backgroundColor: 'rgba(15, 23, 42, 0.65)',
           backdropFilter: 'blur(4px)',
           display: 'flex',
-          justifyContent: 'center',
           alignItems: 'center',
-          zIndex: 1100,
-          padding: '20px'
+          justifyContent: 'center',
+          zIndex: 1000,
+          padding: '20px',
         }}>
           <div style={{
-            background: '#ffffff',
-            borderRadius: '20px',
-            padding: '32px',
-            maxWidth: '420px',
+            backgroundColor: 'var(--shell-surface)',
+            borderRadius: '12px',
+            border: '1px solid var(--shell-card-border)',
+            padding: '24px',
+            maxWidth: '380px',
             width: '100%',
             textAlign: 'center',
-            border: '1px solid #e2e8f0',
-            boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)'
+            boxShadow: '0 20px 40px rgba(0, 0, 0, 0.25)',
           }}>
-            <div style={{ fontSize: '40px', marginBottom: '12px' }}>⚠️</div>
-            <h3 style={{ fontSize: '18px', fontWeight: '800', margin: '0 0 8px 0', color: '#0f172a' }}>
+            <div style={{
+              width: '44px',
+              height: '44px',
+              borderRadius: '50%',
+              backgroundColor: 'rgba(239,68,68,0.1)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              margin: '0 auto 12px',
+            }}>
+              <AlertTriangle size={22} color="#f87171" />
+            </div>
+            <h3 style={{ fontSize: '16px', fontWeight: 600, color: 'var(--shell-text)', margin: '0 0 8px 0' }}>
               Delete Workflow?
             </h3>
-            <p style={{ color: '#64748b', fontSize: '13px', margin: '0 0 24px 0', lineHeight: '1.5' }}>
-              This action is permanent and will remove the workflow, all execution history, and associated data. This cannot be undone.
+            <p style={{ color: 'var(--shell-text-secondary)', fontSize: '13px', margin: '0 0 20px 0', lineHeight: '1.45' }}>
+              This will permanently delete the automation and its telemetry history.
             </p>
-            <div style={{ display: 'flex', gap: '12px', justifyContent: 'center' }}>
+            <div style={{ display: 'flex', gap: '8px', justifyContent: 'center' }}>
               <button
                 onClick={() => setDeleteConfirm(null)}
                 style={{
-                  padding: '10px 24px',
-                  borderRadius: '12px',
-                  background: '#f1f5f9',
-                  border: '1px solid #cbd5e1',
-                  color: '#475569',
+                  padding: '7px 16px',
+                  borderRadius: '6px',
                   fontSize: '13px',
-                  fontWeight: '700',
-                  cursor: 'pointer'
+                  fontWeight: 500,
+                  backgroundColor: 'var(--shell-surface)',
+                  color: 'var(--shell-text-secondary)',
+                  border: '1px solid var(--shell-card-border)',
+                  cursor: 'pointer',
                 }}
               >
                 Cancel
@@ -1665,74 +2366,62 @@ function WorkflowsPage() {
               <button
                 onClick={handleConfirmDelete}
                 style={{
-                  padding: '10px 24px',
-                  borderRadius: '12px',
-                  background: '#dc2626',
-                  border: 'none',
-                  color: 'white',
+                  padding: '7px 16px',
+                  borderRadius: '6px',
                   fontSize: '13px',
-                  fontWeight: '800',
+                  fontWeight: 600,
+                  backgroundColor: '#dc2626',
+                  color: '#fff',
+                  border: 'none',
                   cursor: 'pointer',
-                  boxShadow: '0 2px 10px rgba(220, 38, 38, 0.3)'
                 }}
               >
-                Delete Permanently
+                Delete
               </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* FULL-SCREEN VISUAL STUDIO (n8n / Make Node Canvas) */}
+      {/* ── FULL-SCREEN VISUAL STUDIO (DAG CANVAS) ───────────────────── */}
       {fullCanvasWorkflow && (
-        <div
-          style={{
-            position: 'fixed',
-            inset: 0,
-            zIndex: 9999,
-            background: 'rgba(5, 8, 16, 0.95)',
-            backdropFilter: 'blur(12px)',
+        <div style={{
+          position: 'fixed',
+          inset: 0,
+          zIndex: 9999,
+          backgroundColor: '#070b14',
+          display: 'flex',
+          flexDirection: 'column',
+          padding: '12px',
+        }}>
+          <div style={{
             display: 'flex',
-            flexDirection: 'column',
-            padding: '16px',
-          }}
-        >
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              padding: '12px 20px',
-              background: '#0d1322',
-              borderRadius: '16px 16px 0 0',
-              border: '1px solid rgba(255, 255, 255, 0.1)',
-              borderBottom: 'none',
-            }}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-              <span style={{ fontSize: '20px' }}>🔮</span>
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            padding: '12px 18px',
+            backgroundColor: '#0d1322',
+            borderRadius: '12px 12px 0 0',
+            border: '1px solid rgba(255, 255, 255, 0.1)',
+            borderBottom: 'none',
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <Network size={18} color="#818cf8" />
               <div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <h3 style={{ margin: 0, color: 'white', fontSize: '16px', fontWeight: '800' }}>
+                  <h3 style={{ margin: 0, color: '#ffffff', fontSize: '15px', fontWeight: 600 }}>
                     {fullCanvasWorkflow.name || 'Visual Workflow Studio'}
                   </h3>
-                  <span
-                    style={{
-                      fontSize: '10px',
-                      fontFamily: 'monospace',
-                      padding: '2px 8px',
-                      borderRadius: '4px',
-                      background: 'rgba(56, 189, 248, 0.1)',
-                      color: '#38bdf8',
-                      border: '1px solid rgba(56, 189, 248, 0.2)',
-                    }}
-                  >
-                    n8n &amp; Make DAG Canvas
+                  <span style={{
+                    fontSize: '10px',
+                    fontFamily: 'monospace',
+                    padding: '2px 6px',
+                    borderRadius: '4px',
+                    backgroundColor: 'rgba(56, 189, 248, 0.15)',
+                    color: '#38bdf8',
+                  }}>
+                    Canvas Mode
                   </span>
                 </div>
-                <p style={{ margin: 0, color: '#94a3b8', fontSize: '11px' }}>
-                  Drag &amp; drop actions, connect handles, configure branching routers, and test pipeline live.
-                </p>
               </div>
             </div>
 
@@ -1742,17 +2431,21 @@ function WorkflowsPage() {
                 setCanvasExecution(null);
               }}
               style={{
-                padding: '8px 16px',
-                borderRadius: '10px',
-                background: 'rgba(255, 255, 255, 0.1)',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                padding: '6px 12px',
+                borderRadius: '6px',
+                backgroundColor: 'rgba(255, 255, 255, 0.08)',
                 border: '1px solid rgba(255, 255, 255, 0.15)',
-                color: 'white',
+                color: '#ffffff',
                 fontSize: '12px',
-                fontWeight: '700',
+                fontWeight: 500,
                 cursor: 'pointer',
               }}
             >
-              ✕ Close Studio
+              <X size={14} />
+              <span>Close Canvas</span>
             </button>
           </div>
 
@@ -1772,6 +2465,15 @@ function WorkflowsPage() {
           </div>
         </div>
       )}
+
+      <style>{`
+        .spin {
+          animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+          to { transform: rotate(360deg); }
+        }
+      `}</style>
     </DashboardShell>
   );
 }
