@@ -36,6 +36,7 @@ import {
   Shield,
   Sparkles,
   Sliders,
+  Menu,
 } from 'lucide-react';
 import SettingsModal from '../components/SettingsModal';
 import { trackEvent } from '../lib/analytics';
@@ -147,9 +148,11 @@ function CodeBlock({ language, code, onOpenArtifact }) {
           </button>
         </div>
       </div>
-      <pre>
-        <code className="block-code">{code}</code>
-      </pre>
+      <div className="code-wrapper">
+        <pre tabIndex={0}>
+          <code className="block-code">{code}</code>
+        </pre>
+      </div>
     </div>
   );
 }
@@ -183,6 +186,51 @@ function renderMarkdown(text, onOpenArtifact) {
       continue;
     }
 
+    // Markdown Tables
+    if (line.trim().startsWith('|') && line.includes('|')) {
+      const tableLines = [];
+      while (i < lines.length && lines[i].trim().startsWith('|')) {
+        tableLines.push(lines[i].trim());
+        i++;
+      }
+      if (tableLines.length >= 2) {
+        const parseRow = (rowStr) =>
+          rowStr
+            .split('|')
+            .map((s) => s.trim())
+            .filter((_, idx, arr) => idx > 0 && idx < arr.length - 1);
+        const headerCols = parseRow(tableLines[0]);
+        const hasSep = tableLines[1].includes('---');
+        const bodyLines = tableLines.slice(hasSep ? 2 : 1);
+        elements.push(
+          <div key={`tbl-${i}`} className="table-container">
+            <table>
+              <thead>
+                <tr>
+                  {headerCols.map((col, cIdx) => (
+                    <th key={cIdx}>{renderInline(col)}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {bodyLines.map((rowStr, rIdx) => {
+                  const cells = parseRow(rowStr);
+                  return (
+                    <tr key={rIdx}>
+                      {cells.map((cell, cIdx) => (
+                        <td key={cIdx}>{renderInline(cell)}</td>
+                      ))}
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        );
+        continue;
+      }
+    }
+
     // Headings
     if (line.startsWith('### ')) {
       elements.push(<h3 key={i}>{renderInline(line.slice(4))}</h3>);
@@ -197,6 +245,34 @@ function renderMarkdown(text, onOpenArtifact) {
     if (line.startsWith('# ')) {
       elements.push(<h1 key={i}>{renderInline(line.slice(2))}</h1>);
       i++;
+      continue;
+    }
+
+    // Blockquotes
+    if (line.startsWith('> ')) {
+      const quoteLines = [];
+      while (i < lines.length && lines[i].startsWith('> ')) {
+        quoteLines.push(lines[i].slice(2));
+        i++;
+      }
+      elements.push(
+        <blockquote
+          key={`bq-${i}`}
+          style={{
+            borderLeft: '3px solid var(--accent)',
+            paddingLeft: '12px',
+            margin: '8px 0',
+            color: 'var(--text-secondary)',
+            overflowWrap: 'anywhere',
+            wordBreak: 'break-word',
+            maxWidth: '100%',
+          }}
+        >
+          {quoteLines.map((ql, qIdx) => (
+            <p key={qIdx} style={{ margin: '4px 0' }}>{renderInline(ql)}</p>
+          ))}
+        </blockquote>
+      );
       continue;
     }
 
@@ -254,17 +330,47 @@ function renderMarkdown(text, onOpenArtifact) {
 }
 
 function renderInline(text) {
-  // Process inline code, bold, italic
-  const parts = text.split(/(`[^`]+`|\*\*[^*]+\*\*|\*[^*]+\*)/g);
+  // Process inline code, bold, italic, links
+  const parts = text.split(/(`[^`]+`|\*\*[^*]+\*\*|\*[^*]+\*|\[[^\]]+\]\([^)]+\))/g);
   return parts.map((part, idx) => {
     if (part.startsWith('`') && part.endsWith('`')) {
-      return <code key={idx}>{part.slice(1, -1)}</code>;
+      return (
+        <code
+          key={idx}
+          style={{
+            overflowWrap: 'anywhere',
+            wordBreak: 'break-word',
+            maxWidth: '100%',
+          }}
+        >
+          {part.slice(1, -1)}
+        </code>
+      );
     }
     if (part.startsWith('**') && part.endsWith('**')) {
       return <strong key={idx}>{part.slice(2, -2)}</strong>;
     }
     if (part.startsWith('*') && part.endsWith('*')) {
       return <em key={idx}>{part.slice(1, -1)}</em>;
+    }
+    const linkMatch = part.match(/^\[([^\]]+)\]\(([^)]+)\)$/);
+    if (linkMatch) {
+      return (
+        <a
+          key={idx}
+          href={linkMatch[2]}
+          target="_blank"
+          rel="noopener noreferrer"
+          style={{
+            color: 'var(--accent)',
+            textDecoration: 'underline',
+            overflowWrap: 'anywhere',
+            wordBreak: 'break-word',
+          }}
+        >
+          {linkMatch[1]}
+        </a>
+      );
     }
     return part;
   });
@@ -2419,6 +2525,9 @@ If any check fails, revise the relevant section before output.`;
   };
 
   useEffect(() => {
+    if (typeof window !== 'undefined' && window.innerWidth <= 768) {
+      setSidebarCollapsed(true);
+    }
     const handleGlobalKeys = (e) => {
       const mod = e.metaKey || e.ctrlKey;
       if (mod && e.key === 'n') {
@@ -2641,17 +2750,37 @@ If any check fails, revise the relevant section before output.`;
 
         {/* ─── Main Workspace Area ─────────────────────────── */}
         <div className="workspace">
+          {/* Mobile backdrop for sidebar overlay */}
+          {!sidebarCollapsed && (
+            <div
+              className="mobile-sidebar-backdrop"
+              onClick={() => setSidebarCollapsed(true)}
+              aria-hidden="true"
+            />
+          )}
+
           <main
             className={`main-area ${activeArtifact ? 'with-artifact' : ''}`}
           >
             {/* Topbar Header */}
             <div className="topbar">
-              <span className="topbar-title">
-                {activeConvId
-                  ? conversations.find((c) => c.id === activeConvId)?.title ||
-                    'Conversation'
-                  : 'New Conversation'}
-              </span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0, flex: 1 }}>
+                <button
+                  className="topbar-btn sidebar-toggle-btn"
+                  onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
+                  title={sidebarCollapsed ? "Open sidebar" : "Collapse sidebar"}
+                  aria-label="Toggle sidebar"
+                  style={{ flexShrink: 0 }}
+                >
+                  <Menu size={15} />
+                </button>
+                <span className="topbar-title">
+                  {activeConvId
+                    ? conversations.find((c) => c.id === activeConvId)?.title ||
+                      'Conversation'
+                    : 'New Conversation'}
+                </span>
+              </div>
               <div className="topbar-actions">
                 {/* Export Menu Dropdown */}
                 <div style={{ position: 'relative' }}>

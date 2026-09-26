@@ -71,6 +71,16 @@
 }
 
 html,
+body,
+#__next,
+#root {
+  width: 100%;
+  max-width: 100%;
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
 body {
   overflow-x: hidden;
   overflow-y: auto;
@@ -83,6 +93,22 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
+.main-container {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+/* Images, SVGs, Videos, Canvases stay within bounds */
+img,
+svg,
+video,
+canvas {
+  max-width: 100%;
+  height: auto;
+}
+
 h1,
 h2,
 h3,
@@ -92,12 +118,88 @@ h6 {
   color: var(--text-primary);
   font-weight: 600;
   letter-spacing: -0.01em;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+p,
+span,
+li,
+td,
+th,
+blockquote {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+/* Global Code and Pre standards */
+pre {
+  max-width: 100%;
+  width: 100%;
+  min-width: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  box-sizing: border-box;
+  white-space: pre;
+  font-family: var(--font-mono);
+}
+
+code {
+  max-width: 100%;
+  box-sizing: border-box;
+  font-family: var(--font-mono);
+}
+
+/* Global responsive table container */
+.table-container {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  margin: 12px 0;
+  box-sizing: border-box;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--bg-surface);
+}
+
+.table-container table {
+  width: 100%;
+  min-width: 480px;
+  border-collapse: collapse;
+  font-size: 13px;
+  text-align: left;
+}
+
+.table-container th {
+  background: rgba(0, 0, 0, 0.02);
+  padding: 8px 14px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  border-bottom: 1px solid var(--border);
+}
+
+.table-container td {
+  padding: 8px 14px;
+  border-bottom: 1px solid var(--border);
+  color: var(--text-primary);
+}
+
+.table-container tr:last-child td {
+  border-bottom: none;
 }
 
 #__next {
   min-height: 100vh;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
   overflow-y: auto;
   overflow-x: hidden;
+  display: flex;
+  flex-direction: column;
 }
 
 ::-webkit-scrollbar {
@@ -583,21 +685,30 @@ h6 {
 .chat-root {
   display: flex;
   height: 100vh;
-  width: 100vw;
+  min-height: 100vh;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
   overflow: hidden;
   background: var(--bg-primary);
+  box-sizing: border-box;
+  position: relative;
 }
 
 /* ── Left Sidebar ────────────────────────────────── */
 .sidebar {
   width: var(--sidebar-width);
   min-width: var(--sidebar-width);
+  max-width: 100%;
   background: var(--bg-secondary);
   border-right: 1px solid var(--border);
   display: flex;
   flex-direction: column;
   overflow: hidden;
   z-index: 20;
+  flex-shrink: 0;
+  box-sizing: border-box;
+  transition: width 0.2s ease, min-width 0.2s ease, transform 0.2s ease;
 }
 
 .sidebar-header {
@@ -825,13 +936,19 @@ h6 {
 .workspace {
   display: flex;
   flex: 1;
+  min-width: 0;
+  width: 100%;
+  max-width: 100%;
   overflow: hidden;
   position: relative;
-  width: 100%;
+  box-sizing: border-box;
 }
 
 .main-area {
   flex: 1;
+  min-width: 0;
+  width: 100%;
+  max-width: 100%;
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -839,6 +956,7 @@ h6 {
               radial-gradient(circle at 15% 75%, rgba(59, 130, 246, 0.03) 0%, transparent 40%),
               #fafafc;
   position: relative;
+  box-sizing: border-box;
 }
 
 /* Background Wave Pattern Overlay */
@@ -847,6 +965,7 @@ h6 {
   top: 0;
   right: 0;
   width: 650px;
+  max-width: 100%;
   height: 480px;
   pointer-events: none;
   z-index: 1;
@@ -855,6 +974,7 @@ h6 {
 }
 .workspace-wave-overlay svg {
   width: 100%;
+  max-width: 100%;
   height: 100%;
 }
 
@@ -869,17 +989,27 @@ h6 {
   background: var(--bg-surface);
   flex-shrink: 0;
   z-index: 10;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
 }
 .topbar-title {
   font-size: 13.5px;
   font-weight: 600;
   color: var(--text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
 }
 
 .topbar-actions {
   display: flex;
   align-items: center;
   gap: 6px;
+  flex-shrink: 0;
+  min-width: 0;
 }
 
 .topbar-btn {
@@ -961,16 +1091,23 @@ h6 {
 /* ── Central Empty Workspace Hero ────────────────── */
 .messages-area {
   flex: 1;
+  min-width: 0;
+  width: 100%;
+  max-width: 100%;
   overflow-y: auto;
+  overflow-x: hidden;
   padding: 0 16px 14px;
   display: flex;
   flex-direction: column;
   position: relative;
   z-index: 2;
+  box-sizing: border-box;
 }
 
 .messages-empty {
   flex: 1;
+  min-width: 0;
+  max-width: 100%;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -978,6 +1115,7 @@ h6 {
   text-align: center;
   padding: 30px 16px 16px;
   width: 100%;
+  box-sizing: border-box;
 }
 
 .hero-icon-container {
@@ -991,6 +1129,7 @@ h6 {
   justify-content: center;
   margin-bottom: 14px;
   box-shadow: 0 2px 10px rgba(59, 130, 246, 0.06);
+  flex-shrink: 0;
 }
 
 .hero-title {
@@ -999,6 +1138,9 @@ h6 {
   color: var(--text-primary);
   margin-bottom: 6px;
   letter-spacing: -0.02em;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .hero-description {
@@ -1007,21 +1149,24 @@ h6 {
   max-width: 440px;
   line-height: 1.5;
   margin: 0 auto 28px;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 /* 2x2 Quick Actions Grid */
 .quick-actions-grid {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 10px;
   max-width: 660px;
   width: 100%;
   margin: 0 auto;
+  box-sizing: border-box;
 }
 
 @media (max-width: 680px) {
   .quick-actions-grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
   }
 }
 
@@ -1037,6 +1182,9 @@ h6 {
   text-align: left;
   transition: all var(--transition);
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.02);
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
 }
 .quick-action-card:hover {
   border-color: var(--border-hover);
@@ -1090,7 +1238,9 @@ h6 {
   padding: 10px 0;
   max-width: 860px;
   width: 100%;
+  min-width: 0;
   margin: 0 auto;
+  box-sizing: border-box;
   animation: msgFadeIn 0.15s ease-in-out;
 }
 @keyframes msgFadeIn {
@@ -1107,14 +1257,19 @@ h6 {
 .message-row.user {
   display: flex;
   justify-content: flex-end;
+  min-width: 0;
+  width: 100%;
 }
 .message-row.assistant {
   display: flex;
   justify-content: flex-start;
+  min-width: 0;
+  width: 100%;
 }
 
 .message-bubble-user {
-  max-width: 75%;
+  max-width: 80%;
+  min-width: 0;
   padding: 10px 16px;
   background: #eff6ff;
   border: 1px solid rgba(59, 130, 246, 0.2);
@@ -1122,14 +1277,19 @@ h6 {
   border-radius: 16px 16px 4px 16px;
   font-size: 14px;
   line-height: 1.6;
+  overflow-wrap: anywhere;
   word-break: break-word;
+  box-sizing: border-box;
 }
 
 .message-bubble-assistant {
+  width: 100%;
   max-width: 100%;
+  min-width: 0;
   display: flex;
   gap: 14px;
   align-items: flex-start;
+  box-sizing: border-box;
 }
 .assistant-avatar {
   width: 30px;
@@ -1147,13 +1307,21 @@ h6 {
 }
 .assistant-content {
   flex: 1;
+  min-width: 0;
+  width: 100%;
+  max-width: 100%;
   font-size: 14px;
   line-height: 1.65;
   color: var(--text-primary);
+  overflow-wrap: anywhere;
   word-break: break-word;
+  box-sizing: border-box;
 }
 .assistant-content p {
   margin: 0 0 10px;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 .assistant-content p:last-child {
   margin-bottom: 0;
@@ -1162,9 +1330,14 @@ h6 {
 .assistant-content ol {
   padding-left: 20px;
   margin: 6px 0 10px;
+  max-width: 100%;
+  box-sizing: border-box;
 }
 .assistant-content li {
   margin: 3px 0;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 .assistant-content h1,
 .assistant-content h2,
@@ -1172,6 +1345,9 @@ h6 {
   margin: 14px 0 6px;
   font-weight: 700;
   color: var(--text-primary);
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 .assistant-content strong {
   font-weight: 700;
@@ -1191,15 +1367,26 @@ h6 {
   border-radius: 4px;
   padding: 1px 5px;
   color: var(--accent);
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  box-sizing: border-box;
+  display: inline-block;
+  vertical-align: baseline;
 }
 
 /* Code block */
 .code-block {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
   margin: 10px 0;
   border-radius: var(--radius-md);
   overflow: hidden;
   border: 1px solid var(--border);
   background: #f8fafc;
+  box-sizing: border-box;
+  position: relative;
 }
 .code-block-header {
   display: flex;
@@ -1208,6 +1395,11 @@ h6 {
   padding: 7px 14px;
   background: rgba(0, 0, 0, 0.02);
   border-bottom: 1px solid var(--border);
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  gap: 8px;
 }
 .code-lang {
   font-size: 11px;
@@ -1215,6 +1407,16 @@ h6 {
   text-transform: uppercase;
   letter-spacing: 0.05em;
   color: var(--text-secondary);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.artifact-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
 }
 .copy-btn {
   display: flex;
@@ -1228,6 +1430,8 @@ h6 {
   font-size: 11px;
   cursor: pointer;
   transition: all var(--transition);
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 .copy-btn:hover {
   border-color: var(--accent);
@@ -1238,14 +1442,58 @@ h6 {
   border-color: var(--success);
 }
 
+.code-wrapper {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  box-sizing: border-box;
+  position: relative;
+  -webkit-overflow-scrolling: touch;
+}
+
+.code-wrapper pre,
 .code-block pre {
   margin: 0;
   padding: 14px 16px;
   overflow-x: auto;
+  overflow-y: hidden;
   font-family: var(--font-mono);
   font-size: 13px;
   line-height: 1.6;
   color: #24292e;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  white-space: pre;
+  word-wrap: normal;
+  -webkit-overflow-scrolling: touch;
+}
+
+.code-block code,
+.code-wrapper code,
+code.block-code {
+  display: block;
+  width: max-content;
+  min-width: 100%;
+  max-width: none;
+  box-sizing: border-box;
+  font-family: var(--font-mono);
+  white-space: pre;
+}
+
+:root[data-theme="dark"] .code-block {
+  background: #0d1117;
+  border-color: rgba(255, 255, 255, 0.1);
+}
+:root[data-theme="dark"] .code-block-header {
+  background: rgba(255, 255, 255, 0.03);
+  border-bottom-color: rgba(255, 255, 255, 0.1);
+}
+:root[data-theme="dark"] .code-block pre {
+  color: #e6edf3;
 }
 
 /* Thinking indicator */
@@ -1312,10 +1560,15 @@ h6 {
   padding: 0 16px 10px;
   max-width: 720px;
   width: 100%;
+  min-width: 0;
   margin: 0 auto;
+  box-sizing: border-box;
 }
 
 .composer-container {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
   background: var(--bg-surface);
   border: 1px solid var(--border);
   border-radius: 14px;
@@ -1323,6 +1576,7 @@ h6 {
   padding: 8px 12px 6px;
   transition: border-color var(--transition), box-shadow var(--transition);
   position: relative;
+  box-sizing: border-box;
 }
 .composer-container:focus-within {
   border-color: #cbd5e1;
@@ -1681,16 +1935,21 @@ h6 {
 }
 .main-area.with-artifact {
   flex: 1;
+  min-width: 0;
   max-width: 50%;
   border-right: 1px solid var(--border);
 }
 .artifact-pane {
   flex: 1;
+  min-width: 0;
+  max-width: 50%;
+  width: 100%;
   display: flex;
   flex-direction: column;
   background: var(--bg-secondary);
   border-left: 1px solid var(--border);
   overflow: hidden;
+  box-sizing: border-box;
   animation: slideInRight 0.3s cubic-bezier(0.16, 1, 0.3, 1);
 }
 @keyframes slideInRight {
@@ -1964,11 +2223,15 @@ h6 {
 .settings-layout {
   display: flex;
   height: 100vh;
-  width: 100vw;
+  min-height: 100vh;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
   background-color: var(--bg-primary);
   color: var(--text-primary);
   font-family: var(--font-sans);
   overflow: hidden;
+  box-sizing: border-box;
 }
 
 .settings-sidebar {
@@ -2221,3 +2484,143 @@ h6 {
   border: 1px solid rgba(239, 68, 68, 0.2);
   color: #ef4444;
 }
+
+/* ────────────────────────────────────────────────────────────
+   Comprehensive Responsive & Overflow Prevention Breakpoints
+   Supports: 320px, 375px, 414px, 768px, 1024px, 1280px, 1440px, 1920px
+   ──────────────────────────────────────────────────────────── */
+
+.mobile-sidebar-backdrop {
+  display: none;
+}
+
+@media (max-width: 1024px) {
+  .main-area.with-artifact {
+    max-width: 100%;
+  }
+  .artifact-pane {
+    position: fixed;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    width: 100%;
+    max-width: 480px;
+    z-index: 60;
+    box-shadow: -4px 0 24px rgba(0, 0, 0, 0.2);
+  }
+}
+
+@media (max-width: 768px) {
+  .sidebar {
+    position: fixed;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    z-index: 50;
+    width: 280px;
+    max-width: 82vw;
+    background: var(--bg-surface);
+    box-shadow: 4px 0 24px rgba(0, 0, 0, 0.15);
+  }
+
+  .mobile-sidebar-backdrop {
+    display: block;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.45);
+    z-index: 45;
+    backdrop-filter: blur(2px);
+  }
+
+  .topbar {
+    padding: 0 10px;
+    height: auto;
+    min-height: 48px;
+    gap: 8px;
+  }
+
+  .topbar-actions {
+    gap: 4px;
+    flex-wrap: wrap;
+  }
+
+  .topbar-select {
+    max-width: 130px;
+    font-size: 11.5px;
+  }
+
+  .messages-area {
+    padding: 0 10px 10px;
+  }
+
+  .message-row {
+    padding: 6px 0;
+  }
+
+  .message-bubble-user {
+    max-width: 90%;
+  }
+
+  .composer-area {
+    padding: 0 10px 8px;
+  }
+
+  .code-block pre,
+  .code-wrapper pre {
+    padding: 10px 12px;
+    font-size: 12px;
+  }
+}
+
+@media (max-width: 480px) {
+  .topbar-btn span {
+    display: none;
+  }
+
+  .topbar-select {
+    max-width: 105px;
+    font-size: 11px;
+    padding: 0 4px;
+  }
+
+  .message-bubble-assistant {
+    gap: 8px;
+  }
+
+  .assistant-avatar {
+    width: 26px;
+    height: 26px;
+    font-size: 11px;
+  }
+
+  .composer-container {
+    padding: 6px 10px 4px;
+    border-radius: 12px;
+  }
+
+  .chat-textarea {
+    font-size: 13px;
+  }
+
+  .quick-actions-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 360px) {
+  .topbar-select {
+    max-width: 90px;
+    font-size: 10.5px;
+  }
+
+  .message-bubble-user {
+    max-width: 95%;
+    font-size: 13px;
+    padding: 8px 12px;
+  }
+
+  .assistant-content {
+    font-size: 13px;
+  }
+}
+
