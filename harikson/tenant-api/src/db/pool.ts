@@ -210,15 +210,20 @@ async function checkReplicationLag() {
     }
   }
 }
-setInterval(checkReplicationLag, 5000);
+
+if (process.env.NODE_ENV !== 'test') {
+  const lagInterval = setInterval(checkReplicationLag, 5000);
+  lagInterval.unref?.();
+}
 
 import crypto from 'crypto';
 import { Redis } from 'ioredis';
 
 export const redis = new Redis(process.env.REDIS_URL || 'redis://redis:6379', {
-  retryStrategy: (times) => Math.min(times * 50, 2000),
+  retryStrategy: (times) => (process.env.NODE_ENV === 'test' ? null : Math.min(times * 50, 2000)),
   maxRetriesPerRequest: 3,
   enableReadyCheck: true,
+  lazyConnect: process.env.NODE_ENV === 'test',
 });
 
 redis.on('error', (err) => logger.error('Pool Redis error:', err.message));

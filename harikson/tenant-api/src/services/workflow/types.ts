@@ -134,10 +134,15 @@ export interface IWorkflowStepConfig {
   webhookUrl?: string;
   message?: string;
 
-  // General settings:
+  // General settings & Phase 0 engine correctness:
   timeout?: number;
   maxRetries?: number;
   retryDelayMs?: number;
+  continueOnError?: boolean;
+  retry?: {
+    maxAttempts: number;
+    backoffMs?: number;
+  };
 
   [key: string]: any;
 }

@@ -7,6 +7,8 @@ import { WorkflowVersionService } from '../services/workflow/version.service.js'
 import { NodeRegistry } from '../services/workflow/nodes/index.js';
 import { CredentialService } from '../services/workflow/credential.service.js';
 import { WorkflowEventEmitter } from '../services/workflow/telemetry/events.js';
+import { enqueueWorkflowExecution } from '../services/workflow/queue.js';
+import { WorkflowScheduler } from '../services/workflow/scheduler.js';
 
 const router = Router();
 
@@ -214,9 +216,9 @@ router.post('/', async (req: any, res) => {
 
     const workflow = insertRes.rows[0];
 
-    // Create initial published version 1
+    // Create initial published version 1 if active
     try {
-      await WorkflowVersionService.saveDraft(
+      const draft = await WorkflowVersionService.saveDraft(
         tenantId,
         workflow.id,
         normalizedGraph,
@@ -224,7 +226,15 @@ router.post('/', async (req: any, res) => {
         'Initial version',
         req.user?.id
       );
-    } catch {}
+
+      if (status === 'active') {
+        await WorkflowVersionService.publishVersion(tenantId, workflow.id, draft.id, 'Initial published version');
+      }
+
+      await WorkflowScheduler.rearmWorkflow(workflow.id, tenantId);
+    } catch (verErr: any) {
+      logger.warn('[WorkflowRoutes] Could not finalize initial version or scheduler:', verErr.message);
+    }
 
     res.status(201).json(workflow);
   } catch (err: any) {
@@ -296,7 +306,9 @@ router.put('/:id', async (req: any, res) => {
       return res.status(404).json({ error: 'Workflow not found or unauthorized' });
     }
 
-    res.json(updateRes.rows[0]);
+    const updated = updateRes.rows[0];
+    await WorkflowScheduler.rearmWorkflow(id, tenantId);
+    res.json(updated);
   } catch (err: any) {
     logger.error('Update workflow error:', err);
     res.status(500).json({ error: 'Failed to update workflow' });
@@ -317,6 +329,7 @@ router.delete('/:id', async (req: any, res) => {
       return res.status(404).json({ error: 'Workflow not found or unauthorized' });
     }
 
+    await WorkflowScheduler.removeSchedule(id);
     res.json({ success: true, deletedId: id });
   } catch (err: any) {
     logger.error('Delete workflow error:', err);
@@ -423,6 +436,7 @@ router.post('/:id/publish', async (req: any, res) => {
     }
 
     const published = await WorkflowVersionService.publishVersion(tenantId, id, targetVersionId, changelog);
+    await WorkflowScheduler.rearmWorkflow(id, tenantId);
     res.json({ success: true, published });
   } catch (err: any) {
     logger.error('Publish version error:', err);
@@ -445,6 +459,7 @@ router.post('/:id/rollback', async (req: any, res) => {
       targetVersionId,
       req.user?.id
     );
+    await WorkflowScheduler.rearmWorkflow(id, tenantId);
     res.json({ success: true, version: rolledBack });
   } catch (err: any) {
     logger.error('Rollback error:', err);
@@ -456,7 +471,7 @@ router.post('/:id/rollback', async (req: any, res) => {
 // 6. EXECUTION & REAL-TIME TELEMETRY
 // ==============================================================================
 
-// POST /api/v1/workflows/:id/run or /execute - Manually execute workflow
+// POST /api/v1/workflows/:id/run or /execute - Manually execute workflow via BullMQ queue
 router.post(['/:id/run', '/:id/execute'], async (req: any, res) => {
   const { id } = req.params;
   const tenantId = req.tenant?.id;
@@ -471,21 +486,42 @@ router.post(['/:id/run', '/:id/execute'], async (req: any, res) => {
       return res.status(404).json({ error: 'Workflow not found or unauthorized' });
     }
 
-    const executionResult = await WorkflowEngine.executeWorkflow(
-      id,
-      'manual',
-      triggerPayload,
-      tenantId
-    );
+    const version = await WorkflowVersionService.getPublishedVersion(tenantId, id);
+    if (!version) {
+      return res.status(400).json({
+        error: 'Cannot execute workflow: No active or published version found. Workflows must be published before execution.',
+      });
+    }
 
-    res.json({
-      success: executionResult.status === 'completed',
-      message: `Workflow executed with status: ${executionResult.status}`,
-      ...executionResult,
+    // Pre-create execution record with 'queued' status
+    const execRes = await executeTenantQuery(tenantId, (client) =>
+      client.query(
+        `INSERT INTO workflow_executions (
+           workflow_id, workflow_version_id, tenant_id, status, trigger_type, trigger_payload, started_at
+         ) VALUES ($1, $2, $3, 'queued', 'manual', $4, NOW()) RETURNING id`,
+        [id, version.id, tenantId, JSON.stringify(triggerPayload)]
+      )
+    );
+    const executionId = execRes.rows[0].id;
+
+    // Enqueue to BullMQ
+    await enqueueWorkflowExecution({
+      executionId,
+      workflowId: id,
+      triggerType: 'manual',
+      payload: triggerPayload,
+      tenantId,
+    });
+
+    res.status(202).json({
+      success: true,
+      executionId,
+      status: 'queued',
+      message: 'Workflow queued for execution',
     });
   } catch (err: any) {
     logger.error('Run workflow error:', err);
-    res.status(500).json({ error: err.message || 'Failed to run workflow' });
+    res.status(500).json({ error: err.message || 'Failed to queue workflow run' });
   }
 });
 
@@ -577,6 +613,7 @@ router.get('/:id/executions/:execId/events', (req: any, res) => {
 router.post(['/:id/trigger', '/:id/webhook', '/:id/webhook/:token'], async (req: any, res) => {
   const { id, token } = req.params;
   const secretHeader = req.headers['x-workflow-secret'] || req.query.secret || token;
+  const idempotencyKey = (req.headers['x-idempotency-key'] as string) || req.body?.idempotency_key || req.body?.idempotencyKey;
 
   try {
     const wfRes = await pool.query(
@@ -598,24 +635,54 @@ router.post(['/:id/trigger', '/:id/webhook', '/:id/webhook/:token'], async (req:
       return res.status(401).json({ error: 'Invalid or missing webhook secret' });
     }
 
+    // Idempotency: on webhook-triggered execution, if matching row exists, return 200 with existing executionId
+    if (idempotencyKey) {
+      const existing = await pool.query(
+        `SELECT id, status FROM workflow_executions 
+         WHERE tenant_id = $1 AND idempotency_key = $2 LIMIT 1`,
+        [workflow.tenant_id, idempotencyKey]
+      );
+      if (existing.rows.length > 0) {
+        return res.status(200).json({
+          success: true,
+          executionId: existing.rows[0].id,
+          status: existing.rows[0].status,
+          duplicate: true,
+          message: 'Idempotent request: returning existing execution',
+        });
+      }
+    }
+
+    const version = await WorkflowVersionService.getPublishedVersion(workflow.tenant_id, id);
+    if (!version) {
+      return res.status(400).json({ error: 'Cannot trigger workflow: No published version found.' });
+    }
+
     const payload = req.body || {};
 
-    setImmediate(async () => {
-      try {
-        await WorkflowEngine.executeWorkflow(
-          workflow.id,
-          'webhook',
-          payload,
-          workflow.tenant_id
-        );
-      } catch (runErr) {
-        logger.error('Async webhook execution error:', runErr);
-      }
+    // Pre-create execution record with 'queued' status and idempotency_key
+    const execRes = await pool.query(
+      `INSERT INTO workflow_executions (
+         workflow_id, workflow_version_id, tenant_id, status, trigger_type, trigger_payload, idempotency_key, started_at
+       ) VALUES ($1, $2, $3, 'queued', 'webhook', $4, $5, NOW()) RETURNING id`,
+      [workflow.id, version.id, workflow.tenant_id, JSON.stringify(payload), idempotencyKey || null]
+    );
+    const executionId = execRes.rows[0].id;
+
+    // Enqueue to BullMQ worker (unified with manual execution)
+    await enqueueWorkflowExecution({
+      executionId,
+      workflowId: workflow.id,
+      triggerType: 'webhook',
+      payload,
+      tenantId: workflow.tenant_id,
     });
 
     res.status(202).json({
       success: true,
-      message: 'Workflow webhook accepted and scheduled for execution',
+      executionId,
+      status: 'queued',
+      message: 'Workflow webhook accepted and queued for execution',
       workflow_id: workflow.id,
     });
   } catch (err: any) {

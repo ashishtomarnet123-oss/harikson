@@ -214,6 +214,14 @@ export class HariksonScheduler {
 
     // 3. Start Workers
     this.startWorkers();
+
+    // 4. Initialize Workflow Cron Scheduler
+    try {
+      const { WorkflowScheduler } = await import('../services/workflow/scheduler.js');
+      await WorkflowScheduler.init();
+    } catch (schedErr) {
+      Logger.error('Failed to initialize WorkflowScheduler on boot:', schedErr);
+    }
   }
 
   public static async stopAll(timeoutMs = 10000): Promise<void> {
@@ -519,9 +527,9 @@ export class HariksonScheduler {
     this.workflowWorker = new Worker('workflowQueue', async (job: Job) => {
       this.recordWorkerRun('workflowWorker');
       try {
-        const { workflowId, triggerType, payload, tenantId } = job.data;
-        Logger.info(`⚡ [Workflow Worker] Executing queued workflow ${workflowId} (trigger: ${triggerType})...`);
-        await WorkflowEngine.executeWorkflow(workflowId, triggerType || 'manual', payload || {}, tenantId);
+        const { workflowId, triggerType, payload, tenantId, executionId } = job.data;
+        Logger.info(`⚡ [Workflow Worker] Executing queued workflow ${workflowId} (trigger: ${triggerType}, exec: ${executionId || 'new'})...`);
+        await WorkflowEngine.executeWorkflow(workflowId, triggerType || 'manual', payload || {}, tenantId, executionId);
       } catch (err: any) {
         this.recordWorkerError('workflowWorker', err);
         throw err;
