@@ -7,6 +7,7 @@ import {
   Mic,
   MicOff,
   Volume2,
+  Loader2,
   Paperclip,
   ArrowUp,
   Square,
@@ -54,7 +55,6 @@ import { BrowserTTSProvider } from '../src/voice/providers/BrowserTTSProvider';
 import { ChunkedSpeaker } from '../src/voice/tts/chunked-speaker';
 import { VADController } from '../src/voice/vad-controller';
 import { turnTelemetry } from '../src/voice/telemetry';
-import VoiceModeOverlay from '../components/voice/VoiceModeOverlay';
 
 /* ────────────────────────────────────────────────────────────
    Clipboard helper — navigator.clipboard is only defined in
@@ -3155,15 +3155,6 @@ If any check fails, revise the relevant section before output.`;
               )}
               <form onSubmit={sendMessage}>
                 <div className="composer-container">
-                  {/* Voice Mode Popover — anchored near the mic button */}
-                  <VoiceModeOverlay
-                    voiceState={voiceState}
-                    audioRms={audioRms}
-                    isVisible={isVoiceActive(voiceState.state)}
-                    onStop={stopVoiceMode}
-                    onSettings={() => setShowVoiceSettings(true)}
-                  />
-
                   {showSlashMenu && (
                     <div className="slash-command-popup">
                       {SLASH_COMMANDS.map((cmd, idx) => (
@@ -3234,23 +3225,29 @@ If any check fails, revise the relevant section before output.`;
                         <div
                           className="voice-inline-status"
                           style={
-                            isAISpeaking(voiceState.state) || isBusy(voiceState.state)
-                              ? { color: 'var(--accent)', background: 'rgba(99,102,241,0.08)', borderColor: 'rgba(99,102,241,0.2)' }
-                              : {}
+                            voiceState.state === 'vad_detecting'
+                              ? { color: '#10b981', background: 'rgba(16, 185, 129, 0.1)', borderColor: 'rgba(16, 185, 129, 0.28)' }
+                              : isAISpeaking(voiceState.state)
+                              ? { color: '#06b6d4', background: 'rgba(6, 182, 212, 0.1)', borderColor: 'rgba(6, 182, 212, 0.28)' }
+                              : isBusy(voiceState.state) || voiceState.state === 'processing' || voiceState.state === 'streaming'
+                              ? { color: '#a855f7', background: 'rgba(168, 85, 247, 0.1)', borderColor: 'rgba(168, 85, 247, 0.28)' }
+                              : voiceState.state === 'interrupted'
+                              ? { color: '#f59e0b', background: 'rgba(245, 158, 11, 0.1)', borderColor: 'rgba(245, 158, 11, 0.28)' }
+                              : { color: '#3b82f6', background: 'rgba(59, 130, 246, 0.1)', borderColor: 'rgba(59, 130, 246, 0.28)' }
                           }
                         >
                           {voiceState.state === 'processing' ? (
-                            <><Volume2 size={13} className="voice-status-icon" /> Thinking...</>
+                            <><Loader2 size={13} className="voice-status-icon animate-spin" /> Thinking...</>
                           ) : voiceState.state === 'streaming' ? (
-                            <><Volume2 size={13} className="voice-status-icon" /> Generating...</>
+                            <><Loader2 size={13} className="voice-status-icon animate-spin" /> Generating...</>
                           ) : isAISpeaking(voiceState.state) ? (
                             <><Volume2 size={13} className="voice-status-icon" /> Speaking...</>
                           ) : voiceState.state === 'vad_detecting' ? (
-                            <><span className="voice-pulse-dot" style={{ background: '#10b981' }} /> Hearing you...</>
+                            <><span className="voice-pulse-dot" style={{ background: '#10b981', boxShadow: '0 0 6px rgba(16, 185, 129, 0.7)' }} /> Hearing you...</>
                           ) : voiceState.state === 'interrupted' ? (
-                            <><span className="voice-pulse-dot" style={{ background: '#f59e0b' }} /> Interrupted...</>
+                            <><span className="voice-pulse-dot" style={{ background: '#f59e0b', boxShadow: '0 0 6px rgba(245, 158, 11, 0.7)' }} /> Interrupted...</>
                           ) : (
-                            <><span className="voice-pulse-dot" /> Listening...</>
+                            <><span className="voice-pulse-dot" style={{ background: '#3b82f6', boxShadow: '0 0 6px rgba(59, 130, 246, 0.7)' }} /> Listening...</>
                           )}
                         </div>
                       )}
