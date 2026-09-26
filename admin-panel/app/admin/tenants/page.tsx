@@ -373,12 +373,19 @@ const TIER_META: Record<
     badge: string;
   }
 > = {
-  starter: {
+  free: {
     color: '#94A3B8',
     bg: 'rgba(148, 163, 184, 0.1)',
     border: 'rgba(148, 163, 184, 0.2)',
     icon: Zap,
     badge: 'FREE',
+  },
+  starter: {
+    color: '#94A3B8',
+    bg: 'rgba(148, 163, 184, 0.1)',
+    border: 'rgba(148, 163, 184, 0.2)',
+    icon: Zap,
+    badge: 'STARTER',
   },
   professional: {
     color: '#6366F1',
@@ -395,6 +402,7 @@ const TIER_META: Record<
     badge: 'CUSTOM',
   },
 };
+
 
 const AVAILABLE_MODELS = [
   'Xarwiz-3B',
@@ -416,7 +424,7 @@ function FeatureValue({ feature }: { feature: PlanFeature }) {
       <XCircle size={16} className="text-gray-600" />
     );
   }
-  const val = feature.value as number;
+  const val = Number(feature.value) || 0;
   return (
     <span className="text-sm font-semibold text-white">
       {val === -1 ? '∞ Unlimited' : val.toLocaleString()}
@@ -439,16 +447,16 @@ function PlanEditModal({
 }) {
   const [draft, setDraft] = useState<Plan>({
     ...plan,
-    features: plan.features.map((f) => ({ ...f })),
+    features: (plan.features || []).map((f) => ({ ...f })),
   });
   const update = (field: keyof Plan, value: any) =>
     setDraft((prev) => ({ ...prev, [field]: value }));
   const toggleModel = (m: string) => {
     setDraft((prev) => ({
       ...prev,
-      modelAccess: prev.modelAccess.includes(m)
-        ? prev.modelAccess.filter((x) => x !== m)
-        : [...prev.modelAccess, m],
+      modelAccess: (prev.modelAccess || []).includes(m)
+        ? (prev.modelAccess || []).filter((x) => x !== m)
+        : [...(prev.modelAccess || []), m],
     }));
   };
   const updateFeature = (key: string, value: any) => {
@@ -1308,7 +1316,7 @@ export default function TenantPlanManager() {
     return matchesSearch && matchesStatus && matchesPlan;
   });
   const filteredViolations = violations.filter((v) =>
-    (v.tenant || '').toLowerCase().includes((filterTenant || '').toLowerCase())
+    (v.tenant || (v as any).key || '').toLowerCase().includes((filterTenant || '').toLowerCase())
   );
   // Subscriber counts derived from shared tenants state — no extra fetch needed
   const subscriberCount = (planId: string) =>
@@ -1409,7 +1417,9 @@ export default function TenantPlanManager() {
           },
           {
             label: 'Paying Tenants',
-            value: tenants.filter((t) => t.plan !== 'starter').length,
+            value: tenants.filter(
+              (t) => (t.plan || '').toLowerCase() !== 'starter' && (t.plan || '').toLowerCase() !== 'free'
+            ).length,
             color: '#7C3AED',
             icon: CreditCard,
           },
@@ -1496,26 +1506,29 @@ export default function TenantPlanManager() {
                 <CreditCard className="w-5 h-5 text-indigo-500" />
               </div>
               <div className="space-y-3 mt-4">
-                {tenants.slice(0, 4).map((t, idx) => (
-                  <div key={t.id} className="space-y-1">
-                    <div className="flex justify-between text-xs font-semibold">
-                      <span className="text-gray-300">
-                        {idx + 1}. {t.name}
-                      </span>
-                      <span className="text-gray-400 font-mono">
-                        {(t.tokens_used / 1000).toFixed(0)}K tokens
-                      </span>
+                {tenants.slice(0, 4).map((t, idx) => {
+                  const used = Number(t.tokens_used) || 0;
+                  return (
+                    <div key={t.id} className="space-y-1">
+                      <div className="flex justify-between text-xs font-semibold">
+                        <span className="text-gray-300">
+                          {idx + 1}. {t.name}
+                        </span>
+                        <span className="text-gray-400 font-mono">
+                          {(used / 1000).toFixed(0)}K tokens
+                        </span>
+                      </div>
+                      <div className="w-full bg-gray-950 h-2.5 rounded-full overflow-hidden">
+                        <div
+                          className="h-full bg-gradient-to-r from-indigo-500 to-purple-500 rounded-full"
+                          style={{
+                            width: `${Math.min(100, (used / 4000000) * 100)}%`,
+                          }}
+                        />
+                      </div>
                     </div>
-                    <div className="w-full bg-gray-950 h-2.5 rounded-full overflow-hidden">
-                      <div
-                        className="h-full bg-gradient-to-r from-indigo-500 to-purple-500 rounded-full"
-                        style={{
-                          width: `${Math.min(100, (t.tokens_used / 4000000) * 100)}%`,
-                        }}
-                      />
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           </section>{' '}
@@ -1603,8 +1616,8 @@ export default function TenantPlanManager() {
                     const planObj = plans.find(
                       (p) => (p.id || '').toLowerCase() === planId.toLowerCase()
                     );
-                    const tier = planObj?.tier || 'starter';
-                    const meta = TIER_META[tier] || TIER_META.starter;
+                    const tier = planObj?.tier || planId.toLowerCase() || 'starter';
+                    const meta = TIER_META[tier] || TIER_META[tier.toLowerCase()] || TIER_META.starter || TIER_META.free;
                     const planName = planObj?.name || (planId ? planId.toUpperCase() : 'STARTER');
 
                     return (
@@ -1617,7 +1630,7 @@ export default function TenantPlanManager() {
                             onClick={() => copyToClipboard(t.id)}
                             className="flex items-center gap-1.5 text-indigo-400 hover:text-indigo-300 transition-colors font-semibold font-mono"
                           >
-                            {t.id.substring(0, 8)}...{' '}
+                            {(t.id || '').substring(0, 8)}...{' '}
                             {copiedId === t.id ? (
                               <Check className="w-3.5 h-3.5 text-green-400" />
                             ) : (
@@ -1649,12 +1662,13 @@ export default function TenantPlanManager() {
                         </td>
                         <td className="py-4 px-6">
                           {(() => {
-                            const limit = t.token_limit ?? 0;
+                            const tokensUsed = Number(t.tokens_used) || 0;
+                            const limit = Number(t.token_limit) || 0;
                             if (limit <= 0 || limit === 999999999) {
                               return (
                                 <div className="flex flex-col gap-0.5">
                                   <span className="text-gray-300 font-mono text-xs">
-                                    {t.tokens_used.toLocaleString()}
+                                    {tokensUsed.toLocaleString()}
                                   </span>
                                   <span className="text-[9px] text-indigo-400 font-semibold">
                                     ∞ Unlimited quota
@@ -1665,7 +1679,7 @@ export default function TenantPlanManager() {
 
                             const percent = Math.min(
                               100,
-                              (t.tokens_used / limit) * 100
+                              (tokensUsed / limit) * 100
                             );
                             let barColor = 'bg-indigo-500';
                             let textColor = 'text-indigo-400';
@@ -1681,7 +1695,7 @@ export default function TenantPlanManager() {
                               <div className="space-y-1.5 min-w-[140px] max-w-[180px]">
                                 <div className="flex justify-between text-[11px] font-semibold">
                                   <span className="text-gray-300 font-mono">
-                                    {t.tokens_used.toLocaleString()}
+                                    {tokensUsed.toLocaleString()}
                                   </span>
                                   <span className={`font-mono ${textColor}`}>
                                     {percent.toFixed(1)}%
@@ -1801,18 +1815,26 @@ export default function TenantPlanManager() {
                     {filteredViolations.map((v, i) => (
                       <tr key={i} className="hover:bg-gray-800/10">
                         <td className="py-3 px-4 font-bold text-white">
-                          {v.tenant}
+                          {v.tenant || (v as any).key || 'Unknown'}
                         </td>
                         <td className="py-3 px-4 text-gray-500">
-                          {new Date(v.timestamp).toLocaleTimeString()}
+                          {v.timestamp
+                            ? new Date(v.timestamp).toLocaleTimeString()
+                            : (v as any).ttl_seconds !== undefined
+                            ? `${(v as any).ttl_seconds}s TTL`
+                            : 'N/A'}
                         </td>
-                        <td className="py-3 px-4 font-mono">{v.endpoint}</td>
-                        <td className="py-3 px-4 font-mono">{v.limit}</td>
+                        <td className="py-3 px-4 font-mono">
+                          {v.endpoint || (v as any).key?.split(':')[1] || 'API'}
+                        </td>
+                        <td className="py-3 px-4 font-mono">
+                          {v.limit ?? '—'}
+                        </td>
                         <td className="py-3 px-4 font-mono text-red-400">
-                          {v.actual}
+                          {v.actual ?? (v as any).count ?? 0}
                         </td>
                         <td className="py-3 px-4 text-right font-semibold text-amber-500">
-                          {v.action}
+                          {v.action || 'Throttled'}
                         </td>
                       </tr>
                     ))}
@@ -1852,33 +1874,37 @@ export default function TenantPlanManager() {
                         </td>
                       </tr>
                     )}
-                    {reconcile.map((r, i) => (
-                      <tr key={i} className="hover:bg-gray-800/10">
-                        <td className="py-3 px-4 font-bold text-white">
-                          {r.tenant}
-                        </td>
-                        <td className="py-3 px-4 font-mono text-gray-500 text-[10px]">
-                          {r.razorpay_id}
-                        </td>
-                        <td className="py-3 px-4 font-mono font-bold">
-                          ${r.amount.toFixed(2)}
-                        </td>
-                        <td className="py-3 px-4 font-semibold text-green-400">
-                          {r.status}
-                        </td>
-                        <td className="py-3 px-4 text-right">
-                          {r.mismatch ? (
-                            <span className="px-2 py-0.5 bg-red-950/30 border border-red-900/30 text-red-400 font-bold rounded text-[9px]">
-                              MISMATCH
-                            </span>
-                          ) : (
-                            <span className="px-2 py-0.5 bg-green-950/30 border border-green-900/30 text-green-400 font-bold rounded text-[9px]">
-                              OK
-                            </span>
-                          )}
-                        </td>
-                      </tr>
-                    ))}
+                    {reconcile.map((r, i) => {
+                      const amountNum = typeof r.amount === 'number' ? r.amount : parseFloat(String(r.amount)) || 0;
+                      const invoiceId = r.razorpay_id || (r as any).provider_invoice_id || '—';
+                      return (
+                        <tr key={i} className="hover:bg-gray-800/10">
+                          <td className="py-3 px-4 font-bold text-white">
+                            {r.tenant}
+                          </td>
+                          <td className="py-3 px-4 font-mono text-gray-500 text-[10px]">
+                            {invoiceId}
+                          </td>
+                          <td className="py-3 px-4 font-mono font-bold">
+                            ${amountNum.toFixed(2)}
+                          </td>
+                          <td className="py-3 px-4 font-semibold text-green-400">
+                            {r.status}
+                          </td>
+                          <td className="py-3 px-4 text-right">
+                            {r.mismatch ? (
+                              <span className="px-2 py-0.5 bg-red-950/30 border border-red-900/30 text-red-400 font-bold rounded text-[9px]">
+                                MISMATCH
+                              </span>
+                            ) : (
+                              <span className="px-2 py-0.5 bg-green-950/30 border border-green-900/30 text-green-400 font-bold rounded text-[9px]">
+                                OK
+                              </span>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
@@ -1961,8 +1987,8 @@ export default function TenantPlanManager() {
           {/* Plan cards */}
           <div className="flex flex-col gap-4">
             {plans.map((plan) => {
-              const meta = TIER_META[plan.tier] || TIER_META.starter;
-              const TierIcon = meta.icon;
+              const meta = TIER_META[plan.tier] || TIER_META[plan.tier?.toLowerCase()] || TIER_META.starter || TIER_META.free;
+              const TierIcon = meta?.icon || Zap;
               const isExpanded = expandedPlan === plan.id;
               const subCount = subscriberCount(plan.id);
               return (
@@ -2035,11 +2061,11 @@ export default function TenantPlanManager() {
                       <div className="text-[10px] text-gray-500 font-mono mt-1">
                         {plan.tokenLimit === -1
                           ? '∞ tokens'
-                          : `${(plan.tokenLimit / 1000000).toFixed(1)}M tokens`}
+                          : `${((Number(plan.tokenLimit) || 0) / 1000000).toFixed(1)}M tokens`}
                         {' · '}
                         {plan.tenantLimit === -1
                           ? '∞ tenants'
-                          : `${plan.tenantLimit} tenants`}
+                          : `${plan.tenantLimit ?? 0} tenants`}
                       </div>
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
@@ -2142,7 +2168,7 @@ export default function TenantPlanManager() {
                                 value:
                                   plan.tokenLimit === -1
                                     ? 'Unlimited'
-                                    : plan.tokenLimit.toLocaleString(),
+                                    : (Number(plan.tokenLimit) || 0).toLocaleString(),
                               },
                               {
                                 label: 'Max Active Tenants',
@@ -2323,7 +2349,7 @@ export default function TenantPlanManager() {
                           {key.key_prefix}...
                         </td>
                         <td className="py-3 px-4 font-mono text-gray-500">
-                          {key.tpm_limit.toLocaleString()} / {key.rpm_limit}
+                          {(Number(key.tpm_limit) || 0).toLocaleString()} / {key.rpm_limit ?? 0}
                         </td>
                         <td className="py-3 px-4 text-right">
                           <button
@@ -2525,7 +2551,7 @@ export default function TenantPlanManager() {
                   },
                   {
                     label: 'Cumulative Tokens Used',
-                    value: selectedTenant.tokens_used.toLocaleString(),
+                    value: (Number(selectedTenant.tokens_used) || 0).toLocaleString(),
                     className: 'text-white font-mono',
                   },
                 ].map((row) => (
@@ -2555,7 +2581,7 @@ export default function TenantPlanManager() {
                         <span className="text-gray-300 font-medium">
                           {selectedTenant.billing === 'custom'
                             ? 'Custom'
-                            : `₹${selectedTenant.price?.toLocaleString()}/mo`}
+                            : `₹${(Number(selectedTenant.price) || 0).toLocaleString()}/mo`}
                         </span>
                       </div>
                       <div>
@@ -2563,7 +2589,7 @@ export default function TenantPlanManager() {
                         <span className="text-gray-300 font-mono">
                           {selectedTenant.token_limit === -1
                             ? 'Unlimited'
-                            : selectedTenant.token_limit?.toLocaleString()}
+                            : (Number(selectedTenant.token_limit) || 0).toLocaleString()}
                         </span>
                       </div>
                       <div>
@@ -2591,7 +2617,7 @@ export default function TenantPlanManager() {
                           Model Permissions
                         </span>
                         <div className="flex flex-wrap gap-1">
-                          {selectedTenant.model_access.map((m) => (
+                          {(selectedTenant.model_access || []).map((m) => (
                             <span
                               key={m}
                               className="text-[10px] bg-slate-900 border border-slate-800 text-slate-400 px-2 py-0.5 rounded font-mono"

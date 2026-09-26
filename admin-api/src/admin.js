@@ -3589,7 +3589,21 @@ app.get('/admin/rate-limit-violations', adminAuth, async (req, res) => {
     for (const key of keys.slice(0, 50)) {
       const ttl = await redis.ttl(key);
       const val = await redis.get(key);
-      violations.push({ key, count: parseInt(val) || 0, ttl_seconds: ttl });
+      const count = parseInt(val) || 0;
+      const parts = key.split(':');
+      const endpoint = parts[1] || 'API';
+      const tenant = parts[2] || 'Global';
+      violations.push({
+        key,
+        tenant,
+        endpoint,
+        count,
+        actual: count,
+        limit: 100,
+        action: 'Throttled',
+        timestamp: new Date().toISOString(),
+        ttl_seconds: ttl,
+      });
     }
     res.status(200).json({ violations });
   } catch (err) {
@@ -3602,7 +3616,7 @@ app.get('/admin/rate-limit-violations', adminAuth, async (req, res) => {
 app.get('/admin/billing/reconciliation', adminAuth, async (req, res) => {
   try {
     const result = await pool.query(`
-      SELECT t.name as tenant, i.provider_invoice_id, i.amount, i.status,
+      SELECT t.name as tenant, i.provider_invoice_id, i.provider_invoice_id as razorpay_id, i.amount, i.status,
              i.provider, i.created_at
       FROM invoices i
       JOIN tenants t ON i.tenant_id = t.id
