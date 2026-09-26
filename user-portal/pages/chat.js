@@ -3155,6 +3155,15 @@ If any check fails, revise the relevant section before output.`;
               )}
               <form onSubmit={sendMessage}>
                 <div className="composer-container">
+                  {/* Voice Mode Popover — anchored near the mic button */}
+                  <VoiceModeOverlay
+                    voiceState={voiceState}
+                    audioRms={audioRms}
+                    isVisible={isVoiceActive(voiceState.state)}
+                    onStop={stopVoiceMode}
+                    onSettings={() => setShowVoiceSettings(true)}
+                  />
+
                   {showSlashMenu && (
                     <div className="slash-command-popup">
                       {SLASH_COMMANDS.map((cmd, idx) => (
@@ -3643,15 +3652,6 @@ If any check fails, revise the relevant section before output.`;
         )}
 
         {toast && <div className="toast-msg">{toast}</div>}
-
-        {/* Voice Mode Overlay — floating panel above chat input */}
-        <VoiceModeOverlay
-          voiceState={voiceState}
-          audioRms={audioRms}
-          isVisible={isVoiceActive(voiceState.state)}
-          onStop={stopVoiceMode}
-          onSettings={() => setShowVoiceSettings(true)}
-        />
 
         <SettingsModal
           isOpen={showSettingsModal}
