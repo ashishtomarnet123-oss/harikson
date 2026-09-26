@@ -48,6 +48,11 @@ import {
   CheckCircle2,
   Archive,
   Send,
+  Lock,
+  Key,
+  Shield,
+  Eye,
+  EyeOff,
 } from 'lucide-react';
 
 // ─── REUSABLE JSON / CODE COPY VIEWER ─────────────────────────────────────────
@@ -1709,6 +1714,353 @@ const WebhookTestModal = ({
   );
 };
 
+// ─── CONNECT CREDENTIAL MODAL (ENCRYPTED VAULT) ─────────────────────────────
+const ConnectCredentialModal = ({
+  isOpen,
+  onClose,
+  apiBase,
+  tenantSlug,
+  initialType = 'api_key',
+  onSuccess,
+}) => {
+  const [name, setName] = useState('');
+  const [type, setType] = useState(initialType || 'api_key');
+  const [isSaving, setIsSaving] = useState(false);
+  const [error, setError] = useState(null);
+
+  // Field states
+  const [apiKey, setApiKey] = useState('');
+  const [headerName, setHeaderName] = useState('X-API-Key');
+  const [bearerToken, setBearerToken] = useState('');
+  const [webhookUrl, setWebhookUrl] = useState('');
+  const [smtpHost, setSmtpHost] = useState('');
+  const [smtpPort, setSmtpPort] = useState('587');
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
+
+  useEffect(() => {
+    if (initialType) setType(initialType);
+  }, [initialType]);
+
+  if (!isOpen) return null;
+
+  const handleSave = async (e) => {
+    e.preventDefault();
+    if (!name.trim()) {
+      setError('Please provide a descriptive name for this credential');
+      return;
+    }
+
+    let secretData = {};
+    if (type === 'api_key') {
+      if (!apiKey.trim()) {
+        setError('API Key is required');
+        return;
+      }
+      secretData = { apiKey: apiKey.trim(), headerName: headerName.trim() || 'X-API-Key' };
+    } else if (type === 'bearer_token') {
+      if (!bearerToken.trim()) {
+        setError('Bearer token is required');
+        return;
+      }
+      secretData = { token: bearerToken.trim() };
+    } else if (type === 'slack' || type === 'discord') {
+      if (!webhookUrl.trim()) {
+        setError('Webhook URL is required');
+        return;
+      }
+      secretData = { webhookUrl: webhookUrl.trim() };
+    } else if (type === 'smtp') {
+      if (!smtpHost.trim() || !username.trim() || !password.trim()) {
+        setError('SMTP Host, Username, and Password are required');
+        return;
+      }
+      secretData = {
+        host: smtpHost.trim(),
+        port: parseInt(smtpPort, 10) || 587,
+        username: username.trim(),
+        password: password.trim(),
+      };
+    } else if (type === 'basic_auth') {
+      if (!username.trim() || !password.trim()) {
+        setError('Username and Password are required');
+        return;
+      }
+      secretData = { username: username.trim(), password: password.trim() };
+    }
+
+    setIsSaving(true);
+    setError(null);
+
+    try {
+      const base = apiBase || '';
+      const res = await fetch(`${base}/api/v1/workflows/credentials`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(tenantSlug ? { 'x-tenant-slug': tenantSlug } : {}),
+        },
+        body: JSON.stringify({
+          name: name.trim(),
+          type,
+          secretData,
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || 'Failed to save encrypted credential');
+      }
+
+      onClose();
+      if (onSuccess && data.credential) {
+        onSuccess(data.credential);
+      }
+    } catch (err) {
+      setError(err.message || 'Error saving credential');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4">
+      <div className="w-full max-w-lg bg-slate-900 border border-white/15 rounded-2xl shadow-2xl overflow-hidden flex flex-col">
+        {/* Header */}
+        <div className="px-6 py-5 border-b border-white/10 flex items-center justify-between bg-slate-950/40">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-cyan-500/20 border border-cyan-500/30 flex items-center justify-center text-cyan-400">
+              <Lock className="w-5 h-5" />
+            </div>
+            <div>
+              <h3 className="text-base font-bold text-white">Connect New Credential</h3>
+              <p className="text-xs text-slate-400">AES-256-GCM encrypted vault. Zero raw secrets stored in graph.</p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 transition"
+          >
+            <XCircle className="w-5 h-5" />
+          </button>
+        </div>
+
+        {/* Body */}
+        <form onSubmit={handleSave} className="p-6 space-y-4">
+          <div>
+            <label className="block text-xs font-semibold text-slate-300 mb-1">
+              Credential Name
+            </label>
+            <input
+              type="text"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="e.g. Production Slack Webhook or Stripe API Key"
+              className="w-full bg-slate-950/80 border border-white/10 rounded-xl px-3.5 py-2 text-xs text-slate-200 placeholder:text-slate-500 focus:outline-none focus:border-cyan-500"
+              required
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-semibold text-slate-300 mb-1">
+              Credential Type
+            </label>
+            <select
+              value={type}
+              onChange={(e) => setType(e.target.value)}
+              className="w-full bg-slate-950/80 border border-white/10 rounded-xl px-3.5 py-2 text-xs text-slate-200 focus:outline-none focus:border-cyan-500"
+            >
+              <option value="api_key">API Key (Custom Header)</option>
+              <option value="bearer_token">Bearer Token (OAuth / JWT)</option>
+              <option value="slack">Slack Incoming Webhook / Bot</option>
+              <option value="discord">Discord Webhook</option>
+              <option value="smtp">SMTP Email Server</option>
+              <option value="basic_auth">Basic Auth (Username / Password)</option>
+            </select>
+          </div>
+
+          {/* Conditional Inputs */}
+          {type === 'api_key' && (
+            <div className="space-y-3">
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 mb-1">
+                  API Key Secret
+                </label>
+                <input
+                  type="password"
+                  value={apiKey}
+                  onChange={(e) => setApiKey(e.target.value)}
+                  placeholder="sk_live_..."
+                  className="w-full bg-slate-950/80 border border-white/10 rounded-xl px-3.5 py-2 text-xs text-slate-200 font-mono placeholder:text-slate-500 focus:outline-none focus:border-cyan-500"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 mb-1">
+                  Header Name (Optional)
+                </label>
+                <input
+                  type="text"
+                  value={headerName}
+                  onChange={(e) => setHeaderName(e.target.value)}
+                  placeholder="X-API-Key"
+                  className="w-full bg-slate-950/80 border border-white/10 rounded-xl px-3.5 py-2 text-xs text-slate-200 font-mono placeholder:text-slate-500 focus:outline-none focus:border-cyan-500"
+                />
+              </div>
+            </div>
+          )}
+
+          {type === 'bearer_token' && (
+            <div>
+              <label className="block text-xs font-semibold text-slate-300 mb-1">
+                Bearer Token
+              </label>
+              <input
+                type="password"
+                value={bearerToken}
+                onChange={(e) => setBearerToken(e.target.value)}
+                placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6..."
+                className="w-full bg-slate-950/80 border border-white/10 rounded-xl px-3.5 py-2 text-xs text-slate-200 font-mono placeholder:text-slate-500 focus:outline-none focus:border-cyan-500"
+                required
+              />
+            </div>
+          )}
+
+          {(type === 'slack' || type === 'discord') && (
+            <div>
+              <label className="block text-xs font-semibold text-slate-300 mb-1">
+                {type === 'slack' ? 'Slack Webhook URL' : 'Discord Webhook URL'}
+              </label>
+              <input
+                type="text"
+                value={webhookUrl}
+                onChange={(e) => setWebhookUrl(e.target.value)}
+                placeholder={type === 'slack' ? 'https://hooks.slack.com/services/...' : 'https://discord.com/api/webhooks/...'}
+                className="w-full bg-slate-950/80 border border-white/10 rounded-xl px-3.5 py-2 text-xs text-slate-200 font-mono placeholder:text-slate-500 focus:outline-none focus:border-cyan-500"
+                required
+              />
+            </div>
+          )}
+
+          {type === 'smtp' && (
+            <div className="space-y-3">
+              <div className="grid grid-cols-3 gap-2">
+                <div className="col-span-2">
+                  <label className="block text-xs font-semibold text-slate-300 mb-1">SMTP Host</label>
+                  <input
+                    type="text"
+                    value={smtpHost}
+                    onChange={(e) => setSmtpHost(e.target.value)}
+                    placeholder="smtp.sendgrid.net"
+                    className="w-full bg-slate-950/80 border border-white/10 rounded-xl px-3 py-2 text-xs text-slate-200 font-mono focus:outline-none focus:border-cyan-500"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1">Port</label>
+                  <input
+                    type="text"
+                    value={smtpPort}
+                    onChange={(e) => setSmtpPort(e.target.value)}
+                    placeholder="587"
+                    className="w-full bg-slate-950/80 border border-white/10 rounded-xl px-3 py-2 text-xs text-slate-200 font-mono focus:outline-none focus:border-cyan-500"
+                    required
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1">Username</label>
+                  <input
+                    type="text"
+                    value={username}
+                    onChange={(e) => setUsername(e.target.value)}
+                    placeholder="apikey"
+                    className="w-full bg-slate-950/80 border border-white/10 rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-cyan-500"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1">Password</label>
+                  <input
+                    type="password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="••••••••"
+                    className="w-full bg-slate-950/80 border border-white/10 rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-cyan-500"
+                    required
+                  />
+                </div>
+              </div>
+            </div>
+          )}
+
+          {type === 'basic_auth' && (
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 mb-1">Username</label>
+                <input
+                  type="text"
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
+                  className="w-full bg-slate-950/80 border border-white/10 rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-cyan-500"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 mb-1">Password</label>
+                <input
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="w-full bg-slate-950/80 border border-white/10 rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-cyan-500"
+                  required
+                />
+              </div>
+            </div>
+          )}
+
+          {error && (
+            <div className="p-3 rounded-xl bg-red-950/70 border border-red-500/40 text-red-200 text-xs flex items-center gap-2">
+              <AlertTriangle className="w-4 h-4 text-red-400 shrink-0" />
+              <span>{error}</span>
+            </div>
+          )}
+
+          <div className="pt-2 flex items-center justify-end gap-2.5">
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-4 py-2 rounded-xl text-xs font-medium text-slate-300 hover:text-white hover:bg-white/10 transition"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={isSaving}
+              className="flex items-center gap-2 px-5 py-2 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-semibold transition shadow-lg shadow-cyan-600/30 disabled:opacity-50"
+            >
+              {isSaving ? (
+                <>
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  <span>Encrypting & Storing...</span>
+                </>
+              ) : (
+                <>
+                  <Lock className="w-3.5 h-3.5" />
+                  <span>Save to Vault</span>
+                </>
+              )}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+};
+
 // ─── MAIN VISUAL WORKFLOW EDITOR COMPONENT ────────────────────────────────────
 
 export default function VisualWorkflowEditor({
@@ -1839,6 +2191,58 @@ export default function VisualWorkflowEditor({
   const [showWebhookTestModal, setShowWebhookTestModal] = useState(false);
   const [nodeContextMenu, setNodeContextMenu] = useState(null);
   const activeSseRef = useRef(null);
+
+  // Phase 4: Encrypted Credential Vault & Dynamic Metadata Catalog State
+  const [credentials, setCredentials] = useState([]);
+  const [showConnectCredModal, setShowConnectCredModal] = useState(false);
+  const [connectCredType, setConnectCredType] = useState('api_key');
+  const [dynamicCatalog, setDynamicCatalog] = useState([]);
+
+  // Fetch encrypted credentials
+  const fetchCredentials = useCallback(async () => {
+    try {
+      const base = apiBase || '';
+      const res = await fetch(`${base}/api/v1/workflows/credentials`, {
+        credentials: 'include',
+        headers: tenantSlug ? { 'x-tenant-slug': tenantSlug } : {},
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.success && Array.isArray(data.credentials)) {
+          setCredentials(data.credentials);
+        }
+      }
+    } catch (err) {
+      console.error('Failed to fetch credentials:', err);
+    }
+  }, [apiBase, tenantSlug]);
+
+  useEffect(() => {
+    fetchCredentials();
+  }, [fetchCredentials]);
+
+  // Fetch registered node metadata catalog
+  const fetchNodeMetadata = useCallback(async () => {
+    try {
+      const base = apiBase || '';
+      const res = await fetch(`${base}/api/v1/workflows/metadata/nodes`, {
+        credentials: 'include',
+        headers: tenantSlug ? { 'x-tenant-slug': tenantSlug } : {},
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.success && Array.isArray(data.nodes)) {
+          setDynamicCatalog(data.nodes);
+        }
+      }
+    } catch (err) {
+      console.error('Failed to fetch dynamic node metadata:', err);
+    }
+  }, [apiBase, tenantSlug]);
+
+  useEffect(() => {
+    fetchNodeMetadata();
+  }, [fetchNodeMetadata]);
 
   // Cleanup active SSE stream on unmount
   useEffect(() => {
@@ -2602,6 +3006,30 @@ export default function VisualWorkflowEditor({
           defaultConfig: { condition: 'contains', threshold: '' },
         },
         {
+          type: 'switch',
+          reactNodeType: 'routerNode',
+          label: 'Multi-Branch Switch',
+          desc: 'Route execution into multiple matching conditional pathways',
+          icon: <GitBranch className="w-4 h-4 text-emerald-400" />,
+          defaultConfig: { rules: [] },
+        },
+        {
+          type: 'delay',
+          reactNodeType: 'routerNode',
+          label: 'Delay / Timer Pause',
+          desc: 'Pause execution for a specified duration before proceeding',
+          icon: <Clock className="w-4 h-4 text-purple-400" />,
+          defaultConfig: { durationMs: 1000 },
+        },
+        {
+          type: 'loop',
+          reactNodeType: 'routerNode',
+          label: 'Batch / Item Loop',
+          desc: 'Iterate over array elements or paginated data items',
+          icon: <RefreshCw className="w-4 h-4 text-cyan-400" />,
+          defaultConfig: { batchSize: 10 },
+        },
+        {
           type: 'code',
           reactNodeType: 'codeNode',
           label: 'JavaScript Transform',
@@ -3133,6 +3561,149 @@ export default function VisualWorkflowEditor({
               </div>
             )}
 
+            {selectedNode.type === 'slackNode' && (
+              <div className="space-y-3">
+                <div>
+                  <label className="text-[11px] font-medium text-slate-300 block mb-1">Target Channel</label>
+                  <input
+                    type="text"
+                    value={selectedNode.data?.config?.channel || '#alerts'}
+                    onChange={(e) =>
+                      updateNodeData({
+                        config: { ...selectedNode.data.config, channel: e.target.value },
+                      })
+                    }
+                    placeholder="#alerts"
+                    className="w-full px-2.5 py-1.5 rounded-lg bg-black/40 border border-white/10 text-xs text-white font-mono"
+                  />
+                </div>
+                <div>
+                  <label className="text-[11px] font-medium text-slate-300 block mb-1">Alert Message Template</label>
+                  <textarea
+                    rows={3}
+                    value={selectedNode.data?.value || selectedNode.data?.config?.message || ''}
+                    onChange={(e) =>
+                      updateNodeData({
+                        value: e.target.value,
+                        config: { ...selectedNode.data.config, message: e.target.value },
+                      })
+                    }
+                    placeholder="Alert: Workflow event triggered for {{prev.output}}..."
+                    className="w-full px-2.5 py-1.5 rounded-lg bg-black/40 border border-white/10 text-xs text-white font-mono"
+                  />
+                </div>
+              </div>
+            )}
+
+            {selectedNode.type === 'emailNode' && (
+              <div className="space-y-3">
+                <div>
+                  <label className="text-[11px] font-medium text-slate-300 block mb-1">Recipient (To)</label>
+                  <input
+                    type="email"
+                    value={selectedNode.data?.config?.to || ''}
+                    onChange={(e) =>
+                      updateNodeData({
+                        config: { ...selectedNode.data.config, to: e.target.value },
+                      })
+                    }
+                    placeholder="support@xarwiz.com"
+                    className="w-full px-2.5 py-1.5 rounded-lg bg-black/40 border border-white/10 text-xs text-white font-mono"
+                  />
+                </div>
+                <div>
+                  <label className="text-[11px] font-medium text-slate-300 block mb-1">Subject</label>
+                  <input
+                    type="text"
+                    value={selectedNode.data?.config?.subject || ''}
+                    onChange={(e) =>
+                      updateNodeData({
+                        config: { ...selectedNode.data.config, subject: e.target.value },
+                      })
+                    }
+                    placeholder="Workflow Notification"
+                    className="w-full px-2.5 py-1.5 rounded-lg bg-black/40 border border-white/10 text-xs text-white"
+                  />
+                </div>
+                <div>
+                  <label className="text-[11px] font-medium text-slate-300 block mb-1">Email Body Template</label>
+                  <textarea
+                    rows={3}
+                    value={selectedNode.data?.value || selectedNode.data?.config?.bodyTemplate || ''}
+                    onChange={(e) =>
+                      updateNodeData({
+                        value: e.target.value,
+                        config: { ...selectedNode.data.config, bodyTemplate: e.target.value },
+                      })
+                    }
+                    placeholder="Hello, please review {{prev.output}}..."
+                    className="w-full px-2.5 py-1.5 rounded-lg bg-black/40 border border-white/10 text-xs text-white font-mono"
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* Phase 4: Secure Credential Vault Selector (Zero raw secret exposure) */}
+            {['webhookNode', 'slackNode', 'emailNode'].includes(selectedNode.type) && (
+              <div className="space-y-2 pt-2 border-t border-white/10">
+                <div className="flex items-center justify-between">
+                  <label className="text-[11px] font-semibold text-slate-300 flex items-center gap-1.5">
+                    <Lock className="w-3.5 h-3.5 text-cyan-400" />
+                    <span>Vault Credential</span>
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setConnectCredType(
+                        selectedNode.type === 'slackNode' ? 'slack' :
+                        selectedNode.type === 'emailNode' ? 'smtp' : 'api_key'
+                      );
+                      setShowConnectCredModal(true);
+                    }}
+                    className="text-[10px] font-semibold text-cyan-400 hover:text-cyan-300 transition flex items-center gap-1"
+                  >
+                    <Plus className="w-3 h-3" />
+                    <span>Connect New</span>
+                  </button>
+                </div>
+
+                <select
+                  value={selectedNode.data?.config?.credentialId || ''}
+                  onChange={(e) =>
+                    updateNodeData({
+                      config: { ...selectedNode.data.config, credentialId: e.target.value },
+                    })
+                  }
+                  className="w-full px-2.5 py-1.5 rounded-lg bg-black/40 border border-white/10 text-xs text-white focus:outline-none focus:border-cyan-500 font-medium"
+                >
+                  <option value="">None (Public / Direct URL)</option>
+                  {credentials
+                    .filter((c) => {
+                      if (selectedNode.type === 'slackNode') return c.type === 'slack' || c.type === 'discord';
+                      if (selectedNode.type === 'emailNode') return c.type === 'smtp' || c.type === 'api_key';
+                      if (selectedNode.type === 'webhookNode') return c.type === 'api_key' || c.type === 'bearer_token' || c.type === 'basic_auth';
+                      return true;
+                    })
+                    .map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.name} ({c.type}) — {c.metadata?.preview || '••••••••'}
+                      </option>
+                    ))}
+                </select>
+
+                {selectedNode.data?.config?.credentialId ? (
+                  <div className="p-2 rounded-lg bg-emerald-950/40 border border-emerald-500/30 text-[10px] text-emerald-300 flex items-center gap-1.5">
+                    <Shield className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                    <span>AES-256 encrypted credential bound. Zero raw secrets stored in graph.</span>
+                  </div>
+                ) : (
+                  <p className="text-[10px] text-slate-500">
+                    Bind an encrypted secret to keep tokens out of the workflow definition.
+                  </p>
+                )}
+              </div>
+            )}
+
             {/* Run Output Telemetry & Checkpoint Viewer */}
             {(selectedNode.data?.output !== undefined || selectedNode.data?.input !== undefined || selectedNode.data?.error) && (
               <div className="pt-3 border-t border-white/10 space-y-2">
@@ -3229,6 +3800,31 @@ export default function VisualWorkflowEditor({
           setShowExecutionInspector(true);
           fetchExecutionCheckpoints(execId);
           handleStartTelemetryStream(execId);
+        }}
+      />
+
+      {/* ─── CONNECT CREDENTIAL MODAL (ENCRYPTED VAULT) ───────────────────── */}
+      <ConnectCredentialModal
+        isOpen={showConnectCredModal}
+        onClose={() => setShowConnectCredModal(false)}
+        apiBase={apiBase}
+        tenantSlug={tenantSlug}
+        initialType={connectCredType}
+        onSuccess={(newCred) => {
+          fetchCredentials();
+          if (selectedNode) {
+            updateNodeData({
+              config: {
+                ...selectedNode.data.config,
+                credentialId: newCred.id,
+              },
+            });
+          }
+          setToastMessage({
+            type: 'success',
+            text: `Credential "${newCred.name}" encrypted & saved to vault!`,
+          });
+          setTimeout(() => setToastMessage(null), 4000);
         }}
       />
 

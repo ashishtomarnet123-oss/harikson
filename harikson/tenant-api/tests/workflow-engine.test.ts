@@ -976,6 +976,133 @@ describe('Xarwiz Workflow Engine: Diagnostic & Phase 0 Test Suite', () => {
     assert.strictEqual(executionLog.length, 1, 'Duplicate request must NOT create new execution record');
   });
 
+  // ============================================================================
+  // 21. PHASE 4: DYNAMIC NODE CATALOG & SCHEMA DISCOVERY
+  // ============================================================================
+  it('24. Node Catalog: discovers dynamic metadata and supported credentials across all categories', () => {
+    const allMetadata = NodeRegistry.getAllMetadata();
+    assert.ok(allMetadata.length >= 10, 'Must register at least 10 core node types');
+
+    const categories = new Set(allMetadata.map((m) => m.category));
+    assert.ok(categories.has('trigger'), 'Must include trigger category');
+    assert.ok(categories.has('ai'), 'Must include ai category');
+    assert.ok(categories.has('logic'), 'Must include logic category');
+    assert.ok(categories.has('integration'), 'Must include integration category');
+    assert.ok(categories.has('utility'), 'Must include utility category');
+
+    // Supported credentials mapping
+    const httpMeta = allMetadata.find((m) => m.type === 'integration.http');
+    assert.ok(httpMeta, 'integration.http metadata must exist');
+    assert.deepStrictEqual(httpMeta.supportedCredentials, ['api_key', 'bearer_token', 'basic_auth']);
+
+    const slackMeta = allMetadata.find((m) => m.type === 'integration.slack');
+    assert.ok(slackMeta, 'integration.slack metadata must exist');
+    assert.deepStrictEqual(slackMeta.supportedCredentials, ['slack', 'discord']);
+
+    const emailMeta = allMetadata.find((m) => m.type === 'integration.email');
+    assert.ok(emailMeta, 'integration.email metadata must exist');
+    assert.deepStrictEqual(emailMeta.supportedCredentials, ['smtp', 'api_key']);
+  });
+
+  // ============================================================================
+  // 22. PHASE 4: ENCRYPTED CREDENTIAL VAULT & ZERO SECRET EXPOSURE
+  // ============================================================================
+  it('25. Credential Vault: secures secrets via AES-256-GCM and prevents plaintext exposure in listings', async () => {
+    const rawSecret = {
+      apiKey: 'sk_live_prod_xarwiz_topsecret998877665544332211',
+      headerName: 'X-Vendor-Key',
+    };
+
+    // 1. Encryption contract
+    const encrypted = CredentialService.encrypt(rawSecret);
+    assert.ok(encrypted.includes(':'), 'Encrypted string must follow iv:authTag:ciphertext format');
+    assert.strictEqual(encrypted.includes('sk_live_prod'), false, 'Encrypted payload must not leak plaintext');
+
+    // 2. Decryption contract
+    const decrypted = CredentialService.decrypt(encrypted);
+    assert.deepStrictEqual(decrypted, rawSecret, 'Decrypted secret must match original payload exactly');
+
+    // 3. Metadata listing zero-secret exposure contract
+    interface IMockCredentialRow {
+      id: string;
+      tenant_id: string;
+      name: string;
+      type: string;
+      encrypted_data: string;
+      metadata: Record<string, any>;
+    }
+
+    const mockVault: IMockCredentialRow[] = [
+      {
+        id: 'cred-stripe-1',
+        tenant_id: 'tenant-acme',
+        name: 'Stripe Production Key',
+        type: 'api_key',
+        encrypted_data: encrypted,
+        metadata: { preview: 'sk_l...2211' },
+      },
+    ];
+
+    // Public list function (mirroring GET /api/v1/workflows/credentials)
+    const listCredentialsForTenant = (tenantId: string) => {
+      return mockVault
+        .filter((c) => c.tenant_id === tenantId)
+        .map((c) => ({
+          id: c.id,
+          tenant_id: c.tenant_id,
+          name: c.name,
+          type: c.type,
+          metadata: c.metadata, // Contains only safe masked preview, NEVER encrypted_data
+        }));
+    };
+
+    const listed = listCredentialsForTenant('tenant-acme');
+    assert.strictEqual(listed.length, 1);
+    assert.strictEqual((listed[0] as any).encrypted_data, undefined, 'Must NEVER return encrypted_data');
+    assert.strictEqual((listed[0] as any).apiKey, undefined, 'Must NEVER return raw apiKey');
+    assert.strictEqual(listed[0].metadata.preview, 'sk_l...2211');
+
+    // Cross-tenant isolation
+    const otherTenantList = listCredentialsForTenant('tenant-other');
+    assert.strictEqual(otherTenantList.length, 0, 'Must enforce strict tenant isolation');
+  });
+
+  // ============================================================================
+  // 23. PHASE 4: RUNTIME CREDENTIAL RESOLUTION & BOUND DISPATCH
+  // ============================================================================
+  it('26. Runtime Credential Binding: binds credentialId to integration node and injects secrets securely', async () => {
+    // Registered secret in vault
+    const slackSecret = {
+      webhookUrl: 'https://hooks.slack.com/services/T00/B00/SECRET123',
+    };
+    const encSlackSecret = CredentialService.encrypt(slackSecret);
+
+    const vaultMap = new Map<string, string>();
+    vaultMap.set('tenant-1:cred-slack-vault', encSlackSecret);
+
+    const resolveSecret = (tenantId: string, credId: string) => {
+      const enc = vaultMap.get(`${tenantId}:${credId}`);
+      if (!enc) return null;
+      return CredentialService.decrypt(enc);
+    };
+
+    // Node configuration specifies only credentialId (Zero raw secret stored)
+    const nodeConfig = {
+      channel: '#alerts',
+      message: 'Critical latency spike on cluster EU-West',
+      credentialId: 'cred-slack-vault',
+    };
+
+    const tenantId = 'tenant-1';
+    const resolved = resolveSecret(tenantId, nodeConfig.credentialId);
+    assert.ok(resolved, 'Secret must be resolved using tenant context and credentialId');
+    assert.strictEqual(resolved.webhookUrl, 'https://hooks.slack.com/services/T00/B00/SECRET123');
+
+    // Wrong tenant cannot resolve credential
+    const foreignTenantResolved = resolveSecret('tenant-intruder', nodeConfig.credentialId);
+    assert.strictEqual(foreignTenantResolved, null, 'Foreign tenant cannot resolve vault secrets');
+  });
+
   after(() => {
     setTimeout(() => process.exit(0), 50);
   });

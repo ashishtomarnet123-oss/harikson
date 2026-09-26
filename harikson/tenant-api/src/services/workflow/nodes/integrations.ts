@@ -294,19 +294,45 @@ export const SlackNode: INodeHandler = {
     return { valid: true, errors: [] };
   },
   async execute(input: INodeInput, context: IWorkflowExecutionContext): Promise<INodeOutput> {
-    const rawWebhookUrl = input.config?.webhookUrl || input.config?.url || '';
-    const webhookUrl = ExpressionEngine.interpolate(rawWebhookUrl, context);
+    let rawWebhookUrl = input.config?.webhookUrl || input.config?.url || '';
     const rawMsg = input.config?.message || input.config?.value || 'Workflow automation notification';
     const message = ExpressionEngine.interpolate(rawMsg, context);
+
+    // Resolve bound credential if specified (Zero raw secret exposure)
+    const credentialId = input.config?.credentialId || (input as any).credentials?.credentialId;
+    let authHeader: string | undefined = undefined;
+
+    if (credentialId) {
+      const credSecret = await CredentialService.resolveCredentialSecret(context.tenantId, credentialId);
+      if (credSecret) {
+        if (credSecret.webhookUrl) {
+          rawWebhookUrl = credSecret.webhookUrl;
+        } else if (credSecret.token) {
+          authHeader = `Bearer ${credSecret.token}`;
+          if (!rawWebhookUrl) {
+            rawWebhookUrl = 'https://slack.com/api/chat.postMessage';
+          }
+        }
+      }
+    }
+
+    const webhookUrl = ExpressionEngine.interpolate(rawWebhookUrl, context);
 
     if (webhookUrl && webhookUrl.startsWith('http')) {
       const ssrfCheck = await SSRFGuard.validateUrl(webhookUrl);
       if (ssrfCheck.safe) {
         try {
+          const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+          if (authHeader) headers['Authorization'] = authHeader;
+
+          const reqBody = authHeader && input.config?.channel
+            ? { channel: input.config.channel, text: message }
+            : { text: message };
+
           await fetch(webhookUrl, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ text: message }),
+            headers,
+            body: JSON.stringify(reqBody),
           });
         } catch (postErr: any) {
           Logger.warn(`[SlackNode] Webhook delivery failed: ${postErr.message}`);
@@ -320,6 +346,7 @@ export const SlackNode: INodeHandler = {
         dispatched: true,
         channel: input.config?.channel || '#alerts',
         message: message.slice(0, 100),
+        usedCredentialId: credentialId || undefined,
       },
     };
   },
