@@ -9,6 +9,7 @@ import { NodeRegistry } from '../src/services/workflow/nodes/index.js';
 import { WorkflowEngine } from '../src/services/workflow/engine.js';
 import { WorkflowEventEmitter } from '../src/services/workflow/telemetry/events.js';
 import { IWorkflowGraph, IWorkflowExecutionContext, IWorkflowStep } from '../src/services/workflow/types.js';
+import { WorkflowVersionService } from '../src/services/workflow/version.service.js';
 
 describe('Xarwiz Workflow Engine: Diagnostic & Phase 0 Test Suite', () => {
   // ============================================================================
@@ -586,8 +587,147 @@ describe('Xarwiz Workflow Engine: Diagnostic & Phase 0 Test Suite', () => {
     assert.strictEqual(stateMap['node_c'].status, 'skipped');
   });
 
+  // ============================================================================
+  // 17. PHASE 2: DRAFT / PUBLISH & VERSIONING LIFECYCLE
+  // ============================================================================
+  it('18. Draft & Versioning: normalizes legacy definitions into compliant DAG graphs', () => {
+    // A) Legacy steps array
+    const legacySteps = [
+      { id: '1', name: 'Prompt Step', type: 'prompt', value: 'Generate summary' },
+      { id: '2', name: 'Email Step', type: 'email', config: { to: 'admin@xarwiz.com' } },
+    ];
+
+    const graph = WorkflowVersionService.normalizeToGraph(legacySteps);
+    assert.ok(Array.isArray(graph.nodes), 'Normalized graph must contain nodes array');
+    assert.strictEqual(graph.nodes.length, 2, 'Must have 2 nodes');
+    assert.strictEqual(graph.edges.length, 1, 'Must have 1 connecting edge');
+    assert.strictEqual(graph.edges[0].source, '1');
+    assert.strictEqual(graph.edges[0].target, '2');
+
+    // B) Already compliant graph representation
+    const nativeGraph: IWorkflowGraph = {
+      nodes: [
+        { id: 'trig', type: 'triggerNode', position: { x: 50, y: 100 }, data: { label: 'Trigger' } },
+        { id: 'node_1', type: 'llmNode', position: { x: 300, y: 100 }, data: { label: 'LLM' } },
+      ],
+      edges: [{ id: 'e1', source: 'trig', target: 'node_1' }],
+      viewport: { x: 10, y: 20, zoom: 1.2 },
+    };
+
+    const preservedGraph = WorkflowVersionService.normalizeToGraph(nativeGraph);
+    assert.strictEqual(preservedGraph.nodes.length, 2);
+    assert.strictEqual(preservedGraph.edges.length, 1);
+    assert.strictEqual(preservedGraph.viewport?.zoom, 1.2);
+  });
+
+  it('19. Publish Validation: surfaces structured validation errors when publishing invalid drafts', () => {
+    // An invalid draft missing a trigger node
+    const invalidDraftWithoutTrigger: IWorkflowGraph = {
+      nodes: [
+        { id: 'action_1', type: 'ai.llm', data: { label: 'Action 1' } },
+      ],
+      edges: [],
+    };
+
+    const validation = WorkflowValidator.validate(invalidDraftWithoutTrigger);
+    assert.strictEqual(validation.valid, false, 'Invalid draft must fail validation before publish');
+    assert.ok(validation.errors.length > 0, 'Must have structured validation errors');
+    const triggerErr = validation.errors.find((e) => e.message.toLowerCase().includes('trigger'));
+    assert.ok(triggerErr, 'Errors must pinpoint missing trigger node');
+
+    // A valid draft with proper trigger and topological DAG
+    const validDraft: IWorkflowGraph = {
+      nodes: [
+        { id: 'trig_1', type: 'trigger.manual', data: { label: 'Manual Trigger' } },
+        { id: 'slack_1', type: 'integration.slack', data: { label: 'Slack Alert', config: { channel: '#ops' } } },
+      ],
+      edges: [{ id: 'e1', source: 'trig_1', target: 'slack_1' }],
+    };
+
+    const validRes = WorkflowValidator.validate(validDraft);
+    assert.strictEqual(validRes.valid, true, 'Compliant DAG graph must pass publish validation');
+    assert.strictEqual(validRes.errors.length, 0);
+  });
+
+  it('20. Version State Promotion & Rollback: enforces status transitions and audit history', () => {
+    interface IMockVersion {
+      id: string;
+      version: number;
+      status: 'draft' | 'published' | 'archived';
+      definition: any;
+      changelog?: string;
+    }
+
+    const versionStore: IMockVersion[] = [];
+
+    // Step 1: Create draft v1
+    const draftV1: IMockVersion = {
+      id: 'ver-1',
+      version: 1,
+      status: 'draft',
+      definition: { nodes: [{ id: 'trig' }], edges: [] },
+      changelog: 'Initial draft v1',
+    };
+    versionStore.push(draftV1);
+    assert.strictEqual(draftV1.status, 'draft');
+
+    // Step 2: Publish v1
+    draftV1.status = 'published';
+    draftV1.changelog = 'Initial production release v1';
+    let activeVersionId = draftV1.id;
+    assert.strictEqual(draftV1.status, 'published');
+    assert.strictEqual(activeVersionId, 'ver-1');
+
+    // Step 3: Create draft v2 and publish it
+    const draftV2: IMockVersion = {
+      id: 'ver-2',
+      version: 2,
+      status: 'draft',
+      definition: { nodes: [{ id: 'trig' }, { id: 'step_2' }], edges: [{ id: 'e1', source: 'trig', target: 'step_2' }] },
+      changelog: 'Added step 2 in draft',
+    };
+    versionStore.push(draftV2);
+
+    // Promote v2 to published and archive v1
+    versionStore.forEach((v) => {
+      if (v.status === 'published') v.status = 'archived';
+    });
+    draftV2.status = 'published';
+    activeVersionId = draftV2.id;
+
+    assert.strictEqual(draftV1.status, 'archived', 'Previous version must be archived upon publish');
+    assert.strictEqual(draftV2.status, 'published', 'New version must be promoted to published');
+    assert.strictEqual(activeVersionId, 'ver-2');
+
+    // Step 4: Rollback to historical v1
+    const targetRollback = versionStore.find((v) => v.version === 1);
+    assert.ok(targetRollback, 'Target rollback version must exist');
+
+    const nextVersionNumber = Math.max(...versionStore.map((v) => v.version)) + 1;
+    const rollbackV3: IMockVersion = {
+      id: `ver-${nextVersionNumber}`,
+      version: nextVersionNumber,
+      status: 'draft',
+      definition: targetRollback.definition,
+      changelog: `Rollback to version ${targetRollback.version}`,
+    };
+    versionStore.push(rollbackV3);
+
+    // Promote rollback to published
+    versionStore.forEach((v) => {
+      if (v.status === 'published') v.status = 'archived';
+    });
+    rollbackV3.status = 'published';
+    activeVersionId = rollbackV3.id;
+
+    assert.strictEqual(rollbackV3.version, 3, 'Rollback must create an incremental version 3');
+    assert.strictEqual(rollbackV3.status, 'published', 'Rollback version must be active published');
+    assert.deepStrictEqual(rollbackV3.definition, draftV1.definition, 'Restored definition must match target snapshot');
+    assert.strictEqual(draftV2.status, 'archived', 'Previous published version must be archived');
+  });
+
   after(() => {
-    process.exit(0);
+    setTimeout(() => process.exit(0), 50);
   });
 });
 

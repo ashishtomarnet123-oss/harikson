@@ -41,6 +41,12 @@ import {
   ChevronDown,
   Info,
   RefreshCw,
+  History,
+  RotateCcw,
+  FileText,
+  AlertTriangle,
+  CheckCircle2,
+  Archive,
 } from 'lucide-react';
 
 // ─── REUSABLE JSON / CODE COPY VIEWER ─────────────────────────────────────────
@@ -1177,11 +1183,306 @@ const ExecutionInspectorDrawer = ({
   );
 };
 
+// ─── PUBLISH VERSION MODAL ──────────────────────────────────────────────────
+const PublishVersionModal = ({
+  isOpen,
+  onClose,
+  onConfirm,
+  isPublishing,
+  changelog,
+  setChangelog,
+  targetVersion,
+  validationErrors,
+}) => {
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4">
+      <div className="w-full max-w-lg bg-slate-900 border border-white/15 rounded-2xl shadow-2xl overflow-hidden flex flex-col">
+        {/* Header */}
+        <div className="px-6 py-5 border-b border-white/10 flex items-center justify-between bg-slate-950/40">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center text-emerald-400">
+              <Zap className="w-5 h-5 fill-current" />
+            </div>
+            <div>
+              <h3 className="text-base font-bold text-white">Publish Workflow Version</h3>
+              <p className="text-xs text-slate-400">Release draft graph to production execution</p>
+            </div>
+          </div>
+          <button
+            onClick={onClose}
+            disabled={isPublishing}
+            className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 transition"
+          >
+            <XCircle className="w-5 h-5" />
+          </button>
+        </div>
+
+        {/* Body */}
+        <div className="p-6 space-y-4">
+          {/* Target Version Info Banner */}
+          <div className="flex items-center justify-between p-3 rounded-xl bg-slate-800/60 border border-white/10">
+            <span className="text-xs text-slate-300">Target Production Release:</span>
+            <span className="font-mono text-xs font-bold text-emerald-400 px-2.5 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/20">
+              Version v{targetVersion}
+            </span>
+          </div>
+
+          {/* Validation Errors Box (Surfacing errors from publish endpoint) */}
+          {validationErrors && validationErrors.length > 0 && (
+            <div className="p-4 rounded-xl bg-red-950/70 border border-red-500/50 text-red-200">
+              <div className="flex items-center gap-2 mb-2 font-semibold text-xs text-red-300">
+                <AlertTriangle className="w-4 h-4 text-red-400 shrink-0" />
+                <span>Cannot Publish Invalid Workflow ({validationErrors.length} {validationErrors.length === 1 ? 'Error' : 'Errors'}):</span>
+              </div>
+              <ul className="text-xs space-y-1.5 list-disc list-inside text-red-200/90 font-mono">
+                {validationErrors.map((err, idx) => (
+                  <li key={idx} className="leading-snug">
+                    {typeof err === 'string' ? err : err.message || JSON.stringify(err)}
+                  </li>
+                ))}
+              </ul>
+              <p className="mt-2.5 text-[11px] text-red-300/80">
+                Please resolve these DAG graph errors before publishing to production.
+              </p>
+            </div>
+          )}
+
+          {/* Changelog Input */}
+          <div>
+            <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+              Version Changelog / Release Notes
+            </label>
+            <textarea
+              rows={3}
+              value={changelog}
+              onChange={(e) => setChangelog(e.target.value)}
+              placeholder="e.g. Added error retry to API node, updated Slack notification format..."
+              className="w-full bg-slate-950/80 border border-white/10 rounded-xl px-3.5 py-2.5 text-xs text-slate-200 placeholder:text-slate-500 focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500"
+            />
+            <p className="text-[11px] text-slate-400 mt-1">
+              Recorded in immutable version history for rollback and audit tracking.
+            </p>
+          </div>
+        </div>
+
+        {/* Footer */}
+        <div className="px-6 py-4 border-t border-white/10 bg-slate-950/40 flex items-center justify-end gap-2.5">
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={isPublishing}
+            className="px-4 py-2 rounded-xl text-xs font-medium text-slate-300 hover:text-white hover:bg-white/10 transition"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            onClick={onConfirm}
+            disabled={isPublishing}
+            className="flex items-center gap-2 px-5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold transition shadow-lg shadow-emerald-600/30 disabled:opacity-50"
+          >
+            {isPublishing ? (
+              <>
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                <span>Validating & Publishing...</span>
+              </>
+            ) : (
+              <>
+                <Zap className="w-3.5 h-3.5 fill-current" />
+                <span>Confirm & Publish v{targetVersion}</span>
+              </>
+            )}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ─── VERSION HISTORY DRAWER ──────────────────────────────────────────────────
+const VersionHistoryDrawer = ({
+  isOpen,
+  onClose,
+  versions = [],
+  activeVersionId,
+  isLoading,
+  onRefresh,
+  onRollback,
+  isRollingBack,
+  rollbackConfirmId,
+  setRollbackConfirmId,
+}) => {
+  if (!isOpen) return null;
+
+  return (
+    <div className="absolute top-0 right-0 h-full w-[430px] bg-slate-900/95 backdrop-blur-xl border-l border-white/10 z-30 flex flex-col shadow-2xl">
+      {/* Header */}
+      <div className="p-4 border-b border-white/10 flex items-center justify-between bg-slate-950/50">
+        <div className="flex items-center gap-2.5">
+          <div className="p-2 rounded-lg bg-indigo-500/20 text-indigo-400 border border-indigo-500/30">
+            <History className="w-4 h-4" />
+          </div>
+          <div>
+            <h3 className="text-sm font-bold text-white flex items-center gap-2">
+              <span>Version History</span>
+              <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 font-bold">
+                {versions.length}
+              </span>
+            </h3>
+            <p className="text-[11px] text-slate-400">Audit trail & version snapshots</p>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-1">
+          <button
+            onClick={onRefresh}
+            disabled={isLoading}
+            title="Refresh versions"
+            className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 transition disabled:opacity-50"
+          >
+            <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
+          </button>
+          <button
+            onClick={onClose}
+            className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 transition"
+          >
+            <XCircle className="w-4 h-4" />
+          </button>
+        </div>
+      </div>
+
+      {/* Body List */}
+      <div className="flex-1 overflow-y-auto p-4 space-y-3">
+        {isLoading && versions.length === 0 ? (
+          <div className="flex flex-col items-center justify-center h-48 gap-3 text-slate-400">
+            <Loader2 className="w-6 h-6 animate-spin text-indigo-400" />
+            <span className="text-xs">Loading version history...</span>
+          </div>
+        ) : versions.length === 0 ? (
+          <div className="text-center py-12 text-slate-400">
+            <History className="w-8 h-8 mx-auto text-slate-600 mb-2" />
+            <p className="text-xs font-medium text-slate-300">No versions recorded yet</p>
+            <p className="text-[11px] text-slate-500 mt-1">Save a draft or publish to create version snapshots.</p>
+          </div>
+        ) : (
+          versions.map((v) => {
+            const isCurrentActive = v.id === activeVersionId || (v.status === 'published' && activeVersionId == null);
+            const nodeCount = v.definition?.nodes?.length || 0;
+            const edgeCount = v.definition?.edges?.length || 0;
+            const dateStr = v.createdAt
+              ? new Date(v.createdAt).toLocaleDateString(undefined, {
+                  month: 'short',
+                  day: 'numeric',
+                  year: 'numeric',
+                  hour: '2-digit',
+                  minute: '2-digit',
+                })
+              : 'Unknown date';
+
+            return (
+              <div
+                key={v.id}
+                className={`p-3.5 rounded-xl border transition flex flex-col gap-2.5 ${
+                  isCurrentActive
+                    ? 'bg-slate-800/80 border-emerald-500/40 shadow-lg shadow-emerald-950/20 ring-1 ring-emerald-500/30'
+                    : 'bg-slate-800/40 border-white/10 hover:bg-slate-800/60'
+                }`}
+              >
+                {/* Header row: Version + Status Badge + Date */}
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="font-mono text-sm font-bold text-white tracking-tight">v{v.version}</span>
+                    <span
+                      className={`text-[10px] font-semibold px-2 py-0.5 rounded-full flex items-center gap-1 border ${
+                        v.status === 'published'
+                          ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30'
+                          : v.status === 'draft'
+                          ? 'bg-amber-500/20 text-amber-300 border-amber-500/30'
+                          : 'bg-slate-700/50 text-slate-400 border-white/10'
+                      }`}
+                    >
+                      {v.status === 'published' && <CheckCircle2 className="w-3 h-3 text-emerald-400" />}
+                      {v.status === 'draft' && <Clock className="w-3 h-3 text-amber-400" />}
+                      {v.status === 'archived' && <Archive className="w-3 h-3 text-slate-400" />}
+                      <span className="capitalize">{v.status}</span>
+                    </span>
+                    {isCurrentActive && (
+                      <span className="text-[9px] font-bold text-emerald-400 uppercase tracking-wider bg-emerald-500/10 border border-emerald-500/20 px-1.5 py-0.5 rounded">
+                        Active
+                      </span>
+                    )}
+                  </div>
+                  <span className="text-[10px] text-slate-400 font-mono">{dateStr}</span>
+                </div>
+
+                {/* Changelog */}
+                <p className="text-xs text-slate-300 font-sans leading-relaxed break-words">
+                  {v.changelog || <span className="italic text-slate-500">No changelog recorded</span>}
+                </p>
+
+                {/* Footer: Node stats & Rollback action */}
+                <div className="pt-2 border-t border-white/5 flex items-center justify-between text-[11px] text-slate-400">
+                  <div className="flex items-center gap-1.5 font-mono text-[10px]">
+                    <span>{nodeCount} nodes</span>
+                    <span>·</span>
+                    <span>{edgeCount} connections</span>
+                  </div>
+
+                  {isCurrentActive ? (
+                    <span className="text-[10px] font-semibold text-emerald-400">Current Production</span>
+                  ) : (
+                    <div>
+                      {rollbackConfirmId === v.id ? (
+                        <div className="flex items-center gap-1.5">
+                          <button
+                            onClick={() => onRollback(v)}
+                            disabled={isRollingBack}
+                            className="px-2.5 py-1 rounded-lg bg-amber-600 hover:bg-amber-500 text-white font-semibold text-[10px] transition disabled:opacity-50 flex items-center gap-1 shadow-md shadow-amber-600/30"
+                          >
+                            {isRollingBack ? (
+                              <Loader2 className="w-3 h-3 animate-spin" />
+                            ) : (
+                              <RotateCcw className="w-3 h-3" />
+                            )}
+                            <span>Confirm</span>
+                          </button>
+                          <button
+                            onClick={() => setRollbackConfirmId(null)}
+                            disabled={isRollingBack}
+                            className="px-2 py-1 rounded-lg bg-white/10 hover:bg-white/20 text-slate-300 text-[10px] transition"
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      ) : (
+                        <button
+                          onClick={() => setRollbackConfirmId(v.id)}
+                          className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-white/5 hover:bg-white/15 text-slate-300 hover:text-white border border-white/10 text-[10px] font-semibold transition"
+                        >
+                          <RotateCcw className="w-3 h-3 text-amber-400" />
+                          <span>Rollback</span>
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+            );
+          })
+        )}
+      </div>
+    </div>
+  );
+};
+
 // ─── MAIN VISUAL WORKFLOW EDITOR COMPONENT ────────────────────────────────────
 
 export default function VisualWorkflowEditor({
   workflow,
   onSave,
+  onWorkflowUpdated,
   onRun,
   isRunning = false,
   latestExecution = null,
@@ -1284,6 +1585,59 @@ export default function VisualWorkflowEditor({
   const [showExecutionInspector, setShowExecutionInspector] = useState(false);
   const [executionDetails, setExecutionDetails] = useState(null);
   const [isLoadingExecution, setIsLoadingExecution] = useState(false);
+
+  // Phase 2: Draft / Publish & Version History State
+  const [versions, setVersions] = useState([]);
+  const [isLoadingVersions, setIsLoadingVersions] = useState(false);
+  const [showVersionHistory, setShowVersionHistory] = useState(false);
+  const [showPublishModal, setShowPublishModal] = useState(false);
+  const [publishChangelog, setPublishChangelog] = useState('');
+  const [publishErrors, setPublishErrors] = useState(null);
+  const [isPublishing, setIsPublishing] = useState(false);
+  const [isSavingDraft, setIsSavingDraft] = useState(false);
+  const [rollbackConfirmId, setRollbackConfirmId] = useState(null);
+  const [isRollingBack, setIsRollingBack] = useState(false);
+  const [toastMessage, setToastMessage] = useState(null);
+  const [activeVersionNumber, setActiveVersionNumber] = useState(workflow?.current_version || 1);
+  const [isDraftActive, setIsDraftActive] = useState(false);
+
+  // Fetch workflow versions history
+  const fetchVersions = useCallback(async () => {
+    if (!workflow?.id || String(workflow.id).startsWith('new_')) return;
+    setIsLoadingVersions(true);
+    try {
+      const base = apiBase || '';
+      const res = await fetch(`${base}/api/v1/workflows/${workflow.id}/versions`, {
+        credentials: 'include',
+        headers: tenantSlug ? { 'x-tenant-slug': tenantSlug } : {},
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.success && Array.isArray(data.versions)) {
+          setVersions(data.versions);
+          const draftVer = data.versions.find((v) => v.status === 'draft');
+          const pubVer = data.versions.find((v) => v.status === 'published');
+          if (draftVer) {
+            setIsDraftActive(true);
+            setActiveVersionNumber(draftVer.version);
+          } else if (pubVer) {
+            setIsDraftActive(false);
+            setActiveVersionNumber(pubVer.version);
+          } else if (workflow?.current_version) {
+            setActiveVersionNumber(workflow.current_version);
+          }
+        }
+      }
+    } catch (err) {
+      console.error('Failed to fetch workflow versions:', err);
+    } finally {
+      setIsLoadingVersions(false);
+    }
+  }, [apiBase, tenantSlug, workflow?.id, workflow?.current_version]);
+
+  useEffect(() => {
+    fetchVersions();
+  }, [fetchVersions]);
 
   // Auto-open execution inspector when pipeline runs
   useEffect(() => {
@@ -1546,32 +1900,236 @@ export default function VisualWorkflowEditor({
     setNodes((nds) => nds.map((n) => (n.id === selectedNode.id ? updated : n)));
   };
 
-  // Save graph definition
-  const handleSaveGraph = () => {
-    // Compile linear steps from nodes for backward compatibility
-    const compiledSteps = nodes
-      .filter((n) => n.type !== 'triggerNode')
-      .map((n) => ({
-        id: n.id,
-        type: n.data.type || 'prompt',
-        name: n.data.label,
-        value: n.data.value,
-        config: n.data.config,
-      }));
+  // Phase 2: Save canvas draft to POST /:id/draft
+  const handleSaveDraft = async () => {
+    if (!workflow?.id) return;
+    setIsSavingDraft(true);
+    try {
+      const compiledSteps = nodes
+        .filter((n) => n.type !== 'triggerNode')
+        .map((n) => ({
+          id: n.id,
+          type: n.data.type || 'prompt',
+          name: n.data.label,
+          value: n.data.value,
+          config: n.data.config,
+        }));
 
-    const definition = {
-      nodes,
-      edges,
-      updatedAt: new Date().toISOString(),
-    };
+      const definition = {
+        nodes,
+        edges,
+        viewport: { x: 0, y: 0, zoom: 1 },
+        updatedAt: new Date().toISOString(),
+      };
 
-    if (onSave) {
-      onSave({
-        steps: compiledSteps,
-        definition,
+      const base = apiBase || '';
+      const isNewWf = String(workflow.id).startsWith('new_');
+
+      if (isNewWf) {
+        if (onSave) {
+          onSave({ steps: compiledSteps, definition });
+        }
+        setIsDraftActive(true);
+        setToastMessage({ type: 'success', text: 'Workflow created and draft saved!' });
+        setTimeout(() => setToastMessage(null), 4000);
+        return;
+      }
+
+      const res = await fetch(`${base}/api/v1/workflows/${workflow.id}/draft`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(tenantSlug ? { 'x-tenant-slug': tenantSlug } : {}),
+        },
+        body: JSON.stringify({
+          definition,
+          settings: workflow.settings || {},
+          changelog: 'Saved canvas draft from visual editor',
+        }),
       });
+
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.error || 'Failed to save draft');
+      }
+
+      const data = await res.json();
+      if (data.draft) {
+        setActiveVersionNumber(data.draft.version);
+        setIsDraftActive(true);
+      }
+
+      setToastMessage({
+        type: 'success',
+        text: `Draft v${data.draft?.version || activeVersionNumber} saved successfully!`,
+      });
+      setTimeout(() => setToastMessage(null), 4000);
+      fetchVersions();
+      if (onWorkflowUpdated) onWorkflowUpdated();
+      if (onSave) onSave({ steps: compiledSteps, definition });
+    } catch (err) {
+      setToastMessage({ type: 'error', text: err.message || 'Error saving draft' });
+      setTimeout(() => setToastMessage(null), 6000);
+    } finally {
+      setIsSavingDraft(false);
     }
   };
+
+  // Phase 2: Confirm publish to POST /:id/publish (surfacing validation errors in modal)
+  const handleConfirmPublish = async () => {
+    if (!workflow?.id) return;
+    setIsPublishing(true);
+    setPublishErrors(null);
+    try {
+      const definition = {
+        nodes,
+        edges,
+        viewport: { x: 0, y: 0, zoom: 1 },
+        updatedAt: new Date().toISOString(),
+      };
+      const base = apiBase || '';
+
+      // 1. Sync current canvas definition to draft first
+      const draftRes = await fetch(`${base}/api/v1/workflows/${workflow.id}/draft`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(tenantSlug ? { 'x-tenant-slug': tenantSlug } : {}),
+        },
+        body: JSON.stringify({
+          definition,
+          settings: workflow.settings || {},
+          changelog: publishChangelog.trim() || 'Pre-publish draft sync',
+        }),
+      });
+
+      if (!draftRes.ok) {
+        const draftErr = await draftRes.json().catch(() => ({}));
+        throw new Error(draftErr.error || 'Failed to save draft before publishing');
+      }
+
+      const draftData = await draftRes.json();
+      const targetVersionId = draftData.draft?.id;
+
+      // 2. Publish version to production
+      const pubRes = await fetch(`${base}/api/v1/workflows/${workflow.id}/publish`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(tenantSlug ? { 'x-tenant-slug': tenantSlug } : {}),
+        },
+        body: JSON.stringify({
+          versionId: targetVersionId,
+          changelog: publishChangelog.trim() || 'Published production release',
+        }),
+      });
+
+      const pubData = await pubRes.json().catch(() => ({}));
+
+      if (!pubRes.ok) {
+        // Surface validation errors from the publish endpoint in the modal
+        if (pubData.validationErrors && Array.isArray(pubData.validationErrors)) {
+          setPublishErrors(pubData.validationErrors);
+        } else {
+          setPublishErrors([{ message: pubData.error || 'Validation failed for this workflow graph' }]);
+        }
+        return;
+      }
+
+      // 3. Publish success
+      setShowPublishModal(false);
+      setPublishChangelog('');
+      setPublishErrors(null);
+      setIsDraftActive(false);
+      if (pubData.published) {
+        setActiveVersionNumber(pubData.published.version);
+      }
+      setToastMessage({
+        type: 'success',
+        text: `Version v${pubData.published?.version || activeVersionNumber} published to production!`,
+      });
+      setTimeout(() => setToastMessage(null), 5000);
+      fetchVersions();
+      if (onWorkflowUpdated) onWorkflowUpdated();
+    } catch (err) {
+      setPublishErrors([{ message: err.message || 'Failed to publish workflow' }]);
+    } finally {
+      setIsPublishing(false);
+    }
+  };
+
+  // Phase 2: Rollback to historical version via POST /:id/rollback
+  const handleRollback = async (versionObj) => {
+    if (!workflow?.id || !versionObj?.id) return;
+    setIsRollingBack(true);
+    try {
+      const base = apiBase || '';
+      const res = await fetch(`${base}/api/v1/workflows/${workflow.id}/rollback`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(tenantSlug ? { 'x-tenant-slug': tenantSlug } : {}),
+        },
+        body: JSON.stringify({
+          targetVersionId: versionObj.id,
+        }),
+      });
+
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.error || 'Failed to rollback version');
+      }
+
+      const data = await res.json();
+      const rolledBack = data.version;
+
+      // Update canvas graph immediately to the rolled-back definition
+      if (rolledBack && rolledBack.definition) {
+        const rolledGraph =
+          typeof rolledBack.definition === 'string'
+            ? JSON.parse(rolledBack.definition)
+            : rolledBack.definition;
+        if (Array.isArray(rolledGraph.nodes)) {
+          setNodes(rolledGraph.nodes);
+        }
+        if (Array.isArray(rolledGraph.edges)) {
+          setEdges(rolledGraph.edges);
+        }
+      } else if (versionObj.definition) {
+        const def =
+          typeof versionObj.definition === 'string'
+            ? JSON.parse(versionObj.definition)
+            : versionObj.definition;
+        if (Array.isArray(def.nodes)) setNodes(def.nodes);
+        if (Array.isArray(def.edges)) setEdges(def.edges);
+      }
+
+      setRollbackConfirmId(null);
+      setIsDraftActive(false);
+      if (rolledBack?.version) {
+        setActiveVersionNumber(rolledBack.version);
+      }
+      setToastMessage({
+        type: 'success',
+        text: `Successfully rolled back to v${versionObj.version}! (New active: v${rolledBack?.version || versionObj.version})`,
+      });
+      setTimeout(() => setToastMessage(null), 5000);
+      fetchVersions();
+      if (onWorkflowUpdated) onWorkflowUpdated();
+    } catch (err) {
+      setToastMessage({ type: 'error', text: err.message || 'Rollback failed' });
+      setTimeout(() => setToastMessage(null), 6000);
+    } finally {
+      setIsRollingBack(false);
+    }
+  };
+
+  // Backward compatibility alias for save graph
+  const handleSaveGraph = handleSaveDraft;
 
   // Node catalog
   const NODE_CATALOG = [
@@ -1662,12 +2220,30 @@ export default function VisualWorkflowEditor({
       <div className="flex-1 relative h-full">
         {/* Top Control Bar */}
         <div className="absolute top-4 left-4 z-20 flex items-center gap-2 bg-slate-900/90 backdrop-blur-md px-3 py-2 rounded-xl border border-white/10 shadow-lg">
-          <div className="flex items-center gap-2 pr-3 border-r border-white/10">
+          <div className="flex items-center gap-2 pr-2.5 border-r border-white/10">
             <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping" />
             <span className="text-xs font-semibold text-white tracking-wide">Visual Canvas</span>
-            <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-              n8n / Make Engine
-            </span>
+          </div>
+
+          {/* Phase 2: Status Pill "Draft v{N}" vs "Published v{N}" */}
+          <div className="flex items-center pr-2.5 border-r border-white/10">
+            {isDraftActive ? (
+              <div
+                className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-500/15 text-amber-300 border border-amber-500/30 shadow-sm"
+                title="Current canvas has draft edits"
+              >
+                <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
+                <span>Draft v{activeVersionNumber}</span>
+              </div>
+            ) : (
+              <div
+                className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 shadow-sm"
+                title="Canvas is synced with active production version"
+              >
+                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                <span>Published v{activeVersionNumber}</span>
+              </div>
+            )}
           </div>
 
           <button
@@ -1678,24 +2254,46 @@ export default function VisualWorkflowEditor({
             <span>Add Action Node</span>
           </button>
 
+          {/* Save Draft Button */}
           <button
-            onClick={handleSaveGraph}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-white text-xs font-medium transition border border-white/10"
+            onClick={handleSaveDraft}
+            disabled={isSavingDraft}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-white text-xs font-medium transition border border-white/10 disabled:opacity-50"
+            title="Save draft snapshot without modifying production"
           >
-            <span>Save Graph</span>
+            {isSavingDraft ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <FileText className="w-3.5 h-3.5 text-amber-400" />}
+            <span>{isSavingDraft ? 'Saving Draft...' : 'Save Draft'}</span>
           </button>
 
+          {/* Publish Button */}
+          <button
+            onClick={() => {
+              setPublishErrors(null);
+              setShowPublishModal(true);
+            }}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold transition shadow-md shadow-emerald-600/30"
+            title="Publish current draft version to live production"
+          >
+            <Zap className="w-3.5 h-3.5 fill-current" />
+            <span>Publish</span>
+          </button>
+
+          {/* Run Pipeline Button */}
           <button
             onClick={onRun}
             disabled={isRunning}
-            className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold transition shadow-md shadow-emerald-600/30 disabled:opacity-50"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-white text-xs font-semibold transition border border-white/10 disabled:opacity-50"
           >
-            {isRunning ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Play className="w-3.5 h-3.5 fill-current" />}
+            {isRunning ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Play className="w-3.5 h-3.5 fill-current text-emerald-400" />}
             <span>{isRunning ? 'Executing...' : 'Run Pipeline'}</span>
           </button>
 
+          {/* Execution Inspector Button */}
           <button
-            onClick={() => setShowExecutionInspector(!showExecutionInspector)}
+            onClick={() => {
+              setShowExecutionInspector(!showExecutionInspector);
+              if (!showExecutionInspector) setShowVersionHistory(false);
+            }}
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition border ${
               showExecutionInspector
                 ? 'bg-cyan-500/25 text-cyan-300 border-cyan-500/50 shadow-md shadow-cyan-500/20'
@@ -1703,18 +2301,44 @@ export default function VisualWorkflowEditor({
             }`}
           >
             <Layers className="w-3.5 h-3.5 text-cyan-400" />
-            <span>Execution Inspector</span>
+            <span>Inspector</span>
             {latestExecution && (
-              <span className={`text-[9px] font-mono px-1.5 py-0.5 rounded font-bold uppercase ${
-                latestExecution.status === 'completed'
-                  ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
-                  : latestExecution.status === 'running'
-                  ? 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/30 animate-pulse'
-                  : latestExecution.status === 'failed'
-                  ? 'bg-red-500/20 text-red-400 border border-red-500/30'
-                  : 'bg-amber-500/20 text-amber-400 border border-amber-500/30'
-              }`}>
+              <span
+                className={`text-[9px] font-mono px-1.5 py-0.5 rounded font-bold uppercase ${
+                  latestExecution.status === 'completed'
+                    ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
+                    : latestExecution.status === 'running'
+                    ? 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/30 animate-pulse'
+                    : latestExecution.status === 'failed'
+                    ? 'bg-red-500/20 text-red-400 border border-red-500/30'
+                    : 'bg-amber-500/20 text-amber-400 border border-amber-500/30'
+                }`}
+              >
                 {latestExecution.status || 'Active'}
+              </span>
+            )}
+          </button>
+
+          {/* Version History Button */}
+          <button
+            onClick={() => {
+              setShowVersionHistory(!showVersionHistory);
+              if (!showVersionHistory) {
+                setShowExecutionInspector(false);
+                fetchVersions();
+              }
+            }}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition border ${
+              showVersionHistory
+                ? 'bg-indigo-500/25 text-indigo-300 border-indigo-500/50 shadow-md shadow-indigo-500/20'
+                : 'bg-white/10 hover:bg-white/20 text-slate-200 border-white/10'
+            }`}
+          >
+            <History className="w-3.5 h-3.5 text-indigo-400" />
+            <span>Version History</span>
+            {versions.length > 0 && (
+              <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
+                {versions.length}
               </span>
             )}
           </button>
@@ -2077,6 +2701,57 @@ export default function VisualWorkflowEditor({
             if (found) setSelectedNode(found);
           }}
         />
+      )}
+
+      {/* ─── VERSION HISTORY DRAWER ────────────────────────────────────────── */}
+      <VersionHistoryDrawer
+        isOpen={showVersionHistory}
+        onClose={() => setShowVersionHistory(false)}
+        versions={versions}
+        activeVersionId={workflow?.published_version_id || workflow?.active_version_id}
+        isLoading={isLoadingVersions}
+        onRefresh={fetchVersions}
+        onRollback={handleRollback}
+        isRollingBack={isRollingBack}
+        rollbackConfirmId={rollbackConfirmId}
+        setRollbackConfirmId={setRollbackConfirmId}
+      />
+
+      {/* ─── PUBLISH MODAL ─────────────────────────────────────────────────── */}
+      <PublishVersionModal
+        isOpen={showPublishModal}
+        onClose={() => {
+          setShowPublishModal(false);
+          setPublishErrors(null);
+        }}
+        onConfirm={handleConfirmPublish}
+        isPublishing={isPublishing}
+        changelog={publishChangelog}
+        setChangelog={setPublishChangelog}
+        targetVersion={isDraftActive ? activeVersionNumber : activeVersionNumber + 1}
+        validationErrors={publishErrors}
+      />
+
+      {/* Toast Notification Banner */}
+      {toastMessage && (
+        <div className="absolute top-16 left-1/2 -translate-x-1/2 z-50">
+          <div
+            className={`flex items-center gap-2.5 px-4 py-2.5 rounded-xl border shadow-2xl backdrop-blur-md text-xs font-semibold ${
+              toastMessage.type === 'error'
+                ? 'bg-red-950/90 text-red-200 border-red-500/40 shadow-red-950/30'
+                : toastMessage.type === 'info'
+                ? 'bg-cyan-950/90 text-cyan-200 border-cyan-500/40 shadow-cyan-950/30'
+                : 'bg-emerald-950/90 text-emerald-200 border-emerald-500/40 shadow-emerald-950/30'
+            }`}
+          >
+            {toastMessage.type === 'error' ? (
+              <AlertTriangle className="w-4 h-4 text-red-400 shrink-0" />
+            ) : (
+              <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+            )}
+            <span>{toastMessage.text}</span>
+          </div>
+        </div>
       )}
     </div>
   );

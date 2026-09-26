@@ -1760,6 +1760,9 @@ function WorkflowsPage() {
             <VisualWorkflowEditor
               workflow={fullCanvasWorkflow}
               onSave={handleSaveFromCanvas}
+              onWorkflowUpdated={() => {
+                fetchWorkflows(apiBase, tenantSlug);
+              }}
               onRun={() => handleRunWorkflow(fullCanvasWorkflow)}
               isRunning={runningWorkflowId === fullCanvasWorkflow.id}
               latestExecution={canvasExecution}
