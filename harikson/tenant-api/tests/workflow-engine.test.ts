@@ -7,6 +7,7 @@ import { SSRFGuard } from '../src/services/workflow/security/ssrf.js';
 import { CredentialService } from '../src/services/workflow/credential.service.js';
 import { NodeRegistry } from '../src/services/workflow/nodes/index.js';
 import { WorkflowEngine } from '../src/services/workflow/engine.js';
+import { WorkflowEventEmitter } from '../src/services/workflow/telemetry/events.js';
 import { IWorkflowGraph, IWorkflowExecutionContext, IWorkflowStep } from '../src/services/workflow/types.js';
 
 describe('Xarwiz Workflow Engine: Diagnostic & Phase 0 Test Suite', () => {
@@ -474,6 +475,115 @@ describe('Xarwiz Workflow Engine: Diagnostic & Phase 0 Test Suite', () => {
 
     const resolvedBodyKey = undefined || bodyPayload.idempotency_key;
     assert.strictEqual(resolvedBodyKey, 'idemp_req_xyz789');
+  });
+
+  // ============================================================================
+  // 15. PHASE 1: REAL-TIME SSE TELEMETRY STREAMING
+  // ============================================================================
+  it('16. Telemetry & SSE: WorkflowEventEmitter emits and delivers execution events', async () => {
+    const execId = 'exec-sse-test-123';
+    const receivedEvents: string[] = [];
+
+    const unsubscribe = WorkflowEventEmitter.subscribeExecution(execId, (evt) => {
+      receivedEvents.push(evt.event);
+    });
+
+    WorkflowEventEmitter.emit({
+      event: 'execution.started',
+      executionId: execId,
+      workflowId: 'wf-1',
+      tenantId: 'tenant-1',
+      timestamp: new Date().toISOString(),
+    });
+
+    WorkflowEventEmitter.emit({
+      event: 'node.started',
+      executionId: execId,
+      workflowId: 'wf-1',
+      tenantId: 'tenant-1',
+      nodeId: 'step_1',
+      timestamp: new Date().toISOString(),
+    });
+
+    WorkflowEventEmitter.emit({
+      event: 'node.completed',
+      executionId: execId,
+      workflowId: 'wf-1',
+      tenantId: 'tenant-1',
+      nodeId: 'step_1',
+      timestamp: new Date().toISOString(),
+      data: { output: { text: 'done' }, durationMs: 25 },
+    });
+
+    WorkflowEventEmitter.emit({
+      event: 'node.skipped',
+      executionId: execId,
+      workflowId: 'wf-1',
+      tenantId: 'tenant-1',
+      nodeId: 'step_2',
+      timestamp: new Date().toISOString(),
+    });
+
+    WorkflowEventEmitter.emit({
+      event: 'execution.completed',
+      executionId: execId,
+      workflowId: 'wf-1',
+      tenantId: 'tenant-1',
+      timestamp: new Date().toISOString(),
+      data: { status: 'completed', durationMs: 45 },
+    });
+
+    unsubscribe();
+
+    assert.deepStrictEqual(receivedEvents, [
+      'execution.started',
+      'node.started',
+      'node.completed',
+      'node.skipped',
+      'execution.completed',
+    ]);
+  });
+
+  // ============================================================================
+  // 16. PHASE 1: EVENT TO CANVAS NODE STATE MAPPING CONTRACT
+  // ============================================================================
+  it('17. SSE Event Mapping: maps events to running, completed, failed, and skipped states', () => {
+    type NodeStatus = 'idle' | 'running' | 'completed' | 'failed' | 'skipped';
+    interface INodeState {
+      status: NodeStatus;
+      output?: any;
+      error?: string;
+    }
+
+    const stateMap: Record<string, INodeState> = {};
+
+    const applyEvent = (evt: { event: string; nodeId?: string; data?: any }) => {
+      if (!evt.nodeId) return;
+      if (evt.event === 'node.started') {
+        stateMap[evt.nodeId] = { status: 'running' };
+      } else if (evt.event === 'node.completed') {
+        stateMap[evt.nodeId] = { status: 'completed', output: evt.data?.output };
+      } else if (evt.event === 'node.failed') {
+        stateMap[evt.nodeId] = { status: 'failed', error: evt.data?.error };
+      } else if (evt.event === 'node.skipped') {
+        stateMap[evt.nodeId] = { status: 'skipped' };
+      }
+    };
+
+    applyEvent({ event: 'node.started', nodeId: 'node_a' });
+    assert.strictEqual(stateMap['node_a'].status, 'running');
+
+    applyEvent({ event: 'node.completed', nodeId: 'node_a', data: { output: { id: 42 } } });
+    assert.strictEqual(stateMap['node_a'].status, 'completed');
+    assert.strictEqual(stateMap['node_a'].output.id, 42);
+
+    applyEvent({ event: 'node.started', nodeId: 'node_b' });
+    applyEvent({ event: 'node.failed', nodeId: 'node_b', data: { error: 'Connection refused' } });
+    assert.strictEqual(stateMap['node_b'].status, 'failed');
+    assert.strictEqual(stateMap['node_b'].error, 'Connection refused');
+
+    applyEvent({ event: 'node.skipped', nodeId: 'node_c' });
+    assert.strictEqual(stateMap['node_c'].status, 'skipped');
   });
 
   after(() => {

@@ -152,6 +152,7 @@ function WorkflowsPage() {
 
   const handleRunWorkflow = async (wf) => {
     setRunningWorkflowId(wf.id);
+    let sseSource = null;
     try {
       const res = await fetch(`${apiBase}/api/workflows/${wf.id}/run`, {
         method: 'POST',
@@ -164,29 +165,154 @@ function WorkflowsPage() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Failed to run workflow');
-      
-      setCanvasExecution(data);
 
-      setRunToast({
-        type: data.status === 'completed' || data.success ? 'success' : 'error',
-        message: data.status === 'completed'
-          ? `Workflow "${wf.name}" completed in ${data.durationMs || 0}ms!`
-          : `Workflow execution finished with status: ${data.status || 'running'}`,
-      });
-      setTimeout(() => setRunToast(null), 6000);
-      fetchWorkflows(apiBase, tenantSlug);
-
-      if (selectedWorkflowForHistory && selectedWorkflowForHistory.id === wf.id) {
-        handleFetchExecutions(wf);
+      const execId = data.executionId || data.id;
+      if (!execId) {
+        setCanvasExecution(data);
+        setRunningWorkflowId(null);
+        return;
       }
+
+      // Initialize live execution state on canvas
+      setCanvasExecution({
+        id: execId,
+        workflow_id: wf.id,
+        status: data.status || 'queued',
+        started_at: new Date().toISOString(),
+        nodeStates: {},
+        activeNodeId: null,
+        activeEdgeTarget: null,
+        nodeExecutions: [],
+        step_results: [],
+      });
+
+      // Open SSE telemetry stream
+      const sseUrl = `${apiBase}/api/v1/workflows/${wf.id}/executions/${execId}/events`;
+      sseSource = new EventSource(sseUrl, { withCredentials: true });
+
+      const finalizeAndFetchCheckpoints = async (finalStatus = null) => {
+        if (sseSource) {
+          sseSource.close();
+          sseSource = null;
+        }
+        try {
+          const detailRes = await fetch(`${apiBase}/api/v1/workflows/${wf.id}/executions/${execId}`, {
+            credentials: 'include',
+            headers: {
+              'x-tenant-slug': tenantSlug,
+            },
+          });
+          if (detailRes.ok) {
+            const detailData = await detailRes.json();
+            if (detailData.success && detailData.execution) {
+              setCanvasExecution((prev) => ({
+                ...detailData.execution,
+                nodeExecutions: detailData.nodeExecutions || [],
+                nodeStates: prev?.nodeStates || {},
+                activeNodeId: null,
+                activeEdgeTarget: null,
+              }));
+
+              const dur = detailData.execution.duration_ms || 0;
+              const isSuccess = detailData.execution.status === 'completed';
+              setRunToast({
+                type: isSuccess ? 'success' : 'error',
+                message: isSuccess
+                  ? `Workflow "${wf.name}" completed in ${dur}ms!`
+                  : `Workflow finished with status "${detailData.execution.status}": ${detailData.execution.error_message || 'Failure encountered'}`,
+              });
+              setTimeout(() => setRunToast(null), 6000);
+            }
+          }
+        } catch (detailErr) {
+          console.error('Error fetching final execution checkpoints:', detailErr);
+        } finally {
+          setRunningWorkflowId(null);
+          fetchWorkflows(apiBase, tenantSlug);
+          if (selectedWorkflowForHistory && selectedWorkflowForHistory.id === wf.id) {
+            handleFetchExecutions(wf);
+          }
+        }
+      };
+
+      sseSource.onmessage = (event) => {
+        try {
+          const evt = JSON.parse(event.data);
+          if (!evt || !evt.event) return;
+
+          if (evt.event === 'node.started') {
+            setCanvasExecution((prev) => ({
+              ...prev,
+              status: 'running',
+              activeNodeId: evt.nodeId,
+              activeEdgeTarget: evt.nodeId,
+              nodeStates: {
+                ...(prev?.nodeStates || {}),
+                [evt.nodeId]: {
+                  status: 'running',
+                  nodeType: evt.nodeType,
+                  startedAt: evt.timestamp,
+                },
+              },
+            }));
+          } else if (evt.event === 'node.completed') {
+            setCanvasExecution((prev) => ({
+              ...prev,
+              activeNodeId: null,
+              activeEdgeTarget: null,
+              nodeStates: {
+                ...(prev?.nodeStates || {}),
+                [evt.nodeId]: {
+                  status: 'completed',
+                  output: evt.data?.output,
+                  durationMs: evt.data?.durationMs,
+                },
+              },
+            }));
+          } else if (evt.event === 'node.failed') {
+            setCanvasExecution((prev) => ({
+              ...prev,
+              activeNodeId: null,
+              activeEdgeTarget: null,
+              nodeStates: {
+                ...(prev?.nodeStates || {}),
+                [evt.nodeId]: {
+                  status: 'failed',
+                  error: evt.data?.error || 'Node execution failed',
+                },
+              },
+            }));
+          } else if (evt.event === 'node.skipped') {
+            setCanvasExecution((prev) => ({
+              ...prev,
+              nodeStates: {
+                ...(prev?.nodeStates || {}),
+                [evt.nodeId]: {
+                  status: 'skipped',
+                  reason: evt.data?.reason,
+                },
+              },
+            }));
+          } else if (evt.event === 'execution.completed' || evt.event === 'execution.failed') {
+            finalizeAndFetchCheckpoints(evt.event === 'execution.completed' ? 'completed' : 'failed');
+          }
+        } catch (err) {
+          console.error('Failed to parse SSE execution event:', err);
+        }
+      };
+
+      sseSource.onerror = (err) => {
+        console.warn('SSE stream closed or interrupted; fetching durable checkpoints:', err);
+        finalizeAndFetchCheckpoints();
+      };
     } catch (err) {
+      if (sseSource) sseSource.close();
+      setRunningWorkflowId(null);
       setRunToast({
         type: 'error',
         message: `Run failed: ${err.message}`,
       });
       setTimeout(() => setRunToast(null), 6000);
-    } finally {
-      setRunningWorkflowId(null);
     }
   };
 
@@ -1637,6 +1763,8 @@ function WorkflowsPage() {
               onRun={() => handleRunWorkflow(fullCanvasWorkflow)}
               isRunning={runningWorkflowId === fullCanvasWorkflow.id}
               latestExecution={canvasExecution}
+              apiBase={apiBase}
+              tenantSlug={tenantSlug}
             />
           </div>
         </div>
