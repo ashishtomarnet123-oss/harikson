@@ -33,6 +33,10 @@ export interface IWorkflowJobData {
   triggerType: 'manual' | 'webhook' | 'cron' | 'event';
   payload: Record<string, any>;
   tenantId: string;
+  options?: {
+    startNodeId?: string;
+    initialNodesOutputs?: Record<string, any>;
+  };
 }
 
 /**

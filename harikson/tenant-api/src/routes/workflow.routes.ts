@@ -584,6 +584,153 @@ router.get('/:id/executions/:execId', async (req: any, res) => {
   }
 });
 
+// POST /api/v1/workflows/:id/executions/:execId/retry - Re-enqueue failed execution with same payload via BullMQ
+router.post('/:id/executions/:execId/retry', async (req: any, res) => {
+  const { id, execId } = req.params;
+  const tenantId = req.tenant?.id;
+
+  try {
+    const prevRes = await executeTenantQuery(tenantId, (client) =>
+      client.query(
+        `SELECT * FROM workflow_executions WHERE id = $1 AND workflow_id = $2 AND tenant_id = $3`,
+        [execId, id, tenantId]
+      )
+    );
+
+    if (!prevRes.rows.length) {
+      return res.status(404).json({ error: 'Execution not found or unauthorized' });
+    }
+
+    const prev = prevRes.rows[0];
+    const triggerPayload =
+      typeof prev.trigger_payload === 'string'
+        ? JSON.parse(prev.trigger_payload)
+        : prev.trigger_payload || {};
+    const triggerType = prev.trigger_type || 'manual';
+
+    const version =
+      (await WorkflowVersionService.getPublishedVersion(tenantId, id)) || { id: prev.workflow_version_id };
+
+    // Pre-create new execution record with 'queued' status
+    const newExecRes = await executeTenantQuery(tenantId, (client) =>
+      client.query(
+        `INSERT INTO workflow_executions (
+           workflow_id, workflow_version_id, tenant_id, status, trigger_type, trigger_payload, started_at
+         ) VALUES ($1, $2, $3, 'queued', $4, $5, NOW()) RETURNING id`,
+        [id, version.id, tenantId, triggerType, JSON.stringify(triggerPayload)]
+      )
+    );
+    const newExecutionId = newExecRes.rows[0].id;
+
+    // Enqueue to BullMQ
+    await enqueueWorkflowExecution({
+      executionId: newExecutionId,
+      workflowId: id,
+      triggerType: triggerType as any,
+      payload: triggerPayload,
+      tenantId,
+    });
+
+    res.status(202).json({
+      success: true,
+      executionId: newExecutionId,
+      status: 'queued',
+      message: 'Execution re-queued for retry with original trigger payload',
+    });
+  } catch (err: any) {
+    logger.error('Retry execution error:', err);
+    res.status(500).json({ error: err.message || 'Failed to retry execution' });
+  }
+});
+
+// POST /api/v1/workflows/:id/run-from-node - Execute downstream subgraph from specific node using checkpoints
+router.post('/:id/run-from-node', async (req: any, res) => {
+  const { id } = req.params;
+  const tenantId = req.tenant?.id;
+  const { startNodeId, previousExecutionId } = req.body;
+
+  if (!startNodeId) {
+    return res.status(400).json({ error: 'startNodeId is required' });
+  }
+
+  try {
+    const version = await WorkflowVersionService.getPublishedVersion(tenantId, id);
+    if (!version) {
+      return res.status(400).json({ error: 'No published workflow version found' });
+    }
+
+    let initialNodesOutputs: Record<string, any> = {};
+    let triggerPayload: Record<string, any> = {};
+    let triggerType = 'manual';
+
+    if (previousExecutionId) {
+      // 1. Fetch checkpoints from previous execution
+      const checkpointsRes = await executeTenantQuery(tenantId, (client) =>
+        client.query(
+          `SELECT node_id, output FROM workflow_node_executions 
+           WHERE execution_id = $1 AND status = 'success'`,
+          [previousExecutionId]
+        )
+      );
+
+      for (const row of checkpointsRes.rows) {
+        if (row.node_id) {
+          initialNodesOutputs[row.node_id] = row.output;
+        }
+      }
+
+      // 2. Fetch original trigger payload
+      const prevExecRes = await executeTenantQuery(tenantId, (client) =>
+        client.query(`SELECT trigger_payload, trigger_type FROM workflow_executions WHERE id = $1`, [
+          previousExecutionId,
+        ])
+      );
+      if (prevExecRes.rows.length) {
+        triggerPayload =
+          typeof prevExecRes.rows[0].trigger_payload === 'string'
+            ? JSON.parse(prevExecRes.rows[0].trigger_payload)
+            : prevExecRes.rows[0].trigger_payload || {};
+        triggerType = prevExecRes.rows[0].trigger_type || 'manual';
+      }
+    }
+
+    // Pre-create execution record with 'queued' status
+    const execRes = await executeTenantQuery(tenantId, (client) =>
+      client.query(
+        `INSERT INTO workflow_executions (
+           workflow_id, workflow_version_id, tenant_id, status, trigger_type, trigger_payload, started_at
+         ) VALUES ($1, $2, $3, 'queued', $4, $5, NOW()) RETURNING id`,
+        [id, version.id, tenantId, triggerType, JSON.stringify(triggerPayload)]
+      )
+    );
+    const executionId = execRes.rows[0].id;
+
+    // Enqueue execution to BullMQ with startNodeId and initialNodesOutputs
+    await enqueueWorkflowExecution({
+      executionId,
+      workflowId: id,
+      triggerType: triggerType as any,
+      payload: triggerPayload,
+      tenantId,
+      options: {
+        startNodeId,
+        initialNodesOutputs,
+      },
+    });
+
+    res.status(202).json({
+      success: true,
+      executionId,
+      status: 'queued',
+      startNodeId,
+      message: `Execution queued starting downstream from node ${startNodeId}`,
+    });
+  } catch (err: any) {
+    logger.error('Run from node error:', err);
+    res.status(500).json({ error: err.message || 'Failed to execute downstream from node' });
+  }
+});
+
 // GET /api/v1/workflows/:id/executions/:execId/events - Server-Sent Events (SSE) telemetry stream
 router.get('/:id/executions/:execId/events', (req: any, res) => {
   const { execId } = req.params;

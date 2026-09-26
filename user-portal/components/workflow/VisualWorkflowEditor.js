@@ -47,6 +47,7 @@ import {
   AlertTriangle,
   CheckCircle2,
   Archive,
+  Send,
 } from 'lucide-react';
 
 // ─── REUSABLE JSON / CODE COPY VIEWER ─────────────────────────────────────────
@@ -937,6 +938,8 @@ const ExecutionInspectorDrawer = ({
   onRefresh,
   isLoading,
   onFocusNode,
+  onRetry,
+  isRetrying,
 }) => {
   const [activeTab, setActiveTab] = useState('all');
   const nodeExecs = execution?.nodeExecutions || [];
@@ -1075,6 +1078,23 @@ const ExecutionInspectorDrawer = ({
             </span>
           </div>
         </div>
+
+        {/* Phase 3: Retry Failed Execution Button */}
+        {status === 'failed' && onRetry && (
+          <button
+            type="button"
+            onClick={() => onRetry(execId)}
+            disabled={isRetrying}
+            className="w-full flex items-center justify-center gap-2 py-2 px-3 rounded-xl bg-red-600 hover:bg-red-500 text-white text-xs font-semibold shadow-md shadow-red-600/30 transition disabled:opacity-50"
+          >
+            {isRetrying ? (
+              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+            ) : (
+              <RotateCcw className="w-3.5 h-3.5" />
+            )}
+            <span>Retry Failed Execution</span>
+          </button>
+        )}
 
         {/* Filter Tabs */}
         {displaySteps.length > 0 && (
@@ -1477,6 +1497,218 @@ const VersionHistoryDrawer = ({
   );
 };
 
+// ─── WEBHOOK TEST MODAL ──────────────────────────────────────────────────────
+const WebhookTestModal = ({
+  isOpen,
+  onClose,
+  workflowId,
+  apiBase,
+  tenantSlug,
+  onTriggerSuccess,
+}) => {
+  const [payloadText, setPayloadText] = useState(
+    JSON.stringify(
+      {
+        event: 'order.completed',
+        data: {
+          orderId: 'ord_99812',
+          customerEmail: 'alex.rivera@example.com',
+          amount: 149.99,
+          currency: 'USD',
+          items: ['Pro License Plan'],
+          timestamp: new Date().toISOString(),
+        },
+      },
+      null,
+      2
+    )
+  );
+  const [idempotencyKey, setIdempotencyKey] = useState('');
+  const [isSending, setIsSending] = useState(false);
+  const [jsonError, setJsonError] = useState(null);
+  const [copiedUrl, setCopiedUrl] = useState(false);
+
+  if (!isOpen) return null;
+
+  const webhookUrl = `${apiBase || ''}/api/v1/workflows/${workflowId}/trigger`;
+
+  const handleCopyUrl = () => {
+    navigator.clipboard?.writeText(webhookUrl);
+    setCopiedUrl(true);
+    setTimeout(() => setCopiedUrl(false), 2000);
+  };
+
+  const handleFormatJson = () => {
+    try {
+      const parsed = JSON.parse(payloadText);
+      setPayloadText(JSON.stringify(parsed, null, 2));
+      setJsonError(null);
+    } catch (err) {
+      setJsonError(`Invalid JSON: ${err.message}`);
+    }
+  };
+
+  const handleSendPayload = async () => {
+    let parsedPayload = {};
+    try {
+      parsedPayload = JSON.parse(payloadText);
+      setJsonError(null);
+    } catch (err) {
+      setJsonError(`Invalid JSON syntax: ${err.message}`);
+      return;
+    }
+
+    setIsSending(true);
+    try {
+      const res = await fetch(webhookUrl, {
+        method: 'POST',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(tenantSlug ? { 'x-tenant-slug': tenantSlug } : {}),
+          ...(idempotencyKey.trim() ? { 'x-idempotency-key': idempotencyKey.trim() } : {}),
+        },
+        body: JSON.stringify(parsedPayload),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || 'Failed to dispatch webhook test payload');
+      }
+
+      onClose();
+      if (onTriggerSuccess && data.executionId) {
+        onTriggerSuccess(data.executionId, parsedPayload);
+      }
+    } catch (err) {
+      setJsonError(err.message || 'Webhook request failed');
+    } finally {
+      setIsSending(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4">
+      <div className="w-full max-w-xl bg-slate-900 border border-white/15 rounded-2xl shadow-2xl overflow-hidden flex flex-col">
+        {/* Header */}
+        <div className="px-6 py-5 border-b border-white/10 flex items-center justify-between bg-slate-950/40">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-blue-500/20 border border-blue-500/30 flex items-center justify-center text-blue-400">
+              <Globe className="w-5 h-5" />
+            </div>
+            <div>
+              <h3 className="text-base font-bold text-white">Webhook Test Sandbox</h3>
+              <p className="text-xs text-slate-400">Dispatch live test payload and observe real-time canvas execution</p>
+            </div>
+          </div>
+          <button
+            onClick={onClose}
+            className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 transition"
+          >
+            <XCircle className="w-5 h-5" />
+          </button>
+        </div>
+
+        {/* Body */}
+        <div className="p-6 space-y-4">
+          {/* Target Webhook URL */}
+          <div>
+            <label className="block text-[11px] font-semibold text-slate-400 mb-1 uppercase tracking-wider">
+              Target Webhook URL (POST)
+            </label>
+            <div className="flex items-center gap-2 p-2.5 rounded-xl bg-slate-950 border border-white/10 font-mono text-xs text-cyan-300">
+              <span className="truncate flex-1">{webhookUrl}</span>
+              <button
+                type="button"
+                onClick={handleCopyUrl}
+                className="px-2 py-1 rounded-lg bg-white/10 hover:bg-white/20 text-white text-[11px] font-medium transition flex items-center gap-1 shrink-0"
+              >
+                {copiedUrl ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                <span>{copiedUrl ? 'Copied' : 'Copy'}</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Idempotency Key (Optional) */}
+          <div>
+            <label className="block text-xs font-semibold text-slate-300 mb-1">
+              Idempotency Key (Optional)
+            </label>
+            <input
+              type="text"
+              value={idempotencyKey}
+              onChange={(e) => setIdempotencyKey(e.target.value)}
+              placeholder="e.g. test_req_id_1001"
+              className="w-full bg-slate-950/80 border border-white/10 rounded-xl px-3.5 py-2 text-xs text-slate-200 placeholder:text-slate-500 font-mono focus:outline-none focus:border-cyan-500"
+            />
+          </div>
+
+          {/* JSON Payload Editor */}
+          <div>
+            <div className="flex items-center justify-between mb-1.5">
+              <label className="text-xs font-semibold text-slate-300">
+                JSON Payload (Body)
+              </label>
+              <button
+                type="button"
+                onClick={handleFormatJson}
+                className="text-[11px] text-cyan-400 hover:text-cyan-300 font-medium transition"
+              >
+                Format / Validate JSON
+              </button>
+            </div>
+            <textarea
+              rows={8}
+              value={payloadText}
+              onChange={(e) => {
+                setPayloadText(e.target.value);
+                setJsonError(null);
+              }}
+              className="w-full bg-slate-950 border border-white/10 rounded-xl p-3 text-xs font-mono text-emerald-300 focus:outline-none focus:border-cyan-500 leading-relaxed"
+            />
+          </div>
+
+          {jsonError && (
+            <div className="p-3 rounded-xl bg-red-950/70 border border-red-500/40 text-red-200 text-xs flex items-center gap-2 font-mono">
+              <AlertTriangle className="w-4 h-4 text-red-400 shrink-0" />
+              <span>{jsonError}</span>
+            </div>
+          )}
+        </div>
+
+        {/* Footer */}
+        <div className="px-6 py-4 border-t border-white/10 bg-slate-950/40 flex items-center justify-end gap-2.5">
+          <button
+            type="button"
+            onClick={onClose}
+            className="px-4 py-2 rounded-xl text-xs font-medium text-slate-300 hover:text-white hover:bg-white/10 transition"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            onClick={handleSendPayload}
+            disabled={isSending}
+            className="flex items-center gap-2 px-5 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold transition shadow-lg shadow-blue-600/30 disabled:opacity-50"
+          >
+            {isSending ? (
+              <>
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                <span>Posting Webhook...</span>
+              </>
+            ) : (
+              <>
+                <Globe className="w-3.5 h-3.5" />
+                <span>Send Test Payload</span>
+              </>
+            )}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 // ─── MAIN VISUAL WORKFLOW EDITOR COMPONENT ────────────────────────────────────
 
 export default function VisualWorkflowEditor({
@@ -1600,6 +1832,23 @@ export default function VisualWorkflowEditor({
   const [toastMessage, setToastMessage] = useState(null);
   const [activeVersionNumber, setActiveVersionNumber] = useState(workflow?.current_version || 1);
   const [isDraftActive, setIsDraftActive] = useState(false);
+
+  // Phase 3: Execution UX state (retry, run-from-node, webhook test, context menu)
+  const [isRetrying, setIsRetrying] = useState(false);
+  const [isRunningFromNode, setIsRunningFromNode] = useState(false);
+  const [showWebhookTestModal, setShowWebhookTestModal] = useState(false);
+  const [nodeContextMenu, setNodeContextMenu] = useState(null);
+  const activeSseRef = useRef(null);
+
+  // Cleanup active SSE stream on unmount
+  useEffect(() => {
+    return () => {
+      if (activeSseRef.current) {
+        activeSseRef.current.close();
+        activeSseRef.current = null;
+      }
+    };
+  }, []);
 
   // Fetch workflow versions history
   const fetchVersions = useCallback(async () => {
@@ -1833,10 +2082,12 @@ export default function VisualWorkflowEditor({
 
   const onNodeClick = useCallback((_, node) => {
     setSelectedNode(node);
+    setNodeContextMenu(null);
   }, []);
 
   const onPaneClick = useCallback(() => {
     setSelectedNode(null);
+    setNodeContextMenu(null);
   }, []);
 
   // Add new node from palette
@@ -2128,6 +2379,183 @@ export default function VisualWorkflowEditor({
     }
   };
 
+  // Phase 3: Start live SSE telemetry stream for any execution (retry, run-from-node, webhook test)
+  const handleStartTelemetryStream = useCallback((execId) => {
+    if (!execId || !workflow?.id) return;
+    if (activeSseRef.current) {
+      activeSseRef.current.close();
+      activeSseRef.current = null;
+    }
+
+    const base = apiBase || '';
+    const sseUrl = `${base}/api/v1/workflows/${workflow.id}/executions/${execId}/events`;
+
+    try {
+      const es = new EventSource(sseUrl, { withCredentials: true });
+      activeSseRef.current = es;
+
+      setExecutionDetails((prev) => ({
+        ...(prev || {}),
+        id: execId,
+        status: 'running',
+        started_at: new Date().toISOString(),
+        nodeStates: {},
+      }));
+
+      es.onmessage = (msgEvent) => {
+        try {
+          const data = JSON.parse(msgEvent.data);
+          if (!data || !data.event) return;
+
+          if (data.event === 'node.started') {
+            setNodes((nds) =>
+              nds.map((n) =>
+                n.id === data.nodeId || n.id === `node_${data.nodeId}`
+                  ? { ...n, data: { ...n.data, executionStatus: 'running' } }
+                  : n
+              )
+            );
+          } else if (data.event === 'node.completed') {
+            setNodes((nds) =>
+              nds.map((n) =>
+                n.id === data.nodeId || n.id === `node_${data.nodeId}`
+                  ? {
+                      ...n,
+                      data: {
+                        ...n.data,
+                        executionStatus: 'completed',
+                        durationMs: data.data?.durationMs,
+                        output: data.data?.output,
+                      },
+                    }
+                  : n
+              )
+            );
+          } else if (data.event === 'node.failed') {
+            setNodes((nds) =>
+              nds.map((n) =>
+                n.id === data.nodeId || n.id === `node_${data.nodeId}`
+                  ? {
+                      ...n,
+                      data: {
+                        ...n.data,
+                        executionStatus: 'failed',
+                        error: data.data?.error,
+                      },
+                    }
+                  : n
+              )
+            );
+          } else if (data.event === 'node.skipped') {
+            setNodes((nds) =>
+              nds.map((n) =>
+                n.id === data.nodeId || n.id === `node_${data.nodeId}`
+                  ? { ...n, data: { ...n.data, executionStatus: 'skipped' } }
+                  : n
+              )
+            );
+          } else if (data.event === 'execution.completed' || data.event === 'execution.failed') {
+            fetchExecutionCheckpoints(execId);
+            es.close();
+            activeSseRef.current = null;
+          }
+        } catch (parseErr) {
+          console.error('Error parsing SSE event:', parseErr);
+        }
+      };
+
+      es.onerror = () => {
+        es.close();
+        activeSseRef.current = null;
+        fetchExecutionCheckpoints(execId);
+      };
+    } catch (connErr) {
+      console.error('Failed to connect to SSE stream:', connErr);
+    }
+  }, [apiBase, workflow?.id, setNodes, fetchExecutionCheckpoints]);
+
+  // Phase 3: Retry failed execution via POST /:id/executions/:execId/retry
+  const handleRetryExecution = async (failedExecId) => {
+    if (!workflow?.id || !failedExecId) return;
+    setIsRetrying(true);
+    try {
+      const base = apiBase || '';
+      const res = await fetch(`${base}/api/v1/workflows/${workflow.id}/executions/${failedExecId}/retry`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(tenantSlug ? { 'x-tenant-slug': tenantSlug } : {}),
+        },
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || 'Failed to retry execution');
+      }
+
+      setToastMessage({
+        type: 'info',
+        text: `Retrying execution #${data.executionId?.slice(0, 8)}...`,
+      });
+      setTimeout(() => setToastMessage(null), 4000);
+
+      // Open inspector & stream live events
+      setShowExecutionInspector(true);
+      fetchExecutionCheckpoints(data.executionId);
+      handleStartTelemetryStream(data.executionId);
+    } catch (err) {
+      setToastMessage({ type: 'error', text: err.message || 'Retry execution failed' });
+      setTimeout(() => setToastMessage(null), 5000);
+    } finally {
+      setIsRetrying(false);
+    }
+  };
+
+  // Phase 3: Execute downstream subgraph from specific node via POST /:id/run-from-node
+  const handleRunFromNode = async (node) => {
+    if (!workflow?.id || !node) return;
+    setIsRunningFromNode(true);
+    setNodeContextMenu(null);
+    try {
+      const base = apiBase || '';
+      const previousExecutionId = executionDetails?.id || latestExecution?.id;
+      const res = await fetch(`${base}/api/v1/workflows/${workflow.id}/run-from-node`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(tenantSlug ? { 'x-tenant-slug': tenantSlug } : {}),
+        },
+        body: JSON.stringify({
+          startNodeId: node.id,
+          previousExecutionId,
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || 'Failed to execute downstream from node');
+      }
+
+      setToastMessage({
+        type: 'info',
+        text: `Executing downstream from "${node.data?.label || node.id}" (#${data.executionId?.slice(0, 8)})...`,
+      });
+      setTimeout(() => setToastMessage(null), 4000);
+
+      // Open inspector & stream live events
+      setShowExecutionInspector(true);
+      fetchExecutionCheckpoints(data.executionId);
+      handleStartTelemetryStream(data.executionId);
+    } catch (err) {
+      setToastMessage({ type: 'error', text: err.message || 'Run from node failed' });
+      setTimeout(() => setToastMessage(null), 5000);
+    } finally {
+      setIsRunningFromNode(false);
+    }
+  };
+
   // Backward compatibility alias for save graph
   const handleSaveGraph = handleSaveDraft;
 
@@ -2288,6 +2716,16 @@ export default function VisualWorkflowEditor({
             <span>{isRunning ? 'Executing...' : 'Run Pipeline'}</span>
           </button>
 
+          {/* Phase 3: Test Webhook Sandbox Button */}
+          <button
+            onClick={() => setShowWebhookTestModal(true)}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-600/20 hover:bg-blue-600/30 text-blue-300 border border-blue-500/30 text-xs font-semibold transition shadow-sm"
+            title="Open Webhook Test Sandbox to dispatch payloads"
+          >
+            <Globe className="w-3.5 h-3.5 text-blue-400" />
+            <span>Test Webhook</span>
+          </button>
+
           {/* Execution Inspector Button */}
           <button
             onClick={() => {
@@ -2353,6 +2791,10 @@ export default function VisualWorkflowEditor({
           onConnect={onConnect}
           onNodeClick={onNodeClick}
           onPaneClick={onPaneClick}
+          onNodeContextMenu={(event, node) => {
+            event.preventDefault();
+            setNodeContextMenu({ x: event.clientX, y: event.clientY, node });
+          }}
           nodeTypes={nodeTypes}
           fitView
           attributionPosition="bottom-left"
@@ -2372,6 +2814,72 @@ export default function VisualWorkflowEditor({
             className="!bg-slate-950/80 !border-white/10 !rounded-xl !overflow-hidden"
           />
         </ReactFlow>
+
+        {/* Phase 3: Node Context Menu */}
+        {nodeContextMenu && (
+          <div
+            className="fixed z-50 min-w-[210px] bg-slate-900/95 border border-white/15 rounded-xl shadow-2xl backdrop-blur-xl p-1.5 text-xs animate-in fade-in zoom-in-95 duration-100"
+            style={{ left: nodeContextMenu.x, top: nodeContextMenu.y }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="px-2.5 py-1.5 border-b border-white/10 mb-1 flex items-center justify-between">
+              <span className="font-bold text-white truncate max-w-[130px]">
+                {nodeContextMenu.node?.data?.label || nodeContextMenu.node?.id}
+              </span>
+              <span className="text-[9px] font-mono text-cyan-400 uppercase font-semibold">
+                {nodeContextMenu.node?.type?.replace('Node', '')}
+              </span>
+            </div>
+
+            {/* Execute from this node */}
+            <button
+              type="button"
+              onClick={() => handleRunFromNode(nodeContextMenu.node)}
+              disabled={isRunningFromNode}
+              className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-slate-200 hover:text-white hover:bg-cyan-500/20 hover:text-cyan-300 transition text-left font-medium disabled:opacity-50"
+            >
+              {isRunningFromNode ? (
+                <Loader2 className="w-3.5 h-3.5 animate-spin text-cyan-400" />
+              ) : (
+                <Play className="w-3.5 h-3.5 text-emerald-400 fill-current" />
+              )}
+              <span>Execute from this node</span>
+            </button>
+
+            {/* Configure Node */}
+            <button
+              type="button"
+              onClick={() => {
+                setSelectedNode(nodeContextMenu.node);
+                setNodeContextMenu(null);
+              }}
+              className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-slate-200 hover:text-white hover:bg-white/10 transition text-left font-medium"
+            >
+              <Settings className="w-3.5 h-3.5 text-slate-400" />
+              <span>Configure Node</span>
+            </button>
+
+            {/* Delete Node (if not triggerNode) */}
+            {nodeContextMenu.node?.type !== 'triggerNode' && (
+              <button
+                type="button"
+                onClick={() => {
+                  const nodeToDelete = nodeContextMenu.node;
+                  setNodes((nds) => nds.filter((n) => n.id !== nodeToDelete.id));
+                  setEdges((eds) =>
+                    eds.filter((e) => e.source !== nodeToDelete.id && e.target !== nodeToDelete.id)
+                  );
+                  if (selectedNode?.id === nodeToDelete.id) setSelectedNode(null);
+                  setNodeContextMenu(null);
+                }}
+                className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-red-400 hover:text-red-300 hover:bg-red-500/15 transition text-left font-medium border-t border-white/5 mt-1"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                <span>Delete Node</span>
+              </button>
+            )}
+          </div>
+        )}
       </div>
 
       {/* ─── NODE PALETTE MODAL / SIDEBAR ─────────────────────────────────── */}
@@ -2694,14 +3202,35 @@ export default function VisualWorkflowEditor({
         <ExecutionInspectorDrawer
           execution={executionDetails || latestExecution}
           onClose={() => setShowExecutionInspector(false)}
-          onRefresh={() => fetchExecutionCheckpoints(latestExecution?.id)}
+          onRefresh={() => fetchExecutionCheckpoints(executionDetails?.id || latestExecution?.id)}
           isLoading={isLoadingExecution}
           onFocusNode={(nodeId) => {
             const found = nodes.find((n) => n.id === nodeId || n.id === `node_${nodeId}`);
             if (found) setSelectedNode(found);
           }}
+          onRetry={handleRetryExecution}
+          isRetrying={isRetrying}
         />
       )}
+
+      {/* ─── WEBHOOK TEST SANDBOX MODAL ─────────────────────────────────────── */}
+      <WebhookTestModal
+        isOpen={showWebhookTestModal}
+        onClose={() => setShowWebhookTestModal(false)}
+        workflowId={workflow?.id}
+        apiBase={apiBase}
+        tenantSlug={tenantSlug}
+        onTriggerSuccess={(execId) => {
+          setToastMessage({
+            type: 'info',
+            text: `Webhook dispatched! Execution #${execId?.slice(0, 8)} started.`,
+          });
+          setTimeout(() => setToastMessage(null), 4000);
+          setShowExecutionInspector(true);
+          fetchExecutionCheckpoints(execId);
+          handleStartTelemetryStream(execId);
+        }}
+      />
 
       {/* ─── VERSION HISTORY DRAWER ────────────────────────────────────────── */}
       <VersionHistoryDrawer

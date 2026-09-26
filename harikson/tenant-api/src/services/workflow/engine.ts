@@ -195,7 +195,11 @@ export class WorkflowEngine {
     triggerType: TriggerType = 'manual',
     triggerPayload: Record<string, any> = {},
     tenantIdOverride?: string,
-    existingExecutionId?: string
+    existingExecutionId?: string,
+    options?: {
+      startNodeId?: string;
+      initialNodesOutputs?: Record<string, any>;
+    }
   ): Promise<{ executionId: string; status: string; stepResults: IStepExecutionResult[]; durationMs: number }> {
     const startTime = Date.now();
 
@@ -259,7 +263,7 @@ export class WorkflowEngine {
       triggerPayload,
       variables: {},
       stepsResults: [],
-      nodesOutputs: {},
+      nodesOutputs: options?.initialNodesOutputs ? { ...options.initialNodesOutputs } : {},
     };
 
     let overallStatus: 'completed' | 'failed' = 'completed';
@@ -305,20 +309,61 @@ export class WorkflowEngine {
         inDegree.set(node.id, inEdges.length);
       }
 
-      // Identify root nodes (inDegree === 0)
+      // Identify queue roots with optional downstream subgraph scoping
       const queue: string[] = [];
-      for (const node of nodes) {
-        if (inDegree.get(node.id) === 0) {
-          queue.push(node.id);
+      const visited = new Set<string>();
+      const skippedNodes = new Set<string>();
+
+      if (options?.startNodeId && nodeMap.has(options.startNodeId)) {
+        // Traverse and discover downstream reachable nodes from startNodeId
+        const downstreamSet = new Set<string>();
+        const searchQueue = [options.startNodeId];
+        downstreamSet.add(options.startNodeId);
+
+        while (searchQueue.length > 0) {
+          const curr = searchQueue.shift()!;
+          const outEdges = outgoingEdges.get(curr) || [];
+          for (const edge of outEdges) {
+            if (!downstreamSet.has(edge.target)) {
+              downstreamSet.add(edge.target);
+              searchQueue.push(edge.target);
+            }
+          }
+        }
+
+        // Mark all upstream nodes outside the downstream subgraph as visited (outputs already seeded)
+        for (const node of nodes) {
+          if (!downstreamSet.has(node.id)) {
+            visited.add(node.id);
+          }
+        }
+
+        // Recalculate in-degrees for downstream nodes only considering incoming edges from other downstream nodes
+        for (const nodeId of downstreamSet) {
+          const inEdges = incomingEdges.get(nodeId) || [];
+          const internalInDegree = inEdges.filter((e) => downstreamSet.has(e.source)).length;
+          inDegree.set(nodeId, internalInDegree);
+        }
+
+        // Initialize queue with downstream roots
+        for (const nodeId of downstreamSet) {
+          if (inDegree.get(nodeId) === 0) {
+            queue.push(nodeId);
+          }
+        }
+      } else {
+        // Standard full DAG: Identify root nodes (inDegree === 0)
+        for (const node of nodes) {
+          if (inDegree.get(node.id) === 0) {
+            queue.push(node.id);
+          }
+        }
+
+        if (queue.length === 0 && nodes.length > 0) {
+          queue.push(nodes[0].id);
         }
       }
 
-      if (queue.length === 0 && nodes.length > 0) {
-        queue.push(nodes[0].id);
-      }
-
-      const visited = new Set<string>();
-      const skippedNodes = new Set<string>();
       let stepCounter = 0;
 
       while (queue.length > 0) {

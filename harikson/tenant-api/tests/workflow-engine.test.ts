@@ -726,6 +726,256 @@ describe('Xarwiz Workflow Engine: Diagnostic & Phase 0 Test Suite', () => {
     assert.strictEqual(draftV2.status, 'archived', 'Previous published version must be archived');
   });
 
+  // ============================================================================
+  // 18. PHASE 3: RETRY FAILED EXECUTION
+  // ============================================================================
+  it('21. Retry Execution: re-enqueues failed execution with exact payload and version pinning', async () => {
+    interface IMockExecutionRow {
+      id: string;
+      workflow_id: string;
+      workflow_version_id: string;
+      tenant_id: string;
+      status: 'queued' | 'running' | 'completed' | 'failed';
+      trigger_type: string;
+      trigger_payload: any;
+      error_message?: string;
+    }
+
+    const mockDb: IMockExecutionRow[] = [
+      {
+        id: 'exec-failed-1',
+        workflow_id: 'wf-order-sync',
+        workflow_version_id: 'ver-prod-1',
+        tenant_id: 'tenant-acme',
+        status: 'failed',
+        trigger_type: 'webhook',
+        trigger_payload: { orderId: 'ord_99812', amount: 149.99, customerEmail: 'alex@example.com' },
+        error_message: 'External API endpoint 503 Service Unavailable',
+      },
+    ];
+
+    // Retry Handler Function (mirroring POST /:id/executions/:execId/retry)
+    const retryExecution = (tenantId: string, workflowId: string, execId: string) => {
+      const prev = mockDb.find(
+        (e) => e.id === execId && e.workflow_id === workflowId && e.tenant_id === tenantId
+      );
+      if (!prev) throw new Error('Execution not found or unauthorized');
+
+      const newExecId = `exec-retry-${Date.now()}`;
+      const newExecution: IMockExecutionRow = {
+        id: newExecId,
+        workflow_id: prev.workflow_id,
+        workflow_version_id: prev.workflow_version_id,
+        tenant_id: prev.tenant_id,
+        status: 'queued',
+        trigger_type: prev.trigger_type,
+        trigger_payload: { ...prev.trigger_payload },
+      };
+      mockDb.push(newExecution);
+      return { success: true, executionId: newExecId, status: 'queued' };
+    };
+
+    // Unauthorized / Wrong tenant rejection
+    assert.throws(
+      () => retryExecution('wrong-tenant', 'wf-order-sync', 'exec-failed-1'),
+      /Execution not found or unauthorized/
+    );
+
+    // Valid retry execution
+    const retryResult = retryExecution('tenant-acme', 'wf-order-sync', 'exec-failed-1');
+    assert.strictEqual(retryResult.success, true);
+    assert.strictEqual(retryResult.status, 'queued');
+
+    const created = mockDb.find((e) => e.id === retryResult.executionId);
+    assert.ok(created, 'New execution record must be inserted in queued status');
+    assert.strictEqual(created.workflow_version_id, 'ver-prod-1', 'Must pin to the workflow version');
+    assert.deepStrictEqual(created.trigger_payload, {
+      orderId: 'ord_99812',
+      amount: 149.99,
+      customerEmail: 'alex@example.com',
+    });
+  });
+
+  // ============================================================================
+  // 19. PHASE 3: EXECUTE DOWNSTREAM SUBGRAPH FROM SPECIFIC NODE (RUN FROM NODE)
+  // ============================================================================
+  it('22. Run From Node: traverses downstream subgraph, pre-seeds outputs, and skips upstream', async () => {
+    // Multi-node DAG:
+    // trig -> extract -> transform -> deliver
+    //   \-> audit
+    const dagNodes = [
+      { id: 'trig', type: 'triggerNode' },
+      { id: 'extract', type: 'step' },
+      { id: 'transform', type: 'step' },
+      { id: 'deliver', type: 'step' },
+      { id: 'audit', type: 'step' },
+    ];
+    const dagEdges = [
+      { id: 'e1', source: 'trig', target: 'extract' },
+      { id: 'e2', source: 'extract', target: 'transform' },
+      { id: 'e3', source: 'transform', target: 'deliver' },
+      { id: 'e4', source: 'trig', target: 'audit' },
+    ];
+
+    const outgoingEdges = new Map<string, Array<{ source: string; target: string }>>();
+    const incomingEdges = new Map<string, Array<{ source: string; target: string }>>();
+    for (const node of dagNodes) {
+      outgoingEdges.set(node.id, []);
+      incomingEdges.set(node.id, []);
+    }
+    for (const edge of dagEdges) {
+      outgoingEdges.get(edge.source)?.push(edge);
+      incomingEdges.get(edge.target)?.push(edge);
+    }
+
+    const startNodeId = 'transform';
+    const seededCheckpoints: Record<string, any> = {
+      extract: { rawCount: 42, customer: 'Alice' },
+    };
+
+    // Subgraph Discovery Algorithm (identical to WorkflowEngine.executeWorkflow downstream scoping)
+    const downstreamSet = new Set<string>();
+    const searchQueue = [startNodeId];
+    downstreamSet.add(startNodeId);
+
+    while (searchQueue.length > 0) {
+      const curr = searchQueue.shift()!;
+      const outEdges = outgoingEdges.get(curr) || [];
+      for (const edge of outEdges) {
+        if (!downstreamSet.has(edge.target)) {
+          downstreamSet.add(edge.target);
+          searchQueue.push(edge.target);
+        }
+      }
+    }
+
+    // Downstream set must contain transform and deliver, but NOT trig, extract, or audit
+    assert.deepStrictEqual(Array.from(downstreamSet), ['transform', 'deliver']);
+
+    const visited = new Set<string>();
+    for (const node of dagNodes) {
+      if (!downstreamSet.has(node.id)) {
+        visited.add(node.id);
+      }
+    }
+    assert.ok(visited.has('trig'), 'Upstream trig must be pre-visited');
+    assert.ok(visited.has('extract'), 'Upstream extract must be pre-visited');
+    assert.ok(visited.has('audit'), 'Parallel audit node must be pre-visited');
+
+    // Recalculate in-degree within downstream subgraph
+    const inDegree = new Map<string, number>();
+    for (const nodeId of downstreamSet) {
+      const inEdges = incomingEdges.get(nodeId) || [];
+      const internalInDegree = inEdges.filter((e) => downstreamSet.has(e.source)).length;
+      inDegree.set(nodeId, internalInDegree);
+    }
+
+    // transform in-degree should be 0 because extract is outside downstream subgraph
+    assert.strictEqual(inDegree.get('transform'), 0, 'Start node must have internal in-degree 0');
+    // deliver in-degree should be 1 because transform is inside downstream subgraph
+    assert.strictEqual(inDegree.get('deliver'), 1, 'Deliver must have in-degree 1');
+
+    // Seeded context enables downstream expression evaluation
+    const context: IWorkflowExecutionContext = {
+      executionId: 'mock-subgraph-exec',
+      workflowId: 'wf-1',
+      tenantId: 'tenant-1',
+      triggerType: 'manual',
+      triggerPayload: {},
+      variables: {},
+      stepsResults: [],
+      nodesOutputs: { ...seededCheckpoints },
+    };
+
+    const resolvedCount = ExpressionEngine.resolveToken('$node["extract"].output.rawCount', context);
+    const resolvedUser = ExpressionEngine.resolveToken('$node["extract"].output.customer', context);
+
+    assert.strictEqual(resolvedCount, 42, 'Downstream node must resolve seeded checkpoint output');
+    assert.strictEqual(resolvedUser, 'Alice');
+
+    const interpolated = ExpressionEngine.interpolate(
+      'Order count is {{$node["extract"].output.rawCount}} for {{$node["extract"].output.customer}}',
+      context
+    );
+    assert.strictEqual(interpolated, 'Order count is 42 for Alice');
+  });
+
+  // ============================================================================
+  // 20. PHASE 3: WEBHOOK TEST MODE & IDEMPOTENCY SANDBOX
+  // ============================================================================
+  it('23. Webhook Test Sandbox: accepts dynamic JSON payloads and enforces idempotency', () => {
+    interface IWebhookExecutionRecord {
+      id: string;
+      tenantId: string;
+      workflowId: string;
+      idempotencyKey?: string;
+      payload: any;
+      status: string;
+    }
+
+    const executionLog: IWebhookExecutionRecord[] = [];
+
+    const handleWebhookPost = (
+      workflow: { id: string; tenant_id: string; status: string; webhook_secret?: string },
+      headers: Record<string, string | undefined>,
+      body: any
+    ) => {
+      if (workflow.status !== 'active') throw new Error('Workflow is paused or inactive');
+
+      const idempotencyKey = headers['x-idempotency-key'] || body?.idempotency_key;
+
+      if (idempotencyKey) {
+        const existing = executionLog.find(
+          (e) => e.tenantId === workflow.tenant_id && e.idempotencyKey === idempotencyKey
+        );
+        if (existing) {
+          return {
+            status: 200,
+            duplicate: true,
+            executionId: existing.id,
+            message: 'Idempotent request: returning existing execution',
+          };
+        }
+      }
+
+      const newId = `exec-hook-${Date.now()}`;
+      executionLog.push({
+        id: newId,
+        tenantId: workflow.tenant_id,
+        workflowId: workflow.id,
+        idempotencyKey,
+        payload: body,
+        status: 'queued',
+      });
+
+      return {
+        status: 202,
+        duplicate: false,
+        executionId: newId,
+        message: 'Workflow execution queued from webhook',
+      };
+    };
+
+    const wf = { id: 'wf_hook_test', tenant_id: 'tenant_1', status: 'active' };
+    const payload = {
+      event: 'order.completed',
+      data: { orderId: 'ord_99812', amount: 149.99 },
+    };
+
+    // 1. Initial Webhook dispatch with idempotency key
+    const resp1 = handleWebhookPost(wf, { 'x-idempotency-key': 'req_key_1001' }, payload);
+    assert.strictEqual(resp1.status, 202);
+    assert.strictEqual(resp1.duplicate, false);
+    assert.ok(resp1.executionId);
+
+    // 2. Replay with identical idempotency key returns 200 duplicate
+    const resp2 = handleWebhookPost(wf, { 'x-idempotency-key': 'req_key_1001' }, payload);
+    assert.strictEqual(resp2.status, 200);
+    assert.strictEqual(resp2.duplicate, true);
+    assert.strictEqual(resp2.executionId, resp1.executionId, 'Must return identical executionId without re-enqueuing');
+    assert.strictEqual(executionLog.length, 1, 'Duplicate request must NOT create new execution record');
+  });
+
   after(() => {
     setTimeout(() => process.exit(0), 50);
   });

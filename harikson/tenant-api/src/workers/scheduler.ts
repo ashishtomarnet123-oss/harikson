@@ -527,9 +527,9 @@ export class HariksonScheduler {
     this.workflowWorker = new Worker('workflowQueue', async (job: Job) => {
       this.recordWorkerRun('workflowWorker');
       try {
-        const { workflowId, triggerType, payload, tenantId, executionId } = job.data;
+        const { workflowId, triggerType, payload, tenantId, executionId, options } = job.data;
         Logger.info(`⚡ [Workflow Worker] Executing queued workflow ${workflowId} (trigger: ${triggerType}, exec: ${executionId || 'new'})...`);
-        await WorkflowEngine.executeWorkflow(workflowId, triggerType || 'manual', payload || {}, tenantId, executionId);
+        await WorkflowEngine.executeWorkflow(workflowId, triggerType || 'manual', payload || {}, tenantId, executionId, options);
       } catch (err: any) {
         this.recordWorkerError('workflowWorker', err);
         throw err;
