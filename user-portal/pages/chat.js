@@ -2629,15 +2629,14 @@ If any check fails, revise the relevant section before output.`;
               <span>New Conversation</span>
             </button>
 
-            {/* Workflow Builder temporarily disabled
             <button
               className="sidebar-btn-secondary"
               onClick={() => router.push('/workflows')}
+              title="Open AI Workflow Builder"
             >
               <Zap size={16} color="var(--accent)" />
               <span>Workflow Builder</span>
             </button>
-            */}
           </div>
 
 
