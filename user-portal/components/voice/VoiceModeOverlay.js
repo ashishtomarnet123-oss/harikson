@@ -1,24 +1,23 @@
 /**
- * VoiceModeOverlay.js — Floating bottom-center voice mode overlay
+ * VoiceModeOverlay.js — Ultra-premium floating voice mode overlay
  *
- * Shown when voice mode is active. Contains:
- *  - Animated VoiceOrb (state + RMS driven, high-DPI canvas)
- *  - State pill badge (Listening, Thinking, Speaking, etc.)
- *  - Live transcript or contextual state hint
- *  - Rolling transcript history
- *  - Settings gear button & Stop voice button
- *
- * Floats above the chat bar without blocking message history.
+ * Designed with modern glassmorphism, dynamic ambient lighting,
+ * live audio feedback, balanced controls, and crisp typography.
  */
 
 import { useEffect, useRef, useState } from 'react';
 import {
   Mic,
+  MicOff,
   Volume2,
   Loader2,
   Zap,
   X,
   Settings,
+  Sparkles,
+  PhoneOff,
+  Radio,
+  AudioWaveform,
 } from 'lucide-react';
 import VoiceOrb from './VoiceOrb';
 
@@ -32,7 +31,7 @@ const STATE_LABELS = {
   speaking:            { text: 'Speaking…',     hint: 'Say anything to interrupt at any time.',      icon: Volume2 },
   interrupted:         { text: 'Interrupted',   hint: 'Listening for your next message…',            icon: Zap },
   error:               { text: 'Voice Error',   hint: 'An error occurred. Try speaking again.',      icon: null },
-  permission_denied:   { text: 'Mic Denied',    hint: 'Please allow microphone access in browser.',  icon: null },
+  permission_denied:   { text: 'Mic Denied',    hint: 'Please allow microphone access in browser.',  icon: MicOff },
   unsupported_browser: { text: 'Not Supported', hint: 'Voice requires Chrome or Edge.',              icon: null },
 };
 
@@ -87,232 +86,127 @@ export default function VoiceModeOverlay({
   if (!isVisible) return null;
 
   const IconComp = cfg.icon;
+  const isAudioActive = state === 'vad_detecting' || state === 'speaking' || audioRms > 0.03;
 
   return (
     <>
-      {/* Backdrop blur overlay */}
+      {/* Backdrop blur overlay with smooth fade */}
       <div
-        style={{
-          position: 'fixed',
-          inset: 0,
-          background: 'rgba(0,0,0,0.5)',
-          backdropFilter: 'blur(6px)',
-          WebkitBackdropFilter: 'blur(6px)',
-          zIndex: 999,
-          animation: 'voiceOverlayFadeIn 0.25s ease',
-        }}
+        className="voice-backdrop"
         onClick={onStop}
         aria-hidden="true"
       />
 
-      {/* Floating panel — centered above chat input */}
+      {/* Floating Panel — centered above chat input */}
       <div
         role="dialog"
         aria-label="Voice Mode"
         aria-live="polite"
-        style={{
-          position: 'fixed',
-          bottom: '90px',
-          left: '50%',
-          transform: 'translateX(-50%)',
-          width: 'min(440px, calc(100vw - 32px))',
-          background: 'rgba(15, 23, 42, 0.96)',
-          border: `1px solid ${color}40`,
-          borderRadius: '24px',
-          boxShadow: `0 0 0 1px ${color}20, 0 24px 64px rgba(0,0,0,0.6), 0 0 70px ${color}15`,
-          padding: '24px 24px 18px',
-          zIndex: 1000,
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          gap: '14px',
-          animation: 'voicePanelSlideUp 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)',
-        }}
+        className="voice-panel-dialog"
       >
-        {/* Top close button */}
-        <button
-          type="button"
-          onClick={onStop}
-          style={{
-            position: 'absolute',
-            top: '16px',
-            right: '16px',
-            width: '28px',
-            height: '28px',
-            borderRadius: '50%',
-            background: 'rgba(255,255,255,0.06)',
-            border: '1px solid rgba(255,255,255,0.1)',
-            color: '#94a3b8',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            cursor: 'pointer',
-            transition: 'all 0.15s ease',
-          }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.background = 'rgba(255,255,255,0.12)';
-            e.currentTarget.style.color = '#e2e8f0';
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.background = 'rgba(255,255,255,0.06)';
-            e.currentTarget.style.color = '#94a3b8';
-          }}
-          aria-label="Close voice mode"
-        >
-          <X size={14} />
-        </button>
+        {/* Ambient Top Glow Layer */}
+        <div className="voice-ambient-glow" />
 
-        {/* Luminous Animated Orb */}
-        <div style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <VoiceOrb voiceState={state} audioRms={audioRms} size={160} />
-        </div>
+        {/* ── Top Header Row ── */}
+        <div className="voice-header-bar">
+          <div className="voice-brand-pill">
+            <span className="live-status-dot" />
+            <span className="voice-brand-text">XARWIZ VOICE</span>
+            <span className="voice-mode-tag">
+              {voiceState?.pushToTalk ? (
+                <>
+                  <Radio size={11} />
+                  <span>PTT</span>
+                </>
+              ) : (
+                <>
+                  <Sparkles size={11} />
+                  <span>Live</span>
+                </>
+              )}
+            </span>
+          </div>
 
-        {/* State Pill Badge */}
-        <div
-          style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: '8px',
-            padding: '6px 16px',
-            borderRadius: '20px',
-            background: `${color}18`,
-            border: `1px solid ${color}35`,
-            color: color,
-            fontSize: '14px',
-            fontWeight: 600,
-            letterSpacing: '0.01em',
-            transition: 'all 0.3s ease',
-          }}
-        >
-          {IconComp && (
-            <IconComp
-              size={15}
-              style={
-                state === 'processing' || state === 'streaming'
-                  ? { animation: 'spin 1.2s linear infinite' }
-                  : state === 'speaking'
-                  ? { animation: 'voicePulse 1.4s ease-in-out infinite' }
-                  : undefined
-              }
-            />
-          )}
-          {cfg.text}
-        </div>
-
-        {/* Live transcript or contextual state hint */}
-        {transcript ? (
-          <div
-            style={{
-              background: 'rgba(99,102,241,0.08)',
-              border: '1px solid rgba(99,102,241,0.2)',
-              borderRadius: '12px',
-              padding: '8px 14px',
-              fontSize: '13.5px',
-              color: '#e2e8f0',
-              width: '100%',
-              textAlign: 'center',
-              fontStyle: 'italic',
-              lineHeight: 1.5,
-              maxHeight: '60px',
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
-            }}
+          <button
+            type="button"
+            onClick={onStop}
+            className="voice-close-btn"
+            aria-label="Close voice mode"
+            title="Close voice mode"
           >
-            "{transcript}"
+            <X size={15} />
+          </button>
+        </div>
+
+        {/* ── Center Stage: Luminous Animated Orb ── */}
+        <div className="voice-orb-wrapper">
+          <div className="orb-backlight" />
+          <VoiceOrb voiceState={state} audioRms={audioRms} size={150} />
+          
+          {/* Subtle audio reactivity waves beneath orb */}
+          <div className="voice-audio-bars">
+            <span className={`bar bar-1 ${isAudioActive ? 'active' : ''}`} />
+            <span className={`bar bar-2 ${isAudioActive ? 'active' : ''}`} />
+            <span className={`bar bar-3 ${isAudioActive ? 'active' : ''}`} />
+            <span className={`bar bar-4 ${isAudioActive ? 'active' : ''}`} />
+            <span className={`bar bar-5 ${isAudioActive ? 'active' : ''}`} />
+          </div>
+        </div>
+
+        {/* ── State Pill Badge ── */}
+        <div className="voice-state-pill">
+          {IconComp && (
+            <span className="state-icon-wrapper">
+              <IconComp
+                size={14}
+                className={`state-icon ${
+                  state === 'processing' || state === 'streaming'
+                    ? 'icon-spin'
+                    : state === 'speaking'
+                    ? 'icon-pulse'
+                    : ''
+                }`}
+              />
+            </span>
+          )}
+          <span className="state-text">{cfg.text}</span>
+        </div>
+
+        {/* ── Context Hint or Live Transcript ── */}
+        {transcript ? (
+          <div className="voice-live-transcript">
+            <div className="transcript-quotes">
+              <AudioWaveform size={14} className="transcript-icon" />
+              <span>"{transcript}"</span>
+            </div>
           </div>
         ) : (
-          <p
-            style={{
-              margin: 0,
-              fontSize: '12px',
-              color: '#94a3b8',
-              textAlign: 'center',
-              lineHeight: 1.4,
-              minHeight: '18px',
-            }}
-          >
-            {cfg.hint}
-          </p>
+          <p className="voice-hint-text">{cfg.hint}</p>
         )}
 
-        {/* Conversation history panel */}
+        {/* ── Conversation Turn History (if present) ── */}
         {historyItems.length > 0 && (
-          <div
-            ref={transcriptRef}
-            style={{
-              width: '100%',
-              maxHeight: '100px',
-              overflowY: 'auto',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: '6px',
-              padding: '4px 8px',
-              background: 'rgba(0,0,0,0.2)',
-              borderRadius: '10px',
-              border: '1px solid rgba(255,255,255,0.06)',
-            }}
-          >
+          <div ref={transcriptRef} className="voice-history-panel">
             {historyItems.map((item, idx) => (
-              <div
-                key={idx}
-                style={{
-                  display: 'flex',
-                  alignItems: 'flex-start',
-                  gap: '8px',
-                  fontSize: '12px',
-                  color: item.role === 'user' ? '#94a3b8' : '#cbd5e1',
-                  lineHeight: 1.45,
-                }}
-              >
-                <span
-                  style={{
-                    flexShrink: 0,
-                    width: '30px',
-                    fontSize: '10px',
-                    fontWeight: 700,
-                    textTransform: 'uppercase',
-                    letterSpacing: '0.06em',
-                    color: item.role === 'user' ? '#818cf8' : '#38bdf8',
-                    paddingTop: '1px',
-                  }}
-                >
+              <div key={idx} className="voice-history-row">
+                <span className={`history-role-tag ${item.role === 'user' ? 'role-user' : 'role-ai'}`}>
                   {item.role === 'user' ? 'You' : 'AI'}
                 </span>
-                <span style={{ flex: 1, wordBreak: 'break-word' }}>{item.text}</span>
+                <span className="history-text">{item.text}</span>
               </div>
             ))}
           </div>
         )}
 
-        {/* Browser incompatibility warning */}
+        {/* ── Browser Warning ── */}
         {state === 'unsupported_browser' && (
-          <div
-            style={{
-              background: 'rgba(239,68,68,0.1)',
-              border: '1px solid rgba(239,68,68,0.3)',
-              borderRadius: '8px',
-              padding: '8px 12px',
-              fontSize: '12px',
-              color: '#fca5a5',
-              textAlign: 'center',
-              width: '100%',
-            }}
-          >
+          <div className="voice-alert-warning">
             Voice requires Chrome or Edge. Firefox lacks Web Speech API support.
           </div>
         )}
 
-        {/* Action buttons */}
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: '12px',
-            marginTop: '2px',
-            width: '100%',
-          }}
-        >
+        {/* ── Action Controls Bar ── */}
+        <div className="voice-actions-row">
           {/* Settings */}
           <button
             type="button"
@@ -320,99 +214,500 @@ export default function VoiceModeOverlay({
               e.stopPropagation();
               onSettings?.();
             }}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px',
-              padding: '8px 16px',
-              borderRadius: '10px',
-              background: 'rgba(255,255,255,0.06)',
-              border: '1px solid rgba(255,255,255,0.12)',
-              color: '#94a3b8',
-              fontSize: '13px',
-              cursor: 'pointer',
-              transition: 'all 0.2s ease',
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.background = 'rgba(255,255,255,0.1)';
-              e.currentTarget.style.color = '#e2e8f0';
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.background = 'rgba(255,255,255,0.06)';
-              e.currentTarget.style.color = '#94a3b8';
-            }}
+            className="action-btn settings-btn"
             aria-label="Voice settings"
           >
             <Settings size={14} />
-            Settings
+            <span>Settings</span>
           </button>
 
-          {/* Stop voice */}
+          {/* Stop Voice */}
           <button
             type="button"
             onClick={(e) => {
               e.stopPropagation();
               onStop?.();
             }}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px',
-              padding: '8px 20px',
-              borderRadius: '10px',
-              background: 'rgba(239,68,68,0.15)',
-              border: '1px solid rgba(239,68,68,0.3)',
-              color: '#f87171',
-              fontSize: '13px',
-              fontWeight: 600,
-              cursor: 'pointer',
-              transition: 'all 0.2s ease',
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.background = 'rgba(239,68,68,0.25)';
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.background = 'rgba(239,68,68,0.15)';
-            }}
+            className="action-btn stop-voice-btn"
             aria-label="Stop voice mode"
           >
-            <X size={14} />
-            Stop Voice
+            <PhoneOff size={14} />
+            <span>Stop Voice</span>
           </button>
         </div>
 
-        {/* Subtle instructions hint */}
-        <p
-          style={{
-            margin: '0',
-            fontSize: '11px',
-            color: '#475569',
-            textAlign: 'center',
-          }}
-        >
-          {voiceState?.pushToTalk
-            ? 'Hold Space to talk.'
-            : 'Speak naturally — Xarwiz listens automatically. Say anything to interrupt.'}
-        </p>
+        {/* ── Bottom Instructional Footer ── */}
+        <div className="voice-footer-hint">
+          <span>
+            {voiceState?.pushToTalk
+              ? 'Hold Spacebar to speak · Release to send'
+              : 'Speak naturally — Xarwiz listens automatically. Say anything to interrupt.'}
+          </span>
+        </div>
       </div>
 
-      {/* Keyframe styles */}
-      <style>{`
-        @keyframes voiceOverlayFadeIn {
+      <style jsx>{`
+        /* ── Backdrop ── */
+        .voice-backdrop {
+          position: fixed;
+          inset: 0;
+          background: rgba(4, 7, 18, 0.65);
+          backdrop-filter: blur(8px);
+          -webkit-backdrop-filter: blur(8px);
+          z-index: 999;
+          animation: overlayFadeIn 0.25s ease-out forwards;
+        }
+
+        /* ── Floating Dialog Panel ── */
+        .voice-panel-dialog {
+          position: fixed;
+          bottom: 90px;
+          left: 50%;
+          transform: translateX(-50%);
+          width: min(430px, calc(100vw - 32px));
+          background: radial-gradient(circle at 50% 20%, ${color}14 0%, rgba(15, 23, 42, 0.94) 55%, rgba(9, 14, 26, 0.98) 100%);
+          border: 1px solid rgba(255, 255, 255, 0.1);
+          border-top: 1px solid rgba(255, 255, 255, 0.18);
+          border-radius: 26px;
+          box-shadow:
+            0 0 0 1px rgba(255, 255, 255, 0.05),
+            0 24px 60px -12px rgba(0, 0, 0, 0.75),
+            0 0 50px -10px ${color}20;
+          padding: 18px 22px 18px;
+          z-index: 1000;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: 12px;
+          animation: panelSlideUp 0.32s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+          backdrop-filter: blur(28px) saturate(180%);
+          -webkit-backdrop-filter: blur(28px) saturate(180%);
+          overflow: hidden;
+          box-sizing: border-box;
+        }
+
+        .voice-ambient-glow {
+          position: absolute;
+          top: -40px;
+          left: 50%;
+          transform: translateX(-50%);
+          width: 220px;
+          height: 140px;
+          background: ${color};
+          opacity: 0.12;
+          filter: blur(50px);
+          border-radius: 50%;
+          pointer-events: none;
+          z-index: 0;
+          transition: background 0.4s ease;
+        }
+
+        /* ── Header Bar ── */
+        .voice-header-bar {
+          width: 100%;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          z-index: 1;
+          margin-bottom: 2px;
+        }
+
+        .voice-brand-pill {
+          display: inline-flex;
+          align-items: center;
+          gap: 7px;
+          padding: 4px 10px;
+          border-radius: 999px;
+          background: rgba(255, 255, 255, 0.04);
+          border: 1px solid rgba(255, 255, 255, 0.07);
+        }
+
+        .live-status-dot {
+          width: 7px;
+          height: 7px;
+          border-radius: 50%;
+          background: ${color};
+          box-shadow: 0 0 8px ${color};
+          animation: dotGlow 2s infinite ease-in-out;
+        }
+
+        .voice-brand-text {
+          font-size: 11px;
+          font-weight: 700;
+          letter-spacing: 0.07em;
+          color: #e2e8f0;
+          font-family: inherit;
+        }
+
+        .voice-mode-tag {
+          display: inline-flex;
+          align-items: center;
+          gap: 4px;
+          font-size: 10.5px;
+          font-weight: 600;
+          color: ${color};
+          background: ${color}18;
+          padding: 1.5px 7px;
+          border-radius: 999px;
+          border: 1px solid ${color}30;
+        }
+
+        .voice-close-btn {
+          width: 30px;
+          height: 30px;
+          border-radius: 50%;
+          background: rgba(255, 255, 255, 0.05);
+          border: 1px solid rgba(255, 255, 255, 0.08);
+          color: #94a3b8;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          cursor: pointer;
+          transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        .voice-close-btn:hover {
+          background: rgba(255, 255, 255, 0.12);
+          color: #ffffff;
+          border-color: rgba(255, 255, 255, 0.2);
+          transform: scale(1.05);
+        }
+
+        /* ── Orb Container ── */
+        .voice-orb-wrapper {
+          position: relative;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          margin: 4px 0 2px;
+          z-index: 1;
+        }
+
+        .orb-backlight {
+          position: absolute;
+          width: 120px;
+          height: 120px;
+          border-radius: 50%;
+          background: ${color};
+          opacity: 0.2;
+          filter: blur(32px);
+          pointer-events: none;
+          animation: orbBreath 3s ease-in-out infinite;
+        }
+
+        /* Audio activity wave bars */
+        .voice-audio-bars {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 3px;
+          height: 12px;
+          margin-top: 6px;
+        }
+
+        .bar {
+          width: 3px;
+          height: 3px;
+          border-radius: 999px;
+          background: ${color};
+          opacity: 0.35;
+          transition: all 0.18s ease;
+        }
+
+        .bar.active {
+          opacity: 0.9;
+        }
+
+        .bar-1.active { animation: audioWave 0.8s ease-in-out infinite alternate; }
+        .bar-2.active { animation: audioWave 0.6s ease-in-out infinite alternate 0.15s; }
+        .bar-3.active { animation: audioWave 0.9s ease-in-out infinite alternate 0.3s; }
+        .bar-4.active { animation: audioWave 0.7s ease-in-out infinite alternate 0.2s; }
+        .bar-5.active { animation: audioWave 0.85s ease-in-out infinite alternate 0.1s; }
+
+        @keyframes audioWave {
+          0% { height: 3px; }
+          100% { height: 12px; }
+        }
+
+        /* ── State Pill Badge ── */
+        .voice-state-pill {
+          display: inline-flex;
+          align-items: center;
+          gap: 8px;
+          padding: 6px 16px;
+          border-radius: 999px;
+          background: ${color}16;
+          border: 1px solid ${color}40;
+          color: ${color};
+          box-shadow: 0 2px 10px ${color}15;
+          z-index: 1;
+          transition: all 0.3s ease;
+        }
+
+        .state-icon-wrapper {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        }
+
+        .state-text {
+          font-size: 13.5px;
+          font-weight: 600;
+          letter-spacing: 0.01em;
+          color: #f1f5f9;
+        }
+
+        .icon-spin {
+          animation: spin 1.2s linear infinite;
+        }
+
+        .icon-pulse {
+          animation: voicePulse 1.4s ease-in-out infinite;
+        }
+
+        /* ── Live Transcript & Hint ── */
+        .voice-live-transcript {
+          background: rgba(255, 255, 255, 0.05);
+          border: 1px solid rgba(255, 255, 255, 0.1);
+          border-radius: 12px;
+          padding: 8px 14px;
+          width: 100%;
+          text-align: center;
+          box-sizing: border-box;
+          z-index: 1;
+          box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.2);
+        }
+
+        .transcript-quotes {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 7px;
+          font-size: 13px;
+          color: #f1f5f9;
+          font-style: italic;
+          line-height: 1.45;
+          max-height: 54px;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+
+        .transcript-icon {
+          color: ${color};
+          flex-shrink: 0;
+        }
+
+        .voice-hint-text {
+          margin: 0;
+          font-size: 12.5px;
+          color: #94a3b8;
+          text-align: center;
+          line-height: 1.4;
+          min-height: 18px;
+          z-index: 1;
+          font-weight: 500;
+        }
+
+        /* ── History Panel ── */
+        .voice-history-panel {
+          width: 100%;
+          max-height: 84px;
+          overflow-y: auto;
+          display: flex;
+          flex-direction: column;
+          gap: 6px;
+          padding: 6px 10px;
+          background: rgba(0, 0, 0, 0.28);
+          border-radius: 11px;
+          border: 1px solid rgba(255, 255, 255, 0.06);
+          box-sizing: border-box;
+          z-index: 1;
+        }
+
+        .voice-history-row {
+          display: flex;
+          align-items: flex-start;
+          gap: 8px;
+          font-size: 12px;
+          line-height: 1.45;
+        }
+
+        .history-role-tag {
+          flex-shrink: 0;
+          font-size: 10px;
+          font-weight: 700;
+          text-transform: uppercase;
+          letter-spacing: 0.06em;
+          padding: 1px 5px;
+          border-radius: 4px;
+        }
+
+        .role-user {
+          color: #818cf8;
+          background: rgba(99, 102, 241, 0.12);
+        }
+
+        .role-ai {
+          color: #38bdf8;
+          background: rgba(56, 189, 248, 0.12);
+        }
+
+        .history-text {
+          flex: 1;
+          word-break: break-word;
+          color: #cbd5e1;
+        }
+
+        /* ── Warning Alert ── */
+        .voice-alert-warning {
+          background: rgba(239, 68, 68, 0.1);
+          border: 1px solid rgba(239, 68, 68, 0.25);
+          border-radius: 8px;
+          padding: 8px 12px;
+          font-size: 12px;
+          color: #fca5a5;
+          text-align: center;
+          width: 100%;
+          z-index: 1;
+          box-sizing: border-box;
+        }
+
+        /* ── Action Buttons ── */
+        .voice-actions-row {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 12px;
+          width: 100%;
+          margin-top: 4px;
+          z-index: 1;
+        }
+
+        .action-btn {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          gap: 7px;
+          padding: 9px 20px;
+          border-radius: 12px;
+          font-size: 13px;
+          cursor: pointer;
+          transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+          box-sizing: border-box;
+          font-family: inherit;
+          white-space: nowrap;
+        }
+
+        .settings-btn {
+          background: rgba(255, 255, 255, 0.05);
+          border: 1px solid rgba(255, 255, 255, 0.12);
+          color: #e2e8f0;
+          font-weight: 500;
+        }
+
+        .settings-btn:hover {
+          background: rgba(255, 255, 255, 0.1);
+          border-color: rgba(255, 255, 255, 0.2);
+          color: #ffffff;
+          transform: translateY(-1px);
+        }
+
+        .stop-voice-btn {
+          background: linear-gradient(135deg, rgba(239, 68, 68, 0.22), rgba(220, 38, 38, 0.15));
+          border: 1px solid rgba(239, 68, 68, 0.38);
+          color: #fca5a5;
+          font-weight: 600;
+          box-shadow: 0 2px 12px rgba(239, 68, 68, 0.15);
+        }
+
+        .stop-voice-btn:hover {
+          background: linear-gradient(135deg, rgba(239, 68, 68, 0.35), rgba(220, 38, 38, 0.25));
+          border-color: rgba(239, 68, 68, 0.6);
+          color: #ffffff;
+          box-shadow: 0 4px 16px rgba(239, 68, 68, 0.3);
+          transform: translateY(-1px);
+        }
+
+        .action-btn:active {
+          transform: translateY(0);
+        }
+
+        /* ── Footer Hint ── */
+        .voice-footer-hint {
+          z-index: 1;
+          margin-top: 2px;
+          text-align: center;
+          padding: 5px 12px;
+          border-radius: 8px;
+          background: rgba(255, 255, 255, 0.03);
+          border: 1px solid rgba(255, 255, 255, 0.05);
+          font-size: 11.5px;
+          color: #94a3b8;
+          line-height: 1.4;
+          max-width: 100%;
+        }
+
+        /* ── Keyframes ── */
+        @keyframes overlayFadeIn {
           from { opacity: 0; }
           to   { opacity: 1; }
         }
-        @keyframes voicePanelSlideUp {
-          from { opacity: 0; transform: translateX(-50%) translateY(16px); }
-          to   { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+        @keyframes panelSlideUp {
+          from {
+            opacity: 0;
+            transform: translateX(-50%) translateY(20px) scale(0.97);
+          }
+          to {
+            opacity: 1;
+            transform: translateX(-50%) translateY(0) scale(1);
+          }
         }
+
+        @keyframes dotGlow {
+          0%, 100% {
+            opacity: 1;
+            transform: scale(1);
+          }
+          50% {
+            opacity: 0.55;
+            transform: scale(1.2);
+          }
+        }
+
+        @keyframes orbBreath {
+          0%, 100% {
+            opacity: 0.2;
+            transform: scale(1);
+          }
+          50% {
+            opacity: 0.35;
+            transform: scale(1.15);
+          }
+        }
+
         @keyframes voicePulse {
           0%, 100% { opacity: 1; transform: scale(1); }
-          50%       { opacity: 0.6; transform: scale(1.15); }
+          50%       { opacity: 0.65; transform: scale(1.12); }
         }
+
         @keyframes spin {
           from { transform: rotate(0deg); }
           to   { transform: rotate(360deg); }
+        }
+
+        @media (max-width: 480px) {
+          .voice-panel-dialog {
+            bottom: 75px;
+            width: calc(100vw - 24px);
+            padding: 16px 16px 14px;
+            border-radius: 22px;
+          }
+          .action-btn {
+            padding: 8px 16px;
+            font-size: 12.5px;
+          }
         }
       `}</style>
     </>
