@@ -116,7 +116,7 @@ jobs:
           host: ${{ secrets.PROD_HOST }}
           username: ${{ secrets.PROD_USER || 'xarwiz' }}
           key: ${{ secrets.PROD_SSH_KEY }}
-          source: "docker-compose.yml,traefik/dynamic.yml,monitoring/prometheus.yml,init.sql,landing"
+          source: "docker-compose.yml,traefik/dynamic.yml,monitoring/prometheus.yml,landing"
           target: "/opt/xarwiz"
           strip_components: 0
 
