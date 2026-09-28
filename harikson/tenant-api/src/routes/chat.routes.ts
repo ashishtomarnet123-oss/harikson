@@ -7,6 +7,7 @@ import { RagService } from '../services/rag.service.js';
 import { countExactTokens } from '../services/tokenCountingService.js';
 import logger from '../utils/logger.js';
 import { requireScopes } from '../middleware/scopeAuth.js';
+import { SYSTEM_PROMPT } from '../prompts/system-prompt.js';
 
 const router = Router();
 const redis = new Redis(process.env.REDIS_URL || 'redis://redis:6379', {
@@ -346,8 +347,7 @@ async function handleChat(req: any, res: any) {
         ? clientHistory.find((m: any) => m.role === 'system' && m.content?.trim())
         : null;
       const baseSystemPrompt =
-        clientSystemMessage?.content ||
-        `You are Xarwiz AI, a helpful and knowledgeable enterprise AI assistant. Answer questions accurately and helpfully.`;
+        clientSystemMessage?.content || SYSTEM_PROMPT;
       const systemContent = ragContext && ragContext !== 'No matching context found in knowledge base.'
         ? `${baseSystemPrompt}\n\nUse this additional context to answer:\n\n${ragContext}`
         : baseSystemPrompt;
