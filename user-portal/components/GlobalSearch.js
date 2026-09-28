@@ -33,13 +33,35 @@ export default function GlobalSearch({ isOpen, onClose }) {
 
       const items = [];
 
+      let localConvs = [];
+      if (typeof window !== 'undefined') {
+        try {
+          localConvs = JSON.parse(localStorage.getItem('hk_recent_conversations') || '[]');
+        } catch (_) {}
+      }
+
+      let serverConvs = [];
       if (convRes.status === 'fulfilled' && convRes.value?.ok) {
         const data = await convRes.value.json();
-        const convs = Array.isArray(data) ? data : data.conversations || [];
-        convs.slice(0, 20).forEach(c => items.push({
-          type: 'Conversation', name: c.title || 'Untitled', href: '/chat', icon: MessageSquare,
-        }));
+        serverConvs = Array.isArray(data) ? data : data.conversations || [];
       }
+
+      const convMap = new Map();
+      [...serverConvs, ...localConvs].forEach(c => {
+        if (c && (c.id || c.title)) {
+          const key = c.id || c.title;
+          if (!convMap.has(key)) {
+            convMap.set(key, c);
+          }
+        }
+      });
+
+      Array.from(convMap.values()).slice(0, 30).forEach(c => items.push({
+        type: 'Conversation',
+        name: c.title || 'Untitled',
+        href: c.id ? `/chat?conversation=${c.id}` : '/chat',
+        icon: MessageSquare,
+      }));
       if (agentRes.status === 'fulfilled' && agentRes.value?.ok) {
         const data = await agentRes.value.json();
         (data.agents || []).forEach(a => items.push({
