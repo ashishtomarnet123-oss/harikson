@@ -40,6 +40,7 @@ import {
   Menu,
 } from 'lucide-react';
 import SettingsModal from '../components/SettingsModal';
+import MarkdownRenderer from '../components/chat/MarkdownRenderer';
 import { trackEvent } from '../lib/analytics';
 import {
   voiceFSMReducer,
@@ -107,274 +108,10 @@ function maskModelName(rawModel) {
 }
 
 /* ────────────────────────────────────────────────────────────
-   Markdown renderer — converts plain text/markdown to JSX
-   without external deps (Next.js 14 Pages Router, no Tailwind)
+   Centralized Markdown & CodeBlock rendering handled by
+   ../components/chat/MarkdownRenderer (react-markdown + GFM)
 ──────────────────────────────────────────────────────────── */
-function CodeBlock({ language, code, onOpenArtifact }) {
-  const [copied, setCopied] = useState(false);
-  const copy = () => {
-    copyToClipboard(code).then(() => {
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    }).catch((err) => console.error('Copy failed:', err));
-  };
-  return (
-    <div className="code-block">
-      <div className="code-block-header">
-        <span className="code-lang">{language || 'code'}</span>
-        <div className="artifact-actions">
-          {onOpenArtifact && (
-            <button
-              onClick={() => onOpenArtifact({ language, code })}
-              title="Open in Canvas"
-              style={{ display: 'flex', alignItems: 'center', gap: '4px' }}
-            >
-              <Maximize2 size={12} /> Canvas
-            </button>
-          )}
-          <button
-            className={`copy-btn${copied ? ' copied' : ''}`}
-            onClick={copy}
-          >
-            {copied ? (
-              <>
-                <Check size={14} /> Copied
-              </>
-            ) : (
-              <>
-                <Copy size={14} /> Copy
-              </>
-            )}
-          </button>
-        </div>
-      </div>
-      <div className="code-wrapper">
-        <pre tabIndex={0}>
-          <code className="block-code">{code}</code>
-        </pre>
-      </div>
-    </div>
-  );
-}
 
-function renderMarkdown(text, onOpenArtifact) {
-  if (!text) return null;
-  const lines = text.split('\n');
-  const elements = [];
-  let i = 0;
-  while (i < lines.length) {
-    const line = lines[i];
-
-    // Code block
-    if (line.startsWith('```')) {
-      const lang = line.slice(3).trim();
-      const codeLines = [];
-      i++;
-      while (i < lines.length && !lines[i].startsWith('```')) {
-        codeLines.push(lines[i]);
-        i++;
-      }
-      elements.push(
-        <CodeBlock
-          key={i}
-          language={lang}
-          code={codeLines.join('\n')}
-          onOpenArtifact={onOpenArtifact}
-        />
-      );
-      i++;
-      continue;
-    }
-
-    // Markdown Tables
-    if (line.trim().startsWith('|') && line.includes('|')) {
-      const tableLines = [];
-      while (i < lines.length && lines[i].trim().startsWith('|')) {
-        tableLines.push(lines[i].trim());
-        i++;
-      }
-      if (tableLines.length >= 2) {
-        const parseRow = (rowStr) =>
-          rowStr
-            .split('|')
-            .map((s) => s.trim())
-            .filter((_, idx, arr) => idx > 0 && idx < arr.length - 1);
-        const headerCols = parseRow(tableLines[0]);
-        const hasSep = tableLines[1].includes('---');
-        const bodyLines = tableLines.slice(hasSep ? 2 : 1);
-        elements.push(
-          <div key={`tbl-${i}`} className="table-container">
-            <table>
-              <thead>
-                <tr>
-                  {headerCols.map((col, cIdx) => (
-                    <th key={cIdx}>{renderInline(col)}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {bodyLines.map((rowStr, rIdx) => {
-                  const cells = parseRow(rowStr);
-                  return (
-                    <tr key={rIdx}>
-                      {cells.map((cell, cIdx) => (
-                        <td key={cIdx}>{renderInline(cell)}</td>
-                      ))}
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        );
-        continue;
-      }
-    }
-
-    // Headings
-    if (line.startsWith('### ')) {
-      elements.push(<h3 key={i}>{renderInline(line.slice(4))}</h3>);
-      i++;
-      continue;
-    }
-    if (line.startsWith('## ')) {
-      elements.push(<h2 key={i}>{renderInline(line.slice(3))}</h2>);
-      i++;
-      continue;
-    }
-    if (line.startsWith('# ')) {
-      elements.push(<h1 key={i}>{renderInline(line.slice(2))}</h1>);
-      i++;
-      continue;
-    }
-
-    // Blockquotes
-    if (line.startsWith('> ')) {
-      const quoteLines = [];
-      while (i < lines.length && lines[i].startsWith('> ')) {
-        quoteLines.push(lines[i].slice(2));
-        i++;
-      }
-      elements.push(
-        <blockquote
-          key={`bq-${i}`}
-          style={{
-            borderLeft: '3px solid var(--accent)',
-            paddingLeft: '12px',
-            margin: '8px 0',
-            color: 'var(--text-secondary)',
-            overflowWrap: 'anywhere',
-            wordBreak: 'break-word',
-            maxWidth: '100%',
-          }}
-        >
-          {quoteLines.map((ql, qIdx) => (
-            <p key={qIdx} style={{ margin: '4px 0' }}>{renderInline(ql)}</p>
-          ))}
-        </blockquote>
-      );
-      continue;
-    }
-
-    // Unordered list
-    if (line.match(/^[\*\-] /)) {
-      const items = [];
-      while (i < lines.length && lines[i].match(/^[\*\-] /)) {
-        items.push(<li key={i}>{renderInline(lines[i].slice(2))}</li>);
-        i++;
-      }
-      elements.push(<ul key={`ul-${i}`}>{items}</ul>);
-      continue;
-    }
-
-    // Ordered list
-    if (line.match(/^\d+\. /)) {
-      const items = [];
-      while (i < lines.length && lines[i].match(/^\d+\. /)) {
-        items.push(
-          <li key={i}>{renderInline(lines[i].replace(/^\d+\. /, ''))}</li>
-        );
-        i++;
-      }
-      elements.push(<ol key={`ol-${i}`}>{items}</ol>);
-      continue;
-    }
-
-    // Horizontal rule
-    if (line.match(/^---+$/)) {
-      elements.push(
-        <hr
-          key={i}
-          style={{
-            border: 'none',
-            borderTop: '1px solid var(--border)',
-            margin: '12px 0',
-          }}
-        />
-      );
-      i++;
-      continue;
-    }
-
-    // Empty line
-    if (!line.trim()) {
-      i++;
-      continue;
-    }
-
-    // Paragraph
-    elements.push(<p key={i}>{renderInline(line)}</p>);
-    i++;
-  }
-  return elements;
-}
-
-function renderInline(text) {
-  // Process inline code, bold, italic, links
-  const parts = text.split(/(`[^`]+`|\*\*[^*]+\*\*|\*[^*]+\*|\[[^\]]+\]\([^)]+\))/g);
-  return parts.map((part, idx) => {
-    if (part.startsWith('`') && part.endsWith('`')) {
-      return (
-        <code
-          key={idx}
-          style={{
-            overflowWrap: 'anywhere',
-            wordBreak: 'break-word',
-            maxWidth: '100%',
-          }}
-        >
-          {part.slice(1, -1)}
-        </code>
-      );
-    }
-    if (part.startsWith('**') && part.endsWith('**')) {
-      return <strong key={idx}>{part.slice(2, -2)}</strong>;
-    }
-    if (part.startsWith('*') && part.endsWith('*')) {
-      return <em key={idx}>{part.slice(1, -1)}</em>;
-    }
-    const linkMatch = part.match(/^\[([^\]]+)\]\(([^)]+)\)$/);
-    if (linkMatch) {
-      return (
-        <a
-          key={idx}
-          href={linkMatch[2]}
-          target="_blank"
-          rel="noopener noreferrer"
-          style={{
-            color: 'var(--accent)',
-            textDecoration: 'underline',
-            overflowWrap: 'anywhere',
-            wordBreak: 'break-word',
-          }}
-        >
-          {linkMatch[1]}
-        </a>
-      );
-    }
-    return part;
-  });
-}
 
 const SLASH_COMMANDS = [
   {
@@ -3041,7 +2778,10 @@ If any check fails, revise the relevant section before output.`;
                           <Zap size={16} color="white" />
                         </div>
                         <div className="assistant-content">
-                          {renderMarkdown(msg.text, setActiveArtifact)}
+                          <MarkdownRenderer
+                            content={msg.text}
+                            onOpenArtifact={setActiveArtifact}
+                          />
                         </div>
                       </div>
                     </div>
