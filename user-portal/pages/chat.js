@@ -3099,13 +3099,6 @@ If any check fails, revise the relevant section before output.`;
                   <Menu size={16} />
                 </button>
 
-                <div className="header-brand" onClick={startNewChat} title="Start new conversation">
-                  <div className="header-brand-badge">
-                    <Zap size={14} color="#ffffff" />
-                  </div>
-                  <span className="header-brand-title">Xarwiz AI</span>
-                </div>
-
                 <div className="header-selectors">
                   <div className="header-pill-select">
                     <select
