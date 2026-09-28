@@ -33,12 +33,14 @@ import {
   Bug,
   FileText,
   ChevronRight,
+  ChevronDown,
   MoreVertical,
   Shield,
   Sparkles,
   Sliders,
   Menu,
 } from 'lucide-react';
+import GlobalSearch from '../components/GlobalSearch';
 import SettingsModal from '../components/SettingsModal';
 import MarkdownRenderer from '../components/chat/MarkdownRenderer';
 import { trackEvent } from '../lib/analytics';
@@ -501,6 +503,9 @@ function ChatPage() {
   const [model, setModel] = useState('harikson-plus');
   const [systemPreset, setSystemPreset] = useState('general');
   const [showProfileMenu, setShowProfileMenu] = useState(false);
+  const [showGlobalSearch, setShowGlobalSearch] = useState(false);
+  const profileMenuRef = useRef(null);
+  const exportMenuRef = useRef(null);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [customInstructions, setCustomInstructions] = useState('');
   const [attachedFiles, setAttachedFiles] = useState([]);
@@ -2308,6 +2313,10 @@ If any check fails, revise the relevant section before output.`;
         e.preventDefault();
         startNewChat();
       }
+      if (mod && (e.key === 'k' || e.key === 'K')) {
+        e.preventDefault();
+        setShowGlobalSearch((prev) => !prev);
+      }
       if (mod && e.key === '/') {
         e.preventDefault();
         setSidebarCollapsed((prev) => !prev);
@@ -2321,7 +2330,550 @@ If any check fails, revise the relevant section before output.`;
     return () => window.removeEventListener('keydown', handleGlobalKeys);
   }, []);
 
-  const userInitial = user?.email?.[0]?.toUpperCase() || 'U';
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (profileMenuRef.current && !profileMenuRef.current.contains(e.target)) {
+        setShowProfileMenu(false);
+      }
+      if (exportMenuRef.current && !exportMenuRef.current.contains(e.target)) {
+        setShowExportMenu(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const userName = user?.name
+    ? user.name.trim().split(' ')[0]
+    : user?.full_name
+    ? user.full_name.trim().split(' ')[0]
+    : '';
+
+  const getTimeGreeting = () => {
+    const hour = new Date().getHours();
+    if (hour < 12) return 'Good morning';
+    if (hour < 18) return 'Good afternoon';
+    return 'Good evening';
+  };
+
+  const userInitial = (user?.name?.[0] || user?.email?.[0] || 'U').toUpperCase();
+
+  const SUGGESTION_CHIPS = [
+    { label: 'Deploy Private LLM', icon: Rocket, prompt: 'Create a private LLM deployment template with Xarwiz.' },
+    { label: 'Audit Code', icon: Shield, prompt: 'Audit my code for security and DPDP compliance.' },
+    { label: 'Optimize SQL', icon: Zap, prompt: 'Optimize this database schema and query indexes.' },
+    { label: 'Build RAG Pipeline', icon: Folder, prompt: 'Write a robust RAG data pipeline configuration.' },
+  ];
+
+  const renderComposer = (isEmptylayout) => (
+    <div className={`composer-area ${isEmptylayout ? 'empty-layout' : 'active-layout'}`}>
+      {attachedFiles.length > 0 && (
+        <div
+          style={{
+            display: 'flex',
+            gap: '8px',
+            flexWrap: 'wrap',
+            marginBottom: '8px',
+            padding: '0 4px',
+          }}
+        >
+          {attachedFiles.map((file, i) => (
+            <div
+              key={i}
+              className={`attached-file-pill ${file.status || 'ready'}`}
+              style={
+                file.status === 'error'
+                  ? {
+                      borderColor: 'rgba(239, 68, 68, 0.4)',
+                      background: 'rgba(239, 68, 68, 0.05)',
+                      color: '#dc2626',
+                    }
+                  : file.status === 'processing'
+                    ? {
+                        borderColor: 'rgba(79, 140, 255, 0.4)',
+                        background: 'rgba(79, 140, 255, 0.05)',
+                      }
+                    : {}
+              }
+            >
+              {file.status === 'processing' ? (
+                <div
+                  className="settings-spinner"
+                  style={{
+                    width: '12px',
+                    height: '12px',
+                    border: '2px solid rgba(79, 140, 255, 0.2)',
+                    borderTop: '2px solid var(--accent)',
+                    borderRadius: '50%',
+                    animation: 'spin 1s linear infinite',
+                  }}
+                />
+              ) : (
+                <Paperclip size={12} />
+              )}
+              <span style={{ fontSize: '11.5px' }}>
+                {file.name}
+                {file.status === 'processing' && ' (extracting...)'}
+                {file.status === 'error' && ' (failed)'}
+              </span>
+              <button
+                type="button"
+                onClick={() => removeAttachedFile(i)}
+                style={
+                  file.status === 'error' ? { color: '#dc2626' } : {}
+                }
+              >
+                <X size={14} />
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <form onSubmit={sendMessage}>
+        <div className="composer-container">
+          {showSlashMenu && (
+            <div className="slash-command-popup">
+              {SLASH_COMMANDS.map((cmd, idx) => (
+                <div
+                  key={cmd.id}
+                  className={`slash-command-item ${idx === slashIndex ? 'selected' : ''}`}
+                  onClick={() => applySlashCommand(cmd)}
+                  onMouseEnter={() => setSlashIndex(idx)}
+                >
+                  <div className="slash-command-icon">{cmd.icon}</div>
+                  <div className="slash-command-details">
+                    <span className="slash-command-title">
+                      {cmd.title}
+                    </span>
+                    <span className="slash-command-desc">
+                      {cmd.desc}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          <textarea
+            ref={textareaRef}
+            className="chat-textarea"
+            rows={1}
+            value={inputText}
+            onChange={handleInputChange}
+            onKeyDown={handleKeyDown}
+            placeholder="Ask anything..."
+            disabled={loading}
+          />
+
+          <div className="composer-toolbar">
+            <div className="composer-toolbar-left">
+              <input
+                type="file"
+                id={`file-upload-${isEmptylayout ? 'empty' : 'active'}`}
+                multiple
+                style={{ display: 'none' }}
+                onChange={handleFileUpload}
+              />
+              <label
+                htmlFor={`file-upload-${isEmptylayout ? 'empty' : 'active'}`}
+                className="toolbar-icon-btn attach-btn"
+                title="Attach Files"
+                style={{ cursor: 'pointer' }}
+              >
+                <Plus size={18} />
+              </label>
+              <div className="toolbar-divider" />
+              <button
+                type="button"
+                className={`compute-toggle ${useDeepSearch ? 'active' : ''}`}
+                onClick={() => setUseDeepSearch(!useDeepSearch)}
+                title="Deep Search web search"
+              >
+                <Globe size={13} />
+                <span>Search</span>
+              </button>
+              <button
+                type="button"
+                className={`compute-toggle ${useReasoning ? 'active' : ''}`}
+                onClick={() => setUseReasoning(!useReasoning)}
+                title="Reasoning / Thinking mode"
+              >
+                <BrainCircuit size={13} />
+                <span>Think</span>
+              </button>
+            </div>
+
+            <div className="composer-toolbar-right">
+              {isVoiceActive(voiceState.state) && (
+                <div
+                  className="voice-inline-status"
+                  style={
+                    voiceState.state === 'vad_detecting'
+                      ? { color: '#10b981', background: 'rgba(16, 185, 129, 0.1)', borderColor: 'rgba(16, 185, 129, 0.28)' }
+                      : isAISpeaking(voiceState.state)
+                      ? { color: '#06b6d4', background: 'rgba(6, 182, 212, 0.1)', borderColor: 'rgba(6, 182, 212, 0.28)' }
+                      : isBusy(voiceState.state) || voiceState.state === 'processing' || voiceState.state === 'streaming'
+                      ? { color: '#a855f7', background: 'rgba(168, 85, 247, 0.1)', borderColor: 'rgba(168, 85, 247, 0.28)' }
+                      : voiceState.state === 'interrupted'
+                      ? { color: '#f59e0b', background: 'rgba(245, 158, 11, 0.1)', borderColor: 'rgba(245, 158, 11, 0.28)' }
+                      : { color: '#3b82f6', background: 'rgba(59, 130, 246, 0.1)', borderColor: 'rgba(59, 130, 246, 0.28)' }
+                  }
+                >
+                  {voiceState.state === 'processing' ? (
+                    <><Loader2 size={13} className="voice-status-icon animate-spin" /> Thinking...</>
+                  ) : voiceState.state === 'streaming' ? (
+                    <><Loader2 size={13} className="voice-status-icon animate-spin" /> Generating...</>
+                  ) : isAISpeaking(voiceState.state) ? (
+                    <><Volume2 size={13} className="voice-status-icon" /> Speaking...</>
+                  ) : voiceState.state === 'vad_detecting' ? (
+                    <><span className="voice-pulse-dot" style={{ background: '#10b981', boxShadow: '0 0 6px rgba(16, 185, 129, 0.7)' }} /> Hearing you...</>
+                  ) : voiceState.state === 'interrupted' ? (
+                    <><span className="voice-pulse-dot" style={{ background: '#f59e0b', boxShadow: '0 0 6px rgba(245, 158, 11, 0.7)' }} /> Interrupted...</>
+                  ) : (
+                    <><span className="voice-pulse-dot" style={{ background: '#3b82f6', boxShadow: '0 0 6px rgba(59, 130, 246, 0.7)' }} /> Listening...</>
+                  )}
+                </div>
+              )}
+              <button
+                type="button"
+                className={`toolbar-icon-btn${isVoiceActive(voiceState.state) ? ' voice-active' : ''}`}
+                onClick={toggleVoiceMode}
+                title={isVoiceActive(voiceState.state) ? 'Stop voice' : 'Voice input'}
+              >
+                {isVoiceActive(voiceState.state) ? <MicOff size={18} /> : <Mic size={18} />}
+              </button>
+              {isVoiceActive(voiceState.state) && (
+                <button
+                  type="button"
+                  className={`toolbar-icon-btn ${showVoiceSettings ? 'active' : ''}`}
+                  onClick={() => setShowVoiceSettings((prev) => !prev)}
+                  title="Voice Settings"
+                >
+                  <Sliders size={16} />
+                </button>
+              )}
+              {loading ? (
+                <button
+                  type="button"
+                  className="send-btn stop-btn"
+                  style={{ background: '#ef4444', color: '#ffffff' }}
+                  onClick={stopGeneration}
+                  title="Stop generation"
+                  aria-label="Stop generation"
+                >
+                  <Square fill="currentColor" size={12} />
+                </button>
+              ) : (
+                <button
+                  type="submit"
+                  className="send-btn"
+                  disabled={
+                    (!inputText.trim() && attachedFiles.length === 0) ||
+                    hasProcessingFiles
+                  }
+                  title="Send (Enter)"
+                  aria-label="Send message"
+                >
+                  <ArrowUp size={18} />
+                </button>
+              )}
+            </div>
+          </div>
+
+          {showVoiceSettings && (
+            <div className="voice-settings-popover" style={{
+              position: 'absolute',
+              bottom: '100%',
+              right: '16px',
+              marginBottom: '10px',
+              width: '320px',
+              background: 'var(--surface, #1e293b)',
+              border: '1px solid var(--border, #334155)',
+              borderRadius: '12px',
+              padding: '16px',
+              boxShadow: '0 10px 25px -5px rgba(0,0,0,0.4)',
+              zIndex: 50,
+              color: 'var(--text-primary, #f8fafc)',
+              fontSize: '13px',
+            }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                <span style={{ fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <Sliders size={14} /> Voice Assistant Settings
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setShowVoiceSettings(false)}
+                  style={{ background: 'none', border: 'none', color: 'var(--text-muted, #94a3b8)', cursor: 'pointer', padding: '2px' }}
+                >
+                  <X size={14} />
+                </button>
+              </div>
+
+              {/* Language Selection */}
+              <div style={{ marginBottom: '12px' }}>
+                <label style={{ display: 'block', marginBottom: '4px', fontSize: '11px', color: 'var(--text-muted, #94a3b8)', textTransform: 'uppercase' }}>
+                  Language (BCP-47)
+                </label>
+                <select
+                  value={voiceState.language}
+                  onChange={(e) => {
+                    const lang = e.target.value;
+                    dispatchVoice({ type: 'SET_LANGUAGE', language: lang });
+                    if (typeof window !== 'undefined') localStorage.setItem('hk_voice_lang', lang);
+                    fetch(`${apiBase}/api/v1/voice/settings`, {
+                      method: 'PUT',
+                      headers: { 'Content-Type': 'application/json' },
+                      credentials: 'include',
+                      body: JSON.stringify({ language: lang }),
+                    }).catch(() => {});
+                  }}
+                  style={{ width: '100%', padding: '6px 8px', borderRadius: '6px', background: 'rgba(0,0,0,0.2)', border: '1px solid var(--border, #334155)', color: 'inherit' }}
+                >
+                  <option value="en-US">English (US)</option>
+                  <option value="en-GB">English (UK)</option>
+                  <option value="es-ES">Spanish (Español)</option>
+                  <option value="fr-FR">French (Français)</option>
+                  <option value="de-DE">German (Deutsch)</option>
+                  <option value="hi-IN">Hindi (हिन्दी)</option>
+                  <option value="ja-JP">Japanese (日本語)</option>
+                  <option value="zh-CN">Chinese (中文)</option>
+                  <option value="pt-BR">Portuguese (Brasil)</option>
+                </select>
+              </div>
+
+              {/* Microphone Input */}
+              {voiceDevices.length > 0 && (
+                <div style={{ marginBottom: '12px' }}>
+                  <label style={{ display: 'block', marginBottom: '4px', fontSize: '11px', color: 'var(--text-muted, #94a3b8)', textTransform: 'uppercase' }}>
+                    Microphone Device
+                  </label>
+                  <select
+                    value={voiceState.deviceId || ''}
+                    onChange={(e) => {
+                      const dev = e.target.value || null;
+                      dispatchVoice({ type: 'SET_DEVICE_ID', deviceId: dev });
+                      if (typeof window !== 'undefined') {
+                        if (dev) localStorage.setItem('hk_voice_device', dev);
+                        else localStorage.removeItem('hk_voice_device');
+                      }
+                    }}
+                    style={{ width: '100%', padding: '6px 8px', borderRadius: '6px', background: 'rgba(0,0,0,0.2)', border: '1px solid var(--border, #334155)', color: 'inherit' }}
+                  >
+                    <option value="">Default Microphone</option>
+                    {voiceDevices.map((d) => (
+                      <option key={d.deviceId} value={d.deviceId}>
+                        {d.label || `Microphone ${d.deviceId.slice(0, 6)}...`}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+              {/* Push-to-Talk Toggle */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', padding: '8px 0', borderTop: '1px solid var(--border, #334155)' }}>
+                <div>
+                  <div style={{ fontWeight: 500 }}>Push-to-Talk</div>
+                  <div style={{ fontSize: '11px', color: 'var(--text-muted, #94a3b8)' }}>Hold Spacebar to speak</div>
+                </div>
+                <input
+                  type="checkbox"
+                  checked={voiceState.pushToTalk}
+                  onChange={(e) => {
+                    const val = e.target.checked;
+                    dispatchVoice({ type: 'SET_PUSH_TO_TALK', pushToTalk: val });
+                    fetch(`${apiBase}/api/v1/voice/settings`, {
+                      method: 'PUT',
+                      headers: { 'Content-Type': 'application/json' },
+                      credentials: 'include',
+                      body: JSON.stringify({
+                        language: voiceState.language,
+                        pushToTalk: val,
+                        rate: voiceRate,
+                        pitch: voicePitch,
+                        vadThreshold,
+                        echoGateEnabled,
+                      }),
+                    }).catch(() => {});
+                  }}
+                />
+              </div>
+
+              {/* Echo Gate Toggle */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', padding: '8px 0', borderTop: '1px solid var(--border, #334155)' }}>
+                <div>
+                  <div style={{ fontWeight: 500 }}>Echo Gate</div>
+                  <div style={{ fontSize: '11px', color: 'var(--text-muted, #94a3b8)' }}>Filter speaker bleed during AI speech</div>
+                </div>
+                <input
+                  type="checkbox"
+                  checked={echoGateEnabled}
+                  onChange={(e) => {
+                    const val = e.target.checked;
+                    setEchoGateEnabled(val);
+                    fetch(`${apiBase}/api/v1/voice/settings`, {
+                      method: 'PUT',
+                      headers: { 'Content-Type': 'application/json' },
+                      credentials: 'include',
+                      body: JSON.stringify({
+                        language: voiceState.language,
+                        pushToTalk: voiceState.pushToTalk,
+                        rate: voiceRate,
+                        pitch: voicePitch,
+                        vadThreshold,
+                        echoGateEnabled: val,
+                      }),
+                    }).catch(() => {});
+                  }}
+                />
+              </div>
+
+              {/* Speech Rate Slider */}
+              <div style={{ marginBottom: '12px', borderTop: '1px solid var(--border, #334155)', paddingTop: '12px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px', fontSize: '11px', color: 'var(--text-muted, #94a3b8)', textTransform: 'uppercase' }}>
+                  <span>Speech Rate</span>
+                  <span style={{ color: '#6366f1', fontWeight: 600 }}>{voiceRate.toFixed(2)}x</span>
+                </div>
+                <input
+                  type="range"
+                  min="0.5"
+                  max="2.0"
+                  step="0.05"
+                  value={voiceRate}
+                  onChange={(e) => {
+                    const val = parseFloat(e.target.value);
+                    setVoiceRate(val);
+                    chunkedSpeakerRef.current?.setOptions({ rate: val, pitch: voicePitch });
+                  }}
+                  onMouseUp={(e) => {
+                    const val = parseFloat(e.target.value);
+                    fetch(`${apiBase}/api/v1/voice/settings`, {
+                      method: 'PUT',
+                      headers: { 'Content-Type': 'application/json' },
+                      credentials: 'include',
+                      body: JSON.stringify({
+                        language: voiceState.language,
+                        pushToTalk: voiceState.pushToTalk,
+                        rate: val,
+                        pitch: voicePitch,
+                        vadThreshold,
+                        echoGateEnabled,
+                      }),
+                    }).catch(() => {});
+                  }}
+                  style={{ width: '100%', accentColor: '#6366f1' }}
+                />
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px', color: '#475569' }}>
+                  <span>0.5x Slow</span><span>1.0x Normal</span><span>2.0x Fast</span>
+                </div>
+              </div>
+
+              {/* Pitch Slider */}
+              <div style={{ marginBottom: '12px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px', fontSize: '11px', color: 'var(--text-muted, #94a3b8)', textTransform: 'uppercase' }}>
+                  <span>Voice Pitch</span>
+                  <span style={{ color: '#06b6d4', fontWeight: 600 }}>{voicePitch.toFixed(2)}</span>
+                </div>
+                <input
+                  type="range"
+                  min="0.5"
+                  max="2.0"
+                  step="0.05"
+                  value={voicePitch}
+                  onChange={(e) => {
+                    const val = parseFloat(e.target.value);
+                    setVoicePitch(val);
+                    chunkedSpeakerRef.current?.setOptions({ rate: voiceRate, pitch: val });
+                  }}
+                  onMouseUp={(e) => {
+                    const val = parseFloat(e.target.value);
+                    fetch(`${apiBase}/api/v1/voice/settings`, {
+                      method: 'PUT',
+                      headers: { 'Content-Type': 'application/json' },
+                      credentials: 'include',
+                      body: JSON.stringify({
+                        language: voiceState.language,
+                        pushToTalk: voiceState.pushToTalk,
+                        rate: voiceRate,
+                        pitch: val,
+                        vadThreshold,
+                        echoGateEnabled,
+                      }),
+                    }).catch(() => {});
+                  }}
+                  style={{ width: '100%', accentColor: '#06b6d4' }}
+                />
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px', color: '#475569' }}>
+                  <span>0.5 Low</span><span>1.0 Normal</span><span>2.0 High</span>
+                </div>
+              </div>
+
+              {/* VAD Sensitivity Slider */}
+              <div style={{ marginBottom: '12px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px', fontSize: '11px', color: 'var(--text-muted, #94a3b8)', textTransform: 'uppercase' }}>
+                  <span>Mic Sensitivity</span>
+                  <span style={{ color: '#10b981', fontWeight: 600 }}>{vadThreshold} dBFS</span>
+                </div>
+                <input
+                  type="range"
+                  min="-55"
+                  max="-28"
+                  step="1"
+                  value={vadThreshold}
+                  onChange={(e) => {
+                    const val = parseInt(e.target.value, 10);
+                    setVadThreshold(val);
+                    if (vadControllerRef.current?.options) {
+                      vadControllerRef.current.options.silenceThresholdDb = val;
+                    }
+                  }}
+                  onMouseUp={(e) => {
+                    const val = parseInt(e.target.value, 10);
+                    fetch(`${apiBase}/api/v1/voice/settings`, {
+                      method: 'PUT',
+                      headers: { 'Content-Type': 'application/json' },
+                      credentials: 'include',
+                      body: JSON.stringify({
+                        language: voiceState.language,
+                        pushToTalk: voiceState.pushToTalk,
+                        rate: voiceRate,
+                        pitch: voicePitch,
+                        vadThreshold: val,
+                        echoGateEnabled,
+                      }),
+                    }).catch(() => {});
+                  }}
+                  style={{ width: '100%', accentColor: '#10b981' }}
+                />
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px', color: '#475569' }}>
+                  <span>-55 Very sensitive</span><span>-28 Less sensitive</span>
+                </div>
+              </div>
+
+              {/* Live VAD Audio Energy Meter */}
+              <div style={{ borderTop: '1px solid var(--border, #334155)', paddingTop: '8px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: 'var(--text-muted, #94a3b8)', marginBottom: '4px' }}>
+                  <span>Live Voice Energy (VAD)</span>
+                  <span>{Math.round(audioRms * 100)}%</span>
+                </div>
+                <div style={{ width: '100%', height: '4px', background: 'rgba(255,255,255,0.1)', borderRadius: '2px', overflow: 'hidden' }}>
+                  <div style={{
+                    width: `${Math.min(100, audioRms * 300)}%`,
+                    height: '100%',
+                    background: audioRms > 0.12 ? '#10b981' : '#6366f1',
+                    transition: 'width 60ms ease-out',
+                  }} />
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      </form>
+      <p className="composer-hint">
+        Xarwiz AI can make mistakes. Check important info.
+      </p>
+    </div>
+  );
 
   if (!user) return null; // Wait for mount
 
@@ -2535,835 +3087,284 @@ If any check fails, revise the relevant section before output.`;
           <main
             className={`main-area ${activeArtifact ? 'with-artifact' : ''}`}
           >
-            {/* Topbar Header */}
-            <div className="topbar">
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0, flex: 1 }}>
+            {/* Compact Application Header */}
+            <header className="app-header">
+              <div className="app-header-left">
                 <button
-                  className="topbar-btn sidebar-toggle-btn"
+                  className="header-icon-btn sidebar-toggle-btn"
                   onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
                   title={sidebarCollapsed ? "Open sidebar" : "Collapse sidebar"}
                   aria-label="Toggle sidebar"
-                  style={{ flexShrink: 0 }}
                 >
-                  <Menu size={15} />
+                  <Menu size={16} />
                 </button>
-                <span className="topbar-title">
-                  {activeConvId
-                    ? conversations.find((c) => c.id === activeConvId)?.title ||
-                      'Conversation'
-                    : 'New Conversation'}
-                </span>
-              </div>
-              <div className="topbar-actions">
-                {/* Export Menu Dropdown */}
-                <div style={{ position: 'relative' }}>
-                  <button
-                    className="topbar-btn"
-                    onClick={() => setShowExportMenu(!showExportMenu)}
-                    title="Export conversation"
-                  >
-                    <FolderUp size={14} />
-                    <span>Export</span>
-                  </button>
-                  {showExportMenu && (
-                    <div
-                      style={{
-                        position: 'absolute',
-                        right: 0,
-                        top: '100%',
-                        marginTop: '6px',
-                        background: '#ffffff',
-                        border: '1px solid #e2e8f0',
-                        borderRadius: '8px',
-                        boxShadow: '0 4px 16px rgba(0,0,0,0.08)',
-                        zIndex: 999,
-                        display: 'flex',
-                        flexDirection: 'column',
-                        minWidth: '140px',
-                        overflow: 'hidden',
-                      }}
-                    >
-                      <button
-                        onClick={exportAsMarkdown}
-                        style={{
-                          padding: '8px 14px',
-                          fontSize: '12px',
-                          textAlign: 'left',
-                          background: 'transparent',
-                          border: 'none',
-                          color: '#0f172a',
-                          cursor: 'pointer',
-                        }}
-                        onMouseOver={(e) =>
-                          (e.currentTarget.style.background = '#f1f5f9')
-                        }
-                        onMouseOut={(e) =>
-                          (e.currentTarget.style.background = 'transparent')
-                        }
-                      >
-                        Markdown (.md)
-                      </button>
-                      <button
-                        onClick={exportAsJSON}
-                        style={{
-                          padding: '8px 14px',
-                          fontSize: '12px',
-                          textAlign: 'left',
-                          background: 'transparent',
-                          border: 'none',
-                          color: '#0f172a',
-                          cursor: 'pointer',
-                        }}
-                        onMouseOver={(e) =>
-                          (e.currentTarget.style.background = '#f1f5f9')
-                        }
-                        onMouseOut={(e) =>
-                          (e.currentTarget.style.background = 'transparent')
-                        }
-                      >
-                        JSON (.json)
-                      </button>
-                      <button
-                        onClick={exportAsPDF}
-                        style={{
-                          padding: '8px 14px',
-                          fontSize: '12px',
-                          textAlign: 'left',
-                          background: 'transparent',
-                          border: 'none',
-                          color: '#0f172a',
-                          cursor: 'pointer',
-                        }}
-                        onMouseOver={(e) =>
-                          (e.currentTarget.style.background = '#f1f5f9')
-                        }
-                        onMouseOut={(e) =>
-                          (e.currentTarget.style.background = 'transparent')
-                        }
-                      >
-                        Print PDF
-                      </button>
-                    </div>
-                  )}
+
+                <div className="header-brand" onClick={startNewChat} title="Start new conversation">
+                  <div className="header-brand-badge">
+                    <Zap size={14} color="#ffffff" />
+                  </div>
+                  <span className="header-brand-title">Xarwiz AI</span>
                 </div>
+
+                <div className="header-selectors">
+                  <div className="header-pill-select">
+                    <select
+                      value={model}
+                      onChange={(e) => setModel(e.target.value)}
+                      title="Select AI Model"
+                      aria-label="Select AI Model"
+                    >
+                      <option value="harikson-plus">Xarwiz Plus · 8B</option>
+                      <option value="harikson-max">Xarwiz Max · 14B</option>
+                    </select>
+                    <ChevronDown size={11} className="pill-arrow" />
+                  </div>
+
+                  <div className="header-pill-select">
+                    <select
+                      value={systemPreset}
+                      onChange={(e) => setSystemPreset(e.target.value)}
+                      title="Select System Preset"
+                      aria-label="Select System Preset"
+                    >
+                      <option value="general">General</option>
+                      <option value="coder">Senior Coder</option>
+                      <option value="reviewer">Reviewer</option>
+                      <option value="dba">DBA</option>
+                      {customPresets.map((preset) => (
+                        <option key={preset.id} value={`custom_${preset.id}`}>
+                          {preset.name}
+                        </option>
+                      ))}
+                    </select>
+                    <ChevronDown size={11} className="pill-arrow" />
+                  </div>
+                </div>
+              </div>
+
+              <div className="app-header-right">
+                <button
+                  className="header-action-btn"
+                  onClick={() => setShowGlobalSearch(true)}
+                  title="Search conversations, agents, docs (⌘K)"
+                >
+                  <Search size={14} />
+                  <span>Search</span>
+                  <kbd className="header-kbd">⌘K</kbd>
+                </button>
 
                 <button
-                  className="topbar-btn"
-                  onClick={handleShareChat}
-                  title="Share conversation link"
+                  className="header-action-btn new-chat-action-btn"
+                  onClick={startNewChat}
+                  title="Start a new chat"
                 >
-                  <Link size={14} />
-                  <span>Share</span>
+                  <Plus size={14} />
+                  <span>New Chat</span>
                 </button>
 
-                <select
-                  className="topbar-select"
-                  value={systemPreset}
-                  onChange={(e) => setSystemPreset(e.target.value)}
-                >
-                  <option value="general">General Agent</option>
-                  <option value="coder">Senior Coder</option>
-                  <option value="reviewer">Code Reviewer</option>
-                  <option value="dba">Database DBA</option>
-                  {customPresets.map((preset) => (
-                    <option key={preset.id} value={`custom_${preset.id}`}>
-                      {preset.name}
-                    </option>
-                  ))}
-                </select>
-                <select
-                  className="topbar-select"
-                  value={model}
-                  onChange={(e) => setModel(e.target.value)}
-                >
-                  <option value="harikson-plus">Xarwiz Plus · 8B</option>
-                  <option value="harikson-max">Xarwiz Max · 14B</option>
-                </select>
-              </div>
-            </div>
-
-            {/* Messages Area */}
-            <div className="messages-area">
-              <div className="workspace-wave-overlay">
-                <svg viewBox="0 0 800 600" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <path d="M350 0C480 120 600 200 800 240V0H350Z" fill="url(#wave-grad-1)" opacity="0.05"/>
-                  <path d="M250 0C420 160 550 280 800 340V0H250Z" fill="url(#wave-grad-2)" opacity="0.04"/>
-                  <path d="M380 40Q540 180 780 220" stroke="#3b82f6" strokeWidth="1.5" strokeDasharray="3 3" opacity="0.2"/>
-                  <path d="M410 80Q570 220 790 280" stroke="#3b82f6" strokeWidth="1" opacity="0.16"/>
-                  <path d="M440 120Q600 260 800 340" stroke="#3b82f6" strokeWidth="1" opacity="0.12"/>
-                  <path d="M470 160Q630 300 810 400" stroke="#3b82f6" strokeWidth="1" opacity="0.08"/>
-                  <defs>
-                    <linearGradient id="wave-grad-1" x1="350" y1="0" x2="800" y2="240" gradientUnits="userSpaceOnUse">
-                      <stop stopColor="#3b82f6"/>
-                      <stop offset="1" stopColor="#60a5fa" stopOpacity="0"/>
-                    </linearGradient>
-                    <linearGradient id="wave-grad-2" x1="250" y1="0" x2="800" y2="340" gradientUnits="userSpaceOnUse">
-                      <stop stopColor="#2563eb"/>
-                      <stop offset="1" stopColor="#93c5fd" stopOpacity="0"/>
-                    </linearGradient>
-                  </defs>
-                </svg>
-              </div>
-
-              {/* Central Empty State Hero & 2x2 Quick Action Cards */}
-              {messages.length === 0 && !loading && (
-                <div className="messages-empty">
-                  <div className="hero-icon-container">
-                    <Zap size={26} color="#3b82f6" />
-                  </div>
-                  <h2 className="hero-title">Xarwiz AI</h2>
-                  <p className="hero-description">
-                    Your enterprise AI coding assistant. Ask anything about your
-                    codebase, architecture, or software.
-                  </p>
-
-                  <div className="quick-actions-grid">
-                    <div
-                      className="quick-action-card"
-                      onClick={() =>
-                        handleSuggestionClick(
-                          'Create a private LLM deployment template with Xarwiz.'
-                        )
-                      }
+                {activeConvId && (
+                  <div style={{ position: 'relative' }} ref={exportMenuRef}>
+                    <button
+                      className="header-icon-btn"
+                      onClick={() => setShowExportMenu((prev) => !prev)}
+                      title="Export conversation"
+                      aria-label="Export conversation"
                     >
-                      <div className="card-icon-pill">
-                        <Rocket size={20} color="#3b82f6" />
-                      </div>
-                      <div className="card-text-group">
-                        <span className="card-text-title">Deploy Private LLM</span>
-                        <span className="card-text-subtitle">
-                          Create a sovereign deployment template
-                        </span>
-                      </div>
-                      <ChevronRight size={16} className="card-arrow-icon" />
-                    </div>
-
-                    <div
-                      className="quick-action-card"
-                      onClick={() =>
-                        handleSuggestionClick(
-                          'Auditing my code for DPDP compliance rules.'
-                        )
-                      }
-                    >
-                      <div className="card-icon-pill">
-                        <Shield size={20} color="#3b82f6" />
-                      </div>
-                      <div className="card-text-group">
-                        <span className="card-text-title">DPDP Audit</span>
-                        <span className="card-text-subtitle">
-                          Check code compliance on Indian soil
-                        </span>
-                      </div>
-                      <ChevronRight size={16} className="card-arrow-icon" />
-                    </div>
-
-                    <div
-                      className="quick-action-card"
-                      onClick={() =>
-                        handleSuggestionClick(
-                          'Optimize this query for active tenant indexes.'
-                        )
-                      }
-                    >
-                      <div className="card-icon-pill">
-                        <Zap size={20} color="#3b82f6" />
-                      </div>
-                      <div className="card-text-group">
-                        <span className="card-text-title">Optimize SQL Index</span>
-                        <span className="card-text-subtitle">
-                          DBA schema indexing assistant
-                        </span>
-                      </div>
-                      <ChevronRight size={16} className="card-arrow-icon" />
-                    </div>
-
-                    <div
-                      className="quick-action-card"
-                      onClick={() =>
-                        handleSuggestionClick(
-                          'Write a robust RAG data pipeline configuration.'
-                        )
-                      }
-                    >
-                      <div className="card-icon-pill">
-                        <Folder size={20} color="#3b82f6" />
-                      </div>
-                      <div className="card-text-group">
-                        <span className="card-text-title">RAG Data Pipeline</span>
-                        <span className="card-text-subtitle">
-                          Inject documents for vector search
-                        </span>
-                      </div>
-                      <ChevronRight size={16} className="card-arrow-icon" />
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* Message List */}
-              {messages.map((msg, idx) =>
-                msg.sender === 'user' ? (
-                  <div key={idx} className="message-row user">
-                    <div className="message-bubble-user">{msg.text}</div>
-                  </div>
-                ) : (
-                  msg.text && (
-                    <div key={idx} className="message-row assistant">
-                      <div className="message-bubble-assistant">
-                        <div className="assistant-avatar">
-                          <Zap size={16} color="white" />
-                        </div>
-                        <div className="assistant-content">
-                          <MarkdownRenderer
-                            content={msg.text}
-                            onOpenArtifact={setActiveArtifact}
-                          />
-                        </div>
-                      </div>
-                    </div>
-                  )
-                )
-              )}
-
-              {/* Thinking indicator (only shown while waiting for first response chunk) */}
-              {loading && (!messages.length || messages[messages.length - 1]?.sender !== 'bot' || !messages[messages.length - 1]?.text) && (
-                <div
-                  className="thinking-row"
-                  style={{ display: 'flex', alignItems: 'center', gap: '12px' }}
-                >
-                  <div className="thinking-avatar">
-                    <Zap size={16} color="white" />
-                  </div>
-                  <div className="thinking-dots">
-                    <div className="thinking-dot" />
-                    <div className="thinking-dot" />
-                    <div className="thinking-dot" />
-                  </div>
-                  {loadingStatus && (
-                    <span
-                      style={{
-                        fontSize: '13px',
-                        color: 'var(--text-secondary)',
-                        fontStyle: 'italic',
-                      }}
-                    >
-                      {loadingStatus}
-                    </span>
-                  )}
-                </div>
-              )}
-
-              {/* Error */}
-              {error && (
-                <div className="error-banner">
-                  <TriangleAlert size={18} />
-                  <span>{error}</span>
-                </div>
-              )}
-
-              <div ref={chatEndRef} />
-            </div>
-
-            {/* Bottom Composer */}
-            <div className="composer-area">
-              {attachedFiles.length > 0 && (
-                <div
-                  style={{
-                    display: 'flex',
-                    gap: '8px',
-                    flexWrap: 'wrap',
-                    marginBottom: '8px',
-                    padding: '0 4px',
-                  }}
-                >
-                  {attachedFiles.map((file, i) => (
-                    <div
-                      key={i}
-                      className={`attached-file-pill ${file.status || 'ready'}`}
-                      style={
-                        file.status === 'error'
-                          ? {
-                              borderColor: 'rgba(239, 68, 68, 0.4)',
-                              background: 'rgba(239, 68, 68, 0.05)',
-                              color: '#dc2626',
-                            }
-                          : file.status === 'processing'
-                            ? {
-                                borderColor: 'rgba(79, 140, 255, 0.4)',
-                                background: 'rgba(79, 140, 255, 0.05)',
-                              }
-                            : {}
-                      }
-                    >
-                      {file.status === 'processing' ? (
-                        <div
-                          className="settings-spinner"
-                          style={{
-                            width: '12px',
-                            height: '12px',
-                            border: '2px solid rgba(79, 140, 255, 0.2)',
-                            borderTop: '2px solid var(--accent)',
-                            borderRadius: '50%',
-                            animation: 'spin 1s linear infinite',
+                      <FolderUp size={15} />
+                    </button>
+                    {showExportMenu && (
+                      <div className="header-dropdown-menu">
+                        <button
+                          onClick={() => {
+                            exportAsMarkdown();
+                            setShowExportMenu(false);
                           }}
-                        />
-                      ) : (
-                        <Paperclip size={12} />
-                      )}
-                      <span style={{ fontSize: '11.5px' }}>
-                        {file.name}
-                        {file.status === 'processing' && ' (extracting...)'}
-                        {file.status === 'error' && ' (failed)'}
-                      </span>
+                        >
+                          Markdown (.md)
+                        </button>
+                        <button
+                          onClick={() => {
+                            exportAsJSON();
+                            setShowExportMenu(false);
+                          }}
+                        >
+                          JSON (.json)
+                        </button>
+                        <button
+                          onClick={() => {
+                            exportAsPDF();
+                            setShowExportMenu(false);
+                          }}
+                        >
+                          Print PDF
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                <div style={{ position: 'relative' }} ref={profileMenuRef}>
+                  <button
+                    className="header-profile-avatar"
+                    onClick={() => setShowProfileMenu((prev) => !prev)}
+                    title={user?.email || 'User Profile'}
+                    aria-label="User Profile"
+                  >
+                    {userInitial}
+                  </button>
+                  {showProfileMenu && (
+                    <div className="header-dropdown-menu">
+                      <div className="profile-dropdown-header">
+                        <span className="profile-dropdown-name">{user?.name || user?.full_name || 'Developer'}</span>
+                        <span className="profile-dropdown-email">{user?.email || ''}</span>
+                      </div>
+                      <div className="dropdown-divider" />
                       <button
-                        type="button"
-                        onClick={() => removeAttachedFile(i)}
-                        style={
-                          file.status === 'error' ? { color: '#dc2626' } : {}
-                        }
+                        onClick={() => {
+                          setShowSettingsModal(true);
+                          setShowProfileMenu(false);
+                        }}
                       >
-                        <X size={14} />
+                        <Sliders size={14} />
+                        <span>Settings</span>
+                      </button>
+                      {activeConvId && (
+                        <button
+                          onClick={() => {
+                            handleShareChat();
+                            setShowProfileMenu(false);
+                          }}
+                        >
+                          <Link size={14} />
+                          <span>Share Chat</span>
+                        </button>
+                      )}
+                      <div className="dropdown-divider" />
+                      <button
+                        onClick={() => {
+                          handleLogout();
+                          setShowProfileMenu(false);
+                        }}
+                        style={{ color: '#ef4444' }}
+                      >
+                        <LogOut size={14} />
+                        <span>Log Out</span>
                       </button>
                     </div>
-                  ))}
+                  )}
                 </div>
-              )}
-              <form onSubmit={sendMessage}>
-                <div className="composer-container">
-                  {showSlashMenu && (
-                    <div className="slash-command-popup">
-                      {SLASH_COMMANDS.map((cmd, idx) => (
-                        <div
-                          key={cmd.id}
-                          className={`slash-command-item ${idx === slashIndex ? 'selected' : ''}`}
-                          onClick={() => applySlashCommand(cmd)}
-                          onMouseEnter={() => setSlashIndex(idx)}
+              </div>
+            </header>
+
+            {/* Empty State vs Active Chat Conversation */}
+            {messages.length === 0 && !loading ? (
+              <div className="empty-state-view">
+                <div className="empty-state-greeting">
+                  <h1 className="greeting-headline">
+                    {userName ? `${getTimeGreeting()}, ${userName}` : 'What can I help you build today?'}
+                  </h1>
+                  {userName && (
+                    <p className="greeting-subheadline">What can I help you build today?</p>
+                  )}
+                  <p className="greeting-description">
+                    Ask anything about your codebase, architecture, or software.
+                  </p>
+                </div>
+
+                {renderComposer(true)}
+
+                <div className="empty-state-suggestions">
+                  <div className="suggestions-label">
+                    <Sparkles size={13} className="suggestions-sparkle" />
+                    <span>Try asking</span>
+                  </div>
+                  <div className="suggestions-chip-list">
+                    {SUGGESTION_CHIPS.map((chip, idx) => {
+                      const IconComp = chip.icon;
+                      return (
+                        <button
+                          key={idx}
+                          type="button"
+                          className="suggestion-chip-btn"
+                          onClick={() => handleSuggestionClick(chip.prompt)}
                         >
-                          <div className="slash-command-icon">{cmd.icon}</div>
-                          <div className="slash-command-details">
-                            <span className="slash-command-title">
-                              {cmd.title}
-                            </span>
-                            <span className="slash-command-desc">
-                              {cmd.desc}
-                            </span>
+                          <IconComp size={13} color="#2563eb" />
+                          <span>{chip.label}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="active-chat-view">
+                <div className="messages-scroll-column">
+                  {messages.map((msg, idx) =>
+                    msg.sender === 'user' ? (
+                      <div key={idx} className="message-row user">
+                        <div className="message-bubble-user">{msg.text}</div>
+                      </div>
+                    ) : (
+                      msg.text && (
+                        <div key={idx} className="message-row assistant">
+                          <div className="message-bubble-assistant">
+                            <div className="assistant-avatar">
+                              <Zap size={16} color="white" />
+                            </div>
+                            <div className="assistant-content">
+                              <MarkdownRenderer
+                                content={msg.text}
+                                onOpenArtifact={setActiveArtifact}
+                              />
+                            </div>
                           </div>
                         </div>
-                      ))}
-                    </div>
+                      )
+                    )
                   )}
-                  <textarea
-                    ref={textareaRef}
-                    className="chat-textarea"
-                    rows={1}
-                    value={inputText}
-                    onChange={handleInputChange}
-                    onKeyDown={handleKeyDown}
-                    placeholder="Ask anything..."
-                    disabled={loading}
-                  />
-                  <div className="composer-toolbar">
-                    <div className="composer-toolbar-left">
-                      <input
-                        type="file"
-                        id="file-upload"
-                        multiple
-                        style={{ display: 'none' }}
-                        onChange={handleFileUpload}
-                      />
-                      <label
-                        htmlFor="file-upload"
-                        className="toolbar-icon-btn attach-btn"
-                        title="Attach Files"
-                        style={{ cursor: 'pointer' }}
-                      >
-                        <Plus size={18} />
-                      </label>
-                      <div className="toolbar-divider" />
-                      <button
-                        type="button"
-                        className={`compute-toggle ${useDeepSearch ? 'active' : ''}`}
-                        onClick={() => setUseDeepSearch(!useDeepSearch)}
-                      >
-                        <Globe size={14} /> Search
-                      </button>
-                      <button
-                        type="button"
-                        className={`compute-toggle ${useReasoning ? 'active' : ''}`}
-                        onClick={() => setUseReasoning(!useReasoning)}
-                      >
-                        <BrainCircuit size={14} /> Think
-                      </button>
-                    </div>
-                    <div className="composer-toolbar-right">
-                      {isVoiceActive(voiceState.state) && (
-                        <div
-                          className="voice-inline-status"
-                          style={
-                            voiceState.state === 'vad_detecting'
-                              ? { color: '#10b981', background: 'rgba(16, 185, 129, 0.1)', borderColor: 'rgba(16, 185, 129, 0.28)' }
-                              : isAISpeaking(voiceState.state)
-                              ? { color: '#06b6d4', background: 'rgba(6, 182, 212, 0.1)', borderColor: 'rgba(6, 182, 212, 0.28)' }
-                              : isBusy(voiceState.state) || voiceState.state === 'processing' || voiceState.state === 'streaming'
-                              ? { color: '#a855f7', background: 'rgba(168, 85, 247, 0.1)', borderColor: 'rgba(168, 85, 247, 0.28)' }
-                              : voiceState.state === 'interrupted'
-                              ? { color: '#f59e0b', background: 'rgba(245, 158, 11, 0.1)', borderColor: 'rgba(245, 158, 11, 0.28)' }
-                              : { color: '#3b82f6', background: 'rgba(59, 130, 246, 0.1)', borderColor: 'rgba(59, 130, 246, 0.28)' }
-                          }
+
+                  {/* Thinking indicator */}
+                  {loading && (!messages.length || messages[messages.length - 1]?.sender !== 'bot' || !messages[messages.length - 1]?.text) && (
+                    <div
+                      className="thinking-row"
+                      style={{ display: 'flex', alignItems: 'center', gap: '12px' }}
+                    >
+                      <div className="thinking-avatar">
+                        <Zap size={16} color="white" />
+                      </div>
+                      <div className="thinking-dots">
+                        <div className="thinking-dot" />
+                        <div className="thinking-dot" />
+                        <div className="thinking-dot" />
+                      </div>
+                      {loadingStatus && (
+                        <span
+                          style={{
+                            fontSize: '13px',
+                            color: 'var(--text-secondary)',
+                            fontStyle: 'italic',
+                          }}
                         >
-                          {voiceState.state === 'processing' ? (
-                            <><Loader2 size={13} className="voice-status-icon animate-spin" /> Thinking...</>
-                          ) : voiceState.state === 'streaming' ? (
-                            <><Loader2 size={13} className="voice-status-icon animate-spin" /> Generating...</>
-                          ) : isAISpeaking(voiceState.state) ? (
-                            <><Volume2 size={13} className="voice-status-icon" /> Speaking...</>
-                          ) : voiceState.state === 'vad_detecting' ? (
-                            <><span className="voice-pulse-dot" style={{ background: '#10b981', boxShadow: '0 0 6px rgba(16, 185, 129, 0.7)' }} /> Hearing you...</>
-                          ) : voiceState.state === 'interrupted' ? (
-                            <><span className="voice-pulse-dot" style={{ background: '#f59e0b', boxShadow: '0 0 6px rgba(245, 158, 11, 0.7)' }} /> Interrupted...</>
-                          ) : (
-                            <><span className="voice-pulse-dot" style={{ background: '#3b82f6', boxShadow: '0 0 6px rgba(59, 130, 246, 0.7)' }} /> Listening...</>
-                          )}
-                        </div>
-                      )}
-                      <button
-                        type="button"
-                        className={`toolbar-icon-btn${isVoiceActive(voiceState.state) ? ' voice-active' : ''}`}
-                        onClick={toggleVoiceMode}
-                        title={isVoiceActive(voiceState.state) ? 'Stop voice' : 'Voice input'}
-                      >
-                        {isVoiceActive(voiceState.state) ? <MicOff size={18} /> : <Mic size={18} />}
-                      </button>
-                      {isVoiceActive(voiceState.state) && (
-                        <button
-                          type="button"
-                          className={`toolbar-icon-btn ${showVoiceSettings ? 'active' : ''}`}
-                          onClick={() => setShowVoiceSettings((prev) => !prev)}
-                          title="Voice Settings"
-                        >
-                          <Sliders size={16} />
-                        </button>
-                      )}
-                      {loading ? (
-                        <button
-                          type="button"
-                          className="send-btn stop-btn"
-                          style={{ background: '#ef4444', color: '#ffffff' }}
-                          onClick={stopGeneration}
-                          title="Stop generation"
-                          aria-label="Stop generation"
-                        >
-                          <Square fill="currentColor" size={12} />
-                        </button>
-                      ) : (
-                        <button
-                          type="submit"
-                          className="send-btn"
-                          disabled={
-                            (!inputText.trim() && attachedFiles.length === 0) ||
-                            hasProcessingFiles
-                          }
-                          title="Send (Enter)"
-                          aria-label="Send message"
-                        >
-                          <ArrowUp size={18} />
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                  {showVoiceSettings && (
-                    <div className="voice-settings-popover" style={{
-                      position: 'absolute',
-                      bottom: '100%',
-                      right: '16px',
-                      marginBottom: '10px',
-                      width: '320px',
-                      background: 'var(--surface, #1e293b)',
-                      border: '1px solid var(--border, #334155)',
-                      borderRadius: '12px',
-                      padding: '16px',
-                      boxShadow: '0 10px 25px -5px rgba(0,0,0,0.4)',
-                      zIndex: 50,
-                      color: 'var(--text-primary, #f8fafc)',
-                      fontSize: '13px',
-                    }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-                        <span style={{ fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px' }}>
-                          <Sliders size={14} /> Voice Assistant Settings
+                          {loadingStatus}
                         </span>
-                        <button
-                          type="button"
-                          onClick={() => setShowVoiceSettings(false)}
-                          style={{ background: 'none', border: 'none', color: 'var(--text-muted, #94a3b8)', cursor: 'pointer', padding: '2px' }}
-                        >
-                          <X size={14} />
-                        </button>
-                      </div>
-
-                      {/* Language Selection */}
-                      <div style={{ marginBottom: '12px' }}>
-                        <label style={{ display: 'block', marginBottom: '4px', fontSize: '11px', color: 'var(--text-muted, #94a3b8)', textTransform: 'uppercase' }}>
-                          Language (BCP-47)
-                        </label>
-                        <select
-                          value={voiceState.language}
-                          onChange={(e) => {
-                            const lang = e.target.value;
-                            dispatchVoice({ type: 'SET_LANGUAGE', language: lang });
-                            if (typeof window !== 'undefined') localStorage.setItem('hk_voice_lang', lang);
-                            fetch(`${apiBase}/api/v1/voice/settings`, {
-                              method: 'PUT',
-                              headers: { 'Content-Type': 'application/json' },
-                              credentials: 'include',
-                              body: JSON.stringify({ language: lang }),
-                            }).catch(() => {});
-                          }}
-                          style={{ width: '100%', padding: '6px 8px', borderRadius: '6px', background: 'rgba(0,0,0,0.2)', border: '1px solid var(--border, #334155)', color: 'inherit' }}
-                        >
-                          <option value="en-US">English (US)</option>
-                          <option value="en-GB">English (UK)</option>
-                          <option value="es-ES">Spanish (Español)</option>
-                          <option value="fr-FR">French (Français)</option>
-                          <option value="de-DE">German (Deutsch)</option>
-                          <option value="hi-IN">Hindi (हिन्दी)</option>
-                          <option value="ja-JP">Japanese (日本語)</option>
-                          <option value="zh-CN">Chinese (中文)</option>
-                          <option value="pt-BR">Portuguese (Brasil)</option>
-                        </select>
-                      </div>
-
-                      {/* Microphone Input */}
-                      {voiceDevices.length > 0 && (
-                        <div style={{ marginBottom: '12px' }}>
-                          <label style={{ display: 'block', marginBottom: '4px', fontSize: '11px', color: 'var(--text-muted, #94a3b8)', textTransform: 'uppercase' }}>
-                            Microphone Device
-                          </label>
-                          <select
-                            value={voiceState.deviceId || ''}
-                            onChange={(e) => {
-                              const dev = e.target.value || null;
-                              dispatchVoice({ type: 'SET_DEVICE_ID', deviceId: dev });
-                              if (typeof window !== 'undefined') {
-                                if (dev) localStorage.setItem('hk_voice_device', dev);
-                                else localStorage.removeItem('hk_voice_device');
-                              }
-                            }}
-                            style={{ width: '100%', padding: '6px 8px', borderRadius: '6px', background: 'rgba(0,0,0,0.2)', border: '1px solid var(--border, #334155)', color: 'inherit' }}
-                          >
-                            <option value="">Default Microphone</option>
-                            {voiceDevices.map((d) => (
-                              <option key={d.deviceId} value={d.deviceId}>
-                                {d.label || `Microphone ${d.deviceId.slice(0, 6)}...`}
-                              </option>
-                            ))}
-                          </select>
-                        </div>
                       )}
-
-                      {/* Push-to-Talk Toggle */}
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', padding: '8px 0', borderTop: '1px solid var(--border, #334155)' }}>
-                        <div>
-                          <div style={{ fontWeight: 500 }}>Push-to-Talk</div>
-                          <div style={{ fontSize: '11px', color: 'var(--text-muted, #94a3b8)' }}>Hold Spacebar to speak</div>
-                        </div>
-                        <input
-                          type="checkbox"
-                          checked={voiceState.pushToTalk}
-                          onChange={(e) => {
-                            const val = e.target.checked;
-                            dispatchVoice({ type: 'SET_PUSH_TO_TALK', pushToTalk: val });
-                            fetch(`${apiBase}/api/v1/voice/settings`, {
-                              method: 'PUT',
-                              headers: { 'Content-Type': 'application/json' },
-                              credentials: 'include',
-                              body: JSON.stringify({
-                                language: voiceState.language,
-                                pushToTalk: val,
-                                rate: voiceRate,
-                                pitch: voicePitch,
-                                vadThreshold,
-                                echoGateEnabled,
-                              }),
-                            }).catch(() => {});
-                          }}
-                        />
-                      </div>
-
-                      {/* Echo Gate Toggle */}
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', padding: '8px 0', borderTop: '1px solid var(--border, #334155)' }}>
-                        <div>
-                          <div style={{ fontWeight: 500 }}>Echo Gate</div>
-                          <div style={{ fontSize: '11px', color: 'var(--text-muted, #94a3b8)' }}>Filter speaker bleed during AI speech</div>
-                        </div>
-                        <input
-                          type="checkbox"
-                          checked={echoGateEnabled}
-                          onChange={(e) => {
-                            const val = e.target.checked;
-                            setEchoGateEnabled(val);
-                            fetch(`${apiBase}/api/v1/voice/settings`, {
-                              method: 'PUT',
-                              headers: { 'Content-Type': 'application/json' },
-                              credentials: 'include',
-                              body: JSON.stringify({
-                                language: voiceState.language,
-                                pushToTalk: voiceState.pushToTalk,
-                                rate: voiceRate,
-                                pitch: voicePitch,
-                                vadThreshold,
-                                echoGateEnabled: val,
-                              }),
-                            }).catch(() => {});
-                          }}
-                        />
-                      </div>
-
-                      {/* Speech Rate Slider */}
-                      <div style={{ marginBottom: '12px', borderTop: '1px solid var(--border, #334155)', paddingTop: '12px' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px', fontSize: '11px', color: 'var(--text-muted, #94a3b8)', textTransform: 'uppercase' }}>
-                          <span>Speech Rate</span>
-                          <span style={{ color: '#6366f1', fontWeight: 600 }}>{voiceRate.toFixed(2)}x</span>
-                        </div>
-                        <input
-                          type="range"
-                          min="0.5"
-                          max="2.0"
-                          step="0.05"
-                          value={voiceRate}
-                          onChange={(e) => {
-                            const val = parseFloat(e.target.value);
-                            setVoiceRate(val);
-                            chunkedSpeakerRef.current?.setOptions({ rate: val, pitch: voicePitch });
-                          }}
-                          onMouseUp={(e) => {
-                            const val = parseFloat(e.target.value);
-                            fetch(`${apiBase}/api/v1/voice/settings`, {
-                              method: 'PUT',
-                              headers: { 'Content-Type': 'application/json' },
-                              credentials: 'include',
-                              body: JSON.stringify({
-                                language: voiceState.language,
-                                pushToTalk: voiceState.pushToTalk,
-                                rate: val,
-                                pitch: voicePitch,
-                                vadThreshold,
-                                echoGateEnabled,
-                              }),
-                            }).catch(() => {});
-                          }}
-                          style={{ width: '100%', accentColor: '#6366f1' }}
-                        />
-                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px', color: '#475569' }}>
-                          <span>0.5x Slow</span><span>1.0x Normal</span><span>2.0x Fast</span>
-                        </div>
-                      </div>
-
-                      {/* Pitch Slider */}
-                      <div style={{ marginBottom: '12px' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px', fontSize: '11px', color: 'var(--text-muted, #94a3b8)', textTransform: 'uppercase' }}>
-                          <span>Voice Pitch</span>
-                          <span style={{ color: '#06b6d4', fontWeight: 600 }}>{voicePitch.toFixed(2)}</span>
-                        </div>
-                        <input
-                          type="range"
-                          min="0.5"
-                          max="2.0"
-                          step="0.05"
-                          value={voicePitch}
-                          onChange={(e) => {
-                            const val = parseFloat(e.target.value);
-                            setVoicePitch(val);
-                            chunkedSpeakerRef.current?.setOptions({ rate: voiceRate, pitch: val });
-                          }}
-                          onMouseUp={(e) => {
-                            const val = parseFloat(e.target.value);
-                            fetch(`${apiBase}/api/v1/voice/settings`, {
-                              method: 'PUT',
-                              headers: { 'Content-Type': 'application/json' },
-                              credentials: 'include',
-                              body: JSON.stringify({
-                                language: voiceState.language,
-                                pushToTalk: voiceState.pushToTalk,
-                                rate: voiceRate,
-                                pitch: val,
-                                vadThreshold,
-                                echoGateEnabled,
-                              }),
-                            }).catch(() => {});
-                          }}
-                          style={{ width: '100%', accentColor: '#06b6d4' }}
-                        />
-                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px', color: '#475569' }}>
-                          <span>0.5 Low</span><span>1.0 Normal</span><span>2.0 High</span>
-                        </div>
-                      </div>
-
-                      {/* VAD Sensitivity Slider */}
-                      <div style={{ marginBottom: '12px' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px', fontSize: '11px', color: 'var(--text-muted, #94a3b8)', textTransform: 'uppercase' }}>
-                          <span>Mic Sensitivity</span>
-                          <span style={{ color: '#10b981', fontWeight: 600 }}>{vadThreshold} dBFS</span>
-                        </div>
-                        <input
-                          type="range"
-                          min="-55"
-                          max="-28"
-                          step="1"
-                          value={vadThreshold}
-                          onChange={(e) => {
-                            const val = parseInt(e.target.value, 10);
-                            setVadThreshold(val);
-                            if (vadControllerRef.current?.options) {
-                              vadControllerRef.current.options.silenceThresholdDb = val;
-                            }
-                          }}
-                          onMouseUp={(e) => {
-                            const val = parseInt(e.target.value, 10);
-                            fetch(`${apiBase}/api/v1/voice/settings`, {
-                              method: 'PUT',
-                              headers: { 'Content-Type': 'application/json' },
-                              credentials: 'include',
-                              body: JSON.stringify({
-                                language: voiceState.language,
-                                pushToTalk: voiceState.pushToTalk,
-                                rate: voiceRate,
-                                pitch: voicePitch,
-                                vadThreshold: val,
-                                echoGateEnabled,
-                              }),
-                            }).catch(() => {});
-                          }}
-                          style={{ width: '100%', accentColor: '#10b981' }}
-                        />
-                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px', color: '#475569' }}>
-                          <span>-55 Very sensitive</span><span>-28 Less sensitive</span>
-                        </div>
-                      </div>
-
-                      {/* Live VAD Audio Energy Meter */}
-                      <div style={{ borderTop: '1px solid var(--border, #334155)', paddingTop: '8px' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: 'var(--text-muted, #94a3b8)', marginBottom: '4px' }}>
-                          <span>Live Voice Energy (VAD)</span>
-                          <span>{Math.round(audioRms * 100)}%</span>
-                        </div>
-                        <div style={{ width: '100%', height: '4px', background: 'rgba(255,255,255,0.1)', borderRadius: '2px', overflow: 'hidden' }}>
-                          <div style={{
-                            width: `${Math.min(100, audioRms * 300)}%`,
-                            height: '100%',
-                            background: audioRms > 0.12 ? '#10b981' : '#6366f1',
-                            transition: 'width 60ms ease-out',
-                          }} />
-                        </div>
-                      </div>
                     </div>
                   )}
+
+                  {/* Error banner */}
+                  {error && (
+                    <div className="error-banner">
+                      <TriangleAlert size={18} />
+                      <span>{error}</span>
+                    </div>
+                  )}
+
+                  <div ref={chatEndRef} />
                 </div>
-              </form>
-              <p className="composer-hint">
-                Xarwiz AI can make mistakes. Check important info.
-              </p>
-            </div>
+
+                {renderComposer(false)}
+              </div>
+            )}
           </main>
 
           {/* ─── Artifact Pane ───────────────────────────────────── */}
@@ -3431,6 +3432,11 @@ If any check fails, revise the relevant section before output.`;
           onClose={() => setShowSettingsModal(false)}
           initialTab="profile"
           handleLogout={handleLogout}
+        />
+
+        <GlobalSearch
+          isOpen={showGlobalSearch}
+          onClose={() => setShowGlobalSearch(false)}
         />
       </div>
     </>
