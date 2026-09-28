@@ -39,6 +39,7 @@ import integrationsRoutes from './routes/integrations.routes.js';
 import workflowRoutes from './routes/workflow.routes.js';
 import notificationRoutes from './routes/notification.routes.js';
 import voiceRoutes from './routes/voice.routes.js';
+import shareRoutes from './routes/share.routes.js';
 
 // Import existing API sub-routers
 import chatRouter from './routes/chat.js';
@@ -230,6 +231,12 @@ app.use(async (req, res, next) => {
         return next();
       }
 
+      // Public share viewer endpoint — no tenant or auth context required.
+      // Authorization is enforced inside the route handler via token hash lookup.
+      if (req.path.startsWith('/api/public/')) {
+        return next();
+      }
+
       // Fallback for 'default' tenant slug to primary workspace
       if (tenantHeader === 'default') {
         const defaultTenantRes = await pool.query(
@@ -291,6 +298,13 @@ app.use('/api/v1/voice', voiceRoutes);
 // too so that exact, already-registered URL keeps resolving correctly.
 app.use('/api/user/integrations', integrationsRoutes);
 app.use('/api/v1/user/integrations', integrationsRoutes);
+
+// Share routes:
+//   /api/public/shares/:token  — unauthenticated public viewer endpoint
+//   /api/conversations/:id/share* — authenticated owner management
+app.use('/api/public', shareRoutes);
+app.use('/api', shareRoutes);
+app.use('/api/v1', shareRoutes);
 
 // Register specialized sub-routers
 app.use('/api/routes/chat', chatRouter);

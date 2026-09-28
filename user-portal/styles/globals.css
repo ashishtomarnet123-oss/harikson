@@ -3099,3 +3099,8 @@ code.block-code {
   }
 }
 
+/* ── Share Modal utilities ── */
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+

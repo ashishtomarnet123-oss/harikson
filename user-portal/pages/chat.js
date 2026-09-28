@@ -39,8 +39,10 @@ import {
   Sparkles,
   Sliders,
   Menu,
+  Share2,
 } from 'lucide-react';
 import GlobalSearch from '../components/GlobalSearch';
+import ShareModal from '../components/ShareModal';
 import SettingsModal from '../components/SettingsModal';
 import MarkdownRenderer from '../components/chat/MarkdownRenderer';
 import { trackEvent } from '../lib/analytics';
@@ -504,6 +506,7 @@ function ChatPage() {
   const [systemPreset, setSystemPreset] = useState('general');
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [showGlobalSearch, setShowGlobalSearch] = useState(false);
+  const [showShareModal, setShowShareModal] = useState(false);
   const profileMenuRef = useRef(null);
   const exportMenuRef = useRef(null);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
@@ -3156,6 +3159,18 @@ If any check fails, revise the relevant section before output.`;
                 </button>
 
                 {activeConvId && (
+                  <button
+                    className="header-action-btn"
+                    onClick={() => setShowShareModal(true)}
+                    title="Share this conversation"
+                    style={{ gap: '5px' }}
+                  >
+                    <Share2 size={14} />
+                    <span>Share</span>
+                  </button>
+                )}
+
+                {activeConvId && (
                   <div style={{ position: 'relative' }} ref={exportMenuRef}>
                     <button
                       className="header-icon-btn"
@@ -3430,6 +3445,13 @@ If any check fails, revise the relevant section before output.`;
         <GlobalSearch
           isOpen={showGlobalSearch}
           onClose={() => setShowGlobalSearch(false)}
+        />
+
+        <ShareModal
+          isOpen={showShareModal}
+          onClose={() => setShowShareModal(false)}
+          conversationId={activeConvId}
+          conversationTitle={conversations.find((c) => c.id === activeConvId)?.title || ''}
         />
       </div>
     </>
