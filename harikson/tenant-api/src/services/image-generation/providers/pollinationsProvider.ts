@@ -4,7 +4,7 @@ import logger from '../../../utils/logger.js';
 
 export class PollinationsProvider implements IImageProvider {
   public readonly name = 'pollinations';
-  public readonly defaultModel = 'flux';
+  public readonly defaultModel = 'turbo';
 
   async isAvailable(): Promise<boolean> {
     return true; // Zero-key fallback is always available
@@ -21,7 +21,7 @@ export class PollinationsProvider implements IImageProvider {
       fullPrompt = `${fullPrompt}, ${STYLE_PROMPTS[options.stylePreset]}`;
     }
 
-    const model = options.model || this.defaultModel;
+    const model = (options.model && !options.model.includes('flux')) ? options.model : 'turbo';
     const seed = options.seed || Math.floor(Math.random() * 1000000);
     const encodedPrompt = encodeURIComponent(fullPrompt);
 
