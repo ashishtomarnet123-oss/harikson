@@ -59,7 +59,8 @@ function isSafeUrl(url) {
     trimmed.startsWith('https://') ||
     trimmed.startsWith('http://') ||
     trimmed.startsWith('mailto:') ||
-    trimmed.startsWith('tel:')
+    trimmed.startsWith('tel:') ||
+    trimmed.startsWith('doc://')
   ) {
     return true;
   }
@@ -148,7 +149,7 @@ const CodeBlockWrapper = memo(function CodeBlockWrapper({ children, onOpenArtifa
 const REMARK_PLUGINS = [remarkGfm];
 const REHYPE_PLUGINS = [rehypeHighlight];
 
-function MarkdownRenderer({ content, onOpenArtifact, className = '' }) {
+function MarkdownRenderer({ content, onOpenArtifact, onCitationClick, className = '' }) {
   if (!content || typeof content !== 'string') {
     return null;
   }
@@ -217,6 +218,53 @@ function MarkdownRenderer({ content, onOpenArtifact, className = '' }) {
 
     // Safe Links
     a: ({ href, children, ...props }) => {
+      if (href && href.startsWith('doc://')) {
+        let docId = '';
+        let pageNum = 1;
+        try {
+          const raw = href.replace('doc://', '');
+          const [idPart, queryPart] = raw.split('?');
+          docId = idPart;
+          if (queryPart) {
+            const params = new URLSearchParams(queryPart);
+            pageNum = parseInt(params.get('page') || '1', 10);
+          }
+        } catch (e) {
+          docId = href.replace('doc://', '');
+        }
+
+        return (
+          <a
+            href="#"
+            onClick={(e) => {
+              e.preventDefault();
+              if (onCitationClick) {
+                onCitationClick({ documentId: docId, page: pageNum });
+              }
+            }}
+            className="markdown-link citation-source-link"
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '4px',
+              color: 'var(--accent, #4f8cff)',
+              fontWeight: 600,
+              textDecoration: 'none',
+              padding: '1px 6px',
+              borderRadius: '4px',
+              background: 'rgba(79, 140, 255, 0.08)',
+              border: '1px solid rgba(79, 140, 255, 0.2)',
+              cursor: 'pointer',
+              fontSize: '0.9em',
+            }}
+            title={`Open document preview at Page ${pageNum}`}
+            {...props}
+          >
+            📄 {children}
+          </a>
+        );
+      }
+
       const safe = isSafeUrl(href);
       const isExternal = safe && /^https?:\/\//i.test(href);
       return (

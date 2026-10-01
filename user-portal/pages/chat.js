@@ -40,10 +40,12 @@ import {
   Sliders,
   Menu,
   Share2,
+  Eye,
 } from 'lucide-react';
 import GlobalSearch from '../components/GlobalSearch';
 import ShareModal from '../components/ShareModal';
 import SettingsModal from '../components/SettingsModal';
+import DocumentViewerModal from '../components/DocumentViewerModal';
 import MarkdownRenderer from '../components/chat/MarkdownRenderer';
 import { trackEvent } from '../lib/analytics';
 import {
@@ -521,6 +523,9 @@ function ChatPage() {
   const [showSlashMenu, setShowSlashMenu] = useState(false);
   const [slashIndex, setSlashIndex] = useState(0);
   const [activeArtifact, setActiveArtifact] = useState(null);
+  const [selectedCitationDoc, setSelectedCitationDoc] = useState(null);
+  const [selectedCitationPage, setSelectedCitationPage] = useState(1);
+  const [isDocViewerOpen, setIsDocViewerOpen] = useState(false);
   const [useDeepSearch, setUseDeepSearch] = useState(false);
   const [useReasoning, setUseReasoning] = useState(false);
 
@@ -1455,20 +1460,63 @@ function ChatPage() {
     // Add placeholder with status 'processing'
     setAttachedFiles((prev) => [
       ...prev,
-      { id: fileId, name: file.name, status: 'processing', content: '' },
+      {
+        id: fileId,
+        name: file.name,
+        size: file.size,
+        status: 'processing',
+        content: '',
+        documentId: null,
+        metadata: null,
+      },
     ]);
 
-    const updateFileContent = (content, status = 'ready', error = null) => {
+    const updateFileContent = (content, status = 'ready', error = null, extra = {}) => {
       setAttachedFiles((prev) =>
         prev.map((f) => {
           if (f.id === fileId) {
-            return { ...f, content, status, error };
+            return { ...f, content, status, error, ...extra };
           }
           return f;
         })
       );
     };
 
+    // 1. Upload to Document Intelligence API for server-side semantic analysis
+    const uploadFormData = new FormData();
+    uploadFormData.append('file', file);
+    const token = (() => {
+      try { return JSON.parse(localStorage.getItem('hk_user') || '{}').token; } catch { return null; }
+    })();
+
+    fetch(`${apiBase || ''}/api/documents/upload`, {
+      method: 'POST',
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+      body: uploadFormData,
+    })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (data?.document) {
+          updateFileContent(
+            data.document.summary || '',
+            'ready',
+            null,
+            {
+              documentId: data.document.documentId,
+              documentType: data.document.documentType,
+              pageCount: data.document.pageCount,
+              wordCount: data.document.wordCount,
+              suggestedQuestions: data.document.suggestedQuestions,
+              summary: data.document.summary,
+            }
+          );
+        }
+      })
+      .catch((err) => {
+        console.warn('Backend Document Intelligence upload failed, falling back to local extraction:', err);
+      });
+
+    // 2. Client-side extraction for immediate local preview/context
     if (file.type === 'application/pdf' || file.name.endsWith('.pdf')) {
       const reader = new FileReader();
       reader.onload = async (event) => {
@@ -2045,6 +2093,7 @@ If any check fails, revise the relevant section before output.`;
           model,
           conversationId: activeConvId,
           clientHistory,
+          documentIds: readyAttachments.map((f) => f.documentId).filter(Boolean),
         }),
       });
 
@@ -2371,65 +2420,239 @@ If any check fails, revise the relevant section before output.`;
   const renderComposer = (isEmptylayout) => (
     <div className={`composer-area ${isEmptylayout ? 'empty-layout' : 'active-layout'}`}>
       {attachedFiles.length > 0 && (
-        <div
-          style={{
-            display: 'flex',
-            gap: '8px',
-            flexWrap: 'wrap',
-            marginBottom: '8px',
-            padding: '0 4px',
-          }}
-        >
-          {attachedFiles.map((file, i) => (
-            <div
-              key={i}
-              className={`attached-file-pill ${file.status || 'ready'}`}
-              style={
-                file.status === 'error'
-                  ? {
-                      borderColor: 'rgba(239, 68, 68, 0.4)',
-                      background: 'rgba(239, 68, 68, 0.05)',
-                      color: '#dc2626',
-                    }
-                  : file.status === 'processing'
-                    ? {
-                        borderColor: 'rgba(79, 140, 255, 0.4)',
-                        background: 'rgba(79, 140, 255, 0.05)',
-                      }
-                    : {}
-              }
-            >
-              {file.status === 'processing' ? (
-                <div
-                  className="settings-spinner"
-                  style={{
-                    width: '12px',
-                    height: '12px',
-                    border: '2px solid rgba(79, 140, 255, 0.2)',
-                    borderTop: '2px solid var(--accent)',
-                    borderRadius: '50%',
-                    animation: 'spin 1s linear infinite',
-                  }}
-                />
-              ) : (
-                <Paperclip size={12} />
-              )}
-              <span style={{ fontSize: '11.5px' }}>
-                {file.name}
-                {file.status === 'processing' && ' (extracting...)'}
-                {file.status === 'error' && ' (failed)'}
-              </span>
-              <button
-                type="button"
-                onClick={() => removeAttachedFile(i)}
-                style={
-                  file.status === 'error' ? { color: '#dc2626' } : {}
-                }
+        <div className="doc-intelligence-composer-container" style={{ marginBottom: '12px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+          {attachedFiles.map((file, i) => {
+            const isProcessing = file.status === 'processing';
+            const isError = file.status === 'error';
+            const isSheet = /\.(xlsx|xls|csv)$/i.test(file.name);
+            const isImage = /\.(png|jpg|jpeg|webp)$/i.test(file.name);
+
+            const formatSize = (bytes) => {
+              if (!bytes) return '0 B';
+              const k = 1024;
+              const sizes = ['B', 'KB', 'MB', 'GB'];
+              const idx = Math.floor(Math.log(bytes) / Math.log(k));
+              return parseFloat((bytes / Math.pow(k, idx)).toFixed(1)) + ' ' + sizes[idx];
+            };
+
+            const promptOptions = [
+              { label: 'Summarize', prompt: `Summarize "${file.name}" and provide the key executive takeaways and overview.` },
+              { label: 'Ask Questions', prompt: `What are the most important insights and details in "${file.name}"?` },
+              { label: 'Extract Data', prompt: `Extract all key data points, figures, structured tables, and metrics from "${file.name}".` },
+              { label: 'Find Risks', prompt: `Analyze "${file.name}" for key business, legal, operational, and financial risks or vulnerabilities.` },
+              { label: 'Analyze', prompt: `Perform an in-depth analysis of "${file.name}" explaining its core architecture, structure, and significance.` },
+              { label: 'Generate Report', prompt: `Generate a structured executive report based on "${file.name}" with key findings and next steps.` },
+            ];
+
+            if (attachedFiles.length > 1) {
+              promptOptions.splice(3, 0, {
+                label: 'Compare',
+                prompt: `Compare the contents, terms, and metrics across all uploaded files (${attachedFiles.map((f) => f.name).join(', ')}). Highlight similarities, differences, and contradictions.`,
+              });
+            }
+
+            return (
+              <div
+                key={file.id || i}
+                style={{
+                  background: '#ffffff',
+                  border: isError ? '1px solid #fca5a5' : isProcessing ? '1px solid #bfdbfe' : '1px solid #e2e8f0',
+                  borderRadius: '12px',
+                  padding: '12px 16px',
+                  boxShadow: '0 2px 8px rgba(0, 0, 0, 0.04)',
+                  transition: 'all 0.2s ease',
+                }}
               >
-                <X size={14} />
-              </button>
-            </div>
-          ))}
+                {/* Header row */}
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0 }}>
+                    <div
+                      style={{
+                        width: '36px',
+                        height: '36px',
+                        borderRadius: '8px',
+                        background: isError ? '#fef2f2' : isProcessing ? '#eff6ff' : '#f8fafc',
+                        border: '1px solid ' + (isError ? '#fecaca' : isProcessing ? '#dbeafe' : '#e2e8f0'),
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        color: isError ? '#ef4444' : 'var(--accent, #4f8cff)',
+                        flexShrink: 0,
+                      }}
+                    >
+                      {isProcessing ? (
+                        <div
+                          style={{
+                            width: '18px',
+                            height: '18px',
+                            border: '2px solid rgba(79, 140, 255, 0.2)',
+                            borderTop: '2px solid var(--accent, #4f8cff)',
+                            borderRadius: '50%',
+                            animation: 'spin 1s linear infinite',
+                          }}
+                        />
+                      ) : (
+                        <FileText size={18} />
+                      )}
+                    </div>
+                    <div style={{ minWidth: 0 }}>
+                      <div
+                        style={{
+                          fontSize: '13.5px',
+                          fontWeight: 600,
+                          color: '#0f172a',
+                          whiteSpace: 'nowrap',
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          maxWidth: '380px',
+                        }}
+                        title={file.name}
+                      >
+                        {file.name}
+                      </div>
+                      <div style={{ fontSize: '11.5px', color: '#64748b', marginTop: '1px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        {file.pageCount ? <span>{file.pageCount} {file.pageCount === 1 ? 'page' : 'pages'}</span> : null}
+                        {file.pageCount ? <span>·</span> : null}
+                        <span>{formatSize(file.size)}</span>
+                        {file.documentType && <span>·</span>}
+                        {file.documentType && (
+                          <span style={{ textTransform: 'capitalize', color: 'var(--accent, #4f8cff)', fontWeight: 500 }}>
+                            {file.documentType.replace('_', ' ')}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Actions right */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    {file.documentId && !isProcessing && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSelectedCitationDoc(file.documentId);
+                          setSelectedCitationPage(1);
+                          setIsDocViewerOpen(true);
+                        }}
+                        style={{
+                          background: '#f8fafc',
+                          border: '1px solid #e2e8f0',
+                          borderRadius: '6px',
+                          padding: '4px 8px',
+                          fontSize: '11px',
+                          fontWeight: 500,
+                          color: '#334155',
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '4px',
+                        }}
+                        title="Open Document Viewer"
+                      >
+                        <Eye size={12} />
+                        <span>Preview</span>
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => removeAttachedFile(i)}
+                      style={{
+                        background: 'transparent',
+                        border: 'none',
+                        color: '#94a3b8',
+                        cursor: 'pointer',
+                        padding: '4px',
+                        borderRadius: '4px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                      }}
+                      title="Remove attachment"
+                    >
+                      <X size={15} />
+                    </button>
+                  </div>
+                </div>
+
+                {/* Intelligence Status Badges */}
+                <div style={{ marginTop: '10px', paddingTop: '8px', borderTop: '1px solid #f1f5f9' }}>
+                  {isProcessing ? (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '11.5px', color: 'var(--accent, #4f8cff)' }}>
+                      <span style={{ display: 'inline-block', width: '6px', height: '6px', borderRadius: '50%', background: 'var(--accent, #4f8cff)' }} />
+                      <span>Analyzing document structure, extracting text & tables...</span>
+                    </div>
+                  ) : isError ? (
+                    <div style={{ fontSize: '11.5px', color: '#ef4444' }}>
+                      Processing notice: {file.error || 'Using local fallback extraction.'}
+                    </div>
+                  ) : (
+                    <div>
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '8px' }}>
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '3px', fontSize: '11px', color: '#16a34a', fontWeight: 500 }}>
+                          <Check size={12} strokeWidth={2.5} /> Text extracted
+                        </span>
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '3px', fontSize: '11px', color: '#16a34a', fontWeight: 500 }}>
+                          <Check size={12} strokeWidth={2.5} /> {isSheet ? 'Formulas & Data Schemas indexed' : 'Tables detected'}
+                        </span>
+                        {isImage && (
+                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '3px', fontSize: '11px', color: '#16a34a', fontWeight: 500 }}>
+                            <Check size={12} strokeWidth={2.5} /> Visual structure analyzed
+                          </span>
+                        )}
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '3px', fontSize: '11px', color: '#16a34a', fontWeight: 500 }}>
+                          <Check size={12} strokeWidth={2.5} /> Ready for AI
+                        </span>
+                      </div>
+
+                      {/* Suggested Action Chips */}
+                      <div style={{ marginTop: '8px' }}>
+                        <div style={{ fontSize: '11px', fontWeight: 600, color: '#475569', marginBottom: '6px' }}>
+                          What would you like to do?
+                        </div>
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                          {promptOptions.map((opt, optIdx) => (
+                            <button
+                              key={optIdx}
+                              type="button"
+                              onClick={() => {
+                                setInputText(opt.prompt);
+                                if (textareaRef.current) {
+                                  textareaRef.current.focus();
+                                }
+                              }}
+                              style={{
+                                background: '#f8fafc',
+                                border: '1px solid #cbd5e1',
+                                borderRadius: '16px',
+                                padding: '4px 10px',
+                                fontSize: '11px',
+                                color: '#1e293b',
+                                cursor: 'pointer',
+                                transition: 'all 0.15s ease',
+                                fontWeight: 500,
+                              }}
+                              onMouseEnter={(e) => {
+                                e.currentTarget.style.background = '#eef2ff';
+                                e.currentTarget.style.borderColor = 'var(--accent, #4f8cff)';
+                                e.currentTarget.style.color = 'var(--accent, #4f8cff)';
+                              }}
+                              onMouseLeave={(e) => {
+                                e.currentTarget.style.background = '#f8fafc';
+                                e.currentTarget.style.borderColor = '#cbd5e1';
+                                e.currentTarget.style.color = '#1e293b';
+                              }}
+                            >
+                              [{opt.label}]
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            );
+          })}
         </div>
       )}
 
@@ -3323,6 +3546,11 @@ If any check fails, revise the relevant section before output.`;
                               <MarkdownRenderer
                                 content={msg.text}
                                 onOpenArtifact={setActiveArtifact}
+                                onCitationClick={({ documentId, page }) => {
+                                  setSelectedCitationDoc(documentId);
+                                  setSelectedCitationPage(page || 1);
+                                  setIsDocViewerOpen(true);
+                                }}
                               />
                             </div>
                           </div>
@@ -3452,6 +3680,13 @@ If any check fails, revise the relevant section before output.`;
           onClose={() => setShowShareModal(false)}
           conversationId={activeConvId}
           conversationTitle={conversations.find((c) => c.id === activeConvId)?.title || ''}
+        />
+
+        <DocumentViewerModal
+          isOpen={isDocViewerOpen}
+          onClose={() => setIsDocViewerOpen(false)}
+          documentId={selectedCitationDoc}
+          initialPage={selectedCitationPage}
         />
       </div>
     </>

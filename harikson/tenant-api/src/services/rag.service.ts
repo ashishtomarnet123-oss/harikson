@@ -6,6 +6,7 @@ import crypto from 'crypto';
 import pLimit from 'p-limit';
 import axios from 'axios';
 import { encryptDocumentContent } from './documentEncryptionService.js';
+import { DocumentIntelligenceEngine } from './document-intelligence/index.js';
 
 export class RagService {
   private static async executeQuery<T>(
@@ -99,7 +100,7 @@ export class RagService {
     return results.filter((item): item is { chunk: string; embedding: number[] } => item !== null);
   }
 
-  // Parse uploaded file buffers based on file type
+  // Parse uploaded file buffers based on file type using Document Intelligence Engine
   static async indexFile(
     tenantId: string,
     userId: string,
@@ -107,18 +108,27 @@ export class RagService {
     buffer: Buffer,
     type: string
   ): Promise<number> {
-    let text = '';
-
-    if (type.toLowerCase() === 'pdf') {
-      const parsed = await pdf(buffer);
-      text = parsed.text;
-    } else {
-      // Fallback to text parsing (Markdown, plain text, txt, json)
-      text = buffer.toString('utf-8');
+    try {
+      const res = await DocumentIntelligenceEngine.processAndIndexFile(
+        tenantId,
+        userId,
+        name,
+        buffer,
+        type
+      );
+      return res.chunksCount;
+    } catch (e) {
+      console.warn('[RagService] DocumentIntelligence fallback triggered:', e);
+      let text = '';
+      if (type && type.toLowerCase() === 'pdf') {
+        const parsed = await pdf(buffer);
+        text = parsed.text;
+      } else {
+        text = buffer.toString('utf-8');
+      }
+      const result = await this.indexText(tenantId, userId, name, text, type || 'txt', buffer.length || 0);
+      return result.chunksIndexed;
     }
-
-    const result = await this.indexText(tenantId, userId, name, text, type || 'txt', buffer.length || 0);
-    return result.chunksIndexed;
   }
 
   // Index already-extracted plain text (e.g. client-side PDF.js/OCR output

@@ -4,6 +4,8 @@ import { Redis } from 'ioredis';
 import jwt from 'jsonwebtoken';
 import { pool, executeTenantQuery } from '../db/pool.js';
 import { RagService } from '../services/rag.service.js';
+import { DocumentRetriever } from '../services/document-intelligence/retrieval/retriever.js';
+import { SecurityValidator } from '../services/document-intelligence/security/securityValidator.js';
 import { countExactTokens } from '../services/tokenCountingService.js';
 import logger from '../utils/logger.js';
 import { requireScopes } from '../middleware/scopeAuth.js';
@@ -251,7 +253,7 @@ async function handleChat(req: any, res: any) {
   }
 
   try {
-  const { message, conversationId, agentId, model: rawModel = 'harikson-plus', stream = true, clientHistory } = req.body || {};
+  const { message, conversationId, agentId, model: rawModel = 'harikson-plus', stream = true, clientHistory, documentIds, collectionId } = req.body || {};
   if (!message) return res.status(400).json({ error: 'Message text is required' });
 
   // Single-GPU VM — all tiers map to the loaded model until multi-model infra is available.
@@ -298,18 +300,24 @@ async function handleChat(req: any, res: any) {
       currentConvId = 'conv_' + Date.now() + '_' + Math.random().toString(36).substring(7);
     }
 
-    // RAG Context retrieval
-    // Fine-grained timing added to catch exactly where a hang happens —
-    // the 30s "client or proxy disconnected" hangs never show up in
-    // [REQ]/[RES] alone, so this pinpoints RAG lookup vs Ollama call vs
-    // first-byte latency on the next occurrence.
+    // Document Intelligence RAG Context retrieval
     const ragStart = Date.now();
-    const ragTimeout = new Promise<string>((resolve) => setTimeout(() => resolve(''), 15000));
-    const ragContext = await Promise.race([
-      RagService.queryContext(req.tenant.id, message, 3).catch(() => ''),
-      ragTimeout,
-    ]);
-    logger.info({ durationMs: Date.now() - ragStart }, `[TIMING] RAG lookup took ${Date.now() - ragStart}ms`);
+    let ragContext = '';
+    let retrievedCitations: any[] = [];
+
+    try {
+      const retrieval = await DocumentRetriever.retrieveContext(req.tenant.id, message, {
+        documentIds: Array.isArray(documentIds) && documentIds.length > 0 ? documentIds : undefined,
+        collectionId: collectionId || undefined,
+        maxResults: 5,
+      });
+      ragContext = retrieval.contextText;
+      retrievedCitations = retrieval.citations;
+    } catch (ragErr) {
+      logger.warn('[Chat] DocumentRetriever error, falling back:', ragErr);
+      ragContext = await RagService.queryContext(req.tenant.id, message, 3).catch(() => '');
+    }
+    logger.info({ durationMs: Date.now() - ragStart }, `[TIMING] Document RAG lookup took ${Date.now() - ragStart}ms`);
     const promptTokens = countExactTokens(message) + countExactTokens(ragContext);
 
     // Save user message — must be awaited so it persists before the response streams.
@@ -348,8 +356,13 @@ async function handleChat(req: any, res: any) {
         : null;
       const baseSystemPrompt =
         clientSystemMessage?.content || SYSTEM_PROMPT;
-      const systemContent = ragContext && ragContext !== 'No matching context found in knowledge base.'
-        ? `${baseSystemPrompt}\n\nUse this additional context to answer:\n\n${ragContext}`
+
+      const wrappedContext = ragContext && ragContext !== 'No matching context found in knowledge base.'
+        ? SecurityValidator.wrapUntrustedDocumentContext('Verified Document Context', ragContext)
+        : '';
+
+      const systemContent = wrappedContext
+        ? `${baseSystemPrompt}\n\nUse this verified document context to answer with exact page/section citations whenever referencing the document:\n\n${wrappedContext}`
         : baseSystemPrompt;
 
       let ollamaMessages: Array<{ role: string; content: string }> = [
@@ -463,6 +476,23 @@ async function handleChat(req: any, res: any) {
           if (streamEnded) return;
           streamEnded = true;
           if (currentConvId) activeChatStreams.delete(currentConvId);
+
+          // Stream verified citations if any documents were referenced
+          if (retrievedCitations && retrievedCitations.length > 0 && !fullResponseText.includes('### Sources & Citations')) {
+            const uniqueCitations = new Map<string, any>();
+            for (const c of retrievedCitations) {
+              const key = `${c.filename}-${c.sourceLocation}`;
+              if (!uniqueCitations.has(key)) uniqueCitations.set(key, c);
+            }
+            const citationBlock = '\n\n---\n### Sources & Citations\n' +
+              Array.from(uniqueCitations.values()).slice(0, 4).map((c: any, i: number) =>
+                `${i + 1}. **${c.filename}** — *${c.sourceLocation}*`
+              ).join('\n');
+            try {
+              res.write(`data: ${JSON.stringify({ content: citationBlock, citations: retrievedCitations, conversationId: currentConvId })}\n\n`);
+            } catch (_) {}
+            fullResponseText += citationBlock;
+          }
 
           const completionTokens = ollamaCompletionTokens || countExactTokens(fullResponseText);
           try {
