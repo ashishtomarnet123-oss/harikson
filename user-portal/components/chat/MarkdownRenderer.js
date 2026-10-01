@@ -150,7 +150,15 @@ const CodeBlockWrapper = memo(function CodeBlockWrapper({ children, onOpenArtifa
 const REMARK_PLUGINS = [remarkGfm];
 const REHYPE_PLUGINS = [rehypeHighlight];
 
-function MarkdownRenderer({ content, onOpenArtifact, onCitationClick, className = '' }) {
+function MarkdownRenderer({
+  content,
+  onOpenArtifact,
+  onCitationClick,
+  onImageEdit,
+  onImageVariation,
+  onImageRegenerate,
+  className = '',
+}) {
   if (!content || typeof content !== 'string') {
     return null;
   }
@@ -287,6 +295,9 @@ function MarkdownRenderer({ content, onOpenArtifact, onCitationClick, className 
         src={src}
         alt={alt || 'Visual Asset'}
         prompt={alt || ''}
+        onEdit={onImageEdit}
+        onVariation={onImageVariation}
+        onRegenerate={onImageRegenerate}
         {...props}
       />
     ),
@@ -295,7 +306,7 @@ function MarkdownRenderer({ content, onOpenArtifact, onCitationClick, className 
     strong: ({ children, ...props }) => <strong className="markdown-strong" {...props}>{children}</strong>,
     em: ({ children, ...props }) => <em className="markdown-em" {...props}>{children}</em>,
     del: ({ children, ...props }) => <del className="markdown-del" {...props}>{children}</del>,
-  }), [onOpenArtifact]);
+  }), [onOpenArtifact, onImageEdit, onImageVariation, onImageRegenerate]);
 
   return (
     <div className={`markdown-body ${className}`}>

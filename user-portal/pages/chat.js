@@ -1557,13 +1557,13 @@ function ChatPage() {
     } else if (file.type.startsWith('image/')) {
       const reader = new FileReader();
       reader.onload = async (event) => {
+        const dataUrl = event.target.result;
         try {
-          const dataUrl = event.target.result;
           const text = await extractTextFromImage(dataUrl);
-          updateFileContent(text);
+          updateFileContent(text, 'ready', null, { dataUrl, isImage: true, mimeType: file.type });
         } catch (err) {
-          console.error('Failed to OCR image:', err);
-          updateFileContent('', 'error', 'Failed to extract text from image');
+          console.warn('OCR extraction skipped, preserving visual asset:', err);
+          updateFileContent('', 'ready', null, { dataUrl, isImage: true, mimeType: file.type });
         }
       };
       reader.readAsDataURL(file);
@@ -1827,11 +1827,23 @@ CRITICAL RULES:
       }
     }
 
+    // Separate document attachments vs visual image attachments
+    const attachedImages = readyAttachments
+      .filter((f) => f.isImage || (f.dataUrl && (f.mimeType?.startsWith('image/') || f.name?.match(/\.(png|jpe?g|webp)$/i))))
+      .map((f) => ({
+        name: f.name,
+        dataUrl: f.dataUrl,
+        mimeType: f.mimeType || 'image/png',
+      }));
+
     // Handle document/file attachment injection
     let finalMessage = userText;
     if (readyAttachments.length > 0) {
       const attachments = readyAttachments
         .map((f) => {
+          if (f.isImage || f.dataUrl) {
+            return `[Attached Image: "${f.name}"]`;
+          }
           const raw = f.content || f.summary || '';
           if (!raw) return `[Attached Document: "${f.name}"]`;
           // Compact OCR/extracted content to max 1200 characters to prevent token exhaustion
@@ -1905,6 +1917,7 @@ CRITICAL RULES:
           conversationId: activeConvId,
           clientHistory,
           documentIds: readyAttachments.map((f) => f.documentId).filter(Boolean),
+          images: attachedImages,
         }),
       });
 
@@ -3416,6 +3429,9 @@ CRITICAL RULES:
                                 setSelectedCitationPage(page || 1);
                                 setIsDocViewerOpen(true);
                               }}
+                              onImageEdit={(instruction) => handleSend(null, instruction)}
+                              onImageVariation={() => handleSend(null, 'Create another version of this')}
+                              onImageRegenerate={(prompt) => handleSend(null, `/image ${prompt}`)}
                             />
                           </div>
                         </div>

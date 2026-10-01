@@ -187,7 +187,9 @@ export class ImageGenerationEngine {
         tenantId: row.tenant_id,
         userId: row.user_id,
         conversationId: row.conversation_id,
-        messageId: row.message_id,
+        parentImageId: row.parent_image_id || null,
+        sourceImageId: row.source_image_id || null,
+        generationType: (row.generation_type || 'generate') as any,
         prompt: row.prompt,
         revisedPrompt: row.revised_prompt,
         negativePrompt: row.negative_prompt,
@@ -258,6 +260,9 @@ export class ImageGenerationEngine {
         userId: row.user_id,
         conversationId: row.conversation_id,
         messageId: row.message_id,
+        parentImageId: row.parent_image_id || null,
+        sourceImageId: row.source_image_id || null,
+        generationType: (row.generation_type || 'generate') as any,
         prompt: row.prompt,
         revisedPrompt: row.revised_prompt,
         negativePrompt: row.negative_prompt,
@@ -294,6 +299,9 @@ export class ImageGenerationEngine {
         userId: row.user_id,
         conversationId: row.conversation_id,
         messageId: row.message_id,
+        parentImageId: row.parent_image_id || null,
+        sourceImageId: row.source_image_id || null,
+        generationType: (row.generation_type || 'generate') as any,
         prompt: row.prompt,
         revisedPrompt: row.revised_prompt,
         negativePrompt: row.negative_prompt,
@@ -331,3 +339,5 @@ export class ImageGenerationEngine {
     });
   }
 }
+
+export { ImageOrchestrator } from './ImageOrchestrator.js';

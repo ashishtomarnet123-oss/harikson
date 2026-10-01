@@ -11,6 +11,8 @@ export type ImageStylePreset =
   | 'vector'
   | 'oil-painting';
 
+export type ImageOperationType = 'generate' | 'edit' | 'variation' | 'analyze' | 'uploaded';
+
 export interface ImageDimension {
   width: number;
   height: number;
@@ -35,6 +37,17 @@ export const STYLE_PROMPTS: Record<Exclude<ImageStylePreset, 'none'>, string> = 
   'oil-painting': 'classic oil on canvas, textured brushwork, rich impasto, museum masterpiece',
 };
 
+export interface ImageProviderCapabilities {
+  text_to_image: boolean;
+  image_input: boolean;
+  image_edit: boolean;
+  image_variation: boolean;
+  mask_edit: boolean;
+  multiple_reference_images: boolean;
+  aspect_ratio: boolean;
+  high_resolution: boolean;
+}
+
 export interface ImageGenerationOptions {
   prompt: string;
   negativePrompt?: string;
@@ -45,6 +58,35 @@ export interface ImageGenerationOptions {
   model?: string;
   provider?: string;
   seed?: number;
+}
+
+export interface ImageEditOptions extends ImageGenerationOptions {
+  sourceImageUrl: string;
+  sourceImageBuffer?: Buffer;
+  maskUrl?: string;
+  maskBuffer?: Buffer;
+  strength?: number; // 0.1 to 1.0 (denoising / transform strength)
+  instruction?: string;
+  parentImageId?: string;
+}
+
+export interface ImageVariationOptions {
+  sourceImageUrl: string;
+  sourceImageBuffer?: Buffer;
+  aspectRatio?: ImageAspectRatio;
+  width?: number;
+  height?: number;
+  model?: string;
+  provider?: string;
+  seed?: number;
+  parentImageId?: string;
+}
+
+export interface ImageAnalysisOptions {
+  imageUrl?: string;
+  imageBuffer?: Buffer;
+  mimeType?: string;
+  prompt?: string;
 }
 
 export interface GeneratedImagePayload {
@@ -59,12 +101,23 @@ export interface GeneratedImagePayload {
   mimeType: string;
 }
 
+export interface VisionAnalysisResult {
+  description: string;
+  detectedElements: string[];
+  visualCategory: 'chart' | 'diagram' | 'screenshot' | 'invoice_receipt' | 'ui_design' | 'photo' | 'general';
+  confidence: 'HIGH' | 'MEDIUM' | 'LOW';
+  styleAttributes?: Record<string, string>;
+}
+
 export interface StoredImageResult {
   id: string;
   tenantId: string;
   userId?: string | null;
   conversationId?: string | null;
   messageId?: string | null;
+  parentImageId?: string | null;
+  sourceImageId?: string | null;
+  generationType: ImageOperationType;
   prompt: string;
   revisedPrompt?: string | null;
   negativePrompt?: string | null;
@@ -76,16 +129,23 @@ export interface StoredImageResult {
   storagePath: string;
   publicUrl: string;
   thumbnailUrl?: string | null;
+  referenceImageUrl?: string | null;
+  maskUrl?: string | null;
   fileSizeBytes: number;
   costCredits: number;
   generationTimeMs: number;
   status: string;
   createdAt: Date;
+  lineageDepth?: number;
 }
 
 export interface IImageProvider {
   readonly name: string;
   readonly defaultModel: string;
+  readonly capabilities: ImageProviderCapabilities;
   isAvailable(): Promise<boolean>;
   generate(options: ImageGenerationOptions): Promise<GeneratedImagePayload>;
+  edit(options: ImageEditOptions): Promise<GeneratedImagePayload>;
+  variation(options: ImageVariationOptions): Promise<GeneratedImagePayload>;
+  analyze?(options: ImageAnalysisOptions): Promise<VisionAnalysisResult>;
 }

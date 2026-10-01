@@ -1,14 +1,34 @@
 import axios from 'axios';
-import { IImageProvider, ImageGenerationOptions, GeneratedImagePayload, ASPECT_RATIO_DIMENSIONS, STYLE_PROMPTS } from '../types.js';
+import {
+  IImageProvider,
+  ImageGenerationOptions,
+  ImageEditOptions,
+  ImageVariationOptions,
+  GeneratedImagePayload,
+  ImageProviderCapabilities,
+  ASPECT_RATIO_DIMENSIONS,
+  STYLE_PROMPTS,
+} from '../types.js';
 import logger from '../../../utils/logger.js';
 
 export class TogetherFluxProvider implements IImageProvider {
   public readonly name = 'together';
   public readonly defaultModel = 'black-forest-labs/FLUX.1-schnell';
+  public readonly capabilities: ImageProviderCapabilities = {
+    text_to_image: true,
+    image_input: false,
+    image_edit: false,
+    image_variation: false,
+    mask_edit: false,
+    multiple_reference_images: false,
+    aspect_ratio: true,
+    high_resolution: true,
+  };
+
   private apiKey?: string;
 
   constructor() {
-    this.apiKey = process.env.TOGETHER_API_KEY;
+    this.apiKey = process.env.TOGETHER_API_KEY || process.env.TOGETHER_KEY;
   }
 
   async isAvailable(): Promise<boolean> {
@@ -41,7 +61,7 @@ export class TogetherFluxProvider implements IImageProvider {
         prompt: fullPrompt,
         width,
         height,
-        steps: model.includes('dev') ? 28 : 4,
+        steps: 4,
         n: 1,
         response_format: 'b64_json',
       },
@@ -55,32 +75,27 @@ export class TogetherFluxProvider implements IImageProvider {
     );
 
     const imageItem = response.data?.data?.[0];
-    if (!imageItem) {
+    if (!imageItem?.b64_json) {
       throw new Error('Together AI did not return image data.');
     }
 
-    if (imageItem.b64_json) {
-      return {
-        buffer: Buffer.from(imageItem.b64_json, 'base64'),
-        width,
-        height,
-        provider: this.name,
-        model,
-        mimeType: 'image/jpeg',
-      };
-    }
+    const buffer = Buffer.from(imageItem.b64_json, 'base64');
 
-    if (imageItem.url) {
-      return {
-        remoteUrl: imageItem.url,
-        width,
-        height,
-        provider: this.name,
-        model,
-        mimeType: 'image/jpeg',
-      };
-    }
+    return {
+      buffer,
+      width,
+      height,
+      provider: this.name,
+      model,
+      mimeType: 'image/jpeg',
+    };
+  }
 
-    throw new Error('No image payload returned by Together AI');
+  async edit(options: ImageEditOptions): Promise<GeneratedImagePayload> {
+    throw new Error('This model supports image generation but does not support image editing. Configure an image-editing capable model to enable this feature.');
+  }
+
+  async variation(options: ImageVariationOptions): Promise<GeneratedImagePayload> {
+    throw new Error('This model supports image generation but does not support image variations.');
   }
 }

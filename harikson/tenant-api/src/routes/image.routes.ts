@@ -1,11 +1,16 @@
 import { Router, Request, Response } from 'express';
 import jwt from 'jsonwebtoken';
+import multer from 'multer';
 import { ImageGenerationEngine } from '../services/image-generation/index.js';
+import { ImageOrchestrator } from '../services/image-generation/ImageOrchestrator.js';
 import { ImageStorageService } from '../services/image-generation/storage/imageStorageService.js';
-import { pool } from '../db/pool.js';
+import { pool, executeTenantQuery } from '../db/pool.js';
 import logger from '../utils/logger.js';
 
 const router = Router();
+const upload = multer({
+  limits: { fileSize: 20 * 1024 * 1024 }, // 20MB limit for image attachments
+});
 
 // Middleware: Authenticate user for state-modifying & listing routes
 const requireUserAuth = (req: any, res: Response, next: any) => {
@@ -32,7 +37,7 @@ const requireUserAuth = (req: any, res: Response, next: any) => {
 };
 
 // =========================================================================
-// 1. PUBLIC / EMBEDDABLE IMAGE SERVING (Must come before /:id)
+// 1. PUBLIC / EMBEDDABLE IMAGE SERVING
 // =========================================================================
 
 // GET /api/v1/images/:id/view - Stream image binary to browser / <img> tags
@@ -40,7 +45,6 @@ router.get('/:id/view', async (req: Request, res: Response) => {
   const { id } = req.params;
 
   try {
-    // Look up image metadata without strict tenant RLS block so <img> tags work reliably
     const result = await pool.query(
       `SELECT storage_path, file_size_bytes FROM image_generations WHERE id = $1`,
       [id]
@@ -101,6 +105,9 @@ router.get('/:id/download', async (req: Request, res: Response) => {
     } else if (storage_path.endsWith('.webp')) {
       ext = 'webp';
       contentType = 'image/webp';
+    } else if (storage_path.endsWith('.svg')) {
+      ext = 'svg';
+      contentType = 'image/svg+xml';
     }
 
     const sanitizedPrompt = (prompt || 'xarwiz-image')
@@ -118,7 +125,7 @@ router.get('/:id/download', async (req: Request, res: Response) => {
 });
 
 // =========================================================================
-// 2. AUTHENTICATED GENERATION & ASSET MANAGEMENT
+// 2. CORE REST OPERATIONS (GENERATE, EDIT, VARIATION, ANALYZE, UPLOAD)
 // =========================================================================
 
 // POST /api/v1/images/generate
@@ -176,6 +183,174 @@ router.post('/generate', requireUserAuth, async (req: any, res: Response) => {
   }
 });
 
+// POST /api/v1/images/edit
+router.post('/edit', requireUserAuth, async (req: any, res: Response) => {
+  const tenantId = req.tenant?.id;
+  const userId = req.user?.userId;
+
+  if (!tenantId) {
+    return res.status(400).json({ error: 'Tenant context is missing.' });
+  }
+
+  const {
+    imageId,
+    prompt,
+    aspectRatio,
+    conversationId,
+    provider,
+  } = req.body;
+
+  if (!prompt || typeof prompt !== 'string' || prompt.trim().length === 0) {
+    return res.status(400).json({ error: 'Edit prompt instruction is required.' });
+  }
+
+  try {
+    // If imageId provided, load it as parent
+    let sourceImage: any = null;
+    if (imageId) {
+      sourceImage = await ImageGenerationEngine.getImageById(tenantId, imageId);
+    } else if (conversationId) {
+      sourceImage = await ImageOrchestrator.getLatestRelevantImage(tenantId, conversationId);
+    }
+
+    if (!sourceImage) {
+      return res.status(404).json({ error: 'Source image not found for editing.' });
+    }
+
+    const opResult = await ImageOrchestrator.executeOperation({
+      tenantId,
+      userId,
+      conversationId: conversationId || sourceImage.conversationId,
+      userMessage: prompt.trim(),
+      operation: 'edit',
+      providerName: provider,
+      aspectRatio: aspectRatio || sourceImage.aspectRatio,
+    });
+
+    return res.status(200).json({
+      success: true,
+      image: opResult.image,
+      replyText: opResult.replyText,
+    });
+  } catch (err: any) {
+    logger.error({ tenantId, imageId, prompt, err }, 'Image editing failed');
+    return res.status(err.statusCode || 500).json({
+      success: false,
+      error: err.message || 'Image editing failed.',
+    });
+  }
+});
+
+// POST /api/v1/images/variation
+router.post('/variation', requireUserAuth, async (req: any, res: Response) => {
+  const tenantId = req.tenant?.id;
+  const userId = req.user?.userId;
+
+  if (!tenantId) {
+    return res.status(400).json({ error: 'Tenant context is missing.' });
+  }
+
+  const { imageId, conversationId, provider } = req.body;
+
+  try {
+    let sourceImage: any = null;
+    if (imageId) {
+      sourceImage = await ImageGenerationEngine.getImageById(tenantId, imageId);
+    } else if (conversationId) {
+      sourceImage = await ImageOrchestrator.getLatestRelevantImage(tenantId, conversationId);
+    }
+
+    if (!sourceImage) {
+      return res.status(404).json({ error: 'Source image not found for variation.' });
+    }
+
+    const opResult = await ImageOrchestrator.executeOperation({
+      tenantId,
+      userId,
+      conversationId: conversationId || sourceImage.conversationId,
+      userMessage: 'Create another version of this image',
+      operation: 'variation',
+      providerName: provider,
+      aspectRatio: sourceImage.aspectRatio,
+    });
+
+    return res.status(200).json({
+      success: true,
+      image: opResult.image,
+      replyText: opResult.replyText,
+    });
+  } catch (err: any) {
+    logger.error({ tenantId, imageId, err }, 'Image variation failed');
+    return res.status(err.statusCode || 500).json({
+      success: false,
+      error: err.message || 'Image variation failed.',
+    });
+  }
+});
+
+// POST /api/v1/images/analyze
+router.post('/analyze', requireUserAuth, async (req: any, res: Response) => {
+  const tenantId = req.tenant?.id;
+  const { imageId, prompt, imageUrl } = req.body;
+
+  try {
+    let targetUrl = imageUrl;
+    if (imageId) {
+      const sourceImage = await ImageGenerationEngine.getImageById(tenantId, imageId);
+      if (sourceImage) targetUrl = sourceImage.publicUrl;
+    }
+
+    const opResult = await ImageOrchestrator.executeOperation({
+      tenantId,
+      userMessage: prompt || 'Describe the style, architecture, lighting, and composition of this image.',
+      operation: 'analyze',
+      attachedImageUrl: targetUrl,
+    });
+
+    return res.json({
+      success: true,
+      analysis: opResult.analysis,
+      replyText: opResult.replyText,
+    });
+  } catch (err: any) {
+    logger.error({ tenantId, imageId, err }, 'Image analysis failed');
+    return res.status(500).json({
+      success: false,
+      error: err.message || 'Image analysis failed.',
+    });
+  }
+});
+
+// POST /api/v1/images/upload - Upload reference image
+router.post('/upload', requireUserAuth, upload.single('file'), async (req: any, res: Response) => {
+  const tenantId = req.tenant?.id;
+  const userId = req.user?.userId;
+
+  if (!req.file) {
+    return res.status(400).json({ error: 'No image file uploaded.' });
+  }
+
+  try {
+    const { originalname, buffer, mimetype } = req.file;
+    const asset = await ImageOrchestrator.ingestUploadedImage(
+      tenantId,
+      userId,
+      req.body.conversationId,
+      buffer,
+      originalname,
+      mimetype
+    );
+
+    return res.status(201).json({
+      success: true,
+      image: asset,
+    });
+  } catch (err: any) {
+    logger.error({ tenantId, err }, 'Failed to upload image asset');
+    return res.status(500).json({ error: 'Failed to process uploaded image' });
+  }
+});
+
 // GET /api/v1/images/quota - Get current monthly usage and limits
 router.get('/quota', requireUserAuth, async (req: any, res: Response) => {
   const tenantId = req.tenant?.id;
@@ -216,6 +391,47 @@ router.get('/', requireUserAuth, async (req: any, res: Response) => {
   } catch (err: any) {
     logger.error({ tenantId, err }, 'Failed to list tenant images');
     return res.status(500).json({ error: 'Failed to list images' });
+  }
+});
+
+// GET /api/v1/images/:id/history - Trace image version lineage
+router.get('/:id/history', requireUserAuth, async (req: any, res: Response) => {
+  const tenantId = req.tenant?.id;
+  const { id } = req.params;
+
+  try {
+    const history = await executeTenantQuery(tenantId, async (client) => {
+      // Find current image
+      const currRes = await client.query(
+        `SELECT id, parent_image_id, source_image_id, conversation_id, prompt, public_url, generation_type, created_at
+         FROM image_generations WHERE id = $1 AND tenant_id = $2`,
+        [id, tenantId]
+      );
+      if (currRes.rows.length === 0) return null;
+
+      const current = currRes.rows[0];
+      const rootId = current.source_image_id || current.id;
+
+      // Fetch all nodes belonging to this lineage tree
+      const treeRes = await client.query(
+        `SELECT id, parent_image_id, source_image_id, prompt, public_url, generation_type, aspect_ratio, created_at
+         FROM image_generations
+         WHERE tenant_id = $1 AND (source_image_id = $2 OR id = $2)
+         ORDER BY created_at ASC`,
+        [tenantId, rootId]
+      );
+
+      return treeRes.rows;
+    });
+
+    if (!history) {
+      return res.status(404).json({ error: 'Image not found' });
+    }
+
+    return res.json({ success: true, lineage: history });
+  } catch (err: any) {
+    logger.error({ tenantId, id, err }, 'Failed to fetch image lineage history');
+    return res.status(500).json({ error: 'Failed to fetch image history' });
   }
 });
 
