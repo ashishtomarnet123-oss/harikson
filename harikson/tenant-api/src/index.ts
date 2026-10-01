@@ -40,6 +40,7 @@ import workflowRoutes from './routes/workflow.routes.js';
 import notificationRoutes from './routes/notification.routes.js';
 import voiceRoutes from './routes/voice.routes.js';
 import shareRoutes from './routes/share.routes.js';
+import imageRoutes from './routes/image.routes.js';
 
 // Import existing API sub-routers
 import chatRouter from './routes/chat.js';
@@ -237,6 +238,14 @@ app.use(async (req, res, next) => {
         return next();
       }
 
+      // Public image viewing & downloading for browser <img> tags
+      if (
+        (req.path.startsWith('/api/images/') || req.path.startsWith('/api/v1/images/')) &&
+        (req.path.endsWith('/view') || req.path.endsWith('/download'))
+      ) {
+        return next();
+      }
+
       // Fallback for 'default' tenant slug to primary workspace
       if (tenantHeader === 'default') {
         const defaultTenantRes = await pool.query(
@@ -293,6 +302,8 @@ app.use('/api/notifications', notificationRoutes);
 app.use('/api/v1/notifications', notificationRoutes);
 app.use('/api/voice', voiceRoutes);
 app.use('/api/v1/voice', voiceRoutes);
+app.use('/api/images', imageRoutes);
+app.use('/api/v1/images', imageRoutes);
 // Google's registered OAuth redirect_uri is .../api/v1/user/integrations/google/callback
 // (set up before the /api/integrations prefix above existed) — mounted here
 // too so that exact, already-registered URL keeps resolving correctly.

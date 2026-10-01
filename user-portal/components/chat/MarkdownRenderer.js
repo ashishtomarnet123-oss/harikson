@@ -3,6 +3,7 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import rehypeHighlight from 'rehype-highlight';
 import { Copy, Check, Maximize2 } from 'lucide-react';
+import GeneratedImageCard from './GeneratedImageCard';
 
 /* ────────────────────────────────────────────────────────────
    Secure Clipboard copy helper
@@ -280,8 +281,15 @@ function MarkdownRenderer({ content, onOpenArtifact, onCitationClick, className 
       );
     },
 
-    // Horizontal Rule
-    hr: (props) => <hr className="markdown-hr" {...props} />,
+    // Images & AI Generated Visuals
+    img: ({ src, alt, ...props }) => (
+      <GeneratedImageCard
+        src={src}
+        alt={alt || 'Visual Asset'}
+        prompt={alt || ''}
+        {...props}
+      />
+    ),
 
     // Bold, Italic, Strikethrough
     strong: ({ children, ...props }) => <strong className="markdown-strong" {...props}>{children}</strong>,

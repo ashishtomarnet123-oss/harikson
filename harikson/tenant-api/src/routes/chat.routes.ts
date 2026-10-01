@@ -10,6 +10,7 @@ import { countExactTokens } from '../services/tokenCountingService.js';
 import logger from '../utils/logger.js';
 import { requireScopes } from '../middleware/scopeAuth.js';
 import { SYSTEM_PROMPT } from '../prompts/system-prompt.js';
+import { ImageGenerationEngine } from '../services/image-generation/index.js';
 
 const router = Router();
 const redis = new Redis(process.env.REDIS_URL || 'redis://redis:6379', {
@@ -332,6 +333,74 @@ async function handleChat(req: any, res: any) {
       );
     } catch (e) {
       logger.error(e, 'Failed to save user message');
+    }
+
+    // In-Chat Image Generation Command Interception (/image <prompt> or /img <prompt>)
+    const imageMatch = message.trim().match(/^\/(?:image|img)\s+([\s\S]+)$/i);
+    if (imageMatch) {
+      const rawPrompt = imageMatch[1].trim();
+      logger.info({ tenantId: req.tenant.id, prompt: rawPrompt }, 'Executing in-chat image generation');
+
+      try {
+        const genResult = await ImageGenerationEngine.generateAndSaveImage({
+          tenantId: req.tenant.id,
+          userId,
+          conversationId: currentConvId,
+          prompt: rawPrompt,
+          aspectRatio: '1:1',
+        });
+
+        const replyContent = `Here is your generated image:\n\n![${genResult.prompt}](${genResult.publicUrl})\n\n*Created with ${genResult.model} in ${(genResult.generationTimeMs / 1000).toFixed(1)}s*`;
+
+        await executeTenantQuery(req.tenant.id, (client) =>
+          client.query(
+            'INSERT INTO messages (tenant_id, conversation_id, sender, content, tokens_used) VALUES ($1, $2, $3, $4, $5)',
+            [req.tenant.id, currentConvId, 'assistant', replyContent, 50]
+          )
+        );
+
+        if (stream) {
+          res.setHeader('Content-Type', 'text/event-stream');
+          res.setHeader('Cache-Control', 'no-cache, no-transform');
+          res.setHeader('Connection', 'keep-alive');
+          res.setHeader('X-Accel-Buffering', 'no');
+          if (currentConvId) res.setHeader('X-Conversation-Id', currentConvId);
+          res.flushHeaders();
+          res.write(`data: ${JSON.stringify({ response: replyContent })}\n\n`);
+          res.write('data: [DONE]\n\n');
+          return res.end();
+        } else {
+          return res.json({
+            response: replyContent,
+            conversationId: currentConvId,
+            image: genResult,
+          });
+        }
+      } catch (imgErr: any) {
+        logger.error({ err: imgErr }, 'In-chat image generation failed');
+        const errMsg = imgErr.message || 'Image generation failed.';
+        const replyContent = `⚠️ **Image Generation Error:** ${errMsg}`;
+
+        await executeTenantQuery(req.tenant.id, (client) =>
+          client.query(
+            'INSERT INTO messages (tenant_id, conversation_id, sender, content, tokens_used) VALUES ($1, $2, $3, $4, $5)',
+            [req.tenant.id, currentConvId, 'assistant', replyContent, 20]
+          )
+        );
+
+        if (stream) {
+          res.setHeader('Content-Type', 'text/event-stream');
+          res.setHeader('Cache-Control', 'no-cache, no-transform');
+          res.setHeader('Connection', 'keep-alive');
+          if (currentConvId) res.setHeader('X-Conversation-Id', currentConvId);
+          res.flushHeaders();
+          res.write(`data: ${JSON.stringify({ response: replyContent })}\n\n`);
+          res.write('data: [DONE]\n\n');
+          return res.end();
+        } else {
+          return res.status(500).json({ error: errMsg });
+        }
+      }
     }
 
     if (stream) {

@@ -7,6 +7,7 @@ export interface PlanEntitlements {
   planName: string;
   tokenLimit: number;
   storageLimitGb: number;
+  imageLimitMonthly: number;
   features: string[];
   isTrial: boolean;
   trialEndsAt: Date | null;
@@ -27,7 +28,7 @@ export function loadEntitlements() {
 
     try {
       const result: any = await executeCachedQuery(
-        `SELECT p.id as plan_id, p.name as plan_name, p.token_limit, p.storage_limit_gb, p.features
+        `SELECT p.id as plan_id, p.name as plan_name, p.token_limit, p.storage_limit_gb, COALESCE(p.image_limit_monthly, 10) as image_limit_monthly, p.features
          FROM tenants t
          LEFT JOIN plans p ON LOWER(t.plan) = LOWER(p.id)
          WHERE t.id = $1`,
@@ -43,6 +44,7 @@ export function loadEntitlements() {
           planName: row.plan_name || 'Free Plan',
           tokenLimit: row.token_limit ?? -1,
           storageLimitGb: row.storage_limit_gb ?? -1,
+          imageLimitMonthly: row.image_limit_monthly ?? 10,
           features: Array.isArray(row.features) ? row.features : [],
           isTrial: false,
           trialEndsAt: null,

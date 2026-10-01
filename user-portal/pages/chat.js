@@ -121,6 +121,13 @@ function maskModelName(rawModel) {
 
 const SLASH_COMMANDS = [
   {
+    id: 'image',
+    icon: <Sparkles size={18} />,
+    title: 'Generate Image',
+    desc: 'Create visual assets with AI',
+    prompt: '/image ',
+  },
+  {
     id: 'code',
     icon: '</>',
     title: 'Write Code',
@@ -1687,7 +1694,9 @@ function ChatPage() {
     setLoading(true);
 
     // Determine loading status based on toggles and URLs
-    if (useReasoning) {
+    if (userText.startsWith('/image') || userText.startsWith('/img')) {
+      setLoadingStatus('Generating visual asset with AI...');
+    } else if (useReasoning) {
       setLoadingStatus('Thinking deeply...');
     } else if (useDeepSearch) {
       setLoadingStatus('Searching the web...');
