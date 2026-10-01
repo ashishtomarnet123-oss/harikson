@@ -398,6 +398,7 @@ async function handleChat(req: any, res: any) {
           res.flushHeaders();
           res.write(
             `data: ${JSON.stringify({
+              content: result.replyText,
               response: result.replyText,
               image: result.image,
               analysis: result.analysis,
@@ -407,6 +408,7 @@ async function handleChat(req: any, res: any) {
           return res.end();
         } else {
           return res.json({
+            content: result.replyText,
             response: result.replyText,
             conversationId: currentConvId,
             image: result.image,
@@ -431,7 +433,7 @@ async function handleChat(req: any, res: any) {
           res.setHeader('Connection', 'keep-alive');
           if (currentConvId) res.setHeader('X-Conversation-Id', currentConvId);
           res.flushHeaders();
-          res.write(`data: ${JSON.stringify({ response: replyContent })}\n\n`);
+          res.write(`data: ${JSON.stringify({ content: replyContent, response: replyContent })}\n\n`);
           res.write('data: [DONE]\n\n');
           return res.end();
         } else {
