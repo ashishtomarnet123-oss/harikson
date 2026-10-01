@@ -47,6 +47,7 @@ export class ImageStorageService {
     if (mimeType.includes('png')) ext = '.png';
     else if (mimeType.includes('webp')) ext = '.webp';
     else if (mimeType.includes('gif')) ext = '.gif';
+    else if (mimeType.includes('svg')) ext = '.svg';
 
     const dateFolder = new Date().toISOString().slice(0, 7); // YYYY-MM
     const tenantDir = path.join(this.getUploadBaseDir(), 'images', tenantId, dateFolder);

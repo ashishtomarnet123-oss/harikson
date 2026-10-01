@@ -61,6 +61,7 @@ router.get('/:id/view', async (req: Request, res: Response) => {
     if (storage_path.endsWith('.png')) contentType = 'image/png';
     else if (storage_path.endsWith('.webp')) contentType = 'image/webp';
     else if (storage_path.endsWith('.gif')) contentType = 'image/gif';
+    else if (storage_path.endsWith('.svg')) contentType = 'image/svg+xml';
 
     res.setHeader('Content-Type', contentType);
     res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
