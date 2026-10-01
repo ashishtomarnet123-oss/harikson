@@ -361,7 +361,7 @@ async function handleChat(req: any, res: any) {
         : '';
 
       const systemContent = wrappedContext
-        ? `${baseSystemPrompt}\n\nUse this verified document context to answer with exact page/section citations whenever referencing the document:\n\n${wrappedContext}`
+        ? `${baseSystemPrompt}\n\nUse this verified document context to answer. If the context contains OCR or raw scan text, do NOT verbatim echo broken symbols or raw OCR strings — synthesize and explain the true meaning clearly with exact citations:\n\n${wrappedContext}`
         : baseSystemPrompt;
 
       let ollamaMessages: Array<{ role: string; content: string }> = [

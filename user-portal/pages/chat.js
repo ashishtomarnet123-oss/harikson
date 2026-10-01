@@ -223,15 +223,27 @@ const loadTesseract = () => {
   return tesseractPromise;
 };
 
+const cleanOcrText = (raw) => {
+  if (!raw) return '';
+  return raw
+    .replace(/[|\\]+/g, ' ')
+    .replace(/[[\]{}~^`]+/g, ' ')
+    .replace(/\s+[^a-zA-Z0-9\s.,?!%$@#\-_]{1,3}\s+/g, ' ')
+    .replace(/[ \t]+/g, ' ')
+    .replace(/\n\s*\n+/g, '\n')
+    .trim();
+};
+
 const extractTextFromImage = async (dataUrl) => {
   const tesseract = await loadTesseract();
   const worker = await tesseract.createWorker('eng');
   const ret = await worker.recognize(dataUrl);
   await worker.terminate();
-  if (!ret.data.text.trim()) {
+  const text = (ret.data.text || '').trim();
+  if (!text) {
     return '[No extractable text found in image]';
   }
-  return ret.data.text;
+  return cleanOcrText(text);
 };
 
 const voiceInstructions = `
@@ -1739,7 +1751,12 @@ Maintain a confident, helpful, practical, and conversational tone. Never reveal 
     };
 
     const fileInstructions = (readyAttachments.length > 0)
-      ? `\n\n### DOCUMENT INTELLIGENCE\nYou are analyzing user-uploaded documents/files. Ground your responses strictly in the provided content. Cite specific data points, quotes, or sections when referencing the document. If information is not in the document, explicitly say so. Present your findings with structured, clean formatting.`
+      ? `\n\n### DOCUMENT INTELLIGENCE
+You are analyzing user-uploaded documents/files (which may contain OCR text extracted from images or scans).
+CRITICAL RULES:
+1. NEVER copy or echo raw OCR artifacts, broken symbols, or garbled text verbatim.
+2. Clean, interpret, and reconstruct the text into polished, readable business English.
+3. Identify the core product, service, offer, price, and key takeaways clearly with well-structured bullet points and headings.`
       : '';
 
     let selectedPresetContent = presets[systemPreset] || presets.general;
