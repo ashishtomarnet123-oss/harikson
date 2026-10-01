@@ -306,16 +306,18 @@ async function handleChat(req: any, res: any) {
     let retrievedCitations: any[] = [];
 
     try {
-      const retrieval = await DocumentRetriever.retrieveContext(req.tenant.id, message, {
+      const cleanQuery = message.replace(/<uploaded_file name="[^"]*">[\s\S]*?<\/uploaded_file>/g, '').trim() || message.slice(0, 200);
+      const retrieval = await DocumentRetriever.retrieveContext(req.tenant.id, cleanQuery, {
         documentIds: Array.isArray(documentIds) && documentIds.length > 0 ? documentIds : undefined,
         collectionId: collectionId || undefined,
-        maxResults: 5,
+        maxResults: 3,
       });
-      ragContext = retrieval.contextText;
+      ragContext = (retrieval.contextText || '').slice(0, 1500);
       retrievedCitations = retrieval.citations;
     } catch (ragErr) {
       logger.warn('[Chat] DocumentRetriever error, falling back:', ragErr);
-      ragContext = await RagService.queryContext(req.tenant.id, message, 3).catch(() => '');
+      const cleanFallbackQuery = message.replace(/<uploaded_file name="[^"]*">[\s\S]*?<\/uploaded_file>/g, '').trim() || message.slice(0, 200);
+      ragContext = (await RagService.queryContext(req.tenant.id, cleanFallbackQuery, 2).catch(() => '')).slice(0, 1000);
     }
     logger.info({ durationMs: Date.now() - ragStart }, `[TIMING] Document RAG lookup took ${Date.now() - ragStart}ms`);
     const promptTokens = countExactTokens(message) + countExactTokens(ragContext);
@@ -345,17 +347,14 @@ async function handleChat(req: any, res: any) {
       let fullResponseText = '';
 
       // Build Ollama message list — include conversation history for context.
-      // The frontend builds a system message carrying the selected agent's
-      // preset prompt (Senior Coder / Code Reviewer / Database DBA / a
-      // custom Prompt Library preset) into clientHistory[0]. This used to be
-      // filtered out below and unconditionally replaced with a generic
-      // prompt, which is why agent selection had no effect on replies —
-      // use it as the base system prompt when present.
       const clientSystemMessage = Array.isArray(clientHistory)
         ? clientHistory.find((m: any) => m.role === 'system' && m.content?.trim())
         : null;
-      const baseSystemPrompt =
-        clientSystemMessage?.content || SYSTEM_PROMPT;
+      let baseSystemPrompt = (clientSystemMessage?.content || SYSTEM_PROMPT).trim();
+      // Keep system prompt lean to avoid blowing token budget on CPU inference
+      if (baseSystemPrompt.length > 2500) {
+        baseSystemPrompt = baseSystemPrompt.slice(0, 2500);
+      }
 
       const wrappedContext = ragContext && ragContext !== 'No matching context found in knowledge base.'
         ? SecurityValidator.wrapUntrustedDocumentContext('Verified Document Context', ragContext)
@@ -369,21 +368,40 @@ async function handleChat(req: any, res: any) {
         { role: 'system', content: systemContent },
       ];
 
-      // Inject prior conversation turns from clientHistory (system message
-      // already extracted above, so exclude it here to avoid duplicating it)
+      // Inject prior conversation turns from clientHistory (compacted to prevent CPU model timeouts)
       if (Array.isArray(clientHistory) && clientHistory.length > 0) {
         const historyMessages = clientHistory
           .filter((m: any) => m.role !== 'system' && m.content?.trim())
-          .slice(-10); // Last 10 turns to stay within token budget
+          .slice(-6) // Last 6 turns to stay within token budget
+          .map((m: any) => {
+            let content = String(m.content || '');
+            // Strip raw <uploaded_file> tags from historical turns so old OCR text doesn't bloat prompt
+            content = content.replace(/<uploaded_file name="[^"]*">[\s\S]*?<\/uploaded_file>/g, '[Attached document]').trim();
+            if (content.length > 500) {
+              content = content.substring(0, 500) + '...';
+            }
+            return { role: m.role, content };
+          });
         ollamaMessages = [...ollamaMessages, ...historyMessages];
       } else {
         // Fallback: add just the current user message
         ollamaMessages.push({ role: 'user', content: message });
       }
 
-      // Ensure last message is the current user message
-      if (!clientHistory || ollamaMessages[ollamaMessages.length - 1]?.content !== message) {
-        ollamaMessages.push({ role: 'user', content: message });
+      // Ensure last message is the current user message (compacted if containing massive OCR blocks)
+      let finalUserMessage = message;
+      if (finalUserMessage.length > 3000) {
+        // If message has raw uploaded file tag, truncate inner text to 1500 chars to avoid timeout
+        finalUserMessage = finalUserMessage.replace(
+          /<uploaded_file name="([^"]*)">([\s\S]*?)<\/uploaded_file>/g,
+          (_match, name, content) => `<uploaded_file name="${name}">\n${content.slice(0, 1500)}\n</uploaded_file>`
+        );
+      }
+
+      if (!clientHistory || ollamaMessages[ollamaMessages.length - 1]?.role !== 'user') {
+        ollamaMessages.push({ role: 'user', content: finalUserMessage });
+      } else {
+        ollamaMessages[ollamaMessages.length - 1].content = finalUserMessage;
       }
 
       const abortController = new AbortController();
@@ -430,9 +448,13 @@ async function handleChat(req: any, res: any) {
           },
           {
             responseType: 'stream',
-            timeout: 120000,
+            timeout: 300000,
             signal: abortController.signal,
           }
+        );
+        logger.info(
+          { durationMs: Date.now() - ollamaCallStart },
+          `[TIMING] Ollama axios.post resolved (headers received) after ${Date.now() - ollamaCallStart}ms`
         );
         logger.info(
           { durationMs: Date.now() - ollamaCallStart },
@@ -523,7 +545,7 @@ async function handleChat(req: any, res: any) {
           }
 
           try {
-            res.write(`data: ${JSON.stringify({ error: AI_UNAVAILABLE_MSG, conversationId: currentConvId })}\n\n`);
+            res.write(`data: ${JSON.stringify({ error: AI_UNAVAILABLE_MSG, content: AI_UNAVAILABLE_MSG, conversationId: currentConvId })}\n\n`);
             res.write(`data: [DONE]\n\n`);
             res.end();
           } catch (_) {}
@@ -540,7 +562,7 @@ async function handleChat(req: any, res: any) {
         }
 
         logger.error('Ollama connection failed:', ollamaErr);
-        res.write(`data: ${JSON.stringify({ error: AI_UNAVAILABLE_MSG, conversationId: currentConvId })}\n\n`);
+        res.write(`data: ${JSON.stringify({ error: AI_UNAVAILABLE_MSG, content: AI_UNAVAILABLE_MSG, conversationId: currentConvId })}\n\n`);
         res.write(`data: [DONE]\n\n`);
         res.end();
       }

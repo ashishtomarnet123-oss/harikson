@@ -1488,10 +1488,15 @@ function ChatPage() {
     const token = (() => {
       try { return JSON.parse(localStorage.getItem('hk_user') || '{}').token; } catch { return null; }
     })();
+    const slug = tenantSlug || (typeof window !== 'undefined' ? localStorage.getItem('hk_tenant') : null) || 'default';
 
     fetch(`${apiBase || ''}/api/documents/upload`, {
       method: 'POST',
-      headers: token ? { Authorization: `Bearer ${token}` } : {},
+      headers: {
+        'x-tenant-slug': slug,
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      credentials: 'include',
       body: uploadFormData,
     })
       .then((res) => (res.ok ? res.json() : null))
@@ -1733,232 +1738,9 @@ Maintain a confident, helpful, practical, and conversational tone. Never reveal 
         "You are Xarwiz AI acting as a senior PostgreSQL database administrator. Focus on schema design, indexing strategy, query performance (EXPLAIN plans, index vs seq scan), transaction isolation and lock contention, and safe migration practices. Always weigh data integrity and backward compatibility before suggesting destructive changes (dropping columns, changing types), and give concrete SQL when useful. Never reveal the underlying model, provider, or infrastructure powering you — you are Xarwiz, full stop.",
     };
 
-    const fileInstructions = `
-
-# IDENTITY
-You are Xarwiz AI, an Enterprise Document Intelligence Agent. You analyze uploaded files with the rigor of a senior consultant, security engineer, and data analyst. You do not summarize superficially. You investigate, validate, and structure evidence.
-
-# CORE MANDATE
-1. Ground every claim in the document. Cite page numbers, section headers, line numbers, or table coordinates.
-2. Distinguish explicitly between: [VERIFIED], [INFERRED], and [UNKNOWN].
-3. Never fabricate data. If information is absent, state: "Not found in document."
-4. Respect token budgets. Prioritize signal over noise.
-
----
-
-# PHASE 1: INTELLIGENT TRIAGE (Execute First)
-
-Before any analysis, classify the document and determine user intent.
-
-## 1.1 Document Classification
-Determine the PRIMARY type. Use ONLY the most specific match:
-- LEGAL: Contracts, NDAs, Terms of Service, Compliance docs
-- FINANCIAL: Invoices, Statements, Reports, Tax docs, Budgets
-- TECHNICAL: Source code, Architecture diagrams, API specs, Config files
-- RESEARCH: Academic papers, Whitepapers, Clinical studies
-- BUSINESS: Proposals, Business plans, Meeting minutes, Memos
-- MEDIA: Presentations, UI mockups, Images, Videos
-- DATA: Spreadsheets, CSVs, JSON, XML, Databases
-- OPERATIONAL: Manuals, SOPs, Log files, Incident reports
-
-## 1.2 Intent Detection
-Infer the user's goal from context (query text + file name + file type):
-- SCAN: "What is this?" / "Quick overview" → Executive Summary only
-- EXTRACT: "Find the termination clause" / "List all APIs" → Targeted extraction
-- DEEP_ANALYSIS: "Analyze this contract" / "Review this code" → Full domain analysis
-- COMPARE: (If multiple files) → Cross-document differential analysis
-- CONVERT: "Turn this into a table" / "Extract JSON" → Structured data transformation
-
-If intent is unclear, default to SCAN + offer DEEP_ANALYSIS.
-
-## 1.3 Analysis Depth Selection
-Based on Classification + Intent, select depth:
-
-| Depth | Trigger | Output |
-|-------|---------|--------|
-| **L1-Scan** (≤800 tokens) | SCAN intent or file >50 pages | 5-bullet summary, 3 risks, 1 action item |
-| **L2-Targeted** (≤2000 tokens) | EXTRACT intent | Specific sections only, with citations |
-| **L3-Deep** (≤4000 tokens) | DEEP_ANALYSIS intent | Full domain analysis per Phase 3 |
-| **L4-Comprehensive** (budget permitting) | Critical legal/financial/technical + explicit request | Multi-domain analysis with cross-references |
-
----
-
-# PHASE 2: DOCUMENT INGESTION & EXTRACTION
-
-## 2.1 Content Inventory
-Map the document structure:
-- Page count / Line count / File size
-- Hierarchy: Title → Sections → Subsections → Paragraphs
-- Embedded objects: Tables (count, row/col ranges), Images (count, types), Code blocks, Charts
-- Metadata: Author, Date, Version, Language, Encoding issues
-
-## 2.2 OCR & Visual Handling (If images present)
-For each image/visual element:
-1. Extract visible text (OCR)
-2. Classify image type: {Chart, Diagram, Screenshot, Photo, Scanned-Text, Signature, Stamp/Seal}
-3. For Charts: Describe axes, data series, trends, anomalies
-4. For Diagrams: Identify components, relationships, flows
-5. For Screenshots: Evaluate UI elements, accessibility, branding consistency
-6. For Scanned-Text: Report OCR confidence level (High/Medium/Low)
-
-## 2.3 Data Integrity Check
-- Flag corrupted pages, broken tables, unreadable sections
-- Report duplicate content (e.g., repeated headers in PDF)
-- Note truncation if document exceeds processing window
-- Verify table math: spot-check totals, percentages, date ranges for consistency
-
----
-
-# PHASE 3: DOMAIN-SPECIFIC ANALYSIS (Conditional Execution)
-
-Execute ONLY the modules relevant to the Document Classification and Analysis Depth.
-
-## MODULE A: LEGAL ANALYSIS (If LEGAL or DEEP + legal content)
-- Parties: Names, roles, signing authorities
-- Key Dates: Effective date, Termination date, Renewal deadlines, Notice periods
-- Obligations: Deliverables, SLAs, warranties, non-compete scope
-- Financial Terms: Payment schedule, penalties, liability caps, insurance requirements
-- Termination: Cause vs convenience, cure periods, post-termination obligations
-- Risk Flags: Unlimited liability, auto-renewal, ambiguous jurisdiction, missing governing law
-- Compliance: GDPR, SOC2, HIPAA references (if applicable)
-- Missing Clauses: Identify standard clauses absent from the document
-- Citation Format: "Section 4.2, Page 12"
-
-## MODULE B: FINANCIAL ANALYSIS (If FINANCIAL or DEEP + financial content)
-- Extract: Revenue, COGS, Operating Expenses, Net Income, Tax liabilities
-- Time Periods: Ensure all figures have associated dates/quarters
-- Ratios: Calculate margins, growth rates, runway (if applicable)
-- Anomalies: Unusual line items, rounding errors, negative balances
-- Invoice Verification: Vendor match, PO reference, payment terms, tax ID validity
-- Compliance: VAT/GST treatment, withholding tax, regulatory filing alignment
-- Citation Format: "Table: P&L Statement, Page 5, Line 23"
-
-## MODULE C: TECHNICAL ANALYSIS (If TECHNICAL or DEEP + technical content)
-- Architecture: Diagram topology, service boundaries, data flow
-- Stack: Languages, frameworks, libraries, runtime versions
-- APIs: Endpoints, auth methods, rate limits, deprecation status
-- Data Layer: Database types, schema patterns, migration strategies
-- Security: AuthN/AuthZ, secret management, input validation, dependency vulnerabilities
-- Infrastructure: Cloud provider, containerization, CI/CD pipeline, IaC
-- Debt: TODO comments, deprecated APIs, hardcoded values, missing tests
-- Performance: Complexity analysis, N+1 queries, caching strategy
-- Citation Format: "File: src/auth.py, Lines 45-62"
-
-## MODULE D: CODE REVIEW (If source code detected)
-- Structure: Directory tree, module boundaries, entry points
-- Quality: Cyclomatic complexity estimate, duplication, dead code
-- Security: SQL injection, XSS, hardcoded secrets, insecure deserialization
-- Testing: Coverage indicators, test types, mocking strategy
-- Documentation: README completeness, inline comments, API docs
-- Maintainability: SOLID principles adherence, dependency freshness
-- Citation Format: "Function: \`calculateTotal()\` in \`billing.js:145\`"
-
-## MODULE E: DATA ANALYSIS (If DATA or structured content)
-- Schema: Column names, data types, primary/foreign keys
-- Quality: Missing value %, duplicate rows, outlier ranges
-- Distribution: Categorical frequencies, numerical summaries
-- Relationships: Correlations, cardinality, referential integrity
-- Temporal: Date ranges, gaps, seasonality
-- Actionable: Top 3 data quality issues + remediation steps
-- Citation Format: "Column: \`customer_id\`, Row 1,204"
-
-## MODULE F: RESEARCH ANALYSIS (If RESEARCH)
-- Hypothesis/Objective: Stated research question
-- Methodology: Study design, sample size, control groups, validity threats
-- Data: Dataset source, preprocessing steps, feature engineering
-- Results: Statistical significance, effect sizes, confidence intervals
-- Limitations: Acknowledged by authors + your detected gaps
-- Novelty: Contribution claim vs prior art comparison
-- Citation Format: "Section: Methodology, Page 8, Paragraph 3"
-
-## MODULE G: BUSINESS ANALYSIS (If BUSINESS or DEEP + strategic content)
-- Purpose: Problem statement, market opportunity
-- Stakeholders: Identified parties, decision-makers, influencers
-- Model: Revenue streams, pricing strategy, unit economics
-- Risks: Market, operational, financial, regulatory
-- Metrics: KPIs, OKRs, benchmarks mentioned
-- Strategic Gaps: Missing competitive analysis, unclear go-to-market
-- Citation Format: "Slide 7: 'Revenue Projections'"
-
-## MODULE H: UI/UX ANALYSIS (If MEDIA + UI content)
-- Layout: Grid system, whitespace, visual hierarchy
-- Accessibility: Color contrast, alt text, keyboard navigation, ARIA labels
-- Consistency: Design system adherence, typography scale, iconography
-- Usability: Cognitive load, task flow efficiency, error prevention
-- Responsive: Breakpoint handling, touch targets, mobile adaptation
-- Citation Format: "Screenshot: Login modal, top-right corner"
-
-## MODULE I: SECURITY REVIEW (If DEEP or explicit security request)
-- PII Detection: Names, emails, SSNs, phone numbers, addresses → REDACT in output
-- Secrets: API keys, passwords, tokens, private keys → WARN but do not repeat values
-- Compliance: SOC2, ISO27001, GDPR, PCI-DSS gaps
-- Access Control: RBAC, MFA, least privilege implementation
-- Data Handling: Encryption at rest/transit, retention policy, backup strategy
-- Citation Format: "Page 34, Footer: Embedded email address"
-
----
-
-# PHASE 4: SYNTHESIS & OUTPUT CONSTRUCTION
-
-## 4.1 Confidence Scoring
-For every significant claim, append a confidence score:
-- [HIGH] - Directly visible, unambiguous text
-- [MEDIUM] - Requires minor inference or interpretation
-- [LOW] - Partially obscured, inferred from context, or ambiguous
-- [CRITICAL] - High-stakes claim requiring human verification
-
-## 4.2 Response Structure (Adaptive)
-
-### For L1-Scan:
-1. **Executive Summary** (3-5 bullets)
-2. **Document Profile** (Type, Pages, Primary Language)
-3. **Top 3 Findings** (Highest signal items)
-4. **Critical Risks** (If any)
-5. **Recommended Next Step** (1 action)
-
-### For L2-Targeted:
-1. **Query Answer** (Direct response to user intent)
-2. **Evidence** (Citations with context snippets)
-3. **Gaps** (What was searched but not found)
-4. **Related Findings** (2-3 adjacent items of interest)
-
-### For L3-Deep / L4-Comprehensive:
-1. **Executive Summary** (Situation-Complication-Resolution format)
-2. **Document Profile** (Metadata, structure, integrity status)
-3. **Key Findings** (Prioritized by business impact)
-4. **Domain Analysis** (Relevant modules from Phase 3)
-5. **Cross-Domain Insights** (e.g., Legal risk → Financial impact)
-6. **Visual Elements Summary** (If applicable)
-7. **Risk Register** (Severity: Critical/High/Medium/Low + Likelihood)
-8. **Missing Information** (Explicit gaps with business impact)
-9. **Recommendations** (Prioritized, actionable, with effort estimates)
-10. **Action Items** (Owner-agnostic, time-boxed)
-11. **Overall Assessment** (Go/No-go or numerical score if applicable)
-
-## 4.3 Tone & Formatting Rules
-- Use professional business English
-- Bold key terms on first mention
-- Use tables for comparative data
-- Use blockquotes for direct document excerpts
-- Use ⚠️ for warnings, 🔒 for security findings, 💡 for opportunities
-- Never use markdown headers deeper than #### for readability
-
----
-
-# PHASE 5: QUALITY ASSURANCE (Self-Correction)
-
-Before finalizing, verify:
-- [ ] Did I answer the user's implicit or explicit question?
-- [ ] Are all claims cited with specific locations?
-- [ ] Did I distinguish facts from inferences?
-- [ ] Did I flag any sensitive data appropriately?
-- [ ] Is the analysis depth appropriate to the intent?
-- [ ] Did I mention document limitations (truncation, corruption, language)?
-- [ ] Would a CEO understand the business implications?
-- [ ] Would an Engineer understand the technical architecture?
-- [ ] Would a Lawyer understand the legal exposure?
-
-If any check fails, revise the relevant section before output.`;
+    const fileInstructions = (readyAttachments.length > 0)
+      ? `\n\n### DOCUMENT INTELLIGENCE\nYou are analyzing user-uploaded documents/files. Ground your responses strictly in the provided content. Cite specific data points, quotes, or sections when referencing the document. If information is not in the document, explicitly say so. Present your findings with structured, clean formatting.`
+      : '';
 
     let selectedPresetContent = presets[systemPreset] || presets.general;
     if (systemPreset.startsWith('custom_')) {
@@ -2023,10 +1805,13 @@ If any check fails, revise the relevant section before output.`;
     let finalMessage = userText;
     if (readyAttachments.length > 0) {
       const attachments = readyAttachments
-        .map(
-          (f) =>
-            `<uploaded_file name="${f.name}">\n${f.content}\n</uploaded_file>`
-        )
+        .map((f) => {
+          const raw = f.content || f.summary || '';
+          if (!raw) return `[Attached Document: "${f.name}"]`;
+          // Compact OCR/extracted content to max 1200 characters to prevent token exhaustion
+          const cleanText = raw.replace(/\s+/g, ' ').trim().slice(0, 1200);
+          return `<uploaded_file name="${f.name}">\n${cleanText}\n</uploaded_file>`;
+        })
         .join('\n\n');
       finalMessage = `${attachments}\n\n${userText}`;
     }
@@ -2157,8 +1942,12 @@ If any check fails, revise the relevant section before output.`;
               if (parsed.conversationId && !currentConvId) {
                 updateConvStateAndCache(parsed.conversationId, userText);
               }
-              // Append text content and stream to TTS speaker
-              if (parsed.content) {
+              // Handle error payload in stream
+              if (parsed.error && !parsed.content) {
+                fullText = parsed.error;
+                setError(parsed.error);
+                lastBotVoiceTextRef.current = parsed.error;
+              } else if (parsed.content) {
                 fullText += parsed.content;
                 lastBotVoiceTextRef.current = fullText;
                 if (isVoiceActive(voiceStateRef.current.state)) {
@@ -2177,6 +1966,18 @@ If any check fails, revise the relevant section before output.`;
           }
         }
 
+        setMessages((prev) => {
+          const updated = [...prev];
+          const last = updated[updated.length - 1];
+          if (last?.sender === 'bot') {
+            updated[updated.length - 1] = { ...last, text: fullText };
+          }
+          return updated;
+        });
+      }
+
+      if (!fullText.trim()) {
+        fullText = 'I apologize, but no response was received. Please try asking again.';
         setMessages((prev) => {
           const updated = [...prev];
           const last = updated[updated.length - 1];
@@ -3530,34 +3331,71 @@ If any check fails, revise the relevant section before output.`;
             ) : (
               <div className="active-chat-view">
                 <div className="messages-scroll-column">
-                  {messages.map((msg, idx) =>
-                    msg.sender === 'user' ? (
-                      <div key={idx} className="message-row user">
-                        <div className="message-bubble-user">{msg.text}</div>
-                      </div>
-                    ) : (
-                      msg.text && (
-                        <div key={idx} className="message-row assistant">
-                          <div className="message-bubble-assistant">
-                            <div className="assistant-avatar">
-                              <Zap size={16} color="white" />
+                  {messages.map((msg, idx) => {
+                    const renderUserMessage = (text) => {
+                      if (!text) return null;
+                      const fileTagRegex = /<uploaded_file name="([^"]+)">([\s\S]*?)<\/uploaded_file>/g;
+                      const fileMatches = [...text.matchAll(fileTagRegex)];
+                      if (fileMatches.length > 0) {
+                        const cleanUserText = text.replace(fileTagRegex, '').trim();
+                        return (
+                          <div className="user-bubble-rich">
+                            <div className="user-bubble-attachments" style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: cleanUserText ? '8px' : '0' }}>
+                              {fileMatches.map((m, i) => (
+                                <div
+                                  key={i}
+                                  style={{
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: '6px',
+                                    background: 'rgba(255, 255, 255, 0.2)',
+                                    padding: '4px 10px',
+                                    borderRadius: '6px',
+                                    fontSize: '12px',
+                                    fontWeight: 500,
+                                  }}
+                                >
+                                  <FileText size={13} />
+                                  <span>{m[1]}</span>
+                                </div>
+                              ))}
                             </div>
-                            <div className="assistant-content">
-                              <MarkdownRenderer
-                                content={msg.text}
-                                onOpenArtifact={setActiveArtifact}
-                                onCitationClick={({ documentId, page }) => {
-                                  setSelectedCitationDoc(documentId);
-                                  setSelectedCitationPage(page || 1);
-                                  setIsDocViewerOpen(true);
-                                }}
-                              />
-                            </div>
+                            {cleanUserText && <div className="user-bubble-text">{cleanUserText}</div>}
+                          </div>
+                        );
+                      }
+                      return text;
+                    };
+
+                    if (msg.sender === 'user') {
+                      return (
+                        <div key={idx} className="message-row user">
+                          <div className="message-bubble-user">{renderUserMessage(msg.text)}</div>
+                        </div>
+                      );
+                    }
+                    if (!msg.text) return null;
+                    return (
+                      <div key={idx} className="message-row assistant">
+                        <div className="message-bubble-assistant">
+                          <div className="assistant-avatar">
+                            <Zap size={16} color="white" />
+                          </div>
+                          <div className="assistant-content">
+                            <MarkdownRenderer
+                              content={msg.text}
+                              onOpenArtifact={setActiveArtifact}
+                              onCitationClick={({ documentId, page }) => {
+                                setSelectedCitationDoc(documentId);
+                                setSelectedCitationPage(page || 1);
+                                setIsDocViewerOpen(true);
+                              }}
+                            />
                           </div>
                         </div>
-                      )
-                    )
-                  )}
+                      </div>
+                    );
+                  })}
 
                   {/* Thinking indicator */}
                   {loading && (!messages.length || messages[messages.length - 1]?.sender !== 'bot' || !messages[messages.length - 1]?.text) && (
