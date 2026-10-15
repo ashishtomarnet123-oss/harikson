@@ -1634,6 +1634,187 @@ code {
   box-sizing: border-box;
 }
 
+/* ─── User Message Container & Actions ─── */
+.user-message-container {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  max-width: 80%;
+  min-width: 0;
+  position: relative;
+}
+
+.user-message-container .message-bubble-user {
+  max-width: 100%;
+  width: auto;
+}
+
+.user-message-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 4px;
+  margin-top: 4px;
+  opacity: 0;
+  transition: opacity 0.15s ease-in-out;
+  user-select: none;
+}
+
+.user-message-container:hover .user-message-actions,
+.user-message-container:focus-within .user-message-actions {
+  opacity: 1;
+}
+
+@media (hover: none), (max-width: 768px) {
+  .user-message-actions {
+    opacity: 0.85;
+  }
+}
+
+.user-msg-action-btn {
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all var(--transition);
+  position: relative;
+}
+
+@media (hover: none), (max-width: 768px) {
+  .user-msg-action-btn {
+    width: 32px;
+    height: 32px;
+    min-width: 32px;
+    min-height: 32px;
+  }
+}
+
+.user-msg-action-btn:hover:not(:disabled) {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.user-msg-action-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* ─── User Message Edit Mode ─── */
+.user-editing-row {
+  width: 100%;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.user-message-edit-container {
+  width: 100%;
+  max-width: 80%;
+  background: var(--bg-card, #ffffff);
+  border: 1px solid var(--accent, #2563eb);
+  box-shadow: 0 4px 14px rgba(37, 99, 235, 0.12);
+  border-radius: 14px;
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  box-sizing: border-box;
+  animation: fadeIn 0.15s ease-out;
+}
+
+.user-message-edit-textarea {
+  width: 100%;
+  min-height: 48px;
+  max-height: 320px;
+  border: none;
+  background: transparent;
+  color: var(--text-primary);
+  font-family: inherit;
+  font-size: 14px;
+  line-height: 1.5;
+  padding: 4px;
+  resize: none;
+  outline: none;
+  box-sizing: border-box;
+}
+
+@media (max-width: 768px) {
+  .user-message-container {
+    max-width: 88%;
+  }
+  .user-message-edit-container {
+    max-width: 100%;
+  }
+  .user-message-edit-textarea {
+    font-size: 16px !important; /* Prevents iOS Safari auto-zoom */
+  }
+}
+
+.user-message-edit-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.edit-action-btn {
+  padding: 6px 14px;
+  font-size: 13px;
+  font-weight: 500;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all var(--transition);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid transparent;
+}
+
+.edit-cancel-btn {
+  background: transparent;
+  color: var(--text-secondary);
+  border-color: var(--border-color, #e2e8f0);
+}
+
+.edit-cancel-btn:hover {
+  background: var(--bg-hover, #f1f5f9);
+  color: var(--text-primary);
+}
+
+.edit-send-btn {
+  background: var(--accent, #2563eb);
+  color: #ffffff;
+}
+
+.edit-send-btn:hover:not(:disabled) {
+  filter: brightness(1.08);
+}
+
+.edit-send-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+:root[data-theme="dark"] .user-message-edit-container {
+  background: #1e293b;
+  border-color: #3b82f6;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.4);
+}
+:root[data-theme="dark"] .edit-cancel-btn {
+  border-color: rgba(255, 255, 255, 0.15);
+  color: #cbd5e1;
+}
+:root[data-theme="dark"] .edit-cancel-btn:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: #ffffff;
+}
+
+
 .message-bubble-assistant {
   width: 100%;
   max-width: 100%;

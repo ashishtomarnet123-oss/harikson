@@ -100,6 +100,11 @@ function copyToClipboard(text) {
   });
 }
 
+function extractUserVisibleText(text) {
+  if (!text) return '';
+  return text.replace(/<uploaded_file name="[^"]*">[\s\S]*?<\/uploaded_file>/g, '').trim();
+}
+
 function maskModelName(rawModel) {
   if (!rawModel) return 'Xarwiz Plus';
   const m = String(rawModel).toLowerCase();
@@ -592,7 +597,19 @@ function ChatPage() {
   const messagesScrollRef = useRef(null);
   const [showScrollBottom, setShowScrollBottom] = useState(false);
   const [copiedMsgIdx, setCopiedMsgIdx] = useState(null);
+  const [copiedUserMsgIdx, setCopiedUserMsgIdx] = useState(null);
+  const [editingMsgIdx, setEditingMsgIdx] = useState(null);
+  const [editDraftText, setEditDraftText] = useState('');
+  const editTextareaRef = useRef(null);
   const [msgFeedback, setMsgFeedback] = useState({});
+
+  useEffect(() => {
+    if (editingMsgIdx !== null && editTextareaRef.current) {
+      editTextareaRef.current.focus();
+      editTextareaRef.current.style.height = 'auto';
+      editTextareaRef.current.style.height = Math.min(editTextareaRef.current.scrollHeight, 320) + 'px';
+    }
+  }, [editingMsgIdx, editDraftText]);
 
   useEffect(() => {
     if (typeof window !== 'undefined' && window.innerWidth <= 768) {
@@ -1742,11 +1759,13 @@ function ChatPage() {
   };
 
   /* ── Send message ── */
-  const sendMessage = async (e, overrideText) => {
+  const sendMessage = async (e, overrideText, overrideHistory) => {
     if (e) e.preventDefault();
-    const readyAttachments = attachedFiles.filter(
-      (f) => f.status !== 'error' && f.status !== 'processing'
-    );
+    const readyAttachments = overrideHistory !== undefined
+      ? []
+      : attachedFiles.filter(
+          (f) => f.status !== 'error' && f.status !== 'processing'
+        );
     const textToUse = overrideText || inputText;
     if (
       (!textToUse.trim() && readyAttachments.length === 0) ||
@@ -1760,7 +1779,9 @@ function ChatPage() {
       sttProviderRef.current?.stop();
       vadControllerRef.current?.stop();
     }
-    setInputText('');
+    if (!overrideText) {
+      setInputText('');
+    }
     setError(null);
     setLoading(true);
 
@@ -1778,7 +1799,11 @@ function ChatPage() {
     }
 
     // Optimistically add user message
-    setMessages((prev) => [...prev, { sender: 'user', text: userText }]);
+    if (overrideHistory !== undefined) {
+      setMessages([...overrideHistory, { sender: 'user', text: userText }]);
+    } else {
+      setMessages((prev) => [...prev, { sender: 'user', text: userText }]);
+    }
     trackEvent('chat_message_sent', { model });
 
     // Map system prompts presets
@@ -1856,6 +1881,7 @@ CRITICAL RULES:
     }
 
     // Build client-side history to send to backend (ChatGPT approach — no DB race condition)
+    const baseHistory = overrideHistory !== undefined ? overrideHistory : messages;
     const clientHistory = [
       {
         role: 'system',
@@ -1867,7 +1893,7 @@ CRITICAL RULES:
               ? '\n\nCustom Instructions:\n' + customInstructions
               : ''),
       },
-      ...messages
+      ...baseHistory
         .filter((m) => m.text && m.text.trim())
         .map((m) => ({
           role: m.sender === 'user' ? 'user' : 'assistant',
@@ -1929,7 +1955,9 @@ CRITICAL RULES:
       finalMessage = `${driveContext}${finalMessage}`;
     }
 
-    setAttachedFiles([]);
+    if (overrideHistory === undefined) {
+      setAttachedFiles([]);
+    }
 
     const controller = new AbortController();
     abortControllerRef.current = controller;
@@ -2328,6 +2356,75 @@ CRITICAL RULES:
     } catch (err) {
       console.error('Failed to copy message:', err);
     }
+  };
+
+  const handleCopyUserMessage = async (rawText, idx) => {
+    try {
+      const cleanText = extractUserVisibleText(rawText);
+      await copyToClipboard(cleanText || rawText);
+      setCopiedUserMsgIdx(idx);
+      setTimeout(() => setCopiedUserMsgIdx(null), 2000);
+    } catch (err) {
+      console.error('Failed to copy user message:', err);
+    }
+  };
+
+  const handleStartEdit = (idx, text) => {
+    if (loading) return;
+    const cleanText = extractUserVisibleText(text);
+    setEditDraftText(cleanText || text || '');
+    setEditingMsgIdx(idx);
+  };
+
+  const handleCancelEdit = () => {
+    setEditingMsgIdx(null);
+    setEditDraftText('');
+  };
+
+  const handleSaveEdit = async (idx) => {
+    const trimmed = editDraftText.trim();
+    if (!trimmed || loading) return;
+
+    const originalMsg = messages[idx];
+    if (!originalMsg) return;
+
+    // Check if original message had file attachments baked into text
+    const fileTagRegex = /<uploaded_file name="[^"]*">[\s\S]*?<\/uploaded_file>/g;
+    const fileMatches = (originalMsg.text || '').match(fileTagRegex);
+    let finalUserText = trimmed;
+    if (fileMatches && fileMatches.length > 0) {
+      finalUserText = `${fileMatches.join('\n\n')}\n\n${trimmed}`;
+    }
+
+    // Capture preceding messages
+    const precedingMessages = messages.slice(0, idx);
+
+    // Close edit mode
+    setEditingMsgIdx(null);
+    setEditDraftText('');
+
+    // If there is an active conversation ID, truncate server database messages from this message onward
+    if (activeConvId) {
+      try {
+        await fetch(`${apiBase}/api/v1/chat/conversations/${activeConvId}/truncate`, {
+          method: 'POST',
+          headers: {
+            ...authHeaders(),
+            'Content-Type': 'application/json',
+          },
+          credentials: 'include',
+          body: JSON.stringify({
+            fromMessageId: originalMsg.id,
+            messageIndex: idx,
+          }),
+        });
+      } catch (truncErr) {
+        console.warn('Failed to truncate conversation on server:', truncErr);
+      }
+    }
+
+    // Resubmit to AI with updated text and preceding history
+    sendMessage(null, finalUserText, precedingMessages);
   };
 
   const handleFeedback = (idx, type) => {
@@ -3589,9 +3686,91 @@ CRITICAL RULES:
                     };
 
                     if (msg.sender === 'user') {
+                      const isEditing = editingMsgIdx === idx;
+
+                      if (isEditing) {
+                        return (
+                          <div key={idx} className="message-row user user-editing-row">
+                            <div className="user-message-edit-container">
+                              <textarea
+                                ref={editTextareaRef}
+                                className="user-message-edit-textarea"
+                                value={editDraftText}
+                                onChange={(e) => {
+                                  setEditDraftText(e.target.value);
+                                  e.target.style.height = 'auto';
+                                  e.target.style.height = Math.min(e.target.scrollHeight, 320) + 'px';
+                                }}
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter' && !e.shiftKey) {
+                                    e.preventDefault();
+                                    handleSaveEdit(idx);
+                                  } else if (e.key === 'Escape') {
+                                    e.preventDefault();
+                                    handleCancelEdit();
+                                  }
+                                }}
+                                placeholder="Edit your message..."
+                                rows={1}
+                                aria-label="Edit message text"
+                              />
+                              <div className="user-message-edit-actions">
+                                <button
+                                  type="button"
+                                  className="edit-action-btn edit-cancel-btn"
+                                  onClick={handleCancelEdit}
+                                  aria-label="Cancel editing"
+                                >
+                                  Cancel
+                                </button>
+                                <button
+                                  type="button"
+                                  className="edit-action-btn edit-send-btn"
+                                  onClick={() => handleSaveEdit(idx)}
+                                  disabled={!editDraftText.trim() || loading}
+                                  aria-label="Send edited message"
+                                >
+                                  Send
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      }
+
                       return (
                         <div key={idx} className="message-row user">
-                          <div className="message-bubble-user">{renderUserMessage(msg.text)}</div>
+                          <div className="user-message-container">
+                            <div className="message-bubble-user">{renderUserMessage(msg.text)}</div>
+                            <div className="user-message-actions">
+                              <button
+                                type="button"
+                                className="user-msg-action-btn"
+                                onClick={() => handleCopyUserMessage(msg.text, idx)}
+                                title={copiedUserMsgIdx === idx ? 'Copied!' : 'Copy message'}
+                                aria-label="Copy message"
+                              >
+                                {copiedUserMsgIdx === idx ? (
+                                  <>
+                                    <Check size={14} className="copied-icon" />
+                                    <span className="action-tooltip">Copied</span>
+                                  </>
+                                ) : (
+                                  <Copy size={14} />
+                                )}
+                              </button>
+                              <button
+                                type="button"
+                                className="user-msg-action-btn"
+                                onClick={() => handleStartEdit(idx, msg.text)}
+                                title="Edit message"
+                                aria-label="Edit message"
+                                disabled={loading}
+                              >
+                                <Edit3 size={14} />
+                              </button>
+                            </div>
+                          </div>
                         </div>
                       );
                     }

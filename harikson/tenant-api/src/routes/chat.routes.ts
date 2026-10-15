@@ -207,6 +207,78 @@ router.patch('/conversations/:id', async (req: any, res) => {
   }
 });
 
+// POST /api/chat/conversations/:id/truncate — truncate messages from a given message onward (used when editing a user message)
+router.post('/conversations/:id/truncate', requireScopes('chat:write'), async (req: any, res) => {
+  const { id } = req.params;
+  const { fromMessageId, messageIndex } = req.body;
+  const userId = req.user.userId;
+
+  if (!UUID_RE.test(id)) {
+    return res.status(404).json({ error: 'Conversation not found' });
+  }
+
+  const hasValidMsgId = fromMessageId && UUID_RE.test(fromMessageId);
+  const hasValidMsgIdx = typeof messageIndex === 'number' && messageIndex >= 0;
+
+  if (!hasValidMsgId && !hasValidMsgIdx) {
+    return res.status(400).json({ error: 'fromMessageId UUID or messageIndex number is required' });
+  }
+
+  try {
+    const result = await executeTenantQuery(req.tenant.id, async (client) => {
+      // 1. Verify user owns the conversation
+      const convCheck = await client.query(
+        'SELECT id FROM conversations WHERE id = $1 AND tenant_id = $2 AND user_id = $3 AND deleted_at IS NULL',
+        [id, req.tenant.id, userId]
+      );
+      if (convCheck.rows.length === 0) {
+        return null;
+      }
+
+      // 2. Get the target message's created_at timestamp
+      let targetCreatedAt: any = null;
+      if (hasValidMsgId) {
+        const targetMsg = await client.query(
+          'SELECT created_at FROM messages WHERE id = $1 AND conversation_id = $2 AND tenant_id = $3',
+          [fromMessageId, id, req.tenant.id]
+        );
+        if (targetMsg.rows.length > 0) {
+          targetCreatedAt = targetMsg.rows[0].created_at;
+        }
+      } else if (hasValidMsgIdx) {
+        const targetMsg = await client.query(
+          'SELECT created_at FROM messages WHERE conversation_id = $1 AND tenant_id = $2 ORDER BY created_at ASC OFFSET $3 LIMIT 1',
+          [id, req.tenant.id, messageIndex]
+        );
+        if (targetMsg.rows.length > 0) {
+          targetCreatedAt = targetMsg.rows[0].created_at;
+        }
+      }
+
+      if (!targetCreatedAt) {
+        return 0;
+      }
+
+      // 3. Delete messages created at or after the target message
+      const delRes = await client.query(
+        'DELETE FROM messages WHERE conversation_id = $1 AND tenant_id = $2 AND created_at >= $3 RETURNING id',
+        [id, req.tenant.id, targetCreatedAt]
+      );
+
+      return delRes.rowCount;
+    });
+
+    if (result === null) {
+      return res.status(404).json({ error: 'Conversation not found' });
+    }
+
+    res.json({ success: true, deletedCount: result });
+  } catch (err: any) {
+    logger.error('Truncate conversation error:', err);
+    res.status(500).json({ error: 'Failed to truncate conversation history' });
+  }
+});
+
 // POST /api/chat & POST /api/v1/chat
 async function handleChat(req: any, res: any) {
 
