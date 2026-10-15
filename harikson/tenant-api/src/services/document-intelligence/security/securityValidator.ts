@@ -3,13 +3,17 @@ import crypto from 'crypto';
 export class SecurityValidator {
   public static readonly ALLOWED_EXTENSIONS = new Set([
     // Documents
-    'pdf', 'docx', 'txt', 'md', 'rtf',
+    'pdf', 'docx', 'doc', 'txt', 'md', 'rtf',
     // Data & Spreadsheets
     'csv', 'xlsx', 'xls', 'json', 'xml', 'tsv',
     // Presentations
-    'pptx',
+    'pptx', 'ppt',
     // Images
-    'png', 'jpg', 'jpeg', 'webp',
+    'png', 'jpg', 'jpeg', 'webp', 'gif', 'svg',
+    // Audio & Video
+    'mp3', 'wav', 'm4a', 'mp4', 'webm', 'mov',
+    // Archives
+    'zip', 'tar', 'gz',
     // Code
     'js', 'jsx', 'ts', 'tsx', 'py', 'java', 'go', 'php', 'rb', 'rs',
     'cpp', 'c', 'h', 'css', 'html', 'sql', 'yaml', 'yml',

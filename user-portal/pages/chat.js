@@ -53,6 +53,7 @@ import ShareModal from '../components/ShareModal';
 import SettingsModal from '../components/SettingsModal';
 import DocumentViewerModal from '../components/DocumentViewerModal';
 import ImageViewerModal from '../components/chat/ImageViewerModal';
+import FileAttachmentCard from '../components/chat/FileAttachmentCard';
 import MarkdownRenderer from '../components/chat/MarkdownRenderer';
 import { trackEvent } from '../lib/analytics';
 import {
@@ -2592,131 +2593,44 @@ CRITICAL RULES:
                   transition: 'all 0.2s ease',
                 }}
               >
-                {/* Header row */}
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0 }}>
-                    <div
-                      style={{
-                        width: '36px',
-                        height: '36px',
-                        borderRadius: '8px',
-                        background: isError ? '#fef2f2' : isProcessing ? '#eff6ff' : '#f8fafc',
-                        border: '1px solid ' + (isError ? '#fecaca' : isProcessing ? '#dbeafe' : '#e2e8f0'),
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        color: isError ? '#ef4444' : 'var(--accent, #4f8cff)',
-                        flexShrink: 0,
-                      }}
-                    >
-                      {isProcessing ? (
-                        <div
-                          style={{
-                            width: '18px',
-                            height: '18px',
-                            border: '2px solid rgba(79, 140, 255, 0.2)',
-                            borderTop: '2px solid var(--accent, #4f8cff)',
-                            borderRadius: '50%',
-                            animation: 'spin 1s linear infinite',
-                          }}
-                        />
-                      ) : (
-                        <FileText size={18} />
-                      )}
-                    </div>
-                    <div style={{ minWidth: 0 }}>
-                      <div
-                        style={{
-                          fontSize: '13.5px',
-                          fontWeight: 600,
-                          color: '#0f172a',
-                          whiteSpace: 'nowrap',
-                          overflow: 'hidden',
-                          textOverflow: 'ellipsis',
-                          maxWidth: '380px',
-                        }}
-                        title={file.name}
-                      >
-                        {file.name}
-                      </div>
-                      <div style={{ fontSize: '11.5px', color: '#64748b', marginTop: '1px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                        {file.pageCount ? <span>{file.pageCount} {file.pageCount === 1 ? 'page' : 'pages'}</span> : null}
-                        {file.pageCount ? <span>·</span> : null}
-                        <span>{formatSize(file.size)}</span>
-                        {file.documentType && <span>·</span>}
-                        {file.documentType && (
-                          <span style={{ textTransform: 'capitalize', color: 'var(--accent, #4f8cff)', fontWeight: 500 }}>
-                            {file.documentType.replace('_', ' ')}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Actions right */}
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    {!isProcessing && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          if (file.isImage || file.dataUrl || file.name.match(/\.(png|jpe?g|webp)$/i)) {
-                            setSelectedImage({ url: file.dataUrl || '', name: file.name });
-                            setIsImageViewerOpen(true);
-                          } else {
-                            setSelectedPreviewFile({
-                              name: file.name,
-                              title: file.name,
-                              content: file.content,
-                              extractedText: file.content,
-                              documentId: file.documentId,
-                              pages: file.pages || file.pageCount || 1,
-                              size: file.size,
-                              summary: file.summary,
-                            });
-                            setSelectedCitationDoc(file.documentId || null);
-                            setSelectedCitationPage(1);
-                            setIsDocViewerOpen(true);
-                          }
-                        }}
-                        style={{
-                          background: '#f8fafc',
-                          border: '1px solid #e2e8f0',
-                          borderRadius: '6px',
-                          padding: '4px 8px',
-                          fontSize: '11px',
-                          fontWeight: 500,
-                          color: '#334155',
-                          cursor: 'pointer',
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '4px',
-                        }}
-                        title={file.isImage ? "Preview Image" : "Open Document Viewer"}
-                      >
-                        <Eye size={12} />
-                        <span>Preview</span>
-                      </button>
-                    )}
-                    <button
-                      type="button"
-                      onClick={() => removeAttachedFile(i)}
-                      style={{
-                        background: 'transparent',
-                        border: 'none',
-                        color: '#94a3b8',
-                        cursor: 'pointer',
-                        padding: '4px',
-                        borderRadius: '4px',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                      }}
-                      title="Remove attachment"
-                    >
-                      <X size={15} />
-                    </button>
-                  </div>
-                </div>
+                <FileAttachmentCard
+                  file={file}
+                  isComposer={true}
+                  onPreview={() => {
+                    if (file.isImage || file.dataUrl || file.name.match(/\.(png|jpe?g|webp)$/i)) {
+                      setSelectedImage({ url: file.dataUrl || '', name: file.name });
+                      setIsImageViewerOpen(true);
+                    } else {
+                      setSelectedPreviewFile({
+                        name: file.name,
+                        title: file.name,
+                        content: file.content,
+                        extractedText: file.content,
+                        documentId: file.documentId,
+                        pages: file.pages || file.pageCount || 1,
+                        size: file.size,
+                        summary: file.summary,
+                      });
+                      setSelectedCitationDoc(file.documentId || null);
+                      setSelectedCitationPage(1);
+                      setIsDocViewerOpen(true);
+                    }
+                  }}
+                  onDownload={() => {
+                    if (file.documentId) {
+                      window.open(`${apiBase}/api/documents/${file.documentId}/download`, '_blank');
+                    } else {
+                      const blob = new Blob([file.content || file.name], { type: file.type || 'text/plain' });
+                      const url = URL.createObjectURL(blob);
+                      const a = document.createElement('a');
+                      a.href = url;
+                      a.download = file.name;
+                      a.click();
+                      URL.revokeObjectURL(url);
+                    }
+                  }}
+                  onRemove={() => removeAttachedFile(i)}
+                />
 
                 {/* Intelligence Status Badges */}
                 <div style={{ marginTop: '10px', paddingTop: '8px', borderTop: '1px solid #f1f5f9' }}>
@@ -3748,104 +3662,44 @@ CRITICAL RULES:
                         return (
                           <div className="user-bubble-rich">
                             <div className="user-bubble-attachment-cards">
-                              {uploadedFiles.map((file, i) => {
-                                const isImg = file.dataUrl || file.type?.startsWith('image/') || file.name?.match(/\.(png|jpe?g|webp|gif|svg)$/i);
-                                if (isImg) {
-                                  return (
-                                    <div key={i} className="chat-image-attachment-card">
-                                      <div
-                                        className="chat-image-thumb-wrapper"
-                                        onClick={() => {
-                                          setSelectedImage({ url: file.dataUrl || '', name: file.name });
-                                          setIsImageViewerOpen(true);
-                                        }}
-                                        title={`Preview ${file.name}`}
-                                      >
-                                        {file.dataUrl ? (
-                                          <img src={file.dataUrl} alt={file.name} className="chat-image-thumb" />
-                                        ) : (
-                                          <div className="chat-image-fallback">
-                                            <ImageIcon size={28} />
-                                          </div>
-                                        )}
-                                        <div className="chat-image-overlay">
-                                          <Eye size={16} />
-                                        </div>
-                                      </div>
-                                      <div className="chat-image-footer">
-                                        <span className="chat-image-name" title={file.name}>{file.name}</span>
-                                        {file.size && <span className="chat-image-size">{formatFileSize(file.size)}</span>}
-                                      </div>
-                                    </div>
-                                  );
-                                }
-
-                                const isPdf = file.name?.endsWith('.pdf') || file.type?.includes('pdf');
-                                const isSheet = file.name?.match(/\.(xlsx?|csv)$/i);
-                                const isWord = file.name?.match(/\.(docx?)$/i);
-                                const isPres = file.name?.match(/\.(pptx?)$/i);
-                                const badgeType = isPdf ? 'pdf' : isSheet ? 'xlsx' : isWord ? 'docx' : isPres ? 'pptx' : 'txt';
-
-                                return (
-                                  <div key={i} className="chat-doc-attachment-card">
-                                    <div className={`chat-doc-icon-badge ${badgeType}`}>
-                                      {isSheet ? <BarChart2 size={18} /> : <FileText size={18} />}
-                                      <span className="doc-badge-ext">{badgeType.toUpperCase()}</span>
-                                    </div>
-                                    <div className="chat-doc-details">
-                                      <div className="chat-doc-name" title={file.name}>{file.name}</div>
-                                      <div className="chat-doc-meta">
-                                        {file.pages ? `${file.pages} ${file.pages === 1 || file.pages === '1' ? 'page' : 'pages'} • ` : ''}
-                                        {formatFileSize(file.size) || (file.content ? `${Math.round(file.content.length / 1000)}k chars` : 'Document')}
-                                      </div>
-                                    </div>
-                                    <div className="chat-doc-actions">
-                                      <button
-                                        type="button"
-                                        className="chat-doc-btn preview"
-                                        title="Preview Document"
-                                        onClick={() => {
-                                          setSelectedPreviewFile({
-                                            name: file.name,
-                                            title: file.name,
-                                            content: file.content,
-                                            extractedText: file.content,
-                                            documentId: file.documentId,
-                                            pages: file.pages || 1,
-                                            size: file.size,
-                                          });
-                                          setSelectedCitationDoc(file.documentId || null);
-                                          setSelectedCitationPage(1);
-                                          setIsDocViewerOpen(true);
-                                        }}
-                                      >
-                                        <Eye size={13} />
-                                        <span>Preview</span>
-                                      </button>
-                                      <button
-                                        type="button"
-                                        className="chat-doc-btn download"
-                                        title="Download"
-                                        onClick={() => {
-                                          if (file.documentId) {
-                                            window.open(`${apiBase}/api/documents/${file.documentId}/download`, '_blank');
-                                          } else {
-                                            const blob = new Blob([file.content || file.name], { type: 'text/plain;charset=utf-8' });
-                                            const url = URL.createObjectURL(blob);
-                                            const a = document.createElement('a');
-                                            a.href = url;
-                                            a.download = file.name;
-                                            a.click();
-                                            URL.revokeObjectURL(url);
-                                          }
-                                        }}
-                                      >
-                                        <Download size={13} />
-                                      </button>
-                                    </div>
-                                  </div>
-                                );
-                              })}
+                              {uploadedFiles.map((file, i) => (
+                                <FileAttachmentCard
+                                  key={i}
+                                  file={file}
+                                  onPreview={(f) => {
+                                    if (f.dataUrl || f.type?.startsWith('image/') || f.name?.match(/\.(png|jpe?g|webp|gif|svg)$/i)) {
+                                      setSelectedImage({ url: f.dataUrl || '', name: f.name });
+                                      setIsImageViewerOpen(true);
+                                    } else {
+                                      setSelectedPreviewFile({
+                                        name: f.name,
+                                        title: f.name,
+                                        content: f.content,
+                                        extractedText: f.content,
+                                        documentId: f.documentId,
+                                        pages: f.pages || 1,
+                                        size: f.size,
+                                      });
+                                      setSelectedCitationDoc(f.documentId || null);
+                                      setSelectedCitationPage(1);
+                                      setIsDocViewerOpen(true);
+                                    }
+                                  }}
+                                  onDownload={(f) => {
+                                    if (f.documentId) {
+                                      window.open(`${apiBase}/api/documents/${f.documentId}/download`, '_blank');
+                                    } else {
+                                      const blob = new Blob([f.content || f.name], { type: f.type || 'text/plain;charset=utf-8' });
+                                      const url = URL.createObjectURL(blob);
+                                      const a = document.createElement('a');
+                                      a.href = url;
+                                      a.download = f.name;
+                                      a.click();
+                                      URL.revokeObjectURL(url);
+                                    }
+                                  }}
+                                />
+                              ))}
                             </div>
                             {cleanUserText && <div className="user-bubble-text">{cleanUserText}</div>}
                           </div>
@@ -3858,9 +3712,39 @@ CRITICAL RULES:
                       const isEditing = editingMsgIdx === idx;
 
                       if (isEditing) {
+                        const originalFiles = parseUploadedFiles(msg.text || '');
                         return (
                           <div key={idx} className="message-row user user-editing-row">
                             <div className="user-message-edit-container">
+                              {originalFiles.length > 0 && (
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginBottom: '8px' }}>
+                                  {originalFiles.map((file, fIdx) => (
+                                    <FileAttachmentCard
+                                      key={fIdx}
+                                      file={file}
+                                      onPreview={(f) => {
+                                        if (f.dataUrl || f.type?.startsWith('image/') || f.name?.match(/\.(png|jpe?g|webp)$/i)) {
+                                          setSelectedImage({ url: f.dataUrl || '', name: f.name });
+                                          setIsImageViewerOpen(true);
+                                        } else {
+                                          setSelectedPreviewFile({
+                                            name: f.name,
+                                            title: f.name,
+                                            content: f.content,
+                                            extractedText: f.content,
+                                            documentId: f.documentId,
+                                            pages: f.pages || 1,
+                                            size: f.size,
+                                          });
+                                          setSelectedCitationDoc(f.documentId || null);
+                                          setSelectedCitationPage(1);
+                                          setIsDocViewerOpen(true);
+                                        }
+                                      }}
+                                    />
+                                  ))}
+                                </div>
+                              )}
                               <textarea
                                 ref={editTextareaRef}
                                 className="user-message-edit-textarea"

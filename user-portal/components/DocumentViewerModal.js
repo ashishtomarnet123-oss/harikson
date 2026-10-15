@@ -16,10 +16,45 @@ import {
   Maximize2,
   Minimize2,
   ExternalLink,
+  Code,
+  Music,
+  Video,
+  Presentation as PresentationIcon,
+  Copy,
+  Check,
+  Table,
 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { authenticatedFetch, getApiConfig } from './settings/apiHelper';
+import { getFileCapability } from '../lib/fileCapabilities';
+
+function parseCsvToTable(csvText) {
+  if (!csvText || typeof csvText !== 'string') return null;
+  const lines = csvText.trim().split(/\r?\n/).filter((l) => l.trim().length > 0);
+  if (lines.length < 2) return null;
+  const parseLine = (line) => {
+    const cells = [];
+    let cur = '';
+    let inQuotes = false;
+    for (let i = 0; i < line.length; i++) {
+      const c = line[i];
+      if (c === '"') {
+        inQuotes = !inQuotes;
+      } else if (c === ',' && !inQuotes) {
+        cells.push(cur.trim());
+        cur = '';
+      } else {
+        cur += c;
+      }
+    }
+    cells.push(cur.trim());
+    return cells;
+  };
+  const headers = parseLine(lines[0]);
+  const rows = lines.slice(1, 200).map(parseLine);
+  return { headers, rows, name: 'Sheet 1' };
+}
 
 export default function DocumentViewerModal({
   isOpen,
@@ -286,15 +321,31 @@ export default function DocumentViewerModal({
 
   if (!isOpen) return null;
 
+  const fileName = doc?.filename || fileData?.name || fileData?.title || 'Document';
+  const capability = getFileCapability(fileName, doc?.document_type || fileData?.type || fileData?.mimeType);
+
   const metadata = doc?.metadata || {};
   const structure = doc?.structure || {};
   const pages = structure.pages || [];
   const sections = structure.sections || [];
-  const tables = structure.tables || [];
-  const totalPages = doc?.page_count || (pages.length > 0 ? pages.length : 1);
+  let tables = structure.tables || [];
 
+  if (tables.length === 0 && (doc?.content || fileData?.content)) {
+    const parsedCsv = parseCsvToTable(doc?.content || fileData?.content || '');
+    if (parsedCsv) {
+      tables = [parsedCsv];
+    }
+  }
+
+  const isSpreadsheet = capability.category === 'spreadsheet' || tables.length > 0;
+  const isPresentation = capability.category === 'presentation';
+  const isCodeOrData = capability.category === 'code' || capability.category === 'data';
+  const isAudio = capability.category === 'audio';
+  const isVideo = capability.category === 'video';
+
+  const totalPages = doc?.page_count || (pages.length > 0 ? pages.length : 1);
   const currentPageData = pages.find((p) => p.pageNumber === currentPage);
-  const pageText = currentPageData ? currentPageData.text : (sections[0]?.content || 'Content preview not available');
+  const pageText = currentPageData ? currentPageData.text : (sections[0]?.content || doc?.content || fileData?.content || 'Content preview not available');
 
   // Filter text by search query if set
   const highlightMatches = (text) => {
@@ -546,25 +597,27 @@ export default function DocumentViewerModal({
                     boxShadow: activeTab === 'preview' ? '0 1px 2px rgba(0,0,0,0.06)' : 'none',
                   }}
                 >
-                  Pages
+                  {isPresentation ? 'Slides' : isSpreadsheet ? 'Table View' : isCodeOrData ? 'Code' : isAudio || isVideo ? 'Media' : 'Pages'}
                 </button>
-                <button
-                  type="button"
-                  onClick={() => setActiveTab('sections')}
-                  style={{
-                    border: 'none',
-                    padding: '4px 10px',
-                    fontSize: '0.75rem',
-                    borderRadius: '4px',
-                    cursor: 'pointer',
-                    fontWeight: 600,
-                    backgroundColor: activeTab === 'sections' ? '#ffffff' : 'transparent',
-                    color: activeTab === 'sections' ? '#0f172a' : '#64748b',
-                    boxShadow: activeTab === 'sections' ? '0 1px 2px rgba(0,0,0,0.06)' : 'none',
-                  }}
-                >
-                  Sections ({sections.length})
-                </button>
+                {sections.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab('sections')}
+                    style={{
+                      border: 'none',
+                      padding: '4px 10px',
+                      fontSize: '0.75rem',
+                      borderRadius: '4px',
+                      cursor: 'pointer',
+                      fontWeight: 600,
+                      backgroundColor: activeTab === 'sections' ? '#ffffff' : 'transparent',
+                      color: activeTab === 'sections' ? '#0f172a' : '#64748b',
+                      boxShadow: activeTab === 'sections' ? '0 1px 2px rgba(0,0,0,0.06)' : 'none',
+                    }}
+                  >
+                    {isPresentation ? 'Outline' : `Sections (${sections.length})`}
+                  </button>
+                )}
                 {tables.length > 0 && (
                   <button
                     type="button"
@@ -581,7 +634,7 @@ export default function DocumentViewerModal({
                       boxShadow: activeTab === 'tables' ? '0 1px 2px rgba(0,0,0,0.06)' : 'none',
                     }}
                   >
-                    Tables ({tables.length})
+                    {isSpreadsheet ? `Sheets (${tables.length})` : `Tables (${tables.length})`}
                   </button>
                 )}
               </div>
@@ -630,7 +683,7 @@ export default function DocumentViewerModal({
                       <ChevronLeft size={13} />
                     </button>
                     <span style={{ fontWeight: 600, whiteSpace: 'nowrap' }}>
-                      {currentPage} / {totalPages}
+                      {isPresentation ? `Slide ${currentPage} / ${totalPages}` : `${currentPage} / ${totalPages}`}
                     </span>
                     <button
                       type="button"
@@ -674,9 +727,94 @@ export default function DocumentViewerModal({
                   <span>Loading document intelligence & pages...</span>
                 </div>
               ) : activeTab === 'preview' ? (
-                <div style={{ whiteSpace: 'pre-wrap', fontFamily: 'inherit' }}>
-                  {highlightMatches(pageText)}
-                </div>
+                isAudio && (doc?.url || fileData?.url || fileData?.dataUrl) ? (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                    <div style={{ padding: '20px', background: '#f8fafc', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
+                      <audio controls src={doc?.url || fileData?.url || fileData?.dataUrl} style={{ width: '100%' }} />
+                    </div>
+                    <div>
+                      <h4 style={{ margin: '0 0 8px 0', fontSize: '0.95rem', color: '#0f172a' }}>Audio Transcript & Intelligence</h4>
+                      <div style={{ whiteSpace: 'pre-wrap', color: '#475569', fontSize: '0.9rem', lineHeight: 1.6 }}>
+                        {pageText || 'Audio uploaded. Ask the AI assistant on the right to transcribe or analyze.'}
+                      </div>
+                    </div>
+                  </div>
+                ) : isVideo && (doc?.url || fileData?.url || fileData?.dataUrl) ? (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                    <video controls src={doc?.url || fileData?.url || fileData?.dataUrl} style={{ width: '100%', maxHeight: '440px', borderRadius: '12px', background: '#000' }} />
+                    <div>
+                      <h4 style={{ margin: '0 0 8px 0', fontSize: '0.95rem', color: '#0f172a' }}>Video Context & Notes</h4>
+                      <div style={{ whiteSpace: 'pre-wrap', color: '#475569', fontSize: '0.9rem', lineHeight: 1.6 }}>
+                        {pageText || 'Video uploaded. Ask the AI assistant on the right to summarize or inspect.'}
+                      </div>
+                    </div>
+                  </div>
+                ) : isCodeOrData ? (
+                  <div style={{ background: '#0f172a', padding: '18px', borderRadius: '10px', color: '#f8fafc', fontFamily: 'monospace', fontSize: '0.85rem', lineHeight: '1.6', overflowX: 'auto', position: 'relative' }}>
+                    <button
+                      type="button"
+                      onClick={() => navigator.clipboard.writeText(pageText)}
+                      style={{ position: 'absolute', top: '10px', right: '10px', background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.2)', color: '#fff', borderRadius: '4px', padding: '4px 8px', fontSize: '11px', cursor: 'pointer' }}
+                    >
+                      Copy Code
+                    </button>
+                    <pre style={{ margin: 0, fontFamily: 'inherit' }}><code>{highlightMatches(pageText)}</code></pre>
+                  </div>
+                ) : isSpreadsheet && tables.length > 0 ? (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                    {tables.map((t, idx) => (
+                      <div
+                        key={idx}
+                        style={{
+                          border: '1px solid #e2e8f0',
+                          borderRadius: '10px',
+                          padding: '14px',
+                          overflowX: 'auto',
+                          backgroundColor: '#ffffff',
+                        }}
+                      >
+                        <h4 style={{ margin: '0 0 10px 0', color: '#0f172a', fontSize: '0.9rem' }}>
+                          {t.name || `Table ${idx + 1}`}
+                        </h4>
+                        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8rem' }}>
+                          <thead>
+                            <tr style={{ backgroundColor: '#f1f5f9' }}>
+                              {t.headers?.map((h, hi) => (
+                                <th
+                                  key={hi}
+                                  style={{
+                                    padding: '8px 12px',
+                                    textAlign: 'left',
+                                    borderBottom: '1px solid #cbd5e1',
+                                    fontWeight: 600,
+                                    whiteSpace: 'nowrap',
+                                  }}
+                                >
+                                  {h}
+                                </th>
+                              ))}
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {t.rows?.map((row, ri) => (
+                              <tr key={ri} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                                {row.map((cell, ci) => (
+                                  <td key={ci} style={{ padding: '8px 12px', whiteSpace: 'nowrap' }}>
+                                    {String(cell)}
+                                  </td>
+                                ))}
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div style={{ whiteSpace: 'pre-wrap', fontFamily: 'inherit' }}>
+                    {highlightMatches(pageText)}
+                  </div>
+                )
               ) : activeTab === 'sections' ? (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                   {sections.map((s, idx) => (
