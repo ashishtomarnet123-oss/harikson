@@ -119,6 +119,15 @@ export default function FileAttachmentCard({
   return (
     <div
       className={`chat-doc-attachment-card ${capability.category}-card ${isComposer ? 'composer-card' : ''} ${className}`}
+      onClick={(e) => {
+        if (!isComposer && capability.canPreview && !isProcessing && onPreview) {
+          if (e.target.closest('button')) return;
+          onPreview(file);
+        }
+      }}
+      style={{
+        cursor: !isComposer && capability.canPreview && !isProcessing && onPreview ? 'pointer' : 'default',
+      }}
     >
       {/* Icon or Thumbnail Badge */}
       <div
@@ -156,7 +165,10 @@ export default function FileAttachmentCard({
           <button
             type="button"
             className="chat-doc-btn preview"
-            onClick={() => onPreview(file)}
+            onClick={(e) => {
+              e.stopPropagation();
+              onPreview(file);
+            }}
             title="Preview File"
             aria-label={`Preview ${fileName}`}
           >

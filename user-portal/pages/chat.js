@@ -113,6 +113,18 @@ function extractUserVisibleText(text) {
     .trim();
 }
 
+function formatConversationTitle(title) {
+  if (!title) return 'New Conversation';
+  if (title.includes('<uploaded_file') || title.includes('[Attached')) {
+    const cleanPrompt = extractUserVisibleText(title);
+    if (cleanPrompt) return cleanPrompt.substring(0, 40);
+    const nameMatch = title.match(/name="([^"]+)"/) || title.match(/\[Attached (?:Document|Image):\s*"([^"]+)"\]/);
+    if (nameMatch) return nameMatch[1].substring(0, 40);
+    return 'Document Analysis';
+  }
+  return title;
+}
+
 function formatFileSize(bytes) {
   if (!bytes || isNaN(bytes)) return '';
   const num = Number(bytes);
@@ -2043,7 +2055,17 @@ CRITICAL RULES:
         if (!cId) return;
         currentConvId = cId;
         setActiveConvId(cId);
-        const convTitle = (textSnippet || userText || 'New Conversation').substring(0, 45);
+        const rawPrompt = extractUserVisibleText(textSnippet || userText || '');
+        let convTitle = rawPrompt;
+        if (!convTitle) {
+          const files = parseUploadedFiles(textSnippet || userText || '');
+          if (files.length > 0) {
+            convTitle = files[0].name || 'Document Analysis';
+          } else {
+            convTitle = 'New Conversation';
+          }
+        }
+        convTitle = convTitle.substring(0, 45);
         const newObj = {
           id: cId,
           title: convTitle,
@@ -3322,7 +3344,7 @@ CRITICAL RULES:
                           onClick={(e) => e.stopPropagation()}
                         />
                       ) : (
-                        <span className="conv-title">{conv.title || 'Untitled'}</span>
+                        <span className="conv-title">{formatConversationTitle(conv.title)}</span>
                       )}
                       <div className="conv-actions">
                         <button
