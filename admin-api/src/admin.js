@@ -5360,6 +5360,10 @@ app.get('/health', async (req, res) => {
   let stripeLatency = 0;
   let razorpayStatus = 'up';
   let razorpayLatency = 0;
+  let phonepeStatus = 'not_configured';
+  let phonepeLatency = 0;
+  let cashfreeStatus = 'not_configured';
+  let cashfreeLatency = 0;
 
   try {
     const stripeRes = await pool.query(
@@ -5405,8 +5409,8 @@ app.get('/health', async (req, res) => {
     const phonepeRes = await pool.query(
       "SELECT * FROM payment_providers WHERE provider = 'phonepe' AND is_active = true LIMIT 1"
     );
-    let phonepeStatus = 'not_configured';
-    let phonepeLatency = 0;
+    phonepeStatus = 'not_configured';
+    phonepeLatency = 0;
     if (phonepeRes.rows.length > 0) {
       phonepeStatus = 'up';
     }
@@ -5414,8 +5418,8 @@ app.get('/health', async (req, res) => {
     const cashfreeRes = await pool.query(
       "SELECT * FROM payment_providers WHERE provider = 'cashfree' AND is_active = true LIMIT 1"
     );
-    let cashfreeStatus = 'not_configured';
-    let cashfreeLatency = 0;
+    cashfreeStatus = 'not_configured';
+    cashfreeLatency = 0;
     if (cashfreeRes.rows.length > 0) {
       cashfreeStatus = 'up';
     }

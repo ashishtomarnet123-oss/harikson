@@ -28,7 +28,7 @@ export async function runMigrations(pool: pg.Pool) {
     }
 
     const files = fs.readdirSync(migrationsDir)
-      .filter(f => f.endsWith('.sql'))
+      .filter(f => f.endsWith('.sql') && !f.startsWith('.'))
       .sort(); // Sort sequentially (e.g. 001, 002, 003)
 
     // 3. Query already applied migrations
