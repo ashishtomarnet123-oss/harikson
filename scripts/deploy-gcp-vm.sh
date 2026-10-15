@@ -5,7 +5,7 @@
 set -e
 
 VM_USER="xarwiz"
-VM_HOST="34.131.69.8"
+VM_HOST="34.131.98.92"
 SSH_KEY="~/.ssh/xarwiz"
 TARGET_DIR="/opt/xarwiz"
 

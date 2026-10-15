@@ -13,13 +13,13 @@ const nextConfig = {
     proxyTimeout: 300000,
   },
   async rewrites() {
+    const isDocker = process.env.DOCKER_ENV === 'true' || process.env.NODE_ENV === 'production';
     const tenantApiUrl =
       process.env.TENANT_API_URL ||
-      process.env.NEXT_PUBLIC_API_BASE_URL ||
-      'http://localhost:3008';
+      (isDocker ? 'http://tenant-api:3008' : 'http://localhost:3008');
     const adminPanelUrl =
       process.env.ADMIN_PANEL_URL ||
-      'http://localhost:3001';
+      (isDocker ? 'http://admin-panel:3001' : 'http://localhost:3001');
     return [
       {
         source: '/admin/api-proxy/:path*',

@@ -328,6 +328,8 @@ services:
     environment:
       - PORT=3002
       - TENANT_API_URL=http://tenant-api:3008
+      - ADMIN_PANEL_URL=http://admin-panel:3001
+      - DOCKER_ENV=true
       - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-https://api.xarwiz.com}
       - NEXTAUTH_SECRET
       - NEXTAUTH_URL=${NEXTAUTH_URL:-https://xarwiz.com}
