@@ -2152,7 +2152,11 @@ CRITICAL RULES:
       if (isVoiceActive(voiceStateRef.current.state)) {
         dispatchVoice({ type: 'ERROR', message: err.message });
       }
-      setError(err.message || 'Failed to send message. Please try again.');
+      const friendlyErrMsg =
+        err.message && err.message.toLowerCase().includes('network')
+          ? 'Network connection was interrupted while receiving the AI response. Please click Regenerate to continue.'
+          : err.message || 'Failed to send message. Please try again.';
+      setError(friendlyErrMsg);
       setMessages((prev) =>
         prev.filter((m) => !(m.sender === 'bot' && m.text === ''))
       );

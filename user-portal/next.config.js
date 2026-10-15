@@ -10,7 +10,7 @@ const nextConfig = {
   // was never going to be enough regardless of how many Ollama-side
   // fixes landed.
   experimental: {
-    proxyTimeout: 300000,
+    proxyTimeout: 600000,
   },
   async rewrites() {
     const isDocker = process.env.DOCKER_ENV === 'true' || process.env.NODE_ENV === 'production';
