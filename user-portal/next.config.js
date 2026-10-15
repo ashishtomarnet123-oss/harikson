@@ -15,10 +15,11 @@ const nextConfig = {
   async rewrites() {
     const tenantApiUrl =
       process.env.TENANT_API_URL ||
-      'http://tenant-api:3008';
+      process.env.NEXT_PUBLIC_API_BASE_URL ||
+      'http://localhost:3008';
     const adminPanelUrl =
       process.env.ADMIN_PANEL_URL ||
-      'http://admin-panel:3001';
+      'http://localhost:3001';
     return [
       {
         source: '/admin/api-proxy/:path*',

@@ -41,6 +41,10 @@ import {
   Menu,
   Share2,
   Eye,
+  RotateCw,
+  ThumbsUp,
+  ThumbsDown,
+  ArrowDown,
 } from 'lucide-react';
 import GlobalSearch from '../components/GlobalSearch';
 import ShareModal from '../components/ShareModal';
@@ -111,6 +115,53 @@ function maskModelName(rawModel) {
   if (m.startsWith('harikson-plus')) return 'Xarwiz Plus · 8B';
   if (m.startsWith('harikson-max')) return 'Xarwiz Max · 14B';
   return 'Xarwiz Plus';
+}
+
+function groupConversationsByDate(convList) {
+  if (!convList || !convList.length) return [];
+  const groups = {
+    today: [],
+    yesterday: [],
+    last7Days: [],
+    last30Days: [],
+    older: [],
+  };
+
+  const now = new Date();
+  const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+  const startOfYesterday = startOfToday - 86400000;
+  const startOf7Days = startOfToday - 7 * 86400000;
+  const startOf30Days = startOfToday - 30 * 86400000;
+
+  for (const conv of convList) {
+    const time = conv.updated_at
+      ? new Date(conv.updated_at).getTime()
+      : (conv.created_at ? new Date(conv.created_at).getTime() : 0);
+    if (time >= startOfToday) {
+      groups.today.push(conv);
+    } else if (time >= startOfYesterday) {
+      groups.yesterday.push(conv);
+    } else if (time >= startOf7Days) {
+      groups.last7Days.push(conv);
+    } else if (time >= startOf30Days) {
+      groups.last30Days.push(conv);
+    } else {
+      groups.older.push(conv);
+    }
+  }
+
+  const sections = [];
+  if (groups.today.length) sections.push({ title: 'Today', items: groups.today });
+  if (groups.yesterday.length) sections.push({ title: 'Yesterday', items: groups.yesterday });
+  if (groups.last7Days.length) sections.push({ title: 'Previous 7 Days', items: groups.last7Days });
+  if (groups.last30Days.length) sections.push({ title: 'Previous 30 Days', items: groups.last30Days });
+  if (groups.older.length) sections.push({ title: 'Older', items: groups.older });
+
+  if (sections.length === 0 && convList.length > 0) {
+    sections.push({ title: 'Recent', items: convList });
+  }
+
+  return sections;
 }
 
 /* ────────────────────────────────────────────────────────────
@@ -536,6 +587,18 @@ function ChatPage() {
   const [pinnedChats, setPinnedChats] = useState([]);
   const [convSearch, setConvSearch] = useState('');
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [showModelPicker, setShowModelPicker] = useState(false);
+  const modelPickerRef = useRef(null);
+  const messagesScrollRef = useRef(null);
+  const [showScrollBottom, setShowScrollBottom] = useState(false);
+  const [copiedMsgIdx, setCopiedMsgIdx] = useState(null);
+  const [msgFeedback, setMsgFeedback] = useState({});
+
+  useEffect(() => {
+    if (typeof window !== 'undefined' && window.innerWidth <= 768) {
+      setSidebarCollapsed(true);
+    }
+  }, []);
   const hasProcessingFiles = attachedFiles.some(
     (f) => f.status === 'processing'
   );
@@ -1332,8 +1395,10 @@ function ChatPage() {
 
   /* ── Auto scroll on new messages ── */
   useEffect(() => {
-    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages, loading]);
+    if (!showScrollBottom) {
+      chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [messages, loading, showScrollBottom]);
 
   /* ── Auto resize textarea ── */
   useEffect(() => {
@@ -1399,6 +1464,9 @@ function ChatPage() {
 
   /* ── Load messages for a conversation ── */
   const loadConversation = async (convId) => {
+    if (typeof window !== 'undefined' && window.innerWidth <= 768) {
+      setSidebarCollapsed(true);
+    }
     skipNextUrlSync.current = true;
     setActiveConvId(convId);
     setError(null);
@@ -1449,6 +1517,9 @@ function ChatPage() {
 
   /* ── New chat ── */
   const startNewChat = () => {
+    if (typeof window !== 'undefined' && window.innerWidth <= 768) {
+      setSidebarCollapsed(true);
+    }
     isNewChatMode.current = true;
 
     if (abortControllerRef.current) {
@@ -2230,10 +2301,56 @@ CRITICAL RULES:
       if (exportMenuRef.current && !exportMenuRef.current.contains(e.target)) {
         setShowExportMenu(false);
       }
+      if (modelPickerRef.current && !modelPickerRef.current.contains(e.target)) {
+        setShowModelPicker(false);
+      }
     };
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
+
+  const handleMessagesScroll = () => {
+    if (!messagesScrollRef.current) return;
+    const { scrollTop, scrollHeight, clientHeight } = messagesScrollRef.current;
+    setShowScrollBottom(scrollHeight - scrollTop - clientHeight > 140);
+  };
+
+  const scrollToBottom = () => {
+    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    setShowScrollBottom(false);
+  };
+
+  const handleCopyMessage = async (text, idx) => {
+    try {
+      await copyToClipboard(text);
+      setCopiedMsgIdx(idx);
+      setTimeout(() => setCopiedMsgIdx(null), 2000);
+    } catch (err) {
+      console.error('Failed to copy message:', err);
+    }
+  };
+
+  const handleFeedback = (idx, type) => {
+    setMsgFeedback((prev) => ({
+      ...prev,
+      [idx]: prev[idx] === type ? null : type,
+    }));
+    trackEvent('chat_feedback', { messageIndex: idx, type, conversationId: activeConvId });
+  };
+
+  const handleRegenerate = (idx) => {
+    if (loading) return;
+    let lastUserPrompt = '';
+    for (let i = idx - 1; i >= 0; i--) {
+      if (messages[i]?.sender === 'user' && messages[i]?.text) {
+        lastUserPrompt = messages[i].text;
+        break;
+      }
+    }
+    if (!lastUserPrompt) return;
+    setMessages((prev) => prev.slice(0, idx));
+    sendMessage(null, lastUserPrompt);
+  };
 
   const userName = user?.name
     ? user.name.trim().split(' ')[0]
@@ -3008,10 +3125,18 @@ CRITICAL RULES:
         onDrop={handleDrop}
       >
         {/* ─── Sidebar ─────────────────────────────────────── */}
-        <aside className="sidebar" style={sidebarCollapsed ? { width: 0, minWidth: 0, padding: 0, overflow: 'hidden', borderRight: 'none' } : {}}>
-          {/* Logo */}
+        <aside className={`sidebar ${sidebarCollapsed ? 'collapsed' : 'open'}`}>
+          {/* Logo & Mobile Close Button */}
           <div className="sidebar-header">
             <img src="/assets/xarwiz-logo.png" alt="Xarwiz" className="brand-logo-img" />
+            <button
+              className="sidebar-close-btn"
+              onClick={() => setSidebarCollapsed(true)}
+              aria-label="Close sidebar"
+              title="Close sidebar"
+            >
+              <X size={18} />
+            </button>
           </div>
 
           {/* Sidebar Primary Actions */}
@@ -3023,14 +3148,18 @@ CRITICAL RULES:
 
             <button
               className="sidebar-btn-secondary"
-              onClick={() => router.push('/workflows')}
+              onClick={() => {
+                if (typeof window !== 'undefined' && window.innerWidth <= 768) {
+                  setSidebarCollapsed(true);
+                }
+                router.push('/workflows');
+              }}
               title="Open AI Workflow Builder"
             >
               <Zap size={16} color="var(--accent)" />
               <span>Workflow Builder</span>
             </button>
           </div>
-
 
           {/* Conversation Search */}
           <div style={{ padding: '0 12px 8px' }}>
@@ -3051,8 +3180,7 @@ CRITICAL RULES:
             </div>
           </div>
 
-          {/* Conversation List */}
-          <div className="conv-section-label">Recent</div>
+          {/* Conversation List grouped by date */}
           <div className="conv-list">
             {conversations.length === 0 ? (
               <div className="conv-empty-state">
@@ -3060,49 +3188,61 @@ CRITICAL RULES:
                 Start a new conversation.
               </div>
             ) : (
-              conversations
-              .filter((conv) => !convSearch || (conv.title || '').toLowerCase().includes(convSearch.toLowerCase()))
-              .map((conv) => (
-                <div
-                  key={conv.id}
-                  className={`conv-item${activeConvId === conv.id ? ' active' : ''}`}
-                  onClick={() => loadConversation(conv.id)}
-                >
-                  {renamingId === conv.id ? (
-                    <input
-                      className="conv-rename-input"
-                      value={renameValue}
-                      autoFocus
-                      onChange={(e) => setRenameValue(e.target.value)}
-                      onBlur={() => commitRename(conv.id)}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') commitRename(conv.id);
-                        if (e.key === 'Escape') setRenamingId(null);
-                        e.stopPropagation();
+              groupConversationsByDate(
+                conversations.filter(
+                  (conv) => !convSearch || (conv.title || '').toLowerCase().includes(convSearch.toLowerCase())
+                )
+              ).map((group, gIdx) => (
+                <div key={gIdx} className="conv-date-group">
+                  <div className="conv-section-label">{group.title}</div>
+                  {group.items.map((conv) => (
+                    <div
+                      key={conv.id}
+                      className={`conv-item${activeConvId === conv.id ? ' active' : ''}`}
+                      onClick={() => {
+                        loadConversation(conv.id);
+                        if (typeof window !== 'undefined' && window.innerWidth <= 768) {
+                          setSidebarCollapsed(true);
+                        }
                       }}
-                      onClick={(e) => e.stopPropagation()}
-                    />
-                  ) : (
-                    <span className="conv-title">{conv.title || 'Untitled'}</span>
-                  )}
-                  <div className="conv-actions">
-                    <button
-                      className="conv-action-btn"
-                      title="Rename"
-                      aria-label="Rename conversation"
-                      onClick={(e) => startRename(conv, e)}
                     >
-                      <Edit3 size={13} />
-                    </button>
-                    <button
-                      className="conv-action-btn danger"
-                      title="Delete"
-                      aria-label="Delete conversation"
-                      onClick={(e) => deleteConversation(conv.id, e)}
-                    >
-                      <X size={13} />
-                    </button>
-                  </div>
+                      {renamingId === conv.id ? (
+                        <input
+                          className="conv-rename-input"
+                          value={renameValue}
+                          autoFocus
+                          onChange={(e) => setRenameValue(e.target.value)}
+                          onBlur={() => commitRename(conv.id)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') commitRename(conv.id);
+                            if (e.key === 'Escape') setRenamingId(null);
+                            e.stopPropagation();
+                          }}
+                          onClick={(e) => e.stopPropagation()}
+                        />
+                      ) : (
+                        <span className="conv-title">{conv.title || 'Untitled'}</span>
+                      )}
+                      <div className="conv-actions">
+                        <button
+                          className="conv-action-btn"
+                          title="Rename"
+                          aria-label="Rename conversation"
+                          onClick={(e) => startRename(conv, e)}
+                        >
+                          <Edit3 size={13} />
+                        </button>
+                        <button
+                          className="conv-action-btn danger"
+                          title="Delete"
+                          aria-label="Delete conversation"
+                          onClick={(e) => deleteConversation(conv.id, e)}
+                        >
+                          <X size={13} />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
                 </div>
               ))
             )}
@@ -3162,42 +3302,82 @@ CRITICAL RULES:
                   title={sidebarCollapsed ? "Open sidebar" : "Collapse sidebar"}
                   aria-label="Toggle sidebar"
                 >
-                  <Menu size={16} />
+                  <Menu size={18} />
                 </button>
 
-                <div className="header-selectors">
-                  <div className="header-pill-select">
-                    <select
-                      value={model}
-                      onChange={(e) => setModel(e.target.value)}
-                      title="Select AI Model"
-                      aria-label="Select AI Model"
-                    >
-                      <option value="harikson-plus">Xarwiz Plus · 8B</option>
-                      <option value="harikson-max">Xarwiz Max · 14B</option>
-                    </select>
-                    <ChevronDown size={11} className="pill-arrow" />
-                  </div>
+                {/* ChatGPT-Style Model Picker Dropdown */}
+                <div className="header-model-picker-wrap" ref={modelPickerRef}>
+                  <button
+                    type="button"
+                    className="mobile-model-pill"
+                    onClick={() => setShowModelPicker((prev) => !prev)}
+                    aria-label="Select AI Model"
+                  >
+                    <span className="model-pill-name">
+                      {model === 'harikson-max' ? 'Xarwiz Max' : 'Xarwiz Plus'}
+                    </span>
+                    <span className="model-pill-badge">
+                      {model === 'harikson-max' ? '14B' : '8B'}
+                    </span>
+                    <ChevronDown size={13} className={`model-pill-arrow ${showModelPicker ? 'rotate' : ''}`} />
+                  </button>
 
-                  <div className="header-pill-select">
-                    <select
-                      value={systemPreset}
-                      onChange={(e) => setSystemPreset(e.target.value)}
-                      title="Select System Preset"
-                      aria-label="Select System Preset"
-                    >
-                      <option value="general">General</option>
-                      <option value="coder">Senior Coder</option>
-                      <option value="reviewer">Reviewer</option>
-                      <option value="dba">DBA</option>
-                      {customPresets.map((preset) => (
-                        <option key={preset.id} value={`custom_${preset.id}`}>
-                          {preset.name}
-                        </option>
-                      ))}
-                    </select>
-                    <ChevronDown size={11} className="pill-arrow" />
-                  </div>
+                  {showModelPicker && (
+                    <div className="model-picker-dropdown">
+                      <div className="model-picker-header">Select Model</div>
+                      <div
+                        className={`model-option-card ${model === 'harikson-plus' ? 'selected' : ''}`}
+                        onClick={() => {
+                          setModel('harikson-plus');
+                          setShowModelPicker(false);
+                        }}
+                      >
+                        <div className="model-option-top">
+                          <span className="model-option-name">Xarwiz Plus</span>
+                          <span className="model-option-tag">8B · Fast</span>
+                        </div>
+                        <p className="model-option-desc">Fast, responsive AI for daily coding, workflows & conversations.</p>
+                      </div>
+
+                      <div
+                        className={`model-option-card ${model === 'harikson-max' ? 'selected' : ''}`}
+                        onClick={() => {
+                          setModel('harikson-max');
+                          setShowModelPicker(false);
+                        }}
+                      >
+                        <div className="model-option-top">
+                          <span className="model-option-name">Xarwiz Max</span>
+                          <span className="model-option-tag highlight">14B · Powerful</span>
+                        </div>
+                        <p className="model-option-desc">Deep technical reasoning, multi-file architecture & complex synthesis.</p>
+                      </div>
+
+                      <div className="model-picker-divider" />
+                      <div className="model-picker-header" style={{ marginTop: '4px' }}>System Persona</div>
+                      <div className="model-preset-chips">
+                        {[
+                          { id: 'general', label: 'General' },
+                          { id: 'coder', label: 'Senior Coder' },
+                          { id: 'reviewer', label: 'Reviewer' },
+                          { id: 'dba', label: 'DBA' },
+                          ...customPresets.map((p) => ({ id: `custom_${p.id}`, label: p.name })),
+                        ].map((presetItem) => (
+                          <button
+                            key={presetItem.id}
+                            type="button"
+                            className={`preset-chip-btn ${systemPreset === presetItem.id ? 'active' : ''}`}
+                            onClick={() => {
+                              setSystemPreset(presetItem.id);
+                              setShowModelPicker(false);
+                            }}
+                          >
+                            {presetItem.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -3369,7 +3549,7 @@ CRITICAL RULES:
               </div>
             ) : (
               <div className="active-chat-view">
-                <div className="messages-scroll-column">
+                <div className="messages-scroll-column" ref={messagesScrollRef} onScroll={handleMessagesScroll}>
                   {messages.map((msg, idx) => {
                     const renderUserMessage = (text) => {
                       if (!text) return null;
@@ -3414,6 +3594,7 @@ CRITICAL RULES:
                       );
                     }
                     if (!msg.text) return null;
+                    const isStreamingThis = loading && idx === messages.length - 1;
                     return (
                       <div key={idx} className="message-row assistant">
                         <div className="message-bubble-assistant">
@@ -3433,6 +3614,52 @@ CRITICAL RULES:
                               onImageVariation={() => handleSend(null, 'Create another version of this')}
                               onImageRegenerate={(prompt) => handleSend(null, `/image ${prompt}`)}
                             />
+                            {isStreamingThis && <span className="streaming-cursor" />}
+
+                            {/* ChatGPT-Quality Message Action Bar */}
+                            <div className="assistant-message-actions">
+                              <button
+                                type="button"
+                                className="msg-action-btn"
+                                onClick={() => handleCopyMessage(msg.text, idx)}
+                                title={copiedMsgIdx === idx ? 'Copied!' : 'Copy response'}
+                                aria-label="Copy response"
+                              >
+                                {copiedMsgIdx === idx ? <Check size={14} className="copied-icon" /> : <Copy size={14} />}
+                                {copiedMsgIdx === idx && <span className="action-tooltip">Copied</span>}
+                              </button>
+                              <button
+                                type="button"
+                                className="msg-action-btn"
+                                onClick={() => handleRegenerate(idx)}
+                                title="Regenerate response"
+                                aria-label="Regenerate response"
+                                disabled={loading}
+                              >
+                                <RotateCw size={14} className={loading && isStreamingThis ? 'animate-spin' : ''} />
+                              </button>
+                              <button
+                                type="button"
+                                className={`msg-action-btn ${msgFeedback[idx] === 'up' ? 'active-feedback-up' : ''}`}
+                                onClick={() => handleFeedback(idx, 'up')}
+                                title="Good response"
+                                aria-label="Good response"
+                              >
+                                <ThumbsUp size={14} />
+                              </button>
+                              <button
+                                type="button"
+                                className={`msg-action-btn ${msgFeedback[idx] === 'down' ? 'active-feedback-down' : ''}`}
+                                onClick={() => handleFeedback(idx, 'down')}
+                                title="Poor response"
+                                aria-label="Poor response"
+                              >
+                                <ThumbsDown size={14} />
+                              </button>
+                              <span className="msg-model-badge">
+                                {maskModelName(model)}
+                              </span>
+                            </div>
                           </div>
                         </div>
                       </div>
@@ -3473,6 +3700,18 @@ CRITICAL RULES:
                       <TriangleAlert size={18} />
                       <span>{error}</span>
                     </div>
+                  )}
+
+                  {showScrollBottom && (
+                    <button
+                      type="button"
+                      className="scroll-to-bottom-btn"
+                      onClick={scrollToBottom}
+                      title="Scroll to bottom"
+                      aria-label="Scroll to bottom"
+                    >
+                      <ArrowDown size={16} />
+                    </button>
                   )}
 
                   <div ref={chatEndRef} />

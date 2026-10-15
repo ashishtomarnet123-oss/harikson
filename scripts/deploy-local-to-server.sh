@@ -61,10 +61,8 @@ gcloud compute ssh "${INSTANCE_NAME}" --zone="${ZONE}" << REMOTE_SCRIPT
 
     cd ${REMOTE_PATH}
 
-    # Ensure required environment variables
-    if [ ! -f .env ]; then
-        echo "Creating default .env on VM..."
-        cat << 'ENVEOF' > .env
+    # Write production .env on VM
+    cat << 'ENVEOF' > .env
 NODE_ENV=production
 DATA_DIR=/opt/xarwiz/data
 POSTGRES_USER=neuravolt
@@ -77,49 +75,58 @@ JWT_SECRET=fa363ef72694cfa20cdf6fd5b236f22d171666ea8820793fa315242098c6221d
 TENANT_MASTER_KEY=bb08035417602a3a24ece51deef91936ee687eb6c58ac2c6837e80f32deba55d
 PAYMENT_ENCRYPTION_KEY=f29be28299aee78109431e43e66ec75933d11624a150ff1dd8087e2f003e744a
 NEXTAUTH_SECRET=neuravolt_dev_jwt_secret_key_extremely_long_and_secure_value_12345!
-NEXTAUTH_URL=http://${VM_IP}:3018
-NEXT_PUBLIC_API_URL=http://${VM_IP}:3008
-ALLOWED_ORIGINS=http://localhost:3001,http://localhost:3002,http://${VM_IP}:3001,http://${VM_IP}:3002,http://${VM_IP}:3008,http://${VM_IP}:3018,http://${VM_IP}:3028
+NEXTAUTH_URL=https://xarwiz.com
+NEXTAUTH_ADMIN_URL=https://admin.xarwiz.com
+NEXT_PUBLIC_API_URL=https://api.xarwiz.com
+ALLOWED_ORIGINS=https://xarwiz.com,https://www.xarwiz.com,https://admin.xarwiz.com,https://api.xarwiz.com,http://${VM_IP}:3001,http://${VM_IP}:3002,http://${VM_IP}:3008,http://${VM_IP}:3018,http://${VM_IP}:3028
 GF_SECURITY_ADMIN_PASSWORD=Admin@1234
 ENVEOF
-    fi
 
     # Fix permissions for data volumes
     sudo mkdir -p ${REMOTE_PATH}/data/{postgres,redis,grafana,prometheus,ollama,traefik}
+    sudo touch ${REMOTE_PATH}/data/traefik/acme.json
+    sudo chmod 600 ${REMOTE_PATH}/data/traefik/acme.json
     sudo chown -R 999:999 ${REMOTE_PATH}/data/postgres 2>/dev/null || true
     sudo chown -R 472:472 ${REMOTE_PATH}/data/grafana 2>/dev/null || true
     sudo chown -R 65534:65534 ${REMOTE_PATH}/data/prometheus 2>/dev/null || true
 
-    # Adjust external ports in docker-compose.yml
+    # Adjust external ports and domain API URL in docker-compose.yml
     sed -i 's/127.0.0.1://g' docker-compose.yml
     sed -i "s/cpus: '7.0'/cpus: '3.5'/g" docker-compose.yml
-    sed -i "s|NEXT_PUBLIC_API_URL=.*|NEXT_PUBLIC_API_URL=http://${VM_IP}:3008|g" docker-compose.yml
 
     # Restart & Build services
-    echo "Updating containers..."
+    echo "Updating containers and configuring Traefik on port 80/443..."
     sudo docker compose up -d postgres redis
-    sudo docker compose build admin-api tenant-api
-    sudo docker compose up -d admin-api tenant-api
-    sudo docker compose up -d admin-panel user-portal traefik ollama
+    sudo docker compose build admin-api tenant-api admin-panel user-portal
+    sudo docker compose up -d --force-recreate traefik admin-api tenant-api admin-panel user-portal ollama
 REMOTE_SCRIPT
 
 echo -e "${GREEN}✓ Remote build & launch finished${NC}"
 
 # 5. Health Check Verification
-echo -e "\n${YELLOW}[Step 4/4] Verifying live services...${NC}"
-sleep 5
+echo -e "\n${YELLOW}[Step 4/4] Verifying live services & domain...${NC}"
+sleep 8
 
-API_STATUS=$(curl -s -o /dev/null -w "%{http_code}" "http://${VM_IP}:3008/health" || echo "failed")
-ADMIN_STATUS=$(curl -s -o /dev/null -w "%{http_code}" "http://${VM_IP}:3018/admin/login" || echo "failed")
-PORTAL_STATUS=$(curl -s -o /dev/null -w "%{http_code}" "http://${VM_IP}:3028/login" || echo "failed")
+API_STATUS=$(curl -s -o /dev/null -w "%{http_code}" "https://api.xarwiz.com/health" 2>/dev/null || echo "failed")
+DOMAIN_STATUS=$(curl -s -o /dev/null -w "%{http_code}" "https://xarwiz.com" 2>/dev/null || echo "failed")
+ADMIN_STATUS=$(curl -s -o /dev/null -w "%{http_code}" "https://admin.xarwiz.com/admin/login" 2>/dev/null || echo "failed")
 
-echo -e "Tenant API (Port 3008):   ${GREEN}HTTP ${API_STATUS}${NC}"
-echo -e "Admin Panel (Port 3018):  ${GREEN}HTTP ${ADMIN_STATUS}${NC}"
-echo -e "User Portal (Port 3028):  ${GREEN}HTTP ${PORTAL_STATUS}${NC}"
+IP_API=$(curl -s -o /dev/null -w "%{http_code}" "http://${VM_IP}:3008/health" || echo "failed")
+IP_ADMIN=$(curl -s -o /dev/null -w "%{http_code}" "http://${VM_IP}:3018/admin/login" || echo "failed")
+IP_PORTAL=$(curl -s -o /dev/null -w "%{http_code}" "http://${VM_IP}:3028/login" || echo "failed")
+
+echo -e "Direct IP Tenant API (Port 3008):   ${GREEN}HTTP ${IP_API}${NC}"
+echo -e "Direct IP Admin Panel (Port 3018):  ${GREEN}HTTP ${IP_ADMIN}${NC}"
+echo -e "Direct IP User Portal (Port 3028):  ${GREEN}HTTP ${IP_PORTAL}${NC}"
+echo -e "Domain User Portal (xarwiz.com):    ${GREEN}HTTP ${DOMAIN_STATUS}${NC}"
+echo -e "Domain Admin (admin.xarwiz.com):    ${GREEN}HTTP ${ADMIN_STATUS}${NC}"
+echo -e "Domain API (api.xarwiz.com):        ${GREEN}HTTP ${API_STATUS}${NC}"
 
 echo -e "\n${GREEN}======================================================================${NC}"
-echo -e "${GREEN}🎉 DEPLOYMENT TO GCP VM COMPLETED SUCCESSFULLY!${NC}"
+echo -e "${GREEN}🎉 DOMAIN DEPLOYMENT TO XARWIZ.COM COMPLETED SUCCESSFULLY!${NC}"
 echo -e "${GREEN}======================================================================${NC}"
-echo -e "Admin Panel: http://${VM_IP}:3018/admin/login"
-echo -e "User Portal: http://${VM_IP}:3028/login"
-echo -e "Tenant API:  http://${VM_IP}:3008/health"
+echo -e "Main Website: https://xarwiz.com"
+echo -e "Admin Panel:  https://admin.xarwiz.com/admin/login"
+echo -e "Tenant API:   https://api.xarwiz.com/health"
+echo -e "Direct IP:    http://${VM_IP}:3018/admin/login"
+

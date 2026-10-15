@@ -19,3 +19,10 @@ http:
           X-Content-Type-Options: "nosniff"
           X-Frame-Options: "DENY"
           X-XSS-Protection: "1; mode=block"
+
+tls:
+  certificates:
+    - certFile: /letsencrypt/certs/live/xarwiz.com/fullchain.pem
+      keyFile: /letsencrypt/certs/live/xarwiz.com/privkey.pem
+      stores:
+        - default

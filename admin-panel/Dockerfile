@@ -21,6 +21,8 @@ WORKDIR /usr/src/app
 COPY --from=builder /usr/src/app/package*.json ./
 RUN npm ci --omit=dev --no-audit --no-fund
 
+RUN apk add --no-cache curl
+
 COPY --from=builder /usr/src/app/.next ./.next
 COPY --from=builder /usr/src/app/next.config.js ./
 

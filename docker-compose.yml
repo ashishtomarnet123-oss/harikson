@@ -31,8 +31,8 @@ services:
       - '--providers.file.directory=/dynamic'
       - '--providers.file.watch=true'
     ports:
-      - '8085:80'
-      - '8443:443'
+      - '80:80'
+      - '443:443'
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - ${DATA_DIR:-./data}/traefik:/letsencrypt
@@ -40,16 +40,7 @@ services:
     networks:
       - harikson-network
     labels:
-      - "traefik.enable=true"
-      # Dashboard routing rules pointing to internal service
-      - "traefik.http.routers.dashboard.rule=Host(`traefik.xarwiz.com`)"
-      - "traefik.http.routers.dashboard.entrypoints=websecure"
-      - "traefik.http.routers.dashboard.tls.certresolver=letsencrypt"
-      - "traefik.http.routers.dashboard.service=api@internal"
-      - "traefik.http.routers.dashboard.middlewares=auth,ip-whitelist,security-headers@file,rate-limit@file"
-      - "traefik.http.middlewares.auth.basicauth.users=${TRAEFIK_DASHBOARD_AUTH}"
-      # Restrict access to local host loopback and private VPN subnets in production
-      - "traefik.http.middlewares.ip-whitelist.ipwhitelist.sourcerange=127.0.0.1/32,10.0.0.0/8,172.16.0.0/12,192.168.0.0/16"
+      - "traefik.enable=false"
     logging:
       driver: 'json-file'
       options:
@@ -174,7 +165,7 @@ services:
     image: ${REGISTRY:-ghcr.io}/${IMAGE_PREFIX:-ashishtomarnet123-oss/harikson}-tenant-api:latest
     restart: unless-stopped
     ports:
-      - '127.0.0.1:3008:3008'
+      - '3008:3008'
     environment:
       - DATABASE_URL=postgresql://neuravolt:${POSTGRES_PASSWORD:-neuravolt_dev_pwd}@postgres:5432/neuravolt
       - REDIS_URL=redis://:${REDIS_PASSWORD:-harikson_redis_pwd}@redis:6379
@@ -238,7 +229,7 @@ services:
     image: ${REGISTRY:-ghcr.io}/${IMAGE_PREFIX:-ashishtomarnet123-oss/harikson}-admin-api:latest
     restart: unless-stopped
     ports:
-      - '127.0.0.1:4000:4000'
+      - '4000:4000'
     environment:
       - DATABASE_URL=postgresql://neuravolt:${POSTGRES_PASSWORD:-neuravolt_dev_pwd}@postgres:5432/neuravolt
       - REDIS_URL=redis://:${REDIS_PASSWORD:-harikson_redis_pwd}@redis:6379
@@ -286,15 +277,15 @@ services:
     build:
       context: ./admin-panel
       args:
-        - NEXT_PUBLIC_API_URL=https://xarwiz.com
+        - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-https://api.xarwiz.com}
     image: ${REGISTRY:-ghcr.io}/${IMAGE_PREFIX:-ashishtomarnet123-oss/harikson}-admin-panel:latest
     restart: unless-stopped
     command: npx next start -p 3001
     ports:
-      - '127.0.0.1:3018:3001'
+      - '3018:3001'
     environment:
       - PORT=3001
-      - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-http://34.131.237.79:3028}
+      - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-https://api.xarwiz.com}
       - ADMIN_API_URL=http://admin-api:4000
       - DATABASE_URL=postgresql://neuravolt:${POSTGRES_PASSWORD:-neuravolt_dev_pwd}@postgres:5432/neuravolt
       - JWT_SECRET
@@ -312,7 +303,7 @@ services:
       - admin-api
       - tenant-api
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:3001"]
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:3001"]
       interval: 30s
       timeout: 5s
       retries: 3
@@ -328,25 +319,25 @@ services:
     build:
       context: ./user-portal
       args:
-        - NEXT_PUBLIC_API_URL=https://xarwiz.com
+        - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-https://api.xarwiz.com}
     image: ${REGISTRY:-ghcr.io}/${IMAGE_PREFIX:-ashishtomarnet123-oss/harikson}-user-portal:latest
     restart: unless-stopped
     command: npx next start -p 3002
     ports:
-      - '127.0.0.1:3028:3002'
+      - '3028:3002'
     environment:
       - PORT=3002
       - TENANT_API_URL=http://tenant-api:3008
-      - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-http://34.131.237.79:3028}
+      - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-https://api.xarwiz.com}
       - NEXTAUTH_SECRET
-      - NEXTAUTH_URL=${NEXTAUTH_URL:-http://34.131.237.79:3028}
+      - NEXTAUTH_URL=${NEXTAUTH_URL:-https://xarwiz.com}
     networks:
       - harikson-network
     labels:
       - 'traefik.enable=true'
       - 'traefik.http.routers.user-portal.rule=Host(`xarwiz.com`) || Host(`www.xarwiz.com`)'
       - 'traefik.http.routers.user-portal.entrypoints=websecure'
-      - 'traefik.http.routers.user-portal.tls.certresolver=letsencrypt'
+      - 'traefik.http.routers.user-portal.tls=true'
       - 'traefik.http.routers.user-portal.middlewares=security-headers@file,rate-limit@file'
       - 'traefik.http.services.user-portal.loadbalancer.server.port=3002'
     depends_on:
