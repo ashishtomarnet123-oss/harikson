@@ -45,11 +45,14 @@ import {
   ThumbsUp,
   ThumbsDown,
   ArrowDown,
+  BarChart2,
+  Download,
 } from 'lucide-react';
 import GlobalSearch from '../components/GlobalSearch';
 import ShareModal from '../components/ShareModal';
 import SettingsModal from '../components/SettingsModal';
 import DocumentViewerModal from '../components/DocumentViewerModal';
+import ImageViewerModal from '../components/chat/ImageViewerModal';
 import MarkdownRenderer from '../components/chat/MarkdownRenderer';
 import { trackEvent } from '../lib/analytics';
 import {
@@ -102,7 +105,50 @@ function copyToClipboard(text) {
 
 function extractUserVisibleText(text) {
   if (!text) return '';
-  return text.replace(/<uploaded_file name="[^"]*">[\s\S]*?<\/uploaded_file>/g, '').trim();
+  return text
+    .replace(/<uploaded_file[\s\S]*?<\/uploaded_file>/g, '')
+    .replace(/\[Attached Image:\s*"[^"]*"\]/g, '')
+    .replace(/\[Attached Document:\s*"[^"]*"\]/g, '')
+    .trim();
+}
+
+function formatFileSize(bytes) {
+  if (!bytes || isNaN(bytes)) return '';
+  const num = Number(bytes);
+  if (num === 0) return '0 B';
+  const k = 1024;
+  const sizes = ['B', 'KB', 'MB', 'GB'];
+  const i = Math.floor(Math.log(num) / Math.log(k));
+  return parseFloat((num / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+}
+
+function parseUploadedFiles(text) {
+  if (!text) return [];
+  const results = [];
+  const regex = /<uploaded_file(?:\s+([^>]*))?>([\s\S]*?)<\/uploaded_file>/g;
+  let match;
+  while ((match = regex.exec(text)) !== null) {
+    const attrStr = match[1] || '';
+    const content = match[2]?.trim() || '';
+    const name = attrStr.match(/name="([^"]+)"/)?.[1] || 'Attachment';
+    const type = attrStr.match(/type="([^"]+)"/)?.[1] || '';
+    const size = attrStr.match(/size="([^"]+)"/)?.[1] || '';
+    const pages = attrStr.match(/pages="([^"]+)"/)?.[1] || '';
+    const documentId = attrStr.match(/documentId="([^"]+)"/)?.[1] || '';
+    const dataUrl = attrStr.match(/dataUrl="([^"]+)"/)?.[1] || '';
+    results.push({ name, type, size, pages, documentId, dataUrl, content });
+  }
+  if (results.length === 0) {
+    const legacyImgRegex = /\[Attached Image:\s*"([^"]+)"\]/g;
+    while ((match = legacyImgRegex.exec(text)) !== null) {
+      results.push({ name: match[1], type: 'image/png', size: '', pages: '', documentId: '', dataUrl: '', content: '' });
+    }
+    const legacyDocRegex = /\[Attached Document:\s*"([^"]+)"\]/g;
+    while ((match = legacyDocRegex.exec(text)) !== null) {
+      results.push({ name: match[1], type: 'application/pdf', size: '', pages: '', documentId: '', dataUrl: '', content: '' });
+    }
+  }
+  return results;
 }
 
 function maskModelName(rawModel) {
@@ -247,16 +293,18 @@ const extractTextFromPdf = async (arrayBuffer) => {
   const loadingTask = pdfjs.getDocument({ data: new Uint8Array(arrayBuffer) });
   const pdf = await loadingTask.promise;
   let fullText = '';
+  const pages = [];
   for (let i = 1; i <= pdf.numPages; i++) {
     const page = await pdf.getPage(i);
     const textContent = await page.getTextContent();
     const pageText = textContent.items.map((item) => item.str).join(' ');
+    pages.push({ pageNumber: i, text: pageText });
     fullText += `--- Page ${i} ---\n${pageText}\n\n`;
   }
   if (!fullText.trim()) {
-    return '[Empty PDF document or scanned PDF with no extractable text]';
+    fullText = '[Empty PDF document or scanned PDF with no extractable text]';
   }
-  return fullText;
+  return { fullText, pageCount: pdf.numPages, pages };
 };
 
 let tesseractPromise = null;
@@ -625,6 +673,9 @@ function ChatPage() {
   const [selectedCitationDoc, setSelectedCitationDoc] = useState(null);
   const [selectedCitationPage, setSelectedCitationPage] = useState(1);
   const [isDocViewerOpen, setIsDocViewerOpen] = useState(false);
+  const [selectedPreviewFile, setSelectedPreviewFile] = useState(null);
+  const [isImageViewerOpen, setIsImageViewerOpen] = useState(false);
+  const [selectedImage, setSelectedImage] = useState(null);
   const [useDeepSearch, setUseDeepSearch] = useState(false);
   const [useReasoning, setUseReasoning] = useState(false);
 
@@ -1634,8 +1685,19 @@ function ChatPage() {
       reader.onload = async (event) => {
         try {
           const arrayBuffer = event.target.result;
-          const text = await extractTextFromPdf(arrayBuffer);
-          updateFileContent(text);
+          const { fullText, pageCount, pages } = await extractTextFromPdf(arrayBuffer);
+          let pdfUrl = '';
+          try {
+            pdfUrl = URL.createObjectURL(file);
+          } catch (e) {}
+          updateFileContent(fullText, 'ready', null, {
+            pages: pageCount,
+            pageCount,
+            pageList: pages,
+            dataUrl: pdfUrl,
+            url: pdfUrl,
+            mimeType: 'application/pdf',
+          });
         } catch (err) {
           console.error('Failed to parse PDF:', err);
           updateFileContent('', 'error', 'Failed to extract PDF text');
@@ -1655,10 +1717,12 @@ function ChatPage() {
         }
       };
       reader.readAsDataURL(file);
+    } else if (file.name.match(/\.(docx?|xlsx?|pptx?)$/i)) {
+      updateFileContent('[Processing document structure with Document Intelligence...]', 'processing');
     } else {
       const reader = new FileReader();
       reader.onload = (event) => {
-        updateFileContent(event.target.result || '');
+        updateFileContent(event.target.result || '', 'ready', null, { mimeType: file.type || 'text/plain' });
       };
       reader.readAsText(file);
     }
@@ -1938,14 +2002,21 @@ CRITICAL RULES:
     if (readyAttachments.length > 0) {
       const attachments = readyAttachments
         .map((f) => {
-          if (f.isImage || f.dataUrl) {
-            return `[Attached Image: "${f.name}"]`;
+          const cleanName = (f.name || 'attachment').replace(/"/g, '&quot;');
+          const isImg = f.isImage || (f.mimeType && f.mimeType.startsWith('image/')) || f.name?.match(/\.(png|jpe?g|webp)$/i);
+          const mime = f.mimeType || (isImg ? 'image/png' : 'application/pdf');
+          const sizeAttr = f.size ? ` size="${f.size}"` : '';
+          const pagesAttr = f.pages || f.pageCount ? ` pages="${f.pages || f.pageCount}"` : '';
+          const docIdAttr = f.documentId || f.id ? ` documentId="${f.documentId || f.id}"` : '';
+          const dataUrlAttr = f.dataUrl ? ` dataUrl="${f.dataUrl}"` : '';
+
+          if (isImg) {
+            return `<uploaded_file name="${cleanName}" type="${mime}"${sizeAttr}${dataUrlAttr}>\n[Attached Image: "${f.name}"]\n</uploaded_file>`;
           }
           const raw = f.content || f.summary || '';
-          if (!raw) return `[Attached Document: "${f.name}"]`;
-          // Compact OCR/extracted content to max 1200 characters to prevent token exhaustion
-          const cleanText = raw.replace(/\s+/g, ' ').trim().slice(0, 1200);
-          return `<uploaded_file name="${f.name}">\n${cleanText}\n</uploaded_file>`;
+          // Compact OCR/extracted content to max 1600 characters to prevent token exhaustion
+          const cleanText = raw ? raw.replace(/\s+/g, ' ').trim().slice(0, 1600) : `[Attached Document: "${f.name}"]`;
+          return `<uploaded_file name="${cleanName}" type="${mime}"${sizeAttr}${pagesAttr}${docIdAttr}${dataUrlAttr}>\n${cleanText}\n</uploaded_file>`;
         })
         .join('\n\n');
       finalMessage = `${attachments}\n\n${userText}`;
@@ -2393,7 +2464,7 @@ CRITICAL RULES:
     if (!originalMsg) return;
 
     // Check if original message had file attachments baked into text
-    const fileTagRegex = /<uploaded_file name="[^"]*">[\s\S]*?<\/uploaded_file>/g;
+    const fileTagRegex = /<uploaded_file[\s\S]*?<\/uploaded_file>/g;
     const fileMatches = (originalMsg.text || '').match(fileTagRegex);
     let finalUserText = trimmed;
     if (fileMatches && fileMatches.length > 0) {
@@ -2584,13 +2655,28 @@ CRITICAL RULES:
 
                   {/* Actions right */}
                   <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    {file.documentId && !isProcessing && (
+                    {!isProcessing && (
                       <button
                         type="button"
                         onClick={() => {
-                          setSelectedCitationDoc(file.documentId);
-                          setSelectedCitationPage(1);
-                          setIsDocViewerOpen(true);
+                          if (file.isImage || file.dataUrl || file.name.match(/\.(png|jpe?g|webp)$/i)) {
+                            setSelectedImage({ url: file.dataUrl || '', name: file.name });
+                            setIsImageViewerOpen(true);
+                          } else {
+                            setSelectedPreviewFile({
+                              name: file.name,
+                              title: file.name,
+                              content: file.content,
+                              extractedText: file.content,
+                              documentId: file.documentId,
+                              pages: file.pages || file.pageCount || 1,
+                              size: file.size,
+                              summary: file.summary,
+                            });
+                            setSelectedCitationDoc(file.documentId || null);
+                            setSelectedCitationPage(1);
+                            setIsDocViewerOpen(true);
+                          }
                         }}
                         style={{
                           background: '#f8fafc',
@@ -2605,7 +2691,7 @@ CRITICAL RULES:
                           alignItems: 'center',
                           gap: '4px',
                         }}
-                        title="Open Document Viewer"
+                        title={file.isImage ? "Preview Image" : "Open Document Viewer"}
                       >
                         <Eye size={12} />
                         <span>Preview</span>
@@ -3656,31 +3742,110 @@ CRITICAL RULES:
                   {messages.map((msg, idx) => {
                     const renderUserMessage = (text) => {
                       if (!text) return null;
-                      const fileTagRegex = /<uploaded_file name="([^"]+)">([\s\S]*?)<\/uploaded_file>/g;
-                      const fileMatches = [...text.matchAll(fileTagRegex)];
-                      if (fileMatches.length > 0) {
-                        const cleanUserText = text.replace(fileTagRegex, '').trim();
+                      const uploadedFiles = parseUploadedFiles(text);
+                      if (uploadedFiles.length > 0) {
+                        const cleanUserText = extractUserVisibleText(text);
                         return (
                           <div className="user-bubble-rich">
-                            <div className="user-bubble-attachments" style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: cleanUserText ? '8px' : '0' }}>
-                              {fileMatches.map((m, i) => (
-                                <div
-                                  key={i}
-                                  style={{
-                                    display: 'inline-flex',
-                                    alignItems: 'center',
-                                    gap: '6px',
-                                    background: 'rgba(255, 255, 255, 0.2)',
-                                    padding: '4px 10px',
-                                    borderRadius: '6px',
-                                    fontSize: '12px',
-                                    fontWeight: 500,
-                                  }}
-                                >
-                                  <FileText size={13} />
-                                  <span>{m[1]}</span>
-                                </div>
-                              ))}
+                            <div className="user-bubble-attachment-cards">
+                              {uploadedFiles.map((file, i) => {
+                                const isImg = file.dataUrl || file.type?.startsWith('image/') || file.name?.match(/\.(png|jpe?g|webp|gif|svg)$/i);
+                                if (isImg) {
+                                  return (
+                                    <div key={i} className="chat-image-attachment-card">
+                                      <div
+                                        className="chat-image-thumb-wrapper"
+                                        onClick={() => {
+                                          setSelectedImage({ url: file.dataUrl || '', name: file.name });
+                                          setIsImageViewerOpen(true);
+                                        }}
+                                        title={`Preview ${file.name}`}
+                                      >
+                                        {file.dataUrl ? (
+                                          <img src={file.dataUrl} alt={file.name} className="chat-image-thumb" />
+                                        ) : (
+                                          <div className="chat-image-fallback">
+                                            <ImageIcon size={28} />
+                                          </div>
+                                        )}
+                                        <div className="chat-image-overlay">
+                                          <Eye size={16} />
+                                        </div>
+                                      </div>
+                                      <div className="chat-image-footer">
+                                        <span className="chat-image-name" title={file.name}>{file.name}</span>
+                                        {file.size && <span className="chat-image-size">{formatFileSize(file.size)}</span>}
+                                      </div>
+                                    </div>
+                                  );
+                                }
+
+                                const isPdf = file.name?.endsWith('.pdf') || file.type?.includes('pdf');
+                                const isSheet = file.name?.match(/\.(xlsx?|csv)$/i);
+                                const isWord = file.name?.match(/\.(docx?)$/i);
+                                const isPres = file.name?.match(/\.(pptx?)$/i);
+                                const badgeType = isPdf ? 'pdf' : isSheet ? 'xlsx' : isWord ? 'docx' : isPres ? 'pptx' : 'txt';
+
+                                return (
+                                  <div key={i} className="chat-doc-attachment-card">
+                                    <div className={`chat-doc-icon-badge ${badgeType}`}>
+                                      {isSheet ? <BarChart2 size={18} /> : <FileText size={18} />}
+                                      <span className="doc-badge-ext">{badgeType.toUpperCase()}</span>
+                                    </div>
+                                    <div className="chat-doc-details">
+                                      <div className="chat-doc-name" title={file.name}>{file.name}</div>
+                                      <div className="chat-doc-meta">
+                                        {file.pages ? `${file.pages} ${file.pages === 1 || file.pages === '1' ? 'page' : 'pages'} • ` : ''}
+                                        {formatFileSize(file.size) || (file.content ? `${Math.round(file.content.length / 1000)}k chars` : 'Document')}
+                                      </div>
+                                    </div>
+                                    <div className="chat-doc-actions">
+                                      <button
+                                        type="button"
+                                        className="chat-doc-btn preview"
+                                        title="Preview Document"
+                                        onClick={() => {
+                                          setSelectedPreviewFile({
+                                            name: file.name,
+                                            title: file.name,
+                                            content: file.content,
+                                            extractedText: file.content,
+                                            documentId: file.documentId,
+                                            pages: file.pages || 1,
+                                            size: file.size,
+                                          });
+                                          setSelectedCitationDoc(file.documentId || null);
+                                          setSelectedCitationPage(1);
+                                          setIsDocViewerOpen(true);
+                                        }}
+                                      >
+                                        <Eye size={13} />
+                                        <span>Preview</span>
+                                      </button>
+                                      <button
+                                        type="button"
+                                        className="chat-doc-btn download"
+                                        title="Download"
+                                        onClick={() => {
+                                          if (file.documentId) {
+                                            window.open(`${apiBase}/api/documents/${file.documentId}/download`, '_blank');
+                                          } else {
+                                            const blob = new Blob([file.content || file.name], { type: 'text/plain;charset=utf-8' });
+                                            const url = URL.createObjectURL(blob);
+                                            const a = document.createElement('a');
+                                            a.href = url;
+                                            a.download = file.name;
+                                            a.click();
+                                            URL.revokeObjectURL(url);
+                                          }
+                                        }}
+                                      >
+                                        <Download size={13} />
+                                      </button>
+                                    </div>
+                                  </div>
+                                );
+                              })}
                             </div>
                             {cleanUserText && <div className="user-bubble-text">{cleanUserText}</div>}
                           </div>
@@ -3988,9 +4153,23 @@ CRITICAL RULES:
 
         <DocumentViewerModal
           isOpen={isDocViewerOpen}
-          onClose={() => setIsDocViewerOpen(false)}
+          onClose={() => {
+            setIsDocViewerOpen(false);
+            setSelectedPreviewFile(null);
+          }}
           documentId={selectedCitationDoc}
           initialPage={selectedCitationPage}
+          fileData={selectedPreviewFile}
+        />
+
+        <ImageViewerModal
+          isOpen={isImageViewerOpen}
+          onClose={() => {
+            setIsImageViewerOpen(false);
+            setSelectedImage(null);
+          }}
+          imageUrl={selectedImage?.url}
+          imageName={selectedImage?.name}
         />
       </div>
     </>
