@@ -3383,12 +3383,13 @@ CRITICAL RULES:
 
               <div className="app-header-right">
                 <button
-                  className="header-action-btn"
+                  className="header-action-btn header-search-btn"
                   onClick={() => setShowGlobalSearch(true)}
                   title="Search conversations, agents, docs (⌘K)"
+                  aria-label="Search"
                 >
                   <Search size={14} />
-                  <span>Search</span>
+                  <span className="header-btn-text">Search</span>
                   <kbd className="header-kbd">⌘K</kbd>
                 </button>
 
@@ -3396,27 +3397,28 @@ CRITICAL RULES:
                   className="header-action-btn new-chat-action-btn"
                   onClick={startNewChat}
                   title="Start a new chat"
+                  aria-label="New chat"
                 >
-                  <Plus size={14} />
-                  <span>New Chat</span>
+                  <Plus size={15} />
+                  <span className="header-btn-text">New Chat</span>
                 </button>
 
                 {activeConvId && (
                   <button
-                    className="header-action-btn"
+                    className="header-action-btn header-share-btn"
                     onClick={() => setShowShareModal(true)}
                     title="Share this conversation"
-                    style={{ gap: '5px' }}
+                    aria-label="Share chat"
                   >
                     <Share2 size={14} />
-                    <span>Share</span>
+                    <span className="header-btn-text">Share</span>
                   </button>
                 )}
 
                 {activeConvId && (
-                  <div style={{ position: 'relative' }} ref={exportMenuRef}>
+                  <div className="header-export-wrap" style={{ position: 'relative' }} ref={exportMenuRef}>
                     <button
-                      className="header-icon-btn"
+                      className="header-icon-btn header-export-btn"
                       onClick={() => setShowExportMenu((prev) => !prev)}
                       title="Export conversation"
                       aria-label="Export conversation"

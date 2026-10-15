@@ -1041,7 +1041,8 @@ code {
   display: flex;
   align-items: center;
   gap: 10px;
-  min-width: 0;
+  flex-shrink: 0;
+  min-width: fit-content;
 }
 
 .app-header-right {
@@ -1138,6 +1139,7 @@ code {
   position: relative;
   display: inline-flex;
   align-items: center;
+  flex-shrink: 0;
 }
 
 .mobile-model-pill {
@@ -1155,6 +1157,9 @@ code {
   font-family: var(--font-sans);
   transition: all var(--transition);
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
+  white-space: nowrap !important;
+  flex-shrink: 0 !important;
+  user-select: none;
 }
 .mobile-model-pill:hover {
   background: var(--bg-hover);
@@ -1165,6 +1170,7 @@ code {
   font-size: 13px;
   font-weight: 600;
   letter-spacing: -0.01em;
+  white-space: nowrap !important;
 }
 
 .model-pill-badge {
@@ -1175,11 +1181,14 @@ code {
   padding: 1.5px 6px;
   border-radius: 999px;
   letter-spacing: 0.02em;
+  white-space: nowrap !important;
+  flex-shrink: 0 !important;
 }
 
 .model-pill-arrow {
   color: var(--text-muted);
   transition: transform 0.2s ease;
+  flex-shrink: 0 !important;
 }
 .model-pill-arrow.rotate {
   transform: rotate(180deg);
@@ -3347,18 +3356,55 @@ code.block-code {
   .app-header {
     height: 52px;
     min-height: 52px;
-    padding: 0 10px;
+    padding: 0 12px;
+    gap: 8px;
   }
 
   .header-kbd,
-  .search-action-btn .header-btn-text,
-  .new-chat-action-btn .header-btn-text {
-    display: none;
+  .header-btn-text {
+    display: none !important;
+  }
+
+  .header-search-btn {
+    display: none !important;
   }
 
   .header-action-btn {
     padding: 0 8px;
-    height: 32px;
+    height: 34px;
+  }
+
+  .new-chat-action-btn {
+    width: 34px !important;
+    min-width: 34px !important;
+    height: 34px !important;
+    padding: 0 !important;
+    border-radius: 50% !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    background: #2563eb !important;
+    color: #ffffff !important;
+    border: none !important;
+    box-shadow: 0 1px 3px rgba(37, 99, 235, 0.35);
+  }
+
+  .header-share-btn {
+    width: 34px !important;
+    min-width: 34px !important;
+    height: 34px !important;
+    padding: 0 !important;
+    border-radius: 8px;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+  }
+
+  .header-profile-avatar {
+    width: 32px !important;
+    height: 32px !important;
+    min-width: 32px !important;
+    font-size: 13px !important;
   }
 
   .messages-scroll-column,
@@ -3450,9 +3496,15 @@ code.block-code {
     font-size: 12.5px;
   }
 
+  .header-export-wrap {
+    display: none !important;
+  }
+
   .mobile-model-pill {
     padding: 4px 10px;
     font-size: 12px;
+    white-space: nowrap !important;
+    flex-shrink: 0 !important;
   }
   .model-pill-badge {
     font-size: 9px;
@@ -3481,19 +3533,24 @@ code.block-code {
 
 @media (max-width: 360px) {
   .app-header {
-    padding: 0 8px;
+    padding: 0 6px;
+    gap: 6px;
+  }
+
+  .header-share-btn {
+    display: none !important;
   }
 
   .mobile-model-pill {
-    max-width: 135px;
     padding: 3px 8px;
+    font-size: 11.5px;
+    white-space: nowrap !important;
+    flex-shrink: 0 !important;
   }
 
   .model-pill-name {
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    max-width: 75px;
+    font-size: 11.5px;
+    white-space: nowrap !important;
   }
 
   .message-bubble-user {
