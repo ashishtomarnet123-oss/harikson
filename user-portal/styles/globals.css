@@ -3991,10 +3991,68 @@ code.block-code {
   .mobile-hidden {
     display: none !important;
   }
-  .chat-doc-attachment-card {
-    max-width: 100%;
-    min-width: unset;
+  .chat-doc-attachment-card,
+  .chat-inline-doc-workspace-preview,
+  .chat-inline-sheet-preview,
+  .chat-inline-image-preview {
+    max-width: 100% !important;
+    min-width: unset !important;
   }
 }
+
+/* ── ChatGPT-Style Rich User Bubble & Inline Previews ── */
+.user-bubble-rich {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 100%;
+}
+
+.user-bubble-text {
+  font-size: 14.5px;
+  line-height: 1.6;
+  color: inherit;
+  word-break: break-word;
+}
+
+.chat-inline-doc-workspace-preview {
+  transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
+}
+
+.chat-inline-doc-workspace-preview:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.12) !important;
+  border-color: #93c5fd !important;
+}
+
+.chat-inline-sheet-preview {
+  transition: transform 0.18s ease, box-shadow 0.18s ease;
+}
+
+.chat-inline-sheet-preview:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 30px rgba(16, 185, 129, 0.15) !important;
+}
+
+.chat-inline-image-preview:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.14) !important;
+}
+
+.document-paper-sheet {
+  transition: all 0.2s ease;
+}
+
+:root[data-theme="dark"] .chat-inline-doc-workspace-preview,
+:root[data-theme="dark"] .chat-inline-sheet-preview {
+  background-color: #1e293b !important;
+  border-color: #334155 !important;
+}
+
+:root[data-theme="dark"] .document-paper-sheet {
+  background-color: #ffffff !important;
+  color: #0f172a !important;
+}
+
 
 
