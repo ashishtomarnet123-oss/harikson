@@ -21,7 +21,7 @@
         </span>
       </div>
 
-      <nav>
+      <nav class="desktop-nav">
         <ul class="nav-menu">
           <li><a href="#platform">Platform <i data-lucide="chevron-down" style="width:14px;height:14px;"></i></a></li>
           <li><a href="#solutions">Solutions <i data-lucide="chevron-down" style="width:14px;height:14px;"></i></a></li>
@@ -32,9 +32,59 @@
         </ul>
       </nav>
 
-      <div class="header-ctas">
+      <div class="header-ctas desktop-ctas">
         <button class="btn-demo">Book a Demo</button>
         <button class="btn-trial">Start Free Trial</button>
+      </div>
+
+      <!-- Mobile Hamburger Toggle Button -->
+      <button
+        type="button"
+        class="mobile-menu-btn"
+        id="mobileMenuToggle"
+        aria-label="Toggle navigation menu"
+        aria-expanded="false"
+      >
+        <i data-lucide="menu" style="width:24px;height:24px;"></i>
+      </button>
+    </div>
+
+    <!-- Mobile Navigation Drawer & Backdrop -->
+    <div class="mobile-drawer-overlay" id="mobileDrawerOverlay">
+      <div class="mobile-drawer-content">
+        <div class="mobile-drawer-header">
+          <div class="logo-container">
+            <img src="assets/xarwiz-logo.png" alt="Xarwiz" class="logo-img">
+          </div>
+          <button
+            type="button"
+            class="mobile-drawer-close"
+            id="mobileDrawerClose"
+            aria-label="Close menu"
+          >
+            <i data-lucide="x" style="width:22px;height:22px;"></i>
+          </button>
+        </div>
+
+        <nav class="mobile-drawer-nav">
+          <ul class="mobile-nav-list">
+            <li><a href="#platform" class="mobile-nav-link">Platform</a></li>
+            <li><a href="#solutions" class="mobile-nav-link">Solutions</a></li>
+            <li><a href="#developers" class="mobile-nav-link">Developers</a></li>
+            <li><a href="#pricing" class="mobile-nav-link">Pricing</a></li>
+            <li><a href="#security" class="mobile-nav-link">Security</a></li>
+            <li><a href="#company" class="mobile-nav-link">Company</a></li>
+          </ul>
+        </nav>
+
+        <div class="mobile-drawer-ctas">
+          <button class="btn-mobile-primary">Start Free Trial</button>
+          <button class="btn-mobile-secondary">Book a Demo</button>
+        </div>
+
+        <div class="mobile-drawer-footer">
+          <span>🇮🇳 India's Sovereign AI Cloud Platform</span>
+        </div>
       </div>
     </div>
   </header>
@@ -1282,6 +1332,42 @@
           growthPeriod.innerHTML = '/month <span style="font-size:0.62rem; display:block; color:var(--text-dim); font-weight:normal; margin-top:2px;">(billed ₹47,988 annually)</span>';
         });
       }
+
+      // Mobile Drawer Toggle logic
+      const menuToggle = document.getElementById('mobileMenuToggle');
+      const drawerOverlay = document.getElementById('mobileDrawerOverlay');
+      const drawerClose = document.getElementById('mobileDrawerClose');
+      const navLinks = document.querySelectorAll('.mobile-nav-link');
+
+      function closeDrawer() {
+        if (drawerOverlay) {
+          drawerOverlay.classList.remove('active');
+          document.body.style.overflow = '';
+          if (menuToggle) menuToggle.setAttribute('aria-expanded', 'false');
+        }
+      }
+
+      if (menuToggle && drawerOverlay) {
+        menuToggle.addEventListener('click', () => {
+          const isOpen = drawerOverlay.classList.toggle('active');
+          document.body.style.overflow = isOpen ? 'hidden' : '';
+          menuToggle.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+        });
+      }
+      if (drawerClose) {
+        drawerClose.addEventListener('click', closeDrawer);
+      }
+      if (drawerOverlay) {
+        drawerOverlay.addEventListener('click', (e) => {
+          if (e.target === drawerOverlay) closeDrawer();
+        });
+      }
+      navLinks.forEach((link) => {
+        link.addEventListener('click', closeDrawer);
+      });
+      window.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') closeDrawer();
+      });
 
       lucide.createIcons();
     }

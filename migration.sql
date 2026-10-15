@@ -130,7 +130,7 @@ CREATE TABLE IF NOT EXISTS plans (
 CREATE TABLE subscriptions (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
-    provider VARCHAR(50) NOT NULL CHECK (provider IN ('stripe', 'razorpay')),
+    provider VARCHAR(50) NOT NULL CHECK (provider IN ('stripe', 'razorpay', 'system', 'phonepe')),
     provider_subscription_id VARCHAR(255) NOT NULL,
     plan_id VARCHAR(50) NOT NULL REFERENCES plans(id),
     status VARCHAR(50) NOT NULL CHECK (status IN ('active', 'past_due', 'cancelled', 'unpaid', 'paused')),

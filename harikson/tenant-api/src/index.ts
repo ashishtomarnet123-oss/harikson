@@ -1,3 +1,5 @@
+import 'dotenv/config';
+
 declare global {
   namespace Express {
     interface Request {
@@ -242,6 +244,15 @@ app.use(async (req, res, next) => {
       if (
         (req.path.startsWith('/api/images/') || req.path.startsWith('/api/v1/images/')) &&
         (req.path.endsWith('/view') || req.path.endsWith('/download'))
+      ) {
+        return next();
+      }
+
+      // Public payment webhooks (Stripe, Razorpay, PhonePe, Cashfree) are called by external payment servers without a tenant context
+      if (
+        req.path.startsWith('/api/billing/webhooks') ||
+        req.path.startsWith('/billing/webhooks') ||
+        req.path.startsWith('/webhooks')
       ) {
         return next();
       }

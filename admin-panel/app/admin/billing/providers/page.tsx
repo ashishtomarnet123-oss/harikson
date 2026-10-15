@@ -13,7 +13,7 @@ import { getCookie } from 'cookies-next';
 
 interface Provider {
   id: string;
-  provider: 'stripe' | 'razorpay';
+  provider: 'stripe' | 'razorpay' | 'phonepe' | 'cashfree';
   name: string;
   merchant_id: string;
   is_active: boolean;
@@ -29,9 +29,9 @@ export default function BillingProvidersPage() {
   const [submitting, setSubmitting] = useState(false);
 
   // Form states
-  const [providerType, setProviderType] = useState<'razorpay' | 'stripe'>(
-    'razorpay'
-  );
+  const [providerType, setProviderType] = useState<
+    'razorpay' | 'stripe' | 'phonepe' | 'cashfree'
+  >('razorpay');
   const [name, setName] = useState('');
   const [apiKey, setApiKey] = useState('');
   const [apiSecret, setApiSecret] = useState('');
@@ -45,17 +45,17 @@ export default function BillingProvidersPage() {
   const [showWebhookSecret, setShowWebhookSecret] = useState(false);
 
   const apiBase = '/api-proxy';
-  const [copiedUrl, setCopiedUrl] = useState<'razorpay' | 'stripe' | null>(
-    null
-  );
+  const [copiedUrl, setCopiedUrl] = useState<
+    'razorpay' | 'stripe' | 'phonepe' | 'cashfree' | null
+  >(null);
 
-  const getWebhookUrl = (type: 'razorpay' | 'stripe') => {
-    // This URL gets copy-pasted into Stripe/Razorpay's own dashboard, so it
-    // must be a real, stable, publicly-reachable address — not a raw
-    // IP:port. admin-api no longer even publishes a fixed host port (needed
-    // for blue-green scaling), so that pattern can't work at all anymore;
-    // the real answer is the domain Traefik already routes to admin-api.
-    if (typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')) {
+  const getWebhookUrl = (type: 'razorpay' | 'stripe' | 'phonepe' | 'cashfree') => {
+    // Stable webhook endpoint for payment provider dashboards
+    if (
+      typeof window !== 'undefined' &&
+      (window.location.hostname === 'localhost' ||
+        window.location.hostname === '127.0.0.1')
+    ) {
       return `${window.location.protocol}//${window.location.hostname}:4000/webhooks/${type}`;
     }
     return `https://admin-api.xarwiz.com/webhooks/${type}`;
@@ -144,7 +144,9 @@ export default function BillingProvidersPage() {
     }
   };
 
-  const copyWebhookToClipboard = (type: 'razorpay' | 'stripe') => {
+  const copyWebhookToClipboard = (
+    type: 'razorpay' | 'stripe' | 'phonepe' | 'cashfree'
+  ) => {
     const url = getWebhookUrl(type);
     navigator.clipboard.writeText(url);
     setCopiedUrl(type);
@@ -160,8 +162,8 @@ export default function BillingProvidersPage() {
           Providers Manager
         </h1>
         <p className="text-gray-500 mt-1.5 text-sm sm:text-base">
-          Configure credentials for Razorpay (INR subscriptions) and Stripe (USD
-          Global payments).
+          Configure credentials for Razorpay (INR cards/netbanking), PhonePe (UPI
+          &amp; PG Standard Checkout), and Stripe (USD Global payments).
         </p>
       </div>
 
@@ -173,7 +175,7 @@ export default function BillingProvidersPage() {
               Connect Account
             </h3>
             <p className="text-xs text-gray-500 mb-6">
-              Validates credentials with a live sandbox ping before storing.
+              Validates credentials before saving to the encrypted database.
             </p>
 
             <form onSubmit={handleSaveProvider} className="space-y-4">
@@ -182,7 +184,7 @@ export default function BillingProvidersPage() {
                 <span className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">
                   Merchant Provider
                 </span>
-                <div className="flex gap-4">
+                <div className="flex flex-wrap gap-3">
                   <label className="flex items-center gap-2 text-xs font-semibold text-gray-300 cursor-pointer select-none">
                     <input
                       type="radio"
@@ -192,7 +194,29 @@ export default function BillingProvidersPage() {
                       onChange={() => setProviderType('razorpay')}
                       className="w-4 h-4 text-blue-600 border-gray-300 focus:ring-blue-500"
                     />
-                    <span>Razorpay (India)</span>
+                    <span>Razorpay</span>
+                  </label>
+                  <label className="flex items-center gap-2 text-xs font-semibold text-gray-300 cursor-pointer select-none">
+                    <input
+                      type="radio"
+                      name="provider"
+                      value="cashfree"
+                      checked={providerType === 'cashfree'}
+                      onChange={() => setProviderType('cashfree')}
+                      className="w-4 h-4 text-amber-600 border-gray-300 focus:ring-amber-500"
+                    />
+                    <span className="text-amber-300 font-bold">Cashfree (Embedded)</span>
+                  </label>
+                  <label className="flex items-center gap-2 text-xs font-semibold text-gray-300 cursor-pointer select-none">
+                    <input
+                      type="radio"
+                      name="provider"
+                      value="phonepe"
+                      checked={providerType === 'phonepe'}
+                      onChange={() => setProviderType('phonepe')}
+                      className="w-4 h-4 text-purple-600 border-gray-300 focus:ring-purple-500"
+                    />
+                    <span className="text-purple-300 font-bold">PhonePe (UPI)</span>
                   </label>
                   <label className="flex items-center gap-2 text-xs font-semibold text-gray-300 cursor-pointer select-none">
                     <input
@@ -203,7 +227,7 @@ export default function BillingProvidersPage() {
                       onChange={() => setProviderType('stripe')}
                       className="w-4 h-4 text-blue-600 border-gray-300 focus:ring-blue-500"
                     />
-                    <span>Stripe (Global)</span>
+                    <span>Stripe</span>
                   </label>
                 </div>
               </div>
@@ -216,7 +240,13 @@ export default function BillingProvidersPage() {
                 <input
                   type="text"
                   required
-                  placeholder="e.g. Bharat AI Sandbox"
+                  placeholder={
+                    providerType === 'cashfree'
+                      ? 'e.g. Cashfree Embedded Gateway'
+                      : providerType === 'phonepe'
+                      ? 'e.g. PhonePe Production Gateway'
+                      : 'e.g. Bharat AI Sandbox'
+                  }
                   className="w-full border border-gray-700 rounded-xl px-3 py-2 text-sm text-gray-200 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 bg-gray-800"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
@@ -226,7 +256,11 @@ export default function BillingProvidersPage() {
               {/* Merchant ID */}
               <div>
                 <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">
-                  {providerType === 'razorpay'
+                  {providerType === 'cashfree'
+                    ? 'Cashfree Partner Merchant ID (x-partner-merchantid)'
+                    : providerType === 'phonepe'
+                    ? 'PhonePe Merchant ID (MID)'
+                    : providerType === 'razorpay'
                     ? 'Razorpay Key ID'
                     : 'Stripe Account ID / Account Name'}
                 </label>
@@ -234,7 +268,13 @@ export default function BillingProvidersPage() {
                   type="text"
                   required
                   placeholder={
-                    providerType === 'razorpay' ? 'rzp_test_xxxx' : 'acct_xxxx'
+                    providerType === 'cashfree'
+                      ? 'e.g. CF_MERCHANT_12345 or App ID'
+                      : providerType === 'phonepe'
+                      ? 'PGTESTPAYUAT'
+                      : providerType === 'razorpay'
+                      ? 'rzp_test_xxxx'
+                      : 'acct_xxxx'
                   }
                   className="w-full border border-gray-700 rounded-xl px-3 py-2 text-sm text-gray-200 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 bg-gray-800"
                   value={merchantId}
@@ -245,7 +285,11 @@ export default function BillingProvidersPage() {
               {/* API Key */}
               <div>
                 <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">
-                  {providerType === 'razorpay'
+                  {providerType === 'cashfree'
+                    ? 'Cashfree Partner API Key (x-partner-apikey)'
+                    : providerType === 'phonepe'
+                    ? 'PhonePe Salt Index'
+                    : providerType === 'razorpay'
                     ? 'Razorpay Key ID (Same as Key ID)'
                     : 'Stripe Publishable Key'}
                 </label>
@@ -253,7 +297,13 @@ export default function BillingProvidersPage() {
                   <input
                     type={showApiKey ? 'text' : 'password'}
                     required
-                    placeholder="pk_test_xxxx"
+                    placeholder={
+                      providerType === 'cashfree'
+                        ? 'cfsk_ma_test_xxxx'
+                        : providerType === 'phonepe'
+                        ? '1'
+                        : 'pk_test_xxxx'
+                    }
                     className="w-full border border-gray-700 rounded-xl px-3 py-2 pr-10 text-sm text-gray-200 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 bg-gray-800"
                     value={apiKey}
                     onChange={(e) => setApiKey(e.target.value)}
@@ -276,7 +326,11 @@ export default function BillingProvidersPage() {
               {/* API Secret */}
               <div>
                 <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">
-                  {providerType === 'razorpay'
+                  {providerType === 'cashfree'
+                    ? 'Cashfree Secret Key (or Partner Secret)'
+                    : providerType === 'phonepe'
+                    ? 'PhonePe Salt Key (Secret)'
+                    : providerType === 'razorpay'
                     ? 'Key Secret'
                     : 'Stripe Secret Key (sk_test)'}
                 </label>
@@ -285,7 +339,11 @@ export default function BillingProvidersPage() {
                     type={showApiSecret ? 'text' : 'password'}
                     required
                     placeholder={
-                      providerType === 'razorpay'
+                      providerType === 'cashfree'
+                        ? 'cfsecret_xxxx'
+                        : providerType === 'phonepe'
+                        ? '099eb0cd-02cf-4e2a-8aca-3e6c6aff0399'
+                        : providerType === 'razorpay'
                         ? 'secret_xxxx'
                         : 'sk_test_xxxx'
                     }
@@ -311,13 +369,22 @@ export default function BillingProvidersPage() {
               {/* Webhook Secret */}
               <div>
                 <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">
-                  Webhook Signing Secret
+                  {providerType === 'cashfree'
+                    ? 'Cashfree Webhook Secret Key (defaults to Partner API Key)'
+                    : providerType === 'phonepe'
+                    ? 'Webhook Salt Key (Optional - defaults to Salt Key)'
+                    : 'Webhook Signing Secret'}
                 </label>
                 <div className="relative">
                   <input
                     type={showWebhookSecret ? 'text' : 'password'}
-                    required
-                    placeholder="whsec_xxxx"
+                    placeholder={
+                      providerType === 'cashfree'
+                        ? 'cfsk_webhook_xxxx (optional)'
+                        : providerType === 'phonepe'
+                        ? 'Optional custom webhook key'
+                        : 'whsec_xxxx'
+                    }
                     className="w-full border border-gray-700 rounded-xl px-3 py-2 pr-10 text-sm text-gray-200 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 bg-gray-800"
                     value={webhookSecret}
                     onChange={(e) => setWebhookSecret(e.target.value)}
@@ -340,7 +407,7 @@ export default function BillingProvidersPage() {
               {/* Mode Toggle */}
               <label className="flex items-center justify-between p-3 bg-gray-800/50 rounded-xl border border-gray-700 cursor-pointer select-none">
                 <span className="text-xs font-semibold text-gray-300">
-                  Sandbox Test Mode
+                  Sandbox Test Mode (UAT)
                 </span>
                 <input
                   type="checkbox"
@@ -411,6 +478,10 @@ export default function BillingProvidersPage() {
                             className={`px-2.5 py-0.5 text-[10px] font-bold rounded-lg border uppercase ${
                               p.provider === 'stripe'
                                 ? 'bg-purple-900/30 text-purple-400 border-purple-800'
+                                : p.provider === 'phonepe'
+                                ? 'bg-violet-900/30 text-violet-300 border-violet-700'
+                                : p.provider === 'cashfree'
+                                ? 'bg-amber-900/30 text-amber-300 border-amber-700'
                                 : 'bg-blue-900/30 text-blue-400 border-blue-800'
                             }`}
                           >
@@ -459,8 +530,59 @@ export default function BillingProvidersPage() {
                 Gateway Webhook Integration
               </h3>
               <p className="text-xs text-gray-500 mt-0.5">
-                Copy these callback urls to your payment provider dashboard keys
-                settings.
+                Copy these callback URLs to your payment provider dashboard keys settings.
+              </p>
+            </div>
+
+            {/* Cashfree Box */}
+            <div className="p-4 bg-gray-950/30 border border-amber-900/50 rounded-xl space-y-3">
+              <div className="flex justify-between items-center gap-4">
+                <span className="text-xs font-bold text-amber-400 uppercase tracking-wider flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-amber-500" />
+                  Cashfree Webhook (Embedded / Partner PG)
+                </span>
+                <button
+                  onClick={() => copyWebhookToClipboard('cashfree')}
+                  className="px-3 py-1.5 bg-amber-800 hover:bg-amber-900 text-white text-xs font-semibold rounded-xl flex items-center gap-1 shadow-sm transition-all"
+                >
+                  <Copy className="w-3.5 h-3.5 text-white" />
+                  <span>
+                    {copiedUrl === 'cashfree' ? 'Copied ✓' : 'Copy URL'}
+                  </span>
+                </button>
+              </div>
+              <div className="bg-gray-800 border border-gray-700 p-2.5 rounded-xl font-mono text-xs text-gray-400 break-all select-all">
+                {getWebhookUrl('cashfree')}
+              </div>
+              <p className="text-[10px] text-gray-500 leading-relaxed">
+                <strong>Cashfree Partner Dashboard configuration</strong>: Add under <strong>Developers &gt; Webhooks</strong>.
+                Cashfree sends JSON with <code>x-webhook-timestamp</code> and <code>x-webhook-signature</code> HMAC-SHA256 headers. Supports <code>PAYMENT_SUCCESS_WEBHOOK</code>, <code>PAYMENT_FAILED_WEBHOOK</code>, and <code>USER_DROPPED</code> events.
+              </p>
+            </div>
+
+            {/* PhonePe Box */}
+            <div className="p-4 bg-gray-950/30 border border-violet-900/50 rounded-xl space-y-3">
+              <div className="flex justify-between items-center gap-4">
+                <span className="text-xs font-bold text-violet-400 uppercase tracking-wider flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-violet-500" />
+                  PhonePe Webhook (S2S Callback URL)
+                </span>
+                <button
+                  onClick={() => copyWebhookToClipboard('phonepe')}
+                  className="px-3 py-1.5 bg-violet-800 hover:bg-violet-900 text-white text-xs font-semibold rounded-xl flex items-center gap-1 shadow-sm transition-all"
+                >
+                  <Copy className="w-3.5 h-3.5 text-white" />
+                  <span>
+                    {copiedUrl === 'phonepe' ? 'Copied ✓' : 'Copy URL'}
+                  </span>
+                </button>
+              </div>
+              <div className="bg-gray-800 border border-gray-700 p-2.5 rounded-xl font-mono text-xs text-gray-400 break-all select-all">
+                {getWebhookUrl('phonepe')}
+              </div>
+              <p className="text-[10px] text-gray-500 leading-relaxed">
+                <strong>PhonePe Dashboard configuration</strong>: Add as Server-to-Server (S2S) Callback URL.
+                PhonePe sends base64 transaction payloads with <code>X-VERIFY</code> checksum header. Activates tenant plan automatically on payment completion.
               </p>
             </div>
 

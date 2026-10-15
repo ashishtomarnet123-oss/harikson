@@ -74,6 +74,14 @@ export async function processWebhookPayload(provider: string, eventType: string,
     await processRazorpayWebhookPayload(eventType, payload);
     return;
   }
+  if (provider === 'phonepe') {
+    await processPhonePeWebhookPayload(eventType, payload);
+    return;
+  }
+  if (provider === 'cashfree') {
+    await processCashfreeWebhookPayload(eventType, payload);
+    return;
+  }
 
   const dataObject = payload?.data?.object || payload?.object || payload;
 
@@ -157,6 +165,125 @@ async function processRazorpayWebhookPayload(eventType: string, payload: any): P
       await invalidateTenantCache(tenantId);
       logger.info(`🚫 Razorpay webhook processed cancellation for tenant ${tenantId}`);
     }
+  }
+}
+
+/**
+ * PhonePe Server-to-Server Webhook handler:
+ * Decoded payload contains { success, code, data: { merchantTransactionId, transactionId, amount, state, responseCode, paymentInstrument } }
+ */
+async function processPhonePeWebhookPayload(eventType: string, payload: any): Promise<void> {
+  const data = payload?.data || payload;
+  const merchantTransactionId = data?.merchantTransactionId || '';
+  const transactionId = data?.transactionId || merchantTransactionId;
+  const isSuccess =
+    payload?.success &&
+    (data?.state === 'COMPLETED' || data?.responseCode === 'SUCCESS' || eventType === 'PAYMENT_SUCCESS');
+  const amount = data?.amount ? data.amount / 100 : 0;
+
+  // Extract tenantId and planId from merchantTransactionId: TXN_<tenantId>_<planId>_<timestamp>
+  let tenantId: string | null = null;
+  let planId = 'starter';
+  const parts = merchantTransactionId.split('_');
+  if (parts.length >= 4) {
+    tenantId = parts[1];
+    planId = parts[2].toLowerCase();
+  } else if (parts.length === 3) {
+    tenantId = parts[1];
+  }
+
+  if (!tenantId) {
+    logger.warn(`PhonePe webhook missing tenantId in merchantTransactionId (${merchantTransactionId}) - skipping activation`);
+    return;
+  }
+
+  if (isSuccess) {
+    const subRes = await pool.query(
+      `INSERT INTO subscriptions (tenant_id, provider, provider_subscription_id, plan_id, status, current_period_start, current_period_end, amount, currency, created_at, updated_at)
+       VALUES ($1, 'phonepe', $2, $3, 'active', NOW(), NOW() + INTERVAL '30 days', $4, 'INR', NOW(), NOW())
+       ON CONFLICT (provider, provider_subscription_id) DO UPDATE SET status = 'active', updated_at = NOW()
+       RETURNING id`,
+      [tenantId, merchantTransactionId, planId, amount]
+    );
+    const subscriptionId = subRes.rows[0]?.id || null;
+
+    const invoiceNumber = `INV-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}-${String(transactionId).slice(-8).toUpperCase()}`;
+    await pool.query(
+      `INSERT INTO invoices (tenant_id, subscription_id, provider, provider_invoice_id, invoice_number, amount, currency, status, paid_at, created_at, updated_at)
+       VALUES ($1, $2, 'phonepe', $3, $4, $5, 'INR', 'paid', NOW(), NOW(), NOW())
+       ON CONFLICT (provider, provider_invoice_id) DO NOTHING`,
+      [tenantId, subscriptionId, transactionId, invoiceNumber, amount]
+    );
+
+    await pool.query(`UPDATE tenants SET plan = $2, status = 'active', updated_at = NOW() WHERE id = $1`, [tenantId, planId]);
+    await invalidateTenantCache(tenantId);
+    logger.info(`✅ PhonePe webhook processed payment success: Activated plan ${planId} for tenant ${tenantId}`);
+  } else {
+    logger.warn(`PhonePe webhook received non-success state (${data?.state}) for transaction ${merchantTransactionId}`);
+  }
+}
+
+/**
+  * Cashfree webhook handler for Embedded/Partner Payment Gateway events.
+  * Handles PAYMENT_SUCCESS_WEBHOOK, PAYMENT_FAILED_WEBHOOK, USER_DROPPED, etc.
+  */
+async function processCashfreeWebhookPayload(eventType: string, payload: any): Promise<void> {
+  const data = payload?.data || {};
+  const order = data.order || {};
+  const payment = data.payment || {};
+
+  const orderId = order.order_id || payload.orderId || ('cf_' + Date.now());
+  const cfPaymentId = payment.cf_payment_id || order.cf_order_id || orderId;
+  const amount = Number(order.order_amount || payment.payment_amount || 0);
+
+  const isSuccess =
+    eventType === 'PAYMENT_SUCCESS_WEBHOOK' ||
+    payment.payment_status === 'SUCCESS' ||
+    order.order_status === 'PAID';
+
+  let tenantId = order.order_tags?.tenant_id || payload.tenantId;
+  let planId = (order.order_tags?.plan_id || payload.planId || 'starter').toLowerCase();
+
+  // If tenantId was not in order_tags, search existing subscriptions or invoices for this orderId
+  if (!tenantId) {
+    const existingSub = await pool.query(
+      `SELECT tenant_id, plan_id FROM subscriptions WHERE provider = 'cashfree' AND provider_subscription_id = $1`,
+      [orderId]
+    ).catch(() => ({ rows: [] }));
+    if (existingSub.rows.length > 0) {
+      tenantId = existingSub.rows[0].tenant_id;
+      planId = existingSub.rows[0].plan_id;
+    }
+  }
+
+  if (!tenantId) {
+    logger.warn(`Cashfree webhook missing tenantId for order ${orderId} - skipping activation`);
+    return;
+  }
+
+  if (isSuccess) {
+    const subRes = await pool.query(
+      `INSERT INTO subscriptions (tenant_id, provider, provider_subscription_id, plan_id, status, current_period_start, current_period_end, amount, currency, created_at, updated_at)
+       VALUES ($1, 'cashfree', $2, $3, 'active', NOW(), NOW() + INTERVAL '30 days', $4, 'INR', NOW(), NOW())
+       ON CONFLICT (provider, provider_subscription_id) DO UPDATE SET status = 'active', updated_at = NOW()
+       RETURNING id`,
+      [tenantId, orderId, planId, amount]
+    );
+    const subscriptionId = subRes.rows[0]?.id || null;
+
+    const invoiceNumber = `INV-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}-${String(orderId).slice(-8).toUpperCase()}`;
+    await pool.query(
+      `INSERT INTO invoices (tenant_id, subscription_id, provider, provider_invoice_id, invoice_number, amount, currency, status, paid_at, created_at, updated_at)
+       VALUES ($1, $2, 'cashfree', $3, $4, $5, 'INR', 'paid', NOW(), NOW(), NOW())
+       ON CONFLICT (provider, provider_invoice_id) DO NOTHING`,
+      [tenantId, subscriptionId, cfPaymentId, invoiceNumber, amount]
+    );
+
+    await pool.query(`UPDATE tenants SET plan = $2, status = 'active', updated_at = NOW() WHERE id = $1`, [tenantId, planId]);
+    await invalidateTenantCache(tenantId);
+    logger.info(`✅ Cashfree webhook processed payment success: Activated plan ${planId} for tenant ${tenantId}`);
+  } else {
+    logger.warn(`Cashfree webhook received non-success event (${eventType}) for order ${orderId}`);
   }
 }
 

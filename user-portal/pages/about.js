@@ -1,10 +1,28 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Head from 'next/head';
 import Link from 'next/link';
+import { Menu, X } from 'lucide-react';
 import FooterSection from '../components/FooterSection';
 
 export default function AboutPage() {
   const [activeFaq, setActiveFaq] = useState(null);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  useEffect(() => {
+    if (mobileMenuOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') setMobileMenuOpen(false);
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.body.style.overflow = '';
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [mobileMenuOpen]);
 
   const toggleFaq = (idx) => {
     setActiveFaq(activeFaq === idx ? null : idx);
@@ -26,6 +44,165 @@ export default function AboutPage() {
         <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
       </Head>
 
+      <style jsx global>{`
+        *, *::before, *::after {
+          box-sizing: border-box;
+        }
+        .desktop-nav {
+          display: flex;
+        }
+        .desktop-ctas {
+          display: flex;
+        }
+        .about-mobile-menu-btn {
+          display: none;
+          background: #ffffff;
+          border: 1px solid #e2e8f0;
+          color: #0f172a;
+          border-radius: 8px;
+          padding: 8px;
+          cursor: pointer;
+          align-items: center;
+          justify-content: center;
+          min-width: 44px;
+          min-height: 44px;
+        }
+        .about-grid-col {
+          display: grid;
+          grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr));
+          gap: 28px;
+        }
+
+        /* Mobile Drawer Styles */
+        .mobile-drawer-overlay {
+          position: fixed;
+          inset: 0;
+          background: rgba(15, 23, 42, 0.6);
+          backdrop-filter: blur(4px);
+          z-index: 99999;
+          display: flex;
+          justify-content: flex-end;
+        }
+        .mobile-drawer {
+          width: 85%;
+          max-width: 340px;
+          height: 100%;
+          background: #ffffff;
+          box-shadow: -10px 0 25px -5px rgba(0,0,0,0.1);
+          display: flex;
+          flex-direction: column;
+          animation: slideInRight 0.25s ease-out;
+          overflow-y: auto;
+        }
+        @keyframes slideInRight {
+          from { transform: translateX(100%); }
+          to { transform: translateX(0); }
+        }
+        .mobile-drawer-header {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          padding: 18px 20px;
+          border-bottom: 1px solid #e2e8f0;
+        }
+        .mobile-drawer-close {
+          background: #f1f5f9;
+          border: none;
+          border-radius: 8px;
+          padding: 8px;
+          color: #64748b;
+          cursor: pointer;
+          min-width: 44px;
+          min-height: 44px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        }
+        .mobile-drawer-body {
+          flex: 1;
+          padding: 24px 20px;
+        }
+        .mobile-drawer-group-title {
+          font-size: 0.72rem;
+          font-weight: 700;
+          color: #94a3b8;
+          text-transform: uppercase;
+          letter-spacing: 0.05em;
+          margin-bottom: 12px;
+        }
+        .mobile-drawer-links {
+          list-style: none;
+          padding: 0;
+          margin: 0;
+          display: flex;
+          flex-direction: column;
+          gap: 16px;
+        }
+        .mobile-drawer-links a {
+          color: #0f172a;
+          text-decoration: none;
+          font-size: 1.05rem;
+          font-weight: 600;
+          display: block;
+          padding: 6px 0;
+        }
+        .mobile-drawer-footer {
+          padding: 20px;
+          border-top: 1px solid #e2e8f0;
+          display: flex;
+          flex-direction: column;
+          gap: 12px;
+          background: #f8fafc;
+        }
+        .btn-mobile-primary {
+          background: #2563eb;
+          color: #ffffff !important;
+          padding: 12px 18px;
+          border-radius: 10px;
+          font-size: 0.95rem;
+          font-weight: 700;
+          text-align: center;
+          text-decoration: none;
+          min-height: 48px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        }
+        .btn-mobile-secondary {
+          background: #ffffff;
+          border: 1px solid #cbd5e1;
+          color: #0f172a !important;
+          padding: 12px 18px;
+          border-radius: 10px;
+          font-size: 0.95rem;
+          font-weight: 600;
+          text-align: center;
+          text-decoration: none;
+          min-height: 48px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        }
+
+        @media (max-width: 1024px) {
+          .desktop-nav {
+            display: none !important;
+          }
+          .desktop-ctas {
+            display: none !important;
+          }
+          .about-mobile-menu-btn {
+            display: inline-flex !important;
+          }
+        }
+
+        @media (max-width: 768px) {
+          .about-grid-col {
+            grid-template-columns: 1fr !important;
+          }
+        }
+      `}</style>
+
       {/* HEADER */}
       <header className="header" style={{ position: 'sticky', top: 0, zIndex: 100, background: '#ffffff', borderBottom: '1px solid #e2e8f0', padding: '14px 0' }}>
         <div className="container" style={{ maxWidth: '1360px', margin: '0 auto', padding: '0 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -36,7 +213,7 @@ export default function AboutPage() {
             </span>
           </Link>
 
-          <nav>
+          <nav className="desktop-nav">
             <ul style={{ display: 'flex', gap: '28px', listStyle: 'none', fontSize: '0.92rem', fontWeight: '600', color: '#475569' }}>
               <li><Link href="/neuravolt" style={{ textDecoration: 'none', color: '#475569' }}>Platform</Link></li>
               <li><Link href="/neuravolt#solutions" style={{ textDecoration: 'none', color: '#475569' }}>Solutions</Link></li>
@@ -45,19 +222,65 @@ export default function AboutPage() {
             </ul>
           </nav>
 
-          <div style={{ display: 'flex', gap: '12px' }}>
+          <div className="desktop-ctas" style={{ display: 'flex', gap: '12px' }}>
             <Link href="/login" style={{ padding: '8px 16px', borderRadius: '8px', border: '1px solid #cbd5e1', textDecoration: 'none', color: '#0f172a', fontSize: '0.88rem', fontWeight: '600' }}>Book a Demo</Link>
             <Link href="/signup" style={{ padding: '8px 16px', borderRadius: '8px', background: '#2563eb', color: '#ffffff', textDecoration: 'none', fontSize: '0.88rem', fontWeight: '600' }}>Start Free Trial</Link>
           </div>
+
+          <button
+            className="about-mobile-menu-btn"
+            onClick={() => setMobileMenuOpen(true)}
+            aria-label="Toggle navigation menu"
+            aria-expanded={mobileMenuOpen}
+          >
+            <Menu size={22} />
+          </button>
         </div>
       </header>
+
+      {/* MOBILE DRAWER */}
+      {mobileMenuOpen && (
+        <div className="mobile-drawer-overlay" onClick={() => setMobileMenuOpen(false)}>
+          <div className="mobile-drawer" onClick={(e) => e.stopPropagation()}>
+            <div className="mobile-drawer-header">
+              <Link href="/" className="logo-container" onClick={() => setMobileMenuOpen(false)} style={{ display: 'flex', alignItems: 'center', gap: '8px', textDecoration: 'none' }}>
+                <img src="/assets/xarwiz-logo.png" alt="Xarwiz" style={{ height: '24px', width: 'auto' }} />
+              </Link>
+              <button
+                className="mobile-drawer-close"
+                onClick={() => setMobileMenuOpen(false)}
+                aria-label="Close navigation menu"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <div className="mobile-drawer-body">
+              <div className="mobile-drawer-group-title">Navigation</div>
+              <ul className="mobile-drawer-links">
+                <li><Link href="/neuravolt" onClick={() => setMobileMenuOpen(false)}>Platform</Link></li>
+                <li><Link href="/neuravolt#solutions" onClick={() => setMobileMenuOpen(false)}>Solutions</Link></li>
+                <li><Link href="/neuravolt#pricing" onClick={() => setMobileMenuOpen(false)}>Pricing</Link></li>
+                <li><Link href="/about" onClick={() => setMobileMenuOpen(false)} style={{ color: '#2563EB', fontWeight: 700 }}>About Xarwiz</Link></li>
+                <li><Link href="/privacy" onClick={() => setMobileMenuOpen(false)}>Privacy &amp; DPDP</Link></li>
+                <li><Link href="/security-policy" onClick={() => setMobileMenuOpen(false)}>Security Policy</Link></li>
+              </ul>
+            </div>
+
+            <div className="mobile-drawer-footer">
+              <Link href="/login" className="btn-mobile-secondary" onClick={() => setMobileMenuOpen(false)}>Book a Demo</Link>
+              <Link href="/signup" className="btn-mobile-primary" onClick={() => setMobileMenuOpen(false)}>Start Free Trial</Link>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* HERO SECTION */}
       <section style={{
         position: 'relative',
         background: 'radial-gradient(circle at 50% 0%, #1e293b 0%, #0f172a 70%)',
         color: '#ffffff',
-        padding: '100px 20px 120px 20px',
+        padding: 'clamp(60px, 8vw, 100px) 16px clamp(60px, 10vw, 120px) 16px',
         textAlign: 'center',
         overflow: 'hidden'
       }}>
@@ -66,40 +289,40 @@ export default function AboutPage() {
             India's AI Business Operating System
           </div>
 
-          <h1 style={{ fontFamily: "'Outfit', sans-serif", fontSize: '3.4rem', fontWeight: 800, lineHeight: 1.15, marginBottom: '20px', letterSpacing: '-0.03em' }}>
+          <h1 style={{ fontFamily: "'Outfit', sans-serif", fontSize: 'clamp(2rem, 5.5vw, 3.4rem)', fontWeight: 800, lineHeight: 1.15, marginBottom: '20px', letterSpacing: '-0.03em' }}>
             Everything Your Business Needs.<br />
             <span style={{ background: 'linear-gradient(90deg, #60a5fa, #3b82f6)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>One Intelligent Platform.</span>
           </h1>
 
-          <p style={{ fontSize: '1.2rem', color: '#94a3b8', lineHeight: 1.65, maxWidth: '840px', margin: '0 auto 36px auto' }}>
+          <p style={{ fontSize: 'clamp(1rem, 2.5vw, 1.2rem)', color: '#94a3b8', lineHeight: 1.65, maxWidth: '840px', margin: '0 auto 36px auto' }}>
             Running a business shouldn't mean juggling dozens of disconnected tools. Xarwiz brings everything together from AI agents and workflow automation to knowledge management, collaboration, cloud services, and enterprise security so your team can focus on building, growing, and delivering better results.
           </p>
 
           <div style={{ display: 'flex', gap: '16px', justifyContent: 'center', flexWrap: 'wrap' }}>
-            <Link href="/signup" style={{ padding: '14px 32px', fontSize: '1rem', background: '#2563eb', color: '#ffffff', borderRadius: '8px', textDecoration: 'none', fontWeight: '700' }}>Start Free Trial</Link>
-            <Link href="/login" style={{ padding: '14px 32px', fontSize: '1rem', border: '1px solid rgba(255,255,255,0.4)', color: '#0f172a', background: '#ffffff', borderRadius: '8px', textDecoration: 'none', fontWeight: '600' }}>Book a Demo</Link>
+            <Link href="/signup" style={{ padding: '14px 32px', fontSize: '1rem', background: '#2563eb', color: '#ffffff', borderRadius: '8px', textDecoration: 'none', fontWeight: '700', minHeight: '48px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>Start Free Trial</Link>
+            <Link href="/login" style={{ padding: '14px 32px', fontSize: '1rem', border: '1px solid rgba(255,255,255,0.4)', color: '#0f172a', background: '#ffffff', borderRadius: '8px', textDecoration: 'none', fontWeight: '600', minHeight: '48px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>Book a Demo</Link>
           </div>
         </div>
       </section>
 
       {/* SECTION 2 — WHO WE ARE */}
-      <section style={{ padding: '90px 20px', background: '#ffffff' }}>
+      <section style={{ padding: 'clamp(50px, 8vw, 90px) 16px', background: '#ffffff' }}>
         <div style={{ maxWidth: '1140px', margin: '0 auto' }}>
           <div style={{ textAlign: 'center' }}>
             <div style={{ display: 'inline-flex', padding: '4px 14px', borderRadius: '20px', background: '#eff6ff', color: '#2563eb', fontSize: '0.82rem', fontWeight: '700', marginBottom: '16px' }}>Who We Are</div>
-            <h2 style={{ fontFamily: "'Outfit', sans-serif", fontSize: '2.5rem', fontWeight: 800, color: '#0f172a', marginBottom: '16px' }}>Building the Future of AI Powered Business</h2>
-            <p style={{ fontSize: '1.1rem', color: '#475569', maxWidth: '780px', margin: '0 auto 40px auto', lineHeight: 1.65 }}>Technology has transformed the way businesses operate, but the software they rely on is still fragmented. Teams switch between countless applications every day: one for communication, another for documents, another for automation, another for analytics, and yet another for AI. Instead of making work simpler, technology often creates more complexity.</p>
+            <h2 style={{ fontFamily: "'Outfit', sans-serif", fontSize: 'clamp(1.8rem, 4vw, 2.5rem)', fontWeight: 800, color: '#0f172a', marginBottom: '16px' }}>Building the Future of AI Powered Business</h2>
+            <p style={{ fontSize: '1.05rem', color: '#475569', maxWidth: '780px', margin: '0 auto 40px auto', lineHeight: 1.65 }}>Technology has transformed the way businesses operate, but the software they rely on is still fragmented. Teams switch between countless applications every day: one for communication, another for documents, another for automation, another for analytics, and yet another for AI. Instead of making work simpler, technology often creates more complexity.</p>
           </div>
 
-          <div style={{ background: 'linear-gradient(135deg, #ffffff 0%, #f8fafc 100%)', border: '1px solid rgba(37,99,235,0.18)', borderRadius: '20px', padding: '40px', margin: '32px 0 48px 0', boxShadow: '0 10px 30px rgba(0,0,0,0.03)', fontSize: '1.05rem', lineHeight: 1.75, color: '#334155' }}>
+          <div style={{ background: 'linear-gradient(135deg, #ffffff 0%, #f8fafc 100%)', border: '1px solid rgba(37,99,235,0.18)', borderRadius: '20px', padding: 'clamp(20px, 4vw, 40px)', margin: '32px 0 48px 0', boxShadow: '0 10px 30px rgba(0,0,0,0.03)', fontSize: '1.02rem', lineHeight: 1.75, color: '#334155' }}>
             <h3 style={{ marginBottom: '16px', fontWeight: 800, color: '#0f172a', fontSize: '1.35rem', letterSpacing: '-0.01em' }}>Xarwiz was founded to change that.</h3>
             <p style={{ marginBottom: '16px' }}>We are building an AI-native business operating system that brings together everything modern organizations need to work smarter. From intelligent AI agents and workflow automation to knowledge management, cloud infrastructure, collaboration, and enterprise grade security, Xarwiz unifies essential business capabilities into one intelligent platform.</p>
             <p style={{ marginBottom: '16px', fontWeight: 600, color: '#2563eb' }}>Rather than adding another tool to your workflow, Xarwiz becomes the platform that connects your workflows.</p>
             <p style={{ margin: 0 }}>Whether you're a startup building your first product, a growing agency managing multiple clients, or an enterprise looking to modernize operations, Xarwiz helps your teams automate repetitive work, organize knowledge, collaborate efficiently, and make faster decisions with AI.</p>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))', gap: '28px' }}>
-            <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '16px', padding: '32px' }}>
+          <div className="about-grid-col">
+            <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '16px', padding: 'clamp(20px, 3.5vw, 32px)' }}>
               <h3 style={{ fontSize: '1.3rem', fontWeight: 700, color: '#0f172a', marginBottom: '12px' }}>Who We Build For</h3>
               <p style={{ color: '#64748b', fontSize: '0.95rem', marginBottom: '20px' }}>Xarwiz is designed for organizations that want to spend less time managing software and more time creating value.</p>
               
@@ -131,7 +354,7 @@ export default function AboutPage() {
               </div>
             </div>
 
-            <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '16px', padding: '32px' }}>
+            <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '16px', padding: 'clamp(20px, 3.5vw, 32px)' }}>
               <h3 style={{ fontSize: '1.3rem', fontWeight: 700, color: '#0f172a', marginBottom: '12px' }}>What Makes Xarwiz Different</h3>
               <p style={{ color: '#64748b', fontSize: '0.95rem', marginBottom: '16px' }}>Most software solves a single problem. <strong>Xarwiz solves how businesses work as a whole.</strong></p>
               <p style={{ color: '#475569', fontSize: '0.93rem', lineHeight: 1.65, marginBottom: '20px' }}>Instead of offering isolated features, we combine AI, automation, collaboration, cloud services, knowledge management, and enterprise infrastructure into one connected ecosystem where every product works together seamlessly.</p>
@@ -144,20 +367,20 @@ export default function AboutPage() {
       </section>
 
       {/* SECTION 3 — WHY XARWIZ EXISTS */}
-      <section style={{ padding: '100px 20px', background: '#fafafc', borderTop: '1px solid #e2e8f0', borderBottom: '1px solid #e2e8f0' }}>
+      <section style={{ padding: 'clamp(50px, 8vw, 90px) 16px', background: '#fafafc', borderTop: '1px solid #e2e8f0', borderBottom: '1px solid #e2e8f0' }}>
         <div style={{ maxWidth: '1140px', margin: '0 auto' }}>
           <div style={{ textAlign: 'center' }}>
             <div style={{ display: 'inline-flex', padding: '4px 14px', borderRadius: '20px', background: '#eff6ff', color: '#2563eb', fontSize: '0.82rem', fontWeight: '700', marginBottom: '16px' }}>Why Xarwiz Exists</div>
-            <h2 style={{ fontFamily: "'Outfit', sans-serif", fontSize: '2.5rem', fontWeight: 800, color: '#0f172a', marginBottom: '16px' }}>The Way We Work Has Changed. Business Software Hasn't.</h2>
-            <p style={{ fontSize: '1.1rem', color: '#475569', maxWidth: '780px', margin: '0 auto 40px auto', lineHeight: 1.65 }}>Businesses today have access to more software than ever before, yet productivity continues to suffer.</p>
+            <h2 style={{ fontFamily: "'Outfit', sans-serif", fontSize: 'clamp(1.8rem, 4vw, 2.5rem)', fontWeight: 800, color: '#0f172a', marginBottom: '16px' }}>The Way We Work Has Changed. Business Software Hasn't.</h2>
+            <p style={{ fontSize: '1.05rem', color: '#475569', maxWidth: '780px', margin: '0 auto 40px auto', lineHeight: 1.65 }}>Businesses today have access to more software than ever before, yet productivity continues to suffer.</p>
           </div>
 
           {/* PURE CSS VECTOR COMPARISON MOCKUP */}
-          <div style={{ margin: '40px 0 50px 0' }}>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '24px' }}>
+          <div style={{ margin: '30px 0 40px 0' }}>
+            <div className="about-grid-col" style={{ gap: '24px' }}>
               
               {/* BEFORE: FRAGMENTED CHAOS */}
-              <div style={{ background: '#ffffff', border: '1px solid #fee2e2', borderRadius: '20px', padding: '32px', position: 'relative', boxShadow: '0 10px 25px -5px rgba(239, 68, 68, 0.05)' }}>
+              <div style={{ background: '#ffffff', border: '1px solid #fee2e2', borderRadius: '20px', padding: 'clamp(20px, 3.5vw, 32px)', position: 'relative', boxShadow: '0 10px 25px -5px rgba(239, 68, 68, 0.05)' }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px' }}>
                   <span style={{ fontSize: '0.78rem', fontWeight: 800, color: '#dc2626', background: '#fef2f2', padding: '4px 12px', borderRadius: '20px', border: '1px solid #fecaca', textTransform: 'uppercase', letterSpacing: '0.04em' }}>The Old Way</span>
                   <span style={{ fontSize: '0.85rem', color: '#ef4444', fontWeight: 600 }}>10+ Disconnected Tools</span>
@@ -177,7 +400,7 @@ export default function AboutPage() {
               </div>
 
               {/* AFTER: XARWIZ UNIFIED AI OS */}
-              <div style={{ background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 100%)', border: '1px solid #3b82f6', borderRadius: '20px', padding: '32px', position: 'relative', color: '#ffffff', boxShadow: '0 20px 40px -10px rgba(37, 99, 235, 0.25)' }}>
+              <div style={{ background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 100%)', border: '1px solid #3b82f6', borderRadius: '20px', padding: 'clamp(20px, 3.5vw, 32px)', position: 'relative', color: '#ffffff', boxShadow: '0 20px 40px -10px rgba(37, 99, 235, 0.25)' }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px' }}>
                   <span style={{ fontSize: '0.78rem', fontWeight: 800, color: '#60a5fa', background: 'rgba(37, 99, 235, 0.2)', padding: '4px 12px', borderRadius: '20px', border: '1px solid rgba(59, 130, 246, 0.4)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>The Xarwiz Way</span>
                   <span style={{ fontSize: '0.85rem', color: '#38bdf8', fontWeight: 600 }}>One Unified AI OS</span>
@@ -198,19 +421,19 @@ export default function AboutPage() {
           </div>
 
           <div style={{ fontSize: '1.05rem', lineHeight: 1.75, color: '#334155', maxWidth: '960px', margin: '0 auto' }}>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '28px', marginBottom: '36px' }}>
-              <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '16px', padding: '28px', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.03)' }}>
+            <div className="about-grid-col" style={{ gap: '28px', marginBottom: '36px' }}>
+              <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '16px', padding: 'clamp(20px, 3vw, 28px)', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.03)' }}>
                 <div style={{ fontWeight: 700, color: '#0f172a', fontSize: '1.15rem', marginBottom: '10px' }}>Constant App Toggling</div>
                 <p style={{ fontSize: '0.95rem', color: '#64748b', margin: 0, lineHeight: 1.6 }}>Teams spend valuable hours switching between applications, copying information, managing repetitive tasks, and trying to keep disconnected systems synchronized. Instead of helping businesses move faster, technology often slows them down.</p>
               </div>
 
-              <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '16px', padding: '28px', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.03)' }}>
+              <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '16px', padding: 'clamp(20px, 3vw, 28px)', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.03)' }}>
                 <div style={{ fontWeight: 700, color: '#0f172a', fontSize: '1.15rem', marginBottom: '10px' }}>Fragmented Customer Journeys</div>
                 <p style={{ fontSize: '0.95rem', color: '#64748b', margin: 0, lineHeight: 1.6 }}>A simple customer journey may involve a CRM, project management software, communication tools, cloud storage, spreadsheets, AI assistants, email platforms, analytics dashboards, and automation software. Each tool stores information separately and creates another workflow to manage.</p>
               </div>
             </div>
 
-            <div style={{ background: 'linear-gradient(135deg, #fef2f2 0%, #fff5f5 100%)', border: '1px solid #fecaca', borderLeft: '5px solid #ef4444', borderRadius: '16px', padding: '28px 36px', margin: '32px 0' }}>
+            <div style={{ background: 'linear-gradient(135deg, #fef2f2 0%, #fff5f5 100%)', border: '1px solid #fecaca', borderLeft: '5px solid #ef4444', borderRadius: '16px', padding: 'clamp(20px, 3vw, 28px) clamp(20px, 3.5vw, 36px)', margin: '32px 0' }}>
               <strong style={{ color: '#991b1b', fontSize: '1.15rem', display: 'block', marginBottom: '8px' }}>The Real Cost of Disconnected SaaS:</strong>
               <div style={{ color: '#7f1d1d', fontSize: '1.02rem', fontWeight: 500 }}>Scattered knowledge, duplicated effort, soaring software subscriptions, and unnecessary operational complexity across every department.</div>
             </div>
@@ -218,10 +441,10 @@ export default function AboutPage() {
             <p style={{ marginBottom: '24px' }}>Artificial intelligence has introduced incredible new possibilities, but most AI products exist as standalone chat interfaces with little connection to the systems businesses actually use every day. Businesses don't need another AI chatbot. They need AI that understands their data, connects their tools, automates their processes, and works alongside their teams.</p>
 
             {/* THE XARWIZ SOLUTION GLOW BOX */}
-            <div style={{ background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 100%)', color: '#ffffff', borderRadius: '20px', padding: '40px', marginTop: '36px', border: '1px solid #334155', boxShadow: '0 20px 30px rgba(15,23,42,0.15)', textAlign: 'center' }}>
-              <h3 style={{ fontSize: '1.6rem', fontWeight: 800, color: '#ffffff', marginBottom: '14px', letterSpacing: '-0.02em' }}>That's why we created Xarwiz.</h3>
-              <p style={{ fontSize: '1.08rem', color: '#cbd5e1', maxWidth: '800px', margin: '0 auto 24px auto', lineHeight: 1.7 }}>Our goal isn't simply to build another software platform. Our goal is to simplify the way businesses operate by bringing intelligence, automation, collaboration, and knowledge into one unified ecosystem.</p>
-              <div style={{ display: 'inline-block', background: 'rgba(37,99,235,0.25)', border: '1px solid rgba(59,130,246,0.4)', padding: '14px 28px', borderRadius: '12px', fontWeight: 700, color: '#60a5fa', fontSize: '1.05rem' }}>
+            <div style={{ background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 100%)', color: '#ffffff', borderRadius: '20px', padding: 'clamp(24px, 4vw, 40px)', marginTop: '36px', border: '1px solid #334155', boxShadow: '0 20px 30px rgba(15,23,42,0.15)', textAlign: 'center' }}>
+              <h3 style={{ fontSize: 'clamp(1.3rem, 3.5vw, 1.6rem)', fontWeight: 800, color: '#ffffff', marginBottom: '14px', letterSpacing: '-0.02em' }}>That's why we created Xarwiz.</h3>
+              <p style={{ fontSize: '1.05rem', color: '#cbd5e1', maxWidth: '800px', margin: '0 auto 24px auto', lineHeight: 1.7 }}>Our goal isn't simply to build another software platform. Our goal is to simplify the way businesses operate by bringing intelligence, automation, collaboration, and knowledge into one unified ecosystem.</p>
+              <div style={{ display: 'inline-block', background: 'rgba(37,99,235,0.25)', border: '1px solid rgba(59,130,246,0.4)', padding: '12px 24px', borderRadius: '12px', fontWeight: 700, color: '#60a5fa', fontSize: '1rem', maxWidth: '100%', boxSizing: 'border-box' }}>
                 When everything works together, teams move faster, decisions become smarter, and businesses focus on growth.
               </div>
             </div>
@@ -231,44 +454,44 @@ export default function AboutPage() {
       </section>
 
       {/* SECTION 4 — OUR MISSION */}
-      <section style={{ padding: '90px 20px', background: '#ffffff' }}>
+      <section style={{ padding: 'clamp(50px, 8vw, 90px) 16px', background: '#ffffff' }}>
         <div style={{ maxWidth: '900px', margin: '0 auto', textAlign: 'center' }}>
           <div style={{ display: 'inline-flex', padding: '4px 14px', borderRadius: '20px', background: '#eff6ff', color: '#2563eb', fontSize: '0.82rem', fontWeight: '700', marginBottom: '16px' }}>Our Mission</div>
-          <h2 style={{ fontFamily: "'Outfit', sans-serif", fontSize: '2.8rem', fontWeight: 800, color: '#0f172a', lineHeight: 1.25, marginBottom: '24px' }}>
+          <h2 style={{ fontFamily: "'Outfit', sans-serif", fontSize: 'clamp(1.6rem, 4.5vw, 2.8rem)', fontWeight: 800, color: '#0f172a', lineHeight: 1.25, marginBottom: '24px' }}>
             "Our mission is to make artificial intelligence practical, accessible, and genuinely useful for every business."
           </h2>
-          <p style={{ fontSize: '1.12rem', color: '#475569', lineHeight: 1.7, marginBottom: '24px' }}>
+          <p style={{ fontSize: '1.08rem', color: '#475569', lineHeight: 1.7, marginBottom: '24px' }}>
             We believe AI should do more than answer questions. It should reduce repetitive work, simplify complex processes, improve collaboration, and help people make better decisions every day. At Xarwiz, we are building technology that empowers people—not replaces them.
           </p>
-          <div style={{ background: '#eff6ff', borderRadius: '16px', padding: '24px', fontSize: '1.05rem', color: '#1e40af', fontWeight: 600, maxWidth: '720px', margin: '0 auto' }}>
+          <div style={{ background: '#eff6ff', borderRadius: '16px', padding: '20px', fontSize: '1rem', color: '#1e40af', fontWeight: 600, maxWidth: '720px', margin: '0 auto' }}>
             Guided by a simple principle: Technology should remove friction, not create it.
           </div>
         </div>
       </section>
 
       {/* SECTION 5 — OUR VISION */}
-      <section style={{ padding: '90px 20px', background: '#0f172a', color: '#ffffff' }}>
+      <section style={{ padding: 'clamp(50px, 8vw, 90px) 16px', background: '#0f172a', color: '#ffffff' }}>
         <div style={{ maxWidth: '1140px', margin: '0 auto' }}>
-          <div style={{ textAlign: 'center', marginBottom: '60px' }}>
+          <div style={{ textAlign: 'center', marginBottom: '40px' }}>
             <div style={{ display: 'inline-flex', padding: '4px 14px', borderRadius: '20px', background: 'rgba(255,255,255,0.1)', color: '#60a5fa', fontSize: '0.82rem', fontWeight: '700', marginBottom: '16px' }}>The Horizon Ahead</div>
-            <h2 style={{ fontFamily: "'Outfit', sans-serif", fontSize: '2.5rem', fontWeight: 800, color: '#ffffff', marginBottom: '16px' }}>Building the Next Generation Business Operating System</h2>
-            <p style={{ fontSize: '1.1rem', color: '#94a3b8', maxWidth: '780px', margin: '0 auto' }}>We don't see AI as another software category. We believe it will become the foundation of how every business operates.</p>
+            <h2 style={{ fontFamily: "'Outfit', sans-serif", fontSize: 'clamp(1.8rem, 4vw, 2.5rem)', fontWeight: 800, color: '#ffffff', marginBottom: '16px' }}>Building the Next Generation Business Operating System</h2>
+            <p style={{ fontSize: '1.05rem', color: '#94a3b8', maxWidth: '780px', margin: '0 auto' }}>We don't see AI as another software category. We believe it will become the foundation of how every business operates.</p>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '28px' }}>
-            <div style={{ background: '#1e293b', border: '1px solid #334155', borderRadius: '16px', padding: '32px', color: '#ffffff' }}>
+          <div className="about-grid-col">
+            <div style={{ background: '#1e293b', border: '1px solid #334155', borderRadius: '16px', padding: 'clamp(20px, 3.5vw, 32px)', color: '#ffffff' }}>
               <div style={{ fontSize: '0.8rem', fontWeight: 800, color: '#3b82f6', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '12px' }}>Our Five-Year Vision</div>
               <h3 style={{ fontSize: '1.35rem', fontWeight: 700, marginBottom: '12px' }}>Leading Intelligent Automation Platform</h3>
               <p style={{ color: '#94a3b8', fontSize: '0.95rem', lineHeight: 1.65 }}>To become one of the leading AI platforms helping startups, agencies, and businesses automate everyday work through intelligent agents, connected workflows, and enterprise-ready infrastructure.</p>
             </div>
 
-            <div style={{ background: '#1e293b', border: '1px solid #334155', borderRadius: '16px', padding: '32px', color: '#ffffff' }}>
+            <div style={{ background: '#1e293b', border: '1px solid #334155', borderRadius: '16px', padding: 'clamp(20px, 3.5vw, 32px)', color: '#ffffff' }}>
               <div style={{ fontSize: '0.8rem', fontWeight: 800, color: '#3b82f6', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '12px' }}>Our Ten-Year Vision</div>
               <h3 style={{ fontSize: '1.35rem', fontWeight: 700, marginBottom: '12px' }}>Global Unified Operating System</h3>
               <p style={{ color: '#94a3b8', fontSize: '0.95rem', lineHeight: 1.65 }}>To power organizations around the world with an AI operating system where communication, automation, knowledge, cloud infrastructure, and business intelligence work together seamlessly.</p>
             </div>
 
-            <div style={{ background: '#1e293b', border: '1px solid #334155', borderRadius: '16px', padding: '32px', color: '#ffffff' }}>
+            <div style={{ background: '#1e293b', border: '1px solid #334155', borderRadius: '16px', padding: 'clamp(20px, 3.5vw, 32px)', color: '#ffffff' }}>
               <div style={{ fontSize: '0.8rem', fontWeight: 800, color: '#3b82f6', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '12px' }}>Our Long-Term Ambition</div>
               <h3 style={{ fontSize: '1.35rem', fontWeight: 700, marginBottom: '12px' }}>One Single Intelligent Ecosystem</h3>
               <p style={{ color: '#94a3b8', fontSize: '0.95rem', lineHeight: 1.65 }}>Our ambition is to build a platform where businesses no longer need dozens of disconnected applications. We envision a future where every organization has its own intelligent workforce powered by AI—and Xarwiz becomes the platform that makes it possible.</p>
@@ -278,15 +501,15 @@ export default function AboutPage() {
       </section>
 
       {/* SECTION 7 — THE PROBLEM */}
-      <section style={{ padding: '90px 20px', background: '#fafafc', borderTop: '1px solid #e2e8f0' }}>
+      <section style={{ padding: 'clamp(50px, 8vw, 90px) 16px', background: '#fafafc', borderTop: '1px solid #e2e8f0' }}>
         <div style={{ maxWidth: '1140px', margin: '0 auto' }}>
           <div style={{ textAlign: 'center' }}>
             <div style={{ display: 'inline-flex', padding: '4px 14px', borderRadius: '20px', background: '#eff6ff', color: '#2563eb', fontSize: '0.82rem', fontWeight: '700', marginBottom: '16px' }}>The Problem</div>
-            <h2 style={{ fontFamily: "'Outfit', sans-serif", fontSize: '2.5rem', fontWeight: 800, color: '#0f172a', marginBottom: '16px' }}>Modern Businesses Deserve Better Than Disconnected Software</h2>
-            <p style={{ fontSize: '1.1rem', color: '#475569', maxWidth: '780px', margin: '0 auto 40px auto', lineHeight: 1.65 }}>Today's organizations rely on dozens of applications just to complete everyday work. Each department uses different software. Each platform stores information separately. Each subscription adds cost, complexity, and maintenance.</p>
+            <h2 style={{ fontFamily: "'Outfit', sans-serif", fontSize: 'clamp(1.8rem, 4vw, 2.5rem)', fontWeight: 800, color: '#0f172a', marginBottom: '16px' }}>Modern Businesses Deserve Better Than Disconnected Software</h2>
+            <p style={{ fontSize: '1.05rem', color: '#475569', maxWidth: '780px', margin: '0 auto 40px auto', lineHeight: 1.65 }}>Today's organizations rely on dozens of applications just to complete everyday work. Each department uses different software. Each platform stores information separately. Each subscription adds cost, complexity, and maintenance.</p>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '24px', marginTop: '40px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 260px), 1fr))', gap: '24px', marginTop: '30px' }}>
             {[
               { title: "Scattered Information", desc: "Data locked across multiple disconnected platforms." },
               { title: "Constant Context Switching", desc: "Teams losing focus toggling between apps." },
@@ -304,63 +527,63 @@ export default function AboutPage() {
             ))}
           </div>
 
-          <div style={{ background: 'linear-gradient(135deg, #ffffff 0%, #fef2f2 100%)', border: '1px solid #fee2e2', borderLeft: '4px solid #ef4444', borderRadius: '16px', padding: '24px 32px', marginTop: '40px', textAlign: 'center', fontSize: '1.08rem', fontWeight: 700, color: '#991b1b', boxShadow: '0 10px 25px -5px rgba(239, 68, 68, 0.05)' }}>
+          <div style={{ background: 'linear-gradient(135deg, #ffffff 0%, #fef2f2 100%)', border: '1px solid #fee2e2', borderLeft: '4px solid #ef4444', borderRadius: '16px', padding: '20px 24px', marginTop: '30px', textAlign: 'center', fontSize: '1.02rem', fontWeight: 700, color: '#991b1b', boxShadow: '0 10px 25px -5px rgba(239, 68, 68, 0.05)' }}>
             The more tools businesses adopt, the more complicated their operations become. Technology should simplify work, not make it harder.
           </div>
         </div>
       </section>
 
       {/* SECTION 8 — THE XARWIZ SOLUTION */}
-      <section style={{ padding: '90px 20px', background: '#ffffff' }}>
+      <section style={{ padding: 'clamp(50px, 8vw, 90px) 16px', background: '#ffffff' }}>
         <div style={{ maxWidth: '1140px', margin: '0 auto' }}>
           <div style={{ textAlign: 'center' }}>
             <div style={{ display: 'inline-flex', padding: '4px 14px', borderRadius: '20px', background: '#eff6ff', color: '#2563eb', fontSize: '0.82rem', fontWeight: '700', marginBottom: '16px' }}>The Solution</div>
-            <h2 style={{ fontFamily: "'Outfit', sans-serif", fontSize: '2.5rem', fontWeight: 800, color: '#0f172a', marginBottom: '16px' }}>One Platform. Endless Possibilities.</h2>
-            <p style={{ fontSize: '1.1rem', color: '#475569', maxWidth: '780px', margin: '0 auto 40px auto', lineHeight: 1.65 }}>Xarwiz brings together everything businesses need into one connected platform designed for the AI era. Instead of managing separate applications, your team works from a single intelligent workspace where every product, workflow, and piece of information is connected.</p>
+            <h2 style={{ fontFamily: "'Outfit', sans-serif", fontSize: 'clamp(1.8rem, 4vw, 2.5rem)', fontWeight: 800, color: '#0f172a', marginBottom: '16px' }}>One Platform. Endless Possibilities.</h2>
+            <p style={{ fontSize: '1.05rem', color: '#475569', maxWidth: '780px', margin: '0 auto 40px auto', lineHeight: 1.65 }}>Xarwiz brings together everything businesses need into one connected platform designed for the AI era. Instead of managing separate applications, your team works from a single intelligent workspace where every product, workflow, and piece of information is connected.</p>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '28px' }}>
-            <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '16px', padding: '32px', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.03)' }}>
+          <div className="about-grid-col">
+            <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '16px', padding: 'clamp(20px, 3.5vw, 32px)', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.03)' }}>
               <h3 style={{ fontSize: '1.25rem', fontWeight: 700, color: '#0f172a', marginBottom: '12px' }}>AI Workspace</h3>
               <p style={{ color: '#64748b', fontSize: '0.95rem', lineHeight: 1.65, margin: 0 }}>A centralized environment where your team can collaborate with AI, access information, and complete work faster without switching between multiple applications.</p>
             </div>
 
-            <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '16px', padding: '32px', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.03)' }}>
+            <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '16px', padding: 'clamp(20px, 3.5vw, 32px)', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.03)' }}>
               <h3 style={{ fontSize: '1.25rem', fontWeight: 700, color: '#0f172a', marginBottom: '12px' }}>AI Agents</h3>
               <p style={{ color: '#64748b', fontSize: '0.95rem', lineHeight: 1.65, margin: 0 }}>Create intelligent AI agents that assist employees, automate routine tasks, answer questions, and execute business workflows around the clock.</p>
             </div>
 
-            <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '16px', padding: '32px', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.03)' }}>
+            <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '16px', padding: 'clamp(20px, 3.5vw, 32px)', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.03)' }}>
               <h3 style={{ fontSize: '1.25rem', fontWeight: 700, color: '#0f172a', marginBottom: '12px' }}>Workflow Automation</h3>
               <p style={{ color: '#64748b', fontSize: '0.95rem', lineHeight: 1.65, margin: 0 }}>Automate repetitive processes across departments, reduce manual effort, and ensure work moves efficiently from one stage to the next.</p>
             </div>
 
-            <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '16px', padding: '32px', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.03)' }}>
+            <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '16px', padding: 'clamp(20px, 3.5vw, 32px)', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.03)' }}>
               <h3 style={{ fontSize: '1.25rem', fontWeight: 700, color: '#0f172a', marginBottom: '12px' }}>Business Intelligence</h3>
               <p style={{ color: '#64748b', fontSize: '0.95rem', lineHeight: 1.65, margin: 0 }}>Transform your business data into actionable insights with AI-powered reporting, analytics, and decision support.</p>
             </div>
 
-            <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '16px', padding: '32px', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.03)' }}>
+            <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '16px', padding: 'clamp(20px, 3.5vw, 32px)', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.03)' }}>
               <h3 style={{ fontSize: '1.25rem', fontWeight: 700, color: '#0f172a', marginBottom: '12px' }}>Cloud Infrastructure</h3>
               <p style={{ color: '#64748b', fontSize: '0.95rem', lineHeight: 1.65, margin: 0 }}>Securely store, organize, and manage business data with scalable cloud services built for performance and reliability.</p>
             </div>
 
-            <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '16px', padding: '32px', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.03)' }}>
+            <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '16px', padding: 'clamp(20px, 3.5vw, 32px)', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.03)' }}>
               <h3 style={{ fontSize: '1.25rem', fontWeight: 700, color: '#0f172a', marginBottom: '12px' }}>Team Collaboration</h3>
               <p style={{ color: '#64748b', fontSize: '0.95rem', lineHeight: 1.65, margin: 0 }}>Bring conversations, documents, tasks, and projects into one shared workspace so teams can collaborate more effectively.</p>
             </div>
 
-            <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '16px', padding: '32px', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.03)' }}>
+            <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '16px', padding: 'clamp(20px, 3.5vw, 32px)', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.03)' }}>
               <h3 style={{ fontSize: '1.25rem', fontWeight: 700, color: '#0f172a', marginBottom: '12px' }}>Integrations &amp; APIs</h3>
               <p style={{ color: '#64748b', fontSize: '0.95rem', lineHeight: 1.65, margin: 0 }}>Connect Xarwiz with your existing tools and workflows through flexible APIs and integrations, ensuring a seamless experience without disrupting your current systems.</p>
             </div>
 
-            <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '16px', padding: '32px', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.03)' }}>
+            <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '16px', padding: 'clamp(20px, 3.5vw, 32px)', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.03)' }}>
               <h3 style={{ fontSize: '1.25rem', fontWeight: 700, color: '#0f172a', marginBottom: '12px' }}>Secure Data Management</h3>
               <p style={{ color: '#64748b', fontSize: '0.95rem', lineHeight: 1.65, margin: 0 }}>Protect your organization's information with enterprise-grade encryption, access controls, audit logs, and compliance-ready security architecture.</p>
             </div>
 
-            <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '16px', padding: '32px', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.03)' }}>
+            <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '16px', padding: 'clamp(20px, 3.5vw, 32px)', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.03)' }}>
               <h3 style={{ fontSize: '1.25rem', fontWeight: 700, color: '#0f172a', marginBottom: '12px' }}>Enterprise AI</h3>
               <p style={{ color: '#64748b', fontSize: '0.95rem', lineHeight: 1.65, margin: 0 }}>Deliver AI experiences that understand your organization's knowledge, context, and workflows—providing relevant, accurate, and secure assistance tailored to your business.</p>
             </div>
@@ -369,11 +592,11 @@ export default function AboutPage() {
       </section>
 
       {/* FAQS SECTION */}
-      <section style={{ padding: '90px 20px', background: '#fafafc', borderTop: '1px solid #e2e8f0' }}>
+      <section style={{ padding: 'clamp(50px, 8vw, 90px) 16px', background: '#fafafc', borderTop: '1px solid #e2e8f0' }}>
         <div style={{ maxWidth: '860px', margin: '0 auto' }}>
           <div style={{ textAlign: 'center', marginBottom: '40px' }}>
             <div style={{ display: 'inline-flex', padding: '4px 14px', borderRadius: '20px', background: '#eff6ff', color: '#2563eb', fontSize: '0.82rem', fontWeight: '700', marginBottom: '16px' }}>FAQ</div>
-            <h2 style={{ fontFamily: "'Outfit', sans-serif", fontSize: '2.5rem', fontWeight: 800, color: '#0f172a' }}>Frequently Asked Questions</h2>
+            <h2 style={{ fontFamily: "'Outfit', sans-serif", fontSize: 'clamp(1.8rem, 4vw, 2.5rem)', fontWeight: 800, color: '#0f172a' }}>Frequently Asked Questions</h2>
           </div>
 
           {[
@@ -383,13 +606,13 @@ export default function AboutPage() {
             <div key={idx} style={{ border: '1px solid #e2e8f0', borderRadius: '12px', marginBottom: '12px', background: '#ffffff', overflow: 'hidden' }}>
               <div
                 onClick={() => toggleFaq(idx)}
-                style={{ padding: '20px 24px', fontWeight: 700, fontSize: '1.05rem', color: '#0f172a', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
+                style={{ padding: '18px 20px', fontWeight: 700, fontSize: '1rem', color: '#0f172a', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
               >
                 <span>{item.q}</span>
                 <span>{activeFaq === idx ? '▲' : '▼'}</span>
               </div>
               {activeFaq === idx && (
-                <div style={{ padding: '0 24px 20px 24px', fontSize: '0.95rem', color: '#475569', lineHeight: 1.6 }}>
+                <div style={{ padding: '0 20px 18px 20px', fontSize: '0.95rem', color: '#475569', lineHeight: 1.6 }}>
                   {item.a}
                 </div>
               )}
@@ -399,17 +622,17 @@ export default function AboutPage() {
       </section>
 
       {/* CALL TO ACTION SECTION */}
-      <section style={{ background: 'linear-gradient(135deg, #1e40af 0%, #2563eb 100%)', color: '#ffffff', padding: '90px 20px', textAlign: 'center' }}>
+      <section style={{ background: 'linear-gradient(135deg, #1e40af 0%, #2563eb 100%)', color: '#ffffff', padding: 'clamp(50px, 8vw, 90px) 16px', textAlign: 'center' }}>
         <div style={{ maxWidth: '800px', margin: '0 auto' }}>
-          <h2 style={{ fontFamily: "'Outfit', sans-serif", fontSize: '3rem', fontWeight: 800, marginBottom: '20px', lineHeight: 1.15 }}>
+          <h2 style={{ fontFamily: "'Outfit', sans-serif", fontSize: 'clamp(1.8rem, 5vw, 3rem)', fontWeight: 800, marginBottom: '20px', lineHeight: 1.15 }}>
             Everything Your Business Needs.<br />One Intelligent Platform.
           </h2>
-          <p style={{ fontSize: '1.15rem', color: 'rgba(255,255,255,0.9)', marginBottom: '36px', lineHeight: 1.6 }}>
+          <p style={{ fontSize: 'clamp(1rem, 2.5vw, 1.15rem)', color: 'rgba(255,255,255,0.9)', marginBottom: '36px', lineHeight: 1.6 }}>
             Build, grow, and deliver better results with India's AI Business Operating System.
           </p>
           <div style={{ display: 'flex', gap: '16px', justifyContent: 'center', flexWrap: 'wrap' }}>
-            <Link href="/signup" style={{ background: '#ffffff', color: '#1e40af', fontWeight: 700, padding: '14px 32px', borderRadius: '8px', textDecoration: 'none', fontSize: '1rem' }}>Start Free Trial</Link>
-            <Link href="/login" style={{ border: '1px solid rgba(255,255,255,0.4)', color: '#ffffff', padding: '14px 32px', borderRadius: '8px', textDecoration: 'none', fontSize: '1rem', fontWeight: 600 }}>Book a Demo</Link>
+            <Link href="/signup" style={{ background: '#ffffff', color: '#1e40af', fontWeight: 700, padding: '14px 32px', borderRadius: '8px', textDecoration: 'none', fontSize: '1rem', minHeight: '48px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>Start Free Trial</Link>
+            <Link href="/login" style={{ border: '1px solid rgba(255,255,255,0.4)', color: '#ffffff', padding: '14px 32px', borderRadius: '8px', textDecoration: 'none', fontSize: '1rem', fontWeight: 600, minHeight: '48px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>Book a Demo</Link>
           </div>
         </div>
       </section>

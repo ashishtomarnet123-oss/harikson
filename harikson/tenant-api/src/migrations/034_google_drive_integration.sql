@@ -28,6 +28,7 @@ ALTER TABLE integration_connections ADD COLUMN IF NOT EXISTS token_expires_at TI
 ALTER TABLE integration_connections ADD COLUMN IF NOT EXISTS files_indexed_count INT NOT NULL DEFAULT 0;
 
 ALTER TABLE integration_connections DROP CONSTRAINT IF EXISTS integration_connections_tenant_id_provider_id_key;
+ALTER TABLE integration_connections DROP CONSTRAINT IF EXISTS integration_connections_tenant_user_provider_key;
 ALTER TABLE integration_connections ADD CONSTRAINT integration_connections_tenant_user_provider_key UNIQUE (tenant_id, user_id, provider_id);
 
 CREATE INDEX IF NOT EXISTS idx_integration_connections_user_id ON integration_connections(user_id);

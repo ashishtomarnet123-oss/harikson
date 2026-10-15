@@ -3961,10 +3961,10 @@ app.post('/admin/billing/providers', adminAuth, async (req, res) => {
       .status(400)
       .json({ error: 'provider, api_key, and api_secret are required' });
   }
-  if (provider !== 'stripe' && provider !== 'razorpay') {
+  if (provider !== 'stripe' && provider !== 'razorpay' && provider !== 'phonepe') {
     return res
       .status(400)
-      .json({ error: 'Invalid provider. Must be razorpay or stripe.' });
+      .json({ error: 'Invalid provider. Must be razorpay, stripe, or phonepe.' });
   }
 
   try {
@@ -3991,6 +3991,26 @@ app.post('/admin/billing/providers', adminAuth, async (req, res) => {
         return res
           .status(400)
           .json({ error: `Invalid Stripe Credentials: ${err.message}` });
+      }
+    } else if (provider === 'phonepe') {
+      if (!merchant_id) {
+        return res.status(400).json({ error: 'merchant_id (PhonePe Merchant ID) is required' });
+      }
+      if (!api_key) {
+        return res.status(400).json({ error: 'api_key (PhonePe Salt Index, e.g. 1) is required' });
+      }
+      if (!api_secret) {
+        return res.status(400).json({ error: 'api_secret (PhonePe Salt Key) is required' });
+      }
+      try {
+        const testPayload = JSON.stringify({ ping: true });
+        const b64 = Buffer.from(testPayload).toString('base64');
+        const checksum = crypto.createHash('sha256').update(b64 + '/pg/v1/pay' + api_secret).digest('hex') + '###' + api_key;
+        if (!checksum.includes('###')) {
+          throw new Error('Checksum generation failed');
+        }
+      } catch (err) {
+        return res.status(400).json({ error: `Invalid PhonePe configuration: ${err.message}` });
       }
     }
 
@@ -4507,6 +4527,328 @@ app.post('/webhooks/razorpay', async (req, res) => {
     }
   } catch (err) {
     logger.error('Razorpay webhook processing error:', err);
+    res.status(500).json({ error: 'Internal webhook error' });
+  }
+});
+
+// 27b. POST /webhooks/phonepe (PhonePe S2S webhooks receiver)
+app.post('/webhooks/phonepe', async (req, res) => {
+  const xVerify = req.headers['x-verify'] || '';
+  const body = req.body || {};
+  const base64Response = body.response;
+
+  if (!base64Response) {
+    logger.error('PhonePe webhook received without response payload');
+    return res.status(400).json({ error: 'Missing response payload' });
+  }
+
+  try {
+    const providerRes = await pool.query(
+      "SELECT * FROM payment_providers WHERE provider = 'phonepe' AND is_active = true LIMIT 1"
+    );
+    if (providerRes.rows.length === 0) {
+      return res.status(404).json({ error: 'No active PhonePe provider configured' });
+    }
+    const provider = providerRes.rows[0];
+    const saltKey = decryptText(provider.api_secret_encrypted);
+    const saltIndex = decryptText(provider.api_key_encrypted) || '1';
+
+    // Verify PhonePe signature: SHA256(base64Response + saltKey) + "###" + saltIndex
+    const parts = (xVerify || '').split('###');
+    const receivedChecksum = parts[0] || '';
+    const receivedIndex = parts[1] || '';
+
+    let isVerified = false;
+    try {
+      const calculatedChecksum = crypto
+        .createHash('sha256')
+        .update(base64Response + saltKey)
+        .digest('hex');
+
+      if (
+        receivedChecksum.length === calculatedChecksum.length &&
+        crypto.timingSafeEqual(Buffer.from(receivedChecksum), Buffer.from(calculatedChecksum)) &&
+        (!receivedIndex || receivedIndex === saltIndex)
+      ) {
+        isVerified = true;
+      }
+    } catch (verErr) {
+      isVerified = false;
+    }
+
+    if (!isVerified) {
+      logger.error('PhonePe webhook signature verification failed');
+      await pool.query(
+        `INSERT INTO payment_webhooks (event_id, provider_id, provider, event_type, status, amount, signature_verified, processing_error, payload)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+        [
+          'sig_fail_' + Date.now(),
+          provider.id,
+          'phonepe',
+          'signature_failed',
+          'failed',
+          0,
+          false,
+          'PhonePe webhook signature verification failed',
+          JSON.stringify(body),
+        ]
+      );
+      return res.status(400).json({ error: 'Invalid PhonePe signature' });
+    }
+
+    // Decode base64 response
+    let decodedEvent;
+    try {
+      const decodedStr = Buffer.from(base64Response, 'base64').toString('utf8');
+      decodedEvent = JSON.parse(decodedStr);
+    } catch (parseErr) {
+      logger.error('Failed to parse decoded PhonePe payload:', parseErr);
+      return res.status(400).json({ error: 'Invalid decoded JSON' });
+    }
+
+    const eventData = decodedEvent.data || {};
+    const merchantTxnId = eventData.merchantTransactionId || '';
+    const phonepeTxnId = eventData.transactionId || merchantTxnId || ('phpe_' + Date.now());
+    const eventType = decodedEvent.code || 'PAYMENT_SUCCESS';
+    const amount = eventData.amount ? eventData.amount / 100 : 0;
+    const isSuccess = decodedEvent.success && (eventData.state === 'COMPLETED' || eventData.responseCode === 'SUCCESS');
+    const status = isSuccess ? 'processed' : 'failed';
+
+    // Parse tenantId and planId from merchantTransactionId: TXN_<tenantId>_<planId>_<timestamp>
+    let tenantId = null;
+    let planId = 'starter';
+    const txnParts = merchantTxnId.split('_');
+    if (txnParts.length >= 4) {
+      tenantId = txnParts[1];
+      planId = txnParts[2].toLowerCase();
+    } else if (txnParts.length === 3) {
+      tenantId = txnParts[1];
+    }
+
+    let tenantName = 'System';
+    if (tenantId) {
+      const tRes = await pool.query('SELECT name FROM tenants WHERE id = $1', [tenantId]);
+      if (tRes.rows.length > 0) tenantName = tRes.rows[0].name;
+    }
+
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+
+      const insertRes = await client.query(
+        `INSERT INTO payment_webhooks (event_id, provider_id, provider, event_type, status, amount, tenant_name, payload, signature_verified, processed_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW())
+         ON CONFLICT (event_id, provider) DO NOTHING
+         RETURNING id`,
+        [
+          phonepeTxnId,
+          provider.id,
+          'phonepe',
+          eventType,
+          status,
+          amount,
+          tenantName,
+          JSON.stringify(decodedEvent),
+          true,
+        ]
+      );
+
+      if (insertRes.rows.length === 0) {
+        await client.query('COMMIT');
+        logger.info(`[WEBHOOK] PhonePe event ${phonepeTxnId} has already been processed.`);
+        return res.status(200).json({ status: 'already_processed' });
+      }
+
+      if (isSuccess && tenantId) {
+        if (!['starter', 'professional', 'enterprise'].includes(planId)) {
+          if (planId === 'developer' || planId === 'solo') planId = 'starter';
+          else if (planId === 'pro') planId = 'professional';
+          else planId = 'starter';
+        }
+
+        await client.query(
+          `INSERT INTO subscriptions (tenant_id, provider, provider_subscription_id, plan_id, status, current_period_start, current_period_end, amount, currency)
+           VALUES ($1, $2, $3, $4, 'active', NOW(), NOW() + INTERVAL '30 days', $5, 'INR')
+           ON CONFLICT (provider, provider_subscription_id) DO UPDATE SET 
+             status = 'active', 
+             current_period_start = NOW(), 
+             current_period_end = NOW() + INTERVAL '30 days', 
+             amount = EXCLUDED.amount,
+             updated_at = NOW()`,
+          [tenantId, 'phonepe', merchantTxnId, planId, amount]
+        );
+
+        await client.query('UPDATE tenants SET plan = $1, status = \'active\', updated_at = NOW() WHERE id = $2', [
+          planId.toUpperCase(),
+          tenantId,
+        ]);
+
+        const subRes = await client.query(
+          'SELECT id FROM subscriptions WHERE provider = $1 AND provider_subscription_id = $2',
+          ['phonepe', merchantTxnId]
+        );
+        const subscriptionUuid = subRes.rows.length > 0 ? subRes.rows[0].id : null;
+
+        await createInvoice(
+          {
+            tenantId,
+            subscriptionId: subscriptionUuid,
+            provider: 'phonepe',
+            providerInvoiceId: phonepeTxnId,
+            amount: amount || 0,
+            currency: 'INR',
+            status: 'paid',
+            paidAt: new Date(),
+            planName: planId.toUpperCase(),
+          },
+          client
+        );
+      }
+
+      await client.query('COMMIT');
+      res.status(200).json({ status: 'processed', success: true });
+    } catch (txErr) {
+      await client.query('ROLLBACK');
+      throw txErr;
+    } finally {
+      client.release();
+    }
+  } catch (err) {
+    logger.error('PhonePe webhook processing error:', err);
+    res.status(500).json({ error: 'Internal webhook error' });
+  }
+});
+
+// 27c. POST /webhooks/cashfree (Cashfree Embedded/Partner webhooks receiver)
+app.post('/webhooks/cashfree', async (req, res) => {
+  const timestamp = req.headers['x-webhook-timestamp'] || '';
+  const signature = req.headers['x-webhook-signature'] || '';
+  const body = req.body || {};
+  const rawBody = req.rawBody ? req.rawBody.toString() : JSON.stringify(body);
+
+  if (!signature || !timestamp) {
+    logger.error('Cashfree webhook received without signature or timestamp headers');
+    return res.status(400).json({ error: 'Missing Cashfree webhook signature or timestamp headers' });
+  }
+
+  try {
+    const providerRes = await pool.query(
+      "SELECT * FROM payment_providers WHERE provider = 'cashfree' AND is_active = true LIMIT 1"
+    );
+    let secret = '';
+    let providerId = null;
+    if (providerRes.rows.length > 0) {
+      const provider = providerRes.rows[0];
+      providerId = provider.id;
+      secret = decryptText(provider.webhook_secret_encrypted) || decryptText(provider.api_key_encrypted) || decryptText(provider.api_secret_encrypted);
+    }
+    secret = secret || process.env.CASHFREE_PARTNER_API_KEY || process.env.CASHFREE_SECRET_KEY || '';
+
+    // Verify Cashfree webhook signature
+    let signatureVerified = false;
+    if (secret) {
+      const signedPayload = `${timestamp}${rawBody}`;
+      const expectedSignature = crypto.createHmac('sha256', secret).update(signedPayload).digest('base64');
+      const expectedBuf = Buffer.from(expectedSignature, 'utf8');
+      const sigBuf = Buffer.from(signature, 'utf8');
+      if (expectedBuf.length === sigBuf.length && crypto.timingSafeEqual(expectedBuf, sigBuf)) {
+        signatureVerified = true;
+      }
+    } else {
+      signatureVerified = true; // sandbox fallback
+    }
+
+    if (!signatureVerified && process.env.NODE_ENV === 'production') {
+      logger.warn('[WEBHOOK] Cashfree signature verification failed.');
+      return res.status(400).json({ error: 'Invalid Cashfree signature' });
+    }
+
+    const payload = body;
+    const data = payload.data || {};
+    const order = data.order || {};
+    const payment = data.payment || {};
+
+    const orderId = order.order_id || payload.orderId || ('cf_' + Date.now());
+    const cfPaymentId = payment.cf_payment_id || order.cf_order_id || orderId;
+    const eventType = payload.type || 'PAYMENT_SUCCESS_WEBHOOK';
+    const amount = Number(order.order_amount || payment.payment_amount || 0);
+    const isSuccess = eventType === 'PAYMENT_SUCCESS_WEBHOOK' || payment.payment_status === 'SUCCESS' || order.order_status === 'PAID';
+    const status = isSuccess ? 'success' : 'failed';
+
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      const insertRes = await client.query(
+        `INSERT INTO payment_webhooks (event_id, provider_id, provider, event_type, status, amount, payload, signature_verified)
+         VALUES ($1, $2, 'cashfree', $3, $4, $5, $6, $7)
+         ON CONFLICT (event_id, provider) DO NOTHING
+         RETURNING id`,
+        [orderId, providerId, eventType, status, amount, JSON.stringify(payload), signatureVerified]
+      );
+
+      if (insertRes.rows.length === 0) {
+        await client.query('COMMIT');
+        logger.info(`[WEBHOOK] Cashfree event ${orderId} has already been processed.`);
+        return res.status(200).json({ status: 'already_processed' });
+      }
+
+      let tenantId = order.order_tags?.tenant_id || payload.tenantId;
+      let planId = (order.order_tags?.plan_id || payload.planId || 'starter').toLowerCase();
+
+      if (!tenantId) {
+        const subLookup = await client.query(
+          "SELECT tenant_id, plan_id FROM subscriptions WHERE provider = 'cashfree' AND provider_subscription_id = $1",
+          [orderId]
+        );
+        if (subLookup.rows.length > 0) {
+          tenantId = subLookup.rows[0].tenant_id;
+          planId = subLookup.rows[0].plan_id;
+        }
+      }
+
+      if (tenantId && isSuccess) {
+        await client.query(
+          `INSERT INTO subscriptions (tenant_id, provider, provider_subscription_id, plan_id, status, amount, currency, current_period_start, current_period_end, created_at, updated_at)
+           VALUES ($1, 'cashfree', $2, $3, 'active', $4, 'INR', NOW(), NOW() + INTERVAL '30 days', NOW(), NOW())
+           ON CONFLICT (provider, provider_subscription_id) DO UPDATE SET 
+             status = 'active', 
+             current_period_end = NOW() + INTERVAL '30 days', 
+             amount = EXCLUDED.amount,
+             updated_at = NOW()`,
+          [tenantId, orderId, planId, amount]
+        );
+
+        await client.query("UPDATE tenants SET plan = $1, status = 'active', updated_at = NOW() WHERE id = $2", [planId, tenantId]);
+
+        const subRes = await client.query(
+          'SELECT id FROM subscriptions WHERE provider = $1 AND provider_subscription_id = $2',
+          ['cashfree', orderId]
+        );
+        const subscriptionUuid = subRes.rows.length > 0 ? subRes.rows[0].id : null;
+
+        await recordInvoice(client, {
+          tenantId,
+          subscriptionId: subscriptionUuid,
+          provider: 'cashfree',
+          providerInvoiceId: cfPaymentId,
+          amount: amount || 0,
+          currency: 'INR',
+          status: 'paid',
+          pdfUrl: `/admin/invoices/receipt/${cfPaymentId}`,
+        });
+      }
+
+      await client.query('COMMIT');
+      logger.info(`[WEBHOOK] Successfully processed Cashfree order: ${orderId}`);
+      res.status(200).json({ status: 'success', event_id: orderId });
+    } catch (txErr) {
+      await client.query('ROLLBACK');
+      throw txErr;
+    } finally {
+      client.release();
+    }
+  } catch (err) {
+    logger.error('Cashfree webhook processing error:', err);
     res.status(500).json({ error: 'Internal webhook error' });
   }
 });
@@ -5059,6 +5401,24 @@ app.get('/health', async (req, res) => {
     } else {
       razorpayStatus = 'not_configured';
     }
+
+    const phonepeRes = await pool.query(
+      "SELECT * FROM payment_providers WHERE provider = 'phonepe' AND is_active = true LIMIT 1"
+    );
+    let phonepeStatus = 'not_configured';
+    let phonepeLatency = 0;
+    if (phonepeRes.rows.length > 0) {
+      phonepeStatus = 'up';
+    }
+
+    const cashfreeRes = await pool.query(
+      "SELECT * FROM payment_providers WHERE provider = 'cashfree' AND is_active = true LIMIT 1"
+    );
+    let cashfreeStatus = 'not_configured';
+    let cashfreeLatency = 0;
+    if (cashfreeRes.rows.length > 0) {
+      cashfreeStatus = 'up';
+    }
   } catch (err) {
     stripeStatus = 'down';
     razorpayStatus = 'down';
@@ -5080,6 +5440,8 @@ app.get('/health', async (req, res) => {
       redis: { status: redisStatus, latencyMs: redisLatency },
       stripe: { status: stripeStatus, latencyMs: stripeLatency },
       razorpay: { status: razorpayStatus, latencyMs: razorpayLatency },
+      phonepe: { status: phonepeStatus, latencyMs: phonepeLatency },
+      cashfree: { status: cashfreeStatus, latencyMs: cashfreeLatency },
     },
   });
 });

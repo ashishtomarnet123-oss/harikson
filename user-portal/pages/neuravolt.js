@@ -6,10 +6,29 @@ import {
   Search, MessageSquare, ThumbsUp, ThumbsDown, Copy, Sparkles, Terminal,
   Package, Webhook, Share2, Lock, Leaf, ShieldAlert, CheckCircle2,
   Clock, LayoutDashboard, Bot, Database, GitBranch, BarChart2, Key, Blocks,
-  Settings, RotateCw, Bell, MapPin, Target, Cpu, Sliders, CheckCircle, Send, Plus, Minus, X, Layers
+  Settings, RotateCw, Bell, MapPin, Target, Cpu, Sliders, CheckCircle, Send, Plus, Minus, X, Layers, Menu
 } from 'lucide-react';
 
 export default function NeuravoltLandingPage() {
+  // Mobile Navigation Drawer State
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  useEffect(() => {
+    if (mobileMenuOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    const handleEsc = (e) => {
+      if (e.key === 'Escape') setMobileMenuOpen(false);
+    };
+    window.addEventListener('keydown', handleEsc);
+    return () => {
+      document.body.style.overflow = '';
+      window.removeEventListener('keydown', handleEsc);
+    };
+  }, [mobileMenuOpen]);
+
   // Billing Toggle State
   const [billingPeriod, setBillingPeriod] = useState('monthly'); // 'monthly' | 'yearly'
 
@@ -154,8 +173,8 @@ export default function NeuravoltLandingPage() {
         .hero-title { font-family: var(--font-heading); font-size: 3.1rem; line-height: 1.12; font-weight: 800; color: #0F172A; margin-bottom: 16px; letter-spacing: -0.02em; }
         .hero-title .blue-text { color: #2563EB; }
         .hero-subtitle { font-size: 0.98rem; color: var(--text-muted); line-height: 1.55; margin-bottom: 22px; max-width: 440px; }
-        .hero-checks { display: flex; align-items: center; gap: 16px; margin-bottom: 26px; }
-        .check-item { display: flex; align-items: center; gap: 6px; font-size: 0.82rem; font-weight: 700; color: #0F172A; }
+        .hero-checks { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; margin-bottom: 26px; }
+        .check-item { display: flex; align-items: center; gap: 6px; font-size: 0.82rem; font-weight: 700; color: #0F172A; white-space: nowrap; }
         .check-circle { width: 18px; height: 18px; border-radius: 50%; border: 1.5px solid #22C55E; color: #22C55E; display: flex; align-items: center; justify-content: center; font-size: 0.7rem; font-weight: 800; }
         .hero-buttons-row { display: flex; align-items: center; gap: 12px; margin-bottom: 10px; width: 100%; max-width: 420px; }
         .btn-hero-primary { background: #2563EB; color: #FFFFFF; border: none; padding: 13px 24px; border-radius: 12px; font-size: 0.92rem; font-weight: 700; text-decoration: none; box-shadow: 0 4px 14px rgba(37, 99, 235, 0.35); transition: all 0.2s; flex: 1; text-align: center; display: inline-flex; align-items: center; justify-content: center; }
@@ -244,6 +263,9 @@ export default function NeuravoltLandingPage() {
         .action-icon-btn { width: 28px; height: 28px; border-radius: 6px; border: 1px solid var(--border-color); display: flex; align-items: center; justify-content: center; cursor: pointer; transition: all 0.2s; }
         .action-icon-btn:hover { background: #F1F5F9; color: #2563EB; }
         .demo-disclaimer { font-size: 0.72rem; color: var(--text-dim); text-align: right; margin-top: 14px; }
+        .guest-prompt-form { margin-top: 16px; display: flex; gap: 8px; width: 100%; }
+        .guest-prompt-input { flex: 1; padding: 10px 14px; border-radius: 8px; border: 1px solid #CBD5E1; font-size: 0.85rem; outline: none; min-width: 0; }
+        .guest-prompt-submit { padding: 8px 16px; font-size: 0.82rem; white-space: nowrap; cursor: pointer; }
 
         /* BENTO GRID */
         .bento-section { padding: 40px 0; }
@@ -385,29 +407,262 @@ export default function NeuravoltLandingPage() {
         .footer-bottom-bar { border-top: 1px solid var(--border-color); padding-top: 24px; display: flex; align-items: center; justify-content: space-between; font-size: 0.78rem; color: var(--text-dim); }
         .footer-bottom-selectors { display: flex; align-items: center; gap: 20px; }
 
+        /* ========================================================
+           RESPONSIVE DESIGN SYSTEM & BREAKPOINT ARCHITECTURE
+           ======================================================== */
+
+        /* Mobile Hamburger & Drawer Styles */
+        .mobile-menu-btn {
+          display: none;
+          background: #FFFFFF;
+          border: 1px solid var(--border-color);
+          border-radius: 10px;
+          padding: 8px;
+          cursor: pointer;
+          color: #0F172A;
+          align-items: center;
+          justify-content: center;
+          min-width: 44px;
+          min-height: 44px;
+          transition: all 0.2s ease;
+          box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+        }
+        .mobile-menu-btn:hover, .mobile-menu-btn:focus-visible {
+          background: #F8FAFC;
+          border-color: #CBD5E1;
+          outline: none;
+        }
+
+        .mobile-drawer-overlay {
+          position: fixed;
+          inset: 0;
+          background: rgba(15, 23, 42, 0.65);
+          backdrop-filter: blur(4px);
+          z-index: 9999;
+          display: flex;
+          justify-content: flex-end;
+          animation: drawerFadeIn 0.25s ease-out;
+        }
+        @keyframes drawerFadeIn {
+          from { opacity: 0; }
+          to { opacity: 1; }
+        }
+
+        .mobile-drawer-content {
+          width: 86%;
+          max-width: 360px;
+          height: 100%;
+          background: #FFFFFF;
+          display: flex;
+          flex-direction: column;
+          box-shadow: -10px 0 35px rgba(0,0,0,0.2);
+          animation: drawerSlideIn 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+          overflow-y: auto;
+          padding: 20px 24px;
+          padding-top: max(20px, env(safe-area-inset-top));
+          padding-bottom: max(24px, env(safe-area-inset-bottom));
+        }
+        @keyframes drawerSlideIn {
+          from { transform: translateX(100%); }
+          to { transform: translateX(0); }
+        }
+
+        .mobile-drawer-header {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          padding-bottom: 16px;
+          border-bottom: 1px solid var(--border-color);
+          margin-bottom: 20px;
+        }
+        .mobile-drawer-close {
+          background: #F1F5F9;
+          border: 1px solid var(--border-color);
+          border-radius: 8px;
+          width: 40px;
+          height: 40px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          color: #0F172A;
+          cursor: pointer;
+          transition: background 0.2s;
+        }
+        .mobile-drawer-close:hover {
+          background: #E2E8F0;
+        }
+
+        .mobile-nav-list {
+          list-style: none;
+          display: flex;
+          flex-direction: column;
+          gap: 6px;
+          margin-bottom: 24px;
+        }
+        .mobile-nav-list a {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          padding: 12px 14px;
+          border-radius: 10px;
+          text-decoration: none;
+          font-size: 1rem;
+          font-weight: 600;
+          color: #0F172A;
+          min-height: 44px;
+          transition: background 0.2s, color 0.2s;
+        }
+        .mobile-nav-list a:hover, .mobile-nav-list a:active {
+          background: #EFF6FF;
+          color: #2563EB;
+        }
+
+        .mobile-drawer-ctas {
+          display: flex;
+          flex-direction: column;
+          gap: 12px;
+          margin-top: auto;
+          padding-top: 20px;
+          border-top: 1px solid var(--border-color);
+        }
+        .btn-mobile-primary {
+          background: #2563EB;
+          color: #FFFFFF;
+          border: none;
+          border-radius: 12px;
+          padding: 14px 20px;
+          font-size: 0.95rem;
+          font-weight: 700;
+          text-align: center;
+          text-decoration: none;
+          box-shadow: 0 4px 14px rgba(37,99,235,0.3);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          min-height: 48px;
+        }
+        .btn-mobile-secondary {
+          background: #FFFFFF;
+          color: #0F172A;
+          border: 1px solid var(--border-color);
+          border-radius: 12px;
+          padding: 14px 20px;
+          font-size: 0.95rem;
+          font-weight: 700;
+          text-align: center;
+          text-decoration: none;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          min-height: 48px;
+        }
+        .mobile-drawer-footer {
+          margin-top: 16px;
+          text-align: center;
+          font-size: 0.75rem;
+          color: var(--text-dim);
+          font-weight: 600;
+        }
+
+        /* 1. LARGE TABLET & LAPTOP (max-width: 1024px) */
         @media (max-width: 1024px) {
-          .hero-grid { grid-template-columns: 1fr; }
-          .bento-grid-container { grid-template-columns: repeat(2, 1fr); }
-          .pricing-cards-grid { grid-template-columns: repeat(2, 1fr); }
-          .stories-grid-container { grid-template-columns: repeat(2, 1fr); }
-          .india-card-outer { grid-template-columns: 1fr; }
-          .final-blue-banner { grid-template-columns: 1fr; text-align: center; }
+          .desktop-nav, .desktop-ctas { display: none !important; }
+          .mobile-menu-btn { display: inline-flex; }
+          .hero-grid { grid-template-columns: 1fr; gap: 36px; }
+          .hero-title { font-size: clamp(2.4rem, 5vw, 3rem); }
+          .demo-grid-layout { grid-template-columns: 1fr; gap: 24px; }
+          .demo-tabs-flex { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+          .bento-grid-container { grid-template-columns: repeat(2, 1fr); gap: 20px; }
+          .india-card-outer { grid-template-columns: 1fr; gap: 36px; padding: 32px; }
+          .india-right-split { flex-direction: column-reverse; gap: 28px; width: 100%; align-items: center; }
+          .stories-grid-container { grid-template-columns: repeat(2, 1fr); gap: 18px; }
+          .pricing-cards-grid { grid-template-columns: repeat(2, 1fr); gap: 20px; }
+          .final-blue-banner { grid-template-columns: 1fr; text-align: center; padding: 40px 30px; gap: 24px; justify-items: center; }
+          .ai-3d-badge-graphic { margin: 0 auto; }
+          .final-cta-right { display: flex; flex-direction: row; flex-wrap: wrap; justify-content: center; gap: 16px; }
+          .footer-grid-6col { grid-template-columns: repeat(3, 1fr); gap: 28px; }
+        }
+
+        /* 2. TABLET PORTRAIT (max-width: 768px) */
+        @media (max-width: 768px) {
+          .container { padding: 0 clamp(16px, 4vw, 20px); }
+          .hero-title { font-size: clamp(2.1rem, 5vw, 2.6rem); }
+          .hero-subtitle { max-width: 100%; }
+          .bento-grid-container { grid-template-columns: 1fr; }
+          .stories-grid-container { grid-template-columns: 1fr; }
+          .pricing-cards-grid { grid-template-columns: 1fr; max-width: 500px; margin: 0 auto; }
           .footer-grid-6col { grid-template-columns: repeat(2, 1fr); }
+          .trust-outer-card { padding: 20px 16px; }
+          .trust-logos-exact-row { gap: 20px !important; }
+          .pricing-section { padding: 40px 0 30px 0; }
+          .integrations-flex-bar { justify-content: center; gap: 10px; }
+        }
+
+        /* 3. MOBILE (max-width: 640px) */
+        @media (max-width: 640px) {
+          .header { padding: 10px 0; }
+          .logo-badge { display: none; }
+          .hero-section { padding: 24px 0 32px 0; }
+          .hero-title { font-size: clamp(1.85rem, 7vw, 2.3rem); margin-bottom: 12px; }
+          .hero-subtitle { font-size: 0.92rem; margin-bottom: 18px; }
+          .hero-checks { gap: 8px 12px; }
+          .hero-buttons-row { flex-direction: column; width: 100%; max-width: 100%; gap: 10px; }
+          .btn-hero-primary, .btn-hero-secondary { width: 100%; min-height: 48px; }
+          .microcopy-row { flex-direction: column; gap: 4px; text-align: center; }
+
+          .demo-card-outer { padding: 20px 16px; border-radius: 18px; }
+          .demo-tabs-flex { grid-template-columns: 1fr; }
+          .demo-output-container { padding: 16px 12px; }
+          .user-msg-row { flex-direction: row; gap: 8px; }
+          .user-bubble { font-size: 0.8rem; padding: 8px 12px; }
+          .ai-response-card { padding: 14px; }
+          .response-bullets { font-size: 0.8rem; }
+          .guest-prompt-form { flex-direction: column; gap: 10px; }
+          .guest-prompt-submit { width: 100%; min-height: 44px; }
+
+          .trust-logos-exact-row { display: grid !important; grid-template-columns: repeat(2, 1fr) !important; gap: 12px !important; }
+          .trust-badge-exact { justify-content: center; width: 100%; }
+
+          .security-features-grid { grid-template-columns: 1fr; gap: 12px; }
+          .shield-3d-visual { width: 160px; height: 180px; }
+          .shield-card-3d { width: 130px; height: 150px; padding: 12px 10px; }
+          .shield-float-tag.top-right { right: 0; }
+          .shield-float-tag.bottom-left { left: 0; }
+
+          .final-cta-title { font-size: clamp(1.5rem, 5vw, 2rem); }
+          .final-cta-btns { flex-direction: column; width: 100%; gap: 10px; }
+          .btn-cta-white, .btn-cta-outline { width: 100%; min-height: 48px; }
+          .final-cta-right { flex-direction: column; align-items: center; gap: 8px; }
+
+          .footer-grid-6col { grid-template-columns: 1fr; gap: 24px; text-align: left; }
+          .footer-bottom-bar { flex-direction: column; gap: 12px; text-align: center; }
+          .footer-bottom-selectors { justify-content: center; }
+        }
+
+        /* 4. SMALL MOBILE (max-width: 360px - down to 320px) */
+        @media (max-width: 360px) {
+          .container { padding: 0 12px; }
+          .hero-title { font-size: 1.7rem; }
+          .trust-logos-exact-row { grid-template-columns: 1fr !important; }
+          .pricing-title { font-size: 1.6rem; }
+          .plan-amount { font-size: 2.1rem; }
+          .bento-header-title { font-size: 1.6rem; }
+          .story-stat-num { font-size: 2.2rem; }
         }
       `}</style>
 
       {/* HEADER */}
-      <header class="header">
-        <div class="container header-inner">
-          <Link href="/neuravolt" class="logo-container">
+      <header className="header">
+        <div className="container header-inner">
+          <Link href="/neuravolt" className="logo-container">
             <img src="/assets/xarwiz-logo.png" alt="Xarwiz" className="brand-logo-img" />
-            <span class="logo-badge">
+            <span className="logo-badge">
               <Shield style={{ width: 12, height: 12 }} /> AI Cloud Platform
             </span>
           </Link>
 
-          <nav>
-            <ul class="nav-menu">
+          <nav className="desktop-nav">
+            <ul className="nav-menu">
               <li><a href="#platform">Platform <ChevronDown style={{ width: 14, height: 14 }} /></a></li>
               <li><a href="#solutions">Solutions <ChevronDown style={{ width: 14, height: 14 }} /></a></li>
               <li><a href="#developers">Developers <ChevronDown style={{ width: 14, height: 14 }} /></a></li>
@@ -417,11 +672,67 @@ export default function NeuravoltLandingPage() {
             </ul>
           </nav>
 
-          <div class="header-ctas">
-            <Link href="/login" class="btn-demo">Book a Demo</Link>
-            <Link href="/signup" class="btn-trial">Request Access</Link>
+          <div className="header-ctas desktop-ctas">
+            <Link href="/login" className="btn-demo">Book a Demo</Link>
+            <Link href="/signup" className="btn-trial">Request Access</Link>
           </div>
+
+          {/* Mobile Hamburger Toggle Button */}
+          <button
+            type="button"
+            className="mobile-menu-btn"
+            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+            aria-label={mobileMenuOpen ? 'Close navigation menu' : 'Open navigation menu'}
+            aria-expanded={mobileMenuOpen}
+          >
+            {mobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
+          </button>
         </div>
+
+        {/* Mobile Navigation Drawer & Backdrop */}
+        {mobileMenuOpen && (
+          <div className="mobile-drawer-overlay" onClick={() => setMobileMenuOpen(false)}>
+            <div className="mobile-drawer-content" onClick={(e) => e.stopPropagation()}>
+              <div className="mobile-drawer-header">
+                <Link href="/neuravolt" className="logo-container" onClick={() => setMobileMenuOpen(false)}>
+                  <img src="/assets/xarwiz-logo.png" alt="Xarwiz" className="brand-logo-img" />
+                </Link>
+                <button
+                  type="button"
+                  className="mobile-drawer-close"
+                  onClick={() => setMobileMenuOpen(false)}
+                  aria-label="Close menu"
+                >
+                  <X size={22} />
+                </button>
+              </div>
+
+              <nav className="mobile-drawer-nav">
+                <ul className="mobile-nav-list">
+                  <li><a href="#platform" onClick={() => setMobileMenuOpen(false)}>Platform</a></li>
+                  <li><a href="#solutions" onClick={() => setMobileMenuOpen(false)}>Solutions</a></li>
+                  <li><a href="#developers" onClick={() => setMobileMenuOpen(false)}>Developers</a></li>
+                  <li><a href="#pricing" onClick={() => setMobileMenuOpen(false)}>Pricing</a></li>
+                  <li><Link href="/security" onClick={() => setMobileMenuOpen(false)}>Security</Link></li>
+                  <li><Link href="/about" onClick={() => setMobileMenuOpen(false)}>About Us</Link></li>
+                </ul>
+              </nav>
+
+              <div className="mobile-drawer-ctas">
+                <Link href="/signup" className="btn-mobile-primary" onClick={() => setMobileMenuOpen(false)}>
+                  Request Access
+                </Link>
+                <Link href="/login" className="btn-mobile-secondary" onClick={() => setMobileMenuOpen(false)}>
+                  Book a Demo
+                </Link>
+              </div>
+
+              <div className="mobile-drawer-footer">
+                <span>🇮🇳 India's Sovereign AI Cloud Platform</span>
+              </div>
+            </div>
+          </div>
+        )}
       </header>
 
       {/* HERO SECTION */}
@@ -604,22 +915,15 @@ export default function NeuravoltLandingPage() {
                     </Link>
                   </div>
                 ) : (
-                  <form onSubmit={(e) => { e.preventDefault(); handleRunGuestPrompt(); }} style={{ marginTop: '16px', display: 'flex', gap: '8px' }}>
+                  <form onSubmit={(e) => { e.preventDefault(); handleRunGuestPrompt(); }} className="guest-prompt-form">
                     <input
                       type="text"
                       placeholder="Type a guest prompt to try (1 free prompt limit)..."
                       value={guestInputText}
                       onChange={(e) => setGuestInputText(e.target.value)}
-                      style={{
-                        flex: 1,
-                        padding: '10px 14px',
-                        borderRadius: '8px',
-                        border: '1px solid #CBD5E1',
-                        fontSize: '0.85rem',
-                        outline: 'none'
-                      }}
+                      className="guest-prompt-input"
                     />
-                    <button type="submit" class="btn-hero-primary" style={{ padding: '8px 16px', fontSize: '0.82rem', whiteSpace: 'nowrap' }}>
+                    <button type="submit" className="btn-hero-primary guest-prompt-submit">
                       Run Free Guest Prompt
                     </button>
                   </form>

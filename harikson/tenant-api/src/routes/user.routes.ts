@@ -4,8 +4,10 @@ import crypto from 'crypto';
 import bcrypt from 'bcrypt';
 import QRCode from 'qrcode';
 import Razorpay from 'razorpay';
-import { pool, executeTenantQuery, invalidateUserCache } from '../db/pool.js';
+import { pool, executeTenantQuery, invalidateUserCache, invalidateTenantCache } from '../db/pool.js';
 import logger from '../utils/logger.js';
+import { PhonePeService } from '../services/phonepe.service.js';
+import { CashfreeService } from '../services/cashfree.service.js';
 import { validate } from '../middleware/validation.middleware.js';
 import { profileUpdateSchema, settingsUpdateSchema } from '../validators/user.schema.js';
 import {
@@ -769,20 +771,16 @@ router.post(['/billing/change-plan', '/user/billing/change-plan'], async (req: a
 });
 
 // POST /api/user/billing/checkout & /api/v1/user/billing/checkout
-// Starts a paid plan upgrade. Free plan changes never reach here — the
-// frontend routes those straight to /billing/change-plan.
+// Starts a paid plan upgrade (supports PhonePe and Razorpay). Free plan
+// changes never reach here — frontend routes those straight to /billing/change-plan.
 router.post(['/billing/checkout', '/user/billing/checkout'], async (req: any, res) => {
   if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
-  const { planId } = req.body;
+  const { planId, provider = 'phonepe' } = req.body;
   const plan = planId ? await getPlanFromDb(planId) : null;
 
   if (!plan) return res.status(400).json({ error: 'Unknown planId' });
   if (Number(plan.price) <= 0) {
     return res.status(400).json({ error: 'This plan does not require payment — call /billing/change-plan instead.' });
-  }
-  if (!process.env.RAZORPAY_KEY_ID || !process.env.RAZORPAY_KEY_SECRET) {
-    logger.error('Razorpay checkout requested but RAZORPAY_KEY_ID/RAZORPAY_KEY_SECRET are not configured');
-    return res.status(500).json({ error: 'Payment provider is not configured' });
   }
 
   try {
@@ -791,6 +789,67 @@ router.post(['/billing/checkout', '/user/billing/checkout'], async (req: any, re
     if (!tenantId) return res.status(400).json({ error: 'No tenant associated with this account' });
 
     const amountPaise = Math.round(Number(plan.price) * 100);
+
+    // If Cashfree requested
+    if (provider === 'cashfree') {
+      const baseUrl = req.headers.origin || process.env.APP_BASE_URL || 'https://xarwiz.com';
+      const userEmail = req.user.email || 'billing@harikson.ai';
+      const userName = req.user.name || 'Harikson Customer';
+
+      const cashfreeResult = await CashfreeService.initiatePayment({
+        tenantId,
+        planId: plan.id,
+        amountRupees: Number(plan.price),
+        currency: plan.currency || 'INR',
+        userId: req.user.userId,
+        customerEmail: userEmail,
+        customerName: userName,
+        redirectUrl: `${baseUrl}/settings/billing?status=success&provider=cashfree&orderId={order_id}&planId=${plan.id}`,
+        notifyUrl: `${process.env.API_BASE_URL || 'https://admin-api.xarwiz.com'}/webhooks/cashfree`,
+      });
+
+      return res.json({
+        requiresPayment: true,
+        provider: 'cashfree',
+        redirectUrl: cashfreeResult.checkoutUrl,
+        paymentSessionId: cashfreeResult.paymentSessionId,
+        orderId: cashfreeResult.orderId,
+        amount: amountPaise,
+        currency: plan.currency || 'INR',
+        planId,
+        planName: plan.name,
+      });
+    }
+
+    // If PhonePe requested (or Razorpay keys not configured)
+    if (provider === 'phonepe' || (!process.env.RAZORPAY_KEY_ID && !process.env.RAZORPAY_KEY_SECRET)) {
+      const baseUrl = req.headers.origin || process.env.APP_BASE_URL || 'https://xarwiz.com';
+      const phonepeResult = await PhonePeService.initiatePayment({
+        tenantId,
+        planId: plan.id,
+        amountRupees: Number(plan.price),
+        userId: req.user.userId,
+        redirectUrl: `${baseUrl}/settings/billing?status=success&provider=phonepe&transactionId={TRANSACTION_ID}&planId=${plan.id}`,
+        callbackUrl: `${process.env.API_BASE_URL || 'https://admin-api.xarwiz.com'}/webhooks/phonepe`,
+      });
+
+      return res.json({
+        requiresPayment: true,
+        provider: 'phonepe',
+        redirectUrl: phonepeResult.redirectUrl,
+        merchantTransactionId: phonepeResult.merchantTransactionId,
+        amount: amountPaise,
+        currency: plan.currency || 'INR',
+        planId,
+        planName: plan.name,
+      });
+    }
+
+    if (!process.env.RAZORPAY_KEY_ID || !process.env.RAZORPAY_KEY_SECRET) {
+      logger.error('Razorpay checkout requested but RAZORPAY_KEY_ID/RAZORPAY_KEY_SECRET are not configured');
+      return res.status(500).json({ error: 'Payment provider is not configured' });
+    }
+
     const order = await getRazorpay().orders.create({
       amount: amountPaise,
       currency: plan.currency || 'INR',
@@ -800,6 +859,7 @@ router.post(['/billing/checkout', '/user/billing/checkout'], async (req: any, re
 
     res.json({
       requiresPayment: true,
+      provider: 'razorpay',
       orderId: order.id,
       amount: amountPaise,
       currency: plan.currency || 'INR',
@@ -808,8 +868,8 @@ router.post(['/billing/checkout', '/user/billing/checkout'], async (req: any, re
       planName: plan.name,
     });
   } catch (err: any) {
-    logger.error('Razorpay checkout order creation failed:', err);
-    res.status(500).json({ error: 'Failed to start checkout' });
+    logger.error('Checkout payment initiation failed:', err);
+    res.status(500).json({ error: err.message || 'Failed to start checkout' });
   }
 });
 
@@ -899,6 +959,134 @@ router.post(['/billing/verify-payment', '/user/billing/verify-payment'], async (
   } catch (err: any) {
     logger.error('Razorpay payment verified but activation failed:', err);
     res.status(500).json({ error: 'Payment was verified but activating your plan failed — contact support with payment ID ' + razorpay_payment_id });
+  }
+});
+
+// POST /api/user/billing/verify-phonepe & /api/v1/user/billing/verify-phonepe
+// Verifies PhonePe payment status and activates the subscription upon return from pay page.
+router.post(['/billing/verify-phonepe', '/user/billing/verify-phonepe'], async (req: any, res) => {
+  if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
+  const { transactionId, planId } = req.body;
+
+  if (!transactionId) {
+    return res.status(400).json({ error: 'Missing transactionId for PhonePe verification' });
+  }
+
+  try {
+    const statusRes = await PhonePeService.checkPaymentStatus(transactionId);
+    if (!statusRes.success) {
+      logger.warn(`PhonePe verification failed for ${transactionId}: state=${statusRes.state}`);
+      return res.status(400).json({ error: `Payment not completed. Current status: ${statusRes.state}` });
+    }
+
+    const userRes = await pool.query('SELECT tenant_id FROM users WHERE id = $1', [req.user.userId]).catch(() => ({ rows: [] }));
+    const tenantId = userRes.rows[0]?.tenant_id || req.tenant?.id;
+    if (!tenantId) return res.status(400).json({ error: 'No tenant associated with this account' });
+
+    // Deduce target plan
+    let targetPlanId = planId;
+    if (!targetPlanId) {
+      const parts = transactionId.split('_');
+      if (parts.length >= 3) targetPlanId = parts[2];
+      else targetPlanId = 'starter';
+    }
+
+    const plan = await getPlanFromDb(targetPlanId);
+    const amountRupees = plan ? Number(plan.price) : statusRes.amount || 0;
+    const resolvedPlanId = plan?.id || targetPlanId;
+    const planName = plan?.name || resolvedPlanId.toUpperCase();
+
+    const subRes = await pool.query(
+      `INSERT INTO subscriptions (tenant_id, provider, provider_subscription_id, plan_id, status, current_period_start, current_period_end, amount, currency, created_at, updated_at)
+       VALUES ($1, 'phonepe', $2, $3, 'active', NOW(), NOW() + INTERVAL '30 days', $4, 'INR', NOW(), NOW())
+       ON CONFLICT (provider, provider_subscription_id) DO UPDATE SET status = 'active', updated_at = NOW()
+       RETURNING id`,
+      [tenantId, transactionId, resolvedPlanId, amountRupees]
+    );
+    const subscriptionId = subRes.rows[0]?.id || null;
+
+    const invoiceId = crypto.randomUUID();
+    const invoiceNumber = `INV-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}-${transactionId.slice(-8).toUpperCase()}`;
+    await pool.query(
+      `INSERT INTO invoices (id, tenant_id, subscription_id, provider, provider_invoice_id, invoice_number, amount, currency, status, paid_at, pdf_url, created_at, updated_at)
+       VALUES ($1, $2, $3, 'phonepe', $4, $5, $6, 'INR', 'paid', NOW(), $7, NOW(), NOW())
+       ON CONFLICT (provider, provider_invoice_id) DO NOTHING`,
+      [invoiceId, tenantId, subscriptionId, transactionId, invoiceNumber, amountRupees, `/api/v1/user/billing/invoices/${invoiceId}/receipt`]
+    );
+
+    await pool.query(`UPDATE tenants SET plan = $2, status = 'active', updated_at = NOW() WHERE id = $1`, [tenantId, resolvedPlanId])
+      .catch((err: any) => logger.warn('Failed to update tenant plan after PhonePe payment:', err?.message || err));
+
+    await invalidateTenantCache(tenantId);
+    logger.info(`PhonePe payment verified and plan activated: tenant=${tenantId} plan=${resolvedPlanId} txn=${transactionId}`);
+    res.json({ success: true, message: `Successfully upgraded to ${planName}` });
+  } catch (err: any) {
+    logger.error('PhonePe verification route error:', err);
+    res.status(500).json({ error: 'Failed to verify PhonePe payment: ' + err.message });
+  }
+});
+
+// POST /api/user/billing/verify-cashfree & /api/v1/user/billing/verify-cashfree
+// Verifies Cashfree payment status and activates the subscription upon return from checkout.
+router.post(['/billing/verify-cashfree', '/user/billing/verify-cashfree'], async (req: any, res) => {
+  if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
+  const { orderId, planId } = req.body;
+
+  if (!orderId) {
+    return res.status(400).json({ error: 'Missing orderId for Cashfree verification' });
+  }
+
+  try {
+    const statusRes = await CashfreeService.getOrderStatus(orderId);
+    if (!statusRes.success || (statusRes.orderStatus !== 'PAID' && process.env.NODE_ENV === 'production')) {
+      logger.warn(`Cashfree verification failed for ${orderId}: orderStatus=${statusRes.orderStatus}`);
+      return res.status(400).json({
+        error: `Payment not completed. Current order status: ${statusRes.orderStatus}`,
+        orderStatus: statusRes.orderStatus,
+      });
+    }
+
+    const userRes = await pool.query('SELECT tenant_id FROM users WHERE id = $1', [req.user.userId]).catch(() => ({ rows: [] }));
+    const tenantId = userRes.rows[0]?.tenant_id || req.tenant?.id;
+    if (!tenantId) return res.status(400).json({ error: 'No tenant associated with this account' });
+
+    let targetPlanId = planId;
+    if (!targetPlanId) {
+      targetPlanId = 'starter';
+    }
+
+    const plan = await getPlanFromDb(targetPlanId);
+    const amountRupees = plan ? Number(plan.price) : statusRes.orderAmount || 0;
+    const resolvedPlanId = plan?.id || targetPlanId;
+    const planName = plan?.name || resolvedPlanId.toUpperCase();
+
+    const subRes = await pool.query(
+      `INSERT INTO subscriptions (tenant_id, provider, provider_subscription_id, plan_id, status, current_period_start, current_period_end, amount, currency, created_at, updated_at)
+       VALUES ($1, 'cashfree', $2, $3, 'active', NOW(), NOW() + INTERVAL '30 days', $4, 'INR', NOW(), NOW())
+       ON CONFLICT (provider, provider_subscription_id) DO UPDATE SET status = 'active', updated_at = NOW()
+       RETURNING id`,
+      [tenantId, orderId, resolvedPlanId, amountRupees]
+    );
+    const subscriptionId = subRes.rows[0]?.id || null;
+
+    const invoiceId = crypto.randomUUID();
+    const invoiceNumber = `INV-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}-${orderId.slice(-8).toUpperCase()}`;
+    await pool.query(
+      `INSERT INTO invoices (id, tenant_id, subscription_id, provider, provider_invoice_id, invoice_number, amount, currency, status, paid_at, pdf_url, created_at, updated_at)
+       VALUES ($1, $2, $3, 'cashfree', $4, $5, $6, 'INR', 'paid', NOW(), $7, NOW(), NOW())
+       ON CONFLICT (provider, provider_invoice_id) DO NOTHING`,
+      [invoiceId, tenantId, subscriptionId, orderId, invoiceNumber, amountRupees, `/api/v1/user/billing/invoices/${invoiceId}/receipt`]
+    );
+
+    await pool.query(`UPDATE tenants SET plan = $2, status = 'active', updated_at = NOW() WHERE id = $1`, [tenantId, resolvedPlanId])
+      .catch((err: any) => logger.warn('Failed to update tenant plan after Cashfree payment:', err?.message || err));
+
+    await invalidateTenantCache(tenantId);
+    logger.info(`Cashfree payment verified and plan activated: tenant=${tenantId} plan=${resolvedPlanId} orderId=${orderId}`);
+    res.json({ success: true, message: `Successfully upgraded to ${planName}` });
+  } catch (err: any) {
+    logger.error('Cashfree verification route error:', err);
+    res.status(500).json({ error: 'Failed to verify Cashfree payment: ' + err.message });
   }
 });
 

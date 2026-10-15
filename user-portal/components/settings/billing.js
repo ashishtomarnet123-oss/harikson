@@ -24,6 +24,7 @@ export default function BillingSettings() {
   const [showContactSales, setShowContactSales] = useState(false);
   const [selectedPlanName, setSelectedPlanName] = useState('');
   const [actionLoading, setActionLoading] = useState(false);
+  const [selectedGateway, setSelectedGateway] = useState('phonepe');
 
   // Display only — the backend owns the actual price charged (PLAN_CONFIG in
   // user.routes.ts) and re-derives it from planId, never from anything sent
@@ -68,8 +69,7 @@ export default function BillingSettings() {
     },
   ];
 
-  // Lazily loads Razorpay's Checkout script once per page (it exposes
-  // window.Razorpay globally — no npm package needed for the client side).
+  // Lazily loads Razorpay's Checkout script once per page
   const loadRazorpayScript = () =>
     new Promise((resolve, reject) => {
       if (typeof window !== 'undefined' && window.Razorpay) {
@@ -83,8 +83,87 @@ export default function BillingSettings() {
       document.body.appendChild(script);
     });
 
+  // Lazily loads Cashfree's v3 Web Checkout script once per page
+  const loadCashfreeScript = () =>
+    new Promise((resolve, reject) => {
+      if (typeof window !== 'undefined' && window.Cashfree) {
+        resolve();
+        return;
+      }
+      const script = document.createElement('script');
+      script.src = 'https://sdk.cashfree.com/js/v3/cashfree.js';
+      script.onload = () => resolve();
+      script.onerror = () => reject(new Error('Failed to load Cashfree checkout script'));
+      document.body.appendChild(script);
+    });
+
   useEffect(() => {
     fetchBilling();
+
+    // Check if returning from PhonePe payment gateway redirect
+    if (typeof window !== 'undefined') {
+      const urlParams = new URLSearchParams(window.location.search);
+      const provider = urlParams.get('provider');
+      const transactionId = urlParams.get('transactionId');
+      const planId = urlParams.get('planId');
+
+      if (provider === 'phonepe' && transactionId) {
+        setActionLoading(true);
+        const { apiBase, tenantSlug } = getApiConfig();
+        authenticatedFetch(`${apiBase}/api/v1/user/billing/verify-phonepe`, {
+          method: 'POST',
+          credentials: 'include',
+          headers: {
+            'x-tenant-slug': tenantSlug,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ transactionId, planId }),
+        })
+          .then((res) => {
+            if (res && res.ok) {
+              fetchBilling();
+              window.history.replaceState({}, document.title, window.location.pathname);
+            } else {
+              setError('PhonePe payment verification failed or is still pending.');
+            }
+          })
+          .catch((err) => {
+            console.error('PhonePe verification error:', err);
+          })
+          .finally(() => {
+            setActionLoading(false);
+          });
+      }
+
+      const orderId = urlParams.get('orderId');
+      if (provider === 'cashfree' && orderId) {
+        setActionLoading(true);
+        const { apiBase, tenantSlug } = getApiConfig();
+        authenticatedFetch(`${apiBase}/api/v1/user/billing/verify-cashfree`, {
+          method: 'POST',
+          credentials: 'include',
+          headers: {
+            'x-tenant-slug': tenantSlug,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ orderId, planId }),
+        })
+          .then((res) => {
+            if (res && res.ok) {
+              fetchBilling();
+              window.history.replaceState({}, document.title, window.location.pathname);
+            } else {
+              setError('Cashfree payment verification failed or is still pending.');
+            }
+          })
+          .catch((err) => {
+            console.error('Cashfree verification error:', err);
+          })
+          .finally(() => {
+            setActionLoading(false);
+          });
+      }
+    }
   }, []);
 
   const fetchBilling = async () => {
@@ -163,9 +242,7 @@ export default function BillingSettings() {
         return;
       }
 
-      // Paid plan — create a Razorpay order server-side (the server owns the
-      // real price, never trusting anything the client sends), then open
-      // Razorpay's Checkout modal for the customer to actually pay.
+      // Paid plan — request checkout session with chosen gateway (PhonePe or Razorpay)
       const checkoutRes = await authenticatedFetch(`${apiBase}/api/v1/user/billing/checkout`, {
         method: 'POST',
         credentials: 'include',
@@ -173,7 +250,7 @@ export default function BillingSettings() {
           'x-tenant-slug': tenantSlug,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ planId: plan.id }),
+        body: JSON.stringify({ planId: plan.id, provider: selectedGateway }),
       });
 
       if (!checkoutRes || !checkoutRes.ok) {
@@ -186,6 +263,69 @@ export default function BillingSettings() {
       }
 
       const order = await checkoutRes.json();
+
+      // If PhonePe returned redirectUrl, redirect customer to PhonePe Standard Checkout
+      if (order.provider === 'phonepe' && order.redirectUrl) {
+        window.location.href = order.redirectUrl;
+        return;
+      }
+
+      // If Cashfree, open Cashfree Embedded Checkout modal (with redirect fallback)
+      if (order.provider === 'cashfree') {
+        try {
+          await loadCashfreeScript();
+          if (typeof window !== 'undefined' && window.Cashfree && order.paymentSessionId) {
+            const cashfree = window.Cashfree({
+              mode: order.isTestMode === false ? 'production' : 'sandbox',
+            });
+            cashfree.checkout({
+              paymentSessionId: order.paymentSessionId,
+              redirectTarget: '_modal',
+            }).then(async (result) => {
+              if (result && result.error) {
+                console.warn('Cashfree modal closed or error:', result.error);
+                if (result.error.message) {
+                  setError(result.error.message);
+                }
+              }
+              if (result && result.paymentDetails) {
+                setActionLoading(true);
+                try {
+                  const { apiBase, tenantSlug } = getApiConfig();
+                  const verifyRes = await authenticatedFetch(`${apiBase}/api/v1/user/billing/verify-cashfree`, {
+                    method: 'POST',
+                    credentials: 'include',
+                    headers: {
+                      'x-tenant-slug': tenantSlug,
+                      'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ orderId: order.orderId, planId: plan.id }),
+                  });
+                  if (verifyRes && verifyRes.ok) {
+                    await fetchBilling();
+                    setShowPlanModal(false);
+                  }
+                } catch (verifyErr) {
+                  console.error('Cashfree instant modal verification error:', verifyErr);
+                } finally {
+                  setActionLoading(false);
+                }
+              }
+            });
+            return;
+          }
+        } catch (scriptErr) {
+          console.warn('Could not load Cashfree modal SDK, using redirect:', scriptErr);
+        }
+
+        // Direct redirect fallback
+        if (order.redirectUrl) {
+          window.location.href = order.redirectUrl;
+          return;
+        }
+      }
+
+      // If Razorpay, open Razorpay Checkout modal
       await loadRazorpayScript();
 
       const razorpayCheckout = new window.Razorpay({
@@ -227,8 +367,6 @@ export default function BillingSettings() {
           }
         },
         modal: {
-          // Razorpay's modal has its own close button — this only fires when
-          // the customer dismisses it without paying, not on success.
           ondismiss: () => setActionLoading(false),
         },
       });
@@ -669,6 +807,87 @@ export default function BillingSettings() {
                 }}
               >
                 ✕
+              </button>
+            </div>
+
+            {/* Payment Method Selector */}
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '12px',
+                marginBottom: '20px',
+                padding: '12px 16px',
+                background: '#f8fafc',
+                borderRadius: '12px',
+                border: '1px solid #e2e8f0',
+              }}
+            >
+              <span style={{ fontSize: '12px', fontWeight: 700, color: '#475569', textTransform: 'uppercase' }}>
+                Pay With:
+              </span>
+              <button
+                type="button"
+                onClick={() => setSelectedGateway('cashfree')}
+                style={{
+                  padding: '6px 14px',
+                  borderRadius: '8px',
+                  fontSize: '12px',
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                  border: selectedGateway === 'cashfree' ? '2px solid #d97706' : '1px solid #cbd5e1',
+                  background: selectedGateway === 'cashfree' ? '#fffbeb' : '#fff',
+                  color: selectedGateway === 'cashfree' ? '#b45309' : '#64748b',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  transition: 'all 0.15s ease',
+                }}
+              >
+                <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#d97706' }} />
+                Cashfree (Embedded PG)
+              </button>
+              <button
+                type="button"
+                onClick={() => setSelectedGateway('phonepe')}
+                style={{
+                  padding: '6px 14px',
+                  borderRadius: '8px',
+                  fontSize: '12px',
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                  border: selectedGateway === 'phonepe' ? '2px solid #5f259f' : '1px solid #cbd5e1',
+                  background: selectedGateway === 'phonepe' ? '#f5f0ff' : '#fff',
+                  color: selectedGateway === 'phonepe' ? '#5f259f' : '#64748b',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  transition: 'all 0.15s ease',
+                }}
+              >
+                <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#5f259f' }} />
+                PhonePe (Instant UPI &amp; QR)
+              </button>
+              <button
+                type="button"
+                onClick={() => setSelectedGateway('razorpay')}
+                style={{
+                  padding: '6px 14px',
+                  borderRadius: '8px',
+                  fontSize: '12px',
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                  border: selectedGateway === 'razorpay' ? '2px solid #2563eb' : '1px solid #cbd5e1',
+                  background: selectedGateway === 'razorpay' ? '#eff6ff' : '#fff',
+                  color: selectedGateway === 'razorpay' ? '#2563eb' : '#64748b',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  transition: 'all 0.15s ease',
+                }}
+              >
+                <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#2563eb' }} />
+                Cards &amp; Netbanking (Razorpay)
               </button>
             </div>
 

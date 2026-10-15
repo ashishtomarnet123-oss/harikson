@@ -28,6 +28,7 @@ ALTER TABLE payment_webhooks ALTER COLUMN provider SET NOT NULL;
 -- Replace the single-column uniqueness with the composite key the app's
 -- ON CONFLICT (event_id, provider) clauses actually require.
 ALTER TABLE payment_webhooks DROP CONSTRAINT IF EXISTS payment_webhooks_event_id_key;
+ALTER TABLE payment_webhooks DROP CONSTRAINT IF EXISTS payment_webhooks_event_id_provider_key;
 ALTER TABLE payment_webhooks ADD CONSTRAINT payment_webhooks_event_id_provider_key UNIQUE (event_id, provider);
 
 CREATE INDEX IF NOT EXISTS idx_payment_webhooks_status ON payment_webhooks(status);

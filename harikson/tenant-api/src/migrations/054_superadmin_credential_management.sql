@@ -11,4 +11,14 @@ ALTER TABLE users ADD COLUMN IF NOT EXISTS password_reset_by VARCHAR(255);
 CREATE INDEX IF NOT EXISTS idx_users_must_change_pwd ON users(must_change_password) WHERE must_change_password = TRUE;
 CREATE INDEX IF NOT EXISTS idx_users_force_pwd_change ON users(force_password_change) WHERE force_password_change = TRUE;
 CREATE INDEX IF NOT EXISTS idx_refresh_tokens_user_id ON refresh_tokens(user_id);
+CREATE TABLE IF NOT EXISTS admin_audit_log (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    admin_id UUID,
+    action VARCHAR(100),
+    target_type VARCHAR(50),
+    target_id UUID,
+    details JSONB DEFAULT '{}'::jsonb,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
 CREATE INDEX IF NOT EXISTS idx_admin_audit_log_target ON admin_audit_log(target_type, target_id);

@@ -7,6 +7,8 @@ import logger from '../utils/logger.js';
 import { enqueueWebhookEvent } from '../services/webhookRetryService.js';
 import { executePlanChange, calculateProration } from '../services/prorationService.js';
 import { reactivateTenantSubscription } from '../services/dunningService.js';
+import { PhonePeService } from '../services/phonepe.service.js';
+import { CashfreeService } from '../services/cashfree.service.js';
 
 const router = Router();
 
@@ -91,6 +93,79 @@ router.post('/webhooks/razorpay', async (req: any, res) => {
   }
 });
 
+// POST /api/billing/webhooks/phonepe
+router.post('/webhooks/phonepe', async (req: any, res) => {
+  const xVerify = req.headers['x-verify'] as string | undefined;
+  const base64Response = req.body?.response;
+
+  if (!xVerify || !base64Response) {
+    logger.warn('PhonePe webhook received without x-verify or response payload');
+    return res.status(400).json({ error: 'Missing signature or payload' });
+  }
+
+  const isValid = await PhonePeService.verifyWebhookSignature(base64Response, xVerify);
+  if (!isValid) {
+    logger.warn('PhonePe webhook signature verification failed, rejecting');
+    return res.status(400).json({ error: 'Invalid webhook signature' });
+  }
+
+  let decoded: any;
+  try {
+    decoded = PhonePeService.decodeWebhookResponse(base64Response);
+  } catch (parseErr: any) {
+    logger.error('Failed to parse PhonePe webhook JSON:', parseErr);
+    return res.status(400).json({ error: 'Invalid payload JSON' });
+  }
+
+  const eventData = decoded?.data || {};
+  const eventId = eventData.transactionId || eventData.merchantTransactionId || ('phpe_' + Date.now());
+  const eventType = decoded.code || 'PAYMENT_SUCCESS';
+  const amount = eventData.amount ? eventData.amount / 100 : 0;
+
+  try {
+    await enqueueWebhookEvent('phonepe', eventId, eventType, decoded, amount);
+    return res.status(200).json({ received: true, status: 'pending', eventId });
+  } catch (err: any) {
+    logger.error('Failed to handle incoming PhonePe webhook:', err);
+    return res.status(200).json({ received: true, status: 'error_logged' });
+  }
+});
+
+// POST /api/billing/webhooks/cashfree & /webhooks/cashfree
+router.post(['/webhooks/cashfree', '/billing/webhooks/cashfree'], async (req: any, res) => {
+  const timestamp = (req.headers['x-webhook-timestamp'] as string) || '';
+  const signature = (req.headers['x-webhook-signature'] as string) || '';
+  const rawBody = req.rawBody || JSON.stringify(req.body || {});
+
+  if (!signature || !timestamp) {
+    logger.warn('Cashfree webhook received without signature or timestamp headers');
+    return res.status(400).json({ error: 'Missing Cashfree webhook headers' });
+  }
+
+  const isValid = CashfreeService.verifyWebhookSignature(rawBody, timestamp, signature);
+  if (!isValid && process.env.NODE_ENV === 'production') {
+    logger.warn('Cashfree webhook signature verification failed, rejecting');
+    return res.status(400).json({ error: 'Invalid webhook signature' });
+  }
+
+  const payload = req.body || {};
+  const data = payload.data || {};
+  const order = data.order || {};
+  const payment = data.payment || {};
+
+  const orderId = order.order_id || payload.orderId || ('cf_' + Date.now());
+  const eventType = payload.type || 'PAYMENT_SUCCESS_WEBHOOK';
+  const amount = Number(order.order_amount || payment.payment_amount || 0);
+
+  try {
+    await enqueueWebhookEvent('cashfree', orderId, eventType, payload, amount);
+    return res.status(200).json({ received: true, status: 'pending', orderId });
+  } catch (err: any) {
+    logger.error('Failed to handle incoming Cashfree webhook:', err);
+    return res.status(200).json({ received: true, status: 'error_logged' });
+  }
+});
+
 // --- Auth middleware — everything below requires a valid JWT --- //
 
 router.use((req: any, res, next) => {
@@ -169,11 +244,11 @@ router.get('/tax-rates', async (req: any, res) => {
 
 // POST /api/billing/checkout
 router.post('/checkout', async (req: any, res) => {
-  if (!stripe) {
+  const { planId, paymentProvider = 'stripe', countryCode = 'US' } = req.body;
+
+  if (paymentProvider === 'stripe' && !stripe) {
     return res.status(503).json({ error: 'Stripe payment provider is not configured' });
   }
-
-  const { planId, paymentProvider = 'stripe', countryCode = 'US' } = req.body;
 
   try {
     const planRes = await executeCachedQuery('SELECT * FROM plans WHERE id = $1', [planId], 300);
@@ -191,7 +266,47 @@ router.post('/checkout', async (req: any, res) => {
     const taxAmount = (subtotal * taxRate) / 100;
     const total = subtotal + taxAmount;
 
-    if (paymentProvider === 'stripe') {
+    if (paymentProvider === 'phonepe') {
+      const baseUrl = req.headers.origin || process.env.APP_BASE_URL || 'https://xarwiz.com';
+      const phonepeResult = await PhonePeService.initiatePayment({
+        tenantId: req.tenant?.id || req.user?.tenant_id,
+        planId: plan.id,
+        amountRupees: total,
+        userId: req.user?.userId || req.user?.id,
+        redirectUrl: `${baseUrl}/settings/billing?status=success&provider=phonepe&transactionId={TRANSACTION_ID}&planId=${plan.id}`,
+        callbackUrl: `${process.env.API_BASE_URL || 'https://admin-api.xarwiz.com'}/webhooks/phonepe`,
+      });
+
+      return res.json({
+        checkoutUrl: phonepeResult.redirectUrl,
+        merchantTransactionId: phonepeResult.merchantTransactionId,
+        provider: 'phonepe',
+      });
+    }
+
+    if (paymentProvider === 'cashfree') {
+      const baseUrl = req.headers.origin || process.env.APP_BASE_URL || 'https://xarwiz.com';
+      const cashfreeResult = await CashfreeService.initiatePayment({
+        tenantId: req.tenant?.id || req.user?.tenant_id,
+        planId: plan.id,
+        amountRupees: total,
+        currency: plan.currency || 'INR',
+        userId: req.user?.userId || req.user?.id,
+        customerEmail: req.user?.email,
+        customerName: req.user?.name,
+        redirectUrl: `${baseUrl}/settings/billing?status=success&provider=cashfree&orderId={order_id}&planId=${plan.id}`,
+        notifyUrl: `${process.env.API_BASE_URL || 'https://admin-api.xarwiz.com'}/webhooks/cashfree`,
+      });
+
+      return res.json({
+        checkoutUrl: cashfreeResult.checkoutUrl,
+        paymentSessionId: cashfreeResult.paymentSessionId,
+        orderId: cashfreeResult.orderId,
+        provider: 'cashfree',
+      });
+    }
+
+    if (paymentProvider === 'stripe' && stripe) {
       const baseUrl = req.headers.origin || process.env.APP_BASE_URL || 'https://xarwiz.com';
       const session = await stripe.checkout.sessions.create({
         payment_method_types: ['card'],
@@ -218,7 +333,7 @@ router.post('/checkout', async (req: any, res) => {
         },
       });
 
-      return res.json({ checkoutUrl: session.url, sessionId: session.id });
+      return res.json({ checkoutUrl: session.url, sessionId: session.id, provider: 'stripe' });
     }
 
     res.status(400).json({ error: 'Unsupported payment provider' });
