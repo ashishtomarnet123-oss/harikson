@@ -186,10 +186,10 @@ Client UI Updates Sidebar & Browser Tab        Background AI Refinement Triggere
 ## 9. Automated Tests Executed & Results
 
 ### Suite 1: `src/tests/smart-titles-seo.test.ts`
-- **Total Tests**: 20
-- **Passed**: 20
+- **Total Tests**: 27
+- **Passed**: 27
 - **Failed**: 0
-- **Execution Time**: 28.38ms
+- **Execution Time**: ~165ms
 - **Coverage**:
   - Prompt requirements: "Xarwiz Mobile Chat UI", "Digital Marketing Launch Plan", "Financial Report Analysis", "Code Error Troubleshooting", "Code Security Audit", "Understanding Quantum Computing".
   - Hindi script preservation: "कुंडली विश्लेषण", "अलविदा संदेश", "दैनिक योजना".
@@ -198,8 +198,18 @@ Client UI Updates Sidebar & Browser Tab        Background AI Refinement Triggere
   - Chained preamble removal: "Can you please explain how to configure cloud DNS records".
   - `robots.txt` syntax, allow/disallow rules, and sitemap reference.
   - `sitemap.xml` XML declaration, urlset schema, public canonical URLs, and strict private URL exclusion.
+  - Dynamic browser tab title formatting and brand suffix deduplication ("Marketing Strategy — Xarwiz", "Xarwiz Mobile Chat UI — Xarwiz", brand-only default fallback).
+  - Private page verification: strictly verifies `noindex` across `/login`, `/forgot-password`, `/verify-email`, `/unlock-account`, `/impersonate`, `/onboarding`, `/dashboard`, `/documents`, `/workflows`, `/agents`, `/studio`, `/privacy-settings`, and `/share/[token]`.
+  - Resilience tests: empty strings, whitespace, long prompt truncation (<= 48 chars), Hinglish preservation ("Mujhe ek naya business marketing plan bana kar do").
 
-### Suite 2: `src/tests/privacy-system.test.ts` (Regression)
+### Suite 2: `tests/title-service.test.ts`
+- **Total Tests**: 20
+- **Passed**: 20
+- **Failed**: 0
+- **Execution Time**: ~210ms
+- **Coverage**: URL Business Analysis (Myntra), Code Security Audit, Financial Report Summary, Quantum Computing Explanation, Thailand Trip Planning, Google Visibility Strategy, Xarwiz Marketing Strategy, Bank Email Draft, Hindi Kundali Analysis, Hindi Farewell Message, PDF Document Analysis, PDF Financial Report Summary, Spreadsheet Monthly Sales Analysis, Screenshot Analysis, Contract Risk Review, Airticket Document timestamp stripping, Xarwiz Social Media Growth Strategy named PDF, truncated legacy DB markup, legacy attached image tag, long marketing strategy prompt.
+
+### Suite 3: `src/tests/privacy-system.test.ts` (Regression)
 - **Total Tests**: 7
 - **Passed**: 7
 - **Failed**: 0
@@ -211,10 +221,11 @@ Client UI Updates Sidebar & Browser Tab        Background AI Refinement Triggere
 
 1. **`harikson/tenant-api`**:
    - Command: `npm run build` (`tsc`)
-   - Result: Exit code 0, clean build.
+   - Typecheck: `npm run typecheck` (`tsc --noEmit`)
+   - Result: Exit code 0, 0 type errors, clean compilation.
 2. **`user-portal`**:
    - Command: `npm run build` (`next build`)
-   - Result: Exit code 0, 32/32 static pages generated successfully.
+   - Result: Exit code 0, all 32/32 static pages generated successfully.
 3. **Rollback Strategy**:
    - If needed, migration 064 can be rolled back via:
      `ALTER TABLE conversations DROP COLUMN IF EXISTS title_locked, DROP COLUMN IF EXISTS title_source;`

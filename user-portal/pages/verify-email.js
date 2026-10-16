@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
-import Head from 'next/head';
 import Link from 'next/link';
+import SEOHead from '../components/SEOHead';
 
 export default function VerifyEmailPage() {
   const router = useRouter();
@@ -73,9 +73,12 @@ export default function VerifyEmailPage() {
 
   return (
     <>
-      <Head>
-        <title>Email Verification — Xarwiz AI</title>
-      </Head>
+      <SEOHead
+        title="Email Verification"
+        description="Verify your Xarwiz AI account email"
+        canonicalPath="/verify-email"
+        noindex={true}
+      />
 
       <div className="login-root">
         <div className="login-orb login-orb-1" />

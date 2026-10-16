@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
-import Head from 'next/head';
 import Link from 'next/link';
+import SEOHead from '../components/SEOHead';
 
 export default function UnlockAccountPage() {
   const router = useRouter();
@@ -73,9 +73,12 @@ export default function UnlockAccountPage() {
 
   return (
     <>
-      <Head>
-        <title>Unlock Account — Xarwiz AI</title>
-      </Head>
+      <SEOHead
+        title="Unlock Account"
+        description="Restore access to your locked Xarwiz AI account"
+        canonicalPath="/unlock-account"
+        noindex={true}
+      />
 
       <div className="login-root">
         <div className="login-orb login-orb-1" />

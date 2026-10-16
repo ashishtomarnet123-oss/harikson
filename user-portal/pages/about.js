@@ -1,14 +1,33 @@
 import React, { useState, useEffect } from 'react';
-import Head from 'next/head';
 import Link from 'next/link';
-import { Menu, X } from 'lucide-react';
+import {
+  Menu,
+  X,
+  ArrowRight,
+  Play,
+  Check,
+  ShieldCheck,
+  Globe,
+  Users,
+  Layers,
+  Bot,
+  Database,
+  Workflow,
+  Cpu,
+  Sparkles,
+  ChevronRight,
+  ExternalLink,
+  Zap,
+  Lock,
+} from 'lucide-react';
 import FooterSection from '../components/FooterSection';
 import SEOHead, { defaultOrganizationSchema } from '../components/SEOHead';
 
 export default function AboutPage() {
-  const [activeFaq, setActiveFaq] = useState(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [workflowActiveStep, setWorkflowActiveStep] = useState(0);
 
+  // Accessible escape-key close and body scroll lock for mobile menu
   useEffect(() => {
     if (mobileMenuOpen) {
       document.body.style.overflow = 'hidden';
@@ -25,63 +44,294 @@ export default function AboutPage() {
     };
   }, [mobileMenuOpen]);
 
-  const toggleFaq = (idx) => {
-    setActiveFaq(activeFaq === idx ? null : idx);
-  };
+  // Subtle cyclic animation for Hero Agent workflow visual (4 steps)
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setWorkflowActiveStep((prev) => (prev + 1) % 4);
+    }, 2400);
+    return () => clearInterval(timer);
+  }, []);
 
   return (
-    <div style={{
-      backgroundColor: '#ffffff',
-      color: '#0f172a',
-      minHeight: '100vh',
-      fontFamily: "'Inter', sans-serif"
-    }}>
+    <div className="about-page-root">
       <SEOHead
-        title="About Xarwiz — India's AI Business Operating System"
-        description="Xarwiz is an AI-native business operating system that unifies AI agents, workflow automation, knowledge management, cloud services, and enterprise security into one intelligent platform."
+        title="About Xarwiz | India's AI Platform for Agents & Automation"
+        description="Discover Xarwiz, India's AI Platform for Agents & Automation. Learn how we're connecting AI agents, business knowledge, and workflows to help businesses work smarter."
         canonicalPath="/about"
         jsonLd={[
           defaultOrganizationSchema,
           {
             '@context': 'https://schema.org',
             '@type': 'AboutPage',
-            name: 'About Xarwiz',
+            name: "About Xarwiz | India's AI Platform for Agents & Automation",
             url: 'https://xarwiz.com/about',
-            description: "Xarwiz unifies essential business capabilities into one intelligent platform—from AI agents and workflow automation to knowledge management, collaboration, and enterprise-grade security.",
+            description:
+              "Discover Xarwiz, India's AI Platform for Agents & Automation. Learn how we're connecting AI agents, business knowledge, and workflows to help businesses work smarter.",
+            mainEntity: {
+              '@type': 'Organization',
+              name: 'Xarwiz Technologies LLP',
+              founder: {
+                '@type': 'Person',
+                name: 'Ashish Pratap Singh Tomar',
+                jobTitle: 'Founder & Product Architect',
+              },
+              foundingLocation: {
+                '@type': 'Place',
+                name: 'Noida, Uttar Pradesh, India',
+              },
+            },
           },
         ]}
       />
 
       <style jsx global>{`
+        /* -------------------------------------------------------------
+           RESET & CSS VARIABLES
+        ------------------------------------------------------------- */
         *, *::before, *::after {
           box-sizing: border-box;
         }
-        .desktop-nav {
-          display: flex;
-        }
-        .desktop-ctas {
-          display: flex;
-        }
-        .about-mobile-menu-btn {
-          display: none;
-          background: #ffffff;
-          border: 1px solid #e2e8f0;
-          color: #0f172a;
-          border-radius: 8px;
-          padding: 8px;
-          cursor: pointer;
-          align-items: center;
-          justify-content: center;
-          min-width: 44px;
-          min-height: 44px;
-        }
-        .about-grid-col {
-          display: grid;
-          grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr));
-          gap: 28px;
+
+        :root {
+          --color-navy: #0f172a;
+          --color-navy-dark: #0a0f1d;
+          --color-navy-card: #1e293b;
+          --color-blue: #2563eb;
+          --color-blue-hover: #1d4ed8;
+          --color-blue-light: #eff6ff;
+          --color-blue-border: #bfdbfe;
+          --color-slate-body: #475569;
+          --color-slate-muted: #64748b;
+          --color-border: #e2e8f0;
+          --color-bg-subtle: #f8fafc;
+          --font-body: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+          --font-heading: 'Outfit', 'Inter', sans-serif;
         }
 
-        /* Mobile Drawer Styles */
+        html {
+          scroll-behavior: smooth;
+        }
+
+        body {
+          margin: 0;
+          padding: 0;
+          font-family: var(--font-body);
+          color: var(--color-navy);
+          background-color: #ffffff;
+          -webkit-font-smoothing: antialiased;
+          overflow-x: hidden;
+        }
+
+        .about-page-root {
+          min-height: 100vh;
+          background: #ffffff;
+          color: var(--color-navy);
+          display: flex;
+          flex-direction: column;
+        }
+
+        /* -------------------------------------------------------------
+           LAYOUT CONTAINERS
+        ------------------------------------------------------------- */
+        .section-container {
+          max-width: 1240px;
+          margin: 0 auto;
+          padding: 0 24px;
+          box-sizing: border-box;
+          width: 100%;
+        }
+
+        .section-header-centered {
+          text-align: center;
+          max-width: 760px;
+          margin: 0 auto 52px auto;
+        }
+
+        .section-eyebrow {
+          display: inline-flex;
+          align-items: center;
+          gap: 8px;
+          padding: 6px 16px;
+          border-radius: 9999px;
+          background: #eff6ff;
+          border: 1px solid #bfdbfe;
+          color: #2563eb;
+          font-size: 0.78rem;
+          font-weight: 700;
+          letter-spacing: 0.05em;
+          text-transform: uppercase;
+          margin-bottom: 16px;
+        }
+
+        .section-heading-editorial {
+          font-family: var(--font-heading);
+          font-size: clamp(2rem, 4vw, 2.75rem);
+          font-weight: 800;
+          color: var(--color-navy);
+          letter-spacing: -0.025em;
+          line-height: 1.2;
+          margin: 0 0 16px 0;
+        }
+
+        .section-subcopy {
+          font-size: clamp(1rem, 2vw, 1.1rem);
+          color: var(--color-slate-body);
+          line-height: 1.65;
+          margin: 0;
+        }
+
+        /* -------------------------------------------------------------
+           HEADER
+        ------------------------------------------------------------- */
+        .site-header {
+          position: sticky;
+          top: 0;
+          z-index: 1000;
+          background: rgba(255, 255, 255, 0.94);
+          backdrop-filter: blur(12px);
+          -webkit-backdrop-filter: blur(12px);
+          border-bottom: 1px solid var(--color-border);
+          transition: background-color 0.2s ease;
+        }
+
+        .header-inner {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          height: 72px;
+        }
+
+        .header-brand {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          text-decoration: none;
+        }
+
+        .header-logo-img {
+          height: 28px;
+          width: auto;
+          display: block;
+        }
+
+        .header-logo-badge {
+          display: inline-flex;
+          align-items: center;
+          padding: 3px 8px;
+          border-radius: 20px;
+          background: #eff6ff;
+          border: 1px solid #bfdbfe;
+          font-size: 0.7rem;
+          font-weight: 700;
+          color: #1e40af;
+          letter-spacing: 0.02em;
+        }
+
+        .header-nav {
+          display: flex;
+          align-items: center;
+        }
+
+        .header-nav-list {
+          display: flex;
+          align-items: center;
+          gap: 32px;
+          list-style: none;
+          margin: 0;
+          padding: 0;
+        }
+
+        .header-nav-link {
+          font-size: 0.92rem;
+          font-weight: 600;
+          color: #475569;
+          text-decoration: none;
+          transition: color 0.2s ease;
+          position: relative;
+          padding: 8px 0;
+        }
+
+        .header-nav-link:hover {
+          color: var(--color-blue);
+        }
+
+        .header-nav-link.active {
+          color: var(--color-blue);
+          font-weight: 700;
+        }
+
+        .header-nav-link.active::after {
+          content: '';
+          position: absolute;
+          bottom: 0;
+          left: 0;
+          right: 0;
+          height: 2px;
+          background: var(--color-blue);
+          border-radius: 2px;
+        }
+
+        .header-ctas {
+          display: flex;
+          align-items: center;
+          gap: 14px;
+        }
+
+        .btn-header-login {
+          font-size: 0.9rem;
+          font-weight: 600;
+          color: var(--color-navy);
+          text-decoration: none;
+          padding: 9px 18px;
+          border-radius: 9px;
+          border: 1px solid #cbd5e1;
+          transition: all 0.2s ease;
+          background: #ffffff;
+        }
+
+        .btn-header-login:hover {
+          background: #f8fafc;
+          border-color: #94a3b8;
+        }
+
+        .btn-header-primary {
+          font-size: 0.9rem;
+          font-weight: 700;
+          color: #ffffff !important;
+          background: var(--color-blue);
+          text-decoration: none;
+          padding: 9px 20px;
+          border-radius: 9px;
+          box-shadow: 0 4px 14px rgba(37, 99, 235, 0.25);
+          transition: all 0.2s ease;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+        }
+
+        .btn-header-primary:hover {
+          background: var(--color-blue-hover);
+          transform: translateY(-1px);
+          box-shadow: 0 6px 18px rgba(37, 99, 235, 0.35);
+        }
+
+        .header-mobile-toggle {
+          display: none;
+          background: #ffffff;
+          border: 1px solid var(--color-border);
+          color: var(--color-navy);
+          border-radius: 9px;
+          padding: 8px;
+          cursor: pointer;
+          min-width: 44px;
+          min-height: 44px;
+          align-items: center;
+          justify-content: center;
+        }
+
+        /* -------------------------------------------------------------
+           MOBILE DRAWER
+        ------------------------------------------------------------- */
         .mobile-drawer-overlay {
           position: fixed;
           inset: 0;
@@ -91,28 +341,32 @@ export default function AboutPage() {
           display: flex;
           justify-content: flex-end;
         }
+
         .mobile-drawer {
           width: 85%;
           max-width: 340px;
           height: 100%;
           background: #ffffff;
-          box-shadow: -10px 0 25px -5px rgba(0,0,0,0.1);
+          box-shadow: -10px 0 30px rgba(0, 0, 0, 0.15);
           display: flex;
           flex-direction: column;
-          animation: slideInRight 0.25s ease-out;
+          animation: slideInRight 0.25s cubic-bezier(0.16, 1, 0.3, 1);
           overflow-y: auto;
         }
+
         @keyframes slideInRight {
           from { transform: translateX(100%); }
           to { transform: translateX(0); }
         }
+
         .mobile-drawer-header {
           display: flex;
           align-items: center;
           justify-content: space-between;
           padding: 18px 20px;
-          border-bottom: 1px solid #e2e8f0;
+          border-bottom: 1px solid var(--color-border);
         }
+
         .mobile-drawer-close {
           background: #f1f5f9;
           border: none;
@@ -126,18 +380,12 @@ export default function AboutPage() {
           align-items: center;
           justify-content: center;
         }
+
         .mobile-drawer-body {
           flex: 1;
           padding: 24px 20px;
         }
-        .mobile-drawer-group-title {
-          font-size: 0.72rem;
-          font-weight: 700;
-          color: #94a3b8;
-          text-transform: uppercase;
-          letter-spacing: 0.05em;
-          margin-bottom: 12px;
-        }
+
         .mobile-drawer-links {
           list-style: none;
           padding: 0;
@@ -146,99 +394,1397 @@ export default function AboutPage() {
           flex-direction: column;
           gap: 16px;
         }
+
         .mobile-drawer-links a {
-          color: #0f172a;
+          color: var(--color-navy);
           text-decoration: none;
           font-size: 1.05rem;
           font-weight: 600;
           display: block;
           padding: 6px 0;
         }
+
+        .mobile-drawer-links a.active {
+          color: var(--color-blue);
+          font-weight: 700;
+        }
+
         .mobile-drawer-footer {
           padding: 20px;
-          border-top: 1px solid #e2e8f0;
+          border-top: 1px solid var(--color-border);
           display: flex;
           flex-direction: column;
           gap: 12px;
-          background: #f8fafc;
+          background: var(--color-bg-subtle);
         }
-        .btn-mobile-primary {
+
+        /* -------------------------------------------------------------
+           HERO SECTION
+        ------------------------------------------------------------- */
+        .hero-section {
+          position: relative;
+          padding: clamp(56px, 8vw, 96px) 0 clamp(48px, 6vw, 80px) 0;
+          background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+          overflow: hidden;
+        }
+
+        .hero-backdrop-glow {
+          position: absolute;
+          top: 0;
+          right: 5%;
+          width: 600px;
+          height: 600px;
+          background: radial-gradient(circle, rgba(199, 210, 254, 0.45) 0%, rgba(224, 231, 255, 0.2) 40%, transparent 70%);
+          filter: blur(50px);
+          pointer-events: none;
+          z-index: 1;
+        }
+
+        .hero-grid-2col {
+          display: grid;
+          grid-template-columns: 1.08fr 0.92fr;
+          gap: 48px;
+          align-items: center;
+          position: relative;
+          z-index: 2;
+        }
+
+        .hero-eyebrow {
+          display: inline-flex;
+          align-items: center;
+          gap: 8px;
+          padding: 6px 16px;
+          border-radius: 9999px;
+          background: #eff6ff;
+          border: 1px solid #bfdbfe;
+          color: #2563eb;
+          font-size: 0.8rem;
+          font-weight: 700;
+          letter-spacing: 0.04em;
+          text-transform: uppercase;
+          margin-bottom: 24px;
+        }
+
+        .hero-eyebrow-dot {
+          width: 8px;
+          height: 8px;
           background: #2563eb;
+          border-radius: 50%;
+          display: inline-block;
+          box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.2);
+        }
+
+        .hero-h1 {
+          font-family: var(--font-heading);
+          font-size: clamp(2.35rem, 5vw, 3.85rem);
+          font-weight: 800;
+          line-height: 1.12;
+          letter-spacing: -0.035em;
+          color: var(--color-navy);
+          margin: 0 0 24px 0;
+        }
+
+        .hero-gradient-text {
+          background: linear-gradient(135deg, #2563eb 0%, #7c3aed 100%);
+          -webkit-background-clip: text;
+          -webkit-text-fill-color: transparent;
+          display: inline-block;
+        }
+
+        .hero-description {
+          font-size: clamp(1.05rem, 2vw, 1.2rem);
+          color: var(--color-slate-body);
+          line-height: 1.68;
+          margin: 0 0 36px 0;
+          max-width: 580px;
+        }
+
+        .hero-actions-row {
+          display: flex;
+          align-items: center;
+          gap: 16px;
+          flex-wrap: wrap;
+        }
+
+        .btn-primary-hero {
+          background: var(--color-blue);
           color: #ffffff !important;
-          padding: 12px 18px;
+          padding: 14px 28px;
           border-radius: 10px;
+          font-size: 1rem;
+          font-weight: 700;
+          text-decoration: none;
+          display: inline-flex;
+          align-items: center;
+          gap: 10px;
+          min-height: 50px;
+          box-shadow: 0 10px 25px -5px rgba(37, 99, 235, 0.4);
+          transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        .btn-primary-hero:hover {
+          background: var(--color-blue-hover);
+          transform: translateY(-2px);
+          box-shadow: 0 15px 30px -5px rgba(37, 99, 235, 0.5);
+        }
+
+        .btn-secondary-hero {
+          background: #ffffff;
+          color: var(--color-navy) !important;
+          padding: 14px 26px;
+          border-radius: 10px;
+          font-size: 1rem;
+          font-weight: 600;
+          text-decoration: none;
+          display: inline-flex;
+          align-items: center;
+          gap: 8px;
+          min-height: 50px;
+          border: 1px solid #cbd5e1;
+          box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04);
+          transition: all 0.25s ease;
+        }
+
+        .btn-secondary-hero:hover {
+          background: #f8fafc;
+          border-color: #94a3b8;
+          transform: translateY(-2px);
+          box-shadow: 0 6px 14px rgba(0, 0, 0, 0.06);
+        }
+
+        /* -------------------------------------------------------------
+           FLOATING ANGLED PRODUCT DASHBOARD
+        ------------------------------------------------------------- */
+        .hero-dashboard-viewport {
+          position: relative;
+          perspective: 1200px;
+        }
+
+        .hero-annotation-pill {
+          position: absolute;
+          top: -16px;
+          right: 24px;
+          z-index: 10;
+          display: inline-flex;
+          align-items: center;
+          gap: 8px;
+          background: #ffffff;
+          padding: 6px 14px;
+          border-radius: 20px;
+          border: 1px solid #bfdbfe;
+          box-shadow: 0 10px 25px rgba(37, 99, 235, 0.15);
+          font-size: 0.78rem;
+          font-weight: 700;
+          color: #1e40af;
+          animation: floatPill 4s ease-in-out infinite;
+        }
+
+        @keyframes floatPill {
+          0%, 100% { transform: translateY(0); }
+          50% { transform: translateY(-4px); }
+        }
+
+        .hero-dashboard-card {
+          background: #ffffff;
+          border-radius: 20px;
+          border: 1px solid rgba(226, 232, 240, 0.9);
+          box-shadow:
+            0 25px 60px -15px rgba(15, 23, 42, 0.12),
+            0 10px 30px -5px rgba(37, 99, 235, 0.08);
+          transform: rotateY(-5deg) rotateX(3deg);
+          transform-style: preserve-3d;
+          transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.4s ease;
+          overflow: hidden;
+        }
+
+        .hero-dashboard-card:hover {
+          transform: rotateY(0deg) rotateX(0deg) translateY(-4px);
+          box-shadow:
+            0 35px 70px -15px rgba(15, 23, 42, 0.16),
+            0 15px 35px -5px rgba(37, 99, 235, 0.12);
+        }
+
+        .dashboard-topbar {
+          background: #f8fafc;
+          border-bottom: 1px solid #e2e8f0;
+          padding: 12px 18px;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+        }
+
+        .dashboard-window-dots {
+          display: flex;
+          gap: 6px;
+        }
+
+        .dashboard-dot {
+          width: 10px;
+          height: 10px;
+          border-radius: 50%;
+        }
+
+        .dot-red { background: #f87171; }
+        .dot-yellow { background: #fbbf24; }
+        .dot-green { background: #34d399; }
+
+        .dashboard-window-title {
+          font-size: 0.76rem;
+          font-weight: 600;
+          color: #64748b;
+          display: flex;
+          align-items: center;
+          gap: 6px;
+        }
+
+        .dashboard-status-live {
+          display: inline-flex;
+          align-items: center;
+          gap: 5px;
+          background: #ecfdf5;
+          color: #059669;
+          font-size: 0.7rem;
+          font-weight: 700;
+          padding: 2px 8px;
+          border-radius: 12px;
+          border: 1px solid #a7f3d0;
+        }
+
+        .dashboard-body-grid {
+          display: grid;
+          grid-template-columns: 140px 1fr;
+          min-height: 380px;
+          background: #ffffff;
+        }
+
+        .dashboard-mini-sidebar {
+          background: #fafafa;
+          border-right: 1px solid #f1f5f9;
+          padding: 16px 12px;
+          display: flex;
+          flex-direction: column;
+          gap: 8px;
+        }
+
+        .mini-sidebar-item {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          padding: 8px 10px;
+          border-radius: 8px;
+          font-size: 0.76rem;
+          font-weight: 600;
+          color: #64748b;
+          transition: all 0.15s ease;
+        }
+
+        .mini-sidebar-item.active {
+          background: #eff6ff;
+          color: #2563eb;
+          font-weight: 700;
+        }
+
+        .dashboard-canvas {
+          padding: 20px;
+          background: #ffffff;
+          display: flex;
+          flex-direction: column;
+          gap: 16px;
+        }
+
+        .dashboard-metrics-strip {
+          display: grid;
+          grid-template-columns: repeat(3, 1fr);
+          gap: 10px;
+        }
+
+        .metric-mini-tile {
+          background: #f8fafc;
+          border: 1px solid #f1f5f9;
+          border-radius: 10px;
+          padding: 8px 12px;
+        }
+
+        .metric-mini-label {
+          font-size: 0.68rem;
+          color: #64748b;
+          font-weight: 600;
+          text-transform: uppercase;
+        }
+
+        .metric-mini-value {
+          font-size: 1.1rem;
+          font-weight: 800;
+          color: #0f172a;
+        }
+
+        .workflow-visual-builder {
+          background: #f8fafc;
+          border: 1px dashed #cbd5e1;
+          border-radius: 14px;
+          padding: 16px;
+          position: relative;
+        }
+
+        .builder-header {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          margin-bottom: 14px;
+        }
+
+        .builder-title {
+          font-size: 0.8rem;
+          font-weight: 700;
+          color: #0f172a;
+          display: flex;
+          align-items: center;
+          gap: 6px;
+        }
+
+        .builder-badge {
+          font-size: 0.68rem;
+          background: #eff6ff;
+          color: #2563eb;
+          padding: 2px 6px;
+          border-radius: 6px;
+          font-weight: 700;
+        }
+
+        .workflow-nodes-flow {
+          display: grid;
+          grid-template-columns: repeat(4, 1fr);
+          gap: 8px;
+          position: relative;
+        }
+
+        .workflow-node-box {
+          background: #ffffff;
+          border: 1px solid #e2e8f0;
+          border-radius: 10px;
+          padding: 10px 8px;
+          text-align: center;
+          transition: all 0.3s ease;
+          position: relative;
+        }
+
+        .workflow-node-box.active {
+          border-color: #2563eb;
+          box-shadow: 0 4px 12px rgba(37, 99, 235, 0.2);
+          transform: translateY(-2px);
+          background: #eff6ff;
+        }
+
+        .node-step-icon {
+          width: 28px;
+          height: 28px;
+          border-radius: 8px;
+          background: #f1f5f9;
+          color: #2563eb;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          margin: 0 auto 6px auto;
+          transition: background 0.2s ease;
+        }
+
+        .workflow-node-box.active .node-step-icon {
+          background: #2563eb;
+          color: #ffffff;
+        }
+
+        .node-step-label {
+          font-size: 0.7rem;
+          font-weight: 700;
+          color: #0f172a;
+          margin-bottom: 2px;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+
+        .node-step-desc {
+          font-size: 0.62rem;
+          color: #64748b;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+
+        .dashboard-execution-console {
+          background: #0f172a;
+          border-radius: 10px;
+          padding: 12px 14px;
+          color: #e2e8f0;
+          font-size: 0.74rem;
+          font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+        }
+
+        .console-status-text {
+          color: #38bdf8;
+          display: flex;
+          align-items: center;
+          gap: 6px;
+        }
+
+        .console-latency-tag {
+          color: #94a3b8;
+          font-size: 0.68rem;
+        }
+
+        /* -------------------------------------------------------------
+           TRUST STRIP
+        ------------------------------------------------------------- */
+        .trust-strip-section {
+          background: var(--color-bg-subtle);
+          border-top: 1px solid var(--color-border);
+          border-bottom: 1px solid var(--color-border);
+          padding: 28px 0;
+        }
+
+        .trust-strip-grid {
+          display: grid;
+          grid-template-columns: repeat(4, 1fr);
+          gap: 24px;
+        }
+
+        .trust-item {
+          display: flex;
+          align-items: flex-start;
+          gap: 14px;
+        }
+
+        .trust-icon-wrap {
+          width: 40px;
+          height: 40px;
+          border-radius: 10px;
+          background: #eff6ff;
+          border: 1px solid #bfdbfe;
+          color: #2563eb;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          flex-shrink: 0;
+        }
+
+        .trust-content-title {
           font-size: 0.95rem;
           font-weight: 700;
-          text-align: center;
-          text-decoration: none;
-          min-height: 48px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-        }
-        .btn-mobile-secondary {
-          background: #ffffff;
-          border: 1px solid #cbd5e1;
-          color: #0f172a !important;
-          padding: 12px 18px;
-          border-radius: 10px;
-          font-size: 0.95rem;
-          font-weight: 600;
-          text-align: center;
-          text-decoration: none;
-          min-height: 48px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
+          color: var(--color-navy);
+          margin-bottom: 4px;
         }
 
+        .trust-content-desc {
+          font-size: 0.82rem;
+          color: var(--color-slate-muted);
+          line-height: 1.45;
+          margin: 0;
+        }
+
+        /* -------------------------------------------------------------
+           FOUNDER STORY SECTION
+        ------------------------------------------------------------- */
+        .story-section {
+          padding: clamp(60px, 8vw, 100px) 0;
+          background: #ffffff;
+        }
+
+        .story-grid-2col {
+          display: grid;
+          grid-template-columns: 0.95fr 1.05fr;
+          gap: 56px;
+          align-items: center;
+        }
+
+        .story-image-composition {
+          position: relative;
+        }
+
+        .story-main-img-card {
+          width: 100%;
+          border-radius: 20px;
+          overflow: hidden;
+          border: 1px solid var(--color-border);
+          box-shadow: 0 20px 40px -10px rgba(15, 23, 42, 0.1);
+          background: #f1f5f9;
+          position: relative;
+        }
+
+        .story-portrait-img {
+          width: 100%;
+          height: 460px;
+          object-fit: cover;
+          object-position: center top;
+          display: block;
+        }
+
+        .story-floating-quote-card {
+          position: absolute;
+          bottom: -24px;
+          right: -16px;
+          background: #ffffff;
+          border: 1px solid #e2e8f0;
+          border-radius: 16px;
+          padding: 20px 22px;
+          max-width: 380px;
+          box-shadow: 0 20px 35px -5px rgba(0, 0, 0, 0.12);
+        }
+
+        .quote-text {
+          font-size: 0.92rem;
+          font-style: italic;
+          color: #1e293b;
+          line-height: 1.55;
+          margin-bottom: 10px;
+        }
+
+        .quote-author {
+          font-size: 0.82rem;
+          font-weight: 700;
+          color: #2563eb;
+          display: flex;
+          align-items: center;
+          gap: 6px;
+        }
+
+        .quote-author-role {
+          font-size: 0.75rem;
+          color: #64748b;
+          font-weight: 500;
+        }
+
+        .story-content-side {
+          padding-left: 12px;
+        }
+
+        .story-body-copy {
+          font-size: 1.05rem;
+          color: var(--color-slate-body);
+          line-height: 1.75;
+          margin-bottom: 24px;
+        }
+
+        .editorial-text-link {
+          display: inline-flex;
+          align-items: center;
+          gap: 8px;
+          font-size: 1rem;
+          font-weight: 700;
+          color: var(--color-blue);
+          text-decoration: none;
+          transition: gap 0.2s ease;
+        }
+
+        .editorial-text-link:hover {
+          gap: 12px;
+          color: var(--color-blue-hover);
+        }
+
+        /* -------------------------------------------------------------
+           PLATFORM CAPABILITIES SECTION
+        ------------------------------------------------------------- */
+        .capabilities-section {
+          padding: clamp(60px, 8vw, 100px) 0;
+          background: #ffffff;
+          border-top: 1px solid var(--color-border);
+        }
+
+        .capabilities-header-row {
+          display: flex;
+          align-items: flex-end;
+          justify-content: space-between;
+          margin-bottom: 48px;
+          flex-wrap: wrap;
+          gap: 20px;
+        }
+
+        .capabilities-grid-4col {
+          display: grid;
+          grid-template-columns: repeat(4, 1fr);
+          gap: 24px;
+        }
+
+        .capability-card {
+          background: #ffffff;
+          border: 1px solid var(--color-border);
+          border-radius: 18px;
+          padding: 32px 24px;
+          display: flex;
+          flex-direction: column;
+          justify-content: space-between;
+          transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+          box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.02);
+          position: relative;
+        }
+
+        .capability-card:hover {
+          transform: translateY(-6px);
+          box-shadow: 0 20px 30px -10px rgba(37, 99, 235, 0.12);
+          border-color: #cbd5e1;
+        }
+
+        .capability-icon-container {
+          width: 54px;
+          height: 54px;
+          border-radius: 14px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          margin-bottom: 24px;
+          transition: transform 0.2s ease;
+        }
+
+        .capability-card:hover .capability-icon-container {
+          transform: scale(1.06);
+        }
+
+        .icon-accent-blue {
+          background: #eff6ff;
+          border: 1px solid #bfdbfe;
+          color: #2563eb;
+        }
+
+        .icon-accent-green {
+          background: #ecfdf5;
+          border: 1px solid #a7f3d0;
+          color: #059669;
+        }
+
+        .icon-accent-purple {
+          background: #f5f3ff;
+          border: 1px solid #ddd6fe;
+          color: #7c3aed;
+        }
+
+        .icon-accent-orange {
+          background: #fff7ed;
+          border: 1px solid #fed7aa;
+          color: #ea580c;
+        }
+
+        .capability-title {
+          font-family: var(--font-heading);
+          font-size: 1.25rem;
+          font-weight: 700;
+          color: var(--color-navy);
+          margin: 0 0 12px 0;
+        }
+
+        .capability-desc {
+          font-size: 0.92rem;
+          color: var(--color-slate-body);
+          line-height: 1.6;
+          margin: 0 0 24px 0;
+          flex-grow: 1;
+        }
+
+        .capability-cta {
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          font-size: 0.9rem;
+          font-weight: 700;
+          color: var(--color-blue);
+          text-decoration: none;
+          transition: gap 0.2s ease;
+        }
+
+        .capability-card:hover .capability-cta {
+          gap: 10px;
+          color: var(--color-blue-hover);
+        }
+
+        /* -------------------------------------------------------------
+           INDIA-FIRST SECTION
+        ------------------------------------------------------------- */
+        .india-section {
+          padding: clamp(60px, 8vw, 100px) 0;
+          background: var(--color-bg-subtle);
+          border-top: 1px solid var(--color-border);
+          border-bottom: 1px solid var(--color-border);
+        }
+
+        .india-grid-2col {
+          display: grid;
+          grid-template-columns: 1fr 1.15fr;
+          gap: 56px;
+          align-items: center;
+        }
+
+        .india-visual-side {
+          position: relative;
+        }
+
+        .india-main-img-card {
+          width: 100%;
+          border-radius: 20px;
+          overflow: hidden;
+          border: 1px solid var(--color-border);
+          box-shadow: 0 20px 40px -10px rgba(0, 0, 0, 0.08);
+          background: #f1f5f9;
+        }
+
+        .india-flag-img {
+          width: 100%;
+          height: 380px;
+          object-fit: cover;
+          display: block;
+        }
+
+        .india-floating-badge-card {
+          position: absolute;
+          bottom: 24px;
+          left: 24px;
+          right: 24px;
+          background: rgba(255, 255, 255, 0.96);
+          backdrop-filter: blur(8px);
+          border: 1px solid rgba(255, 255, 255, 0.8);
+          border-radius: 16px;
+          padding: 20px 24px;
+          box-shadow: 0 15px 30px rgba(0, 0, 0, 0.12);
+        }
+
+        .india-card-eyebrow {
+          font-size: 0.72rem;
+          font-weight: 800;
+          color: #ea580c;
+          letter-spacing: 0.06em;
+          text-transform: uppercase;
+          margin-bottom: 6px;
+        }
+
+        .india-card-title {
+          font-family: var(--font-heading);
+          font-size: 1.25rem;
+          font-weight: 800;
+          color: var(--color-navy);
+          margin-bottom: 8px;
+        }
+
+        .india-card-subcopy {
+          font-size: 0.88rem;
+          color: var(--color-slate-body);
+          line-height: 1.5;
+          margin: 0;
+        }
+
+        .principles-list-3col {
+          display: flex;
+          flex-direction: column;
+          gap: 16px;
+          margin-top: 32px;
+        }
+
+        .principle-item-card {
+          background: #ffffff;
+          border: 1px solid var(--color-border);
+          border-radius: 14px;
+          padding: 16px 20px;
+          box-shadow: 0 2px 4px rgba(0, 0, 0, 0.02);
+          transition: border-color 0.2s ease;
+        }
+
+        .principle-item-card:hover {
+          border-color: #cbd5e1;
+        }
+
+        .principle-title {
+          font-size: 1rem;
+          font-weight: 700;
+          color: var(--color-navy);
+          margin-bottom: 4px;
+          display: flex;
+          align-items: center;
+          gap: 8px;
+        }
+
+        .principle-desc {
+          font-size: 0.88rem;
+          color: var(--color-slate-body);
+          line-height: 1.55;
+          margin: 0;
+        }
+
+        /* -------------------------------------------------------------
+           TIMELINE SECTION
+        ------------------------------------------------------------- */
+        .timeline-section {
+          padding: clamp(60px, 8vw, 100px) 0;
+          background: #ffffff;
+        }
+
+        .timeline-grid-2col {
+          display: grid;
+          grid-template-columns: 0.95fr 1.6fr;
+          gap: 56px;
+          align-items: flex-start;
+        }
+
+        .timeline-track-desktop {
+          display: grid;
+          grid-template-columns: repeat(4, 1fr);
+          gap: 20px;
+          position: relative;
+          padding-top: 24px;
+        }
+
+        .timeline-track-desktop::before {
+          content: '';
+          position: absolute;
+          top: 36px;
+          left: 10%;
+          right: 10%;
+          height: 3px;
+          background: linear-gradient(90deg, #2563eb, #8b5cf6);
+          border-radius: 2px;
+          z-index: 1;
+        }
+
+        .timeline-milestone-node {
+          position: relative;
+          z-index: 2;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          text-align: center;
+        }
+
+        .milestone-dot-badge {
+          width: 28px;
+          height: 28px;
+          border-radius: 50%;
+          background: #ffffff;
+          border: 3px solid #2563eb;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 0.68rem;
+          font-weight: 800;
+          color: #2563eb;
+          margin-bottom: 18px;
+          box-shadow: 0 0 0 4px #eff6ff;
+        }
+
+        .milestone-dot-badge.pulse {
+          border-color: #7c3aed;
+          color: #7c3aed;
+          box-shadow: 0 0 0 4px #f5f3ff;
+        }
+
+        .milestone-card-inner {
+          background: #ffffff;
+          border: 1px solid var(--color-border);
+          border-radius: 14px;
+          padding: 16px 14px;
+          width: 100%;
+          box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.03);
+          text-align: left;
+        }
+
+        .milestone-title {
+          font-size: 0.92rem;
+          font-weight: 700;
+          color: var(--color-navy);
+          margin-bottom: 6px;
+        }
+
+        .milestone-desc {
+          font-size: 0.8rem;
+          color: var(--color-slate-body);
+          line-height: 1.5;
+          margin: 0;
+        }
+
+        /* -------------------------------------------------------------
+           TEAM SECTION
+        ------------------------------------------------------------- */
+        .team-section {
+          padding: clamp(60px, 8vw, 100px) 0;
+          background: var(--color-bg-subtle);
+          border-top: 1px solid var(--color-border);
+        }
+
+        .team-grid-2col {
+          display: grid;
+          grid-template-columns: 0.95fr 1.35fr;
+          gap: 56px;
+          align-items: flex-start;
+        }
+
+        .team-cards-grid {
+          display: grid;
+          grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr));
+          gap: 24px;
+        }
+
+        .team-profile-card {
+          background: #ffffff;
+          border: 1px solid var(--color-border);
+          border-radius: 18px;
+          overflow: hidden;
+          box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.03);
+          transition: transform 0.25s ease, box-shadow 0.25s ease;
+        }
+
+        .team-profile-card:hover {
+          transform: translateY(-4px);
+          box-shadow: 0 16px 25px -5px rgba(0, 0, 0, 0.08);
+          border-color: #cbd5e1;
+        }
+
+        .team-portrait-wrap {
+          width: 100%;
+          height: 240px;
+          background: #f1f5f9;
+          overflow: hidden;
+          position: relative;
+        }
+
+        .team-portrait-img {
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+          object-position: center top;
+        }
+
+        .team-card-details {
+          padding: 20px;
+        }
+
+        .team-member-name {
+          font-family: var(--font-heading);
+          font-size: 1.15rem;
+          font-weight: 800;
+          color: var(--color-navy);
+          margin: 0 0 4px 0;
+        }
+
+        .team-member-role {
+          font-size: 0.82rem;
+          font-weight: 700;
+          color: var(--color-blue);
+          margin-bottom: 10px;
+        }
+
+        .team-member-bio {
+          font-size: 0.85rem;
+          color: var(--color-slate-body);
+          line-height: 1.5;
+          margin: 0 0 16px 0;
+        }
+
+        .team-social-row {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+        }
+
+        .social-chip-link {
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          padding: 6px 12px;
+          border-radius: 8px;
+          background: #f8fafc;
+          border: 1px solid #e2e8f0;
+          font-size: 0.76rem;
+          font-weight: 600;
+          color: #475569;
+          text-decoration: none;
+          transition: all 0.2s ease;
+        }
+
+        .social-chip-link:hover {
+          background: #eff6ff;
+          border-color: #bfdbfe;
+          color: #2563eb;
+        }
+
+        /* -------------------------------------------------------------
+           CLOSING CTA — DARK, PREMIUM FINISH
+        ------------------------------------------------------------- */
+        .closing-cta-section {
+          background: #090e1a;
+          color: #ffffff;
+          padding: clamp(60px, 9vw, 110px) 0;
+          position: relative;
+          overflow: hidden;
+          border-top: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        .closing-cta-radial-glow {
+          position: absolute;
+          top: -20%;
+          left: 30%;
+          width: 700px;
+          height: 700px;
+          background: radial-gradient(circle, rgba(37, 99, 235, 0.22) 0%, rgba(124, 58, 237, 0.12) 50%, transparent 70%);
+          filter: blur(60px);
+          pointer-events: none;
+          z-index: 1;
+        }
+
+        .closing-cta-grid-2col {
+          display: grid;
+          grid-template-columns: 1.15fr 0.95fr;
+          gap: 56px;
+          align-items: center;
+          position: relative;
+          z-index: 2;
+        }
+
+        .closing-cta-eyebrow {
+          display: inline-flex;
+          align-items: center;
+          gap: 8px;
+          padding: 6px 14px;
+          border-radius: 20px;
+          background: rgba(37, 99, 235, 0.2);
+          border: 1px solid rgba(59, 130, 246, 0.4);
+          color: #60a5fa;
+          font-size: 0.78rem;
+          font-weight: 700;
+          letter-spacing: 0.06em;
+          text-transform: uppercase;
+          margin-bottom: 20px;
+        }
+
+        .closing-cta-heading {
+          font-family: var(--font-heading);
+          font-size: clamp(2.1rem, 4.5vw, 3.25rem);
+          font-weight: 800;
+          color: #ffffff;
+          line-height: 1.15;
+          letter-spacing: -0.025em;
+          margin: 0 0 20px 0;
+        }
+
+        .closing-cta-copy {
+          font-size: clamp(1rem, 2vw, 1.15rem);
+          color: #94a3b8;
+          line-height: 1.65;
+          margin: 0 0 36px 0;
+          max-width: 520px;
+        }
+
+        .closing-cta-buttons {
+          display: flex;
+          align-items: center;
+          gap: 16px;
+          flex-wrap: wrap;
+        }
+
+        .btn-cta-blue {
+          background: #2563eb;
+          color: #ffffff !important;
+          padding: 14px 30px;
+          border-radius: 10px;
+          font-size: 1rem;
+          font-weight: 700;
+          text-decoration: none;
+          display: inline-flex;
+          align-items: center;
+          gap: 10px;
+          min-height: 50px;
+          box-shadow: 0 10px 25px -5px rgba(37, 99, 235, 0.5);
+          transition: all 0.25s ease;
+        }
+
+        .btn-cta-blue:hover {
+          background: #1d4ed8;
+          transform: translateY(-2px);
+          box-shadow: 0 15px 30px -5px rgba(37, 99, 235, 0.6);
+        }
+
+        .btn-cta-ghost {
+          background: rgba(255, 255, 255, 0.06);
+          color: #ffffff !important;
+          padding: 14px 26px;
+          border-radius: 10px;
+          font-size: 1rem;
+          font-weight: 600;
+          text-decoration: none;
+          display: inline-flex;
+          align-items: center;
+          gap: 8px;
+          min-height: 50px;
+          border: 1px solid rgba(255, 255, 255, 0.25);
+          transition: all 0.25s ease;
+        }
+
+        .btn-cta-ghost:hover {
+          background: rgba(255, 255, 255, 0.12);
+          border-color: rgba(255, 255, 255, 0.5);
+          transform: translateY(-2px);
+        }
+
+        /* Journey diagram on the right */
+        .closing-journey-diagram {
+          display: flex;
+          flex-direction: column;
+          gap: 16px;
+          background: rgba(255, 255, 255, 0.03);
+          border: 1px solid rgba(255, 255, 255, 0.1);
+          border-radius: 20px;
+          padding: 28px;
+          backdrop-filter: blur(8px);
+        }
+
+        .journey-step-card {
+          background: rgba(255, 255, 255, 0.05);
+          border: 1px solid rgba(255, 255, 255, 0.1);
+          border-radius: 12px;
+          padding: 16px 20px;
+          display: flex;
+          align-items: center;
+          gap: 16px;
+          transition: all 0.2s ease;
+        }
+
+        .journey-step-card:hover {
+          background: rgba(255, 255, 255, 0.08);
+          border-color: rgba(59, 130, 246, 0.5);
+          transform: translateX(4px);
+        }
+
+        .journey-step-badge {
+          width: 36px;
+          height: 36px;
+          border-radius: 10px;
+          background: rgba(37, 99, 235, 0.25);
+          border: 1px solid rgba(59, 130, 246, 0.5);
+          color: #60a5fa;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-weight: 800;
+          font-size: 0.85rem;
+          flex-shrink: 0;
+        }
+
+        .journey-step-title {
+          font-size: 1rem;
+          font-weight: 700;
+          color: #ffffff;
+          margin-bottom: 2px;
+        }
+
+        .journey-step-desc {
+          font-size: 0.82rem;
+          color: #94a3b8;
+          margin: 0;
+        }
+
+        .journey-arrow-indicator {
+          display: flex;
+          justify-content: center;
+          color: #3b82f6;
+          margin: -6px 0;
+        }
+
+        /* -------------------------------------------------------------
+           RESPONSIVE RULES
+        ------------------------------------------------------------- */
         @media (max-width: 1024px) {
-          .desktop-nav {
+          .header-nav {
             display: none !important;
           }
-          .desktop-ctas {
+          .header-ctas {
             display: none !important;
           }
-          .about-mobile-menu-btn {
+          .header-mobile-toggle {
             display: inline-flex !important;
           }
+
+          .hero-grid-2col {
+            grid-template-columns: 1fr;
+            gap: 48px;
+          }
+
+          .hero-dashboard-viewport {
+            max-width: 620px;
+            margin: 0 auto;
+          }
+
+          .trust-strip-grid {
+            grid-template-columns: repeat(2, 1fr);
+            gap: 20px;
+          }
+
+          .story-grid-2col {
+            grid-template-columns: 1fr;
+            gap: 48px;
+          }
+
+          .story-floating-quote-card {
+            position: relative;
+            bottom: auto;
+            right: auto;
+            margin-top: 16px;
+            max-width: 100%;
+          }
+
+          .capabilities-grid-4col {
+            grid-template-columns: repeat(2, 1fr);
+          }
+
+          .india-grid-2col {
+            grid-template-columns: 1fr;
+            gap: 48px;
+          }
+
+          .timeline-grid-2col {
+            grid-template-columns: 1fr;
+            gap: 40px;
+          }
+
+          .timeline-track-desktop {
+            grid-template-columns: 1fr;
+            gap: 16px;
+            padding-top: 0;
+          }
+
+          .timeline-track-desktop::before {
+            display: none;
+          }
+
+          .timeline-milestone-node {
+            flex-direction: row;
+            align-items: flex-start;
+            gap: 16px;
+            text-align: left;
+          }
+
+          .milestone-dot-badge {
+            margin-bottom: 0;
+            flex-shrink: 0;
+          }
+
+          .team-grid-2col {
+            grid-template-columns: 1fr;
+            gap: 40px;
+          }
+
+          .closing-cta-grid-2col {
+            grid-template-columns: 1fr;
+            gap: 40px;
+          }
         }
 
-        @media (max-width: 768px) {
-          .about-grid-col {
-            grid-template-columns: 1fr !important;
+        @media (max-width: 640px) {
+          .trust-strip-grid {
+            grid-template-columns: 1fr;
+          }
+
+          .capabilities-grid-4col {
+            grid-template-columns: 1fr;
+          }
+
+          .dashboard-body-grid {
+            grid-template-columns: 1fr;
+          }
+
+          .dashboard-mini-sidebar {
+            display: none;
+          }
+
+          .workflow-nodes-flow {
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+          }
+
+          .hero-h1 {
+            font-size: 2.15rem;
+          }
+
+          .closing-cta-buttons {
+            flex-direction: column;
+            width: 100%;
+          }
+
+          .btn-cta-blue, .btn-cta-ghost {
+            width: 100%;
+            justify-content: center;
+          }
+        }
+
+        /* Reduced motion accessibility */
+        @media (prefers-reduced-motion: reduce) {
+          *, *::before, *::after {
+            animation-duration: 0.01ms !important;
+            animation-iteration-count: 1 !important;
+            transition-duration: 0.01ms !important;
+            scroll-behavior: auto !important;
+          }
+          .hero-dashboard-card {
+            transform: none !important;
+          }
+          .hero-annotation-pill {
+            animation: none !important;
           }
         }
       `}</style>
 
-      {/* HEADER */}
-      <header className="header" style={{ position: 'sticky', top: 0, zIndex: 100, background: '#ffffff', borderBottom: '1px solid #e2e8f0', padding: '14px 0' }}>
-        <div className="container" style={{ maxWidth: '1360px', margin: '0 auto', padding: '0 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <Link href="/" className="logo-container" style={{ display: 'flex', alignItems: 'center', gap: '10px', textDecoration: 'none' }}>
-            <img src="/assets/xarwiz-logo.png" alt="Xarwiz" className="logo-img" style={{ height: '30px', width: 'auto' }} />
-            <span className="logo-badge" style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '2px 8px', borderRadius: '20px', background: '#EFF6FF', border: '1px solid #BFDBFE', fontSize: '0.72rem', color: '#1E40AF', fontWeight: '700' }}>
-              AI Cloud Platform
-            </span>
+      {/* -------------------------------------------------------------
+          HEADER — EXACT REFERENCE SPECIFICATION
+      ------------------------------------------------------------- */}
+      <header className="site-header">
+        <div className="section-container header-inner">
+          <Link href="/" className="header-brand" aria-label="Xarwiz Home">
+            <img
+              src="/assets/xarwiz-logo.png"
+              alt="Xarwiz"
+              className="header-logo-img"
+            />
+            <span className="header-logo-badge">AI Platform</span>
           </Link>
 
-          <nav className="desktop-nav">
-            <ul style={{ display: 'flex', gap: '28px', listStyle: 'none', fontSize: '0.92rem', fontWeight: '600', color: '#475569' }}>
-              <li><Link href="/neuravolt" style={{ textDecoration: 'none', color: '#475569' }}>Platform</Link></li>
-              <li><Link href="/neuravolt#solutions" style={{ textDecoration: 'none', color: '#475569' }}>Solutions</Link></li>
-              <li><Link href="/pricing" style={{ textDecoration: 'none', color: '#475569' }}>Pricing</Link></li>
-              <li><Link href="/about" style={{ textDecoration: 'none', color: '#2563eb', fontWeight: '700' }}>About Xarwiz</Link></li>
+          <nav className="header-nav" aria-label="Main Navigation">
+            <ul className="header-nav-list">
+              <li>
+                <Link href="/neuravolt" className="header-nav-link">
+                  Platform
+                </Link>
+              </li>
+              <li>
+                <Link href="/neuravolt#solutions" className="header-nav-link">
+                  Solutions
+                </Link>
+              </li>
+              <li>
+                <Link href="/documents" className="header-nav-link">
+                  Resources
+                </Link>
+              </li>
+              <li>
+                <Link href="/pricing" className="header-nav-link">
+                  Pricing
+                </Link>
+              </li>
+              <li>
+                <Link href="/about" className="header-nav-link active">
+                  About
+                </Link>
+              </li>
             </ul>
           </nav>
 
-          <div className="desktop-ctas" style={{ display: 'flex', gap: '12px' }}>
-            <Link href="/login" style={{ padding: '8px 16px', borderRadius: '8px', border: '1px solid #cbd5e1', textDecoration: 'none', color: '#0f172a', fontSize: '0.88rem', fontWeight: '600' }}>Book a Demo</Link>
-            <Link href="/signup" style={{ padding: '8px 16px', borderRadius: '8px', background: '#2563eb', color: '#ffffff', textDecoration: 'none', fontSize: '0.88rem', fontWeight: '600' }}>Start Free Trial</Link>
+          <div className="header-ctas">
+            <Link href="/login" className="btn-header-login">
+              Login
+            </Link>
+            <Link href="/signup" className="btn-header-primary">
+              Get Early Access
+            </Link>
           </div>
 
           <button
-            className="about-mobile-menu-btn"
+            className="header-mobile-toggle"
             onClick={() => setMobileMenuOpen(true)}
-            aria-label="Toggle navigation menu"
+            aria-label="Open navigation menu"
             aria-expanded={mobileMenuOpen}
           >
             <Menu size={22} />
@@ -246,13 +1792,26 @@ export default function AboutPage() {
         </div>
       </header>
 
-      {/* MOBILE DRAWER */}
+      {/* -------------------------------------------------------------
+          MOBILE DRAWER
+      ------------------------------------------------------------- */}
       {mobileMenuOpen && (
-        <div className="mobile-drawer-overlay" onClick={() => setMobileMenuOpen(false)}>
+        <div
+          className="mobile-drawer-overlay"
+          onClick={() => setMobileMenuOpen(false)}
+        >
           <div className="mobile-drawer" onClick={(e) => e.stopPropagation()}>
             <div className="mobile-drawer-header">
-              <Link href="/" className="logo-container" onClick={() => setMobileMenuOpen(false)} style={{ display: 'flex', alignItems: 'center', gap: '8px', textDecoration: 'none' }}>
-                <img src="/assets/xarwiz-logo.png" alt="Xarwiz" style={{ height: '24px', width: 'auto' }} />
+              <Link
+                href="/"
+                className="header-brand"
+                onClick={() => setMobileMenuOpen(false)}
+              >
+                <img
+                  src="/assets/xarwiz-logo.png"
+                  alt="Xarwiz"
+                  className="header-logo-img"
+                />
               </Link>
               <button
                 className="mobile-drawer-close"
@@ -264,388 +1823,757 @@ export default function AboutPage() {
             </div>
 
             <div className="mobile-drawer-body">
-              <div className="mobile-drawer-group-title">Navigation</div>
               <ul className="mobile-drawer-links">
-                <li><Link href="/neuravolt" onClick={() => setMobileMenuOpen(false)}>Platform</Link></li>
-                <li><Link href="/neuravolt#solutions" onClick={() => setMobileMenuOpen(false)}>Solutions</Link></li>
-                <li><Link href="/neuravolt#pricing" onClick={() => setMobileMenuOpen(false)}>Pricing</Link></li>
-                <li><Link href="/about" onClick={() => setMobileMenuOpen(false)} style={{ color: '#2563EB', fontWeight: 700 }}>About Xarwiz</Link></li>
-                <li><Link href="/privacy" onClick={() => setMobileMenuOpen(false)}>Privacy &amp; DPDP</Link></li>
-                <li><Link href="/security-policy" onClick={() => setMobileMenuOpen(false)}>Security Policy</Link></li>
+                <li>
+                  <Link
+                    href="/neuravolt"
+                    onClick={() => setMobileMenuOpen(false)}
+                  >
+                    Platform
+                  </Link>
+                </li>
+                <li>
+                  <Link
+                    href="/neuravolt#solutions"
+                    onClick={() => setMobileMenuOpen(false)}
+                  >
+                    Solutions
+                  </Link>
+                </li>
+                <li>
+                  <Link
+                    href="/documents"
+                    onClick={() => setMobileMenuOpen(false)}
+                  >
+                    Resources
+                  </Link>
+                </li>
+                <li>
+                  <Link
+                    href="/pricing"
+                    onClick={() => setMobileMenuOpen(false)}
+                  >
+                    Pricing
+                  </Link>
+                </li>
+                <li>
+                  <Link
+                    href="/about"
+                    className="active"
+                    onClick={() => setMobileMenuOpen(false)}
+                  >
+                    About Us
+                  </Link>
+                </li>
               </ul>
             </div>
 
             <div className="mobile-drawer-footer">
-              <Link href="/login" className="btn-mobile-secondary" onClick={() => setMobileMenuOpen(false)}>Book a Demo</Link>
-              <Link href="/signup" className="btn-mobile-primary" onClick={() => setMobileMenuOpen(false)}>Start Free Trial</Link>
+              <Link
+                href="/login"
+                className="btn-header-login"
+                style={{ textAlign: 'center' }}
+                onClick={() => setMobileMenuOpen(false)}
+              >
+                Login
+              </Link>
+              <Link
+                href="/signup"
+                className="btn-header-primary"
+                style={{ textAlign: 'center' }}
+                onClick={() => setMobileMenuOpen(false)}
+              >
+                Get Early Access
+              </Link>
             </div>
           </div>
         </div>
       )}
 
-      {/* HERO SECTION */}
-      <section style={{
-        position: 'relative',
-        background: 'radial-gradient(circle at 50% 0%, #1e293b 0%, #0f172a 70%)',
-        color: '#ffffff',
-        padding: 'clamp(60px, 8vw, 100px) 16px clamp(60px, 10vw, 120px) 16px',
-        textAlign: 'center',
-        overflow: 'hidden'
-      }}>
-        <div style={{ position: 'relative', zIndex: 5, maxWidth: '920px', margin: '0 auto' }}>
-          <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '6px 18px', borderRadius: '20px', background: 'rgba(37,99,235,0.12)', border: '1px solid rgba(59,130,246,0.25)', color: '#3b82f6', fontSize: '0.88rem', fontWeight: '700', marginBottom: '20px' }}>
-            India's AI Business Operating System
+      <main>
+        {/* -------------------------------------------------------------
+            HERO SECTION — REPRODUCE REFERENCE LAYOUT
+        ------------------------------------------------------------- */}
+        <section className="hero-section">
+          <div className="hero-backdrop-glow" aria-hidden="true" />
+          <div className="section-container hero-grid-2col">
+            {/* Left Column */}
+            <div>
+              <div className="hero-eyebrow">
+                <span className="hero-eyebrow-dot" />
+                OUR STORY · Built in India for a global AI future
+              </div>
+
+              <h1 className="hero-h1">
+                India's AI Platform
+                <br />
+                <span className="hero-gradient-text">for Agents &amp; Automation</span>
+              </h1>
+
+              <p className="hero-description">
+                We're building a connected AI platform where agents, business
+                knowledge and workflows work together to help businesses get
+                real work done — faster, smarter and at scale.
+              </p>
+
+              <div className="hero-actions-row">
+                <Link href="/neuravolt" className="btn-primary-hero">
+                  Explore the Platform <ArrowRight size={18} />
+                </Link>
+                <a href="#founder-story" className="btn-secondary-hero">
+                  <Play size={15} fill="currentColor" /> Watch Our Story
+                </a>
+              </div>
+            </div>
+
+            {/* Right Column: Floating Angled Product Dashboard */}
+            <div className="hero-dashboard-viewport">
+              <div className="hero-annotation-pill">
+                <Sparkles size={14} color="#2563eb" />
+                Turn ideas into AI agents that work
+              </div>
+
+              <div className="hero-dashboard-card">
+                <div className="dashboard-topbar">
+                  <div className="dashboard-window-dots">
+                    <span className="dashboard-dot dot-red" />
+                    <span className="dashboard-dot dot-yellow" />
+                    <span className="dashboard-dot dot-green" />
+                  </div>
+                  <div className="dashboard-window-title">
+                    <Bot size={14} color="#2563eb" />
+                    Xarwiz Agent Studio · Enterprise V2
+                  </div>
+                  <div className="dashboard-status-live">
+                    <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#059669', display: 'inline-block' }} />
+                    Live
+                  </div>
+                </div>
+
+                <div className="dashboard-body-grid">
+                  <aside className="dashboard-mini-sidebar">
+                    <div className="mini-sidebar-item active">
+                      <Bot size={13} /> AI Agents
+                    </div>
+                    <div className="mini-sidebar-item">
+                      <Database size={13} /> Knowledge
+                    </div>
+                    <div className="mini-sidebar-item">
+                      <Workflow size={13} /> Workflows
+                    </div>
+                    <div className="mini-sidebar-item">
+                      <Cpu size={13} /> Connectors
+                    </div>
+                  </aside>
+
+                  <div className="dashboard-canvas">
+                    <div className="dashboard-metrics-strip">
+                      <div className="metric-mini-tile">
+                        <div className="metric-mini-label">Active Agents</div>
+                        <div className="metric-mini-value">24</div>
+                      </div>
+                      <div className="metric-mini-tile">
+                        <div className="metric-mini-label">RAG Sync</div>
+                        <div className="metric-mini-value" style={{ color: '#059669' }}>99.8%</div>
+                      </div>
+                      <div className="metric-mini-tile">
+                        <div className="metric-mini-label">Executions</div>
+                        <div className="metric-mini-value">128.4K</div>
+                      </div>
+                    </div>
+
+                    <div className="workflow-visual-builder">
+                      <div className="builder-header">
+                        <div className="builder-title">
+                          <Zap size={14} color="#2563eb" />
+                          Live Connected Agent Flow
+                        </div>
+                        <span className="builder-badge">Autonomous</span>
+                      </div>
+
+                      <div className="workflow-nodes-flow">
+                        <div className={`workflow-node-box ${workflowActiveStep === 0 ? 'active' : ''}`}>
+                          <div className="node-step-icon">
+                            <Users size={14} />
+                          </div>
+                          <div className="node-step-label">User Query</div>
+                          <div className="node-step-desc">Business input</div>
+                        </div>
+
+                        <div className={`workflow-node-box ${workflowActiveStep === 1 ? 'active' : ''}`}>
+                          <div className="node-step-icon">
+                            <Bot size={14} />
+                          </div>
+                          <div className="node-step-label">AI Agent</div>
+                          <div className="node-step-desc">Intent parser</div>
+                        </div>
+
+                        <div className={`workflow-node-box ${workflowActiveStep === 2 ? 'active' : ''}`}>
+                          <div className="node-step-icon">
+                            <Database size={14} />
+                          </div>
+                          <div className="node-step-label">Knowledge Base</div>
+                          <div className="node-step-desc">Vector RAG</div>
+                        </div>
+
+                        <div className={`workflow-node-box ${workflowActiveStep === 3 ? 'active' : ''}`}>
+                          <div className="node-step-icon">
+                            <Check size={14} />
+                          </div>
+                          <div className="node-step-label">Outcome</div>
+                          <div className="node-step-desc">Action executed</div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="dashboard-execution-console">
+                      <div className="console-status-text">
+                        <Check size={13} color="#34d399" />
+                        Automated Contract Audit Complete
+                      </div>
+                      <span className="console-latency-tag">84ms · DPDP Compliant</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
+        </section>
 
-          <h1 style={{ fontFamily: "'Outfit', sans-serif", fontSize: 'clamp(2rem, 5.5vw, 3.4rem)', fontWeight: 800, lineHeight: 1.15, marginBottom: '20px', letterSpacing: '-0.03em' }}>
-            Everything Your Business Needs.<br />
-            <span style={{ background: 'linear-gradient(90deg, #60a5fa, #3b82f6)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>One Intelligent Platform.</span>
-          </h1>
+        {/* -------------------------------------------------------------
+            TRUST STRIP
+        ------------------------------------------------------------- */}
+        <section className="trust-strip-section">
+          <div className="section-container">
+            <div className="trust-strip-grid">
+              <div className="trust-item">
+                <div className="trust-icon-wrap">
+                  <Globe size={20} />
+                </div>
+                <div>
+                  <div className="trust-content-title">Built in India</div>
+                  <p className="trust-content-desc">For fast-growing global businesses.</p>
+                </div>
+              </div>
 
-          <p style={{ fontSize: 'clamp(1rem, 2.5vw, 1.2rem)', color: '#94a3b8', lineHeight: 1.65, maxWidth: '840px', margin: '0 auto 36px auto' }}>
-            Running a business shouldn't mean juggling dozens of disconnected tools. Xarwiz brings everything together from AI agents and workflow automation to knowledge management, collaboration, cloud services, and enterprise security so your team can focus on building, growing, and delivering better results.
-          </p>
+              <div className="trust-item">
+                <div className="trust-icon-wrap">
+                  <ShieldCheck size={20} />
+                </div>
+                <div>
+                  <div className="trust-content-title">Secure by Design</div>
+                  <p className="trust-content-desc">Multi-tenant RLS &amp; encryption at rest.</p>
+                </div>
+              </div>
 
-          <div style={{ display: 'flex', gap: '16px', justifyContent: 'center', flexWrap: 'wrap' }}>
-            <Link href="/signup" style={{ padding: '14px 32px', fontSize: '1rem', background: '#2563eb', color: '#ffffff', borderRadius: '8px', textDecoration: 'none', fontWeight: '700', minHeight: '48px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>Start Free Trial</Link>
-            <Link href="/login" style={{ padding: '14px 32px', fontSize: '1rem', border: '1px solid rgba(255,255,255,0.4)', color: '#0f172a', background: '#ffffff', borderRadius: '8px', textDecoration: 'none', fontWeight: '600', minHeight: '48px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>Book a Demo</Link>
+              <div className="trust-item">
+                <div className="trust-icon-wrap">
+                  <Users size={20} />
+                </div>
+                <div>
+                  <div className="trust-content-title">Trusted by Teams</div>
+                  <p className="trust-content-desc">Across modern startups and enterprises.</p>
+                </div>
+              </div>
+
+              <div className="trust-item">
+                <div className="trust-icon-wrap">
+                  <Layers size={20} />
+                </div>
+                <div>
+                  <div className="trust-content-title">AI + Workflows</div>
+                  <p className="trust-content-desc">Agents, RAG &amp; integrations in one OS.</p>
+                </div>
+              </div>
+            </div>
           </div>
-        </div>
-      </section>
+        </section>
 
-      {/* SECTION 2 — WHO WE ARE */}
-      <section style={{ padding: 'clamp(50px, 8vw, 90px) 16px', background: '#ffffff' }}>
-        <div style={{ maxWidth: '1140px', margin: '0 auto' }}>
-          <div style={{ textAlign: 'center' }}>
-            <div style={{ display: 'inline-flex', padding: '4px 14px', borderRadius: '20px', background: '#eff6ff', color: '#2563eb', fontSize: '0.82rem', fontWeight: '700', marginBottom: '16px' }}>Who We Are</div>
-            <h2 style={{ fontFamily: "'Outfit', sans-serif", fontSize: 'clamp(1.8rem, 4vw, 2.5rem)', fontWeight: 800, color: '#0f172a', marginBottom: '16px' }}>Building the Future of AI Powered Business</h2>
-            <p style={{ fontSize: '1.05rem', color: '#475569', maxWidth: '780px', margin: '0 auto 40px auto', lineHeight: 1.65 }}>Technology has transformed the way businesses operate, but the software they rely on is still fragmented. Teams switch between countless applications every day: one for communication, another for documents, another for automation, another for analytics, and yet another for AI. Instead of making work simpler, technology often creates more complexity.</p>
-          </div>
+        {/* -------------------------------------------------------------
+            FOUNDER STORY SECTION
+        ------------------------------------------------------------- */}
+        <section className="story-section" id="founder-story">
+          <div className="section-container story-grid-2col">
+            <div className="story-image-composition">
+              <div className="story-main-img-card">
+                <img
+                  src="/assets/fintech-executive.jpg"
+                  alt="Ashish Pratap Singh Tomar, Founder of Xarwiz Technologies"
+                  className="story-portrait-img"
+                  loading="lazy"
+                />
+              </div>
 
-          <div style={{ background: 'linear-gradient(135deg, #ffffff 0%, #f8fafc 100%)', border: '1px solid rgba(37,99,235,0.18)', borderRadius: '20px', padding: 'clamp(20px, 4vw, 40px)', margin: '32px 0 48px 0', boxShadow: '0 10px 30px rgba(0,0,0,0.03)', fontSize: '1.02rem', lineHeight: 1.75, color: '#334155' }}>
-            <h3 style={{ marginBottom: '16px', fontWeight: 800, color: '#0f172a', fontSize: '1.35rem', letterSpacing: '-0.01em' }}>Xarwiz was founded to change that.</h3>
-            <p style={{ marginBottom: '16px' }}>We are building an AI-native business operating system that brings together everything modern organizations need to work smarter. From intelligent AI agents and workflow automation to knowledge management, cloud infrastructure, collaboration, and enterprise grade security, Xarwiz unifies essential business capabilities into one intelligent platform.</p>
-            <p style={{ marginBottom: '16px', fontWeight: 600, color: '#2563eb' }}>Rather than adding another tool to your workflow, Xarwiz becomes the platform that connects your workflows.</p>
-            <p style={{ margin: 0 }}>Whether you're a startup building your first product, a growing agency managing multiple clients, or an enterprise looking to modernize operations, Xarwiz helps your teams automate repetitive work, organize knowledge, collaborate efficiently, and make faster decisions with AI.</p>
-          </div>
-
-          <div className="about-grid-col">
-            <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '16px', padding: 'clamp(20px, 3.5vw, 32px)' }}>
-              <h3 style={{ fontSize: '1.3rem', fontWeight: 700, color: '#0f172a', marginBottom: '12px' }}>Who We Build For</h3>
-              <p style={{ color: '#64748b', fontSize: '0.95rem', marginBottom: '20px' }}>Xarwiz is designed for organizations that want to spend less time managing software and more time creating value.</p>
-              
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', fontSize: '0.93rem', color: '#334155' }}>
-                  <span style={{ color: '#2563eb', fontWeight: 'bold' }}>✓</span>
-                  <span>Startups scaling quickly with limited resources</span>
+              <div className="story-floating-quote-card">
+                <div className="quote-text">
+                  “Our mission is to replace fragmented software sprawl with
+                  connected intelligence that actually gets real work done.”
                 </div>
-                <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', fontSize: '0.93rem', color: '#334155' }}>
-                  <span style={{ color: '#2563eb', fontWeight: 'bold' }}>✓</span>
-                  <span>Small and medium businesses modernizing their operations</span>
-                </div>
-                <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', fontSize: '0.93rem', color: '#334155' }}>
-                  <span style={{ color: '#2563eb', fontWeight: 'bold' }}>✓</span>
-                  <span>Marketing and creative agencies managing multiple clients</span>
-                </div>
-                <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', fontSize: '0.93rem', color: '#334155' }}>
-                  <span style={{ color: '#2563eb', fontWeight: 'bold' }}>✓</span>
-                  <span>Developers building AI powered products</span>
-                </div>
-                <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', fontSize: '0.93rem', color: '#334155' }}>
-                  <span style={{ color: '#2563eb', fontWeight: 'bold' }}>✓</span>
-                  <span>Enterprise teams looking for secure AI adoption</span>
-                </div>
-                <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', fontSize: '0.93rem', color: '#334155' }}>
-                  <span style={{ color: '#2563eb', fontWeight: 'bold' }}>✓</span>
-                  <span>Founders who want one platform instead of ten</span>
+                <div className="quote-author">
+                  Ashish Pratap Singh Tomar
+                  <span className="quote-author-role">· Founder &amp; Architect</span>
                 </div>
               </div>
             </div>
 
-            <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '16px', padding: 'clamp(20px, 3.5vw, 32px)' }}>
-              <h3 style={{ fontSize: '1.3rem', fontWeight: 700, color: '#0f172a', marginBottom: '12px' }}>What Makes Xarwiz Different</h3>
-              <p style={{ color: '#64748b', fontSize: '0.95rem', marginBottom: '16px' }}>Most software solves a single problem. <strong>Xarwiz solves how businesses work as a whole.</strong></p>
-              <p style={{ color: '#475569', fontSize: '0.93rem', lineHeight: 1.65, marginBottom: '20px' }}>Instead of offering isolated features, we combine AI, automation, collaboration, cloud services, knowledge management, and enterprise infrastructure into one connected ecosystem where every product works together seamlessly.</p>
-              <div style={{ background: '#eff6ff', borderLeft: '4px solid #2563eb', padding: '16px', borderRadius: '0 12px 12px 0', fontSize: '0.92rem', color: '#1e40af', fontWeight: 600, lineHeight: 1.6 }}>
-                We believe businesses shouldn't have to build their workflows around software. Software should adapt to the way businesses work.
-              </div>
+            <div className="story-content-side">
+              <div className="section-eyebrow">OUR STORY</div>
+              <h2 className="section-heading-editorial">
+                From Disconnected Tools
+                <br />
+                to Connected Intelligence
+              </h2>
+
+              <p className="story-body-copy">
+                Businesses today use too many tools. Important knowledge is
+                scattered across documents, applications and teams, while
+                repetitive work consumes valuable time.
+              </p>
+
+              <p className="story-body-copy">
+                Xarwiz is being built to bring AI agents, business knowledge,
+                workflows and integrations together in one connected platform —
+                helping teams work more intelligently.
+              </p>
+
+              <a href="#journey" className="editorial-text-link">
+                Our Story in Detail <ArrowRight size={18} />
+              </a>
             </div>
           </div>
-        </div>
-      </section>
+        </section>
 
-      {/* SECTION 3 — WHY XARWIZ EXISTS */}
-      <section style={{ padding: 'clamp(50px, 8vw, 90px) 16px', background: '#fafafc', borderTop: '1px solid #e2e8f0', borderBottom: '1px solid #e2e8f0' }}>
-        <div style={{ maxWidth: '1140px', margin: '0 auto' }}>
-          <div style={{ textAlign: 'center' }}>
-            <div style={{ display: 'inline-flex', padding: '4px 14px', borderRadius: '20px', background: '#eff6ff', color: '#2563eb', fontSize: '0.82rem', fontWeight: '700', marginBottom: '16px' }}>Why Xarwiz Exists</div>
-            <h2 style={{ fontFamily: "'Outfit', sans-serif", fontSize: 'clamp(1.8rem, 4vw, 2.5rem)', fontWeight: 800, color: '#0f172a', marginBottom: '16px' }}>The Way We Work Has Changed. Business Software Hasn't.</h2>
-            <p style={{ fontSize: '1.05rem', color: '#475569', maxWidth: '780px', margin: '0 auto 40px auto', lineHeight: 1.65 }}>Businesses today have access to more software than ever before, yet productivity continues to suffer.</p>
-          </div>
+        {/* -------------------------------------------------------------
+            PLATFORM CAPABILITIES SECTION
+        ------------------------------------------------------------- */}
+        <section className="capabilities-section">
+          <div className="section-container">
+            <div className="capabilities-header-row">
+              <div>
+                <div className="section-eyebrow">WHAT WE ARE BUILDING</div>
+                <h2 className="section-heading-editorial" style={{ margin: 0 }}>
+                  One Platform. Many Possibilities.
+                </h2>
+              </div>
+              <Link href="/neuravolt" className="editorial-text-link">
+                Explore All Features <ArrowRight size={18} />
+              </Link>
+            </div>
 
-          {/* PURE CSS VECTOR COMPARISON MOCKUP */}
-          <div style={{ margin: '30px 0 40px 0' }}>
-            <div className="about-grid-col" style={{ gap: '24px' }}>
-              
-              {/* BEFORE: FRAGMENTED CHAOS */}
-              <div style={{ background: '#ffffff', border: '1px solid #fee2e2', borderRadius: '20px', padding: 'clamp(20px, 3.5vw, 32px)', position: 'relative', boxShadow: '0 10px 25px -5px rgba(239, 68, 68, 0.05)' }}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px' }}>
-                  <span style={{ fontSize: '0.78rem', fontWeight: 800, color: '#dc2626', background: '#fef2f2', padding: '4px 12px', borderRadius: '20px', border: '1px solid #fecaca', textTransform: 'uppercase', letterSpacing: '0.04em' }}>The Old Way</span>
-                  <span style={{ fontSize: '0.85rem', color: '#ef4444', fontWeight: 600 }}>10+ Disconnected Tools</span>
+            <p className="section-subcopy" style={{ marginBottom: 44, maxWidth: 820 }}>
+              Xarwiz combines AI agents, knowledge management, workflow
+              automation and integrations to help businesses turn everyday tasks
+              into intelligent operations.
+            </p>
+
+            <div className="capabilities-grid-4col">
+              {/* Card 1: AI Agents */}
+              <div className="capability-card">
+                <div>
+                  <div className="capability-icon-container icon-accent-blue">
+                    <img
+                      src="/assets/about-features-icon1.svg"
+                      alt="AI Agents"
+                      style={{ width: 28, height: 28 }}
+                      onError={(e) => {
+                        e.currentTarget.style.display = 'none';
+                      }}
+                    />
+                  </div>
+                  <h3 className="capability-title">AI Agents</h3>
+                  <p className="capability-desc">
+                    Create AI agents that understand your business, handle tasks
+                    and support your teams.
+                  </p>
                 </div>
-                <h3 style={{ fontSize: '1.3rem', fontWeight: 800, color: '#0f172a', marginBottom: '16px' }}>Fragmented Software Chaos</h3>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '20px' }}>
-                  <span style={{ background: '#f1f5f9', color: '#475569', padding: '6px 12px', borderRadius: '8px', fontSize: '0.82rem', fontWeight: 600 }}>CRM Tool</span>
-                  <span style={{ background: '#f1f5f9', color: '#475569', padding: '6px 12px', borderRadius: '8px', fontSize: '0.82rem', fontWeight: 600 }}>Spreadsheets</span>
-                  <span style={{ background: '#f1f5f9', color: '#475569', padding: '6px 12px', borderRadius: '8px', fontSize: '0.82rem', fontWeight: 600 }}>Standalone Chatbot</span>
-                  <span style={{ background: '#f1f5f9', color: '#475569', padding: '6px 12px', borderRadius: '8px', fontSize: '0.82rem', fontWeight: 600 }}>Project Mgmt</span>
-                  <span style={{ background: '#f1f5f9', color: '#475569', padding: '6px 12px', borderRadius: '8px', fontSize: '0.82rem', fontWeight: 600 }}>Cloud Storage</span>
-                  <span style={{ background: '#f1f5f9', color: '#475569', padding: '6px 12px', borderRadius: '8px', fontSize: '0.82rem', fontWeight: 600 }}>Automation App</span>
+                <Link href="/agents" className="capability-cta">
+                  Build AI Agents <ArrowRight size={15} />
+                </Link>
+              </div>
+
+              {/* Card 2: Knowledge & RAG */}
+              <div className="capability-card">
+                <div>
+                  <div className="capability-icon-container icon-accent-green">
+                    <img
+                      src="/assets/about-features-icon2.svg"
+                      alt="Knowledge & RAG"
+                      style={{ width: 28, height: 28 }}
+                      onError={(e) => {
+                        e.currentTarget.style.display = 'none';
+                      }}
+                    />
+                  </div>
+                  <h3 className="capability-title">Knowledge &amp; RAG</h3>
+                  <p className="capability-desc">
+                    Connect your documents, policies and business data for
+                    accurate, context-aware AI.
+                  </p>
                 </div>
-                <div style={{ fontSize: '0.88rem', color: '#b91c1c', background: '#fff5f5', padding: '12px 16px', borderRadius: '10px', borderLeft: '3px solid #ef4444' }}>
-                  Data silos, repeated logins, manual copy paste, and rising subscription costs.
+                <Link href="/documents" className="capability-cta">
+                  Learn About Knowledge <ArrowRight size={15} />
+                </Link>
+              </div>
+
+              {/* Card 3: Workflow Automation */}
+              <div className="capability-card">
+                <div>
+                  <div className="capability-icon-container icon-accent-purple">
+                    <img
+                      src="/assets/about-features-icon3.svg"
+                      alt="Workflow Automation"
+                      style={{ width: 28, height: 28 }}
+                      onError={(e) => {
+                        e.currentTarget.style.display = 'none';
+                      }}
+                    />
+                  </div>
+                  <h3 className="capability-title">Workflow Automation</h3>
+                  <p className="capability-desc">
+                    Design and automate multi-step processes with AI, tools and
+                    integrations.
+                  </p>
+                </div>
+                <Link href="/workflows" className="capability-cta">
+                  Explore Workflows <ArrowRight size={15} />
+                </Link>
+              </div>
+
+              {/* Card 4: APIs & Integrations */}
+              <div className="capability-card">
+                <div>
+                  <div className="capability-icon-container icon-accent-orange">
+                    <img
+                      src="/assets/about-features-icon4.svg"
+                      alt="APIs & Integrations"
+                      style={{ width: 28, height: 28 }}
+                      onError={(e) => {
+                        e.currentTarget.style.display = 'none';
+                      }}
+                    />
+                  </div>
+                  <h3 className="capability-title">APIs &amp; Integrations</h3>
+                  <p className="capability-desc">
+                    Bring AI capabilities into your existing tools and business
+                    systems.
+                  </p>
+                </div>
+                <Link href="/neuravolt#solutions" className="capability-cta">
+                  View Integrations <ArrowRight size={15} />
+                </Link>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* -------------------------------------------------------------
+            INDIA-FIRST SECTION
+        ------------------------------------------------------------- */}
+        <section className="india-section">
+          <div className="section-container india-grid-2col">
+            <div className="india-visual-side">
+              <div className="india-main-img-card">
+                <img
+                  src="/assets/india-flag.jpg"
+                  alt="Built in India with Global Ambition"
+                  className="india-flag-img"
+                  loading="lazy"
+                />
+              </div>
+
+              <div className="india-floating-badge-card">
+                <div className="india-card-eyebrow">BUILT IN INDIA</div>
+                <h3 className="india-card-title">Global Ambition. Indian Roots.</h3>
+                <p className="india-card-subcopy">
+                  We're building from India with a global outlook, creating
+                  practical AI capabilities for businesses in India and around
+                  the world.
+                </p>
+              </div>
+            </div>
+
+            <div>
+              <div className="section-eyebrow">BUILT FOR REAL BUSINESSES</div>
+              <h2 className="section-heading-editorial">
+                Solving Real Problems for Real Teams
+              </h2>
+              <p className="section-subcopy">
+                Xarwiz aims to make AI and automation practical for real business
+                workflows — removing manual friction so teams can focus on growth.
+              </p>
+
+              <div className="principles-list-3col">
+                <div className="principle-item-card">
+                  <div className="principle-title">
+                    <Check size={18} color="#2563eb" />
+                    India-First Perspective
+                  </div>
+                  <p className="principle-desc">
+                    Engineered to deliver high-performance, cost-efficient AI
+                    orchestration suited for fast-scaling Indian and international
+                    enterprises.
+                  </p>
+                </div>
+
+                <div className="principle-item-card">
+                  <div className="principle-title">
+                    <Check size={18} color="#2563eb" />
+                    Practical AI Adoption
+                  </div>
+                  <p className="principle-desc">
+                    Moving beyond standalone chat to actively execute multi-step
+                    workflows, analyze enterprise documents, and automate repetitive tasks.
+                  </p>
+                </div>
+
+                <div className="principle-item-card">
+                  <div className="principle-title">
+                    <Check size={18} color="#2563eb" />
+                    Responsible AI
+                  </div>
+                  <p className="principle-desc">
+                    Built with strict multi-tenant isolation, role-based access
+                    controls, and statutory compliance keeping your business data secure.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* -------------------------------------------------------------
+            COMPANY JOURNEY TIMELINE
+        ------------------------------------------------------------- */}
+        <section className="timeline-section" id="journey">
+          <div className="section-container timeline-grid-2col">
+            <div>
+              <div className="section-eyebrow">OUR JOURNEY</div>
+              <h2 className="section-heading-editorial">
+                From an Idea to a Platform for What's Next
+              </h2>
+              <p className="story-body-copy">
+                What started as a vision to make AI more practical for
+                businesses is evolving into a connected platform for agents,
+                knowledge and automation.
+              </p>
+              <Link href="/neuravolt" className="editorial-text-link">
+                Our Journey <ArrowRight size={18} />
+              </Link>
+            </div>
+
+            <div className="timeline-track-desktop">
+              {/* Milestone 1 */}
+              <div className="timeline-milestone-node">
+                <div className="milestone-dot-badge">01</div>
+                <div className="milestone-card-inner">
+                  <div className="milestone-title">The Beginning</div>
+                  <p className="milestone-desc">
+                    Identified SaaS tool sprawl and envisioned unified connected
+                    intelligence for teams.
+                  </p>
                 </div>
               </div>
 
-              {/* AFTER: XARWIZ UNIFIED AI OS */}
-              <div style={{ background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 100%)', border: '1px solid #3b82f6', borderRadius: '20px', padding: 'clamp(20px, 3.5vw, 32px)', position: 'relative', color: '#ffffff', boxShadow: '0 20px 40px -10px rgba(37, 99, 235, 0.25)' }}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px' }}>
-                  <span style={{ fontSize: '0.78rem', fontWeight: 800, color: '#60a5fa', background: 'rgba(37, 99, 235, 0.2)', padding: '4px 12px', borderRadius: '20px', border: '1px solid rgba(59, 130, 246, 0.4)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>The Xarwiz Way</span>
-                  <span style={{ fontSize: '0.85rem', color: '#38bdf8', fontWeight: 600 }}>One Unified AI OS</span>
-                </div>
-                <h3 style={{ fontSize: '1.3rem', fontWeight: 800, color: '#ffffff', marginBottom: '16px' }}>Everything Connected Natively</h3>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '20px' }}>
-                  <span style={{ background: 'rgba(255,255,255,0.1)', color: '#93c5fd', padding: '6px 12px', borderRadius: '8px', fontSize: '0.82rem', fontWeight: 600, border: '1px solid rgba(255,255,255,0.15)' }}>AI Workspace</span>
-                  <span style={{ background: 'rgba(255,255,255,0.1)', color: '#93c5fd', padding: '6px 12px', borderRadius: '8px', fontSize: '0.82rem', fontWeight: 600, border: '1px solid rgba(255,255,255,0.15)' }}>RAG Knowledge Hub</span>
-                  <span style={{ background: 'rgba(255,255,255,0.1)', color: '#93c5fd', padding: '6px 12px', borderRadius: '8px', fontSize: '0.82rem', fontWeight: 600, border: '1px solid rgba(255,255,255,0.15)' }}>Autonomous Agents</span>
-                  <span style={{ background: 'rgba(255,255,255,0.1)', color: '#93c5fd', padding: '6px 12px', borderRadius: '8px', fontSize: '0.82rem', fontWeight: 600, border: '1px solid rgba(255,255,255,0.15)' }}>Workflows &amp; Analytics</span>
-                </div>
-                <div style={{ fontSize: '0.88rem', color: '#e0f2fe', background: 'rgba(37, 99, 235, 0.2)', padding: '12px 16px', borderRadius: '10px', borderLeft: '3px solid #3b82f6' }}>
-                  Single source of truth, automated workflows, enterprise security, and 100% data sovereignty.
+              {/* Milestone 2 */}
+              <div className="timeline-milestone-node">
+                <div className="milestone-dot-badge">02</div>
+                <div className="milestone-card-inner">
+                  <div className="milestone-title">Building Core</div>
+                  <p className="milestone-desc">
+                    Engineered multi-model orchestration, vector RAG search, and
+                    secure multi-tenant database.
+                  </p>
                 </div>
               </div>
 
-            </div>
-          </div>
-
-          <div style={{ fontSize: '1.05rem', lineHeight: 1.75, color: '#334155', maxWidth: '960px', margin: '0 auto' }}>
-            <div className="about-grid-col" style={{ gap: '28px', marginBottom: '36px' }}>
-              <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '16px', padding: 'clamp(20px, 3vw, 28px)', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.03)' }}>
-                <div style={{ fontWeight: 700, color: '#0f172a', fontSize: '1.15rem', marginBottom: '10px' }}>Constant App Toggling</div>
-                <p style={{ fontSize: '0.95rem', color: '#64748b', margin: 0, lineHeight: 1.6 }}>Teams spend valuable hours switching between applications, copying information, managing repetitive tasks, and trying to keep disconnected systems synchronized. Instead of helping businesses move faster, technology often slows them down.</p>
+              {/* Milestone 3 */}
+              <div className="timeline-milestone-node">
+                <div className="milestone-dot-badge">03</div>
+                <div className="milestone-card-inner">
+                  <div className="milestone-title">Early Access</div>
+                  <p className="milestone-desc">
+                    Onboarded innovative teams to build autonomous agents and
+                    automated workflows.
+                  </p>
+                </div>
               </div>
 
-              <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '16px', padding: 'clamp(20px, 3vw, 28px)', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.03)' }}>
-                <div style={{ fontWeight: 700, color: '#0f172a', fontSize: '1.15rem', marginBottom: '10px' }}>Fragmented Customer Journeys</div>
-                <p style={{ fontSize: '0.95rem', color: '#64748b', margin: 0, lineHeight: 1.6 }}>A simple customer journey may involve a CRM, project management software, communication tools, cloud storage, spreadsheets, AI assistants, email platforms, analytics dashboards, and automation software. Each tool stores information separately and creates another workflow to manage.</p>
+              {/* Milestone 4 */}
+              <div className="timeline-milestone-node">
+                <div className="milestone-dot-badge pulse">04</div>
+                <div className="milestone-card-inner">
+                  <div className="milestone-title">What's Next</div>
+                  <p className="milestone-desc">
+                    Expanding autonomous enterprise workflows and deeper
+                    business integrations globally.
+                  </p>
+                </div>
               </div>
             </div>
-
-            <div style={{ background: 'linear-gradient(135deg, #fef2f2 0%, #fff5f5 100%)', border: '1px solid #fecaca', borderLeft: '5px solid #ef4444', borderRadius: '16px', padding: 'clamp(20px, 3vw, 28px) clamp(20px, 3.5vw, 36px)', margin: '32px 0' }}>
-              <strong style={{ color: '#991b1b', fontSize: '1.15rem', display: 'block', marginBottom: '8px' }}>The Real Cost of Disconnected SaaS:</strong>
-              <div style={{ color: '#7f1d1d', fontSize: '1.02rem', fontWeight: 500 }}>Scattered knowledge, duplicated effort, soaring software subscriptions, and unnecessary operational complexity across every department.</div>
-            </div>
-
-            <p style={{ marginBottom: '24px' }}>Artificial intelligence has introduced incredible new possibilities, but most AI products exist as standalone chat interfaces with little connection to the systems businesses actually use every day. Businesses don't need another AI chatbot. They need AI that understands their data, connects their tools, automates their processes, and works alongside their teams.</p>
-
-            {/* THE XARWIZ SOLUTION GLOW BOX */}
-            <div style={{ background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 100%)', color: '#ffffff', borderRadius: '20px', padding: 'clamp(24px, 4vw, 40px)', marginTop: '36px', border: '1px solid #334155', boxShadow: '0 20px 30px rgba(15,23,42,0.15)', textAlign: 'center' }}>
-              <h3 style={{ fontSize: 'clamp(1.3rem, 3.5vw, 1.6rem)', fontWeight: 800, color: '#ffffff', marginBottom: '14px', letterSpacing: '-0.02em' }}>That's why we created Xarwiz.</h3>
-              <p style={{ fontSize: '1.05rem', color: '#cbd5e1', maxWidth: '800px', margin: '0 auto 24px auto', lineHeight: 1.7 }}>Our goal isn't simply to build another software platform. Our goal is to simplify the way businesses operate by bringing intelligence, automation, collaboration, and knowledge into one unified ecosystem.</p>
-              <div style={{ display: 'inline-block', background: 'rgba(37,99,235,0.25)', border: '1px solid rgba(59,130,246,0.4)', padding: '12px 24px', borderRadius: '12px', fontWeight: 700, color: '#60a5fa', fontSize: '1rem', maxWidth: '100%', boxSizing: 'border-box' }}>
-                When everything works together, teams move faster, decisions become smarter, and businesses focus on growth.
-              </div>
-            </div>
-
           </div>
-        </div>
-      </section>
+        </section>
 
-      {/* SECTION 4 — OUR MISSION */}
-      <section style={{ padding: 'clamp(50px, 8vw, 90px) 16px', background: '#ffffff' }}>
-        <div style={{ maxWidth: '900px', margin: '0 auto', textAlign: 'center' }}>
-          <div style={{ display: 'inline-flex', padding: '4px 14px', borderRadius: '20px', background: '#eff6ff', color: '#2563eb', fontSize: '0.82rem', fontWeight: '700', marginBottom: '16px' }}>Our Mission</div>
-          <h2 style={{ fontFamily: "'Outfit', sans-serif", fontSize: 'clamp(1.6rem, 4.5vw, 2.8rem)', fontWeight: 800, color: '#0f172a', lineHeight: 1.25, marginBottom: '24px' }}>
-            "Our mission is to make artificial intelligence practical, accessible, and genuinely useful for every business."
-          </h2>
-          <p style={{ fontSize: '1.08rem', color: '#475569', lineHeight: 1.7, marginBottom: '24px' }}>
-            We believe AI should do more than answer questions. It should reduce repetitive work, simplify complex processes, improve collaboration, and help people make better decisions every day. At Xarwiz, we are building technology that empowers people—not replaces them.
-          </p>
-          <div style={{ background: '#eff6ff', borderRadius: '16px', padding: '20px', fontSize: '1rem', color: '#1e40af', fontWeight: 600, maxWidth: '720px', margin: '0 auto' }}>
-            Guided by a simple principle: Technology should remove friction, not create it.
-          </div>
-        </div>
-      </section>
-
-      {/* SECTION 5 — OUR VISION */}
-      <section style={{ padding: 'clamp(50px, 8vw, 90px) 16px', background: '#0f172a', color: '#ffffff' }}>
-        <div style={{ maxWidth: '1140px', margin: '0 auto' }}>
-          <div style={{ textAlign: 'center', marginBottom: '40px' }}>
-            <div style={{ display: 'inline-flex', padding: '4px 14px', borderRadius: '20px', background: 'rgba(255,255,255,0.1)', color: '#60a5fa', fontSize: '0.82rem', fontWeight: '700', marginBottom: '16px' }}>The Horizon Ahead</div>
-            <h2 style={{ fontFamily: "'Outfit', sans-serif", fontSize: 'clamp(1.8rem, 4vw, 2.5rem)', fontWeight: 800, color: '#ffffff', marginBottom: '16px' }}>Building the Next Generation Business Operating System</h2>
-            <p style={{ fontSize: '1.05rem', color: '#94a3b8', maxWidth: '780px', margin: '0 auto' }}>We don't see AI as another software category. We believe it will become the foundation of how every business operates.</p>
-          </div>
-
-          <div className="about-grid-col">
-            <div style={{ background: '#1e293b', border: '1px solid #334155', borderRadius: '16px', padding: 'clamp(20px, 3.5vw, 32px)', color: '#ffffff' }}>
-              <div style={{ fontSize: '0.8rem', fontWeight: 800, color: '#3b82f6', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '12px' }}>Our Five-Year Vision</div>
-              <h3 style={{ fontSize: '1.35rem', fontWeight: 700, marginBottom: '12px' }}>Leading Intelligent Automation Platform</h3>
-              <p style={{ color: '#94a3b8', fontSize: '0.95rem', lineHeight: 1.65 }}>To become one of the leading AI platforms helping startups, agencies, and businesses automate everyday work through intelligent agents, connected workflows, and enterprise-ready infrastructure.</p>
-            </div>
-
-            <div style={{ background: '#1e293b', border: '1px solid #334155', borderRadius: '16px', padding: 'clamp(20px, 3.5vw, 32px)', color: '#ffffff' }}>
-              <div style={{ fontSize: '0.8rem', fontWeight: 800, color: '#3b82f6', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '12px' }}>Our Ten-Year Vision</div>
-              <h3 style={{ fontSize: '1.35rem', fontWeight: 700, marginBottom: '12px' }}>Global Unified Operating System</h3>
-              <p style={{ color: '#94a3b8', fontSize: '0.95rem', lineHeight: 1.65 }}>To power organizations around the world with an AI operating system where communication, automation, knowledge, cloud infrastructure, and business intelligence work together seamlessly.</p>
-            </div>
-
-            <div style={{ background: '#1e293b', border: '1px solid #334155', borderRadius: '16px', padding: 'clamp(20px, 3.5vw, 32px)', color: '#ffffff' }}>
-              <div style={{ fontSize: '0.8rem', fontWeight: 800, color: '#3b82f6', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '12px' }}>Our Long-Term Ambition</div>
-              <h3 style={{ fontSize: '1.35rem', fontWeight: 700, marginBottom: '12px' }}>One Single Intelligent Ecosystem</h3>
-              <p style={{ color: '#94a3b8', fontSize: '0.95rem', lineHeight: 1.65 }}>Our ambition is to build a platform where businesses no longer need dozens of disconnected applications. We envision a future where every organization has its own intelligent workforce powered by AI—and Xarwiz becomes the platform that makes it possible.</p>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* SECTION 7 — THE PROBLEM */}
-      <section style={{ padding: 'clamp(50px, 8vw, 90px) 16px', background: '#fafafc', borderTop: '1px solid #e2e8f0' }}>
-        <div style={{ maxWidth: '1140px', margin: '0 auto' }}>
-          <div style={{ textAlign: 'center' }}>
-            <div style={{ display: 'inline-flex', padding: '4px 14px', borderRadius: '20px', background: '#eff6ff', color: '#2563eb', fontSize: '0.82rem', fontWeight: '700', marginBottom: '16px' }}>The Problem</div>
-            <h2 style={{ fontFamily: "'Outfit', sans-serif", fontSize: 'clamp(1.8rem, 4vw, 2.5rem)', fontWeight: 800, color: '#0f172a', marginBottom: '16px' }}>Modern Businesses Deserve Better Than Disconnected Software</h2>
-            <p style={{ fontSize: '1.05rem', color: '#475569', maxWidth: '780px', margin: '0 auto 40px auto', lineHeight: 1.65 }}>Today's organizations rely on dozens of applications just to complete everyday work. Each department uses different software. Each platform stores information separately. Each subscription adds cost, complexity, and maintenance.</p>
-          </div>
-
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 260px), 1fr))', gap: '24px', marginTop: '30px' }}>
-            {[
-              { title: "Scattered Information", desc: "Data locked across multiple disconnected platforms." },
-              { title: "Constant Context Switching", desc: "Teams losing focus toggling between apps." },
-              { title: "Manual Repetitive Tasks", desc: "Valuable time consumed by manual work." },
-              { title: "Disconnected Collaboration", desc: "Poor communication between departments." },
-              { title: "Inconsistent Reporting", desc: "Duplicate data and conflicting analytics." },
-              { title: "Isolated AI Tools", desc: "Chatbots that cannot access business context." },
-              { title: "Rising Software Costs", desc: "Bloated subscription bills as teams grow." },
-              { title: "Security & Compliance Risks", desc: "Harder to manage across fragmented SaaS." }
-            ].map((item, idx) => (
-              <div key={idx} style={{ background: '#ffffff', padding: '24px', borderRadius: '16px', border: '1px solid #fee2e2', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.02)' }}>
-                <h3 style={{ fontSize: '1.1rem', fontWeight: 700, color: '#0f172a', marginBottom: '8px' }}>{item.title}</h3>
-                <p style={{ fontSize: '0.9rem', color: '#64748b', margin: 0, lineHeight: 1.55 }}>{item.desc}</p>
-              </div>
-            ))}
-          </div>
-
-          <div style={{ background: 'linear-gradient(135deg, #ffffff 0%, #fef2f2 100%)', border: '1px solid #fee2e2', borderLeft: '4px solid #ef4444', borderRadius: '16px', padding: '20px 24px', marginTop: '30px', textAlign: 'center', fontSize: '1.02rem', fontWeight: 700, color: '#991b1b', boxShadow: '0 10px 25px -5px rgba(239, 68, 68, 0.05)' }}>
-            The more tools businesses adopt, the more complicated their operations become. Technology should simplify work, not make it harder.
-          </div>
-        </div>
-      </section>
-
-      {/* SECTION 8 — THE XARWIZ SOLUTION */}
-      <section style={{ padding: 'clamp(50px, 8vw, 90px) 16px', background: '#ffffff' }}>
-        <div style={{ maxWidth: '1140px', margin: '0 auto' }}>
-          <div style={{ textAlign: 'center' }}>
-            <div style={{ display: 'inline-flex', padding: '4px 14px', borderRadius: '20px', background: '#eff6ff', color: '#2563eb', fontSize: '0.82rem', fontWeight: '700', marginBottom: '16px' }}>The Solution</div>
-            <h2 style={{ fontFamily: "'Outfit', sans-serif", fontSize: 'clamp(1.8rem, 4vw, 2.5rem)', fontWeight: 800, color: '#0f172a', marginBottom: '16px' }}>One Platform. Endless Possibilities.</h2>
-            <p style={{ fontSize: '1.05rem', color: '#475569', maxWidth: '780px', margin: '0 auto 40px auto', lineHeight: 1.65 }}>Xarwiz brings together everything businesses need into one connected platform designed for the AI era. Instead of managing separate applications, your team works from a single intelligent workspace where every product, workflow, and piece of information is connected.</p>
-          </div>
-
-          <div className="about-grid-col">
-            <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '16px', padding: 'clamp(20px, 3.5vw, 32px)', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.03)' }}>
-              <h3 style={{ fontSize: '1.25rem', fontWeight: 700, color: '#0f172a', marginBottom: '12px' }}>AI Workspace</h3>
-              <p style={{ color: '#64748b', fontSize: '0.95rem', lineHeight: 1.65, margin: 0 }}>A centralized environment where your team can collaborate with AI, access information, and complete work faster without switching between multiple applications.</p>
-            </div>
-
-            <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '16px', padding: 'clamp(20px, 3.5vw, 32px)', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.03)' }}>
-              <h3 style={{ fontSize: '1.25rem', fontWeight: 700, color: '#0f172a', marginBottom: '12px' }}>AI Agents</h3>
-              <p style={{ color: '#64748b', fontSize: '0.95rem', lineHeight: 1.65, margin: 0 }}>Create intelligent AI agents that assist employees, automate routine tasks, answer questions, and execute business workflows around the clock.</p>
-            </div>
-
-            <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '16px', padding: 'clamp(20px, 3.5vw, 32px)', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.03)' }}>
-              <h3 style={{ fontSize: '1.25rem', fontWeight: 700, color: '#0f172a', marginBottom: '12px' }}>Workflow Automation</h3>
-              <p style={{ color: '#64748b', fontSize: '0.95rem', lineHeight: 1.65, margin: 0 }}>Automate repetitive processes across departments, reduce manual effort, and ensure work moves efficiently from one stage to the next.</p>
-            </div>
-
-            <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '16px', padding: 'clamp(20px, 3.5vw, 32px)', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.03)' }}>
-              <h3 style={{ fontSize: '1.25rem', fontWeight: 700, color: '#0f172a', marginBottom: '12px' }}>Business Intelligence</h3>
-              <p style={{ color: '#64748b', fontSize: '0.95rem', lineHeight: 1.65, margin: 0 }}>Transform your business data into actionable insights with AI-powered reporting, analytics, and decision support.</p>
-            </div>
-
-            <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '16px', padding: 'clamp(20px, 3.5vw, 32px)', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.03)' }}>
-              <h3 style={{ fontSize: '1.25rem', fontWeight: 700, color: '#0f172a', marginBottom: '12px' }}>Cloud Infrastructure</h3>
-              <p style={{ color: '#64748b', fontSize: '0.95rem', lineHeight: 1.65, margin: 0 }}>Securely store, organize, and manage business data with scalable cloud services built for performance and reliability.</p>
-            </div>
-
-            <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '16px', padding: 'clamp(20px, 3.5vw, 32px)', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.03)' }}>
-              <h3 style={{ fontSize: '1.25rem', fontWeight: 700, color: '#0f172a', marginBottom: '12px' }}>Team Collaboration</h3>
-              <p style={{ color: '#64748b', fontSize: '0.95rem', lineHeight: 1.65, margin: 0 }}>Bring conversations, documents, tasks, and projects into one shared workspace so teams can collaborate more effectively.</p>
-            </div>
-
-            <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '16px', padding: 'clamp(20px, 3.5vw, 32px)', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.03)' }}>
-              <h3 style={{ fontSize: '1.25rem', fontWeight: 700, color: '#0f172a', marginBottom: '12px' }}>Integrations &amp; APIs</h3>
-              <p style={{ color: '#64748b', fontSize: '0.95rem', lineHeight: 1.65, margin: 0 }}>Connect Xarwiz with your existing tools and workflows through flexible APIs and integrations, ensuring a seamless experience without disrupting your current systems.</p>
-            </div>
-
-            <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '16px', padding: 'clamp(20px, 3.5vw, 32px)', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.03)' }}>
-              <h3 style={{ fontSize: '1.25rem', fontWeight: 700, color: '#0f172a', marginBottom: '12px' }}>Secure Data Management</h3>
-              <p style={{ color: '#64748b', fontSize: '0.95rem', lineHeight: 1.65, margin: 0 }}>Protect your organization's information with enterprise-grade encryption, access controls, audit logs, and compliance-ready security architecture.</p>
-            </div>
-
-            <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '16px', padding: 'clamp(20px, 3.5vw, 32px)', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.03)' }}>
-              <h3 style={{ fontSize: '1.25rem', fontWeight: 700, color: '#0f172a', marginBottom: '12px' }}>Enterprise AI</h3>
-              <p style={{ color: '#64748b', fontSize: '0.95rem', lineHeight: 1.65, margin: 0 }}>Deliver AI experiences that understand your organization's knowledge, context, and workflows—providing relevant, accurate, and secure assistance tailored to your business.</p>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* FAQS SECTION */}
-      <section style={{ padding: 'clamp(50px, 8vw, 90px) 16px', background: '#fafafc', borderTop: '1px solid #e2e8f0' }}>
-        <div style={{ maxWidth: '860px', margin: '0 auto' }}>
-          <div style={{ textAlign: 'center', marginBottom: '40px' }}>
-            <div style={{ display: 'inline-flex', padding: '4px 14px', borderRadius: '20px', background: '#eff6ff', color: '#2563eb', fontSize: '0.82rem', fontWeight: '700', marginBottom: '16px' }}>FAQ</div>
-            <h2 style={{ fontFamily: "'Outfit', sans-serif", fontSize: 'clamp(1.8rem, 4vw, 2.5rem)', fontWeight: 800, color: '#0f172a' }}>Frequently Asked Questions</h2>
-          </div>
-
-          {[
-            { q: "What is Xarwiz?", a: "Xarwiz is India's AI Business Operating System. Running a business shouldn't mean juggling dozens of disconnected tools. Xarwiz brings everything together—from AI agents and workflow automation to knowledge management, collaboration, cloud services, and enterprise security." },
-            { q: "How does Xarwiz protect our enterprise data?", a: "Xarwiz is built with enterprise-grade security, role-based access controls (RBAC), end-to-end encryption, audit logs, and compliance-ready architecture keeping your business secure at every step." }
-          ].map((item, idx) => (
-            <div key={idx} style={{ border: '1px solid #e2e8f0', borderRadius: '12px', marginBottom: '12px', background: '#ffffff', overflow: 'hidden' }}>
-              <div
-                onClick={() => toggleFaq(idx)}
-                style={{ padding: '18px 20px', fontWeight: 700, fontSize: '1rem', color: '#0f172a', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
+        {/* -------------------------------------------------------------
+            TEAM SECTION
+        ------------------------------------------------------------- */}
+        <section className="team-section">
+          <div className="section-container team-grid-2col">
+            <div>
+              <div className="section-eyebrow">MEET THE TEAM</div>
+              <h2 className="section-heading-editorial">
+                A Team That Believes in Practical AI for Real Impact
+              </h2>
+              <p className="story-body-copy">
+                We're building practical AI experiences to help businesses
+                connect knowledge, automate workflows and solve real operational
+                problems.
+              </p>
+              <a
+                href="mailto:careers@xarwiz.com"
+                className="btn-secondary-hero"
+                style={{ display: 'inline-flex' }}
               >
-                <span>{item.q}</span>
-                <span>{activeFaq === idx ? '▲' : '▼'}</span>
-              </div>
-              {activeFaq === idx && (
-                <div style={{ padding: '0 20px 18px 20px', fontSize: '0.95rem', color: '#475569', lineHeight: 1.6 }}>
-                  {item.a}
-                </div>
-              )}
+                Join Our Journey <ArrowRight size={16} />
+              </a>
             </div>
-          ))}
-        </div>
-      </section>
 
-      {/* CALL TO ACTION SECTION */}
-      <section style={{ background: 'linear-gradient(135deg, #1e40af 0%, #2563eb 100%)', color: '#ffffff', padding: 'clamp(50px, 8vw, 90px) 16px', textAlign: 'center' }}>
-        <div style={{ maxWidth: '800px', margin: '0 auto' }}>
-          <h2 style={{ fontFamily: "'Outfit', sans-serif", fontSize: 'clamp(1.8rem, 5vw, 3rem)', fontWeight: 800, marginBottom: '20px', lineHeight: 1.15 }}>
-            Everything Your Business Needs.<br />One Intelligent Platform.
-          </h2>
-          <p style={{ fontSize: 'clamp(1rem, 2.5vw, 1.15rem)', color: 'rgba(255,255,255,0.9)', marginBottom: '36px', lineHeight: 1.6 }}>
-            Build, grow, and deliver better results with India's AI Business Operating System.
-          </p>
-          <div style={{ display: 'flex', gap: '16px', justifyContent: 'center', flexWrap: 'wrap' }}>
-            <Link href="/signup" style={{ background: '#ffffff', color: '#1e40af', fontWeight: 700, padding: '14px 32px', borderRadius: '8px', textDecoration: 'none', fontSize: '1rem', minHeight: '48px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>Start Free Trial</Link>
-            <Link href="/login" style={{ border: '1px solid rgba(255,255,255,0.4)', color: '#ffffff', padding: '14px 32px', borderRadius: '8px', textDecoration: 'none', fontSize: '1rem', fontWeight: 600, minHeight: '48px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>Book a Demo</Link>
+            <div className="team-cards-grid">
+              {/* Founder Profile */}
+              <div className="team-profile-card">
+                <div className="team-portrait-wrap">
+                  <img
+                    src="/assets/fintech-executive.jpg"
+                    alt="Ashish Pratap Singh Tomar"
+                    className="team-portrait-img"
+                    loading="lazy"
+                  />
+                </div>
+                <div className="team-card-details">
+                  <h3 className="team-member-name">Ashish Pratap Singh Tomar</h3>
+                  <div className="team-member-role">Founder &amp; Product Architect</div>
+                  <p className="team-member-bio">
+                    Directing product architecture, agent orchestration systems,
+                    and connected intelligence foundations at Xarwiz.
+                  </p>
+                  <div className="team-social-row">
+                    <a
+                      href="https://linkedin.com"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="social-chip-link"
+                    >
+                      LinkedIn <ExternalLink size={12} />
+                    </a>
+                  </div>
+                </div>
+              </div>
+
+              {/* Core Engineering Profile */}
+              <div className="team-profile-card">
+                <div className="team-portrait-wrap">
+                  <img
+                    src="/assets/user-avatar.jpg"
+                    alt="Core Engineering Team"
+                    className="team-portrait-img"
+                    loading="lazy"
+                  />
+                </div>
+                <div className="team-card-details">
+                  <h3 className="team-member-name">AI &amp; Systems Team</h3>
+                  <div className="team-member-role">Core Architecture &amp; Research</div>
+                  <p className="team-member-bio">
+                    Building resilient vector pipelines, low-latency workflow
+                    execution engines, and enterprise security guardrails.
+                  </p>
+                  <div className="team-social-row">
+                    <span className="social-chip-link">
+                      Xarwiz Engineering
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
-        </div>
-      </section>
+        </section>
 
-      {/* EXACT REUSED SHARED GLOBAL FOOTER */}
+        {/* -------------------------------------------------------------
+            CLOSING CTA — DARK, PREMIUM FINISH
+        ------------------------------------------------------------- */}
+        <section className="closing-cta-section">
+          <div className="closing-cta-radial-glow" aria-hidden="true" />
+          <div className="section-container closing-cta-grid-2col">
+            <div>
+              <div className="closing-cta-eyebrow">JOIN THE NEXT CHAPTER</div>
+              <h2 className="closing-cta-heading">
+                Let's Build a Smarter,
+                <br />
+                More Productive Future — Together.
+              </h2>
+              <p className="closing-cta-copy">
+                Be part of a platform that turns ideas into practical business
+                outcomes with AI agents and automation.
+              </p>
+              <div className="closing-cta-buttons">
+                <Link href="/signup" className="btn-cta-blue">
+                  Get Early Access <ArrowRight size={18} />
+                </Link>
+                <Link href="/login" className="btn-cta-ghost">
+                  <Play size={15} fill="currentColor" /> Contact Our Team
+                </Link>
+              </div>
+            </div>
+
+            {/* Visual journey: Your Ideas -> AI Agents -> Real Impact */}
+            <div className="closing-journey-diagram">
+              <div className="journey-step-card">
+                <div className="journey-step-badge">01</div>
+                <div>
+                  <div className="journey-step-title">Your Ideas &amp; Goals</div>
+                  <p className="journey-step-desc">
+                    Connect documents, workflows, and repetitive operational tasks.
+                  </p>
+                </div>
+              </div>
+
+              <div className="journey-arrow-indicator">
+                <ArrowRight size={20} style={{ transform: 'rotate(90deg)' }} />
+              </div>
+
+              <div className="journey-step-card" style={{ borderColor: 'rgba(37, 99, 235, 0.4)' }}>
+                <div className="journey-step-badge" style={{ background: 'rgba(37, 99, 235, 0.4)' }}>
+                  <Bot size={18} color="#60a5fa" />
+                </div>
+                <div>
+                  <div className="journey-step-title">AI Agents &amp; Workflows</div>
+                  <p className="journey-step-desc">
+                    Autonomous reasoning, vector retrieval, and automated multi-step actions.
+                  </p>
+                </div>
+              </div>
+
+              <div className="journey-arrow-indicator">
+                <ArrowRight size={20} style={{ transform: 'rotate(90deg)' }} />
+              </div>
+
+              <div className="journey-step-card">
+                <div className="journey-step-badge" style={{ background: 'rgba(16, 185, 129, 0.25)', borderColor: 'rgba(16, 185, 129, 0.5)', color: '#34d399' }}>
+                  <Check size={18} />
+                </div>
+                <div>
+                  <div className="journey-step-title">Real Business Impact</div>
+                  <p className="journey-step-desc">
+                    Faster turnaround, reduced manual effort, and scaled execution.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+      </main>
+
+      {/* -------------------------------------------------------------
+          FOOTER PRESERVATION — STRICTLY REUSED EXISTING GLOBAL FOOTER
+      ------------------------------------------------------------- */}
       <FooterSection />
     </div>
   );

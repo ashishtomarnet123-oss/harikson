@@ -17,13 +17,15 @@ export function useDocumentTitle(title, retainOnUnmount = false) {
     if (document.title !== formatted) {
       document.title = formatted;
     }
+  }, [title]);
 
+  useEffect(() => {
     return () => {
       if (!retainOnUnmount && typeof document !== 'undefined') {
         document.title = DEFAULT_PAGE_TITLE;
       }
     };
-  }, [title, retainOnUnmount]);
+  }, [retainOnUnmount]);
 }
 
 export default useDocumentTitle;

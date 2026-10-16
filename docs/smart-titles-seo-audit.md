@@ -110,10 +110,9 @@
 - Create `components/SEOHead.js`:
   - Reusable metadata component supporting `title`, `description`, `canonical`, `og:*`, `twitter:*`, `robots` (`index, follow` vs `noindex, nofollow`), and Schema.org JSON-LD.
 - Create `user-portal/pages/_document.js` with `lang="en"`, proper meta charset, and viewport configuration.
-- Implement `public/robots.txt` declaring sitemap and disallowing private app routes.
-- Implement dynamic `pages/sitemap.xml.js` and static `public/sitemap.xml` for all public canonical URLs.
+- Implement static `public/sitemap.xml` for all 12 public canonical URLs (serving directly via Next.js static asset routing to avoid conflicting page/public file collisions).
 - Integrate `SEOHead` across all public marketing and legal pages (`/`, `/about`, `/pricing`, `/privacy-policy`, `/terms`, `/cookie-policy`, `/data-rights`, `/grievance`, `/data-processing`, `/security-policy`, `/aup`).
-- Ensure private routes (`/chat`, `/dashboard`, `/documents`, `/workflows`, `/agents`, `/studio`, `/privacy-settings`) include `noindex, nofollow`.
+- Ensure all private and auth routes (`/chat`, `/dashboard`, `/documents`, `/workflows`, `/agents`, `/studio`, `/privacy-settings`, `/forgot-password`, `/verify-email`, `/unlock-account`, `/impersonate`, `/onboarding`) include strict `noindex, nofollow` directives.
 
 ### Step 5: Verification & Testing
 - Unit and integration tests for title generator (Hindi, Hinglish, attachments, fallbacks, length limits).

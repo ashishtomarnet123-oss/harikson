@@ -79,7 +79,8 @@ export default function ImpersonatePage() {
       padding: '20px'
     }}>
       <Head>
-        <title>Impersonation Session | Xarwiz AI</title>
+        <title>Impersonation Session — Xarwiz</title>
+        <meta name="robots" content="noindex, nofollow" />
       </Head>
 
       <div style={{

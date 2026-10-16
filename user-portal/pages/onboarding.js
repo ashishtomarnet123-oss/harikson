@@ -79,7 +79,8 @@ export default function OnboardingPage() {
   return (
     <>
       <Head>
-        <title>Get Started — Xarwiz Cloud</title>
+        <title>Get Started — Xarwiz</title>
+        <meta name="robots" content="noindex, nofollow" />
       </Head>
 
       <div className="login-root">

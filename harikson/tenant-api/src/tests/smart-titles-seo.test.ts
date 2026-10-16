@@ -2,7 +2,21 @@ import { describe, it } from 'node:test';
 import assert from 'node:assert';
 import fs from 'node:fs';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { TitleService } from '../services/titleService.js';
+
+function findUserPortalPath(relativePath: string): string {
+  const candidates = [
+    path.resolve(process.cwd(), 'user-portal', relativePath),
+    path.resolve(process.cwd(), '../../user-portal', relativePath),
+    path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../../user-portal', relativePath),
+    path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../user-portal', relativePath),
+  ];
+  for (const candidate of candidates) {
+    if (fs.existsSync(candidate)) return candidate;
+  }
+  return candidates[0];
+}
 
 describe('Smart Conversation Titles & Technical SEO Test Suite', () => {
   // ============================================================================
@@ -131,7 +145,7 @@ describe('Smart Conversation Titles & Technical SEO Test Suite', () => {
   // ============================================================================
   describe('5. Technical SEO: robots.txt Verification', () => {
     it('5.1 robots.txt exists and specifies canonical sitemap location', () => {
-      const robotsPath = path.resolve(process.cwd(), '../../user-portal/public/robots.txt');
+      const robotsPath = findUserPortalPath('public/robots.txt');
       assert.ok(fs.existsSync(robotsPath), 'public/robots.txt must exist');
       const content = fs.readFileSync(robotsPath, 'utf-8');
 
@@ -140,7 +154,7 @@ describe('Smart Conversation Titles & Technical SEO Test Suite', () => {
     });
 
     it('5.2 robots.txt permits public pages and protects private routes', () => {
-      const robotsPath = path.resolve(process.cwd(), '../../user-portal/public/robots.txt');
+      const robotsPath = findUserPortalPath('public/robots.txt');
       const content = fs.readFileSync(robotsPath, 'utf-8');
 
       // Public allowed routes
@@ -164,7 +178,7 @@ describe('Smart Conversation Titles & Technical SEO Test Suite', () => {
   // ============================================================================
   describe('6. Technical SEO: sitemap.xml Verification', () => {
     it('6.1 sitemap.xml exists and is well-formed XML', () => {
-      const sitemapPath = path.resolve(process.cwd(), '../../user-portal/public/sitemap.xml');
+      const sitemapPath = findUserPortalPath('public/sitemap.xml');
       assert.ok(fs.existsSync(sitemapPath), 'public/sitemap.xml must exist');
       const content = fs.readFileSync(sitemapPath, 'utf-8');
 
@@ -174,7 +188,7 @@ describe('Smart Conversation Titles & Technical SEO Test Suite', () => {
     });
 
     it('6.2 sitemap.xml includes all public canonical URLs and NO private routes', () => {
-      const sitemapPath = path.resolve(process.cwd(), '../../user-portal/public/sitemap.xml');
+      const sitemapPath = findUserPortalPath('public/sitemap.xml');
       const content = fs.readFileSync(sitemapPath, 'utf-8');
 
       // Must include public canonical URLs
@@ -212,6 +226,109 @@ describe('Smart Conversation Titles & Technical SEO Test Suite', () => {
       for (const url of prohibitedUrls) {
         assert.ok(!content.includes(url), `Sitemap must NOT expose private route ${url}`);
       }
+    });
+  });
+
+  // ============================================================================
+  // 7. DYNAMIC BROWSER TAB TITLES & DEDUPLICATION
+  // ============================================================================
+  describe('7. Dynamic Browser Tab Titles: Formatting & Deduplication', () => {
+    it('7.1 Formats conversation title with clean brand suffix', async () => {
+      const docTitleModule = await import(findUserPortalPath('lib/documentTitle.js'));
+      const formatPageTitle = docTitleModule.formatPageTitle;
+
+      assert.strictEqual(
+        formatPageTitle('Marketing Strategy'),
+        'Marketing Strategy — Xarwiz'
+      );
+    });
+
+    it('7.2 Correctly appends brand suffix to titles starting with brand name', async () => {
+      const docTitleModule = await import(findUserPortalPath('lib/documentTitle.js'));
+      const formatPageTitle = docTitleModule.formatPageTitle;
+
+      assert.strictEqual(
+        formatPageTitle('Xarwiz Mobile Chat UI'),
+        'Xarwiz Mobile Chat UI — Xarwiz'
+      );
+    });
+
+    it('7.3 Deduplicates duplicate or repeated brand suffixes', async () => {
+      const docTitleModule = await import(findUserPortalPath('lib/documentTitle.js'));
+      const formatPageTitle = docTitleModule.formatPageTitle;
+
+      assert.strictEqual(
+        formatPageTitle('Marketing Strategy — Xarwiz — Xarwiz'),
+        'Marketing Strategy — Xarwiz'
+      );
+      assert.strictEqual(
+        formatPageTitle('Marketing Strategy - Xarwiz'),
+        'Marketing Strategy — Xarwiz'
+      );
+      assert.strictEqual(
+        formatPageTitle('Dashboard — Xarwiz'),
+        'Dashboard — Xarwiz'
+      );
+    });
+
+    it('7.4 Returns default brand title on empty, null, or brand-only string', async () => {
+      const docTitleModule = await import(findUserPortalPath('lib/documentTitle.js'));
+      const formatPageTitle = docTitleModule.formatPageTitle;
+      const DEFAULT_PAGE_TITLE = docTitleModule.DEFAULT_PAGE_TITLE;
+
+      assert.strictEqual(formatPageTitle(''), DEFAULT_PAGE_TITLE);
+      assert.strictEqual(formatPageTitle(null as any), DEFAULT_PAGE_TITLE);
+      assert.strictEqual(formatPageTitle('Xarwiz'), DEFAULT_PAGE_TITLE);
+      assert.strictEqual(formatPageTitle('Xarwiz — Xarwiz'), DEFAULT_PAGE_TITLE);
+    });
+  });
+
+  // ============================================================================
+  // 8. PRIVATE PAGE ROBOTS DIRECTIVES & STRUCTURED DATA INTEGRITY
+  // ============================================================================
+  describe('8. Private Page Robots Directives & Structured Data', () => {
+    it('8.1 All private and authentication utility pages enforce noindex, nofollow', () => {
+      const privatePages = [
+        'pages/login.js',
+        'pages/forgot-password.js',
+        'pages/verify-email.js',
+        'pages/unlock-account.js',
+        'pages/impersonate.js',
+        'pages/onboarding.js',
+        'pages/dashboard.js',
+        'pages/documents.js',
+        'pages/workflows.js',
+        'pages/agents.js',
+        'pages/studio.js',
+        'pages/privacy-settings.js',
+        'pages/share/[token].js',
+      ];
+
+      for (const relPage of privatePages) {
+        const fullPath = findUserPortalPath(relPage);
+        assert.ok(fs.existsSync(fullPath), `${relPage} must exist`);
+        const src = fs.readFileSync(fullPath, 'utf-8');
+        const hasNoindex = src.includes('noindex') || src.includes('noindex, nofollow');
+        assert.ok(hasNoindex, `${relPage} must enforce noindex`);
+      }
+    });
+
+    it('8.2 Empty, whitespace-only, and long prompt handling is resilient', () => {
+      assert.strictEqual(TitleService.generateDeterministicTitle(''), 'New Conversation');
+      assert.strictEqual(TitleService.generateDeterministicTitle('   \t\n  '), 'New Conversation');
+      assert.strictEqual(TitleService.generateDeterministicTitle(null), 'New Conversation');
+
+      const longPrompt = 'Can you please create an exhaustive step by step marketing playbook for enterprise AI products targeting APAC countries in 2027';
+      const title = TitleService.generateDeterministicTitle(longPrompt);
+      assert.ok(title.length <= 48, 'Generated title must not exceed length constraint');
+      assert.ok(!title.includes('<'), 'Generated title must not contain HTML/XML');
+    });
+
+    it('8.3 Hinglish prompt produces meaningful natural title', () => {
+      const hinglish = 'Mujhe ek naya business marketing plan bana kar do';
+      const title = TitleService.generateDeterministicTitle(hinglish);
+      assert.ok(title.length >= 5, 'Must generate meaningful title');
+      assert.ok(!title.includes('New Conversation'), 'Must not return generic fallback for Hinglish');
     });
   });
 });

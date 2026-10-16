@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
-import Head from 'next/head';
 import Link from 'next/link';
+import SEOHead from '../components/SEOHead';
 
 export default function ForgotPasswordPage() {
   const router = useRouter();
@@ -65,10 +65,12 @@ export default function ForgotPasswordPage() {
 
   return (
     <>
-      <Head>
-        <title>Forgot Password — Xarwiz AI</title>
-        <meta name="description" content="Reset your Xarwiz AI account password" />
-      </Head>
+      <SEOHead
+        title="Forgot Password"
+        description="Reset your Xarwiz AI account password"
+        canonicalPath="/forgot-password"
+        noindex={true}
+      />
 
       <div className="login-root">
         <div className="login-orb login-orb-1" />

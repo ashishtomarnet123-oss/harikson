@@ -13,7 +13,7 @@ The following pages are intended for public indexing by search engines. They con
 | Route | Canonical URL | Page Title | Primary Intent | Schema.org Type | Current Status |
 |---|---|---|---|---|---|
 | `/` | `https://xarwiz.com/` | `Xarwiz — India's All-in-One AI Platform for Agents & Automation` | Homepage, product capabilities, agent overview | `Organization`, `WebSite`, `SoftwareApplication` | Implemented & Verified |
-| `/about` | `https://xarwiz.com/about` | `About Xarwiz — India's AI Business Operating System` | Company mission, leadership, core pillars | `Organization`, `AboutPage` | Implemented & Verified |
+| `/about` | `https://xarwiz.com/about` | `About Xarwiz \| India's AI Platform for Agents & Automation` | Company mission, leadership, core pillars | `Organization`, `AboutPage` | Implemented & Verified |
 | `/pricing` | `https://xarwiz.com/pricing` | `Pricing Plans — Xarwiz` | Transparent subscription tiers, enterprise quotes | `Product`, `AggregateOffer` | Implemented & Verified |
 | `/privacy-policy` | `https://xarwiz.com/privacy-policy` | `Privacy Policy — Xarwiz AI Platform` | DPDP Act statutory privacy notice & data practices | `WebPage` | Implemented & Verified |
 | `/privacy` | `https://xarwiz.com/privacy-policy` | `Privacy Policy — Xarwiz AI Platform` | Canonical alias pointing to `/privacy-policy` | None (Canonical to `/privacy-policy`) | Implemented & Verified |

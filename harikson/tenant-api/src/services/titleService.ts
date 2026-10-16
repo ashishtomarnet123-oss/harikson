@@ -201,53 +201,101 @@ export class TitleService {
     const lowerPrompt = cleanPrompt.toLowerCase();
 
     // Specific User Prompt Requirements
-    if (lowerPrompt.includes('redesign') && lowerPrompt.includes('mobile chat') || lowerPrompt.includes('mobile chat interface') || lowerPrompt.includes('mobile chat ui')) {
+    if (
+      (lowerPrompt.includes('redesign') && lowerPrompt.includes('mobile chat')) ||
+      lowerPrompt.includes('mobile chat interface') ||
+      lowerPrompt.includes('mobile chat ui')
+    ) {
       return 'Xarwiz Mobile Chat UI';
     }
 
-    if (lowerPrompt.includes('digital marketing') && (lowerPrompt.includes('launch') || lowerPrompt.includes('plan'))) {
+    if (
+      lowerPrompt.includes('digital marketing') &&
+      (lowerPrompt.includes('launch') || lowerPrompt.includes('plan'))
+    ) {
       return 'Digital Marketing Launch Plan';
     }
 
-    if (lowerPrompt.includes('financial report') && (lowerPrompt.includes('analy') || lowerPrompt.includes('summar'))) {
+    // Specific user requests that should take precedence over generic attachment handlers:
+    // 1. Explicit document analysis requests
+    if (
+      lowerPrompt.includes('analyze this document') ||
+      lowerPrompt.includes('analyze document') ||
+      lowerPrompt === 'analyze this' ||
+      lowerPrompt === 'analyze report' ||
+      lowerPrompt.includes('analyze report')
+    ) {
+      return 'Document Analysis';
+    }
+
+    // 2. Monthly sales analysis
+    if (lowerPrompt.includes('sales') && (lowerPrompt.includes('analy') || lowerPrompt.includes('trend'))) {
+      return 'Monthly Sales Analysis';
+    }
+
+    // 3. Financial report: distinguish summary vs analysis
+    if (lowerPrompt.includes('financial report') || lowerPrompt.includes('financial report data')) {
+      if (lowerPrompt.includes('financial report data')) {
+        return 'Financial Report Analysis';
+      }
+      if (lowerPrompt.includes('summar') && !lowerPrompt.includes('analy')) {
+        return 'Financial Report Summary';
+      }
       return 'Financial Report Analysis';
     }
 
-    if ((lowerPrompt.includes('code error') || lowerPrompt.includes('debug')) && (lowerPrompt.includes('explain') || lowerPrompt.includes('troubleshoot') || lowerPrompt.includes('fix'))) {
+    // 4. Code Error Troubleshooting
+    if (
+      (lowerPrompt.includes('code error') || lowerPrompt.includes('debug')) &&
+      (lowerPrompt.includes('explain') || lowerPrompt.includes('troubleshoot') || lowerPrompt.includes('fix'))
+    ) {
       return 'Code Error Troubleshooting';
     }
 
-    // Attachment-Aware Intent Combinations
+    // 5. Attachment-Aware Intent Combinations
     if (attachments.length > 0) {
-      if (primaryAttachment?.category === 'presentation' && (lowerPrompt.includes('review') || lowerPrompt.includes('feedback') || lowerPrompt.includes('check'))) {
+      if (
+        primaryAttachment?.category === 'presentation' &&
+        (lowerPrompt.includes('review') || lowerPrompt.includes('feedback') || lowerPrompt.includes('check'))
+      ) {
         return 'Presentation Review';
       }
-      if (primaryAttachment?.category === 'code' && (lowerPrompt.includes('debug') || lowerPrompt.includes('error') || lowerPrompt.includes('fix') || lowerPrompt.includes('review'))) {
+      if (
+        primaryAttachment?.category === 'code' &&
+        (lowerPrompt.includes('debug') || lowerPrompt.includes('error') || lowerPrompt.includes('fix') || lowerPrompt.includes('review'))
+      ) {
         return 'Code Debugging';
       }
-      if ((primaryAttachment?.category === 'spreadsheet' || primaryAttachment?.name?.toLowerCase().includes('financial') || primaryAttachment?.name?.toLowerCase().includes('report')) &&
-          (lowerPrompt.includes('analy') || lowerPrompt.includes('summar') || lowerPrompt.includes('overview'))) {
+      if (
+        (primaryAttachment?.category === 'spreadsheet' ||
+          primaryAttachment?.name?.toLowerCase().includes('financial') ||
+          primaryAttachment?.name?.toLowerCase().includes('report')) &&
+        (lowerPrompt.includes('analy') || lowerPrompt.includes('summar') || lowerPrompt.includes('overview'))
+      ) {
+        if (lowerPrompt.includes('summar') && !lowerPrompt.includes('analy')) {
+          return 'Financial Report Summary';
+        }
         return 'Financial Report Analysis';
       }
     }
 
-    // Marketing strategy
+    // 6. Marketing strategy
     if (lowerPrompt.includes('marketing') && lowerPrompt.includes('strategy')) {
       if (lowerPrompt.includes('xarwiz')) return 'Xarwiz Marketing Strategy';
       return 'Marketing Strategy Planning';
     }
 
-    // Security & Code Audit
+    // 7. Security & Code Audit
     if (lowerPrompt.includes('audit') && (lowerPrompt.includes('code') || lowerPrompt.includes('security'))) {
       return 'Code Security Audit';
     }
 
-    // Quantum Computing
+    // 8. Quantum Computing
     if (lowerPrompt.includes('quantum') && lowerPrompt.includes('comput')) {
       return 'Understanding Quantum Computing';
     }
 
-    // Travel / Trip Planning
+    // 9. Travel / Trip Planning
     if (lowerPrompt.includes('thailand') && (lowerPrompt.includes('trip') || lowerPrompt.includes('plan'))) {
       return 'Thailand Trip Planning';
     }
@@ -259,37 +307,29 @@ export class TitleService {
       return `${place} Trip Planning`;
     }
 
-    // Google visibility / SEO
+    // 10. Google visibility / SEO
     if (lowerPrompt.includes('visibility') || lowerPrompt.includes('seo')) {
       return 'Google Visibility Strategy';
     }
 
-    // Email drafting
+    // 11. Email drafting
     if (lowerPrompt.includes('email') && (lowerPrompt.includes('write') || lowerPrompt.includes('draft'))) {
       if (lowerPrompt.includes('bank')) return 'Bank Email Draft';
       if (lowerPrompt.includes('client')) return 'Client Email Draft';
       return 'Professional Email Draft';
     }
 
-    // Contract risk review
+    // 12. Contract risk review
     if (lowerPrompt.includes('risk') && (lowerPrompt.includes('contract') || lowerPrompt.includes('legal'))) {
       return 'Contract Risk Review';
     }
 
-    // Monthly sales analysis
-    if (lowerPrompt.includes('sales') && (lowerPrompt.includes('analy') || lowerPrompt.includes('trend'))) {
-      return 'Monthly Sales Analysis';
-    }
-
-    // Screenshot explanation
+    // 13. Screenshot explanation
     if (lowerPrompt.includes('screenshot') || (lowerPrompt.includes('image') && lowerPrompt.includes('explain'))) {
       return 'Screenshot Analysis';
     }
 
-    // Document analysis
-    if (lowerPrompt.includes('analyze this document') || lowerPrompt.includes('analyze document') || lowerPrompt.includes('analyze report')) {
-      return 'Document Analysis';
-    }
+    // 14. Document analysis with attachment
     if (lowerPrompt.includes('analysis') && attachments.length > 0) {
       if (primaryAttachment) {
         if (primaryAttachment.cleanName && primaryAttachment.cleanName.length <= 35 && primaryAttachment.cleanName !== 'Document') {

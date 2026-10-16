@@ -94,9 +94,14 @@ export default function SEOHead({
   if (cleanPath && !cleanPath.startsWith('/')) {
     cleanPath = `/${cleanPath}`;
   }
-  // Remove trailing slashes (except root) and query strings
-  cleanPath = cleanPath.split('?')[0].replace(/\/+$/, '');
-  const canonicalUrl = `${SITE_ORIGIN}${cleanPath || ''}`;
+  // Strip query strings and trailing slashes while preserving root
+  cleanPath = cleanPath.split('?')[0];
+  if (cleanPath === '/' || cleanPath === '') {
+    cleanPath = '/';
+  } else {
+    cleanPath = cleanPath.replace(/\/+$/, '');
+  }
+  const canonicalUrl = cleanPath === '/' ? `${SITE_ORIGIN}/` : `${SITE_ORIGIN}${cleanPath}`;
 
   // Prepare Schema.org JSON-LD scripts
   const schemas = [];
