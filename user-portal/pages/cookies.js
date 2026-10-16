@@ -2,6 +2,8 @@ import { useState } from 'react';
 import Head from 'next/head';
 import Link from 'next/link';
 import { ArrowLeft, Search, Cookie, Shield, RefreshCw, Lock, Eye, AlertCircle, HelpCircle, ChevronRight } from 'lucide-react';
+import FooterSection from '../components/FooterSection';
+import SEOHead, { defaultOrganizationSchema } from '../components/SEOHead';
 
 export default function CookiePolicyPage() {
   const [searchQuery, setSearchQuery] = useState('');
@@ -62,11 +64,20 @@ export default function CookiePolicyPage() {
       minHeight: '100vh',
       fontFamily: "'Outfit', sans-serif"
     }}>
-      <Head>
-        <title>Cookie Policy | Xarwiz AI Platform</title>
-        <meta name="description" content="Xarwiz AI Cookie Policy - comprehensive tracking disclosures compliant with Indian and global regulations." />
-        <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
-      </Head>
+      <SEOHead
+        title="Cookie Policy"
+        description="Xarwiz Cookie Policy — comprehensive disclosures on session security, local storage, analytics categorization, and DPDP Act consent management."
+        canonicalPath="/cookie-policy"
+        jsonLd={[
+          defaultOrganizationSchema,
+          {
+            '@context': 'https://schema.org',
+            '@type': 'WebPage',
+            name: 'Cookie Policy — Xarwiz AI Platform',
+            url: 'https://xarwiz.com/cookie-policy',
+          },
+        ]}
+      />
 
       {/* Top Banner Gradient Hero */}
       <div style={{

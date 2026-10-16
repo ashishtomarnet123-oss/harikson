@@ -64,6 +64,15 @@ const menuSections = [
     ],
   },
   {
+    label: 'Privacy & DPDP',
+    items: [
+      { name: 'Privacy Governance', path: '/admin/privacy', icon: Shield },
+      { name: 'Rights Requests', path: '/admin/privacy/requests', icon: FileCheck },
+      { name: 'Grievance Redressal', path: '/admin/privacy/grievances', icon: Scale },
+      { name: 'Consent Audits', path: '/admin/privacy/consents', icon: Terminal },
+    ],
+  },
+  {
     label: 'Logs',
     items: [
       { name: 'System Logs', path: '/admin/logs', icon: Terminal },

@@ -3,6 +3,7 @@ import Head from 'next/head';
 import Link from 'next/link';
 import { ArrowLeft, Search, Shield, Eye, ShieldAlert, Cpu, Database, RefreshCw, AlertCircle, HelpCircle, ChevronRight } from 'lucide-react';
 import FooterSection from '../components/FooterSection';
+import SEOHead, { defaultOrganizationSchema } from '../components/SEOHead';
 
 export default function SecurityPolicyPage() {
   const [searchQuery, setSearchQuery] = useState('');
@@ -105,11 +106,20 @@ export default function SecurityPolicyPage() {
       minHeight: '100vh',
       fontFamily: "'Outfit', sans-serif"
     }}>
-      <Head>
-        <title>Security Policy | Xarwiz Cloud Platform</title>
-        <meta name="description" content="Xarwiz Cloud Security Policy - comprehensive technical controls compliant with Indian and global regulations." />
-        <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
-      </Head>
+      <SEOHead
+        title="Security Policy & Platform Safeguards"
+        description="Xarwiz Platform Security Policy — comprehensive technical controls, PostgreSQL Row-Level Security, AES-256 encryption, and CERT-In cybersecurity compliance."
+        canonicalPath="/security-policy"
+        jsonLd={[
+          defaultOrganizationSchema,
+          {
+            '@context': 'https://schema.org',
+            '@type': 'WebPage',
+            name: 'Security Policy — Xarwiz AI Platform',
+            url: 'https://xarwiz.com/security-policy',
+          },
+        ]}
+      />
 
       {/* Top Banner Gradient Hero */}
       <div style={{

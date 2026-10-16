@@ -12,6 +12,7 @@ import { requireScopes } from '../middleware/scopeAuth.js';
 import { SYSTEM_PROMPT } from '../prompts/system-prompt.js';
 import { ImageGenerationEngine, ImageOrchestrator } from '../services/image-generation/index.js';
 import { ImageOperationType } from '../services/image-generation/types.js';
+import { TitleService } from '../services/titleService.js';
 
 const router = Router();
 const redis = new Redis(process.env.REDIS_URL || 'redis://redis:6379', {
@@ -85,7 +86,7 @@ router.get('/conversations', requireScopes('chat:read'), async (req: any, res) =
   try {
     const convRes = await executeTenantQuery(req.tenant.id, (client) =>
       client.query(
-        `SELECT c.id, c.title, c.model, c.created_at, c.updated_at,
+        `SELECT c.id, c.title, c.title_locked, c.title_source, c.model, c.created_at, c.updated_at,
                 COUNT(m.id)::int as message_count
          FROM conversations c
          LEFT JOIN messages m ON m.conversation_id = c.id
@@ -96,16 +97,83 @@ router.get('/conversations', requireScopes('chat:read'), async (req: any, res) =
       )
     );
 
-    // Mask internal model names before sending to client
-    const conversations = convRes.rows.map((row: any) => ({
-      ...row,
-      model: maskModelName(row.model),
-    }));
+    // Mask internal model names and sanitize/auto-heal any invalid historical titles (if not locked)
+    const conversations = convRes.rows.map((row: any) => {
+      let title = row.title;
+      if (!row.title_locked && TitleService.isInvalidTitle(title)) {
+        title = TitleService.generateDeterministicTitle(title);
+        // Silently persist auto-repaired title in database
+        executeTenantQuery(req.tenant.id, (client) =>
+          client.query(
+            `UPDATE conversations SET title = $1 WHERE id = $2 AND tenant_id = $3 AND title_locked = FALSE`,
+            [title, row.id, req.tenant.id]
+          )
+        ).catch((err) => logger.warn({ id: row.id, err: err?.message }, 'Async title auto-heal failed'));
+      }
+      return {
+        ...row,
+        title,
+        title_locked: !!row.title_locked,
+        title_source: row.title_source || 'generated',
+        model: maskModelName(row.model),
+      };
+    });
 
     res.json({ conversations });
   } catch (err: any) {
     logger.error('Fetch conversations error:', err);
     res.status(500).json({ error: 'Failed to fetch conversations' });
+  }
+});
+
+// POST /api/chat/conversations/repair-titles — Batch repairs invalid historical titles safely
+router.post('/conversations/repair-titles', requireScopes('chat:write'), async (req: any, res) => {
+  const tenantId = req.tenant.id;
+
+  try {
+    const invalidConvs = await executeTenantQuery(tenantId, (client) =>
+      client.query(
+        `SELECT c.id, c.title, m.content as first_message
+         FROM conversations c
+         LEFT JOIN (
+           SELECT DISTINCT ON (conversation_id) conversation_id, content
+           FROM messages
+           WHERE sender = 'user'
+           ORDER BY conversation_id, created_at ASC
+         ) m ON m.conversation_id = c.id
+         WHERE c.tenant_id = $1 AND c.deleted_at IS NULL AND c.title_locked = FALSE AND (
+           c.title LIKE '%<uploaded_file%' OR
+           c.title LIKE '%[Attached%' OR
+           c.title LIKE '%name="%' OR
+           c.title LIKE 'undefined%' OR
+           c.title LIKE 'null%' OR
+           c.title LIKE '%http%' OR
+           c.title LIKE '%...%' OR
+           c.title = 'Hello' OR
+           c.title = ''
+         )`,
+        [tenantId]
+      )
+    );
+
+    let repairedCount = 0;
+    for (const row of invalidConvs.rows) {
+      const sourceText = row.first_message || row.title;
+      const cleanTitle = TitleService.generateDeterministicTitle(sourceText);
+      await executeTenantQuery(tenantId, (client) =>
+        client.query(
+          `UPDATE conversations SET title = $1, updated_at = NOW() WHERE id = $2 AND tenant_id = $3 AND title_locked = FALSE`,
+          [cleanTitle, row.id, tenantId]
+        )
+      );
+      repairedCount++;
+    }
+
+    logger.info({ tenantId, repairedCount }, '[TitleService] Repaired invalid conversation titles');
+    res.json({ success: true, repairedCount, totalChecked: invalidConvs.rows.length });
+  } catch (err: any) {
+    logger.error('Failed to repair conversation titles:', err);
+    res.status(500).json({ error: 'Failed to repair titles' });
   }
 });
 
@@ -187,13 +255,16 @@ router.patch('/conversations/:id', async (req: any, res) => {
   if (!UUID_RE.test(id)) {
     return res.status(404).json({ error: 'Conversation not found' });
   }
+  if (TitleService.isInvalidTitle(title)) {
+    return res.status(400).json({ error: 'Invalid conversation title' });
+  }
 
   try {
     const updateRes = await executeTenantQuery(req.tenant.id, (client) =>
       client.query(
-        `UPDATE conversations SET title = $1, updated_at = NOW()
+        `UPDATE conversations SET title = $1, title_locked = TRUE, title_source = 'manual', updated_at = NOW()
          WHERE id = $2 AND tenant_id = $3 AND user_id = $4 AND deleted_at IS NULL
-         RETURNING id, title`,
+         RETURNING id, title, title_locked, title_source`,
         [title.trim(), id, req.tenant.id, userId]
       )
     );
@@ -349,25 +420,73 @@ async function handleChat(req: any, res: any) {
     // (see UUID_RE's comment) is not a real conversation — treat it the
     // same as no ID at all rather than trying to reuse it.
     let currentConvId = conversationId && UUID_RE.test(conversationId) ? conversationId : undefined;
+    let currentConvTitle = '';
+
     if (!currentConvId) {
-      const title = message.length > 30 ? message.substring(0, 30) + '...' : message;
+      const initialTitle = TitleService.generateDeterministicTitle(message);
+      currentConvTitle = initialTitle;
       try {
         const convRes = await executeTenantQuery(req.tenant.id, (client) =>
           client.query(
-            `INSERT INTO conversations (tenant_id, user_id, title, model, created_at, updated_at)
-             VALUES ($1, $2, $3, $4, NOW(), NOW())
-             RETURNING id`,
-            [req.tenant.id, userId, title, model]
+            `INSERT INTO conversations (tenant_id, user_id, title, model, title_locked, title_source, created_at, updated_at)
+             VALUES ($1, $2, $3, $4, FALSE, 'generated', NOW(), NOW())
+             RETURNING id, title, title_locked, title_source`,
+            [req.tenant.id, userId, initialTitle, model]
           )
         );
         currentConvId = convRes.rows[0]?.id;
+        currentConvTitle = convRes.rows[0]?.title || initialTitle;
+
+        // Background asynchronous AI title refinement (preserves manual renames)
+        const createdId = currentConvId;
+        TitleService.generateAITitle(message)
+          .then(async (aiTitle) => {
+            if (aiTitle && aiTitle !== initialTitle && !TitleService.isInvalidTitle(aiTitle)) {
+              await executeTenantQuery(req.tenant.id, (client) =>
+                client.query(
+                  `UPDATE conversations
+                   SET title = $1, updated_at = NOW()
+                   WHERE id = $2 AND tenant_id = $3 AND title_locked = FALSE AND (title = $4 OR title = 'New Conversation' OR title = 'New Chat')`,
+                  [aiTitle, createdId, req.tenant.id, initialTitle]
+                )
+              );
+              logger.info({ convId: createdId, aiTitle }, '[TitleService] Refined title via AI in background');
+            }
+          })
+          .catch((err) => {
+            logger.warn({ convId: createdId, err: err?.message }, '[TitleService] AI title refinement skipped');
+          });
       } catch (e) {
-        // conversations has no agent_id column, so agentId is currently
-        // unused here — this fallback ID is never a real row, which used
-        // to be the silent, permanent path (the INSERT above referenced a
-        // column that doesn't exist and always threw).
         logger.error(e, 'Failed to create conversation row');
         currentConvId = 'conv_' + Date.now() + '_' + Math.random().toString(36).substring(7);
+      }
+    } else {
+      // Existing conversation: heal if title is invalid placeholder or preserve if valid/renamed
+      try {
+        const existingConv = await executeTenantQuery(req.tenant.id, (client) =>
+          client.query(
+            `SELECT title, title_locked FROM conversations WHERE id = $1 AND tenant_id = $2 AND deleted_at IS NULL`,
+            [currentConvId, req.tenant.id]
+          )
+        );
+        if (existingConv.rows.length > 0) {
+          const dbTitle = existingConv.rows[0].title;
+          const isLocked = !!existingConv.rows[0].title_locked;
+          if (!isLocked && (TitleService.isInvalidTitle(dbTitle) || dbTitle === 'New Conversation' || dbTitle === 'New Chat')) {
+            const repairedTitle = TitleService.generateDeterministicTitle(message);
+            currentConvTitle = repairedTitle;
+            await executeTenantQuery(req.tenant.id, (client) =>
+              client.query(
+                `UPDATE conversations SET title = $1, updated_at = NOW() WHERE id = $2 AND tenant_id = $3 AND title_locked = FALSE`,
+                [repairedTitle, currentConvId, req.tenant.id]
+              )
+            );
+          } else {
+            currentConvTitle = dbTitle;
+          }
+        }
+      } catch (checkErr) {
+        logger.warn({ err: checkErr }, 'Failed checking existing conversation title');
       }
     }
     if (!currentConvId) {
@@ -504,8 +623,9 @@ async function handleChat(req: any, res: any) {
           res.setHeader('Cache-Control', 'no-cache, no-transform');
           res.setHeader('Connection', 'keep-alive');
           if (currentConvId) res.setHeader('X-Conversation-Id', currentConvId);
+          if (currentConvTitle) res.setHeader('X-Conversation-Title', encodeURIComponent(currentConvTitle));
           res.flushHeaders();
-          res.write(`data: ${JSON.stringify({ content: replyContent, response: replyContent })}\n\n`);
+          res.write(`data: ${JSON.stringify({ content: replyContent, response: replyContent, conversationId: currentConvId, title: currentConvTitle })}\n\n`);
           res.write('data: [DONE]\n\n');
           return res.end();
         } else {
@@ -520,8 +640,12 @@ async function handleChat(req: any, res: any) {
       res.setHeader('Connection', 'keep-alive');
       res.setHeader('X-Accel-Buffering', 'no');
       if (currentConvId) res.setHeader('X-Conversation-Id', currentConvId);
+      if (currentConvTitle) res.setHeader('X-Conversation-Title', encodeURIComponent(currentConvTitle));
       res.flushHeaders();
       res.write(': stream-init\n\n');
+      if (currentConvId && currentConvTitle) {
+        res.write(`data: ${JSON.stringify({ conversationId: currentConvId, title: currentConvTitle, content: '' })}\n\n`);
+      }
 
       const ollamaUrl = process.env.OLLAMA_URL || process.env.OLLAMA_HOST || 'http://ollama:11434';
       let fullResponseText = '';
@@ -660,7 +784,7 @@ async function handleChat(req: any, res: any) {
               const parsed = JSON.parse(line);
               if (parsed.message?.content) {
                 fullResponseText += parsed.message.content;
-                res.write(`data: ${JSON.stringify({ content: parsed.message.content, conversationId: currentConvId })}\n\n`);
+                res.write(`data: ${JSON.stringify({ content: parsed.message.content, conversationId: currentConvId, title: currentConvTitle })}\n\n`);
               }
               if (parsed.done === true) {
                 ollamaPromptTokens = parsed.prompt_eval_count || 0;
@@ -691,7 +815,7 @@ async function handleChat(req: any, res: any) {
                 `${i + 1}. **${c.filename}** — *${c.sourceLocation}*`
               ).join('\n');
             try {
-              res.write(`data: ${JSON.stringify({ content: citationBlock, citations: retrievedCitations, conversationId: currentConvId })}\n\n`);
+              res.write(`data: ${JSON.stringify({ content: citationBlock, citations: retrievedCitations, conversationId: currentConvId, title: currentConvTitle })}\n\n`);
             } catch (_) {}
             fullResponseText += citationBlock;
           }

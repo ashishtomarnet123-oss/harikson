@@ -4,6 +4,7 @@ import Head from 'next/head';
 import Link from 'next/link';
 import { useAuth } from '../context/AuthContext';
 import { trackEvent } from '../lib/analytics';
+import SEOHead from '../components/SEOHead';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -324,10 +325,12 @@ export default function LoginPage() {
 
   return (
     <>
-      <Head>
-        <title>Login — Xarwiz AI</title>
-        <meta name="description" content="Sign in to Xarwiz AI Platform" />
-      </Head>
+      <SEOHead
+        title="Sign In"
+        description="Sign in to your Xarwiz AI Platform account"
+        canonicalPath="/login"
+        noindex={true}
+      />
 
       <div className="login-root">
         {/* Decorative orbs */}

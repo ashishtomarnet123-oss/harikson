@@ -1,4 +1,5 @@
 import React, { useEffect } from 'react';
+import Head from 'next/head';
 import { useRouter } from 'next/router';
 import { useAuth } from '../context/AuthContext';
 
@@ -27,7 +28,11 @@ export function withAuth(WrappedComponent) {
 
     if (isLoading) {
       return (
-        <div style={{
+        <>
+          <Head>
+            <meta name="robots" content="noindex, nofollow" />
+          </Head>
+          <div style={{
           minHeight: '100vh',
           backgroundColor: '#030712',
           color: '#f9fafb',
@@ -52,7 +57,8 @@ export function withAuth(WrappedComponent) {
               to { transform: rotate(360deg); }
             }
           `}</style>
-        </div>
+          </div>
+        </>
       );
     }
 

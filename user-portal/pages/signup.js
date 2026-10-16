@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import Head from 'next/head';
 import Link from 'next/link';
+import SEOHead from '../components/SEOHead';
 
 export default function SignupPage() {
   const router = useRouter();
@@ -17,6 +18,8 @@ export default function SignupPage() {
   const [isPendingApproval, setIsPendingApproval] = useState(false);
   const [apiBase, setApiBase] = useState('');
   const [tenantSlug, setTenantSlug] = useState('default');
+  const [privacyNoticeAcknowledged, setPrivacyNoticeAcknowledged] = useState(false);
+  const [marketingConsent, setMarketingConsent] = useState(false);
 
   useEffect(() => {
     const user = localStorage.getItem('hk_user');
@@ -65,6 +68,11 @@ export default function SignupPage() {
       return;
     }
 
+    if (!privacyNoticeAcknowledged) {
+      setError('Please review and acknowledge the Xarwiz Privacy Policy to continue.');
+      return;
+    }
+
     setLoading(true);
     try {
       const res = await fetch(`${apiBase}/api/v1/auth/register`, {
@@ -74,7 +82,14 @@ export default function SignupPage() {
           'x-tenant-slug': tenantSlug,
         },
         credentials: 'include',
-        body: JSON.stringify({ name, email, password, phone }),
+        body: JSON.stringify({
+          name,
+          email,
+          password,
+          phone,
+          privacyNoticeAcknowledged,
+          marketingConsent,
+        }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -103,10 +118,11 @@ export default function SignupPage() {
 
   return (
     <>
-      <Head>
-        <title>Request Access — Xarwiz Cloud</title>
-        <meta name="description" content="Request access to your Xarwiz Cloud workspace" />
-      </Head>
+      <SEOHead
+        title="Sign Up / Request Access"
+        description="Request access to your Xarwiz AI Platform workspace. Deploy autonomous AI agents, automate workflows, and connect enterprise data sources."
+        canonicalPath="/signup"
+      />
 
       <div className="login-root">
         <div className="login-orb login-orb-1" />
@@ -255,6 +271,45 @@ export default function SignupPage() {
                     autoComplete="new-password"
                     required
                   />
+                </div>
+
+                {/* DPDP Act 2023 Compliant Notice & Unbundled Consent */}
+                <div style={{ margin: '16px 0 12px 0', fontSize: '12.5px', color: '#475569', lineHeight: 1.45 }}>
+                  <label style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', cursor: 'pointer', textAlign: 'left' }}>
+                    <input
+                      type="checkbox"
+                      id="privacyNoticeAck"
+                      checked={privacyNoticeAcknowledged}
+                      onChange={(e) => setPrivacyNoticeAcknowledged(e.target.checked)}
+                      style={{ marginTop: '2px', accentColor: '#2563eb' }}
+                      required
+                    />
+                    <span>
+                      I have reviewed and acknowledge the{' '}
+                      <Link href="/privacy" target="_blank" style={{ color: '#2563eb', textDecoration: 'underline' }}>
+                        Privacy Policy (DPDP 2023)
+                      </Link>{' '}
+                      and agree to the{' '}
+                      <Link href="/terms" target="_blank" style={{ color: '#2563eb', textDecoration: 'underline' }}>
+                        Terms of Service
+                      </Link>.
+                    </span>
+                  </label>
+                </div>
+
+                <div style={{ marginBottom: '18px', fontSize: '12.5px', color: '#475569', lineHeight: 1.45 }}>
+                  <label style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', cursor: 'pointer', textAlign: 'left' }}>
+                    <input
+                      type="checkbox"
+                      id="marketingConsent"
+                      checked={marketingConsent}
+                      onChange={(e) => setMarketingConsent(e.target.checked)}
+                      style={{ marginTop: '2px', accentColor: '#2563eb' }}
+                    />
+                    <span>
+                      (Optional) Send me product updates, new AI model releases, and promotional webinars. You can withdraw anytime in Settings.
+                    </span>
+                  </label>
                 </div>
 
                 <button type="submit" className="btn-primary" disabled={loading}>

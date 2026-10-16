@@ -251,6 +251,7 @@ function DocumentsPage() {
     <DashboardShell>
       <Head>
         <title>Document Intelligence Workspace — Xarwiz</title>
+        <meta name="robots" content="noindex, nofollow" />
       </Head>
 
       <div style={{ maxWidth: '1280px', margin: '0 auto', padding: '32px 24px', fontFamily: "'Inter', sans-serif" }}>

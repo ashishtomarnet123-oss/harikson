@@ -3,6 +3,7 @@ import Head from 'next/head';
 import Link from 'next/link';
 import { ArrowLeft, Search, BookOpen, ShieldAlert, Cpu, Code2, CreditCard, ShieldCheck, AlertOctagon, Scale, Landmark, ChevronRight } from 'lucide-react';
 import FooterSection from '../components/FooterSection';
+import SEOHead, { defaultOrganizationSchema } from '../components/SEOHead';
 
 export default function TermsOfServicePage() {
   const [searchQuery, setSearchQuery] = useState('');
@@ -152,11 +153,20 @@ export default function TermsOfServicePage() {
       minHeight: '100vh',
       fontFamily: "'Outfit', sans-serif"
     }}>
-      <Head>
-        <title>Terms of Service | Xarwiz Cloud Platform</title>
-        <meta name="description" content="Xarwiz Cloud Terms of Service - comprehensive agreement compliant with Indian and global regulations." />
-        <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
-      </Head>
+      <SEOHead
+        title="Terms of Service"
+        description="Xarwiz Terms of Service — customer agreement governing platform subscriptions, API usage, acceptable use, AI model interactions, and Indian DPDP Act compliance."
+        canonicalPath="/terms"
+        jsonLd={[
+          defaultOrganizationSchema,
+          {
+            '@context': 'https://schema.org',
+            '@type': 'WebPage',
+            name: 'Terms of Service — Xarwiz AI Platform',
+            url: 'https://xarwiz.com/terms',
+          },
+        ]}
+      />
 
       {/* Top Banner Gradient Hero */}
       <div style={{

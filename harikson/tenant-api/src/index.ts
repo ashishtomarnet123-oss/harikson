@@ -43,6 +43,7 @@ import notificationRoutes from './routes/notification.routes.js';
 import voiceRoutes from './routes/voice.routes.js';
 import shareRoutes from './routes/share.routes.js';
 import imageRoutes from './routes/image.routes.js';
+import privacyRoutes from './routes/privacy.routes.js';
 
 // Import existing API sub-routers
 import chatRouter from './routes/chat.js';
@@ -234,6 +235,20 @@ app.use(async (req, res, next) => {
         return next();
       }
 
+      // Public DPDP privacy notice, purpose definitions, grievance reporting, and cookie consent
+      const isPrivacyPublicRoute =
+        (req.path.startsWith('/api/privacy') || req.path.startsWith('/api/v1/privacy')) &&
+        (
+          req.path.includes('/notice') ||
+          req.path.includes('/notices') ||
+          req.path.includes('/purposes') ||
+          req.path.includes('/grievances') ||
+          req.path.includes('/cookie-consent')
+        );
+      if (isPrivacyPublicRoute) {
+        return next();
+      }
+
       // Public share viewer endpoint — no tenant or auth context required.
       // Authorization is enforced inside the route handler via token hash lookup.
       if (req.path.startsWith('/api/public/')) {
@@ -320,6 +335,10 @@ app.use('/api/v1/images', imageRoutes);
 // too so that exact, already-registered URL keeps resolving correctly.
 app.use('/api/user/integrations', integrationsRoutes);
 app.use('/api/v1/user/integrations', integrationsRoutes);
+
+// DPDP Act 2023: Privacy Notices, Consent Management & Data Principal Rights
+app.use('/api/privacy', privacyRoutes);
+app.use('/api/v1/privacy', privacyRoutes);
 
 // Share routes:
 //   /api/public/shares/:token  — unauthenticated public viewer endpoint

@@ -59,6 +59,47 @@ function parseCsvToTable(csvText) {
   return { headers, rows, name: 'Sheet 1', totalRows: lines.length - 1 };
 }
 
+function parsePagesFromContent(content) {
+  if (!content) return [];
+  const parts = content.split(/--- Page (\d+) ---\s*/);
+  if (parts.length > 2) {
+    const list = [];
+    for (let i = 1; i < parts.length; i += 2) {
+      list.push({
+        pageNumber: parseInt(parts[i], 10),
+        text: parts[i + 1]?.trim() || '',
+      });
+    }
+    return list;
+  }
+  return [{ pageNumber: 1, text: content }];
+}
+
+function createDocFromFileData(fileData, documentId) {
+  if (!fileData) return null;
+  const parsedPages = fileData.pageList || fileData.structure?.pages || parsePagesFromContent(fileData.content || fileData.extractedText);
+  const pageCountVal = parseInt(fileData.pageCount || fileData.pages || (parsedPages.length > 0 ? parsedPages.length : 1), 10) || 1;
+
+  return {
+    id: fileData.documentId || (typeof documentId === 'string' ? documentId : null),
+    filename: fileData.name || fileData.title || 'Document',
+    document_type: fileData.documentType || fileData.type || 'general',
+    page_count: pageCountVal,
+    word_count:
+      fileData.wordCount ||
+      (fileData.content ? fileData.content.split(/\s+/).length : 0),
+    file_size_bytes: fileData.size || 0,
+    url: fileData.url || fileData.dataUrl || '',
+    content: fileData.content || fileData.extractedText || '',
+    structure: fileData.structure || {
+      pages: parsedPages,
+      sections: fileData.sections || [{ title: 'Extracted Content', content: fileData.content || fileData.extractedText || '' }],
+      tables: fileData.tables || [],
+    },
+    metadata: fileData.metadata || { summary: fileData.summary || '' },
+  };
+}
+
 export default function DocumentViewerModal({
   isOpen,
   onClose,
@@ -66,8 +107,8 @@ export default function DocumentViewerModal({
   initialPage = 1,
   fileData = null,
 }) {
-  const [doc, setDoc] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [doc, setDoc] = useState(() => createDocFromFileData(fileData, documentId));
+  const [loading, setLoading] = useState(() => !fileData && !!documentId);
   const [error, setError] = useState(null);
 
   // Workspace Viewer state
@@ -93,46 +134,11 @@ export default function DocumentViewerModal({
       setZoom(1);
       setFitMode('page');
 
-      const parsePagesFromContent = (content) => {
-        if (!content) return [];
-        const parts = content.split(/--- Page (\d+) ---\n/);
-        if (parts.length > 2) {
-          const list = [];
-          for (let i = 1; i < parts.length; i += 2) {
-            list.push({
-              pageNumber: parseInt(parts[i], 10),
-              text: parts[i + 1]?.trim() || '',
-            });
-          }
-          return list;
-        }
-        return [{ pageNumber: 1, text: content }];
-      };
-
       if (fileData) {
         setLoading(false);
         setError(null);
-        const parsedPages = fileData.pageList || fileData.structure?.pages || parsePagesFromContent(fileData.content);
-        const pageCountVal = fileData.pageCount || fileData.pages || (parsedPages.length > 0 ? parsedPages.length : 1);
-
-        setDoc({
-          id: fileData.documentId || (typeof documentId === 'string' ? documentId : null),
-          filename: fileData.name || fileData.title || 'Document',
-          document_type: fileData.documentType || 'general',
-          page_count: pageCountVal,
-          word_count:
-            fileData.wordCount ||
-            (fileData.content ? fileData.content.split(/\s+/).length : 0),
-          file_size_bytes: fileData.size || 0,
-          url: fileData.url || fileData.dataUrl || '',
-          content: fileData.content || '',
-          structure: fileData.structure || {
-            pages: parsedPages,
-            sections: fileData.sections || [{ title: 'Extracted Content', content: fileData.content || '' }],
-            tables: fileData.tables || [],
-          },
-          metadata: fileData.metadata || { summary: fileData.summary || '' },
-        });
+        const derivedDoc = createDocFromFileData(fileData, documentId);
+        setDoc(derivedDoc);
 
         if (fileData.summary) {
           setAiAnswers([
@@ -168,13 +174,14 @@ export default function DocumentViewerModal({
       } else if (e.key === 'ArrowLeft') {
         setCurrentPage((p) => Math.max(1, p - 1));
       } else if (e.key === 'ArrowRight') {
-        const maxPages = doc?.page_count || 1;
+        const effective = doc || createDocFromFileData(fileData, documentId);
+        const maxPages = effective?.page_count || 1;
         setCurrentPage((p) => Math.min(maxPages, p + 1));
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, doc, onClose]);
+  }, [isOpen, doc, fileData, documentId, onClose]);
 
   const loadDocumentDetails = async (targetId, silent = false) => {
     const idToFetch = targetId || (typeof documentId === 'object' ? documentId?.id : documentId);
@@ -339,17 +346,18 @@ export default function DocumentViewerModal({
 
   if (!isOpen) return null;
 
-  const fileName = doc?.filename || fileData?.name || fileData?.title || 'Document';
-  const capability = getFileCapability(fileName, doc?.document_type || fileData?.type || fileData?.mimeType);
+  const currentDoc = doc || createDocFromFileData(fileData, documentId);
+  const fileName = currentDoc?.filename || fileData?.name || fileData?.title || 'Document';
+  const capability = getFileCapability(fileName, currentDoc?.document_type || fileData?.type || fileData?.mimeType);
 
-  const metadata = doc?.metadata || {};
-  const structure = doc?.structure || {};
+  const metadata = currentDoc?.metadata || {};
+  const structure = currentDoc?.structure || {};
   const pages = structure.pages || [];
   const sections = structure.sections || [];
   let tables = structure.tables || [];
 
-  if (tables.length === 0 && (doc?.content || fileData?.content)) {
-    const parsedCsv = parseCsvToTable(doc?.content || fileData?.content || '');
+  if (tables.length === 0 && (currentDoc?.content || fileData?.content)) {
+    const parsedCsv = parseCsvToTable(currentDoc?.content || fileData?.content || '');
     if (parsedCsv) {
       tables = [parsedCsv];
     }
@@ -362,10 +370,10 @@ export default function DocumentViewerModal({
   const isVideo = capability.category === 'video';
   const isPdf = capability.category === 'pdf';
 
-  const totalPages = doc?.page_count || (pages.length > 0 ? pages.length : 1);
+  const totalPages = parseInt(currentDoc?.page_count || (pages.length > 0 ? pages.length : 1), 10) || 1;
   const currentPageData = pages.find((p) => p.pageNumber === currentPage);
   const pageText =
-    currentPageData ? currentPageData.text : sections[0]?.content || doc?.content || fileData?.content || 'Content preview not available';
+    currentPageData ? currentPageData.text : sections[0]?.content || currentDoc?.content || fileData?.content || 'Content preview not available';
 
   // Highlight search query matches
   const highlightMatches = (text) => {
@@ -385,6 +393,8 @@ export default function DocumentViewerModal({
 
   return (
     <div
+      id="xarwiz-document-workspace"
+      data-testid="xarwiz-document-workspace"
       role="dialog"
       aria-modal="true"
       style={{
@@ -393,7 +403,7 @@ export default function DocumentViewerModal({
         width: '100vw',
         height: '100vh',
         backgroundColor: '#0f172a',
-        zIndex: 9999,
+        zIndex: 99999,
         display: 'flex',
         flexDirection: 'column',
         overflow: 'hidden',
@@ -417,6 +427,8 @@ export default function DocumentViewerModal({
         {/* Left: Back to Chat + Document Details */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '14px', minWidth: 0 }}>
           <button
+            id="workspace-back-to-chat-btn"
+            data-testid="workspace-back-to-chat-btn"
             type="button"
             onClick={onClose}
             style={{
@@ -509,8 +521,8 @@ export default function DocumentViewerModal({
               </span>
             </div>
             <div style={{ fontSize: '0.74rem', color: '#94a3b8', marginTop: '2px' }}>
-              {totalPages} {totalPages === 1 ? 'Page' : 'Pages'} · {(doc?.word_count || 0).toLocaleString()} words
-              {doc?.file_size_bytes ? ` · ${((doc.file_size_bytes) / 1024).toFixed(1)} KB` : ''}
+              {totalPages} {totalPages === 1 ? 'Page' : 'Pages'} · {(currentDoc?.word_count || 0).toLocaleString()} words
+              {currentDoc?.file_size_bytes ? ` · ${((currentDoc.file_size_bytes) / 1024).toFixed(1)} KB` : ''}
             </div>
           </div>
         </div>
@@ -518,6 +530,8 @@ export default function DocumentViewerModal({
         {/* Center / View Selector Tabs */}
         <div style={{ display: 'flex', gap: '4px', backgroundColor: '#1e293b', padding: '3px', borderRadius: '8px', border: '1px solid #334155' }}>
           <button
+            id="workspace-tab-preview"
+            data-testid="workspace-tab-preview"
             type="button"
             onClick={() => setActiveTab('preview')}
             style={{
@@ -536,6 +550,8 @@ export default function DocumentViewerModal({
           </button>
           {sections.length > 0 && (
             <button
+              id="workspace-tab-sections"
+              data-testid="workspace-tab-sections"
               type="button"
               onClick={() => setActiveTab('sections')}
               style={{
@@ -555,6 +571,8 @@ export default function DocumentViewerModal({
           )}
           {tables.length > 0 && (
             <button
+              id="workspace-tab-tables"
+              data-testid="workspace-tab-tables"
               type="button"
               onClick={() => setActiveTab('tables')}
               style={{
@@ -579,6 +597,8 @@ export default function DocumentViewerModal({
           {/* Zoom controls */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '2px', backgroundColor: '#1e293b', padding: '2px 4px', borderRadius: '8px', border: '1px solid #334155' }}>
             <button
+              id="workspace-zoom-out"
+              data-testid="workspace-zoom-out"
               type="button"
               onClick={() => setZoom((z) => Math.max(0.6, +(z - 0.15).toFixed(2)))}
               style={{ background: 'transparent', border: 'none', color: '#cbd5e1', padding: '4px', cursor: 'pointer', display: 'flex' }}
@@ -590,6 +610,8 @@ export default function DocumentViewerModal({
               {Math.round(zoom * 100)}%
             </span>
             <button
+              id="workspace-zoom-in"
+              data-testid="workspace-zoom-in"
               type="button"
               onClick={() => setZoom((z) => Math.min(2.2, +(z + 0.15).toFixed(2)))}
               style={{ background: 'transparent', border: 'none', color: '#cbd5e1', padding: '4px', cursor: 'pointer', display: 'flex' }}
@@ -598,6 +620,8 @@ export default function DocumentViewerModal({
               <ZoomIn size={14} />
             </button>
             <button
+              id="workspace-fit-toggle"
+              data-testid="workspace-fit-toggle"
               type="button"
               onClick={() => {
                 setZoom(1);
@@ -620,6 +644,8 @@ export default function DocumentViewerModal({
 
           {/* AI Split Panel Toggle */}
           <button
+            id="workspace-ai-toggle"
+            data-testid="workspace-ai-toggle"
             type="button"
             onClick={() => setIsAiPanelOpen(!isAiPanelOpen)}
             style={{
@@ -644,6 +670,8 @@ export default function DocumentViewerModal({
 
           {/* Download Original */}
           <button
+            id="workspace-download"
+            data-testid="workspace-download"
             type="button"
             onClick={handleDownload}
             style={{
@@ -663,6 +691,8 @@ export default function DocumentViewerModal({
 
           {/* Close Workspace */}
           <button
+            id="workspace-close"
+            data-testid="workspace-close"
             type="button"
             onClick={onClose}
             style={{
@@ -959,6 +989,8 @@ export default function DocumentViewerModal({
               }}
             >
               <button
+                id="workspace-prev-page"
+                data-testid="workspace-prev-page"
                 type="button"
                 disabled={currentPage <= 1}
                 onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
@@ -981,6 +1013,8 @@ export default function DocumentViewerModal({
               </span>
 
               <button
+                id="workspace-next-page"
+                data-testid="workspace-next-page"
                 type="button"
                 disabled={currentPage >= totalPages}
                 onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}

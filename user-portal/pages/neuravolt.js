@@ -1,6 +1,11 @@
 import { useState, useEffect } from 'react';
 import Head from 'next/head';
 import Link from 'next/link';
+import SEOHead, {
+  defaultOrganizationSchema,
+  defaultWebSiteSchema,
+  defaultSoftwareApplicationSchema,
+} from '../components/SEOHead';
 import {
   Shield, Zap, ChevronDown, ShieldCheck, DownloadCloud, FileText, Receipt,
   Search, MessageSquare, ThumbsUp, ThumbsDown, Copy, Sparkles, Terminal,
@@ -9,7 +14,7 @@ import {
   Settings, RotateCw, Bell, MapPin, Target, Cpu, Sliders, CheckCircle, Send, Plus, Minus, X, Layers, Menu
 } from 'lucide-react';
 
-export default function NeuravoltLandingPage() {
+export default function NeuravoltLandingPage({ disableSeo = false } = {}) {
   // Mobile Navigation Drawer State
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
@@ -121,11 +126,18 @@ export default function NeuravoltLandingPage() {
 
   return (
     <div style={{ backgroundColor: '#FFFFFF', color: '#0F172A', minHeight: '100vh', fontFamily: "'Inter', sans-serif" }}>
-      <Head>
-        <title>India's All-in-One AI Platform for Agents &amp; Automation</title>
-        <meta name="description" content="India's all-in-one AI platform to build AI agents, automate workflows, chat with leading AI models, create RAG knowledge bases, and accelerate development with agentic coding." />
-        <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
-      </Head>
+      {!disableSeo && (
+        <SEOHead
+          title="India's All-in-One AI Platform for Agents & Automation"
+          description="India's all-in-one AI platform to build AI agents, automate workflows, chat with leading AI models, create RAG knowledge bases, and accelerate enterprise development with DPDP compliance."
+          canonicalPath="/"
+          jsonLd={[
+            defaultOrganizationSchema,
+            defaultWebSiteSchema,
+            defaultSoftwareApplicationSchema,
+          ]}
+        />
+      )}
 
       {/* Embedded Xarwiz Design System CSS */}
       <style jsx global>{`

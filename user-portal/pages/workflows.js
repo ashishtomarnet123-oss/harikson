@@ -670,6 +670,7 @@ function WorkflowsPage() {
     <DashboardShell title="AI Automations">
       <Head>
         <title>AI Automations — Xarwiz</title>
+        <meta name="robots" content="noindex, nofollow" />
       </Head>
 
       {/* ── User Panel Standard Header ───────────────────────────────── */}

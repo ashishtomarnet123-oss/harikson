@@ -84,7 +84,10 @@ function DashboardPage() {
 
   return (
     <DashboardShell title="Dashboard">
-      <Head><title>Dashboard — Xarwiz</title></Head>
+      <Head>
+        <title>Dashboard — Xarwiz</title>
+        <meta name="robots" content="noindex, nofollow" />
+      </Head>
 
       {loading ? (
         <div style={{ display: 'flex', justifyContent: 'center', padding: '60px 0' }}>

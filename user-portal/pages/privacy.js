@@ -3,6 +3,7 @@ import Head from 'next/head';
 import Link from 'next/link';
 import { ArrowLeft, Search, Shield, Eye, ShieldAlert, Cpu, Database, RefreshCw, AlertCircle, HelpCircle, ChevronRight } from 'lucide-react';
 import FooterSection from '../components/FooterSection';
+import SEOHead, { defaultOrganizationSchema } from '../components/SEOHead';
 
 export default function PrivacyPolicyPage() {
   const [searchQuery, setSearchQuery] = useState('');
@@ -98,11 +99,20 @@ export default function PrivacyPolicyPage() {
       minHeight: '100vh',
       fontFamily: "'Outfit', sans-serif"
     }}>
-      <Head>
-        <title>Privacy Policy | Xarwiz Cloud Platform</title>
-        <meta name="description" content="Xarwiz Cloud Privacy Policy - comprehensive data disclosures compliant with Indian DPDP Act 2023 and global regulations." />
-        <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
-      </Head>
+      <SEOHead
+        title="Privacy Policy"
+        description="Xarwiz Privacy Policy — comprehensive personal data disclosures, legal bases, purpose-specific processing, and Data Principal Rights compliant with the Digital Personal Data Protection Act, 2023."
+        canonicalPath="/privacy-policy"
+        jsonLd={[
+          defaultOrganizationSchema,
+          {
+            '@context': 'https://schema.org',
+            '@type': 'WebPage',
+            name: 'Privacy Policy — Xarwiz AI Platform',
+            url: 'https://xarwiz.com/privacy-policy',
+          },
+        ]}
+      />
 
       {/* Top Banner Gradient Hero */}
       <div style={{

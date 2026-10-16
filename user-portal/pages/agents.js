@@ -149,7 +149,10 @@ function AgentsPage() {
 
   return (
     <DashboardShell title="AI Agents">
-      <Head><title>AI Agents — Xarwiz</title></Head>
+      <Head>
+        <title>AI Agents — Xarwiz</title>
+        <meta name="robots" content="noindex, nofollow" />
+      </Head>
 
       {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', flexWrap: 'wrap', gap: '12px' }}>

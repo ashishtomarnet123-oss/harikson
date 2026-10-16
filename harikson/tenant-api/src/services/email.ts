@@ -401,4 +401,95 @@ export const sendDunningNotice = async (to: string, dayStage: number, billingUrl
   }
 };
 
+export const sendPrivacyRequestAcknowledgmentEmail = async (
+  to: string,
+  details: { trackingNumber: string; requestType: string; name: string }
+) => {
+  try {
+    const formattedType = details.requestType.replace(/_/g, ' ').toUpperCase();
+    const { data, error } = await resend.emails.send({
+      from: 'Xarwiz Privacy Office <privacy@xarwiz.com>',
+      to,
+      subject: `[DPDP Privacy Request] Acknowledgment — ${details.trackingNumber}`,
+      html: `
+        <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; padding: 24px; color: #0f172a; max-width: 600px; margin: 0 auto; border: 1px solid #e2e8f0; border-radius: 12px; background-color: #ffffff;">
+          <div style="border-bottom: 2px solid #3b82f6; padding-bottom: 12px; margin-bottom: 20px;">
+            <h2 style="color: #1e293b; margin: 0; font-size: 20px;">Privacy Rights Request Acknowledgment</h2>
+            <p style="color: #64748b; margin: 4px 0 0 0; font-size: 13px;">India Digital Personal Data Protection Act, 2023</p>
+          </div>
+          <p>Dear ${details.name || 'Data Principal'},</p>
+          <p>We have received your statutory Data Principal rights request under the DPDP Act 2023. Our Privacy & Data Protection team has logged this request and begun review.</p>
+          <div style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px; margin: 20px 0;">
+            <p style="margin: 0 0 8px 0; font-size: 14px;"><strong>Tracking Number:</strong> <span style="font-family: monospace; color: #2563eb; font-weight: bold;">${details.trackingNumber}</span></p>
+            <p style="margin: 0 0 8px 0; font-size: 14px;"><strong>Request Type:</strong> ${formattedType}</p>
+            <p style="margin: 0; font-size: 14px;"><strong>Initial Status:</strong> Submitted / Under Verification</p>
+          </div>
+          <p style="font-size: 14px; line-height: 1.5; color: #334155;">
+            You can monitor the status of this request at any time inside your Xarwiz Dashboard under <strong>Settings &gt; Privacy &amp; Data Rights</strong>, or by referencing your tracking number with our Privacy Office.
+          </p>
+          <hr style="border: 0; border-top: 1px solid #e2e8f0; margin: 24px 0;" />
+          <p style="font-size: 12px; color: #94a3b8; margin: 0;">
+            Xarwiz Technologies LLP &bull; Sector 62, Noida, Uttar Pradesh, India - 201301 &bull; Contact: privacy@xarwiz.com
+          </p>
+        </div>
+      `,
+    });
+
+    if (error) {
+      logger.error('[EMAIL SEND ERROR - PRIVACY ACK]:', error.message || error);
+      return { success: false, error: error.message };
+    }
+    return { success: true, data };
+  } catch (err: any) {
+    logger.error('[EMAIL SEND ERROR - PRIVACY ACK]:', err.message);
+    return { success: false, error: 'Failed to send privacy request acknowledgment' };
+  }
+};
+
+export const sendGrievanceAcknowledgmentEmail = async (
+  to: string,
+  details: { grievanceNumber: string; subject: string; name: string; officerName: string; officerEmail: string }
+) => {
+  try {
+    const { data, error } = await resend.emails.send({
+      from: 'Xarwiz Grievance Officer <grievance@xarwiz.com>',
+      to,
+      subject: `[DPDP Grievance Redressal] Acknowledgment — ${details.grievanceNumber}`,
+      html: `
+        <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; padding: 24px; color: #0f172a; max-width: 600px; margin: 0 auto; border: 1px solid #e2e8f0; border-radius: 12px; background-color: #ffffff;">
+          <div style="border-bottom: 2px solid #8b5cf6; padding-bottom: 12px; margin-bottom: 20px;">
+            <h2 style="color: #1e293b; margin: 0; font-size: 20px;">Grievance Redressal Acknowledgment</h2>
+            <p style="color: #64748b; margin: 4px 0 0 0; font-size: 13px;">Section 13, Digital Personal Data Protection Act, 2023</p>
+          </div>
+          <p>Dear ${details.name || 'Complainant'},</p>
+          <p>This is to confirm receipt of your grievance regarding personal data processing at Xarwiz. Your complaint has been formally registered with our designated Grievance Officer.</p>
+          <div style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px; margin: 20px 0;">
+            <p style="margin: 0 0 8px 0; font-size: 14px;"><strong>Grievance Reference:</strong> <span style="font-family: monospace; color: #7c3aed; font-weight: bold;">${details.grievanceNumber}</span></p>
+            <p style="margin: 0 0 8px 0; font-size: 14px;"><strong>Subject:</strong> ${details.subject}</p>
+            <p style="margin: 0 0 8px 0; font-size: 14px;"><strong>Designated Officer:</strong> ${details.officerName}</p>
+            <p style="margin: 0; font-size: 14px;"><strong>Officer Email:</strong> ${details.officerEmail}</p>
+          </div>
+          <p style="font-size: 14px; line-height: 1.5; color: #334155;">
+            In accordance with the DPDP Act 2023 and prescribed timeframes, your grievance is under immediate investigation. You will receive an official determination and resolution notes within statutory response timelines.
+          </p>
+          <hr style="border: 0; border-top: 1px solid #e2e8f0; margin: 24px 0;" />
+          <p style="font-size: 12px; color: #94a3b8; margin: 0;">
+            Xarwiz Technologies LLP &bull; Sector 62, Noida, Uttar Pradesh, India - 201301 &bull; Grievance Redressal Cell
+          </p>
+        </div>
+      `,
+    });
+
+    if (error) {
+      logger.error('[EMAIL SEND ERROR - GRIEVANCE ACK]:', error.message || error);
+      return { success: false, error: error.message };
+    }
+    return { success: true, data };
+  } catch (err: any) {
+    logger.error('[EMAIL SEND ERROR - GRIEVANCE ACK]:', err.message);
+    return { success: false, error: 'Failed to send grievance acknowledgment' };
+  }
+};
+
+
 

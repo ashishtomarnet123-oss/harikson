@@ -1,0 +1,40 @@
+# Robots.txt for Xarwiz AI Platform
+# Canonical Origin: https://xarwiz.com
+
+User-agent: *
+Allow: /
+Allow: /about
+Allow: /pricing
+Allow: /privacy-policy
+Allow: /terms
+Allow: /cookie-policy
+Allow: /data-processing
+Allow: /security-policy
+Allow: /aup
+Allow: /data-rights
+Allow: /grievance
+Allow: /signup
+Allow: /assets/
+Allow: /_next/static/
+
+# Disallow private user data, authenticated workspaces, and backend APIs
+Disallow: /api/
+Disallow: /admin/
+Disallow: /admin-assets/
+Disallow: /chat
+Disallow: /chat/
+Disallow: /dashboard
+Disallow: /documents
+Disallow: /agents
+Disallow: /studio
+Disallow: /workflows
+Disallow: /privacy-settings
+Disallow: /onboarding
+Disallow: /impersonate
+Disallow: /forgot-password
+Disallow: /unlock-account
+Disallow: /verify-email
+Disallow: /share/
+
+# XML Sitemap
+Sitemap: https://xarwiz.com/sitemap.xml

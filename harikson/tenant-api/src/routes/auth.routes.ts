@@ -274,12 +274,30 @@ async function handleLogin(req: any, res: any) {
 
 // POST /register and POST /v1/register
 async function handleRegister(req: any, res: any) {
-  const { email, password, name, phone, companyName, tenantSlug } = req.body;
+  const {
+    email,
+    password,
+    name,
+    phone,
+    companyName,
+    tenantSlug,
+    privacyNoticeAcknowledged,
+    marketingConsent,
+  } = req.body;
   try {
     const ip =
       ((req.headers['x-forwarded-for'] as any) || req.socket?.remoteAddress || '')
         .split(',')[0]
         .trim() || '127.0.0.1';
+    const userAgent = (req.headers['user-agent'] as string) || '';
+
+    // DPDP Section 5/6: Prior notice must be presented and acknowledged before processing begins
+    if (privacyNoticeAcknowledged === false) {
+      return res.status(400).json({
+        error: 'You must review and acknowledge the Xarwiz Privacy Policy to register an account.',
+      });
+    }
+
     const regKey = `ratelimit:register:${ip}`;
     const regAttempts = await redis.incr(regKey);
     if (regAttempts === 1) await redis.expire(regKey, 300);
@@ -302,18 +320,6 @@ async function handleRegister(req: any, res: any) {
     }
 
     // Every self-serve registration gets its own brand-new, isolated tenant
-    // — never joins an existing one. The previous version looked up an
-    // existing tenant by slug/companyName and silently joined it if found,
-    // which meant (a) anyone could self-register directly into another
-    // company's workspace just by knowing/guessing its slug, and (b) if
-    // req.tenant already resolved to something (the tenant-resolution
-    // middleware always falls back to *some* tenant, including a shared
-    // default), that tenant was reused for every signup that didn't
-    // explicitly pass a companyName/tenantSlug — which is how every real
-    // signup on this platform ended up sharing one default tenant instead
-    // of getting genuine per-customer isolation. Joining an existing
-    // tenant is exclusively done via an admin explicitly adding a member
-    // (POST /workspace/members), never via public self-serve registration.
     const effectiveSlug = (tenantSlug && tenantSlug !== 'default') ? tenantSlug : (companyName || name || 'workspace');
     const slugBase = effectiveSlug
       .toLowerCase()
@@ -334,14 +340,6 @@ async function handleRegister(req: any, res: any) {
     const verificationToken = crypto.randomBytes(32).toString('hex');
     const verificationTokenHash = crypto.createHash('sha256').update(verificationToken).digest('hex');
 
-    // 'owner' — the founding/sole member of the tenant just created above,
-    // able to manage THEIR OWN workspace's members (see requireWorkspaceAdmin
-    // in user.routes.ts). Deliberately NOT 'admin'/'superadmin'/'founder':
-    // admin-api's own login (admin.js) grants full platform-wide admin panel
-    // access to any user with role IN ('admin','superadmin','founder') —
-    // those three are reserved for actual platform staff. Reusing one of
-    // them here would mean every public self-serve signup also gets into
-    // the admin control plane for every tenant, not just their own.
     const newUserRes = await pool.query(
       `INSERT INTO users (
         tenant_id, email, password_hash, name, phone, role, email_verified, email_verification_token, verification_token, status, created_at
@@ -353,8 +351,45 @@ async function handleRegister(req: any, res: any) {
 
     const user = newUserRes.rows[0];
 
-    // Assign Free Plan — users must purchase a paid plan to get more features.
-    // No auto-trial of Professional or any paid plan.
+    // Persist DPDP Consent Records & Audit Trail:
+    // 1. service_processing (contractual necessity - granted upon account creation)
+    await pool.query(
+      `INSERT INTO user_consents (tenant_id, user_id, purpose_id, status, notice_version, collection_source, last_changed_at)
+       VALUES ($1, $2, 'service_processing', 'granted', '2.0-dpdp', 'signup', NOW())
+       ON CONFLICT (tenant_id, user_id, purpose_id) DO NOTHING`,
+      [tenantId, user.id]
+    ).catch((err) => logger.error('Failed to log service_processing consent:', err));
+
+    await pool.query(
+      `INSERT INTO consent_audit_events (
+         tenant_id, user_id, purpose_id, event_type, previous_status, new_status,
+         notice_version, collection_source, ip_address, user_agent, metadata
+       )
+       VALUES ($1, $2, 'service_processing', 'granted', 'not_configured', 'granted',
+               '2.0-dpdp', 'signup', $3, $4, '{"lawful_basis": "contractual_necessity"}')`,
+      [tenantId, user.id, ip, userAgent]
+    ).catch((err) => logger.error('Failed to log service_processing audit event:', err));
+
+    // 2. marketing_emails (unbundled optional consent - granted if checked, declined if unchecked)
+    const marketingStatus = marketingConsent === true ? 'granted' : 'declined';
+    await pool.query(
+      `INSERT INTO user_consents (tenant_id, user_id, purpose_id, status, notice_version, collection_source, last_changed_at)
+       VALUES ($1, $2, 'marketing_emails', $3, '2.0-dpdp', 'signup', NOW())
+       ON CONFLICT (tenant_id, user_id, purpose_id) DO NOTHING`,
+      [tenantId, user.id, marketingStatus]
+    ).catch((err) => logger.error('Failed to log marketing consent:', err));
+
+    await pool.query(
+      `INSERT INTO consent_audit_events (
+         tenant_id, user_id, purpose_id, event_type, previous_status, new_status,
+         notice_version, collection_source, ip_address, user_agent, metadata
+       )
+       VALUES ($1, $2, 'marketing_emails', $3, 'not_configured', $3,
+               '2.0-dpdp', 'signup', $4, $5, '{"lawful_basis": "consent"}')`,
+      [tenantId, user.id, marketingStatus, ip, userAgent]
+    ).catch((err) => logger.error('Failed to log marketing audit event:', err));
+
+    // Assign Free Plan
     await pool.query(
       `INSERT INTO subscriptions (
         tenant_id, plan_id, provider, provider_subscription_id, status,

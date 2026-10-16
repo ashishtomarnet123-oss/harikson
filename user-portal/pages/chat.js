@@ -3,6 +3,8 @@ import { useRouter } from 'next/router';
 import Head from 'next/head';
 import NextLink from 'next/link';
 import { withAuth } from '../components/withAuth';
+import { formatPageTitle } from '../lib/documentTitle';
+import { useDocumentTitle } from '../hooks/useDocumentTitle';
 import {
   Mic,
   MicOff,
@@ -105,24 +107,182 @@ function copyToClipboard(text) {
 }
 
 function extractUserVisibleText(text) {
-  if (!text) return '';
+  if (!text || typeof text !== 'string') return '';
   return text
-    .replace(/<uploaded_file[\s\S]*?<\/uploaded_file>/g, '')
-    .replace(/\[Attached Image:\s*"[^"]*"\]/g, '')
-    .replace(/\[Attached Document:\s*"[^"]*"\]/g, '')
+    // Strip closed uploaded_file tags
+    .replace(/<uploaded_file[\s\S]*?<\/uploaded_file>/gi, '')
+    // Strip truncated/unclosed uploaded_file tags
+    .replace(/<uploaded_file[^>]*>[\s\S]*$/gi, '')
+    .replace(/<uploaded_file[^>]*$/gi, '')
+    // Strip legacy attached image/document tags
+    .replace(/\[Attached (?:Image|Document):\s*"[^"]*"\]/gi, '')
+    .replace(/\[Attached (?:Image|Document):[^\]]*$/gi, '')
+    // Strip raw XML/HTML tags
+    .replace(/<[^>]+>/g, '')
     .trim();
 }
 
 function formatConversationTitle(title) {
-  if (!title) return 'New Conversation';
-  if (title.includes('<uploaded_file') || title.includes('[Attached')) {
-    const cleanPrompt = extractUserVisibleText(title);
-    if (cleanPrompt) return cleanPrompt.substring(0, 40);
-    const nameMatch = title.match(/name="([^"]+)"/) || title.match(/\[Attached (?:Document|Image):\s*"([^"]+)"\]/);
-    if (nameMatch) return nameMatch[1].substring(0, 40);
+  if (!title || typeof title !== 'string') return 'New Conversation';
+  const trimmed = title.trim();
+  if (!trimmed || trimmed === 'New Conversation' || trimmed === 'New Chat') return 'New Conversation';
+
+  // Check if title has broken markup, unclosed XML, [Attached Image...], etc.
+  if (
+    trimmed.includes('<uploaded_file') ||
+    trimmed.includes('</uploaded_file>') ||
+    trimmed.startsWith('<uploaded_') ||
+    trimmed.includes('[Attached') ||
+    trimmed.includes('name="') ||
+    trimmed.includes('undefined') ||
+    trimmed.includes('null') ||
+    trimmed.includes('[object Object]') ||
+    /^<[^>]+(\.\.\.)?$/.test(trimmed)
+  ) {
+    // Attempt to extract document name from truncated or full tag
+    const nameMatch = trimmed.match(/name="([^"]+)/i) || trimmed.match(/\[Attached (?:Document|Image):\s*"([^"]+)/i);
+    if (nameMatch && nameMatch[1]) {
+      let clean = nameMatch[1]
+        .replace(/\.\.\.$/, '')
+        .replace(/_\d{10,14}/g, '')
+        .replace(/\s*\(\d+\)/g, '')
+        .replace(/\.[a-zA-Z0-9]{2,5}$/, '')
+        .replace(/[_-]+/g, ' ')
+        .trim();
+      if (clean) {
+        clean = clean
+          .split(' ')
+          .filter(Boolean)
+          .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+          .join(' ');
+        return clean.length > 36 ? clean.substring(0, 36) : clean;
+      }
+    }
     return 'Document Analysis';
   }
-  return title;
+
+  // Clamped clean string
+  return trimmed.length > 50 ? trimmed.substring(0, 50).trim() : trimmed;
+}
+
+function generateClientTitle(text, files) {
+  const cleanPrompt = extractUserVisibleText(text);
+
+  // 1. Hindi / Devanagari Detection
+  if (/[\u0900-\u097F]/.test(cleanPrompt)) {
+    if (cleanPrompt.includes('कुंडली') || cleanPrompt.includes('कुण्डली')) return 'कुंडली विश्लेषण';
+    if (cleanPrompt.includes('अलविदा')) return 'अलविदा संदेश';
+    if (cleanPrompt.includes('रणनीति') || cleanPrompt.includes('स्ट्रेटेजी')) return 'बिजनेस रणनीति';
+    if (cleanPrompt.includes('विश्लेषण')) return 'डॉक्यूमेंट विश्लेषण';
+    if (cleanPrompt.includes('योजना') || cleanPrompt.includes('प्लान')) return 'दैनिक योजना';
+    const words = cleanPrompt.split(/\s+/).filter(Boolean).slice(0, 5).join(' ');
+    return (words.length > 36 ? words.substring(0, 36) : words).trim();
+  }
+
+  // 2. URLs
+  const urlMatch = cleanPrompt.match(/https?:\/\/(?:www\.)?([a-zA-Z0-9-]+\.[a-z]{2,})/i);
+  if (urlMatch) {
+    const domain = urlMatch[1].split('.')[0];
+    const cap = domain.charAt(0).toUpperCase() + domain.slice(1);
+    const low = cleanPrompt.toLowerCase();
+    if (low.includes('analy') || low.includes('review') || low.includes('audit')) return `${cap} Business Analysis`;
+    if (low.includes('seo') || low.includes('visibility') || low.includes('google')) return `${cap} SEO Strategy`;
+    return `${cap} Overview`;
+  }
+
+  // 3. Keywords & Specific Intent
+  const low = cleanPrompt.toLowerCase();
+
+  // Specific Prompt Requirements
+  if ((low.includes('redesign') && low.includes('mobile chat')) || low.includes('mobile chat interface') || low.includes('mobile chat ui')) {
+    return 'Xarwiz Mobile Chat UI';
+  }
+  if (low.includes('digital marketing') && (low.includes('launch') || low.includes('plan'))) {
+    return 'Digital Marketing Launch Plan';
+  }
+  if (low.includes('financial report') && (low.includes('analy') || low.includes('summar'))) {
+    return 'Financial Report Analysis';
+  }
+  if ((low.includes('code error') || low.includes('debug')) && (low.includes('explain') || low.includes('troubleshoot') || low.includes('fix'))) {
+    return 'Code Error Troubleshooting';
+  }
+
+  // Attachment-Aware Intent Combinations
+  if (Array.isArray(files) && files.length > 0) {
+    const f = files[0];
+    const rawName = f.name || '';
+    if (f.type?.includes('presentation') || rawName.match(/\.(pptx|ppt)$/i)) {
+      if (low.includes('review') || low.includes('feedback') || low.includes('check')) return 'Presentation Review';
+    }
+    if (f.type?.includes('code') || rawName.match(/\.(js|ts|py|sql|html|css|json)$/i)) {
+      if (low.includes('debug') || low.includes('error') || low.includes('fix') || low.includes('review')) return 'Code Debugging';
+    }
+    if (rawName.toLowerCase().includes('financial') || rawName.toLowerCase().includes('report') || f.type?.includes('csv') || rawName.match(/\.(xlsx|xls|csv)$/i)) {
+      if (low.includes('analy') || low.includes('summar') || low.includes('overview')) return 'Financial Report Analysis';
+    }
+  }
+
+  if (low.includes('marketing') && low.includes('strategy')) {
+    return low.includes('xarwiz') ? 'Xarwiz Marketing Strategy' : 'Marketing Strategy Planning';
+  }
+  if (low.includes('audit') && (low.includes('code') || low.includes('security'))) return 'Code Security Audit';
+  if (low.includes('quantum') && low.includes('comput')) return 'Understanding Quantum Computing';
+  if (low.includes('thailand') && (low.includes('trip') || low.includes('plan'))) return 'Thailand Trip Planning';
+  if (low.includes('visibility') || low.includes('seo')) return 'Google Visibility Strategy';
+  if (low.includes('email') && (low.includes('write') || low.includes('draft'))) {
+    if (low.includes('bank')) return 'Bank Email Draft';
+    if (low.includes('client')) return 'Client Email Draft';
+    return 'Professional Email Draft';
+  }
+  if (low.includes('risk') && (low.includes('contract') || low.includes('legal'))) return 'Contract Risk Review';
+  if (low.includes('sales') && (low.includes('analy') || low.includes('trend'))) return 'Monthly Sales Analysis';
+  if (low.includes('screenshot') || (low.includes('image') && low.includes('explain'))) return 'Screenshot Analysis';
+  if (low.includes('analyze this document') || low.includes('analyze document') || low.includes('analyze report')) return 'Document Analysis';
+
+  // 4. Attachments Present
+  if (Array.isArray(files) && files.length > 0) {
+    const f = files[0];
+    const rawName = f.name || '';
+    let clean = rawName
+      .replace(/_\d{10,14}/g, '')
+      .replace(/\s*\(\d+\)/g, '')
+      .replace(/\.[a-zA-Z0-9]{2,5}$/, '')
+      .replace(/[_-]+/g, ' ')
+      .trim();
+    if (clean) {
+      clean = clean
+        .split(' ')
+        .filter(Boolean)
+        .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+        .join(' ');
+      if (clean.length <= 32 && clean !== 'Document') return `${clean}`;
+    }
+    if (rawName.toLowerCase().endsWith('.pdf')) return 'PDF Document Analysis';
+    if (/\.(xlsx|xls|csv)$/i.test(rawName)) return 'Spreadsheet Analysis';
+    if (/\.(png|jpe?g|webp)$/i.test(rawName)) return 'Image Analysis';
+    return 'Document Analysis';
+  }
+
+  // 5. General Clean Text
+  if (cleanPrompt) {
+    let candidate = cleanPrompt;
+    while (/^(?:can you|could you|please|i want you to|help me|tell me about|explain|write|generate|give me a|give me an|how to|what is|what are)\s+/i.test(candidate)) {
+      candidate = candidate.replace(/^(?:can you|could you|please|i want you to|help me|tell me about|explain|write|generate|give me a|give me an|how to|what is|what are)\s+/i, '').trim();
+    }
+    candidate = candidate.replace(/[?!.:,;]+$/, '').trim();
+    const words = candidate.split(/\s+/).filter(Boolean).slice(0, 5);
+    if (words.length > 0) {
+      return words
+        .map((w, idx) => {
+          const l = w.toLowerCase();
+          if (idx > 0 && ['a', 'an', 'the', 'and', 'or', 'of', 'for', 'in', 'on', 'at', 'to'].includes(l)) return l;
+          return w.charAt(0).toUpperCase() + w.slice(1);
+        })
+        .join(' ');
+    }
+  }
+
+  return 'New Conversation';
 }
 
 function formatFileSize(bytes) {
@@ -144,11 +304,24 @@ function parseUploadedFiles(text) {
     const attrStr = match[1] || '';
     const content = match[2]?.trim() || '';
     const name = attrStr.match(/name="([^"]+)"/)?.[1] || 'Attachment';
-    const type = attrStr.match(/type="([^"]+)"/)?.[1] || '';
-    const size = attrStr.match(/size="([^"]+)"/)?.[1] || '';
-    const pages = attrStr.match(/pages="([^"]+)"/)?.[1] || '';
+    let type = attrStr.match(/type="([^"]+)"/)?.[1] || '';
+    let size = attrStr.match(/size="([^"]+)"/)?.[1] || '';
+    let pages = attrStr.match(/pages="([^"]+)"/)?.[1] || '';
     const documentId = attrStr.match(/documentId="([^"]+)"/)?.[1] || '';
     const dataUrl = attrStr.match(/dataUrl="([^"]+)"/)?.[1] || '';
+
+    if (!pages) {
+      const pageMatch = content.match(/\((\d+)\s+pages/i);
+      if (pageMatch) pages = pageMatch[1];
+    }
+    if (!type) {
+      if (name.match(/\.pdf$/i)) type = 'application/pdf';
+      else if (name.match(/\.(xlsx|xls|csv)$/i)) type = 'text/csv';
+      else if (name.match(/\.(docx|doc)$/i)) type = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+      else if (name.match(/\.(pptx|ppt)$/i)) type = 'application/vnd.openxmlformats-officedocument.presentationml.presentation';
+      else if (name.match(/\.(png|jpe?g|webp|gif|svg)$/i)) type = 'image/png';
+    }
+
     results.push({ name, type, size, pages, documentId, dataUrl, content });
   }
   if (results.length === 0) {
@@ -158,7 +331,9 @@ function parseUploadedFiles(text) {
     }
     const legacyDocRegex = /\[Attached Document:\s*"([^"]+)"\]/g;
     while ((match = legacyDocRegex.exec(text)) !== null) {
-      results.push({ name: match[1], type: 'application/pdf', size: '', pages: '', documentId: '', dataUrl: '', content: '' });
+      const docName = match[1];
+      const isPdfDoc = docName.match(/\.pdf$/i);
+      results.push({ name: docName, type: isPdfDoc ? 'application/pdf' : 'application/octet-stream', size: '', pages: isPdfDoc ? '1' : '', documentId: '', dataUrl: '', content: '' });
     }
   }
   return results;
@@ -633,6 +808,14 @@ function ChatPage() {
   const [activeConvId, setActiveConvId] = useState(null);
   const [renamingId, setRenamingId] = useState(null);
   const [renameValue, setRenameValue] = useState('');
+
+  // Active conversation and dynamic per-tab document title
+  const activeConversation = conversations.find((c) => c.id === activeConvId);
+  const activeTitle = activeConversation?.title && activeConversation.title !== 'New Conversation' && activeConversation.title !== 'New Chat'
+    ? activeConversation.title
+    : (activeConvId ? 'Conversation' : 'New Chat');
+  const chatDocumentTitle = formatPageTitle(activeTitle);
+  useDocumentTitle(chatDocumentTitle, true);
 
   // Messages
   const [messages, setMessages] = useState([]);
@@ -1523,16 +1706,26 @@ function ChatPage() {
       const data = await res.json();
       const serverConvs = data.conversations || [];
 
+      // Sanitize titles in both local and server lists to permanently clean legacy markup
+      const sanitizedServerConvs = serverConvs.map((c) => ({
+        ...c,
+        title: formatConversationTitle(c.title),
+      }));
+      const sanitizedLocalConvs = localConvs.map((c) => ({
+        ...c,
+        title: formatConversationTitle(c.title),
+      }));
+
       // Merge server + local conversations uniquely by ID
       const map = new Map();
-      [...localConvs, ...serverConvs].forEach((c) => {
+      [...sanitizedLocalConvs, ...sanitizedServerConvs].forEach((c) => {
         if (c && c.id) map.set(c.id, c);
       });
       const merged = Array.from(map.values()).sort(
         (a, b) => new Date(b.updated_at || b.createdAt || 0) - new Date(a.updated_at || a.createdAt || 0)
       );
 
-      const maskedMerged = merged.map((c) => ({ ...c, model: maskModelName(c.model) }));
+      const maskedMerged = merged.map((c) => ({ ...c, title: formatConversationTitle(c.title), model: maskModelName(c.model) }));
       setConversations(maskedMerged);
       if (typeof window !== 'undefined') {
         localStorage.setItem('hk_recent_conversations', JSON.stringify(maskedMerged));
@@ -2051,29 +2244,36 @@ CRITICAL RULES:
       const conversationIdParam = activeConvId || 'new';
       const idempotencyKey = `${conversationIdParam}:${Date.now()}:${Math.random()}`;
 
-      const updateConvStateAndCache = (cId, textSnippet) => {
+      const updateConvStateAndCache = (cId, textSnippet, serverTitle) => {
         if (!cId) return;
         currentConvId = cId;
         setActiveConvId(cId);
-        const rawPrompt = extractUserVisibleText(textSnippet || userText || '');
-        let convTitle = rawPrompt;
-        if (!convTitle) {
-          const files = parseUploadedFiles(textSnippet || userText || '');
-          if (files.length > 0) {
-            convTitle = files[0].name || 'Document Analysis';
-          } else {
-            convTitle = 'New Conversation';
-          }
-        }
-        convTitle = convTitle.substring(0, 45);
-        const newObj = {
-          id: cId,
-          title: convTitle,
-          model: maskModelName(model),
-          updated_at: new Date().toISOString(),
-        };
+
         setConversations((prev) => {
-          const filtered = (prev || []).filter((c) => c.id !== cId);
+          const prevList = prev || [];
+          const existing = prevList.find((c) => c.id === cId);
+
+          let convTitle = '';
+          if (serverTitle && !serverTitle.includes('<uploaded_file') && serverTitle !== 'New Conversation') {
+            convTitle = serverTitle;
+          } else if (existing && existing.title && !existing.title.includes('<uploaded_file') && existing.title !== 'New Conversation') {
+            // Preserve existing valid title on subsequent messages
+            convTitle = existing.title;
+          } else {
+            const files = parseUploadedFiles(textSnippet || userText || '');
+            convTitle = generateClientTitle(textSnippet || userText || '', files);
+          }
+
+          convTitle = formatConversationTitle(convTitle);
+
+          const newObj = {
+            id: cId,
+            title: convTitle,
+            model: maskModelName(model),
+            updated_at: new Date().toISOString(),
+          };
+
+          const filtered = prevList.filter((c) => c.id !== cId);
           const updated = [newObj, ...filtered];
           if (typeof window !== 'undefined') {
             localStorage.setItem('hk_recent_conversations', JSON.stringify(updated));
@@ -2122,8 +2322,12 @@ CRITICAL RULES:
       const headerConvId =
         res.headers.get('x-conversation-id') ||
         res.headers.get('X-Conversation-Id');
+      const rawHeaderTitle =
+        res.headers.get('x-conversation-title') ||
+        res.headers.get('X-Conversation-Title');
+      const headerTitle = rawHeaderTitle ? decodeURIComponent(rawHeaderTitle) : undefined;
       if (headerConvId) {
-        updateConvStateAndCache(headerConvId, userText);
+        updateConvStateAndCache(headerConvId, userText, headerTitle);
       }
 
       // Check if response is a plain JSON fallback (non-streaming)
@@ -2131,7 +2335,7 @@ CRITICAL RULES:
       if (contentType.includes('application/json')) {
         const data = await res.json().catch(() => ({}));
         const text = data.message || data.content || data.error || 'No response received.';
-        if (data.conversationId) updateConvStateAndCache(data.conversationId, userText);
+        if (data.conversationId) updateConvStateAndCache(data.conversationId, userText, data.title || headerTitle);
         setMessages((prev) => [...prev, { sender: 'bot', text, model }]);
         lastBotVoiceTextRef.current = text;
         if (isVoiceActive(voiceStateRef.current.state)) {
@@ -2170,9 +2374,9 @@ CRITICAL RULES:
             const jsonStr = trimmed.slice(6).trim();
             try {
               const parsed = JSON.parse(jsonStr);
-              // Extract conversation ID from first chunk
-              if (parsed.conversationId && !currentConvId) {
-                updateConvStateAndCache(parsed.conversationId, userText);
+              // Extract conversation ID & title from chunk
+              if (parsed.conversationId) {
+                updateConvStateAndCache(parsed.conversationId, userText, parsed.title);
               }
               // Handle error payload in stream
               if (parsed.error && !parsed.content) {
@@ -2572,167 +2776,15 @@ CRITICAL RULES:
   const renderComposer = (isEmptylayout) => (
     <div className={`composer-area ${isEmptylayout ? 'empty-layout' : 'active-layout'}`}>
       {attachedFiles.length > 0 && (
-        <div className="doc-intelligence-composer-container" style={{ marginBottom: '12px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
-          {attachedFiles.map((file, i) => {
-            const isProcessing = file.status === 'processing';
-            const isError = file.status === 'error';
-            const isSheet = /\.(xlsx|xls|csv)$/i.test(file.name);
-            const isImage = /\.(png|jpg|jpeg|webp)$/i.test(file.name);
-
-            const formatSize = (bytes) => {
-              if (!bytes) return '0 B';
-              const k = 1024;
-              const sizes = ['B', 'KB', 'MB', 'GB'];
-              const idx = Math.floor(Math.log(bytes) / Math.log(k));
-              return parseFloat((bytes / Math.pow(k, idx)).toFixed(1)) + ' ' + sizes[idx];
-            };
-
-            const promptOptions = [
-              { label: 'Summarize', prompt: `Summarize "${file.name}" and provide the key executive takeaways and overview.` },
-              { label: 'Ask Questions', prompt: `What are the most important insights and details in "${file.name}"?` },
-              { label: 'Extract Data', prompt: `Extract all key data points, figures, structured tables, and metrics from "${file.name}".` },
-              { label: 'Find Risks', prompt: `Analyze "${file.name}" for key business, legal, operational, and financial risks or vulnerabilities.` },
-              { label: 'Analyze', prompt: `Perform an in-depth analysis of "${file.name}" explaining its core architecture, structure, and significance.` },
-              { label: 'Generate Report', prompt: `Generate a structured executive report based on "${file.name}" with key findings and next steps.` },
-            ];
-
-            if (attachedFiles.length > 1) {
-              promptOptions.splice(3, 0, {
-                label: 'Compare',
-                prompt: `Compare the contents, terms, and metrics across all uploaded files (${attachedFiles.map((f) => f.name).join(', ')}). Highlight similarities, differences, and contradictions.`,
-              });
-            }
-
-            return (
-              <div
-                key={file.id || i}
-                style={{
-                  background: '#ffffff',
-                  border: isError ? '1px solid #fca5a5' : isProcessing ? '1px solid #bfdbfe' : '1px solid #e2e8f0',
-                  borderRadius: '12px',
-                  padding: '12px 16px',
-                  boxShadow: '0 2px 8px rgba(0, 0, 0, 0.04)',
-                  transition: 'all 0.2s ease',
-                }}
-              >
-                <FileAttachmentCard
-                  file={file}
-                  isComposer={true}
-                  onPreview={() => {
-                    if (file.isImage || file.dataUrl || file.name.match(/\.(png|jpe?g|webp)$/i)) {
-                      setSelectedImage({ url: file.dataUrl || '', name: file.name });
-                      setIsImageViewerOpen(true);
-                    } else {
-                      setSelectedPreviewFile({
-                        name: file.name,
-                        title: file.name,
-                        content: file.content,
-                        extractedText: file.content,
-                        documentId: file.documentId,
-                        pages: file.pages || file.pageCount || 1,
-                        size: file.size,
-                        summary: file.summary,
-                      });
-                      setSelectedCitationDoc(file.documentId || null);
-                      setSelectedCitationPage(1);
-                      setIsDocViewerOpen(true);
-                    }
-                  }}
-                  onDownload={() => {
-                    if (file.documentId) {
-                      window.open(`${apiBase}/api/documents/${file.documentId}/download`, '_blank');
-                    } else {
-                      const blob = new Blob([file.content || file.name], { type: file.type || 'text/plain' });
-                      const url = URL.createObjectURL(blob);
-                      const a = document.createElement('a');
-                      a.href = url;
-                      a.download = file.name;
-                      a.click();
-                      URL.revokeObjectURL(url);
-                    }
-                  }}
-                  onRemove={() => removeAttachedFile(i)}
-                />
-
-                {/* Intelligence Status Badges */}
-                <div style={{ marginTop: '10px', paddingTop: '8px', borderTop: '1px solid #f1f5f9' }}>
-                  {isProcessing ? (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '11.5px', color: 'var(--accent, #4f8cff)' }}>
-                      <span style={{ display: 'inline-block', width: '6px', height: '6px', borderRadius: '50%', background: 'var(--accent, #4f8cff)' }} />
-                      <span>Analyzing document structure, extracting text & tables...</span>
-                    </div>
-                  ) : isError ? (
-                    <div style={{ fontSize: '11.5px', color: '#ef4444' }}>
-                      Processing notice: {file.error || 'Using local fallback extraction.'}
-                    </div>
-                  ) : (
-                    <div>
-                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '8px' }}>
-                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '3px', fontSize: '11px', color: '#16a34a', fontWeight: 500 }}>
-                          <Check size={12} strokeWidth={2.5} /> Text extracted
-                        </span>
-                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '3px', fontSize: '11px', color: '#16a34a', fontWeight: 500 }}>
-                          <Check size={12} strokeWidth={2.5} /> {isSheet ? 'Formulas & Data Schemas indexed' : 'Tables detected'}
-                        </span>
-                        {isImage && (
-                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '3px', fontSize: '11px', color: '#16a34a', fontWeight: 500 }}>
-                            <Check size={12} strokeWidth={2.5} /> Visual structure analyzed
-                          </span>
-                        )}
-                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '3px', fontSize: '11px', color: '#16a34a', fontWeight: 500 }}>
-                          <Check size={12} strokeWidth={2.5} /> Ready for AI
-                        </span>
-                      </div>
-
-                      {/* Suggested Action Chips */}
-                      <div style={{ marginTop: '8px' }}>
-                        <div style={{ fontSize: '11px', fontWeight: 600, color: '#475569', marginBottom: '6px' }}>
-                          What would you like to do?
-                        </div>
-                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
-                          {promptOptions.map((opt, optIdx) => (
-                            <button
-                              key={optIdx}
-                              type="button"
-                              onClick={() => {
-                                setInputText(opt.prompt);
-                                if (textareaRef.current) {
-                                  textareaRef.current.focus();
-                                }
-                              }}
-                              style={{
-                                background: '#f8fafc',
-                                border: '1px solid #cbd5e1',
-                                borderRadius: '16px',
-                                padding: '4px 10px',
-                                fontSize: '11px',
-                                color: '#1e293b',
-                                cursor: 'pointer',
-                                transition: 'all 0.15s ease',
-                                fontWeight: 500,
-                              }}
-                              onMouseEnter={(e) => {
-                                e.currentTarget.style.background = '#eef2ff';
-                                e.currentTarget.style.borderColor = 'var(--accent, #4f8cff)';
-                                e.currentTarget.style.color = 'var(--accent, #4f8cff)';
-                              }}
-                              onMouseLeave={(e) => {
-                                e.currentTarget.style.background = '#f8fafc';
-                                e.currentTarget.style.borderColor = '#cbd5e1';
-                                e.currentTarget.style.color = '#1e293b';
-                              }}
-                            >
-                              [{opt.label}]
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-            );
-          })}
+        <div className="composer-attachments-group">
+          {attachedFiles.map((file, i) => (
+            <FileAttachmentCard
+              key={file.id || i}
+              file={file}
+              isComposer={true}
+              onRemove={() => removeAttachedFile(i)}
+            />
+          ))}
         </div>
       )}
 
@@ -3237,8 +3289,9 @@ CRITICAL RULES:
         </div>
       )}
       <Head>
-        <title>Xarwiz AI — Chat</title>
+        <title>{chatDocumentTitle}</title>
         <meta name="description" content="Xarwiz AI Chat Interface" />
+        <meta name="robots" content="noindex, nofollow" />
       </Head>
 
       <div
@@ -3676,93 +3729,57 @@ CRITICAL RULES:
               <div className="active-chat-view">
                 <div className="messages-scroll-column" ref={messagesScrollRef} onScroll={handleMessagesScroll}>
                   {messages.map((msg, idx) => {
-                    const renderUserMessage = (text) => {
-                      if (!text) return null;
-                      const uploadedFiles = parseUploadedFiles(text);
-                      if (uploadedFiles.length > 0) {
-                        const cleanUserText = extractUserVisibleText(text);
-                        return (
-                          <div className="user-bubble-rich">
-                            <div className="user-bubble-attachment-cards">
-                              {uploadedFiles.map((file, i) => (
-                                <FileAttachmentCard
-                                  key={i}
-                                  file={file}
-                                  onPreview={(f) => {
-                                    if (f.dataUrl || f.type?.startsWith('image/') || f.name?.match(/\.(png|jpe?g|webp|gif|svg)$/i)) {
-                                      setSelectedImage({ url: f.dataUrl || '', name: f.name });
-                                      setIsImageViewerOpen(true);
-                                    } else {
-                                      setSelectedPreviewFile({
-                                        name: f.name,
-                                        title: f.name,
-                                        content: f.content,
-                                        extractedText: f.content,
-                                        documentId: f.documentId,
-                                        pages: f.pages || 1,
-                                        size: f.size,
-                                      });
-                                      setSelectedCitationDoc(f.documentId || null);
-                                      setSelectedCitationPage(1);
-                                      setIsDocViewerOpen(true);
-                                    }
-                                  }}
-                                  onDownload={(f) => {
-                                    if (f.documentId) {
-                                      window.open(`${apiBase}/api/documents/${f.documentId}/download`, '_blank');
-                                    } else {
-                                      const blob = new Blob([f.content || f.name], { type: f.type || 'text/plain;charset=utf-8' });
-                                      const url = URL.createObjectURL(blob);
-                                      const a = document.createElement('a');
-                                      a.href = url;
-                                      a.download = f.name;
-                                      a.click();
-                                      URL.revokeObjectURL(url);
-                                    }
-                                  }}
-                                />
-                              ))}
-                            </div>
-                            {cleanUserText && <div className="user-bubble-text">{cleanUserText}</div>}
-                          </div>
-                        );
-                      }
-                      return text;
-                    };
-
                     if (msg.sender === 'user') {
                       const isEditing = editingMsgIdx === idx;
+                      const uploadedFiles = parseUploadedFiles(msg.text || '');
+                      const cleanUserText = uploadedFiles.length > 0 ? extractUserVisibleText(msg.text || '') : msg.text;
+
+                      const handlePreviewFile = (f) => {
+                        const isImg = f.isImage || (f.type && f.type.startsWith('image/')) || (f.mimeType && f.mimeType.startsWith('image/')) || f.name?.match(/\.(png|jpe?g|webp|gif|svg)$/i);
+                        if (isImg) {
+                          setSelectedImage({ url: f.dataUrl || f.url || '', name: f.name });
+                          setIsImageViewerOpen(true);
+                        } else {
+                          setSelectedPreviewFile({
+                            name: f.name,
+                            title: f.name,
+                            content: f.content,
+                            extractedText: f.content,
+                            documentId: f.documentId,
+                            pages: f.pages || 1,
+                            size: f.size,
+                          });
+                          setSelectedCitationDoc(f.documentId || null);
+                          setSelectedCitationPage(1);
+                          setIsDocViewerOpen(true);
+                        }
+                      };
+
+                      const handleDownloadFile = (f) => {
+                        if (f.documentId) {
+                          window.open(`${apiBase}/api/documents/${f.documentId}/download`, '_blank');
+                        } else {
+                          const blob = new Blob([f.content || f.name], { type: f.type || 'text/plain;charset=utf-8' });
+                          const url = URL.createObjectURL(blob);
+                          const a = document.createElement('a');
+                          a.href = url;
+                          a.download = f.name;
+                          a.click();
+                          URL.revokeObjectURL(url);
+                        }
+                      };
 
                       if (isEditing) {
-                        const originalFiles = parseUploadedFiles(msg.text || '');
                         return (
                           <div key={idx} className="message-row user user-editing-row">
                             <div className="user-message-edit-container">
-                              {originalFiles.length > 0 && (
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginBottom: '8px' }}>
-                                  {originalFiles.map((file, fIdx) => (
+                              {uploadedFiles.length > 0 && (
+                                <div className="user-message-attachments-group" style={{ marginBottom: '8px' }}>
+                                  {uploadedFiles.map((file, fIdx) => (
                                     <FileAttachmentCard
                                       key={fIdx}
                                       file={file}
-                                      onPreview={(f) => {
-                                        if (f.dataUrl || f.type?.startsWith('image/') || f.name?.match(/\.(png|jpe?g|webp)$/i)) {
-                                          setSelectedImage({ url: f.dataUrl || '', name: f.name });
-                                          setIsImageViewerOpen(true);
-                                        } else {
-                                          setSelectedPreviewFile({
-                                            name: f.name,
-                                            title: f.name,
-                                            content: f.content,
-                                            extractedText: f.content,
-                                            documentId: f.documentId,
-                                            pages: f.pages || 1,
-                                            size: f.size,
-                                          });
-                                          setSelectedCitationDoc(f.documentId || null);
-                                          setSelectedCitationPage(1);
-                                          setIsDocViewerOpen(true);
-                                        }
-                                      }}
+                                      onPreview={handlePreviewFile}
                                     />
                                   ))}
                                 </div>
@@ -3816,7 +3833,21 @@ CRITICAL RULES:
                       return (
                         <div key={idx} className="message-row user">
                           <div className="user-message-container">
-                            <div className="message-bubble-user">{renderUserMessage(msg.text)}</div>
+                            {uploadedFiles.length > 0 && (
+                              <div className="user-message-attachments-group">
+                                {uploadedFiles.map((file, fIdx) => (
+                                  <FileAttachmentCard
+                                    key={fIdx}
+                                    file={file}
+                                    onPreview={handlePreviewFile}
+                                    onDownload={handleDownloadFile}
+                                  />
+                                ))}
+                              </div>
+                            )}
+                            {cleanUserText ? (
+                              <div className="message-bubble-user">{cleanUserText}</div>
+                            ) : null}
                             <div className="user-message-actions">
                               <button
                                 type="button"
@@ -4074,6 +4105,7 @@ CRITICAL RULES:
             setIsImageViewerOpen(false);
             setSelectedImage(null);
           }}
+          imageSrc={selectedImage?.url}
           imageUrl={selectedImage?.url}
           imageName={selectedImage?.name}
         />

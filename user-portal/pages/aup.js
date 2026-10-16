@@ -3,6 +3,7 @@ import Head from 'next/head';
 import Link from 'next/link';
 import { ArrowLeft, Search, HelpCircle, Shield, AlertOctagon, Scale, BookOpen, ChevronRight } from 'lucide-react';
 import FooterSection from '../components/FooterSection';
+import SEOHead, { defaultOrganizationSchema } from '../components/SEOHead';
 
 export default function AcceptableUsePolicyPage() {
   const [searchQuery, setSearchQuery] = useState('');
@@ -81,11 +82,20 @@ export default function AcceptableUsePolicyPage() {
       minHeight: '100vh',
       fontFamily: "'Outfit', sans-serif"
     }}>
-      <Head>
-        <title>Acceptable Use Policy | Xarwiz Cloud Platform</title>
-        <meta name="description" content="Xarwiz Cloud Acceptable Use Policy - safe usage guidelines compliant with Indian and global regulations." />
-        <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
-      </Head>
+      <SEOHead
+        title="Acceptable Use Policy"
+        description="Xarwiz Acceptable Use Policy — standards for safe AI model interactions, agentic automation, prohibited conduct, and security integrity."
+        canonicalPath="/aup"
+        jsonLd={[
+          defaultOrganizationSchema,
+          {
+            '@context': 'https://schema.org',
+            '@type': 'WebPage',
+            name: 'Acceptable Use Policy — Xarwiz AI Platform',
+            url: 'https://xarwiz.com/aup',
+          },
+        ]}
+      />
 
       {/* Top Banner Gradient Hero */}
       <div style={{

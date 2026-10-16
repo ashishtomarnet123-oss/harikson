@@ -21,6 +21,7 @@ import {
   router as integrationsRouter,
   startIntegrationWorkers,
 } from './routers/integrations.js';
+import privacyRouter from './routers/privacy.js';
 import fs from 'fs';
 import path from 'path';
 import pool from './db.js';
@@ -1449,6 +1450,8 @@ app.get('/admin/legal-holds/audit-logs', adminAuth, async (req, res) => {
 // ────────────────────────────────────────────────────────────
 app.use('/admin/agents', adminAuth, agentsRouter);
 app.use('/admin', adminAuth, operationsRouter); // Phase 1-5 operations
+app.use('/admin/privacy', adminAuth, privacyRouter); // DPDP Privacy, Consent & Data Principal Rights
+app.use('/v1/admin/privacy', adminAuth, privacyRouter);
 // Integration Center — inject pool into req then mount
 app.use(
   '/admin/integrations',

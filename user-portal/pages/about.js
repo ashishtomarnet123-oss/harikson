@@ -3,6 +3,7 @@ import Head from 'next/head';
 import Link from 'next/link';
 import { Menu, X } from 'lucide-react';
 import FooterSection from '../components/FooterSection';
+import SEOHead, { defaultOrganizationSchema } from '../components/SEOHead';
 
 export default function AboutPage() {
   const [activeFaq, setActiveFaq] = useState(null);
@@ -35,14 +36,21 @@ export default function AboutPage() {
       minHeight: '100vh',
       fontFamily: "'Inter', sans-serif"
     }}>
-      <Head>
-        <title>About Xarwiz — India's AI Business Operating System</title>
-        <meta name="description" content="Xarwiz is an AI-native business operating system that unifies AI agents, workflow automation, knowledge management, cloud services, and enterprise security into one intelligent platform." />
-        <meta property="og:title" content="About Xarwiz — India's AI Business Operating System" />
-        <meta property="og:description" content="Xarwiz unifies essential business capabilities into one intelligent platform—from AI agents and workflow automation to knowledge management, collaboration, and enterprise-grade security." />
-        <meta property="og:type" content="website" />
-        <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-      </Head>
+      <SEOHead
+        title="About Xarwiz — India's AI Business Operating System"
+        description="Xarwiz is an AI-native business operating system that unifies AI agents, workflow automation, knowledge management, cloud services, and enterprise security into one intelligent platform."
+        canonicalPath="/about"
+        jsonLd={[
+          defaultOrganizationSchema,
+          {
+            '@context': 'https://schema.org',
+            '@type': 'AboutPage',
+            name: 'About Xarwiz',
+            url: 'https://xarwiz.com/about',
+            description: "Xarwiz unifies essential business capabilities into one intelligent platform—from AI agents and workflow automation to knowledge management, collaboration, and enterprise-grade security.",
+          },
+        ]}
+      />
 
       <style jsx global>{`
         *, *::before, *::after {
