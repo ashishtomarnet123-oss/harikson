@@ -12,20 +12,20 @@ The following pages are intended for public indexing by search engines. They con
 
 | Route | Canonical URL | Page Title | Primary Intent | Schema.org Type | Current Status |
 |---|---|---|---|---|---|
-| `/` | `https://xarwiz.com/` | `Xarwiz — India's All-in-One AI Platform for Agents & Automation` | Homepage, product capabilities, agent overview | `Organization`, `WebSite`, `SoftwareApplication` | Pending SEO Upgrade |
-| `/about` | `https://xarwiz.com/about` | `About Xarwiz — India's AI Business Operating System` | Company mission, leadership, core pillars | `Organization`, `AboutPage` | Pending SEO Upgrade |
-| `/pricing` | `https://xarwiz.com/pricing` | `Pricing Plans — Xarwiz AI Platform` | Transparent subscription tiers, enterprise quotes | `Product`, `Offer` | Pending Direct Route / SEO Upgrade |
-| `/privacy-policy` | `https://xarwiz.com/privacy-policy` | `Privacy Policy — Xarwiz AI Platform` | DPDP Act statutory privacy notice & data practices | `WebPage` | Live (Pending SEO Head) |
-| `/privacy` | `https://xarwiz.com/privacy-policy` | `Privacy Policy — Xarwiz AI Platform` | Canonical alias pointing to `/privacy-policy` | None (Canonical to `/privacy-policy`) | Live |
-| `/terms` | `https://xarwiz.com/terms` | `Terms of Service — Xarwiz AI Platform` | Terms of service, acceptable use, liability | `WebPage` | Live (Pending SEO Head) |
-| `/cookie-policy` | `https://xarwiz.com/cookie-policy` | `Cookie Policy — Xarwiz AI Platform` | Cookie disclosure & tracking categorization | `WebPage` | Live (Pending SEO Head) |
-| `/cookies` | `https://xarwiz.com/cookie-policy` | `Cookie Policy — Xarwiz AI Platform` | Canonical alias pointing to `/cookie-policy` | None (Canonical to `/cookie-policy`) | Live |
-| `/data-processing` | `https://xarwiz.com/data-processing` | `Data Processing Addendum & Architecture — Xarwiz` | Enterprise DPA, TOMs, sub-processors | `WebPage` | Live (Pending SEO Head) |
-| `/security-policy` | `https://xarwiz.com/security-policy` | `Security Policy & Platform Safeguards — Xarwiz` | Security controls, encryption, incident response | `WebPage` | Live (Pending SEO Head) |
-| `/security` | `https://xarwiz.com/security-policy` | `Security Policy & Platform Safeguards — Xarwiz` | Canonical alias pointing to `/security-policy` | None (Canonical to `/security-policy`) | Live |
-| `/aup` | `https://xarwiz.com/aup` | `Acceptable Use Policy — Xarwiz AI Platform` | Prohibited AI activities and compliance rules | `WebPage` | Live (Pending SEO Head) |
-| `/data-rights` | `https://xarwiz.com/data-rights` | `Data Principal Rights & Privacy Requests — Xarwiz` | Statutory DPDP rights submission & tracking | `WebPage` | Live (Pending SEO Head) |
-| `/grievance` | `https://xarwiz.com/grievance` | `Grievance Redressal Mechanism — Xarwiz DPDP` | Grievance Officer details & submission form | `WebPage` | Live (Pending SEO Head) |
+| `/` | `https://xarwiz.com/` | `Xarwiz — India's All-in-One AI Platform for Agents & Automation` | Homepage, product capabilities, agent overview | `Organization`, `WebSite`, `SoftwareApplication` | Implemented & Verified |
+| `/about` | `https://xarwiz.com/about` | `About Xarwiz — India's AI Business Operating System` | Company mission, leadership, core pillars | `Organization`, `AboutPage` | Implemented & Verified |
+| `/pricing` | `https://xarwiz.com/pricing` | `Pricing Plans — Xarwiz` | Transparent subscription tiers, enterprise quotes | `Product`, `AggregateOffer` | Implemented & Verified |
+| `/privacy-policy` | `https://xarwiz.com/privacy-policy` | `Privacy Policy — Xarwiz AI Platform` | DPDP Act statutory privacy notice & data practices | `WebPage` | Implemented & Verified |
+| `/privacy` | `https://xarwiz.com/privacy-policy` | `Privacy Policy — Xarwiz AI Platform` | Canonical alias pointing to `/privacy-policy` | None (Canonical to `/privacy-policy`) | Implemented & Verified |
+| `/terms` | `https://xarwiz.com/terms` | `Terms of Service — Xarwiz AI Platform` | Terms of service, acceptable use, liability | `WebPage` | Implemented & Verified |
+| `/cookie-policy` | `https://xarwiz.com/cookie-policy` | `Cookie Policy — Xarwiz AI Platform` | Cookie disclosure & tracking categorization | `WebPage` | Implemented & Verified |
+| `/cookies` | `https://xarwiz.com/cookie-policy` | `Cookie Policy — Xarwiz AI Platform` | Canonical alias pointing to `/cookie-policy` | None (Canonical to `/cookie-policy`) | Implemented & Verified |
+| `/data-processing` | `https://xarwiz.com/data-processing` | `Data Processing Addendum & Architecture — Xarwiz` | Enterprise DPA, TOMs, sub-processors | `WebPage` | Implemented & Verified |
+| `/security-policy` | `https://xarwiz.com/security-policy` | `Security Policy & Platform Safeguards — Xarwiz` | Security controls, encryption, incident response | `WebPage` | Implemented & Verified |
+| `/security` | `https://xarwiz.com/security-policy` | `Security Policy & Platform Safeguards — Xarwiz` | Canonical alias pointing to `/security-policy` | None (Canonical to `/security-policy`) | Implemented & Verified |
+| `/aup` | `https://xarwiz.com/aup` | `Acceptable Use Policy — Xarwiz AI Platform` | Prohibited AI activities and compliance rules | `WebPage` | Implemented & Verified |
+| `/data-rights` | `https://xarwiz.com/data-rights` | `Data Principal Rights & Privacy Requests — Xarwiz` | Statutory DPDP rights submission & tracking | `WebPage` | Implemented & Verified |
+| `/grievance` | `https://xarwiz.com/grievance` | `Grievance Redressal Mechanism — Xarwiz DPDP` | Grievance Officer details & submission form | `WebPage` | Implemented & Verified |
 
 ---
 
