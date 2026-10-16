@@ -14,20 +14,19 @@ import {
   Database,
   Workflow,
   Cpu,
+  ChevronDown,
   Sparkles,
-  ChevronRight,
-  ExternalLink,
+  MessageSquare,
+  BarChart3,
   Zap,
-  Lock,
+  Settings,
 } from 'lucide-react';
 import FooterSection from '../components/FooterSection';
 import SEOHead, { defaultOrganizationSchema } from '../components/SEOHead';
 
 export default function AboutPage() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [workflowActiveStep, setWorkflowActiveStep] = useState(0);
 
-  // Accessible escape-key close and body scroll lock for mobile menu
   useEffect(() => {
     if (mobileMenuOpen) {
       document.body.style.overflow = 'hidden';
@@ -44,16 +43,8 @@ export default function AboutPage() {
     };
   }, [mobileMenuOpen]);
 
-  // Subtle cyclic animation for Hero Agent workflow visual (4 steps)
-  useEffect(() => {
-    const timer = setInterval(() => {
-      setWorkflowActiveStep((prev) => (prev + 1) % 4);
-    }, 2400);
-    return () => clearInterval(timer);
-  }, []);
-
   return (
-    <div className="about-page-root">
+    <div className="about-page">
       <SEOHead
         title="About Xarwiz | India's AI Platform for Agents & Automation"
         description="Discover Xarwiz, India's AI Platform for Agents & Automation. Learn how we're connecting AI agents, business knowledge, and workflows to help businesses work smarter."
@@ -72,12 +63,8 @@ export default function AboutPage() {
               name: 'Xarwiz Technologies LLP',
               founder: {
                 '@type': 'Person',
-                name: 'Ashish Pratap Singh Tomar',
-                jobTitle: 'Founder & Product Architect',
-              },
-              foundingLocation: {
-                '@type': 'Place',
-                name: 'Noida, Uttar Pradesh, India',
+                name: 'Ashish Tomar',
+                jobTitle: 'Founder & CEO',
               },
             },
           },
@@ -85,242 +72,194 @@ export default function AboutPage() {
       />
 
       <style jsx global>{`
-        /* -------------------------------------------------------------
-           RESET & CSS VARIABLES
-        ------------------------------------------------------------- */
+        @import url('https://fonts.googleapis.com/css2?family=Caveat:wght@600;700&family=Inter:wght@400;500;600;700;800&display=swap');
+
+        /* ==============================================================
+           CORE STYLING & VARIABLES — EXACT MATCH TO REFERENCE
+        ============================================================== */
         *, *::before, *::after {
           box-sizing: border-box;
         }
 
         :root {
-          --color-navy: #0f172a;
-          --color-navy-dark: #0a0f1d;
-          --color-navy-card: #1e293b;
-          --color-blue: #2563eb;
-          --color-blue-hover: #1d4ed8;
-          --color-blue-light: #eff6ff;
-          --color-blue-border: #bfdbfe;
-          --color-slate-body: #475569;
-          --color-slate-muted: #64748b;
-          --color-border: #e2e8f0;
-          --color-bg-subtle: #f8fafc;
-          --font-body: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-          --font-heading: 'Outfit', 'Inter', sans-serif;
-        }
-
-        html {
-          scroll-behavior: smooth;
+          --brand-blue: #1b68ff;
+          --brand-blue-hover: #1355db;
+          --brand-navy: #0b132b;
+          --text-dark: #0f172a;
+          --text-body: #475569;
+          --text-muted: #64748b;
+          --border-light: #e2e8f0;
+          --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
         }
 
         body {
           margin: 0;
           padding: 0;
-          font-family: var(--font-body);
-          color: var(--color-navy);
+          font-family: var(--font-sans);
+          color: var(--text-dark);
           background-color: #ffffff;
           -webkit-font-smoothing: antialiased;
           overflow-x: hidden;
         }
 
-        .about-page-root {
+        .about-page {
           min-height: 100vh;
           background: #ffffff;
-          color: var(--color-navy);
-          display: flex;
-          flex-direction: column;
+          overflow-x: hidden;
         }
 
-        /* -------------------------------------------------------------
-           LAYOUT CONTAINERS
-        ------------------------------------------------------------- */
-        .section-container {
-          max-width: 1240px;
+        /* Unified crisp container across all sections */
+        .container {
+          max-width: 1220px;
           margin: 0 auto;
           padding: 0 24px;
           box-sizing: border-box;
           width: 100%;
         }
 
-        .section-header-centered {
-          text-align: center;
-          max-width: 760px;
-          margin: 0 auto 52px auto;
+        /* Hide the redundant middle CTA banner from the shared footer on this specific page */
+        .about-page .final-blue-banner {
+          display: none !important;
         }
 
-        .section-eyebrow {
-          display: inline-flex;
-          align-items: center;
-          gap: 8px;
-          padding: 6px 16px;
-          border-radius: 9999px;
-          background: #eff6ff;
-          border: 1px solid #bfdbfe;
-          color: #2563eb;
-          font-size: 0.78rem;
-          font-weight: 700;
-          letter-spacing: 0.05em;
-          text-transform: uppercase;
-          margin-bottom: 16px;
-        }
-
-        .section-heading-editorial {
-          font-family: var(--font-heading);
-          font-size: clamp(2rem, 4vw, 2.75rem);
-          font-weight: 800;
-          color: var(--color-navy);
-          letter-spacing: -0.025em;
-          line-height: 1.2;
-          margin: 0 0 16px 0;
-        }
-
-        .section-subcopy {
-          font-size: clamp(1rem, 2vw, 1.1rem);
-          color: var(--color-slate-body);
-          line-height: 1.65;
-          margin: 0;
-        }
-
-        /* -------------------------------------------------------------
-           HEADER
-        ------------------------------------------------------------- */
-        .site-header {
+        /* ==============================================================
+           1. HEADER — CLEAN WHITE, REFINED NAVIGATION
+        ============================================================== */
+        .site-nav {
           position: sticky;
           top: 0;
           z-index: 1000;
-          background: rgba(255, 255, 255, 0.94);
-          backdrop-filter: blur(12px);
-          -webkit-backdrop-filter: blur(12px);
-          border-bottom: 1px solid var(--color-border);
-          transition: background-color 0.2s ease;
+          background: #ffffff;
+          border-bottom: 1px solid #f1f5f9;
+          height: 72px;
+          display: flex;
+          align-items: center;
         }
 
-        .header-inner {
+        .nav-inner {
           display: flex;
           align-items: center;
           justify-content: space-between;
-          height: 72px;
         }
 
-        .header-brand {
+        .nav-left-group {
+          display: flex;
+          align-items: center;
+          gap: 40px;
+        }
+
+        .brand-link {
           display: flex;
           align-items: center;
           gap: 10px;
           text-decoration: none;
         }
 
-        .header-logo-img {
-          height: 28px;
-          width: auto;
-          display: block;
-        }
-
-        .header-logo-badge {
-          display: inline-flex;
-          align-items: center;
-          padding: 3px 8px;
-          border-radius: 20px;
-          background: #eff6ff;
-          border: 1px solid #bfdbfe;
-          font-size: 0.7rem;
-          font-weight: 700;
-          color: #1e40af;
-          letter-spacing: 0.02em;
-        }
-
-        .header-nav {
+        .brand-logo-mark {
           display: flex;
           align-items: center;
+          justify-content: center;
         }
 
-        .header-nav-list {
+        .brand-logo-text {
+          font-size: 1.28rem;
+          font-weight: 800;
+          letter-spacing: -0.02em;
+          color: #0b132b;
+        }
+
+        .nav-menu-links {
           display: flex;
           align-items: center;
-          gap: 32px;
+          gap: 28px;
           list-style: none;
           margin: 0;
           padding: 0;
         }
 
-        .header-nav-link {
+        .nav-item-link {
+          display: inline-flex;
+          align-items: center;
+          gap: 4px;
           font-size: 0.92rem;
-          font-weight: 600;
+          font-weight: 500;
           color: #475569;
           text-decoration: none;
-          transition: color 0.2s ease;
+          padding: 6px 0;
+          transition: color 0.15s ease;
           position: relative;
-          padding: 8px 0;
         }
 
-        .header-nav-link:hover {
-          color: var(--color-blue);
+        .nav-item-link:hover {
+          color: var(--brand-blue);
         }
 
-        .header-nav-link.active {
-          color: var(--color-blue);
-          font-weight: 700;
+        .nav-item-link.active {
+          color: var(--brand-blue);
+          font-weight: 600;
         }
 
-        .header-nav-link.active::after {
+        .nav-item-link.active::after {
           content: '';
           position: absolute;
-          bottom: 0;
+          bottom: -4px;
           left: 0;
           right: 0;
           height: 2px;
-          background: var(--color-blue);
+          background: var(--brand-blue);
           border-radius: 2px;
         }
 
-        .header-ctas {
+        .nav-right-ctas {
           display: flex;
           align-items: center;
-          gap: 14px;
+          gap: 12px;
         }
 
-        .btn-header-login {
+        .btn-nav-login {
+          font-size: 0.9rem;
+          font-weight: 500;
+          color: #111827;
+          text-decoration: none;
+          padding: 8px 18px;
+          border-radius: 8px;
+          border: 1px solid #e2e8f0;
+          background: #ffffff;
+          transition: all 0.15s ease;
+        }
+
+        .btn-nav-login:hover {
+          background: #f8fafc;
+          border-color: #cbd5e1;
+        }
+
+        .btn-nav-primary {
           font-size: 0.9rem;
           font-weight: 600;
-          color: var(--color-navy);
-          text-decoration: none;
-          padding: 9px 18px;
-          border-radius: 9px;
-          border: 1px solid #cbd5e1;
-          transition: all 0.2s ease;
-          background: #ffffff;
-        }
-
-        .btn-header-login:hover {
-          background: #f8fafc;
-          border-color: #94a3b8;
-        }
-
-        .btn-header-primary {
-          font-size: 0.9rem;
-          font-weight: 700;
           color: #ffffff !important;
-          background: var(--color-blue);
+          background: var(--brand-blue);
           text-decoration: none;
           padding: 9px 20px;
-          border-radius: 9px;
-          box-shadow: 0 4px 14px rgba(37, 99, 235, 0.25);
-          transition: all 0.2s ease;
+          border-radius: 8px;
           display: inline-flex;
           align-items: center;
-          justify-content: center;
+          gap: 6px;
+          box-shadow: 0 4px 12px rgba(27, 104, 255, 0.25);
+          transition: all 0.2s ease;
         }
 
-        .btn-header-primary:hover {
-          background: var(--color-blue-hover);
+        .btn-nav-primary:hover {
+          background: var(--brand-blue-hover);
           transform: translateY(-1px);
-          box-shadow: 0 6px 18px rgba(37, 99, 235, 0.35);
+          box-shadow: 0 6px 16px rgba(27, 104, 255, 0.35);
         }
 
-        .header-mobile-toggle {
+        .nav-mobile-toggle {
           display: none;
           background: #ffffff;
-          border: 1px solid var(--color-border);
-          color: var(--color-navy);
-          border-radius: 9px;
+          border: 1px solid var(--border-light);
+          color: var(--text-dark);
+          border-radius: 8px;
           padding: 8px;
           cursor: pointer;
           min-width: 44px;
@@ -329,1585 +268,1544 @@ export default function AboutPage() {
           justify-content: center;
         }
 
-        /* -------------------------------------------------------------
-           MOBILE DRAWER
-        ------------------------------------------------------------- */
+        /* Mobile Drawer */
         .mobile-drawer-overlay {
           position: fixed;
           inset: 0;
-          background: rgba(15, 23, 42, 0.6);
+          background: rgba(15, 23, 42, 0.5);
           backdrop-filter: blur(4px);
-          z-index: 99999;
+          z-index: 9999;
           display: flex;
           justify-content: flex-end;
         }
 
         .mobile-drawer {
-          width: 85%;
-          max-width: 340px;
+          width: 82%;
+          max-width: 320px;
           height: 100%;
           background: #ffffff;
-          box-shadow: -10px 0 30px rgba(0, 0, 0, 0.15);
+          box-shadow: -8px 0 25px rgba(0, 0, 0, 0.12);
           display: flex;
           flex-direction: column;
-          animation: slideInRight 0.25s cubic-bezier(0.16, 1, 0.3, 1);
-          overflow-y: auto;
+          padding: 24px;
         }
 
-        @keyframes slideInRight {
-          from { transform: translateX(100%); }
-          to { transform: translateX(0); }
+        /* ==============================================================
+           2. HERO SECTION — EXACT REFERENCE TWO-COLUMN COMPOSITION
+        ============================================================== */
+        .hero-section {
+          padding: 60px 0 56px 0;
+          background: #ffffff;
+          position: relative;
         }
 
-        .mobile-drawer-header {
+        .hero-grid {
+          display: grid;
+          grid-template-columns: 1.05fr 1fr;
+          gap: 52px;
+          align-items: center;
+        }
+
+        .hero-eyebrow-wrap {
+          display: inline-flex;
+          align-items: center;
+          gap: 12px;
+          margin-bottom: 22px;
+        }
+
+        .hero-pill-badge {
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          padding: 4px 12px;
+          border-radius: 9999px;
+          background: #ffffff;
+          border: 1px solid #bfdbfe;
+          color: var(--brand-blue);
+          font-size: 0.74rem;
+          font-weight: 700;
+          letter-spacing: 0.04em;
+          text-transform: uppercase;
+        }
+
+        .pill-dot {
+          width: 6px;
+          height: 6px;
+          border-radius: 50%;
+          background: var(--brand-blue);
+        }
+
+        .hero-eyebrow-sub {
+          font-size: 0.88rem;
+          color: #475569;
+          font-weight: 500;
+        }
+
+        .hero-h1 {
+          font-size: clamp(2.35rem, 3.8vw, 3.35rem);
+          font-weight: 800;
+          line-height: 1.15;
+          letter-spacing: -0.03em;
+          color: #0b132b;
+          margin: 0 0 22px 0;
+        }
+
+        .h1-line-1 {
+          display: block;
+        }
+
+        .h1-line-2 {
+          display: block;
+          white-space: nowrap;
+        }
+
+        .text-gradient-hero {
+          background: linear-gradient(135deg, #1b68ff 0%, #7c3aed 100%);
+          -webkit-background-clip: text;
+          -webkit-text-fill-color: transparent;
+        }
+
+        .hero-description {
+          font-size: 1.02rem;
+          line-height: 1.65;
+          color: var(--text-body);
+          margin: 0 0 32px 0;
+          max-width: 500px;
+        }
+
+        .hero-btns-row {
+          display: flex;
+          align-items: center;
+          gap: 14px;
+          flex-wrap: wrap;
+        }
+
+        .btn-hero-primary {
+          background: var(--brand-blue);
+          color: #ffffff !important;
+          font-size: 0.95rem;
+          font-weight: 600;
+          padding: 13px 26px;
+          border-radius: 8px;
+          text-decoration: none;
+          display: inline-flex;
+          align-items: center;
+          gap: 8px;
+          box-shadow: 0 6px 18px rgba(27, 104, 255, 0.35);
+          transition: all 0.2s ease;
+        }
+
+        .btn-hero-primary:hover {
+          background: var(--brand-blue-hover);
+          transform: translateY(-1px);
+          box-shadow: 0 8px 22px rgba(27, 104, 255, 0.45);
+        }
+
+        .btn-hero-secondary {
+          background: #ffffff;
+          color: #0b132b !important;
+          font-size: 0.95rem;
+          font-weight: 500;
+          padding: 13px 22px;
+          border-radius: 8px;
+          text-decoration: none;
+          display: inline-flex;
+          align-items: center;
+          gap: 8px;
+          border: 1px solid var(--border-light);
+          transition: all 0.15s ease;
+        }
+
+        .btn-hero-secondary:hover {
+          background: #f8fafc;
+          border-color: #cbd5e1;
+        }
+
+        /* -------------------------------------------------------------
+           HERO RIGHT COLUMN: AMBIENT GLOW & ANGLED DASHBOARD
+        ------------------------------------------------------------- */
+        .hero-visual-wrap {
+          position: relative;
+          padding: 34px 18px 26px 10px;
+        }
+
+        .hero-ambient-glow {
+          position: absolute;
+          top: 48%;
+          left: 52%;
+          transform: translate(-50%, -50%);
+          width: 500px;
+          height: 400px;
+          background: radial-gradient(circle, rgba(59, 130, 246, 0.18) 0%, rgba(147, 51, 234, 0.08) 50%, transparent 72%);
+          pointer-events: none;
+          z-index: 0;
+        }
+
+        .hero-sketch-doodle {
+          position: absolute;
+          top: -20px;
+          left: 80px;
+          z-index: 10;
+          display: flex;
+          align-items: flex-end;
+          gap: 8px;
+        }
+
+        .sketch-doodle-text {
+          font-family: 'Caveat', cursive, sans-serif;
+          font-size: 1.28rem;
+          color: #1e293b;
+          line-height: 1.05;
+          font-weight: 700;
+          transform: rotate(-3deg);
+        }
+
+        .floating-top-avatar {
+          position: absolute;
+          top: 14px;
+          right: 20px;
+          width: 38px;
+          height: 38px;
+          border-radius: 50%;
+          border: 3px solid #ffffff;
+          box-shadow: 0 6px 16px rgba(0, 0, 0, 0.14);
+          overflow: hidden;
+          z-index: 10;
+        }
+
+        .floating-top-avatar img {
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+        }
+
+        .hero-dashboard-mockup {
+          background: #ffffff;
+          border-radius: 16px;
+          border: 1px solid #e2e8f0;
+          box-shadow:
+            0 24px 50px -12px rgba(15, 23, 42, 0.12),
+            0 0 0 1px rgba(226, 232, 240, 0.8);
+          transform: perspective(1200px) rotateY(-5deg) rotateX(2.5deg);
+          transform-style: preserve-3d;
+          transition: transform 0.35s ease, box-shadow 0.35s ease;
+          overflow: hidden;
+          position: relative;
+          z-index: 2;
+        }
+
+        .hero-dashboard-mockup:hover {
+          transform: perspective(1200px) rotateY(0deg) rotateX(0deg) translateY(-3px);
+          box-shadow:
+            0 30px 60px -12px rgba(15, 23, 42, 0.16),
+            0 0 0 1px rgba(226, 232, 240, 1);
+        }
+
+        .dash-topbar {
+          background: #fbfcfd;
+          border-bottom: 1px solid #f1f5f9;
+          padding: 10px 16px;
           display: flex;
           align-items: center;
           justify-content: space-between;
-          padding: 18px 20px;
-          border-bottom: 1px solid var(--color-border);
         }
 
-        .mobile-drawer-close {
-          background: #f1f5f9;
-          border: none;
-          border-radius: 8px;
-          padding: 8px;
+        .dash-topbar-title {
+          font-size: 0.82rem;
+          font-weight: 600;
+          color: #334155;
+          display: flex;
+          align-items: center;
+          gap: 8px;
+        }
+
+        .badge-active-green {
+          font-size: 0.68rem;
+          font-weight: 600;
+          background: #ecfdf5;
+          color: #059669;
+          padding: 2px 8px;
+          border-radius: 12px;
+          border: 1px solid #a7f3d0;
+          display: inline-flex;
+          align-items: center;
+          gap: 4px;
+        }
+
+        .avatar-cluster {
+          display: flex;
+          align-items: center;
+        }
+
+        .avatar-mini {
+          width: 22px;
+          height: 22px;
+          border-radius: 50%;
+          border: 2px solid #ffffff;
+          margin-left: -6px;
+          overflow: hidden;
+        }
+
+        .avatar-mini img {
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+        }
+
+        .dash-layout-grid {
+          display: grid;
+          grid-template-columns: 110px 1fr;
+          min-height: 285px;
+        }
+
+        .dash-sidebar {
+          background: #fafafb;
+          border-right: 1px solid #f1f5f9;
+          padding: 12px 8px;
+          display: flex;
+          flex-direction: column;
+          gap: 3px;
+        }
+
+        .dash-brand-small {
+          font-size: 0.72rem;
+          font-weight: 800;
+          color: #0b132b;
+          padding: 2px 6px 10px 6px;
+          letter-spacing: -0.02em;
+        }
+
+        .dash-nav-pill {
+          display: flex;
+          align-items: center;
+          gap: 7px;
+          padding: 5px 8px;
+          border-radius: 6px;
+          font-size: 0.7rem;
+          font-weight: 500;
           color: #64748b;
+        }
+
+        .dash-nav-pill.active {
+          background: var(--brand-blue);
+          color: #ffffff;
+          font-weight: 600;
+        }
+
+        .dash-main-canvas {
+          padding: 14px 16px;
+          background: #ffffff;
+          position: relative;
+        }
+
+        .dash-canvas-tabs {
+          display: flex;
+          gap: 16px;
+          border-bottom: 1px solid #f1f5f9;
+          padding-bottom: 8px;
+          margin-bottom: 16px;
+        }
+
+        .canvas-tab {
+          font-size: 0.74rem;
+          font-weight: 500;
+          color: #64748b;
+        }
+
+        .canvas-tab.active {
+          color: var(--brand-blue);
+          font-weight: 600;
+          border-bottom: 2px solid var(--brand-blue);
+          padding-bottom: 8px;
+          margin-bottom: -9px;
+        }
+
+        .flow-diagram-container {
+          display: flex;
+          flex-direction: column;
+          align-items: flex-start;
+          padding-left: 6px;
+          gap: 6px;
+        }
+
+        .node-pill {
+          background: #ffffff;
+          border: 1px solid #e2e8f0;
+          border-radius: 8px;
+          padding: 5px 10px;
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          box-shadow: 0 2px 5px rgba(0, 0, 0, 0.03);
+          min-width: 140px;
+        }
+
+        .node-pill.trigger {
+          border-left: 3px solid #1b68ff;
+        }
+
+        .node-pill.agent {
+          border-left: 3px solid #7c3aed;
+        }
+
+        .node-title-bold {
+          font-size: 0.7rem;
+          font-weight: 700;
+          color: #0b132b;
+        }
+
+        .node-subtext {
+          font-size: 0.62rem;
+          color: #64748b;
+        }
+
+        .flow-branch-row {
+          display: flex;
+          gap: 8px;
+          align-items: center;
+        }
+
+        .branch-node {
+          background: #ffffff;
+          border: 1px solid #e2e8f0;
+          border-radius: 8px;
+          padding: 5px 8px;
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          box-shadow: 0 2px 5px rgba(0, 0, 0, 0.03);
+          min-width: 110px;
+        }
+
+        .branch-node.kb {
+          border-left: 3px solid #10b981;
+        }
+
+        .branch-node.tools {
+          border-left: 3px solid #ec4899;
+        }
+
+        /* Floating Deploy Card — OVERHANGING OUTSIDE BOTTOM-RIGHT (Zero overlap with Tools node) */
+        .deploy-agent-card {
+          position: absolute;
+          bottom: 2px;
+          right: -8px;
+          background: #ffffff;
+          border: 1px solid #e2e8f0;
+          border-radius: 12px;
+          padding: 12px 14px;
+          box-shadow: 0 14px 30px rgba(15, 23, 42, 0.14);
+          width: 135px;
+          z-index: 10;
+        }
+
+        .deploy-card-title {
+          font-size: 0.74rem;
+          font-weight: 700;
+          color: #0b132b;
+          margin-bottom: 6px;
+        }
+
+        .deploy-checklist {
+          display: flex;
+          flex-direction: column;
+          gap: 3px;
+          font-size: 0.66rem;
+          color: #475569;
+          margin-bottom: 8px;
+        }
+
+        .check-item {
+          display: flex;
+          align-items: center;
+          gap: 4px;
+        }
+
+        .check-item span {
+          color: #10b981;
+          font-weight: bold;
+        }
+
+        .btn-deploy-blue {
+          background: var(--brand-blue);
+          color: #ffffff;
+          font-size: 0.7rem;
+          font-weight: 600;
+          border: none;
+          border-radius: 6px;
+          padding: 6px 10px;
+          width: 100%;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 4px;
           cursor: pointer;
-          min-width: 44px;
-          min-height: 44px;
+          transition: background 0.15s ease;
+        }
+
+        .btn-deploy-blue:hover {
+          background: var(--brand-blue-hover);
+        }
+
+        /* ==============================================================
+           3. TRUST STRIP
+        ============================================================== */
+        .trust-strip {
+          padding: 26px 0;
+          border-top: 1px solid #f1f5f9;
+          border-bottom: 1px solid #f1f5f9;
+          background: #ffffff;
+        }
+
+        .trust-grid {
+          display: grid;
+          grid-template-columns: repeat(4, 1fr);
+          gap: 24px;
+        }
+
+        .trust-col {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+        }
+
+        .trust-icon-box {
+          width: 42px;
+          height: 42px;
+          border-radius: 10px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          flex-shrink: 0;
+        }
+
+        .box-blue {
+          background: #eff6ff;
+          color: var(--brand-blue);
+        }
+
+        .box-green {
+          background: #ecfdf5;
+          color: #059669;
+        }
+
+        .trust-title {
+          font-size: 0.92rem;
+          font-weight: 700;
+          color: #0b132b;
+          margin-bottom: 2px;
+        }
+
+        .trust-sub {
+          font-size: 0.78rem;
+          color: var(--text-muted);
+          margin: 0;
+        }
+
+        /* ==============================================================
+           4. FOUNDER STORY SECTION
+        ============================================================== */
+        .founder-story-sec {
+          padding: 88px 0;
+          background: #ffffff;
+        }
+
+        .story-2col-grid {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 56px;
+          align-items: center;
+        }
+
+        .founder-img-wrapper {
+          position: relative;
+          width: 100%;
+          border-radius: 16px;
+          overflow: hidden;
+          box-shadow: 0 16px 36px rgba(15, 23, 42, 0.08);
+        }
+
+        .founder-photo {
+          width: 100%;
+          aspect-ratio: 4 / 3;
+          object-fit: cover;
+          object-position: center top;
+          display: block;
+        }
+
+        .founder-quote-floating {
+          position: absolute;
+          top: 20px;
+          right: 20px;
+          background: #ffffff;
+          border: 1px solid var(--border-light);
+          border-radius: 14px;
+          padding: 18px 20px;
+          max-width: 275px;
+          box-shadow: 0 16px 36px rgba(0, 0, 0, 0.12);
+          z-index: 5;
+        }
+
+        .quote-icon-svg {
+          margin-bottom: 8px;
+          display: block;
+        }
+
+        .quote-body-text {
+          font-size: 0.86rem;
+          line-height: 1.5;
+          color: #1e293b;
+          margin-bottom: 12px;
+          font-weight: 500;
+        }
+
+        .quote-author-line {
+          font-size: 0.8rem;
+          font-weight: 700;
+          color: #0b132b;
+        }
+
+        .quote-author-title {
+          font-size: 0.72rem;
+          color: #64748b;
+        }
+
+        .founder-watch-floating {
+          position: absolute;
+          bottom: 20px;
+          left: 20px;
+          background: rgba(255, 255, 255, 0.96);
+          backdrop-filter: blur(8px);
+          border: 1px solid rgba(255, 255, 255, 0.9);
+          border-radius: 30px;
+          padding: 7px 16px 7px 8px;
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          box-shadow: 0 10px 25px rgba(0, 0, 0, 0.12);
+          z-index: 5;
+        }
+
+        .play-circle-btn {
+          width: 32px;
+          height: 32px;
+          border-radius: 50%;
+          background: #ffffff;
+          border: 1px solid #e2e8f0;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+        }
+
+        .watch-text-primary {
+          font-size: 0.78rem;
+          font-weight: 700;
+          color: #0b132b;
+        }
+
+        .watch-text-dur {
+          font-size: 0.7rem;
+          color: #64748b;
+        }
+
+        .sec-eyebrow-text {
+          font-size: 0.76rem;
+          font-weight: 700;
+          color: #64748b;
+          text-transform: uppercase;
+          letter-spacing: 0.06em;
+          margin-bottom: 12px;
+        }
+
+        .sec-h2-title {
+          font-size: clamp(1.85rem, 2.5vw, 2.35rem);
+          font-weight: 800;
+          line-height: 1.2;
+          letter-spacing: -0.025em;
+          color: #0b132b;
+          margin: 0 0 18px 0;
+        }
+
+        .story-paragraph {
+          font-size: 0.98rem;
+          line-height: 1.68;
+          color: var(--text-body);
+          margin: 0 0 16px 0;
+        }
+
+        .btn-outline-pill {
+          display: inline-flex;
+          align-items: center;
+          gap: 8px;
+          font-size: 0.9rem;
+          font-weight: 600;
+          color: var(--brand-blue);
+          text-decoration: none;
+          padding: 10px 22px;
+          border: 1px solid #bfdbfe;
+          border-radius: 8px;
+          background: #ffffff;
+          margin-top: 8px;
+          transition: all 0.2s ease;
+        }
+
+        .btn-outline-pill:hover {
+          background: #eff6ff;
+          border-color: #93c5fd;
+          gap: 12px;
+        }
+
+        /* ==============================================================
+           5. PLATFORM CAPABILITIES SECTION
+        ============================================================== */
+        .capabilities-sec {
+          padding: 88px 0;
+          background: #ffffff;
+          border-top: 1px solid #f1f5f9;
+        }
+
+        .capabilities-topbar {
+          display: flex;
+          align-items: flex-end;
+          justify-content: space-between;
+          margin-bottom: 16px;
+          flex-wrap: wrap;
+          gap: 16px;
+        }
+
+        .capabilities-subtext {
+          font-size: 0.98rem;
+          color: #64748b;
+          max-width: 740px;
+          margin: 0 0 36px 0;
+          line-height: 1.6;
+        }
+
+        .capabilities-4grid {
+          display: grid;
+          grid-template-columns: repeat(4, 1fr);
+          gap: 20px;
+        }
+
+        .cap-card {
+          background: #ffffff;
+          border: 1px solid var(--border-light);
+          border-radius: 16px;
+          padding: 26px 20px;
+          display: flex;
+          flex-direction: column;
+          justify-content: space-between;
+          box-shadow: 0 2px 6px rgba(0, 0, 0, 0.02);
+          transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+        }
+
+        .cap-card:hover {
+          transform: translateY(-4px);
+          box-shadow: 0 14px 28px -6px rgba(27, 104, 255, 0.1);
+          border-color: #cbd5e1;
+        }
+
+        .cap-icon-box {
+          width: 44px;
+          height: 44px;
+          border-radius: 12px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          margin-bottom: 18px;
+        }
+
+        .bg-purple { background: #f5f3ff; color: #7c3aed; }
+        .bg-green { background: #ecfdf5; color: #059669; }
+        .bg-blue { background: #eff6ff; color: #1b68ff; }
+        .bg-orange { background: #fff7ed; color: #ea580c; }
+
+        .cap-card-title {
+          font-size: 1.08rem;
+          font-weight: 700;
+          color: #0b132b;
+          margin: 0 0 8px 0;
+        }
+
+        .cap-card-desc {
+          font-size: 0.85rem;
+          color: var(--text-body);
+          line-height: 1.55;
+          margin: 0 0 20px 0;
+          flex-grow: 1;
+        }
+
+        .cap-link {
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          font-size: 0.86rem;
+          font-weight: 600;
+          color: var(--brand-blue);
+          text-decoration: none;
+          transition: gap 0.15s ease;
+        }
+
+        .cap-card:hover .cap-link {
+          gap: 9px;
+        }
+
+        /* ==============================================================
+           6. INDIA-FIRST SECTION ("BUILT FOR REAL BUSINESSES")
+           Exact 3-column horizontal alignment under the paragraph
+        ============================================================== */
+        .india-sec {
+          padding: 88px 0;
+          background: #ffffff;
+          border-top: 1px solid #f1f5f9;
+        }
+
+        .india-2col-grid {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 56px;
+          align-items: center;
+        }
+
+        .india-visual-wrap {
+          position: relative;
+          width: 100%;
+          border-radius: 16px;
+          overflow: hidden;
+          box-shadow: 0 16px 36px rgba(15, 23, 42, 0.08);
+        }
+
+        .india-gate-photo {
+          width: 100%;
+          aspect-ratio: 16 / 11;
+          object-fit: cover;
+          display: block;
+        }
+
+        .india-badge-floating {
+          position: absolute;
+          bottom: 20px;
+          right: 20px;
+          background: rgba(255, 255, 255, 0.98);
+          backdrop-filter: blur(10px);
+          border: 1px solid rgba(255, 255, 255, 0.8);
+          border-radius: 14px;
+          padding: 16px 18px;
+          max-width: 280px;
+          box-shadow: 0 14px 30px rgba(0, 0, 0, 0.14);
+          z-index: 5;
+        }
+
+        .india-badge-eyebrow {
+          font-size: 0.68rem;
+          font-weight: 800;
+          color: #64748b;
+          letter-spacing: 0.06em;
+          text-transform: uppercase;
+          margin-bottom: 4px;
+        }
+
+        .india-badge-title {
+          font-size: 1rem;
+          font-weight: 800;
+          color: #0b132b;
+          margin-bottom: 5px;
+        }
+
+        .india-badge-desc {
+          font-size: 0.78rem;
+          color: #475569;
+          line-height: 1.45;
+          margin: 0;
+        }
+
+        .flag-icon-corner {
+          display: inline-block;
+          margin-top: 6px;
+          font-size: 1.15rem;
+        }
+
+        /* 3-Column horizontal feature grid matching reference */
+        .india-3col-features {
+          display: grid;
+          grid-template-columns: repeat(3, 1fr);
+          gap: 16px;
+          margin-top: 28px;
+        }
+
+        .india-feat-box {
+          display: flex;
+          flex-direction: column;
+          align-items: flex-start;
+        }
+
+        .feat-icon-head {
+          color: var(--brand-blue);
+          margin-bottom: 10px;
           display: flex;
           align-items: center;
           justify-content: center;
         }
 
-        .mobile-drawer-body {
-          flex: 1;
-          padding: 24px 20px;
-        }
-
-        .mobile-drawer-links {
-          list-style: none;
-          padding: 0;
-          margin: 0;
-          display: flex;
-          flex-direction: column;
-          gap: 16px;
-        }
-
-        .mobile-drawer-links a {
-          color: var(--color-navy);
-          text-decoration: none;
-          font-size: 1.05rem;
-          font-weight: 600;
-          display: block;
-          padding: 6px 0;
-        }
-
-        .mobile-drawer-links a.active {
-          color: var(--color-blue);
+        .india-feat-title {
+          font-size: 0.88rem;
           font-weight: 700;
+          color: #0b132b;
+          margin-bottom: 4px;
+          line-height: 1.3;
         }
 
-        .mobile-drawer-footer {
-          padding: 20px;
-          border-top: 1px solid var(--color-border);
+        .india-feat-desc {
+          font-size: 0.76rem;
+          color: #64748b;
+          line-height: 1.45;
+          margin: 0;
+        }
+
+        /* ==============================================================
+           7. COMPANY JOURNEY TIMELINE
+        ============================================================== */
+        .journey-sec {
+          padding: 96px 0;
+          background: #ffffff;
+          border-top: 1px solid #f1f5f9;
+        }
+
+        .journey-2col-grid {
+          display: grid;
+          grid-template-columns: 430px 1fr;
+          gap: 44px;
+          align-items: center;
+        }
+
+        .btn-journey-solid {
+          background: var(--brand-blue);
+          color: #ffffff !important;
+          font-size: 0.92rem;
+          font-weight: 600;
+          padding: 12px 24px;
+          border-radius: 8px;
+          text-decoration: none;
+          display: inline-flex;
+          align-items: center;
+          gap: 8px;
+          box-shadow: 0 4px 14px rgba(27, 104, 255, 0.3);
+          transition: all 0.2s ease;
+        }
+
+        .btn-journey-solid:hover {
+          background: var(--brand-blue-hover);
+          transform: translateY(-2px);
+        }
+
+        .timeline-track-wrap {
+          position: relative;
+          padding: 40px 0 10px 0;
+          width: 100%;
+        }
+
+        .timeline-line-svg {
+          position: absolute;
+          top: 48px;
+          left: 5%;
+          right: 5%;
+          height: 30px;
+          width: 90%;
+          z-index: 1;
+          pointer-events: none;
+        }
+
+        .milestones-flex-row {
+          display: grid;
+          grid-template-columns: repeat(4, 1fr);
+          gap: 16px;
+          position: relative;
+          z-index: 2;
+        }
+
+        .milestone-col {
           display: flex;
           flex-direction: column;
-          gap: 12px;
-          background: var(--color-bg-subtle);
+          align-items: flex-start;
         }
 
-        /* -------------------------------------------------------------
-           HERO SECTION
-        ------------------------------------------------------------- */
-        .hero-section {
+        .milestone-year-dot {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          margin-bottom: 14px;
+        }
+
+        .year-label {
+          font-size: 0.8rem;
+          font-weight: 700;
+          color: var(--brand-blue);
+          margin-bottom: 6px;
+        }
+
+        .dot-circle {
+          width: 14px;
+          height: 14px;
+          border-radius: 50%;
+          background: var(--brand-blue);
+          border: 3px solid #ffffff;
+          box-shadow: 0 0 0 2px var(--brand-blue);
+        }
+
+        .dot-circle.active-ring {
+          box-shadow: 0 0 0 4px rgba(27, 104, 255, 0.25);
+        }
+
+        .milestone-card-box {
+          text-align: left;
+        }
+
+        .milestone-h3 {
+          font-size: 0.88rem;
+          font-weight: 700;
+          color: #0b132b;
+          margin-bottom: 4px;
+        }
+
+        .milestone-p {
+          font-size: 0.75rem;
+          color: #64748b;
+          line-height: 1.45;
+          margin: 0;
+        }
+
+        .paper-plane-svg {
+          position: absolute;
+          top: 0;
+          right: 15px;
+          width: 40px;
+          height: 40px;
+          filter: drop-shadow(0 6px 12px rgba(124, 58, 237, 0.25));
+          z-index: 3;
+        }
+
+        /* ==============================================================
+           8. TEAM SECTION — 4 REFINED PERSONA CARDS
+        ============================================================== */
+        .team-sec {
+          padding: 96px 0;
+          background: #ffffff;
+          border-top: 1px solid #f1f5f9;
+        }
+
+        .team-2col-grid {
+          display: grid;
+          grid-template-columns: 440px 1fr;
+          gap: 44px;
+          align-items: center;
+        }
+
+        .team-cards-4row {
+          display: grid;
+          grid-template-columns: repeat(4, 1fr);
+          gap: 14px;
+        }
+
+        .team-member-card {
+          background: #f8fafc;
+          border: 1px solid #e2e8f0;
+          border-radius: 14px;
+          overflow: hidden;
+          display: flex;
+          flex-direction: column;
+          box-shadow: 0 2px 6px rgba(0, 0, 0, 0.03);
+          transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        .team-member-card:hover {
+          transform: translateY(-4px);
+          box-shadow: 0 10px 20px rgba(0, 0, 0, 0.08);
+        }
+
+        .member-photo-frame {
+          width: 100%;
+          aspect-ratio: 1 / 1;
+          overflow: hidden;
+          background: #e2e8f0;
+        }
+
+        .member-photo-img {
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+          object-position: center 20%;
+          display: block;
+        }
+
+        .member-info-footer {
+          padding: 10px 10px 12px 10px;
+          display: flex;
+          align-items: flex-end;
+          justify-content: space-between;
+          gap: 6px;
+          background: #f8fafc;
+        }
+
+        .member-name-text {
+          font-size: 0.82rem;
+          font-weight: 700;
+          color: #0b132b;
+          line-height: 1.2;
+        }
+
+        .member-role-text {
+          font-size: 0.7rem;
+          color: #64748b;
+          font-weight: 500;
+          margin-top: 2px;
+        }
+
+        .linkedin-badge-btn {
+          width: 18px;
+          height: 18px;
+          background: #0077b5;
+          color: #ffffff;
+          border-radius: 3px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 0.62rem;
+          font-weight: 800;
+          text-decoration: none;
+          flex-shrink: 0;
+        }
+
+        /* ==============================================================
+           9. CLOSING CTA — DARK NAVY FINISH WITH GLOWING CURVED EARTH
+        ============================================================== */
+        .closing-cta-sec {
+          background: #030712;
+          color: #ffffff;
+          padding: 96px 0 160px 0;
           position: relative;
-          padding: clamp(56px, 8vw, 96px) 0 clamp(48px, 6vw, 80px) 0;
-          background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
           overflow: hidden;
         }
 
-        .hero-backdrop-glow {
+        .earth-glow-backdrop {
           position: absolute;
-          top: 0;
-          right: 5%;
-          width: 600px;
-          height: 600px;
-          background: radial-gradient(circle, rgba(199, 210, 254, 0.45) 0%, rgba(224, 231, 255, 0.2) 40%, transparent 70%);
-          filter: blur(50px);
+          bottom: 0;
+          left: 0;
+          right: 0;
+          height: 380px;
+          background-size: cover;
+          background-position: center bottom;
           pointer-events: none;
           z-index: 1;
+          opacity: 0.95;
+          mask-image: linear-gradient(to top, rgba(0,0,0,1) 55%, rgba(0,0,0,0) 100%);
+          -webkit-mask-image: linear-gradient(to top, rgba(0,0,0,1) 55%, rgba(0,0,0,0) 100%);
         }
 
-        .hero-grid-2col {
+        .closing-grid-2col {
           display: grid;
-          grid-template-columns: 1.08fr 0.92fr;
+          grid-template-columns: 1.15fr 0.95fr;
           gap: 48px;
           align-items: center;
           position: relative;
           z-index: 2;
         }
 
-        .hero-eyebrow {
-          display: inline-flex;
-          align-items: center;
-          gap: 8px;
-          padding: 6px 16px;
-          border-radius: 9999px;
-          background: #eff6ff;
-          border: 1px solid #bfdbfe;
-          color: #2563eb;
-          font-size: 0.8rem;
-          font-weight: 700;
-          letter-spacing: 0.04em;
-          text-transform: uppercase;
-          margin-bottom: 24px;
-        }
-
-        .hero-eyebrow-dot {
-          width: 8px;
-          height: 8px;
-          background: #2563eb;
-          border-radius: 50%;
-          display: inline-block;
-          box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.2);
-        }
-
-        .hero-h1 {
-          font-family: var(--font-heading);
-          font-size: clamp(2.35rem, 5vw, 3.85rem);
-          font-weight: 800;
-          line-height: 1.12;
-          letter-spacing: -0.035em;
-          color: var(--color-navy);
-          margin: 0 0 24px 0;
-        }
-
-        .hero-gradient-text {
-          background: linear-gradient(135deg, #2563eb 0%, #7c3aed 100%);
-          -webkit-background-clip: text;
-          -webkit-text-fill-color: transparent;
-          display: inline-block;
-        }
-
-        .hero-description {
-          font-size: clamp(1.05rem, 2vw, 1.2rem);
-          color: var(--color-slate-body);
-          line-height: 1.68;
-          margin: 0 0 36px 0;
-          max-width: 580px;
-        }
-
-        .hero-actions-row {
-          display: flex;
-          align-items: center;
-          gap: 16px;
-          flex-wrap: wrap;
-        }
-
-        .btn-primary-hero {
-          background: var(--color-blue);
-          color: #ffffff !important;
-          padding: 14px 28px;
-          border-radius: 10px;
-          font-size: 1rem;
-          font-weight: 700;
-          text-decoration: none;
-          display: inline-flex;
-          align-items: center;
-          gap: 10px;
-          min-height: 50px;
-          box-shadow: 0 10px 25px -5px rgba(37, 99, 235, 0.4);
-          transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
-        }
-
-        .btn-primary-hero:hover {
-          background: var(--color-blue-hover);
-          transform: translateY(-2px);
-          box-shadow: 0 15px 30px -5px rgba(37, 99, 235, 0.5);
-        }
-
-        .btn-secondary-hero {
-          background: #ffffff;
-          color: var(--color-navy) !important;
-          padding: 14px 26px;
-          border-radius: 10px;
-          font-size: 1rem;
-          font-weight: 600;
-          text-decoration: none;
-          display: inline-flex;
-          align-items: center;
-          gap: 8px;
-          min-height: 50px;
-          border: 1px solid #cbd5e1;
-          box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04);
-          transition: all 0.25s ease;
-        }
-
-        .btn-secondary-hero:hover {
-          background: #f8fafc;
-          border-color: #94a3b8;
-          transform: translateY(-2px);
-          box-shadow: 0 6px 14px rgba(0, 0, 0, 0.06);
-        }
-
-        /* -------------------------------------------------------------
-           FLOATING ANGLED PRODUCT DASHBOARD
-        ------------------------------------------------------------- */
-        .hero-dashboard-viewport {
-          position: relative;
-          perspective: 1200px;
-        }
-
-        .hero-annotation-pill {
-          position: absolute;
-          top: -16px;
-          right: 24px;
-          z-index: 10;
-          display: inline-flex;
-          align-items: center;
-          gap: 8px;
-          background: #ffffff;
-          padding: 6px 14px;
-          border-radius: 20px;
-          border: 1px solid #bfdbfe;
-          box-shadow: 0 10px 25px rgba(37, 99, 235, 0.15);
-          font-size: 0.78rem;
-          font-weight: 700;
-          color: #1e40af;
-          animation: floatPill 4s ease-in-out infinite;
-        }
-
-        @keyframes floatPill {
-          0%, 100% { transform: translateY(0); }
-          50% { transform: translateY(-4px); }
-        }
-
-        .hero-dashboard-card {
-          background: #ffffff;
-          border-radius: 20px;
-          border: 1px solid rgba(226, 232, 240, 0.9);
-          box-shadow:
-            0 25px 60px -15px rgba(15, 23, 42, 0.12),
-            0 10px 30px -5px rgba(37, 99, 235, 0.08);
-          transform: rotateY(-5deg) rotateX(3deg);
-          transform-style: preserve-3d;
-          transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.4s ease;
-          overflow: hidden;
-        }
-
-        .hero-dashboard-card:hover {
-          transform: rotateY(0deg) rotateX(0deg) translateY(-4px);
-          box-shadow:
-            0 35px 70px -15px rgba(15, 23, 42, 0.16),
-            0 15px 35px -5px rgba(37, 99, 235, 0.12);
-        }
-
-        .dashboard-topbar {
-          background: #f8fafc;
-          border-bottom: 1px solid #e2e8f0;
-          padding: 12px 18px;
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-        }
-
-        .dashboard-window-dots {
-          display: flex;
-          gap: 6px;
-        }
-
-        .dashboard-dot {
-          width: 10px;
-          height: 10px;
-          border-radius: 50%;
-        }
-
-        .dot-red { background: #f87171; }
-        .dot-yellow { background: #fbbf24; }
-        .dot-green { background: #34d399; }
-
-        .dashboard-window-title {
+        .closing-eyebrow {
           font-size: 0.76rem;
-          font-weight: 600;
-          color: #64748b;
-          display: flex;
-          align-items: center;
-          gap: 6px;
-        }
-
-        .dashboard-status-live {
-          display: inline-flex;
-          align-items: center;
-          gap: 5px;
-          background: #ecfdf5;
-          color: #059669;
-          font-size: 0.7rem;
           font-weight: 700;
-          padding: 2px 8px;
-          border-radius: 12px;
-          border: 1px solid #a7f3d0;
-        }
-
-        .dashboard-body-grid {
-          display: grid;
-          grid-template-columns: 140px 1fr;
-          min-height: 380px;
-          background: #ffffff;
-        }
-
-        .dashboard-mini-sidebar {
-          background: #fafafa;
-          border-right: 1px solid #f1f5f9;
-          padding: 16px 12px;
-          display: flex;
-          flex-direction: column;
-          gap: 8px;
-        }
-
-        .mini-sidebar-item {
-          display: flex;
-          align-items: center;
-          gap: 8px;
-          padding: 8px 10px;
-          border-radius: 8px;
-          font-size: 0.76rem;
-          font-weight: 600;
-          color: #64748b;
-          transition: all 0.15s ease;
-        }
-
-        .mini-sidebar-item.active {
-          background: #eff6ff;
-          color: #2563eb;
-          font-weight: 700;
-        }
-
-        .dashboard-canvas {
-          padding: 20px;
-          background: #ffffff;
-          display: flex;
-          flex-direction: column;
-          gap: 16px;
-        }
-
-        .dashboard-metrics-strip {
-          display: grid;
-          grid-template-columns: repeat(3, 1fr);
-          gap: 10px;
-        }
-
-        .metric-mini-tile {
-          background: #f8fafc;
-          border: 1px solid #f1f5f9;
-          border-radius: 10px;
-          padding: 8px 12px;
-        }
-
-        .metric-mini-label {
-          font-size: 0.68rem;
-          color: #64748b;
-          font-weight: 600;
+          letter-spacing: 0.08em;
+          color: #93c5fd;
           text-transform: uppercase;
-        }
-
-        .metric-mini-value {
-          font-size: 1.1rem;
-          font-weight: 800;
-          color: #0f172a;
-        }
-
-        .workflow-visual-builder {
-          background: #f8fafc;
-          border: 1px dashed #cbd5e1;
-          border-radius: 14px;
-          padding: 16px;
-          position: relative;
-        }
-
-        .builder-header {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
           margin-bottom: 14px;
         }
 
-        .builder-title {
-          font-size: 0.8rem;
-          font-weight: 700;
-          color: #0f172a;
-          display: flex;
-          align-items: center;
-          gap: 6px;
-        }
-
-        .builder-badge {
-          font-size: 0.68rem;
-          background: #eff6ff;
-          color: #2563eb;
-          padding: 2px 6px;
-          border-radius: 6px;
-          font-weight: 700;
-        }
-
-        .workflow-nodes-flow {
-          display: grid;
-          grid-template-columns: repeat(4, 1fr);
-          gap: 8px;
-          position: relative;
-        }
-
-        .workflow-node-box {
-          background: #ffffff;
-          border: 1px solid #e2e8f0;
-          border-radius: 10px;
-          padding: 10px 8px;
-          text-align: center;
-          transition: all 0.3s ease;
-          position: relative;
-        }
-
-        .workflow-node-box.active {
-          border-color: #2563eb;
-          box-shadow: 0 4px 12px rgba(37, 99, 235, 0.2);
-          transform: translateY(-2px);
-          background: #eff6ff;
-        }
-
-        .node-step-icon {
-          width: 28px;
-          height: 28px;
-          border-radius: 8px;
-          background: #f1f5f9;
-          color: #2563eb;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          margin: 0 auto 6px auto;
-          transition: background 0.2s ease;
-        }
-
-        .workflow-node-box.active .node-step-icon {
-          background: #2563eb;
+        .closing-h2 {
+          font-size: clamp(2rem, 3.4vw, 2.85rem);
+          font-weight: 800;
           color: #ffffff;
-        }
-
-        .node-step-label {
-          font-size: 0.7rem;
-          font-weight: 700;
-          color: #0f172a;
-          margin-bottom: 2px;
-          white-space: nowrap;
-          overflow: hidden;
-          text-overflow: ellipsis;
-        }
-
-        .node-step-desc {
-          font-size: 0.62rem;
-          color: #64748b;
-          white-space: nowrap;
-          overflow: hidden;
-          text-overflow: ellipsis;
-        }
-
-        .dashboard-execution-console {
-          background: #0f172a;
-          border-radius: 10px;
-          padding: 12px 14px;
-          color: #e2e8f0;
-          font-size: 0.74rem;
-          font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-        }
-
-        .console-status-text {
-          color: #38bdf8;
-          display: flex;
-          align-items: center;
-          gap: 6px;
-        }
-
-        .console-latency-tag {
-          color: #94a3b8;
-          font-size: 0.68rem;
-        }
-
-        /* -------------------------------------------------------------
-           TRUST STRIP
-        ------------------------------------------------------------- */
-        .trust-strip-section {
-          background: var(--color-bg-subtle);
-          border-top: 1px solid var(--color-border);
-          border-bottom: 1px solid var(--color-border);
-          padding: 28px 0;
-        }
-
-        .trust-strip-grid {
-          display: grid;
-          grid-template-columns: repeat(4, 1fr);
-          gap: 24px;
-        }
-
-        .trust-item {
-          display: flex;
-          align-items: flex-start;
-          gap: 14px;
-        }
-
-        .trust-icon-wrap {
-          width: 40px;
-          height: 40px;
-          border-radius: 10px;
-          background: #eff6ff;
-          border: 1px solid #bfdbfe;
-          color: #2563eb;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          flex-shrink: 0;
-        }
-
-        .trust-content-title {
-          font-size: 0.95rem;
-          font-weight: 700;
-          color: var(--color-navy);
-          margin-bottom: 4px;
-        }
-
-        .trust-content-desc {
-          font-size: 0.82rem;
-          color: var(--color-slate-muted);
-          line-height: 1.45;
-          margin: 0;
-        }
-
-        /* -------------------------------------------------------------
-           FOUNDER STORY SECTION
-        ------------------------------------------------------------- */
-        .story-section {
-          padding: clamp(60px, 8vw, 100px) 0;
-          background: #ffffff;
-        }
-
-        .story-grid-2col {
-          display: grid;
-          grid-template-columns: 0.95fr 1.05fr;
-          gap: 56px;
-          align-items: center;
-        }
-
-        .story-image-composition {
-          position: relative;
-        }
-
-        .story-main-img-card {
-          width: 100%;
-          border-radius: 20px;
-          overflow: hidden;
-          border: 1px solid var(--color-border);
-          box-shadow: 0 20px 40px -10px rgba(15, 23, 42, 0.1);
-          background: #f1f5f9;
-          position: relative;
-        }
-
-        .story-portrait-img {
-          width: 100%;
-          height: 460px;
-          object-fit: cover;
-          object-position: center top;
-          display: block;
-        }
-
-        .story-floating-quote-card {
-          position: absolute;
-          bottom: -24px;
-          right: -16px;
-          background: #ffffff;
-          border: 1px solid #e2e8f0;
-          border-radius: 16px;
-          padding: 20px 22px;
-          max-width: 380px;
-          box-shadow: 0 20px 35px -5px rgba(0, 0, 0, 0.12);
-        }
-
-        .quote-text {
-          font-size: 0.92rem;
-          font-style: italic;
-          color: #1e293b;
-          line-height: 1.55;
-          margin-bottom: 10px;
-        }
-
-        .quote-author {
-          font-size: 0.82rem;
-          font-weight: 700;
-          color: #2563eb;
-          display: flex;
-          align-items: center;
-          gap: 6px;
-        }
-
-        .quote-author-role {
-          font-size: 0.75rem;
-          color: #64748b;
-          font-weight: 500;
-        }
-
-        .story-content-side {
-          padding-left: 12px;
-        }
-
-        .story-body-copy {
-          font-size: 1.05rem;
-          color: var(--color-slate-body);
-          line-height: 1.75;
-          margin-bottom: 24px;
-        }
-
-        .editorial-text-link {
-          display: inline-flex;
-          align-items: center;
-          gap: 8px;
-          font-size: 1rem;
-          font-weight: 700;
-          color: var(--color-blue);
-          text-decoration: none;
-          transition: gap 0.2s ease;
-        }
-
-        .editorial-text-link:hover {
-          gap: 12px;
-          color: var(--color-blue-hover);
-        }
-
-        /* -------------------------------------------------------------
-           PLATFORM CAPABILITIES SECTION
-        ------------------------------------------------------------- */
-        .capabilities-section {
-          padding: clamp(60px, 8vw, 100px) 0;
-          background: #ffffff;
-          border-top: 1px solid var(--color-border);
-        }
-
-        .capabilities-header-row {
-          display: flex;
-          align-items: flex-end;
-          justify-content: space-between;
-          margin-bottom: 48px;
-          flex-wrap: wrap;
-          gap: 20px;
-        }
-
-        .capabilities-grid-4col {
-          display: grid;
-          grid-template-columns: repeat(4, 1fr);
-          gap: 24px;
-        }
-
-        .capability-card {
-          background: #ffffff;
-          border: 1px solid var(--color-border);
-          border-radius: 18px;
-          padding: 32px 24px;
-          display: flex;
-          flex-direction: column;
-          justify-content: space-between;
-          transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
-          box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.02);
-          position: relative;
-        }
-
-        .capability-card:hover {
-          transform: translateY(-6px);
-          box-shadow: 0 20px 30px -10px rgba(37, 99, 235, 0.12);
-          border-color: #cbd5e1;
-        }
-
-        .capability-icon-container {
-          width: 54px;
-          height: 54px;
-          border-radius: 14px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          margin-bottom: 24px;
-          transition: transform 0.2s ease;
-        }
-
-        .capability-card:hover .capability-icon-container {
-          transform: scale(1.06);
-        }
-
-        .icon-accent-blue {
-          background: #eff6ff;
-          border: 1px solid #bfdbfe;
-          color: #2563eb;
-        }
-
-        .icon-accent-green {
-          background: #ecfdf5;
-          border: 1px solid #a7f3d0;
-          color: #059669;
-        }
-
-        .icon-accent-purple {
-          background: #f5f3ff;
-          border: 1px solid #ddd6fe;
-          color: #7c3aed;
-        }
-
-        .icon-accent-orange {
-          background: #fff7ed;
-          border: 1px solid #fed7aa;
-          color: #ea580c;
-        }
-
-        .capability-title {
-          font-family: var(--font-heading);
-          font-size: 1.25rem;
-          font-weight: 700;
-          color: var(--color-navy);
-          margin: 0 0 12px 0;
-        }
-
-        .capability-desc {
-          font-size: 0.92rem;
-          color: var(--color-slate-body);
-          line-height: 1.6;
-          margin: 0 0 24px 0;
-          flex-grow: 1;
-        }
-
-        .capability-cta {
-          display: inline-flex;
-          align-items: center;
-          gap: 6px;
-          font-size: 0.9rem;
-          font-weight: 700;
-          color: var(--color-blue);
-          text-decoration: none;
-          transition: gap 0.2s ease;
-        }
-
-        .capability-card:hover .capability-cta {
-          gap: 10px;
-          color: var(--color-blue-hover);
-        }
-
-        /* -------------------------------------------------------------
-           INDIA-FIRST SECTION
-        ------------------------------------------------------------- */
-        .india-section {
-          padding: clamp(60px, 8vw, 100px) 0;
-          background: var(--color-bg-subtle);
-          border-top: 1px solid var(--color-border);
-          border-bottom: 1px solid var(--color-border);
-        }
-
-        .india-grid-2col {
-          display: grid;
-          grid-template-columns: 1fr 1.15fr;
-          gap: 56px;
-          align-items: center;
-        }
-
-        .india-visual-side {
-          position: relative;
-        }
-
-        .india-main-img-card {
-          width: 100%;
-          border-radius: 20px;
-          overflow: hidden;
-          border: 1px solid var(--color-border);
-          box-shadow: 0 20px 40px -10px rgba(0, 0, 0, 0.08);
-          background: #f1f5f9;
-        }
-
-        .india-flag-img {
-          width: 100%;
-          height: 380px;
-          object-fit: cover;
-          display: block;
-        }
-
-        .india-floating-badge-card {
-          position: absolute;
-          bottom: 24px;
-          left: 24px;
-          right: 24px;
-          background: rgba(255, 255, 255, 0.96);
-          backdrop-filter: blur(8px);
-          border: 1px solid rgba(255, 255, 255, 0.8);
-          border-radius: 16px;
-          padding: 20px 24px;
-          box-shadow: 0 15px 30px rgba(0, 0, 0, 0.12);
-        }
-
-        .india-card-eyebrow {
-          font-size: 0.72rem;
-          font-weight: 800;
-          color: #ea580c;
-          letter-spacing: 0.06em;
-          text-transform: uppercase;
-          margin-bottom: 6px;
-        }
-
-        .india-card-title {
-          font-family: var(--font-heading);
-          font-size: 1.25rem;
-          font-weight: 800;
-          color: var(--color-navy);
-          margin-bottom: 8px;
-        }
-
-        .india-card-subcopy {
-          font-size: 0.88rem;
-          color: var(--color-slate-body);
-          line-height: 1.5;
-          margin: 0;
-        }
-
-        .principles-list-3col {
-          display: flex;
-          flex-direction: column;
-          gap: 16px;
-          margin-top: 32px;
-        }
-
-        .principle-item-card {
-          background: #ffffff;
-          border: 1px solid var(--color-border);
-          border-radius: 14px;
-          padding: 16px 20px;
-          box-shadow: 0 2px 4px rgba(0, 0, 0, 0.02);
-          transition: border-color 0.2s ease;
-        }
-
-        .principle-item-card:hover {
-          border-color: #cbd5e1;
-        }
-
-        .principle-title {
-          font-size: 1rem;
-          font-weight: 700;
-          color: var(--color-navy);
-          margin-bottom: 4px;
-          display: flex;
-          align-items: center;
-          gap: 8px;
-        }
-
-        .principle-desc {
-          font-size: 0.88rem;
-          color: var(--color-slate-body);
-          line-height: 1.55;
-          margin: 0;
-        }
-
-        /* -------------------------------------------------------------
-           TIMELINE SECTION
-        ------------------------------------------------------------- */
-        .timeline-section {
-          padding: clamp(60px, 8vw, 100px) 0;
-          background: #ffffff;
-        }
-
-        .timeline-grid-2col {
-          display: grid;
-          grid-template-columns: 0.95fr 1.6fr;
-          gap: 56px;
-          align-items: flex-start;
-        }
-
-        .timeline-track-desktop {
-          display: grid;
-          grid-template-columns: repeat(4, 1fr);
-          gap: 20px;
-          position: relative;
-          padding-top: 24px;
-        }
-
-        .timeline-track-desktop::before {
-          content: '';
-          position: absolute;
-          top: 36px;
-          left: 10%;
-          right: 10%;
-          height: 3px;
-          background: linear-gradient(90deg, #2563eb, #8b5cf6);
-          border-radius: 2px;
-          z-index: 1;
-        }
-
-        .timeline-milestone-node {
-          position: relative;
-          z-index: 2;
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          text-align: center;
-        }
-
-        .milestone-dot-badge {
-          width: 28px;
-          height: 28px;
-          border-radius: 50%;
-          background: #ffffff;
-          border: 3px solid #2563eb;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          font-size: 0.68rem;
-          font-weight: 800;
-          color: #2563eb;
-          margin-bottom: 18px;
-          box-shadow: 0 0 0 4px #eff6ff;
-        }
-
-        .milestone-dot-badge.pulse {
-          border-color: #7c3aed;
-          color: #7c3aed;
-          box-shadow: 0 0 0 4px #f5f3ff;
-        }
-
-        .milestone-card-inner {
-          background: #ffffff;
-          border: 1px solid var(--color-border);
-          border-radius: 14px;
-          padding: 16px 14px;
-          width: 100%;
-          box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.03);
-          text-align: left;
-        }
-
-        .milestone-title {
-          font-size: 0.92rem;
-          font-weight: 700;
-          color: var(--color-navy);
-          margin-bottom: 6px;
-        }
-
-        .milestone-desc {
-          font-size: 0.8rem;
-          color: var(--color-slate-body);
-          line-height: 1.5;
-          margin: 0;
-        }
-
-        /* -------------------------------------------------------------
-           TEAM SECTION
-        ------------------------------------------------------------- */
-        .team-section {
-          padding: clamp(60px, 8vw, 100px) 0;
-          background: var(--color-bg-subtle);
-          border-top: 1px solid var(--color-border);
-        }
-
-        .team-grid-2col {
-          display: grid;
-          grid-template-columns: 0.95fr 1.35fr;
-          gap: 56px;
-          align-items: flex-start;
-        }
-
-        .team-cards-grid {
-          display: grid;
-          grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr));
-          gap: 24px;
-        }
-
-        .team-profile-card {
-          background: #ffffff;
-          border: 1px solid var(--color-border);
-          border-radius: 18px;
-          overflow: hidden;
-          box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.03);
-          transition: transform 0.25s ease, box-shadow 0.25s ease;
-        }
-
-        .team-profile-card:hover {
-          transform: translateY(-4px);
-          box-shadow: 0 16px 25px -5px rgba(0, 0, 0, 0.08);
-          border-color: #cbd5e1;
-        }
-
-        .team-portrait-wrap {
-          width: 100%;
-          height: 240px;
-          background: #f1f5f9;
-          overflow: hidden;
-          position: relative;
-        }
-
-        .team-portrait-img {
-          width: 100%;
-          height: 100%;
-          object-fit: cover;
-          object-position: center top;
-        }
-
-        .team-card-details {
-          padding: 20px;
-        }
-
-        .team-member-name {
-          font-family: var(--font-heading);
-          font-size: 1.15rem;
-          font-weight: 800;
-          color: var(--color-navy);
-          margin: 0 0 4px 0;
-        }
-
-        .team-member-role {
-          font-size: 0.82rem;
-          font-weight: 700;
-          color: var(--color-blue);
-          margin-bottom: 10px;
-        }
-
-        .team-member-bio {
-          font-size: 0.85rem;
-          color: var(--color-slate-body);
-          line-height: 1.5;
+          line-height: 1.16;
+          letter-spacing: -0.025em;
           margin: 0 0 16px 0;
         }
 
-        .team-social-row {
-          display: flex;
-          align-items: center;
-          gap: 8px;
-        }
-
-        .social-chip-link {
-          display: inline-flex;
-          align-items: center;
-          gap: 6px;
-          padding: 6px 12px;
-          border-radius: 8px;
-          background: #f8fafc;
-          border: 1px solid #e2e8f0;
-          font-size: 0.76rem;
-          font-weight: 600;
-          color: #475569;
-          text-decoration: none;
-          transition: all 0.2s ease;
-        }
-
-        .social-chip-link:hover {
-          background: #eff6ff;
-          border-color: #bfdbfe;
-          color: #2563eb;
-        }
-
-        /* -------------------------------------------------------------
-           CLOSING CTA — DARK, PREMIUM FINISH
-        ------------------------------------------------------------- */
-        .closing-cta-section {
-          background: #090e1a;
-          color: #ffffff;
-          padding: clamp(60px, 9vw, 110px) 0;
-          position: relative;
-          overflow: hidden;
-          border-top: 1px solid rgba(255, 255, 255, 0.08);
-        }
-
-        .closing-cta-radial-glow {
-          position: absolute;
-          top: -20%;
-          left: 30%;
-          width: 700px;
-          height: 700px;
-          background: radial-gradient(circle, rgba(37, 99, 235, 0.22) 0%, rgba(124, 58, 237, 0.12) 50%, transparent 70%);
-          filter: blur(60px);
-          pointer-events: none;
-          z-index: 1;
-        }
-
-        .closing-cta-grid-2col {
-          display: grid;
-          grid-template-columns: 1.15fr 0.95fr;
-          gap: 56px;
-          align-items: center;
-          position: relative;
-          z-index: 2;
-        }
-
-        .closing-cta-eyebrow {
-          display: inline-flex;
-          align-items: center;
-          gap: 8px;
-          padding: 6px 14px;
-          border-radius: 20px;
-          background: rgba(37, 99, 235, 0.2);
-          border: 1px solid rgba(59, 130, 246, 0.4);
-          color: #60a5fa;
-          font-size: 0.78rem;
-          font-weight: 700;
-          letter-spacing: 0.06em;
-          text-transform: uppercase;
-          margin-bottom: 20px;
-        }
-
-        .closing-cta-heading {
-          font-family: var(--font-heading);
-          font-size: clamp(2.1rem, 4.5vw, 3.25rem);
-          font-weight: 800;
-          color: #ffffff;
-          line-height: 1.15;
-          letter-spacing: -0.025em;
-          margin: 0 0 20px 0;
-        }
-
-        .closing-cta-copy {
-          font-size: clamp(1rem, 2vw, 1.15rem);
+        .closing-subcopy {
+          font-size: 1rem;
           color: #94a3b8;
-          line-height: 1.65;
-          margin: 0 0 36px 0;
-          max-width: 520px;
+          line-height: 1.6;
+          margin: 0 0 28px 0;
+          max-width: 480px;
         }
 
-        .closing-cta-buttons {
+        .closing-btns-row {
           display: flex;
           align-items: center;
-          gap: 16px;
+          gap: 14px;
           flex-wrap: wrap;
         }
 
-        .btn-cta-blue {
-          background: #2563eb;
+        .btn-cta-blue-vibrant {
+          background: var(--brand-blue);
           color: #ffffff !important;
-          padding: 14px 30px;
-          border-radius: 10px;
-          font-size: 1rem;
-          font-weight: 700;
-          text-decoration: none;
-          display: inline-flex;
-          align-items: center;
-          gap: 10px;
-          min-height: 50px;
-          box-shadow: 0 10px 25px -5px rgba(37, 99, 235, 0.5);
-          transition: all 0.25s ease;
-        }
-
-        .btn-cta-blue:hover {
-          background: #1d4ed8;
-          transform: translateY(-2px);
-          box-shadow: 0 15px 30px -5px rgba(37, 99, 235, 0.6);
-        }
-
-        .btn-cta-ghost {
-          background: rgba(255, 255, 255, 0.06);
-          color: #ffffff !important;
-          padding: 14px 26px;
-          border-radius: 10px;
-          font-size: 1rem;
+          font-size: 0.95rem;
           font-weight: 600;
+          padding: 13px 24px;
+          border-radius: 8px;
           text-decoration: none;
           display: inline-flex;
           align-items: center;
           gap: 8px;
-          min-height: 50px;
-          border: 1px solid rgba(255, 255, 255, 0.25);
-          transition: all 0.25s ease;
-        }
-
-        .btn-cta-ghost:hover {
-          background: rgba(255, 255, 255, 0.12);
-          border-color: rgba(255, 255, 255, 0.5);
-          transform: translateY(-2px);
-        }
-
-        /* Journey diagram on the right */
-        .closing-journey-diagram {
-          display: flex;
-          flex-direction: column;
-          gap: 16px;
-          background: rgba(255, 255, 255, 0.03);
-          border: 1px solid rgba(255, 255, 255, 0.1);
-          border-radius: 20px;
-          padding: 28px;
-          backdrop-filter: blur(8px);
-        }
-
-        .journey-step-card {
-          background: rgba(255, 255, 255, 0.05);
-          border: 1px solid rgba(255, 255, 255, 0.1);
-          border-radius: 12px;
-          padding: 16px 20px;
-          display: flex;
-          align-items: center;
-          gap: 16px;
+          box-shadow: 0 4px 18px rgba(27, 104, 255, 0.45);
           transition: all 0.2s ease;
         }
 
-        .journey-step-card:hover {
-          background: rgba(255, 255, 255, 0.08);
-          border-color: rgba(59, 130, 246, 0.5);
-          transform: translateX(4px);
+        .btn-cta-blue-vibrant:hover {
+          background: var(--brand-blue-hover);
+          transform: translateY(-2px);
         }
 
-        .journey-step-badge {
-          width: 36px;
-          height: 36px;
-          border-radius: 10px;
-          background: rgba(37, 99, 235, 0.25);
-          border: 1px solid rgba(59, 130, 246, 0.5);
-          color: #60a5fa;
+        .btn-cta-dark-trans {
+          background: rgba(255, 255, 255, 0.06);
+          color: #ffffff !important;
+          font-size: 0.95rem;
+          font-weight: 500;
+          padding: 13px 22px;
+          border-radius: 8px;
+          text-decoration: none;
+          display: inline-flex;
+          align-items: center;
+          gap: 8px;
+          border: 1px solid rgba(255, 255, 255, 0.2);
+          backdrop-filter: blur(8px);
+          transition: all 0.2s ease;
+        }
+
+        .btn-cta-dark-trans:hover {
+          background: rgba(255, 255, 255, 0.12);
+          border-color: rgba(255, 255, 255, 0.4);
+        }
+
+        /* 3 Step Floating Cards Journey */
+        .journey-flow-cards {
+          display: flex;
+          align-items: center;
+          gap: 14px;
+        }
+
+        .flow-step-box {
+          background: rgba(15, 23, 42, 0.72);
+          backdrop-filter: blur(14px);
+          border: 1px solid rgba(255, 255, 255, 0.14);
+          border-radius: 14px;
+          padding: 22px 16px;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          text-align: center;
+          flex: 1;
+          box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+        }
+
+        .flow-step-icon-aura {
+          width: 44px;
+          height: 44px;
+          border-radius: 12px;
           display: flex;
           align-items: center;
           justify-content: center;
-          font-weight: 800;
-          font-size: 0.85rem;
-          flex-shrink: 0;
+          margin-bottom: 12px;
         }
 
-        .journey-step-title {
-          font-size: 1rem;
-          font-weight: 700;
+        .aura-yellow {
+          background: rgba(245, 158, 11, 0.18);
+          color: #fbbf24;
+          box-shadow: 0 0 20px rgba(245, 158, 11, 0.25);
+        }
+
+        .aura-purple {
+          background: rgba(124, 58, 237, 0.22);
+          color: #a78bfa;
+          box-shadow: 0 0 20px rgba(124, 58, 237, 0.3);
+        }
+
+        .aura-cyan {
+          background: rgba(6, 182, 212, 0.22);
+          color: #38bdf8;
+          box-shadow: 0 0 20px rgba(6, 182, 212, 0.3);
+        }
+
+        .flow-step-name {
+          font-size: 0.84rem;
+          font-weight: 600;
           color: #ffffff;
-          margin-bottom: 2px;
         }
 
-        .journey-step-desc {
-          font-size: 0.82rem;
-          color: #94a3b8;
-          margin: 0;
+        .flow-dash-arrow {
+          color: rgba(255, 255, 255, 0.35);
+          font-size: 1.1rem;
         }
 
-        .journey-arrow-indicator {
-          display: flex;
-          justify-content: center;
-          color: #3b82f6;
-          margin: -6px 0;
-        }
-
-        /* -------------------------------------------------------------
-           RESPONSIVE RULES
-        ------------------------------------------------------------- */
+        /* ==============================================================
+           RESPONSIVE BREAKPOINTS
+        ============================================================== */
         @media (max-width: 1024px) {
-          .header-nav {
+          .nav-menu-links, .nav-right-ctas {
             display: none !important;
           }
-          .header-ctas {
-            display: none !important;
-          }
-          .header-mobile-toggle {
+          .nav-mobile-toggle {
             display: inline-flex !important;
           }
 
-          .hero-grid-2col {
+          .hero-grid {
             grid-template-columns: 1fr;
             gap: 48px;
           }
 
-          .hero-dashboard-viewport {
-            max-width: 620px;
+          .hero-dashboard-mockup {
+            transform: none !important;
+            max-width: 580px;
             margin: 0 auto;
           }
 
-          .trust-strip-grid {
+          .deploy-agent-card {
+            right: 20px;
+          }
+
+          .trust-grid {
             grid-template-columns: repeat(2, 1fr);
             gap: 20px;
           }
 
-          .story-grid-2col {
+          .story-2col-grid {
             grid-template-columns: 1fr;
-            gap: 48px;
+            gap: 40px;
           }
 
-          .story-floating-quote-card {
-            position: relative;
-            bottom: auto;
-            right: auto;
-            margin-top: 16px;
-            max-width: 100%;
+          .founder-quote-floating {
+            top: 16px;
+            right: 16px;
+            max-width: 260px;
           }
 
-          .capabilities-grid-4col {
+          .capabilities-4grid {
             grid-template-columns: repeat(2, 1fr);
           }
 
-          .india-grid-2col {
-            grid-template-columns: 1fr;
-            gap: 48px;
-          }
-
-          .timeline-grid-2col {
+          .india-2col-grid {
             grid-template-columns: 1fr;
             gap: 40px;
           }
 
-          .timeline-track-desktop {
+          .journey-2col-grid {
             grid-template-columns: 1fr;
-            gap: 16px;
-            padding-top: 0;
+            gap: 40px;
           }
 
-          .timeline-track-desktop::before {
+          .milestones-flex-row {
+            grid-template-columns: 1fr;
+            gap: 20px;
+          }
+
+          .timeline-line-svg {
             display: none;
           }
 
-          .timeline-milestone-node {
-            flex-direction: row;
-            align-items: flex-start;
-            gap: 16px;
-            text-align: left;
-          }
-
-          .milestone-dot-badge {
-            margin-bottom: 0;
-            flex-shrink: 0;
-          }
-
-          .team-grid-2col {
+          .team-2col-grid {
             grid-template-columns: 1fr;
             gap: 40px;
           }
 
-          .closing-cta-grid-2col {
+          .team-cards-4row {
+            grid-template-columns: repeat(2, 1fr);
+          }
+
+          .closing-grid-2col {
             grid-template-columns: 1fr;
-            gap: 40px;
+            gap: 48px;
           }
         }
 
         @media (max-width: 640px) {
-          .trust-strip-grid {
+          .h1-line-2 {
+            white-space: normal;
+          }
+
+          .trust-grid {
             grid-template-columns: 1fr;
           }
 
-          .capabilities-grid-4col {
+          .capabilities-4grid {
             grid-template-columns: 1fr;
           }
 
-          .dashboard-body-grid {
+          .india-3col-features {
+            grid-template-columns: 1fr;
+            gap: 20px;
+          }
+
+          .team-cards-4row {
             grid-template-columns: 1fr;
           }
 
-          .dashboard-mini-sidebar {
+          .dash-layout-grid {
+            grid-template-columns: 1fr;
+          }
+
+          .dash-sidebar {
             display: none;
           }
 
-          .workflow-nodes-flow {
-            grid-template-columns: repeat(2, 1fr);
-            gap: 10px;
+          .deploy-agent-card {
+            position: relative;
+            bottom: auto;
+            right: auto;
+            width: 100%;
+            margin-top: 12px;
           }
 
-          .hero-h1 {
-            font-size: 2.15rem;
-          }
-
-          .closing-cta-buttons {
+          .journey-flow-cards {
             flex-direction: column;
             width: 100%;
           }
 
-          .btn-cta-blue, .btn-cta-ghost {
+          .flow-step-box {
             width: 100%;
-            justify-content: center;
-          }
-        }
-
-        /* Reduced motion accessibility */
-        @media (prefers-reduced-motion: reduce) {
-          *, *::before, *::after {
-            animation-duration: 0.01ms !important;
-            animation-iteration-count: 1 !important;
-            transition-duration: 0.01ms !important;
-            scroll-behavior: auto !important;
-          }
-          .hero-dashboard-card {
-            transform: none !important;
-          }
-          .hero-annotation-pill {
-            animation: none !important;
           }
         }
       `}</style>
 
-      {/* -------------------------------------------------------------
-          HEADER — EXACT REFERENCE SPECIFICATION
-      ------------------------------------------------------------- */}
-      <header className="site-header">
-        <div className="section-container header-inner">
-          <Link href="/" className="header-brand" aria-label="Xarwiz Home">
-            <img
-              src="/assets/xarwiz-logo.png"
-              alt="Xarwiz"
-              className="header-logo-img"
-            />
-            <span className="header-logo-badge">AI Platform</span>
-          </Link>
+      {/* ==============================================================
+          1. HEADER COMPONENT — EXACT REFERENCE NAVIGATION
+      ============================================================== */}
+      <header className="site-nav">
+        <div className="container nav-inner">
+          <div className="nav-left-group">
+            <Link href="/" className="brand-link" aria-label="Xarwiz Home">
+              <div className="brand-logo-mark">
+                <svg width="30" height="28" viewBox="0 0 32 30" fill="none">
+                  <path d="M4 4L14 15L4 26H9L16.5 17.5L24 26H29L19 15L29 4H24L16.5 12.5L9 4H4Z" fill="url(#brand-x-grad)" />
+                  <defs>
+                    <linearGradient id="brand-x-grad" x1="4" y1="4" x2="29" y2="26" gradientUnits="userSpaceOnUse">
+                      <stop stopColor="#1b68ff" />
+                      <stop offset="1" stopColor="#3b82f6" />
+                    </linearGradient>
+                  </defs>
+                </svg>
+              </div>
+              <span className="brand-logo-text">XARWIZ</span>
+            </Link>
 
-          <nav className="header-nav" aria-label="Main Navigation">
-            <ul className="header-nav-list">
-              <li>
-                <Link href="/neuravolt" className="header-nav-link">
-                  Platform
-                </Link>
-              </li>
-              <li>
-                <Link href="/neuravolt#solutions" className="header-nav-link">
-                  Solutions
-                </Link>
-              </li>
-              <li>
-                <Link href="/documents" className="header-nav-link">
-                  Resources
-                </Link>
-              </li>
-              <li>
-                <Link href="/pricing" className="header-nav-link">
-                  Pricing
-                </Link>
-              </li>
-              <li>
-                <Link href="/about" className="header-nav-link active">
-                  About
-                </Link>
-              </li>
-            </ul>
-          </nav>
+            <nav aria-label="Main Navigation">
+              <ul className="nav-menu-links">
+                <li>
+                  <Link href="/neuravolt" className="nav-item-link">
+                    Platform <ChevronDown size={14} color="#94a3b8" />
+                  </Link>
+                </li>
+                <li>
+                  <Link href="/neuravolt#solutions" className="nav-item-link">
+                    Solutions <ChevronDown size={14} color="#94a3b8" />
+                  </Link>
+                </li>
+                <li>
+                  <Link href="/documents" className="nav-item-link">
+                    Resources <ChevronDown size={14} color="#94a3b8" />
+                  </Link>
+                </li>
+                <li>
+                  <Link href="/pricing" className="nav-item-link">
+                    Pricing
+                  </Link>
+                </li>
+                <li>
+                  <Link href="/about" className="nav-item-link active">
+                    About
+                  </Link>
+                </li>
+              </ul>
+            </nav>
+          </div>
 
-          <div className="header-ctas">
-            <Link href="/login" className="btn-header-login">
+          <div className="nav-right-ctas">
+            <Link href="/login" className="btn-nav-login">
               Login
             </Link>
-            <Link href="/signup" className="btn-header-primary">
-              Get Early Access
+            <Link href="/signup" className="btn-nav-primary">
+              Get Early Access <ArrowRight size={15} />
             </Link>
           </div>
 
           <button
-            className="header-mobile-toggle"
+            className="nav-mobile-toggle"
             onClick={() => setMobileMenuOpen(true)}
             aria-label="Open navigation menu"
-            aria-expanded={mobileMenuOpen}
           >
             <Menu size={22} />
           </button>
         </div>
       </header>
 
-      {/* -------------------------------------------------------------
-          MOBILE DRAWER
-      ------------------------------------------------------------- */}
+      {/* Mobile Drawer */}
       {mobileMenuOpen && (
         <div
           className="mobile-drawer-overlay"
           onClick={() => setMobileMenuOpen(false)}
         >
           <div className="mobile-drawer" onClick={(e) => e.stopPropagation()}>
-            <div className="mobile-drawer-header">
-              <Link
-                href="/"
-                className="header-brand"
-                onClick={() => setMobileMenuOpen(false)}
-              >
-                <img
-                  src="/assets/xarwiz-logo.png"
-                  alt="Xarwiz"
-                  className="header-logo-img"
-                />
-              </Link>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <svg width="24" height="22" viewBox="0 0 32 30" fill="none">
+                  <path d="M4 4L14 15L4 26H9L16.5 17.5L24 26H29L19 15L29 4H24L16.5 12.5L9 4H4Z" fill="#1b68ff" />
+                </svg>
+                <span style={{ fontSize: '1.2rem', fontWeight: 800, color: '#0b132b' }}>XARWIZ</span>
+              </div>
               <button
-                className="mobile-drawer-close"
                 onClick={() => setMobileMenuOpen(false)}
-                aria-label="Close navigation menu"
+                style={{ background: 'none', border: 'none', cursor: 'pointer' }}
+                aria-label="Close"
               >
                 <X size={20} />
               </button>
             </div>
-
-            <div className="mobile-drawer-body">
-              <ul className="mobile-drawer-links">
-                <li>
-                  <Link
-                    href="/neuravolt"
-                    onClick={() => setMobileMenuOpen(false)}
-                  >
-                    Platform
-                  </Link>
-                </li>
-                <li>
-                  <Link
-                    href="/neuravolt#solutions"
-                    onClick={() => setMobileMenuOpen(false)}
-                  >
-                    Solutions
-                  </Link>
-                </li>
-                <li>
-                  <Link
-                    href="/documents"
-                    onClick={() => setMobileMenuOpen(false)}
-                  >
-                    Resources
-                  </Link>
-                </li>
-                <li>
-                  <Link
-                    href="/pricing"
-                    onClick={() => setMobileMenuOpen(false)}
-                  >
-                    Pricing
-                  </Link>
-                </li>
-                <li>
-                  <Link
-                    href="/about"
-                    className="active"
-                    onClick={() => setMobileMenuOpen(false)}
-                  >
-                    About Us
-                  </Link>
-                </li>
-              </ul>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+              <Link href="/neuravolt" onClick={() => setMobileMenuOpen(false)} style={{ color: '#0b132b', textDecoration: 'none', fontWeight: 600 }}>Platform</Link>
+              <Link href="/neuravolt#solutions" onClick={() => setMobileMenuOpen(false)} style={{ color: '#0b132b', textDecoration: 'none', fontWeight: 600 }}>Solutions</Link>
+              <Link href="/documents" onClick={() => setMobileMenuOpen(false)} style={{ color: '#0b132b', textDecoration: 'none', fontWeight: 600 }}>Resources</Link>
+              <Link href="/pricing" onClick={() => setMobileMenuOpen(false)} style={{ color: '#0b132b', textDecoration: 'none', fontWeight: 600 }}>Pricing</Link>
+              <Link href="/about" onClick={() => setMobileMenuOpen(false)} style={{ color: '#1b68ff', textDecoration: 'none', fontWeight: 700 }}>About</Link>
             </div>
-
-            <div className="mobile-drawer-footer">
-              <Link
-                href="/login"
-                className="btn-header-login"
-                style={{ textAlign: 'center' }}
-                onClick={() => setMobileMenuOpen(false)}
-              >
-                Login
-              </Link>
-              <Link
-                href="/signup"
-                className="btn-header-primary"
-                style={{ textAlign: 'center' }}
-                onClick={() => setMobileMenuOpen(false)}
-              >
-                Get Early Access
-              </Link>
+            <div style={{ marginTop: 'auto', display: 'flex', flexDirection: 'column', gap: 12 }}>
+              <Link href="/login" onClick={() => setMobileMenuOpen(false)} className="btn-nav-login" style={{ textAlign: 'center' }}>Login</Link>
+              <Link href="/signup" onClick={() => setMobileMenuOpen(false)} className="btn-nav-primary" style={{ textAlign: 'center', justifyContent: 'center' }}>Get Early Access</Link>
             </div>
           </div>
         </div>
       )}
 
       <main>
-        {/* -------------------------------------------------------------
-            HERO SECTION — REPRODUCE REFERENCE LAYOUT
-        ------------------------------------------------------------- */}
+        {/* ==============================================================
+            2. HERO SECTION — EXACT REFERENCE TWO-COLUMN COMPOSITION
+        ============================================================== */}
         <section className="hero-section">
-          <div className="hero-backdrop-glow" aria-hidden="true" />
-          <div className="section-container hero-grid-2col">
+          <div className="container hero-grid">
             {/* Left Column */}
             <div>
-              <div className="hero-eyebrow">
-                <span className="hero-eyebrow-dot" />
-                OUR STORY · Built in India for a global AI future
+              <div className="hero-eyebrow-wrap">
+                <div className="hero-pill-badge">
+                  <span className="pill-dot" />
+                  OUR STORY
+                </div>
+                <span className="hero-eyebrow-sub">
+                  Built in India for a global AI future
+                </span>
               </div>
 
               <h1 className="hero-h1">
-                India's AI Platform
-                <br />
-                <span className="hero-gradient-text">for Agents &amp; Automation</span>
+                <span className="h1-line-1">India's AI Platform</span>
+                <span className="h1-line-2">
+                  for <span className="text-gradient-hero">Agents &amp; Automation</span>
+                </span>
               </h1>
 
               <p className="hero-description">
@@ -1916,579 +1814,500 @@ export default function AboutPage() {
                 real work done — faster, smarter and at scale.
               </p>
 
-              <div className="hero-actions-row">
-                <Link href="/neuravolt" className="btn-primary-hero">
+              <div className="hero-btns-row">
+                <Link href="/neuravolt" className="btn-hero-primary">
                   Explore the Platform <ArrowRight size={18} />
                 </Link>
-                <a href="#founder-story" className="btn-secondary-hero">
-                  <Play size={15} fill="currentColor" /> Watch Our Story
+                <a href="#founder-story" className="btn-hero-secondary">
+                  <Play size={13} fill="currentColor" /> Watch Our Story
                 </a>
               </div>
             </div>
 
             {/* Right Column: Floating Angled Product Dashboard */}
-            <div className="hero-dashboard-viewport">
-              <div className="hero-annotation-pill">
-                <Sparkles size={14} color="#2563eb" />
-                Turn ideas into AI agents that work
+            <div className="hero-visual-wrap">
+              {/* Soft Ambient Radial Glow */}
+              <div className="hero-ambient-glow" />
+
+              {/* Handwritten Note Doodle */}
+              <div className="hero-sketch-doodle">
+                <div className="sketch-doodle-text">
+                  Turn ideas into<br />AI agents that work
+                </div>
+                <svg width="42" height="34" viewBox="0 0 42 34" fill="none">
+                  <path d="M2 4 C15 12, 28 20, 36 28" stroke="#1e293b" strokeWidth="1.8" strokeLinecap="round" strokeDasharray="3 3" />
+                  <path d="M27 28 L37 29 L35 19" stroke="#1e293b" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
               </div>
 
-              <div className="hero-dashboard-card">
-                <div className="dashboard-topbar">
-                  <div className="dashboard-window-dots">
-                    <span className="dashboard-dot dot-red" />
-                    <span className="dashboard-dot dot-yellow" />
-                    <span className="dashboard-dot dot-green" />
+              {/* Floating User Avatar circle at top right */}
+              <div className="floating-top-avatar">
+                <img src="/assets/about/team-product.jpg" alt="Active team member" />
+              </div>
+
+              {/* Angled 3D Dashboard Mockup */}
+              <div className="hero-dashboard-mockup">
+                <div className="dash-topbar">
+                  <div className="dash-topbar-title">
+                    Customer Support Agent
+                    <span className="badge-active-green">
+                      <span style={{ width: 5, height: 5, borderRadius: '50%', background: '#059669', display: 'inline-block' }} />
+                      Active
+                    </span>
                   </div>
-                  <div className="dashboard-window-title">
-                    <Bot size={14} color="#2563eb" />
-                    Xarwiz Agent Studio · Enterprise V2
-                  </div>
-                  <div className="dashboard-status-live">
-                    <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#059669', display: 'inline-block' }} />
-                    Live
+                  <div className="avatar-cluster">
+                    <div className="avatar-mini"><img src="/assets/about/team-ashish.jpg" alt="" /></div>
+                    <div className="avatar-mini"><img src="/assets/about/team-product.jpg" alt="" /></div>
+                    <div className="avatar-mini"><img src="/assets/about/team-engineer.jpg" alt="" /></div>
                   </div>
                 </div>
 
-                <div className="dashboard-body-grid">
-                  <aside className="dashboard-mini-sidebar">
-                    <div className="mini-sidebar-item active">
-                      <Bot size={13} /> AI Agents
-                    </div>
-                    <div className="mini-sidebar-item">
-                      <Database size={13} /> Knowledge
-                    </div>
-                    <div className="mini-sidebar-item">
-                      <Workflow size={13} /> Workflows
-                    </div>
-                    <div className="mini-sidebar-item">
-                      <Cpu size={13} /> Connectors
-                    </div>
+                <div className="dash-layout-grid">
+                  <aside className="dash-sidebar">
+                    <div className="dash-brand-small">XARWIZ</div>
+                    <div className="dash-nav-pill"><Users size={12} /> Home</div>
+                    <div className="dash-nav-pill active"><Bot size={12} /> Agents</div>
+                    <div className="dash-nav-pill"><Database size={12} /> Knowledge</div>
+                    <div className="dash-nav-pill"><Workflow size={12} /> Workflows</div>
+                    <div className="dash-nav-pill"><Cpu size={12} /> Integrations</div>
+                    <div className="dash-nav-pill"><Zap size={12} /> Analytics</div>
+                    <div className="dash-nav-pill"><Settings size={12} /> Settings</div>
                   </aside>
 
-                  <div className="dashboard-canvas">
-                    <div className="dashboard-metrics-strip">
-                      <div className="metric-mini-tile">
-                        <div className="metric-mini-label">Active Agents</div>
-                        <div className="metric-mini-value">24</div>
-                      </div>
-                      <div className="metric-mini-tile">
-                        <div className="metric-mini-label">RAG Sync</div>
-                        <div className="metric-mini-value" style={{ color: '#059669' }}>99.8%</div>
-                      </div>
-                      <div className="metric-mini-tile">
-                        <div className="metric-mini-label">Executions</div>
-                        <div className="metric-mini-value">128.4K</div>
-                      </div>
+                  <div className="dash-main-canvas">
+                    <div className="dash-canvas-tabs">
+                      <span className="canvas-tab active">Flow</span>
+                      <span className="canvas-tab">Configuration</span>
+                      <span className="canvas-tab">Analytics</span>
+                      <span className="canvas-tab">Logs</span>
                     </div>
 
-                    <div className="workflow-visual-builder">
-                      <div className="builder-header">
-                        <div className="builder-title">
-                          <Zap size={14} color="#2563eb" />
-                          Live Connected Agent Flow
-                        </div>
-                        <span className="builder-badge">Autonomous</span>
-                      </div>
-
-                      <div className="workflow-nodes-flow">
-                        <div className={`workflow-node-box ${workflowActiveStep === 0 ? 'active' : ''}`}>
-                          <div className="node-step-icon">
-                            <Users size={14} />
-                          </div>
-                          <div className="node-step-label">User Query</div>
-                          <div className="node-step-desc">Business input</div>
-                        </div>
-
-                        <div className={`workflow-node-box ${workflowActiveStep === 1 ? 'active' : ''}`}>
-                          <div className="node-step-icon">
-                            <Bot size={14} />
-                          </div>
-                          <div className="node-step-label">AI Agent</div>
-                          <div className="node-step-desc">Intent parser</div>
-                        </div>
-
-                        <div className={`workflow-node-box ${workflowActiveStep === 2 ? 'active' : ''}`}>
-                          <div className="node-step-icon">
-                            <Database size={14} />
-                          </div>
-                          <div className="node-step-label">Knowledge Base</div>
-                          <div className="node-step-desc">Vector RAG</div>
-                        </div>
-
-                        <div className={`workflow-node-box ${workflowActiveStep === 3 ? 'active' : ''}`}>
-                          <div className="node-step-icon">
-                            <Check size={14} />
-                          </div>
-                          <div className="node-step-label">Outcome</div>
-                          <div className="node-step-desc">Action executed</div>
+                    <div className="flow-diagram-container">
+                      <div className="node-pill trigger">
+                        <MessageSquare size={13} color="#1b68ff" />
+                        <div>
+                          <div className="node-title-bold">Trigger</div>
+                          <div className="node-subtext">New customer query</div>
                         </div>
                       </div>
-                    </div>
 
-                    <div className="dashboard-execution-console">
-                      <div className="console-status-text">
-                        <Check size={13} color="#34d399" />
-                        Automated Contract Audit Complete
+                      <div style={{ color: '#cbd5e1', lineHeight: 1, paddingLeft: 12 }}>↓</div>
+
+                      <div className="node-pill agent">
+                        <Bot size={14} color="#7c3aed" />
+                        <div>
+                          <div className="node-title-bold">AI Agent</div>
+                          <div className="node-subtext">Understands &amp; Responds</div>
+                        </div>
                       </div>
-                      <span className="console-latency-tag">84ms · DPDP Compliant</span>
+
+                      <div style={{ color: '#cbd5e1', lineHeight: 1, paddingLeft: 12 }}>↓</div>
+
+                      <div className="flow-branch-row">
+                        <div className="branch-node kb">
+                          <Database size={12} color="#10b981" />
+                          <div>
+                            <div className="node-title-bold">Knowledge Base</div>
+                            <div className="node-subtext">Search documents</div>
+                          </div>
+                        </div>
+
+                        <div className="branch-node tools">
+                          <Cpu size={12} color="#ec4899" />
+                          <div>
+                            <div className="node-title-bold">Tools</div>
+                            <div className="node-subtext">Take action</div>
+                          </div>
+                        </div>
+                      </div>
                     </div>
                   </div>
                 </div>
+              </div>
+
+              {/* Floating Deploy Agent Card — Placed on hero-visual-wrap so it does not overlap Tools node */}
+              <div className="deploy-agent-card">
+                <div className="deploy-card-title">Deploy Agent</div>
+                <div className="deploy-checklist">
+                  <div className="check-item"><span>✓</span> Test</div>
+                  <div className="check-item"><span>✓</span> Configure</div>
+                  <div className="check-item"><span>✓</span> Deploy</div>
+                </div>
+                <button className="btn-deploy-blue">
+                  Deploy →
+                </button>
               </div>
             </div>
           </div>
         </section>
 
-        {/* -------------------------------------------------------------
-            TRUST STRIP
-        ------------------------------------------------------------- */}
-        <section className="trust-strip-section">
-          <div className="section-container">
-            <div className="trust-strip-grid">
-              <div className="trust-item">
-                <div className="trust-icon-wrap">
-                  <Globe size={20} />
+        {/* ==============================================================
+            3. TRUST STRIP
+        ============================================================== */}
+        <section className="trust-strip">
+          <div className="container">
+            <div className="trust-grid">
+              <div className="trust-col">
+                <div className="trust-icon-box box-blue">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <rect x="2" y="2" width="20" height="20" rx="4" />
+                    <circle cx="12" cy="12" r="3" />
+                  </svg>
                 </div>
                 <div>
-                  <div className="trust-content-title">Built in India</div>
-                  <p className="trust-content-desc">For fast-growing global businesses.</p>
+                  <div className="trust-title">Built in India</div>
+                  <p className="trust-sub">For global businesses</p>
                 </div>
               </div>
 
-              <div className="trust-item">
-                <div className="trust-icon-wrap">
+              <div className="trust-col">
+                <div className="trust-icon-box box-green">
                   <ShieldCheck size={20} />
                 </div>
                 <div>
-                  <div className="trust-content-title">Secure by Design</div>
-                  <p className="trust-content-desc">Multi-tenant RLS &amp; encryption at rest.</p>
+                  <div className="trust-title">Secure by design</div>
+                  <p className="trust-sub">Your data. Your control.</p>
                 </div>
               </div>
 
-              <div className="trust-item">
-                <div className="trust-icon-wrap">
-                  <Users size={20} />
+              <div className="trust-col">
+                <div className="trust-icon-box box-blue">
+                  <Globe size={20} />
                 </div>
                 <div>
-                  <div className="trust-content-title">Trusted by Teams</div>
-                  <p className="trust-content-desc">Across modern startups and enterprises.</p>
+                  <div className="trust-title">Trusted by teams</div>
+                  <p className="trust-sub">Across industries</p>
                 </div>
               </div>
 
-              <div className="trust-item">
-                <div className="trust-icon-wrap">
+              <div className="trust-col">
+                <div className="trust-icon-box box-blue">
                   <Layers size={20} />
                 </div>
                 <div>
-                  <div className="trust-content-title">AI + Workflows</div>
-                  <p className="trust-content-desc">Agents, RAG &amp; integrations in one OS.</p>
+                  <div className="trust-title">AI + Workflows + Integrations</div>
+                  <p className="trust-sub">All in one platform</p>
                 </div>
               </div>
             </div>
           </div>
         </section>
 
-        {/* -------------------------------------------------------------
-            FOUNDER STORY SECTION
-        ------------------------------------------------------------- */}
-        <section className="story-section" id="founder-story">
-          <div className="section-container story-grid-2col">
-            <div className="story-image-composition">
-              <div className="story-main-img-card">
-                <img
-                  src="/assets/fintech-executive.jpg"
-                  alt="Ashish Pratap Singh Tomar, Founder of Xarwiz Technologies"
-                  className="story-portrait-img"
-                  loading="lazy"
-                />
+        {/* ==============================================================
+            4. FOUNDER STORY SECTION
+        ============================================================== */}
+        <section className="founder-story-sec" id="founder-story">
+          <div className="container story-2col-grid">
+            <div className="founder-img-wrapper">
+              <img
+                src="/assets/about/founder-ashish-v2.jpg"
+                alt="Ashish Tomar, Founder & CEO of Xarwiz"
+                className="founder-photo"
+              />
+
+              {/* Floating Quote Card */}
+              <div className="founder-quote-floating">
+                <svg className="quote-icon-svg" width="22" height="16" viewBox="0 0 24 18" fill="none">
+                  <path d="M0 18V11.2C0 4.6 3.6 1.2 9.2 0L10.6 2.6C7.2 3.4 5.2 5.4 4.8 8.4H10V18H0ZM13.4 18V11.2C13.4 4.6 17 1.2 22.6 0L24 2.6C20.6 3.4 18.6 5.4 18.2 8.4H23.4V18H13.4Z" fill="#ef4444" />
+                </svg>
+                <div className="quote-body-text">
+                  “We started Xarwiz to make AI useful in the places where real business work happens.”
+                </div>
+                <div className="quote-author-line">— Ashish Tomar</div>
+                <div className="quote-author-title">Founder &amp; CEO, Xarwiz</div>
               </div>
 
-              <div className="story-floating-quote-card">
-                <div className="quote-text">
-                  “Our mission is to replace fragmented software sprawl with
-                  connected intelligence that actually gets real work done.”
+              {/* Floating Play Button */}
+              <div className="founder-watch-floating">
+                <div className="play-circle-btn">
+                  <Play size={12} fill="#0b132b" />
                 </div>
-                <div className="quote-author">
-                  Ashish Pratap Singh Tomar
-                  <span className="quote-author-role">· Founder &amp; Architect</span>
+                <div>
+                  <div className="watch-text-primary">Watch Founder's Message</div>
+                  <div className="watch-text-dur">2:36</div>
                 </div>
               </div>
             </div>
 
-            <div className="story-content-side">
-              <div className="section-eyebrow">OUR STORY</div>
-              <h2 className="section-heading-editorial">
-                From Disconnected Tools
-                <br />
-                to Connected Intelligence
+            <div>
+              <div className="sec-eyebrow-text">OUR STORY</div>
+              <h2 className="sec-h2-title">
+                <span style={{ display: 'block' }}>From Disconnected Tools</span>
+                <span style={{ display: 'block' }}>to Connected Intelligence</span>
               </h2>
 
-              <p className="story-body-copy">
+              <p className="story-paragraph">
                 Businesses today use too many tools. Important knowledge is
-                scattered across documents, applications and teams, while
-                repetitive work consumes valuable time.
+                scattered across documents, apps and people. Teams spend hours on
+                repetitive work that AI should be able to handle.
               </p>
 
-              <p className="story-body-copy">
-                Xarwiz is being built to bring AI agents, business knowledge,
-                workflows and integrations together in one connected platform —
-                helping teams work more intelligently.
+              <p className="story-paragraph">
+                We started Xarwiz to bring everything together — AI agents,
+                business knowledge, workflows and integrations — in one platform
+                that helps teams work more intelligently.
               </p>
 
-              <a href="#journey" className="editorial-text-link">
-                Our Story in Detail <ArrowRight size={18} />
+              <a href="#journey" className="btn-outline-pill">
+                Our Story in Detail <ArrowRight size={16} />
               </a>
             </div>
           </div>
         </section>
 
-        {/* -------------------------------------------------------------
-            PLATFORM CAPABILITIES SECTION
-        ------------------------------------------------------------- */}
-        <section className="capabilities-section">
-          <div className="section-container">
-            <div className="capabilities-header-row">
+        {/* ==============================================================
+            5. PLATFORM CAPABILITIES SECTION
+        ============================================================== */}
+        <section className="capabilities-sec">
+          <div className="container">
+            <div className="capabilities-topbar">
               <div>
-                <div className="section-eyebrow">WHAT WE ARE BUILDING</div>
-                <h2 className="section-heading-editorial" style={{ margin: 0 }}>
+                <div className="sec-eyebrow-text">WHAT WE ARE BUILDING</div>
+                <h2 className="sec-h2-title" style={{ margin: 0 }}>
                   One Platform. Many Possibilities.
                 </h2>
               </div>
-              <Link href="/neuravolt" className="editorial-text-link">
-                Explore All Features <ArrowRight size={18} />
+              <Link href="/neuravolt" className="btn-outline-pill" style={{ margin: 0 }}>
+                Explore All Features <ArrowRight size={16} />
               </Link>
             </div>
 
-            <p className="section-subcopy" style={{ marginBottom: 44, maxWidth: 820 }}>
+            <p className="capabilities-subtext">
               Xarwiz combines AI agents, knowledge management, workflow
               automation and integrations to help businesses turn everyday tasks
               into intelligent operations.
             </p>
 
-            <div className="capabilities-grid-4col">
-              {/* Card 1: AI Agents */}
-              <div className="capability-card">
+            <div className="capabilities-4grid">
+              {/* Card 1 */}
+              <div className="cap-card">
                 <div>
-                  <div className="capability-icon-container icon-accent-blue">
-                    <img
-                      src="/assets/about-features-icon1.svg"
-                      alt="AI Agents"
-                      style={{ width: 28, height: 28 }}
-                      onError={(e) => {
-                        e.currentTarget.style.display = 'none';
-                      }}
-                    />
+                  <div className="cap-icon-box bg-purple">
+                    <Bot size={22} />
                   </div>
-                  <h3 className="capability-title">AI Agents</h3>
-                  <p className="capability-desc">
+                  <h3 className="cap-card-title">AI Agents</h3>
+                  <p className="cap-card-desc">
                     Create AI agents that understand your business, handle tasks
                     and support your teams.
                   </p>
                 </div>
-                <Link href="/agents" className="capability-cta">
-                  Build AI Agents <ArrowRight size={15} />
+                <Link href="/agents" className="cap-link">
+                  Build AI Agents <ArrowRight size={14} />
                 </Link>
               </div>
 
-              {/* Card 2: Knowledge & RAG */}
-              <div className="capability-card">
+              {/* Card 2 */}
+              <div className="cap-card">
                 <div>
-                  <div className="capability-icon-container icon-accent-green">
-                    <img
-                      src="/assets/about-features-icon2.svg"
-                      alt="Knowledge & RAG"
-                      style={{ width: 28, height: 28 }}
-                      onError={(e) => {
-                        e.currentTarget.style.display = 'none';
-                      }}
-                    />
+                  <div className="cap-icon-box bg-green">
+                    <Database size={22} />
                   </div>
-                  <h3 className="capability-title">Knowledge &amp; RAG</h3>
-                  <p className="capability-desc">
+                  <h3 className="cap-card-title">Knowledge &amp; RAG</h3>
+                  <p className="cap-card-desc">
                     Connect your documents, policies and business data for
                     accurate, context-aware AI.
                   </p>
                 </div>
-                <Link href="/documents" className="capability-cta">
-                  Learn About Knowledge <ArrowRight size={15} />
+                <Link href="/documents" className="cap-link">
+                  Learn About Knowledge <ArrowRight size={14} />
                 </Link>
               </div>
 
-              {/* Card 3: Workflow Automation */}
-              <div className="capability-card">
+              {/* Card 3 */}
+              <div className="cap-card">
                 <div>
-                  <div className="capability-icon-container icon-accent-purple">
-                    <img
-                      src="/assets/about-features-icon3.svg"
-                      alt="Workflow Automation"
-                      style={{ width: 28, height: 28 }}
-                      onError={(e) => {
-                        e.currentTarget.style.display = 'none';
-                      }}
-                    />
+                  <div className="cap-icon-box bg-blue">
+                    <Workflow size={22} />
                   </div>
-                  <h3 className="capability-title">Workflow Automation</h3>
-                  <p className="capability-desc">
+                  <h3 className="cap-card-title">Workflow Automation</h3>
+                  <p className="cap-card-desc">
                     Design and automate multi-step processes with AI, tools and
                     integrations.
                   </p>
                 </div>
-                <Link href="/workflows" className="capability-cta">
-                  Explore Workflows <ArrowRight size={15} />
+                <Link href="/workflows" className="cap-link">
+                  Explore Workflows <ArrowRight size={14} />
                 </Link>
               </div>
 
-              {/* Card 4: APIs & Integrations */}
-              <div className="capability-card">
+              {/* Card 4 */}
+              <div className="cap-card">
                 <div>
-                  <div className="capability-icon-container icon-accent-orange">
-                    <img
-                      src="/assets/about-features-icon4.svg"
-                      alt="APIs & Integrations"
-                      style={{ width: 28, height: 28 }}
-                      onError={(e) => {
-                        e.currentTarget.style.display = 'none';
-                      }}
-                    />
+                  <div className="cap-icon-box bg-orange">
+                    <Cpu size={22} />
                   </div>
-                  <h3 className="capability-title">APIs &amp; Integrations</h3>
-                  <p className="capability-desc">
+                  <h3 className="cap-card-title">APIs &amp; Integrations</h3>
+                  <p className="cap-card-desc">
                     Bring AI capabilities into your existing tools and business
                     systems.
                   </p>
                 </div>
-                <Link href="/neuravolt#solutions" className="capability-cta">
-                  View Integrations <ArrowRight size={15} />
+                <Link href="/neuravolt#solutions" className="cap-link">
+                  View Integrations <ArrowRight size={14} />
                 </Link>
               </div>
             </div>
           </div>
         </section>
 
-        {/* -------------------------------------------------------------
-            INDIA-FIRST SECTION
-        ------------------------------------------------------------- */}
-        <section className="india-section">
-          <div className="section-container india-grid-2col">
-            <div className="india-visual-side">
-              <div className="india-main-img-card">
-                <img
-                  src="/assets/india-flag.jpg"
-                  alt="Built in India with Global Ambition"
-                  className="india-flag-img"
-                  loading="lazy"
-                />
-              </div>
+        {/* ==============================================================
+            6. INDIA-FIRST SECTION ("BUILT FOR REAL BUSINESSES")
+            3-Column horizontal feature grid matching reference
+        ============================================================== */}
+        <section className="india-sec">
+          <div className="container india-2col-grid">
+            <div className="india-visual-wrap">
+              <img
+                src="/assets/about/india-gate.jpg"
+                alt="India Gate at golden hour"
+                className="india-gate-photo"
+              />
 
-              <div className="india-floating-badge-card">
-                <div className="india-card-eyebrow">BUILT IN INDIA</div>
-                <h3 className="india-card-title">Global Ambition. Indian Roots.</h3>
-                <p className="india-card-subcopy">
-                  We're building from India with a global outlook, creating
-                  practical AI capabilities for businesses in India and around
-                  the world.
+              <div className="india-badge-floating">
+                <div className="india-badge-eyebrow">BUILT IN INDIA</div>
+                <div className="india-badge-title">Global Ambition, Indian Roots.</div>
+                <p className="india-badge-desc">
+                  We're a proudly Indian company building for businesses in India
+                  and around the world.
                 </p>
+                <div className="flag-icon-corner" aria-label="Indian Flag">🇮🇳</div>
               </div>
             </div>
 
             <div>
-              <div className="section-eyebrow">BUILT FOR REAL BUSINESSES</div>
-              <h2 className="section-heading-editorial">
+              <div className="sec-eyebrow-text">BUILT FOR REAL BUSINESSES</div>
+              <h2 className="sec-h2-title">
                 Solving Real Problems for Real Teams
               </h2>
-              <p className="section-subcopy">
-                Xarwiz aims to make AI and automation practical for real business
-                workflows — removing manual friction so teams can focus on growth.
+
+              <p className="story-paragraph">
+                We understand the unique needs of Indian businesses — from
+                diverse languages and workflows to the way teams actually work.
+                Our goal is to make advanced AI and automation accessible,
+                practical and valuable for every organization.
               </p>
 
-              <div className="principles-list-3col">
-                <div className="principle-item-card">
-                  <div className="principle-title">
-                    <Check size={18} color="#2563eb" />
-                    India-First Perspective
+              {/* 3-Column horizontal feature layout */}
+              <div className="india-3col-features">
+                <div className="india-feat-box">
+                  <div className="feat-icon-head">
+                    <Sparkles size={22} />
                   </div>
-                  <p className="principle-desc">
-                    Engineered to deliver high-performance, cost-efficient AI
-                    orchestration suited for fast-scaling Indian and international
-                    enterprises.
-                  </p>
+                  <div className="india-feat-title">India-First Perspective</div>
+                  <p className="india-feat-desc">Local needs, global standards</p>
                 </div>
 
-                <div className="principle-item-card">
-                  <div className="principle-title">
-                    <Check size={18} color="#2563eb" />
-                    Practical AI Adoption
+                <div className="india-feat-box">
+                  <div className="feat-icon-head">
+                    <MessageSquare size={22} />
                   </div>
-                  <p className="principle-desc">
-                    Moving beyond standalone chat to actively execute multi-step
-                    workflows, analyze enterprise documents, and automate repetitive tasks.
-                  </p>
+                  <div className="india-feat-title">Multilingual Support</div>
+                  <p className="india-feat-desc">Work in your language</p>
                 </div>
 
-                <div className="principle-item-card">
-                  <div className="principle-title">
-                    <Check size={18} color="#2563eb" />
-                    Responsible AI
+                <div className="india-feat-box">
+                  <div className="feat-icon-head">
+                    <ShieldCheck size={22} />
                   </div>
-                  <p className="principle-desc">
-                    Built with strict multi-tenant isolation, role-based access
-                    controls, and statutory compliance keeping your business data secure.
-                  </p>
+                  <div className="india-feat-title">Responsible AI</div>
+                  <p className="india-feat-desc">Privacy and security by design</p>
                 </div>
               </div>
             </div>
           </div>
         </section>
 
-        {/* -------------------------------------------------------------
-            COMPANY JOURNEY TIMELINE
-        ------------------------------------------------------------- */}
-        <section className="timeline-section" id="journey">
-          <div className="section-container timeline-grid-2col">
+        {/* ==============================================================
+            7. COMPANY JOURNEY TIMELINE
+        ============================================================== */}
+        <section className="journey-sec" id="journey">
+          <div className="container journey-2col-grid">
             <div>
-              <div className="section-eyebrow">OUR JOURNEY</div>
-              <h2 className="section-heading-editorial">
-                From an Idea to a Platform for What's Next
+              <div className="sec-eyebrow-text">OUR JOURNEY</div>
+              <h2 className="sec-h2-title">
+                <span style={{ display: 'block', whiteSpace: 'nowrap' }}>From an idea to a platform</span>
+                <span style={{ display: 'block', whiteSpace: 'nowrap' }}>for what's next</span>
               </h2>
-              <p className="story-body-copy">
+
+              <p className="story-paragraph">
                 What started as a vision to make AI more practical for
-                businesses is evolving into a connected platform for agents,
-                knowledge and automation.
+                businesses is now evolving into a comprehensive platform for
+                agents, knowledge and automation.
               </p>
-              <Link href="/neuravolt" className="editorial-text-link">
-                Our Journey <ArrowRight size={18} />
-              </Link>
-            </div>
 
-            <div className="timeline-track-desktop">
-              {/* Milestone 1 */}
-              <div className="timeline-milestone-node">
-                <div className="milestone-dot-badge">01</div>
-                <div className="milestone-card-inner">
-                  <div className="milestone-title">The Beginning</div>
-                  <p className="milestone-desc">
-                    Identified SaaS tool sprawl and envisioned unified connected
-                    intelligence for teams.
-                  </p>
-                </div>
-              </div>
-
-              {/* Milestone 2 */}
-              <div className="timeline-milestone-node">
-                <div className="milestone-dot-badge">02</div>
-                <div className="milestone-card-inner">
-                  <div className="milestone-title">Building Core</div>
-                  <p className="milestone-desc">
-                    Engineered multi-model orchestration, vector RAG search, and
-                    secure multi-tenant database.
-                  </p>
-                </div>
-              </div>
-
-              {/* Milestone 3 */}
-              <div className="timeline-milestone-node">
-                <div className="milestone-dot-badge">03</div>
-                <div className="milestone-card-inner">
-                  <div className="milestone-title">Early Access</div>
-                  <p className="milestone-desc">
-                    Onboarded innovative teams to build autonomous agents and
-                    automated workflows.
-                  </p>
-                </div>
-              </div>
-
-              {/* Milestone 4 */}
-              <div className="timeline-milestone-node">
-                <div className="milestone-dot-badge pulse">04</div>
-                <div className="milestone-card-inner">
-                  <div className="milestone-title">What's Next</div>
-                  <p className="milestone-desc">
-                    Expanding autonomous enterprise workflows and deeper
-                    business integrations globally.
-                  </p>
-                </div>
+              <div style={{ marginTop: '24px' }}>
+                <Link href="/neuravolt" className="btn-journey-solid">
+                  Our Journey <ArrowRight size={16} />
+                </Link>
               </div>
             </div>
-          </div>
-        </section>
 
-        {/* -------------------------------------------------------------
-            TEAM SECTION
-        ------------------------------------------------------------- */}
-        <section className="team-section">
-          <div className="section-container team-grid-2col">
-            <div>
-              <div className="section-eyebrow">MEET THE TEAM</div>
-              <h2 className="section-heading-editorial">
-                A Team That Believes in Practical AI for Real Impact
-              </h2>
-              <p className="story-body-copy">
-                We're building practical AI experiences to help businesses
-                connect knowledge, automate workflows and solve real operational
-                problems.
-              </p>
-              <a
-                href="mailto:careers@xarwiz.com"
-                className="btn-secondary-hero"
-                style={{ display: 'inline-flex' }}
-              >
-                Join Our Journey <ArrowRight size={16} />
-              </a>
-            </div>
+            <div className="timeline-track-wrap">
+              {/* Paper Plane Origami at top right of 2026+ */}
+              <div className="paper-plane-svg">
+                <svg width="40" height="40" viewBox="0 0 44 44" fill="none">
+                  <path d="M4 22L40 4L24 40L18 26L4 22Z" fill="url(#plane-grad)" />
+                  <path d="M18 26L40 4" stroke="#ffffff" strokeWidth="1.5" strokeOpacity="0.5" />
+                  <defs>
+                    <linearGradient id="plane-grad" x1="4" y1="4" x2="40" y2="40" gradientUnits="userSpaceOnUse">
+                      <stop stopColor="#a78bfa" />
+                      <stop offset="1" stopColor="#6366f1" />
+                    </linearGradient>
+                  </defs>
+                </svg>
+              </div>
 
-            <div className="team-cards-grid">
-              {/* Founder Profile */}
-              <div className="team-profile-card">
-                <div className="team-portrait-wrap">
-                  <img
-                    src="/assets/fintech-executive.jpg"
-                    alt="Ashish Pratap Singh Tomar"
-                    className="team-portrait-img"
-                    loading="lazy"
-                  />
-                </div>
-                <div className="team-card-details">
-                  <h3 className="team-member-name">Ashish Pratap Singh Tomar</h3>
-                  <div className="team-member-role">Founder &amp; Product Architect</div>
-                  <p className="team-member-bio">
-                    Directing product architecture, agent orchestration systems,
-                    and connected intelligence foundations at Xarwiz.
-                  </p>
-                  <div className="team-social-row">
-                    <a
-                      href="https://linkedin.com"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="social-chip-link"
-                    >
-                      LinkedIn <ExternalLink size={12} />
-                    </a>
+              {/* Connecting curved line */}
+              <svg className="timeline-line-svg" viewBox="0 0 500 40" fill="none">
+                <path d="M10 20 L380 20 C420 20, 440 10, 480 4" stroke="#bfdbfe" strokeWidth="2" strokeDasharray="4 4" />
+              </svg>
+
+              <div className="milestones-flex-row">
+                {/* 2023 */}
+                <div className="milestone-col">
+                  <div className="milestone-year-dot">
+                    <span className="year-label">2023</span>
+                    <span className="dot-circle" />
+                  </div>
+                  <div className="milestone-card-box">
+                    <div className="milestone-h3">The Beginning</div>
+                    <p className="milestone-p">Vision, research and early development.</p>
                   </div>
                 </div>
-              </div>
 
-              {/* Core Engineering Profile */}
-              <div className="team-profile-card">
-                <div className="team-portrait-wrap">
-                  <img
-                    src="/assets/user-avatar.jpg"
-                    alt="Core Engineering Team"
-                    className="team-portrait-img"
-                    loading="lazy"
-                  />
+                {/* 2024 */}
+                <div className="milestone-col">
+                  <div className="milestone-year-dot">
+                    <span className="year-label">2024</span>
+                    <span className="dot-circle" />
+                  </div>
+                  <div className="milestone-card-box">
+                    <div className="milestone-h3">Building the Core</div>
+                    <p className="milestone-p">Platform, AI agents and key integrations.</p>
+                  </div>
                 </div>
-                <div className="team-card-details">
-                  <h3 className="team-member-name">AI &amp; Systems Team</h3>
-                  <div className="team-member-role">Core Architecture &amp; Research</div>
-                  <p className="team-member-bio">
-                    Building resilient vector pipelines, low-latency workflow
-                    execution engines, and enterprise security guardrails.
-                  </p>
-                  <div className="team-social-row">
-                    <span className="social-chip-link">
-                      Xarwiz Engineering
-                    </span>
+
+                {/* 2025 */}
+                <div className="milestone-col">
+                  <div className="milestone-year-dot">
+                    <span className="year-label">2025</span>
+                    <span className="dot-circle" />
+                  </div>
+                  <div className="milestone-card-box">
+                    <div className="milestone-h3">Early Access</div>
+                    <p className="milestone-p">Pilot customers and real-world use cases.</p>
+                  </div>
+                </div>
+
+                {/* 2026+ */}
+                <div className="milestone-col">
+                  <div className="milestone-year-dot">
+                    <span className="year-label">2026+</span>
+                    <span className="dot-circle active-ring" />
+                  </div>
+                  <div className="milestone-card-box">
+                    <div className="milestone-h3">Scaling Impact</div>
+                    <p className="milestone-p">Growing with businesses across India and globally.</p>
                   </div>
                 </div>
               </div>
@@ -2496,84 +2315,214 @@ export default function AboutPage() {
           </div>
         </section>
 
-        {/* -------------------------------------------------------------
-            CLOSING CTA — DARK, PREMIUM FINISH
-        ------------------------------------------------------------- */}
-        <section className="closing-cta-section">
-          <div className="closing-cta-radial-glow" aria-hidden="true" />
-          <div className="section-container closing-cta-grid-2col">
+        {/* ==============================================================
+            8. TEAM SECTION — 4 REFINED PERSONA CARDS
+        ============================================================== */}
+        <section className="team-sec">
+          <div className="container team-2col-grid">
             <div>
-              <div className="closing-cta-eyebrow">JOIN THE NEXT CHAPTER</div>
-              <h2 className="closing-cta-heading">
-                Let's Build a Smarter,
-                <br />
-                More Productive Future — Together.
+              <div className="sec-eyebrow-text">MEET THE TEAM</div>
+              <h2 className="sec-h2-title">
+                <span style={{ display: 'block', whiteSpace: 'nowrap' }}>A Team That Believes in</span>
+                <span style={{ display: 'block', whiteSpace: 'nowrap' }}>Practical AI for Real Impact</span>
               </h2>
-              <p className="closing-cta-copy">
-                Be part of a platform that turns ideas into practical business
-                outcomes with AI agents and automation.
+
+              <p className="story-paragraph">
+                We are a team of builders, engineers and business professionals
+                passionate about using AI to solve real-world problems. Our focus
+                is on creating practical, reliable and scalable solutions that
+                help businesses grow.
               </p>
-              <div className="closing-cta-buttons">
-                <Link href="/signup" className="btn-cta-blue">
-                  Get Early Access <ArrowRight size={18} />
+
+              <div style={{ marginTop: '24px' }}>
+                <a href="mailto:careers@xarwiz.com" className="btn-journey-solid">
+                  Join Our Journey <ArrowRight size={16} />
+                </a>
+              </div>
+            </div>
+
+            <div className="team-cards-4row">
+              {/* Member 1: Ashish Tomar */}
+              <div className="team-member-card">
+                <div className="member-photo-frame">
+                  <img
+                    src="/assets/about/team-ashish.jpg"
+                    alt="Ashish Tomar"
+                    className="member-photo-img"
+                  />
+                </div>
+                <div className="member-info-footer">
+                  <div>
+                    <div className="member-name-text">Ashish Tomar</div>
+                    <div className="member-role-text">Founder &amp; CEO</div>
+                  </div>
+                  <a
+                    href="https://linkedin.com"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="linkedin-badge-btn"
+                    aria-label="Ashish Tomar LinkedIn"
+                  >
+                    in
+                  </a>
+                </div>
+              </div>
+
+              {/* Member 2: Product & Design */}
+              <div className="team-member-card">
+                <div className="member-photo-frame">
+                  <img
+                    src="/assets/about/team-product.jpg"
+                    alt="Product & Design Lead"
+                    className="member-photo-img"
+                  />
+                </div>
+                <div className="member-info-footer">
+                  <div>
+                    <div className="member-name-text" style={{ fontSize: '0.8rem' }}>
+                      Product &amp; Design
+                    </div>
+                  </div>
+                  <a
+                    href="https://linkedin.com"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="linkedin-badge-btn"
+                    aria-label="Product & Design LinkedIn"
+                  >
+                    in
+                  </a>
+                </div>
+              </div>
+
+              {/* Member 3: Engineering */}
+              <div className="team-member-card">
+                <div className="member-photo-frame">
+                  <img
+                    src="/assets/about/team-engineer.jpg"
+                    alt="Engineering Lead"
+                    className="member-photo-img"
+                  />
+                </div>
+                <div className="member-info-footer">
+                  <div>
+                    <div className="member-name-text" style={{ fontSize: '0.8rem' }}>
+                      Engineering
+                    </div>
+                  </div>
+                  <a
+                    href="https://linkedin.com"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="linkedin-badge-btn"
+                    aria-label="Engineering LinkedIn"
+                  >
+                    in
+                  </a>
+                </div>
+              </div>
+
+              {/* Member 4: Operations */}
+              <div className="team-member-card">
+                <div className="member-photo-frame">
+                  <img
+                    src="/assets/about/team-operations.jpg"
+                    alt="Operations Lead"
+                    className="member-photo-img"
+                  />
+                </div>
+                <div className="member-info-footer">
+                  <div>
+                    <div className="member-name-text" style={{ fontSize: '0.8rem' }}>
+                      Operations
+                    </div>
+                  </div>
+                  <a
+                    href="https://linkedin.com"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="linkedin-badge-btn"
+                    aria-label="Operations LinkedIn"
+                  >
+                    in
+                  </a>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* ==============================================================
+            9. CLOSING CTA — DARK NAVY FINISH WITH GLOWING CURVED EARTH
+        ============================================================== */}
+        <section className="closing-cta-sec">
+          {/* Luminous Curved Earth Atmospheric Limb */}
+          <div
+            className="earth-glow-backdrop"
+            style={{
+              backgroundImage: 'url(/assets/about/earth-glow.jpg)',
+            }}
+          />
+
+          <div className="container closing-grid-2col">
+            <div>
+              <div className="closing-eyebrow">JOIN THE NEXT CHAPTER</div>
+              <h2 className="closing-h2">
+                <span style={{ display: 'block' }}>Let's Build a Smarter,</span>
+                <span style={{ display: 'block' }}>More Productive Future — Together.</span>
+              </h2>
+              <p className="closing-subcopy">
+                Be part of a platform that turns ideas into real impact with AI
+                agents and automation.
+              </p>
+              <div className="closing-btns-row">
+                <Link href="/signup" className="btn-cta-blue-vibrant">
+                  Get Early Access <ArrowRight size={17} />
                 </Link>
-                <Link href="/login" className="btn-cta-ghost">
-                  <Play size={15} fill="currentColor" /> Contact Our Team
+                <Link href="/login" className="btn-cta-dark-trans">
+                  <Play size={13} fill="currentColor" /> Contact Our Team
                 </Link>
               </div>
             </div>
 
-            {/* Visual journey: Your Ideas -> AI Agents -> Real Impact */}
-            <div className="closing-journey-diagram">
-              <div className="journey-step-card">
-                <div className="journey-step-badge">01</div>
-                <div>
-                  <div className="journey-step-title">Your Ideas &amp; Goals</div>
-                  <p className="journey-step-desc">
-                    Connect documents, workflows, and repetitive operational tasks.
-                  </p>
+            {/* Visual 3-Step Floating Cards: Your Ideas -> AI Agents -> Real Impact */}
+            <div className="journey-flow-cards">
+              <div className="flow-step-box">
+                <div className="flow-step-icon-aura aura-yellow">
+                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M9 18h6" />
+                    <path d="M10 22h4" />
+                    <path d="M12 2a7 7 0 0 0-7 7c0 2.5 1.5 4.5 3 6h8c1.5-1.5 3-3.5 3-6a7 7 0 0 0-7-7z" />
+                  </svg>
                 </div>
+                <div className="flow-step-name">Your Ideas</div>
               </div>
 
-              <div className="journey-arrow-indicator">
-                <ArrowRight size={20} style={{ transform: 'rotate(90deg)' }} />
+              <div className="flow-dash-arrow">→</div>
+
+              <div className="flow-step-box">
+                <div className="flow-step-icon-aura aura-purple">
+                  <Zap size={22} />
+                </div>
+                <div className="flow-step-name">AI Agents</div>
               </div>
 
-              <div className="journey-step-card" style={{ borderColor: 'rgba(37, 99, 235, 0.4)' }}>
-                <div className="journey-step-badge" style={{ background: 'rgba(37, 99, 235, 0.4)' }}>
-                  <Bot size={18} color="#60a5fa" />
-                </div>
-                <div>
-                  <div className="journey-step-title">AI Agents &amp; Workflows</div>
-                  <p className="journey-step-desc">
-                    Autonomous reasoning, vector retrieval, and automated multi-step actions.
-                  </p>
-                </div>
-              </div>
+              <div className="flow-dash-arrow">→</div>
 
-              <div className="journey-arrow-indicator">
-                <ArrowRight size={20} style={{ transform: 'rotate(90deg)' }} />
-              </div>
-
-              <div className="journey-step-card">
-                <div className="journey-step-badge" style={{ background: 'rgba(16, 185, 129, 0.25)', borderColor: 'rgba(16, 185, 129, 0.5)', color: '#34d399' }}>
-                  <Check size={18} />
+              <div className="flow-step-box">
+                <div className="flow-step-icon-aura aura-cyan">
+                  <BarChart3 size={22} />
                 </div>
-                <div>
-                  <div className="journey-step-title">Real Business Impact</div>
-                  <p className="journey-step-desc">
-                    Faster turnaround, reduced manual effort, and scaled execution.
-                  </p>
-                </div>
+                <div className="flow-step-name">Real Impact</div>
               </div>
             </div>
           </div>
         </section>
       </main>
 
-      {/* -------------------------------------------------------------
-          FOOTER PRESERVATION — STRICTLY REUSED EXISTING GLOBAL FOOTER
-      ------------------------------------------------------------- */}
+      {/* ==============================================================
+          10. FOOTER PRESERVATION — STRICTLY REUSED SITE FOOTER
+      ============================================================== */}
       <FooterSection />
     </div>
   );
