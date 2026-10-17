@@ -227,17 +227,6 @@ export default function DashboardShell({ children, title = 'Dashboard' }) {
                 <Cpu size={15} />
                 <span>Agents</span>
               </Link>
-              <Link href="/studio" style={{
-                display: 'flex', alignItems: 'center', gap: '6px',
-                padding: '6px 12px', borderRadius: '8px', fontSize: '13px', fontWeight: 600,
-                textDecoration: 'none', transition: 'all 0.15s ease',
-                backgroundColor: router.pathname === '/studio' ? 'rgba(99,102,241,0.15)' : 'transparent',
-                color: router.pathname === '/studio' ? '#818cf8' : 'var(--shell-text-secondary)',
-                border: router.pathname === '/studio' ? '1px solid rgba(99,102,241,0.25)' : '1px solid transparent',
-              }}>
-                <Sparkles size={15} />
-                <span>Studio</span>
-              </Link>
               <Link href="/documents" style={{
                 display: 'flex', alignItems: 'center', gap: '6px',
                 padding: '6px 12px', borderRadius: '8px', fontSize: '13px', fontWeight: 600,

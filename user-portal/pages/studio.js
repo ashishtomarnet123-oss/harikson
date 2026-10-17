@@ -67,9 +67,8 @@ function ImageStudioPage() {
   const [selectedGalleryImage, setSelectedGalleryImage] = useState(null);
 
   useEffect(() => {
-    fetchQuota();
-    fetchGallery();
-  }, []);
+    router.replace('/chat');
+  }, [router]);
 
   const fetchQuota = async () => {
     try {

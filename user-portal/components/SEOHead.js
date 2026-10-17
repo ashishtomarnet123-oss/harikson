@@ -70,7 +70,7 @@ export const defaultSoftwareApplicationSchema = {
     'Document Intelligence & Vector RAG',
     'DPDP Act 2023 Statutory Compliance & Privacy Architecture',
     'Multi-Tenant Row-Level Security',
-    'AI Image Studio & Creative Generation',
+    'Universal Document Intelligence & PDF Engine',
     'Voice AI & Realtime Synthesis',
   ],
 };

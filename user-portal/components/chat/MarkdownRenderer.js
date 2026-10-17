@@ -3,7 +3,6 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import rehypeHighlight from 'rehype-highlight';
 import { Copy, Check, Maximize2 } from 'lucide-react';
-import GeneratedImageCard from './GeneratedImageCard';
 
 /* ────────────────────────────────────────────────────────────
    Secure Clipboard copy helper
@@ -289,24 +288,26 @@ function MarkdownRenderer({
       );
     },
 
-    // Images & AI Generated Visuals
-    img: ({ src, alt, ...props }) => (
-      <GeneratedImageCard
-        src={src}
-        alt={alt || 'Visual Asset'}
-        prompt={alt || ''}
-        onEdit={onImageEdit}
-        onVariation={onImageVariation}
-        onRegenerate={onImageRegenerate}
-        {...props}
-      />
-    ),
+    // Images
+    img: ({ src, alt, ...props }) => {
+      const safe = isSafeUrl(src);
+      if (!safe) return null;
+      return (
+        <img
+          src={src}
+          alt={alt || ''}
+          style={{ maxWidth: '100%', height: 'auto', borderRadius: '8px', margin: '12px 0', display: 'block' }}
+          loading="lazy"
+          {...props}
+        />
+      );
+    },
 
     // Bold, Italic, Strikethrough
     strong: ({ children, ...props }) => <strong className="markdown-strong" {...props}>{children}</strong>,
     em: ({ children, ...props }) => <em className="markdown-em" {...props}>{children}</em>,
     del: ({ children, ...props }) => <del className="markdown-del" {...props}>{children}</del>,
-  }), [onOpenArtifact, onImageEdit, onImageVariation, onImageRegenerate]);
+  }), [onOpenArtifact]);
 
   return (
     <div className={`markdown-body ${className}`}>

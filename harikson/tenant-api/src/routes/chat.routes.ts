@@ -10,8 +10,6 @@ import { countExactTokens } from '../services/tokenCountingService.js';
 import logger from '../utils/logger.js';
 import { requireScopes } from '../middleware/scopeAuth.js';
 import { SYSTEM_PROMPT } from '../prompts/system-prompt.js';
-import { ImageGenerationEngine, ImageOrchestrator } from '../services/image-generation/index.js';
-import { ImageOperationType } from '../services/image-generation/types.js';
 import { TitleService } from '../services/titleService.js';
 import { UniversalPdfEngine } from '../services/pdf/index.js';
 
@@ -695,100 +693,6 @@ async function handleChat(req: any, res: any) {
       if (match) {
         attachedImageMimeType = match[1];
         attachedImageBuffer = Buffer.from(match[2], 'base64');
-      }
-    }
-
-    const priorImage = currentConvId
-      ? await ImageOrchestrator.getLatestRelevantImage(req.tenant.id, currentConvId)
-      : null;
-
-    const imageIntent = ImageOrchestrator.detectImageIntent(
-      message,
-      Boolean(attachedImageBuffer),
-      Boolean(priorImage)
-    );
-
-    if (imageIntent.isImageIntent) {
-      logger.info(
-        {
-          tenantId: req.tenant.id,
-          operation: imageIntent.operation,
-          convId: currentConvId,
-          prompt: imageIntent.cleanedPrompt.substring(0, 60),
-        },
-        'ImageOrchestrator executing in-chat operation'
-      );
-
-      try {
-        const result = await ImageOrchestrator.executeOperation({
-          tenantId: req.tenant.id,
-          userId,
-          conversationId: currentConvId,
-          userMessage: message,
-          operation: imageIntent.operation as ImageOperationType,
-          attachedImageBuffer,
-          attachedImageMimeType,
-          aspectRatio: imageIntent.targetAspectRatio,
-        });
-
-        await executeTenantQuery(req.tenant.id, (client) =>
-          client.query(
-            'INSERT INTO messages (tenant_id, conversation_id, sender, content, tokens_used) VALUES ($1, $2, $3, $4, $5)',
-            [req.tenant.id, currentConvId, 'assistant', result.replyText, result.tokensUsed || 50]
-          )
-        );
-
-        if (stream) {
-          res.setHeader('Content-Type', 'text/event-stream');
-          res.setHeader('Cache-Control', 'no-cache, no-transform');
-          res.setHeader('Connection', 'keep-alive');
-          res.setHeader('X-Accel-Buffering', 'no');
-          if (currentConvId) res.setHeader('X-Conversation-Id', currentConvId);
-          res.flushHeaders();
-          res.write(
-            `data: ${JSON.stringify({
-              content: result.replyText,
-              response: result.replyText,
-              image: result.image,
-              analysis: result.analysis,
-            })}\n\n`
-          );
-          res.write('data: [DONE]\n\n');
-          return res.end();
-        } else {
-          return res.json({
-            content: result.replyText,
-            response: result.replyText,
-            conversationId: currentConvId,
-            image: result.image,
-            analysis: result.analysis,
-          });
-        }
-      } catch (imgErr: any) {
-        logger.error({ err: imgErr }, 'In-chat image operation failed');
-        const errMsg = imgErr.message || 'Image operation failed.';
-        const replyContent = `⚠️ **Image Operation Error:** ${errMsg}`;
-
-        await executeTenantQuery(req.tenant.id, (client) =>
-          client.query(
-            'INSERT INTO messages (tenant_id, conversation_id, sender, content, tokens_used) VALUES ($1, $2, $3, $4, $5)',
-            [req.tenant.id, currentConvId, 'assistant', replyContent, 20]
-          )
-        );
-
-        if (stream) {
-          res.setHeader('Content-Type', 'text/event-stream');
-          res.setHeader('Cache-Control', 'no-cache, no-transform');
-          res.setHeader('Connection', 'keep-alive');
-          if (currentConvId) res.setHeader('X-Conversation-Id', currentConvId);
-          if (currentConvTitle) res.setHeader('X-Conversation-Title', encodeURIComponent(currentConvTitle));
-          res.flushHeaders();
-          res.write(`data: ${JSON.stringify({ content: replyContent, response: replyContent, conversationId: currentConvId, title: currentConvTitle })}\n\n`);
-          res.write('data: [DONE]\n\n');
-          return res.end();
-        } else {
-          return res.status(imgErr.statusCode || 500).json({ error: errMsg });
-        }
       }
     }
 

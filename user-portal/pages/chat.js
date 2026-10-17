@@ -411,11 +411,11 @@ function groupConversationsByDate(convList) {
 
 const SLASH_COMMANDS = [
   {
-    id: 'image',
-    icon: <Sparkles size={18} />,
-    title: 'Generate Image',
-    desc: 'Create visual assets with AI',
-    prompt: '/image ',
+    id: 'report',
+    icon: <FileText size={18} />,
+    title: 'Executive Report',
+    desc: 'Draft a structured professional report',
+    prompt: 'Draft a comprehensive executive report on ',
   },
   {
     id: 'code',
@@ -2143,9 +2143,7 @@ function ChatPage() {
     setLoading(true);
 
     // Determine loading status based on toggles and URLs
-    if (userText.startsWith('/image') || userText.startsWith('/img')) {
-      setLoadingStatus('Generating visual asset with AI...');
-    } else if (useReasoning) {
+    if (useReasoning) {
       setLoadingStatus('Thinking deeply...');
     } else if (useDeepSearch) {
       setLoadingStatus('Searching the web...');
@@ -3995,9 +3993,6 @@ CRITICAL RULES:
                                 setSelectedCitationPage(page || 1);
                                 setIsDocViewerOpen(true);
                               }}
-                              onImageEdit={(instruction) => handleSend(null, instruction)}
-                              onImageVariation={() => handleSend(null, 'Create another version of this')}
-                              onImageRegenerate={(prompt) => handleSend(null, `/image ${prompt}`)}
                             />
                             {isStreamingThis && <span className="streaming-cursor" />}
 

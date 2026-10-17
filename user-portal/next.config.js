@@ -24,6 +24,16 @@ const nextConfig = {
         destination: '/:path*',
         permanent: true,
       },
+      {
+        source: '/studio',
+        destination: '/chat',
+        permanent: true,
+      },
+      {
+        source: '/studio/:path*',
+        destination: '/chat',
+        permanent: true,
+      },
     ];
   },
   async rewrites() {
