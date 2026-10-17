@@ -666,7 +666,7 @@ export default function NeuravoltLandingPage({ disableSeo = false } = {}) {
       {/* HEADER */}
       <header className="header">
         <div className="container header-inner">
-          <Link href="/neuravolt" className="logo-container">
+          <Link href="/" className="logo-container">
             <img src="/assets/xarwiz-logo.png" alt="Xarwiz" className="brand-logo-img" />
             <span className="logo-badge">
               <Shield style={{ width: 12, height: 12 }} /> AI Cloud Platform
@@ -706,7 +706,7 @@ export default function NeuravoltLandingPage({ disableSeo = false } = {}) {
           <div className="mobile-drawer-overlay" onClick={() => setMobileMenuOpen(false)}>
             <div className="mobile-drawer-content" onClick={(e) => e.stopPropagation()}>
               <div className="mobile-drawer-header">
-                <Link href="/neuravolt" className="logo-container" onClick={() => setMobileMenuOpen(false)}>
+                <Link href="/" className="logo-container" onClick={() => setMobileMenuOpen(false)}>
                   <img src="/assets/xarwiz-logo.png" alt="Xarwiz" className="brand-logo-img" />
                 </Link>
                 <button

@@ -167,7 +167,7 @@ export default function FooterSection() {
         <div className="footer-inner-wrapper">
           <div className="footer-grid-7col">
             <div>
-              <Link href="/neuravolt" className="logo-container" style={{ marginBottom: 8 }}>
+              <Link href="/" className="logo-container" style={{ marginBottom: 8 }}>
                 <img src="/assets/xarwiz-logo.png" alt="Xarwiz" className="brand-logo-img" />
               </Link>
               <div style={{ fontSize: '0.72rem', color: '#94a3b8', marginBottom: 10 }}>🇮🇳 India&apos;s AI Platform for Agents &amp; Automation</div>
@@ -215,10 +215,10 @@ export default function FooterSection() {
             <div>
               <div className="footer-col-title">Pricing</div>
               <ul className="footer-links">
-                <li><Link href="/neuravolt#pricing">Starter Plan</Link></li>
-                <li><Link href="/neuravolt#pricing">Growth Plan</Link></li>
-                <li><Link href="/neuravolt#pricing">Enterprise Custom</Link></li>
-                <li><Link href="/neuravolt#pricing">Save 20% Annual</Link></li>
+                <li><Link href="/pricing">Starter Plan</Link></li>
+                <li><Link href="/pricing">Growth Plan</Link></li>
+                <li><Link href="/pricing">Enterprise Custom</Link></li>
+                <li><Link href="/pricing">Save 20% Annual</Link></li>
               </ul>
             </div>
 

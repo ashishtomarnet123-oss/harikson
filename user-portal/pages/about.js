@@ -1699,12 +1699,12 @@ export default function AboutPage() {
             <nav aria-label="Main Navigation">
               <ul className="nav-menu-links">
                 <li>
-                  <Link href="/neuravolt" className="nav-item-link">
+                  <Link href="/#platform" className="nav-item-link">
                     Platform <ChevronDown size={14} color="#94a3b8" />
                   </Link>
                 </li>
                 <li>
-                  <Link href="/neuravolt#solutions" className="nav-item-link">
+                  <Link href="/#solutions" className="nav-item-link">
                     Solutions <ChevronDown size={14} color="#94a3b8" />
                   </Link>
                 </li>
@@ -1769,8 +1769,8 @@ export default function AboutPage() {
               </button>
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-              <Link href="/neuravolt" onClick={() => setMobileMenuOpen(false)} style={{ color: '#0b132b', textDecoration: 'none', fontWeight: 600 }}>Platform</Link>
-              <Link href="/neuravolt#solutions" onClick={() => setMobileMenuOpen(false)} style={{ color: '#0b132b', textDecoration: 'none', fontWeight: 600 }}>Solutions</Link>
+              <Link href="/#platform" onClick={() => setMobileMenuOpen(false)} style={{ color: '#0b132b', textDecoration: 'none', fontWeight: 600 }}>Platform</Link>
+              <Link href="/#solutions" onClick={() => setMobileMenuOpen(false)} style={{ color: '#0b132b', textDecoration: 'none', fontWeight: 600 }}>Solutions</Link>
               <Link href="/documents" onClick={() => setMobileMenuOpen(false)} style={{ color: '#0b132b', textDecoration: 'none', fontWeight: 600 }}>Resources</Link>
               <Link href="/pricing" onClick={() => setMobileMenuOpen(false)} style={{ color: '#0b132b', textDecoration: 'none', fontWeight: 600 }}>Pricing</Link>
               <Link href="/about" onClick={() => setMobileMenuOpen(false)} style={{ color: '#1b68ff', textDecoration: 'none', fontWeight: 700 }}>About</Link>
@@ -1815,7 +1815,7 @@ export default function AboutPage() {
               </p>
 
               <div className="hero-btns-row">
-                <Link href="/neuravolt" className="btn-hero-primary">
+                <Link href="/" className="btn-hero-primary">
                   Explore the Platform <ArrowRight size={18} />
                 </Link>
                 <a href="#founder-story" className="btn-hero-secondary">
@@ -2067,7 +2067,7 @@ export default function AboutPage() {
                   One Platform. Many Possibilities.
                 </h2>
               </div>
-              <Link href="/neuravolt" className="btn-outline-pill" style={{ margin: 0 }}>
+              <Link href="/#features" className="btn-outline-pill" style={{ margin: 0 }}>
                 Explore All Features <ArrowRight size={16} />
               </Link>
             </div>
@@ -2142,7 +2142,7 @@ export default function AboutPage() {
                     systems.
                   </p>
                 </div>
-                <Link href="/neuravolt#solutions" className="cap-link">
+                <Link href="/#solutions" className="cap-link">
                   View Integrations <ArrowRight size={14} />
                 </Link>
               </div>
@@ -2236,9 +2236,9 @@ export default function AboutPage() {
               </p>
 
               <div style={{ marginTop: '24px' }}>
-                <Link href="/neuravolt" className="btn-journey-solid">
+                <a href="#journey" className="btn-journey-solid">
                   Our Journey <ArrowRight size={16} />
-                </Link>
+                </a>
               </div>
             </div>
 

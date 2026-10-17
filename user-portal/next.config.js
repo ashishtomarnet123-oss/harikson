@@ -12,6 +12,20 @@ const nextConfig = {
   experimental: {
     proxyTimeout: 600000,
   },
+  async redirects() {
+    return [
+      {
+        source: '/neuravolt',
+        destination: '/',
+        permanent: true,
+      },
+      {
+        source: '/neuravolt/:path*',
+        destination: '/:path*',
+        permanent: true,
+      },
+    ];
+  },
   async rewrites() {
     const isDocker = process.env.DOCKER_ENV === 'true' || process.env.NODE_ENV === 'production';
     const tenantApiUrl =

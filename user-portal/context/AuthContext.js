@@ -75,7 +75,7 @@ export function AuthProvider({ children }) {
     const { apiBase, tenantSlug } = getApiConfig();
     const isPublicPage = [
       '/login', '/signup', '/verify-email',
-      '/aup', '/privacy', '/terms', '/cookies', '/neuravolt', '/',
+      '/aup', '/privacy', '/terms', '/cookies', '/about', '/pricing', '/',
     ].includes(router.pathname);
     const storedToken = localStorage.getItem('hk_access_token');
     const storedUser = localStorage.getItem('hk_user');
