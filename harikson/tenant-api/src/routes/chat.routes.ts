@@ -13,6 +13,7 @@ import { SYSTEM_PROMPT } from '../prompts/system-prompt.js';
 import { ImageGenerationEngine, ImageOrchestrator } from '../services/image-generation/index.js';
 import { ImageOperationType } from '../services/image-generation/types.js';
 import { TitleService } from '../services/titleService.js';
+import { UniversalPdfEngine } from '../services/pdf/index.js';
 
 const router = Router();
 const redis = new Redis(process.env.REDIS_URL || 'redis://redis:6379', {
@@ -204,6 +205,163 @@ router.get('/conversations/:id/messages', requireScopes('chat:read'), async (req
   } catch (err: any) {
     logger.error('Fetch messages error:', err);
     res.status(500).json({ error: 'Failed to fetch conversation messages' });
+  }
+});
+
+// =========================================================================
+// UNIVERSAL PDF EXPORT: CONVERSATION (Full session document)
+// =========================================================================
+const handleConversationPdfExport = async (req: any, res: Response) => {
+  const { id } = req.params;
+  const userId = req.user.userId;
+
+  if (!UUID_RE.test(id)) {
+    return res.status(404).json({ error: 'Conversation not found' });
+  }
+
+  try {
+    const convRes = await executeTenantQuery(req.tenant.id, (client) =>
+      client.query(
+        `SELECT c.id, c.title, c.model, c.created_at
+         FROM conversations c
+         WHERE c.id = $1 AND c.tenant_id = $2 AND c.user_id = $3 AND c.deleted_at IS NULL`,
+        [id, req.tenant.id, userId]
+      )
+    );
+
+    if (convRes.rows.length === 0) {
+      return res.status(404).json({ error: 'Conversation not found or access denied' });
+    }
+
+    const conv = convRes.rows[0];
+
+    const msgRes = await executeTenantQuery(req.tenant.id, (client) =>
+      client.query(
+        `SELECT m.sender as role, m.content, m.created_at
+         FROM messages m
+         WHERE m.conversation_id = $1 AND m.tenant_id = $2
+         ORDER BY m.created_at ASC`,
+        [id, req.tenant.id]
+      )
+    );
+
+    const messages = msgRes.rows.map((m: any) => ({
+      role: m.role === 'assistant' ? 'assistant' : 'user',
+      content: m.content || '',
+    }));
+
+    const theme = (req.query.theme || req.body?.theme || 'corporate') as any;
+    const includeCover = req.query.cover === 'true' || req.body?.includeCoverPage === true;
+    const docTitle = conv.title || 'Xarwiz AI Intelligence Session';
+
+    const { buffer, artifact } = await UniversalPdfEngine.generateDocumentPdf(
+      req.tenant.id,
+      {
+        title: docTitle,
+        messages,
+      },
+      {
+        filename: `xarwiz_conv_${id.slice(0, 8)}`,
+        theme,
+        includeCoverPage: includeCover,
+        includeHeaderFooter: true,
+        metadata: {
+          title: docTitle,
+          author: req.user.email || 'Xarwiz Enterprise User',
+          organization: req.tenant.name || 'Enterprise Workspace',
+          confidentiality: 'Confidential Session',
+          date: conv.created_at,
+        },
+      }
+    );
+
+    if (req.query.download === 'true' || req.headers.accept?.includes('application/pdf')) {
+      const safeFilename = docTitle.replace(/[^a-zA-Z0-9._-]/g, '_');
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', `attachment; filename="${safeFilename}.pdf"`);
+      res.setHeader('Content-Length', buffer.length.toString());
+      return res.send(buffer);
+    }
+
+    res.json({
+      success: true,
+      downloadUrl: `/api/pdf/download/${artifact.fileId}`,
+      artifact,
+    });
+  } catch (err: any) {
+    logger.error({ err }, 'Export conversation to PDF failed');
+    res.status(500).json({ error: err.message || 'Failed to export conversation as PDF' });
+  }
+};
+
+router.get('/conversations/:id/export/pdf', requireScopes('chat:read'), handleConversationPdfExport);
+router.post('/conversations/:id/export/pdf', requireScopes('chat:read'), handleConversationPdfExport);
+
+// =========================================================================
+// UNIVERSAL PDF EXPORT: MESSAGE (Single response / analysis export)
+// =========================================================================
+router.post('/messages/:id/export/pdf', requireScopes('chat:read'), async (req: any, res: Response) => {
+  const { id } = req.params;
+  const userId = req.user.userId;
+
+  if (!UUID_RE.test(id)) {
+    return res.status(404).json({ error: 'Message not found' });
+  }
+
+  try {
+    const msgRes = await executeTenantQuery(req.tenant.id, (client) =>
+      client.query(
+        `SELECT m.id, m.content, m.sender as role, m.created_at, c.title as conv_title
+         FROM messages m
+         JOIN conversations c ON c.id = m.conversation_id
+         WHERE m.id = $1 AND m.tenant_id = $2 AND c.user_id = $3`,
+        [id, req.tenant.id, userId]
+      )
+    );
+
+    if (msgRes.rows.length === 0) {
+      return res.status(404).json({ error: 'Message not found or access denied' });
+    }
+
+    const msg = msgRes.rows[0];
+    const { theme = 'corporate', includeCoverPage = false, title } = req.body || {};
+    const docTitle = title || msg.conv_title || 'Xarwiz Executive Analysis';
+
+    const { buffer, artifact } = await UniversalPdfEngine.generateDocumentPdf(
+      req.tenant.id,
+      msg.content,
+      {
+        filename: `xarwiz_msg_${id.slice(0, 8)}`,
+        defaultTitle: docTitle,
+        theme,
+        includeCoverPage: includeCoverPage === true,
+        includeHeaderFooter: true,
+        metadata: {
+          title: docTitle,
+          author: msg.role === 'assistant' ? 'Xarwiz Sovereign AI' : (req.user.email || 'User'),
+          organization: req.tenant.name || 'Enterprise Workspace',
+          confidentiality: 'Confidential Report',
+          date: msg.created_at,
+        },
+      }
+    );
+
+    if (req.query.download === 'true' || req.headers.accept?.includes('application/pdf')) {
+      const safeFilename = docTitle.replace(/[^a-zA-Z0-9._-]/g, '_');
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', `attachment; filename="${safeFilename}.pdf"`);
+      res.setHeader('Content-Length', buffer.length.toString());
+      return res.send(buffer);
+    }
+
+    res.json({
+      success: true,
+      downloadUrl: `/api/pdf/download/${artifact.fileId}`,
+      artifact,
+    });
+  } catch (err: any) {
+    logger.error({ err }, 'Export message to PDF failed');
+    res.status(500).json({ error: err.message || 'Failed to export message as PDF' });
   }
 });
 

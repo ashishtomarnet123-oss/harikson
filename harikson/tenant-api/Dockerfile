@@ -19,6 +19,7 @@ RUN apk add --no-cache curl
 COPY --from=builder /usr/src/app/dist ./dist
 COPY --from=builder /usr/src/app/src/migrations ./dist/migrations
 COPY --from=builder /usr/src/app/src/openapi.json ./dist/openapi.json
+COPY --from=builder /usr/src/app/assets ./assets
 
 EXPOSE 3008
 

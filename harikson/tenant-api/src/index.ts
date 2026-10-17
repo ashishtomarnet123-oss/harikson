@@ -44,6 +44,7 @@ import voiceRoutes from './routes/voice.routes.js';
 import shareRoutes from './routes/share.routes.js';
 import imageRoutes from './routes/image.routes.js';
 import privacyRoutes from './routes/privacy.routes.js';
+import pdfRoutes from './routes/pdf.routes.js';
 
 // Import existing API sub-routers
 import chatRouter from './routes/chat.js';
@@ -339,6 +340,10 @@ app.use('/api/v1/user/integrations', integrationsRoutes);
 // DPDP Act 2023: Privacy Notices, Consent Management & Data Principal Rights
 app.use('/api/privacy', privacyRoutes);
 app.use('/api/v1/privacy', privacyRoutes);
+
+// Universal PDF Generation Engine
+app.use('/api/pdf', pdfRoutes);
+app.use('/api/v1/pdf', pdfRoutes);
 
 // Share routes:
 //   /api/public/shares/:token  — unauthenticated public viewer endpoint

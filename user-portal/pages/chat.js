@@ -1394,6 +1394,9 @@ function ChatPage() {
   // Custom presets and export dropdown states
   const [customPresets, setCustomPresets] = useState([]);
   const [showExportMenu, setShowExportMenu] = useState(false);
+  const [exportingPdf, setExportingPdf] = useState(false);
+  const [exportingMsgIdx, setExportingMsgIdx] = useState(null);
+  const [downloadedMsgIdx, setDownloadedMsgIdx] = useState(null);
 
   const syncCustomPresets = useCallback(async () => {
     if (typeof window === 'undefined') return;
@@ -1458,34 +1461,118 @@ function ChatPage() {
     setShowExportMenu(false);
   };
 
-  const exportAsPDF = () => {
-    if (messages.length === 0) return;
-    const printWindow = window.open('', '_blank');
-    if (!printWindow) return;
-
-    const contentHtml = messages
-      .map(
-        (m) => `
-      <div style="margin-bottom: 24px; padding-bottom: 16px; border-bottom: 1px solid #eee; font-family: sans-serif;">
-        <div style="font-weight: bold; font-size: 11px; text-transform: uppercase; color: #4F8CFF; margin-bottom: 6px;">
-          ${m.sender === 'user' ? 'User' : `Assistant (${m.model || 'AI'})`}
-        </div>
-        <div style="font-size: 14px; line-height: 1.5; color: #333; white-space: pre-wrap;">${m.text}</div>
-      </div>
-    `
-      )
-      .join('');
-
-    printWindow.document.write(
-      '<html><head><title>Chat Transcript</title></head>' +
-        '<body style="max-width: 800px; margin: 40px auto; padding: 0 20px; font-family: sans-serif;">' +
-        '<h1 style="font-size: 24px; margin-bottom: 30px; text-align: center;">Xarwiz AI Chat Transcript</h1>' +
-        contentHtml +
-        '<script>window.onload = function() { window.print(); window.close(); }</script>' +
-        '</body></html>'
-    );
-    printWindow.document.close();
+  const exportAsPDF = async (theme = 'corporate', includeCover = true) => {
+    if (messages.length === 0 || exportingPdf) return;
+    setExportingPdf(true);
     setShowExportMenu(false);
+
+    try {
+      // 1. If we have a server-persisted conversation ID, call the dedicated session export endpoint
+      if (activeConvId && !activeConvId.startsWith('conv_')) {
+        const res = await fetch(
+          `${apiBase}/api/v1/chat/conversations/${activeConvId}/export/pdf?cover=${includeCover}&theme=${theme}&download=true`,
+          {
+            headers: authHeaders(),
+            credentials: 'include',
+          }
+        );
+        if (res.ok) {
+          const blob = await res.blob();
+          const url = window.URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          const safeTitle = (activeTitle || 'Xarwiz_Report').replace(/[^a-zA-Z0-9._-]/g, '_');
+          a.download = `${safeTitle}.pdf`;
+          document.body.appendChild(a);
+          a.click();
+          a.remove();
+          window.URL.revokeObjectURL(url);
+          return;
+        }
+      }
+
+      // 2. Direct render via /api/pdf/export
+      const chatMessages = messages.map((m) => ({
+        role: m.sender === 'user' ? 'user' : 'assistant',
+        content: m.text || '',
+      }));
+
+      const res = await fetch(`${apiBase}/api/pdf/export`, {
+        method: 'POST',
+        headers: authHeaders(),
+        credentials: 'include',
+        body: JSON.stringify({
+          messages: chatMessages,
+          title: activeTitle || 'Xarwiz AI Intelligence Session',
+          filename: (activeTitle || 'xarwiz_chat').replace(/[^a-zA-Z0-9._-]/g, '_'),
+          options: {
+            theme,
+            includeCoverPage: includeCover,
+            includeHeaderFooter: true,
+          },
+        }),
+      });
+
+      if (!res.ok) throw new Error('Failed to export PDF');
+
+      const blob = await res.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${(activeTitle || 'xarwiz_chat').replace(/[^a-zA-Z0-9._-]/g, '_')}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error('PDF Export failed:', err);
+      alert('Failed to generate PDF. Please try again.');
+    } finally {
+      setExportingPdf(false);
+    }
+  };
+
+  const exportMessageAsPDF = async (msgText, idx) => {
+    if (!msgText || exportingMsgIdx !== null) return;
+    setExportingMsgIdx(idx);
+
+    try {
+      const res = await fetch(`${apiBase}/api/pdf/export`, {
+        method: 'POST',
+        headers: authHeaders(),
+        credentials: 'include',
+        body: JSON.stringify({
+          markdown: msgText,
+          title: activeTitle || 'Xarwiz AI Analysis',
+          filename: `xarwiz_analysis_${idx + 1}`,
+          options: {
+            theme: 'corporate',
+            includeCoverPage: msgText.length > 2500,
+            includeHeaderFooter: true,
+          },
+        }),
+      });
+
+      if (!res.ok) throw new Error('Failed to export message as PDF');
+
+      const blob = await res.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `xarwiz_analysis_${idx + 1}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+
+      setDownloadedMsgIdx(idx);
+      setTimeout(() => setDownloadedMsgIdx(null), 2500);
+    } catch (err) {
+      console.error('Message PDF export failed:', err);
+      alert('Failed to export message as PDF.');
+    } finally {
+      setExportingMsgIdx(null);
+    }
   };
 
   useEffect(() => {
@@ -3604,6 +3691,25 @@ CRITICAL RULES:
                     {showExportMenu && (
                       <div className="header-dropdown-menu">
                         <button
+                          disabled={exportingPdf}
+                          onClick={() => exportAsPDF('corporate', true)}
+                        >
+                          {exportingPdf ? (
+                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                              <Loader2 size={13} className="animate-spin" />
+                              Generating PDF...
+                            </span>
+                          ) : (
+                            'Export as PDF (Executive Report)'
+                          )}
+                        </button>
+                        <button
+                          disabled={exportingPdf}
+                          onClick={() => exportAsPDF('minimal', false)}
+                        >
+                          Export as PDF (Minimal)
+                        </button>
+                        <button
                           onClick={() => {
                             exportAsMarkdown();
                             setShowExportMenu(false);
@@ -3618,14 +3724,6 @@ CRITICAL RULES:
                           }}
                         >
                           JSON (.json)
-                        </button>
-                        <button
-                          onClick={() => {
-                            exportAsPDF();
-                            setShowExportMenu(false);
-                          }}
-                        >
-                          Print PDF
                         </button>
                       </div>
                     )}
@@ -3942,6 +4040,23 @@ CRITICAL RULES:
                                 aria-label="Poor response"
                               >
                                 <ThumbsDown size={14} />
+                              </button>
+                              <button
+                                type="button"
+                                className="msg-action-btn"
+                                onClick={() => exportMessageAsPDF(msg.text, idx)}
+                                title={downloadedMsgIdx === idx ? 'PDF Downloaded!' : 'Export message as PDF'}
+                                aria-label="Export message as PDF"
+                                disabled={exportingMsgIdx === idx}
+                              >
+                                {exportingMsgIdx === idx ? (
+                                  <Loader2 size={14} className="animate-spin" />
+                                ) : downloadedMsgIdx === idx ? (
+                                  <Check size={14} className="copied-icon" />
+                                ) : (
+                                  <Download size={14} />
+                                )}
+                                {downloadedMsgIdx === idx && <span className="action-tooltip">PDF Downloaded</span>}
                               </button>
                               <span className="msg-model-badge">
                                 {maskModelName(model)}
