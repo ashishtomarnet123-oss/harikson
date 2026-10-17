@@ -5,6 +5,7 @@ export type DocumentThemeName =
   | 'minimal'
   | 'technical'
   | 'academic'
+  | 'editorial'
   | 'branded'
   | 'xarwiz';
 
@@ -109,6 +110,80 @@ export interface ImageBlock {
   align?: 'left' | 'center' | 'right';
 }
 
+export interface KpiItem {
+  label: string;
+  value: string;
+  change?: string;
+  trend?: 'up' | 'down' | 'neutral';
+  caption?: string;
+  color?: string;
+}
+
+export interface KpiBlock {
+  type: 'kpi';
+  title?: string;
+  items: KpiItem[];
+}
+
+export interface ChartItem {
+  label: string;
+  value: number;
+  formattedValue?: string;
+  color?: string;
+}
+
+export interface ChartBlock {
+  type: 'chart';
+  chartType: 'bar' | 'donut' | 'line' | 'progress';
+  title?: string;
+  subtitle?: string;
+  labels: string[];
+  values: number[];
+  unit?: string;
+  colors?: string[];
+  items?: ChartItem[];
+}
+
+export interface TimelineItem {
+  phase: string;
+  title?: string;
+  date?: string;
+  status?: 'Completed' | 'In Progress' | 'Planned' | string;
+  description?: string;
+}
+
+export interface TimelineBlock {
+  type: 'timeline';
+  title?: string;
+  items: TimelineItem[];
+}
+
+export interface DiagramStep {
+  step: number;
+  title: string;
+  description?: string;
+}
+
+export interface DiagramBlock {
+  type: 'diagram';
+  title?: string;
+  steps: DiagramStep[];
+  direction?: 'horizontal' | 'vertical';
+}
+
+export interface ComparisonColumn {
+  title: string;
+  badge?: string;
+  isPrimary?: boolean;
+  points: string[];
+}
+
+export interface ComparisonBlock {
+  type: 'comparison';
+  title?: string;
+  columns: ComparisonColumn[];
+}
+
 export type DocumentBlock =
   | HeadingBlock
   | ParagraphBlock
@@ -119,7 +194,12 @@ export type DocumentBlock =
   | KeyValueBlock
   | DividerBlock
   | PageBreakBlock
-  | ImageBlock;
+  | ImageBlock
+  | KpiBlock
+  | ChartBlock
+  | TimelineBlock
+  | DiagramBlock
+  | ComparisonBlock;
 
 export interface DocumentModel {
   title: string;

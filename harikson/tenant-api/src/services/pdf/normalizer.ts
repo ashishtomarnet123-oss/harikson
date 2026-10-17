@@ -11,6 +11,15 @@ import {
   PageBreakBlock,
   DocumentMetadata,
   CalloutType,
+  KpiBlock,
+  KpiItem,
+  ChartBlock,
+  ChartItem,
+  TimelineBlock,
+  TimelineItem,
+  DiagramBlock,
+  DiagramStep,
+  ComparisonBlock,
 } from './types.js';
 
 export class ContentNormalizer {
@@ -105,6 +114,7 @@ export class ContentNormalizer {
       ? options.defaultTitle
       : '';
     let detectedSubtitle = '';
+    let lastHeadingText = '';
 
     let i = 0;
     while (i < lines.length) {
@@ -148,10 +158,51 @@ export class ContentNormalizer {
         if (i < lines.length && lines[i].trim().startsWith('```')) {
           i++; // Skip closing ```
         }
+
+        const rawCode = codeLines.join('\n');
+        const langLower = (lang || '').toLowerCase();
+
+        if (langLower === 'kpi' || langLower === 'metrics') {
+          const kpi = this.parseKpiCodeBlock(rawCode);
+          if (kpi) {
+            blocks.push(kpi);
+            continue;
+          }
+        } else if (langLower === 'chart') {
+          const chart = this.parseChartCodeBlock(rawCode);
+          if (chart) {
+            blocks.push(chart);
+            continue;
+          }
+        } else if (langLower === 'timeline' || langLower === 'roadmap') {
+          const timeline = this.parseTimelineCodeBlock(rawCode);
+          if (timeline) {
+            blocks.push(timeline);
+            continue;
+          }
+        } else if (
+          langLower === 'diagram' ||
+          langLower === 'process' ||
+          langLower === 'flowchart' ||
+          langLower === 'pipeline'
+        ) {
+          const diagram = this.parseDiagramCodeBlock(rawCode);
+          if (diagram) {
+            blocks.push(diagram);
+            continue;
+          }
+        } else if (langLower === 'comparison') {
+          const comparison = this.parseComparisonCodeBlock(rawCode);
+          if (comparison) {
+            blocks.push(comparison);
+            continue;
+          }
+        }
+
         blocks.push({
           type: 'code',
           language: lang || undefined,
-          code: codeLines.join('\n'),
+          code: rawCode,
         });
         continue;
       }
@@ -161,6 +212,7 @@ export class ContentNormalizer {
       if (headingMatch) {
         const level = headingMatch[1].length as 1 | 2 | 3 | 4 | 5 | 6;
         const text = this.cleanInlineMarkdown(headingMatch[2].trim());
+        lastHeadingText = text;
 
         if (level === 1 && (!detectedTitle || this.isGenericOrPromptTitle(detectedTitle))) {
           detectedTitle = text;
@@ -272,6 +324,29 @@ export class ContentNormalizer {
         }
 
         if (listItems.length > 0) {
+          const isPlainRequested = (options.theme === 'minimal') || (options.defaultTitle && /plain/i.test(options.defaultTitle));
+          if (!isPlainRequested && lastHeadingText) {
+            if (/(?:timeline|roadmap|milestone|schedule|implementation\s+plan)/i.test(lastHeadingText)) {
+              const elevated = this.tryElevateListToTimeline(listItems);
+              if (elevated) {
+                blocks.push(elevated);
+                continue;
+              }
+            } else if (/(?:key\s+performance\s+indicators|kpi|executive\s+metrics|performance\s+highlights)/i.test(lastHeadingText)) {
+              const elevated = this.tryElevateListToKpi(listItems);
+              if (elevated) {
+                blocks.push(elevated);
+                continue;
+              }
+            } else if (isOrdered && /(?:workflow|pipeline|process\s+flow|architecture\s+flow)/i.test(lastHeadingText)) {
+              const elevated = this.tryElevateListToDiagram(listItems);
+              if (elevated) {
+                blocks.push(elevated);
+                continue;
+              }
+            }
+          }
+
           blocks.push({
             type: 'list',
             ordered: isOrdered,
@@ -585,5 +660,297 @@ export class ContentNormalizer {
       .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
       .replace(/<iframe\b[^<]*(?:(?!<\/iframe>)<[^<]*)*<\/iframe>/gi, '')
       .replace(/javascript:[^\s"']+/gi, '#');
+  }
+
+  /**
+   * Parse structured ```kpi fenced block
+   */
+  private static parseKpiCodeBlock(code: string): KpiBlock | null {
+    const trimmed = code.trim();
+    if (trimmed.startsWith('[') || trimmed.startsWith('{')) {
+      try {
+        const parsed = JSON.parse(trimmed);
+        if (Array.isArray(parsed)) {
+          return { type: 'kpi', items: parsed };
+        }
+        if (parsed.items && Array.isArray(parsed.items)) {
+          return { type: 'kpi', title: parsed.title, items: parsed.items };
+        }
+      } catch {
+        // Fall back to line-based parsing
+      }
+    }
+
+    const lines = trimmed.split(/\r?\n/).filter((l) => l.trim().length > 0);
+    const items: KpiItem[] = [];
+
+    for (const l of lines) {
+      if (l.includes('|')) {
+        const parts = l.split('|').map((s) => s.trim());
+        if (parts.length >= 2) {
+          const value = parts[0];
+          const label = parts[1];
+          const trend = parts[2] === 'up' || parts[2] === 'down' || parts[2] === 'neutral' ? (parts[2] as any) : undefined;
+          const change = parts[3] || (parts[2] && !['up', 'down', 'neutral'].includes(parts[2]) ? parts[2] : undefined);
+          items.push({ value, label, trend, change });
+        }
+      } else {
+        const match = l.match(/^([^:]+):\s*(.+)$/);
+        if (match) {
+          items.push({ label: match[1].trim(), value: match[2].trim() });
+        }
+      }
+    }
+
+    return items.length > 0 ? { type: 'kpi', items } : null;
+  }
+
+  /**
+   * Parse structured ```chart fenced block
+   */
+  private static parseChartCodeBlock(code: string): ChartBlock | null {
+    const trimmed = code.trim();
+    if (trimmed.startsWith('{')) {
+      try {
+        const p = JSON.parse(trimmed);
+        return {
+          type: 'chart',
+          chartType: p.chartType || p.type || 'bar',
+          title: p.title,
+          subtitle: p.subtitle,
+          labels: p.labels || (p.items ? p.items.map((it: any) => it.label) : []),
+          values: p.values || (p.items ? p.items.map((it: any) => it.value) : []),
+          items: p.items,
+          unit: p.unit,
+          colors: p.colors,
+        };
+      } catch {
+        // Fall back to line parsing
+      }
+    }
+
+    const lines = trimmed.split(/\r?\n/).filter((l) => l.trim().length > 0);
+    let chartType: 'bar' | 'donut' | 'progress' = 'bar';
+    let title: string | undefined = undefined;
+    const items: ChartItem[] = [];
+
+    for (const l of lines) {
+      const match = l.match(/^([^:]+):\s*(.+)$/);
+      if (match) {
+        const key = match[1].trim().toLowerCase();
+        const val = match[2].trim();
+        if (key === 'type' || key === 'charttype') {
+          if (['bar', 'donut', 'progress'].includes(val.toLowerCase())) {
+            chartType = val.toLowerCase() as any;
+          }
+        } else if (key === 'title') {
+          title = val;
+        } else {
+          const num = parseFloat(val.replace(/[^0-9.-]/g, ''));
+          if (!isNaN(num)) {
+            items.push({ label: match[1].trim(), value: num, formattedValue: val });
+          }
+        }
+      }
+    }
+
+    return items.length > 0
+      ? {
+          type: 'chart',
+          chartType,
+          title,
+          labels: items.map((it) => it.label),
+          values: items.map((it) => it.value),
+          items,
+        }
+      : null;
+  }
+
+  /**
+   * Parse structured ```timeline fenced block
+   */
+  private static parseTimelineCodeBlock(code: string): TimelineBlock | null {
+    const trimmed = code.trim();
+    if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
+      try {
+        const p = JSON.parse(trimmed);
+        if (Array.isArray(p)) return { type: 'timeline', items: p };
+        if (p.items) return { type: 'timeline', title: p.title, items: p.items };
+      } catch {}
+    }
+
+    const lines = trimmed.split(/\r?\n/).filter((l) => l.trim().length > 0);
+    const items: TimelineItem[] = [];
+
+    for (const l of lines) {
+      if (l.includes('|')) {
+        const parts = l.split('|').map((s) => s.trim());
+        if (parts.length >= 2) {
+          items.push({
+            phase: parts[0],
+            date: parts[0],
+            title: parts[1],
+            description: parts[2],
+            status: parts[3],
+          });
+        }
+      } else {
+        const match = l.match(/^([^—:-]+)[—:-]\s*(.+)$/);
+        if (match) {
+          items.push({
+            phase: match[1].trim(),
+            date: match[1].trim(),
+            title: match[2].trim(),
+          });
+        }
+      }
+    }
+
+    return items.length > 0 ? { type: 'timeline', items } : null;
+  }
+
+  /**
+   * Parse structured ```diagram fenced block
+   */
+  private static parseDiagramCodeBlock(code: string): DiagramBlock | null {
+    const trimmed = code.trim();
+    if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
+      try {
+        const p = JSON.parse(trimmed);
+        if (Array.isArray(p)) return { type: 'diagram', steps: p };
+        if (p.steps) return { type: 'diagram', title: p.title, steps: p.steps, direction: p.direction };
+      } catch {}
+    }
+
+    const lines = trimmed.split(/\r?\n/).filter((l) => l.trim().length > 0);
+    const steps: DiagramStep[] = [];
+    let stepNum = 1;
+
+    for (const l of lines) {
+      const match = l.match(/^(?:\d+[\.\)]|\-)\s*([^:➔>\-]+)(?:[:➔>\-]\s*(.+))?$/);
+      if (match) {
+        steps.push({
+          step: stepNum++,
+          title: match[1].trim(),
+          description: match[2] ? match[2].trim() : undefined,
+        });
+      }
+    }
+
+    return steps.length > 0 ? { type: 'diagram', steps } : null;
+  }
+
+  /**
+   * Parse structured ```comparison fenced block
+   */
+  private static parseComparisonCodeBlock(code: string): ComparisonBlock | null {
+    const trimmed = code.trim();
+    if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
+      try {
+        const p = JSON.parse(trimmed);
+        if (Array.isArray(p)) return { type: 'comparison', columns: p };
+        if (p.columns) return { type: 'comparison', title: p.title, columns: p.columns };
+      } catch {}
+    }
+    return null;
+  }
+
+  /**
+   * Natural Markdown elevation: turn roadmap/timeline lists into TimelineBlock
+   */
+  private static tryElevateListToTimeline(items: Array<{ text: string }>): TimelineBlock | null {
+    if (items.length < 2) return null;
+    const timelineItems: TimelineItem[] = [];
+
+    for (const item of items) {
+      const match = item.text.match(/^(?:\*\*)?([^:—]+?)(?:\*\*)?[:—]\s*(.*)$/);
+      if (match) {
+        const rawDate = match[1].trim();
+        let rawDesc = match[2].trim();
+        let status: string | undefined = undefined;
+
+        const statusMatch = rawDesc.match(/\[(Completed|In Progress|Planned|Done|Active)\]/i);
+        if (statusMatch) {
+          status = statusMatch[1];
+          rawDesc = rawDesc.replace(statusMatch[0], '').trim();
+        }
+
+        const parts = rawDesc.split(/[:\.]\s+/);
+        const title = parts[0];
+        const description = parts.length > 1 ? parts.slice(1).join('. ') : undefined;
+
+        timelineItems.push({
+          phase: rawDate,
+          date: rawDate,
+          title,
+          description,
+          status,
+        });
+      }
+    }
+
+    if (timelineItems.length >= Math.ceil(items.length * 0.7)) {
+      return { type: 'timeline', items: timelineItems };
+    }
+    return null;
+  }
+
+  /**
+   * Natural Markdown elevation: turn metric bullets into KpiBlock
+   */
+  private static tryElevateListToKpi(items: Array<{ text: string }>): KpiBlock | null {
+    if (items.length < 2 || items.length > 4) return null;
+    const kpiItems: KpiItem[] = [];
+
+    for (const item of items) {
+      const match = item.text.match(/^(?:\*\*)?([^*:]+?)(?:\*\*)?:\s*([0-9₹$€£%.,+-]+[^\(\n]*)(?:\s*\(([^)]+)\))?/);
+      if (match) {
+        const label = match[1].trim();
+        const value = match[2].trim();
+        const changeRaw = match[3] ? match[3].trim() : undefined;
+        let trend: 'up' | 'down' | 'neutral' | undefined = undefined;
+        if (changeRaw) {
+          if (changeRaw.includes('+') || /up|growth|exceeded/i.test(changeRaw)) trend = 'up';
+          else if (changeRaw.includes('-') || /down|drop|reduced/i.test(changeRaw)) trend = 'down';
+          else trend = 'neutral';
+        }
+        kpiItems.push({ label, value, change: changeRaw, trend });
+      }
+    }
+
+    if (kpiItems.length === items.length && kpiItems.length >= 2) {
+      return { type: 'kpi', items: kpiItems };
+    }
+    return null;
+  }
+
+  /**
+   * Natural Markdown elevation: turn numbered workflow into DiagramBlock
+   */
+  private static tryElevateListToDiagram(items: Array<{ text: string }>): DiagramBlock | null {
+    if (items.length < 2 || items.length > 5) return null;
+    const steps: DiagramStep[] = [];
+
+    for (let idx = 0; idx < items.length; idx++) {
+      const text = items[idx].text;
+      const match = text.match(/^(?:\*\*([^*]+)\*\*|([^:—-]+))[:\s—-]+(.*)$/);
+      if (match) {
+        const title = (match[1] || match[2]).trim();
+        const description = match[3] ? match[3].trim() : undefined;
+        steps.push({
+          step: idx + 1,
+          title,
+          description,
+        });
+      } else {
+        steps.push({
+          step: idx + 1,
+          title: text.slice(0, 30),
+          description: text.length > 30 ? text.slice(30) : undefined,
+        });
+      }
+    }
+
+    return steps.length >= 2 ? { type: 'diagram', steps, direction: 'horizontal' } : null;
   }
 }

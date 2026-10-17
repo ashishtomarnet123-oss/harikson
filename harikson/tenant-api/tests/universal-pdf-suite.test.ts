@@ -298,6 +298,196 @@ You can copy and paste this markdown content into a markdown editor or document,
   assert(renderedClean.buffer.length > 5000, `Rendered cleaned PDF buffer: ${renderedClean.buffer.length} bytes`);
   assert(renderedClean.pageCount >= 2, `Rendered clean doc page count: ${renderedClean.pageCount}`);
 
+  // ----------------------------------------------------
+  // TEST 12: Creative Document Design & Visual Graphics (Sections 25-36)
+  // ----------------------------------------------------
+  console.log('\nTest 12: Creative Document Design, Vector Graphics & Visual Visualizations');
+
+  // 12a. Marketing Strategy with KPI Metric Cards & Phased Timeline
+  const marketingMd = `# Omnichannel Enterprise Growth & Marketing Blueprint
+## Executive Summary
+This strategic roadmap defines market positioning, budget allocation, and multi-channel acquisition tactics.
+
+## Key Performance Indicators
+\`\`\`kpi
+98.5% | Customer Retention | up | +4.2% YoY
+₹14.8 Cr | Quarterly Revenue | up | +28% MoM
+4.8 / 5 | NPS Satisfaction | neutral | Top Tier
+< 24 hrs | Campaign Turnaround | down | -6 hrs
+\`\`\`
+
+## Implementation Roadmap
+* **Phase 1 (Q1 2026)**: Market Research, Customer Discovery & ICP Refinement [Completed]
+* **Phase 2 (Q2 2026)**: Production of Omnichannel Creative Collateral & Pilot Campaigns [In Progress]
+* **Phase 3 (Q3 2026)**: Full Pan-India Digital & Direct Enterprise Rollout [Planned]
+* **Phase 4 (Q4 2026)**: Performance Attribution Audit & Retention Optimization [Planned]
+`;
+
+  const mktDoc = ContentNormalizer.fromMarkdown(marketingMd, { theme: 'corporate' });
+  const kpiBlock = mktDoc.blocks.find(b => b.type === 'kpi') as any;
+  assert(kpiBlock !== undefined, 'KPI block parsed from markdown');
+  assert(kpiBlock.items.length === 4, 'All 4 KPI metric cards extracted');
+  assert(kpiBlock.items[0].value === '98.5%', 'KPI value parsed: 98.5%');
+  assert(kpiBlock.items[0].trend === 'up', 'KPI trend recognized: up');
+
+  const timelineBlock = mktDoc.blocks.find(b => b.type === 'timeline') as any;
+  assert(timelineBlock !== undefined, 'Elevated roadmap list into vector timeline block');
+  assert(timelineBlock.items.length === 4, 'Timeline contains all 4 implementation phases');
+  assert(timelineBlock.items[0].status === 'Completed', 'Extracted milestone status: Completed');
+
+  const mktRender = await UniversalPdfEngine.renderDirect(marketingMd, {
+    theme: 'corporate',
+    includeCoverPage: false,
+    includeHeaderFooter: true,
+  });
+  assert(mktRender.buffer.length > 15000, `Rendered marketing PDF with vector KPI & Timeline: ${mktRender.buffer.length} bytes`);
+  const mktVal = await PdfValidator.validateBuffer(mktRender.buffer);
+  assert(mktVal.isValid, 'Marketing PDF passed deep PDF validation');
+
+  // 12b. Financial Report with Vector Bar Chart and Donut Chart
+  const financialMd = `# Q1 Enterprise Financial Performance & Capital Allocation
+## Revenue by Business Line
+\`\`\`chart
+{
+  "chartType": "bar",
+  "title": "Quarterly Revenue Breakdown (in Lakhs)",
+  "labels": ["Sovereign AI Compute", "Enterprise Cloud", "Managed Security", "Consulting"],
+  "values": [420, 280, 190, 110],
+  "unit": "Lakhs"
+}
+\`\`\`
+
+## Capital Allocation Distribution
+\`\`\`chart
+{
+  "chartType": "donut",
+  "title": "Operating Expenditure Distribution",
+  "labels": ["R&D & Engineering", "Infrastructure & GPUs", "Enterprise Sales", "G&A"],
+  "values": [45, 30, 15, 10]
+}
+\`\`\`
+`;
+
+  const finDoc = ContentNormalizer.fromMarkdown(financialMd, { theme: 'executive' });
+  const chartBlocks = finDoc.blocks.filter(b => b.type === 'chart') as any[];
+  assert(chartBlocks.length === 2, 'Parsed both Bar and Donut chart blocks');
+  assert(chartBlocks[0].chartType === 'bar', 'First chart is Bar chart');
+  assert(chartBlocks[1].chartType === 'donut', 'Second chart is Donut chart');
+
+  const finRender = await UniversalPdfEngine.renderDirect(financialMd, {
+    theme: 'executive',
+    includeCoverPage: true,
+    includeHeaderFooter: true,
+  });
+  assert(finRender.buffer.length > 20000, `Rendered financial PDF with native vector charts: ${finRender.buffer.length} bytes`);
+  assert(finRender.pageCount >= 2, `Financial report with cover page rendered ${finRender.pageCount} pages`);
+  const finVal = await PdfValidator.validateBuffer(finRender.buffer);
+  assert(finVal.isValid, 'Financial PDF passed deep structural validation');
+
+  // 12c. Technical Architecture Diagram & Multi-Column Comparison
+  const techMd = `# Zero-Trust Cloud Architecture & Security Audit
+## Severity & Remediation Matrix
+| ID | Vulnerability | Severity | CVSS | Remediation Status |
+| :--- | :--- | :---: | :---: | :--- |
+| SEC-01 | TLS 1.2 Deprecation | Low | 3.1 | Patched |
+| SEC-02 | Key Rotation Interval | Medium | 5.4 | In Progress |
+
+## Security Pipeline Architecture
+\`\`\`diagram
+1. Vulnerability Ingestion: Automated daily SAST/DAST scanner runs across clusters
+2. Triage & Quarantine: Automated isolation of non-compliant container pods
+3. Canary Verification: Automated deployment to staging sandbox with synthetic traffic
+4. Production Promotion: Zero-downtime rolling update across all sovereign regions
+\`\`\`
+
+## Architecture Deployment Comparison
+\`\`\`comparison
+{
+  "title": "Deployment Options Comparison",
+  "columns": [
+    {
+      "title": "Public Multi-Tenant",
+      "isPrimary": false,
+      "points": ["Shared compute nodes", "Multi-tenant database", "Standard public ingress"]
+    },
+    {
+      "title": "Sovereign Dedicated",
+      "isPrimary": true,
+      "badge": "RECOMMENDED",
+      "points": ["Air-gapped on-premise compute", "Dedicated HSM keys", "100% DPDP 2023 compliant"]
+    }
+  ]
+}
+\`\`\`
+`;
+
+  const techDoc = ContentNormalizer.fromMarkdown(techMd, { theme: 'technical' });
+  const diagramBlock = techDoc.blocks.find(b => b.type === 'diagram') as any;
+  assert(diagramBlock !== undefined, 'Parsed diagram block');
+  assert(diagramBlock.steps.length === 4, 'Diagram has 4 sequential steps');
+
+  const compBlock = techDoc.blocks.find(b => b.type === 'comparison') as any;
+  assert(compBlock !== undefined, 'Parsed comparison block');
+  assert(compBlock.columns.length === 2, 'Comparison has 2 columns');
+  assert(compBlock.columns[1].isPrimary === true, 'Second column marked as primary recommendation');
+
+  const techRender = await UniversalPdfEngine.renderDirect(techMd, { theme: 'technical' });
+  assert(techRender.buffer.length > 18000, `Rendered technical audit PDF: ${techRender.buffer.length} bytes`);
+  const techVal = await PdfValidator.validateBuffer(techRender.buffer);
+  assert(techVal.isValid, 'Technical audit PDF passed validation');
+
+  // 12d. Editorial Theme & Table of Contents Rendering
+  const editorialMd = `# Modern AI Governance & Legal Frameworks
+## 1. Regulatory Context
+The Digital Personal Data Protection Act establishes stringent sovereign residency rules.
+
+## 2. Institutional Compliance
+Organizations must implement automated auditing and verifiable consent trails.
+
+## 3. Implementation Recommendations
+Deploying on-premise models eliminates foreign cross-border data egress risks.
+`;
+
+  const editRender = await UniversalPdfEngine.renderDirect(editorialMd, {
+    theme: 'editorial',
+    includeCoverPage: true,
+    includeTableOfContents: true,
+    includeHeaderFooter: true,
+  });
+  assert(editRender.buffer.length > 20000, `Rendered editorial theme with TOC: ${editRender.buffer.length} bytes`);
+  assert(editRender.pageCount >= 2, `Editorial document page count: ${editRender.pageCount}`);
+
+  // ----------------------------------------------------
+  // TEST 13: Accuracy, Data Integrity & Negative Tests (Section 32 & 37)
+  // ----------------------------------------------------
+  console.log('\nTest 13: Accuracy, Source Integrity & Negative Testing');
+
+  // 13a. Document with NO numerical data must NOT fabricate charts
+  const noDataMd = `# Philosophical Analysis of Autonomy
+The concept of autonomous decision-making in multi-agent architectures raises fundamental epistemological questions.
+Agency is defined by intentionality and state preservation across asynchronous message boundaries.
+`;
+  const noDataDoc = ContentNormalizer.fromMarkdown(noDataMd);
+  const fabricatedCharts = noDataDoc.blocks.filter(b => b.type === 'chart');
+  assert(fabricatedCharts.length === 0, 'No charts fabricated when source contains no numerical data');
+
+  // 13b. Plain text export request does NOT receive unnecessary graphics
+  const plainMd = `# Simple Notes
+- Task 1: Review deployment
+- Task 2: Update documentation
+`;
+  const plainDoc = ContentNormalizer.fromMarkdown(plainMd, {
+    defaultTitle: 'Plain Notes',
+    theme: 'minimal',
+  });
+  const plainVisuals = plainDoc.blocks.filter(b => ['chart', 'kpi', 'diagram', 'comparison'].includes(b.type));
+  assert(plainVisuals.length === 0, 'Plain request received no forced graphics (preserved simple lists)');
+
+  // 13c. Intent detection for editorial theme
+  const editorialIntent = PdfOrchestrator.detectPdfIntent('Create an editorial article for our magazine in PDF', false);
+  assert(editorialIntent.isPdfIntent, 'Recognized editorial PDF intent');
+  assert(editorialIntent.theme === 'editorial', 'Detected editorial theme');
+
   console.log('\n====================================================');
   console.log(`🎉 ALL ${passedTests}/${totalTests} TESTS PASSED SUCCESSFULLY!`);
   console.log('====================================================\n');
@@ -308,3 +498,4 @@ runTestSuite().catch(err => {
   console.error('\n❌ Test suite failed with error:', err);
   process.exit(1);
 });
+

@@ -105,6 +105,9 @@ export class PdfOrchestrator {
    * Determine document design theme from user request
    */
   public static extractTheme(promptLower: string): DocumentThemeName {
+    if (/\b(?:editorial|magazine|journalism|article|story|publishing|press|narrative)\b/.test(promptLower)) {
+      return 'editorial';
+    }
     if (/\b(?:executive|board|investor|pitch|c-level|director|leadership)\b/.test(promptLower)) {
       return 'executive';
     }
@@ -173,7 +176,12 @@ MANDATORY RULES:
 1. Start IMMEDIATELY with the top-level Title using markdown: # [Document Title].
 2. Include an **Executive Summary** providing a high-level briefing.
 3. Structure core content using standard ## Section and ### Subsection headings.
-4. Use detailed analytical paragraphs, bold numbered points (**1. Item Title**: explanation), bullet lists, and comparison Markdown tables where structured data is presented.
+4. Use rich data presentation:
+   - For Key Metrics / Highlights, list 2-4 bullet items under a KPI heading (e.g. **Metric**: Value) or use a \`\`\`kpi block.
+   - For Implementation Roadmaps / Milestones, use bold phased lists (e.g. **Phase 1 (Q1)**: Goal...) or a \`\`\`timeline block.
+   - For structured data comparisons, use GFM Markdown tables with clear column alignments.
+   - For verified numerical data, you may provide a \`\`\`chart block (bar, donut, progress) with actual supplied values. NEVER invent fake financial or revenue metrics.
+   - For pipelines or workflows, use numbered steps (1. Step: description...) or a \`\`\`diagram block.
 5. Provide actionable conclusions, recommendations, or implementation milestones.
 6. Support English, Hindi, or mixed multi-lingual text where requested.
 7. ABSOLUTE PROHIBITION ON AI APOLOGIES OR CONVERSION ADVICE:

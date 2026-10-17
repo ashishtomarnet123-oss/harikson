@@ -319,6 +319,59 @@ export const PDF_THEMES: Record<DocumentThemeName, PdfThemeTokens> = {
     },
   },
 
+  editorial: {
+    name: 'editorial',
+    colors: {
+      primary: '#1C1917',       // Stone 900
+      secondary: '#44403C',     // Stone 700
+      accent: '#BE123C',        // Rich Crimson
+      text: '#292524',          // Stone 800
+      textMuted: '#78716C',     // Stone 500
+      background: '#FFFFFF',
+      cardBackground: '#FAFAF9',// Stone 50
+      border: '#E7E5E4',        // Stone 200
+      tableHeaderBg: '#1C1917',
+      tableHeaderText: '#FFFFFF',
+      tableAltRowBg: '#FAFAF9',
+      codeBg: '#1C1917',
+      codeText: '#FDA4AF',
+      calloutRibbon: {
+        info: '#BE123C',
+        warning: '#D97706',
+        tip: '#059669',
+        note: '#78716C',
+        quote: '#BE123C',
+        success: '#16A34A',
+      },
+      calloutBg: {
+        info: '#FFF1F2',
+        warning: '#FFFBEB',
+        tip: '#ECFDF5',
+        note: '#F5F5F4',
+        quote: '#FFF1F2',
+        success: '#F0FDF4',
+      },
+    },
+    typography: {
+      baseFontSize: 10,
+      titleSize: 27,
+      subtitleSize: 13,
+      h1Size: 18.5,
+      h2Size: 14,
+      h3Size: 12,
+      h4Size: 10.5,
+      bodySize: 10,
+      captionSize: 8.5,
+      lineHeight: 1.52,
+    },
+    margins: {
+      top: 56,
+      bottom: 56,
+      left: 56,
+      right: 56,
+    },
+  },
+
   // Aliases for seamless user intent mapping
   get professional() {
     return this.corporate;

@@ -14,6 +14,12 @@ import {
   DividerBlock,
   PageBreakBlock,
   ImageBlock,
+  KpiBlock,
+  ChartBlock,
+  ChartItem,
+  TimelineBlock,
+  DiagramBlock,
+  ComparisonBlock,
 } from './types.js';
 import { getTheme } from './themes.js';
 import logger from '../../utils/logger.js';
@@ -140,6 +146,14 @@ export class PdfRenderer {
       this.renderHeaderTitle(doc, docModel, theme, contentWidth);
     }
 
+    // 2b. Optional Table of Contents
+    if (docModel.includeTableOfContents) {
+      this.renderTableOfContents(doc, docModel, theme, contentWidth, bottomLimit);
+      if (docModel.includeCoverPage) {
+        doc.addPage();
+      }
+    }
+
     // 3. Render Each Content Block
     for (let bIdx = 0; bIdx < docModel.blocks.length; bIdx++) {
       const block = docModel.blocks[bIdx];
@@ -183,6 +197,26 @@ export class PdfRenderer {
 
         case 'image':
           this.renderImage(doc, block, theme, contentWidth, bottomLimit);
+          break;
+
+        case 'kpi':
+          this.renderKpi(doc, block, theme, contentWidth, bottomLimit);
+          break;
+
+        case 'chart':
+          this.renderChart(doc, block, theme, contentWidth, bottomLimit);
+          break;
+
+        case 'timeline':
+          this.renderTimeline(doc, block, theme, contentWidth, bottomLimit);
+          break;
+
+        case 'diagram':
+          this.renderDiagram(doc, block, theme, contentWidth, bottomLimit);
+          break;
+
+        case 'comparison':
+          this.renderComparison(doc, block, theme, contentWidth, bottomLimit);
           break;
       }
     }
@@ -822,6 +856,801 @@ export class PdfRenderer {
     } catch (err) {
       logger.warn({ err }, 'Failed to render image in PDF');
     }
+  }
+
+  /**
+   * Render KPI Metric Cards (2 to 4 responsive columns with colored top accent, bold value, label, and trend)
+   */
+  private static renderKpi(
+    doc: PDFKit.PDFDocument,
+    block: KpiBlock,
+    theme: any,
+    contentWidth: number,
+    bottomLimit: number
+  ): void {
+    if (!block.items || block.items.length === 0) return;
+
+    const neededHeight = (block.title ? 28 : 0) + 75;
+    if (doc.y + neededHeight > bottomLimit) {
+      doc.addPage();
+    }
+
+    if (block.title) {
+      doc
+        .font(this.selectFont(block.title, true))
+        .fillColor(theme.colors.primary)
+        .fontSize(theme.typography.h4Size)
+        .text(block.title, theme.margins.left, doc.y, { width: contentWidth });
+      doc.moveDown(0.4);
+    }
+
+    const items = block.items.slice(0, 4);
+    const cols = items.length;
+    const gap = 10;
+    const cardWidth = (contentWidth - (cols - 1) * gap) / cols;
+    const cardHeight = 65;
+    const cardY = doc.y;
+
+    for (let idx = 0; idx < items.length; idx++) {
+      const item = items[idx];
+      const cardX = theme.margins.left + idx * (cardWidth + gap);
+
+      // Card Background
+      doc
+        .roundedRect(cardX, cardY, cardWidth, cardHeight, 4)
+        .fillColor(theme.colors.cardBackground)
+        .fill();
+
+      // Border
+      doc
+        .roundedRect(cardX, cardY, cardWidth, cardHeight, 4)
+        .strokeColor(theme.colors.border)
+        .lineWidth(0.5)
+        .stroke();
+
+      // Top accent strip
+      const accentColor = item.color || (idx === 0 ? theme.colors.accent : theme.colors.primary);
+      doc
+        .rect(cardX + 4, cardY, cardWidth - 8, 2.5)
+        .fillColor(accentColor)
+        .fill();
+
+      // Large bold value
+      const valStr = String(item.value || '');
+      const valFontSize = valStr.length > 10 ? 12 : valStr.length > 6 ? 14 : 17;
+      doc
+        .font(this.selectFont(valStr, true))
+        .fillColor(theme.colors.primary)
+        .fontSize(valFontSize)
+        .text(valStr, cardX + 8, cardY + 10, {
+          width: cardWidth - 16,
+          lineBreak: false,
+          ellipsis: true,
+        });
+
+      // Uppercase label
+      const labelStr = (item.label || '').toUpperCase();
+      doc
+        .font(this.selectFont(labelStr, false))
+        .fillColor(theme.colors.textMuted)
+        .fontSize(7.5)
+        .text(labelStr, cardX + 8, cardY + 31, {
+          width: cardWidth - 16,
+          lineBreak: false,
+          ellipsis: true,
+        });
+
+      // Optional trend or change indicator
+      if (item.change) {
+        const arrow = item.trend === 'up' ? '▲ ' : item.trend === 'down' ? '▼ ' : '• ';
+        const trendColor = item.trend === 'up' ? '#16A34A' : item.trend === 'down' ? '#DC2626' : theme.colors.textMuted;
+        doc
+          .font(this.selectFont(arrow + item.change, true))
+          .fillColor(trendColor)
+          .fontSize(7.5)
+          .text(arrow + item.change, cardX + 8, cardY + 47, {
+            width: cardWidth - 16,
+            lineBreak: false,
+            ellipsis: true,
+          });
+      }
+    }
+
+    doc.y = cardY + cardHeight + 14;
+  }
+
+  /**
+   * Render Native Vector Charts (Bar, Donut, Progress)
+   */
+  private static renderChart(
+    doc: PDFKit.PDFDocument,
+    block: ChartBlock,
+    theme: any,
+    contentWidth: number,
+    bottomLimit: number
+  ): void {
+    const items: ChartItem[] = (block.items && block.items.length > 0)
+      ? block.items
+      : (block.labels || []).map((label, idx) => ({
+          label,
+          value: (block.values && block.values[idx] !== undefined) ? block.values[idx] : 0,
+          formattedValue: block.unit ? `${block.values?.[idx] || 0} ${block.unit}` : undefined,
+          color: block.colors?.[idx],
+        }));
+
+    if (items.length === 0) return;
+
+    const chartType = block.chartType || 'bar';
+
+    if (chartType === 'donut') {
+      this.renderDonutChart(doc, block, items, theme, contentWidth, bottomLimit);
+      return;
+    }
+
+    // Horizontal Bar & Progress Chart
+    const rowHeight = 24;
+    const estimatedHeight = (block.title ? 30 : 0) + items.length * rowHeight + 20;
+    if (doc.y + Math.min(estimatedHeight, 140) > bottomLimit) {
+      doc.addPage();
+    }
+
+    if (block.title) {
+      doc
+        .font(this.selectFont(block.title, true))
+        .fillColor(theme.colors.primary)
+        .fontSize(theme.typography.h4Size)
+        .text(block.title, theme.margins.left, doc.y, { width: contentWidth });
+      if (block.subtitle) {
+        doc.moveDown(0.2);
+        doc
+          .font(this.selectFont(block.subtitle, false))
+          .fillColor(theme.colors.textMuted)
+          .fontSize(theme.typography.captionSize)
+          .text(block.subtitle, theme.margins.left, doc.y, { width: contentWidth });
+      }
+      doc.moveDown(0.5);
+    }
+
+    const maxVal = Math.max(...items.map((it) => it.value), 1);
+    const labelColWidth = 140;
+    const valueColWidth = 60;
+    const barAreaWidth = contentWidth - labelColWidth - valueColWidth;
+
+    for (const item of items) {
+      if (doc.y + rowHeight > bottomLimit) {
+        doc.addPage();
+      }
+
+      const rowY = doc.y;
+
+      // Label
+      doc
+        .font(this.selectFont(item.label, false))
+        .fillColor(theme.colors.text)
+        .fontSize(8.5)
+        .text(item.label, theme.margins.left, rowY + 3, {
+          width: labelColWidth - 10,
+          ellipsis: true,
+          lineBreak: false,
+        });
+
+      // Background track
+      const trackX = theme.margins.left + labelColWidth;
+      doc
+        .roundedRect(trackX, rowY + 4, barAreaWidth, 9, 4)
+        .fillColor(theme.colors.cardBackground)
+        .strokeColor(theme.colors.border)
+        .lineWidth(0.5)
+        .fillAndStroke();
+
+      // Colored fill
+      const ratio = Math.min(Math.max(item.value / maxVal, 0.03), 1);
+      const fillW = Math.max(6, barAreaWidth * ratio);
+      const barColor = item.color || theme.colors.primary;
+      doc
+        .roundedRect(trackX, rowY + 4, fillW, 9, 4)
+        .fillColor(barColor)
+        .fill();
+
+      // Value label
+      const valStr = item.formattedValue || String(item.value);
+      doc
+        .font(this.selectFont(valStr, true))
+        .fillColor(theme.colors.primary)
+        .fontSize(8.5)
+        .text(valStr, trackX + barAreaWidth + 10, rowY + 3, {
+          width: valueColWidth - 10,
+          align: 'right',
+          lineBreak: false,
+        });
+
+      doc.y = rowY + rowHeight;
+    }
+
+    doc.moveDown(0.5);
+  }
+
+  /**
+   * Render Donut Chart with Legend and Summary
+   */
+  private static renderDonutChart(
+    doc: PDFKit.PDFDocument,
+    block: ChartBlock,
+    items: ChartItem[],
+    theme: any,
+    contentWidth: number,
+    bottomLimit: number
+  ): void {
+    const chartHeight = 150;
+    if (doc.y + chartHeight > bottomLimit) {
+      doc.addPage();
+    }
+
+    if (block.title) {
+      doc
+        .font(this.selectFont(block.title, true))
+        .fillColor(theme.colors.primary)
+        .fontSize(theme.typography.h4Size)
+        .text(block.title, theme.margins.left, doc.y, { width: contentWidth });
+      doc.moveDown(0.4);
+    }
+
+    const startY = doc.y;
+    const total = items.reduce((s, it) => s + (it.value || 0), 0) || 1;
+    const palette = [theme.colors.primary, theme.colors.accent, '#059669', '#D97706', '#7C3AED', '#2563EB', '#DB2777'];
+
+    const centerX = theme.margins.left + 75;
+    const centerY = startY + 55;
+    const ringRadius = 38;
+
+    // Outer donut ring background
+    doc
+      .circle(centerX, centerY, ringRadius + 9)
+      .fillColor(theme.colors.cardBackground)
+      .fill();
+
+    doc
+      .circle(centerX, centerY, ringRadius)
+      .lineWidth(18)
+      .strokeColor(theme.colors.primary)
+      .stroke();
+
+    // Inner center text (donut hole)
+    doc
+      .circle(centerX, centerY, ringRadius - 9)
+      .fillColor('#FFFFFF')
+      .fill();
+
+    doc
+      .font(this.selectFont('100%', true))
+      .fillColor(theme.colors.primary)
+      .fontSize(10)
+      .text('TOTAL', centerX - 25, centerY - 10, { width: 50, align: 'center', lineBreak: false });
+
+    doc
+      .font(this.selectFont(String(total), false))
+      .fillColor(theme.colors.textMuted)
+      .fontSize(8.5)
+      .text(String(total), centerX - 25, centerY + 3, { width: 50, align: 'center', lineBreak: false });
+
+    // Legend on right
+    const legendX = theme.margins.left + 160;
+    let legendY = startY + 10;
+    const legendWidth = contentWidth - 170;
+
+    for (let idx = 0; idx < items.length; idx++) {
+      const item = items[idx];
+      const sliceColor = item.color || palette[idx % palette.length];
+      const pct = Math.round((item.value / total) * 100);
+
+      // Swatch
+      doc
+        .roundedRect(legendX, legendY + 2, 8, 8, 2)
+        .fillColor(sliceColor)
+        .fill();
+
+      // Label and value
+      const desc = `${item.label} (${pct}% • ${item.formattedValue || item.value})`;
+      doc
+        .font(this.selectFont(desc, false))
+        .fillColor(theme.colors.text)
+        .fontSize(8.5)
+        .text(desc, legendX + 15, legendY, {
+          width: legendWidth - 15,
+          lineBreak: false,
+          ellipsis: true,
+        });
+
+      legendY += 18;
+    }
+
+    doc.y = Math.max(centerY + ringRadius + 20, legendY) + 10;
+  }
+
+  /**
+   * Render Connected Milestone Roadmap / Timeline
+   */
+  private static renderTimeline(
+    doc: PDFKit.PDFDocument,
+    block: TimelineBlock,
+    theme: any,
+    contentWidth: number,
+    bottomLimit: number
+  ): void {
+    if (!block.items || block.items.length === 0) return;
+
+    if (block.title) {
+      if (doc.y + 40 > bottomLimit) doc.addPage();
+      doc
+        .font(this.selectFont(block.title, true))
+        .fillColor(theme.colors.primary)
+        .fontSize(theme.typography.h3Size)
+        .text(block.title, theme.margins.left, doc.y, { width: contentWidth });
+      doc.moveDown(0.6);
+    }
+
+    const spineX = theme.margins.left + 16;
+    const cardLeft = spineX + 20;
+    const cardWidth = contentWidth - 36;
+
+    for (let idx = 0; idx < block.items.length; idx++) {
+      const item = block.items[idx];
+      const isLast = idx === block.items.length - 1;
+
+      const descLines = item.description ? Math.ceil(item.description.length / 70) : 1;
+      const itemHeight = 35 + descLines * 12;
+
+      if (doc.y + itemHeight > bottomLimit) {
+        doc.addPage();
+      }
+
+      const itemTop = doc.y;
+
+      // Connecting vertical rail to next node
+      if (!isLast) {
+        doc
+          .moveTo(spineX, itemTop + 6)
+          .lineTo(spineX, itemTop + itemHeight + 6)
+          .strokeColor(theme.colors.border)
+          .lineWidth(1.2)
+          .stroke();
+      }
+
+      // Node circle
+      const nodeY = itemTop + 6;
+      doc
+        .circle(spineX, nodeY, 5)
+        .fillColor(theme.colors.accent)
+        .fill();
+      doc
+        .circle(spineX, nodeY, 2)
+        .fillColor('#FFFFFF')
+        .fill();
+
+      // Date badge pill
+      const dateStr = (item.date || item.phase || '').toUpperCase();
+      const dateWidth = Math.min(dateStr.length * 6 + 14, 110);
+      doc
+        .roundedRect(cardLeft, itemTop, dateWidth, 14, 3)
+        .fillColor(theme.colors.cardBackground)
+        .strokeColor(theme.colors.border)
+        .lineWidth(0.5)
+        .fillAndStroke();
+
+      doc
+        .font(this.selectFont(dateStr, true))
+        .fillColor(theme.colors.accent)
+        .fontSize(7.5)
+        .text(dateStr, cardLeft, itemTop + 3, {
+          width: dateWidth,
+          align: 'center',
+          lineBreak: false,
+        });
+
+      // Title
+      const titleStr = item.title || item.phase || '';
+      const titleX = cardLeft + dateWidth + 8;
+      const titleWidth = cardWidth - dateWidth - 8 - (item.status ? 80 : 0);
+      doc
+        .font(this.selectFont(titleStr, true))
+        .fillColor(theme.colors.primary)
+        .fontSize(9.5)
+        .text(titleStr, titleX, itemTop + 2, {
+          width: Math.max(titleWidth, 100),
+          lineBreak: false,
+          ellipsis: true,
+        });
+
+      // Status Tag if available
+      if (item.status) {
+        const sLower = item.status.toLowerCase();
+        const sColor = sLower.includes('done') || sLower.includes('complete')
+          ? '#16A34A'
+          : sLower.includes('progress')
+          ? '#D97706'
+          : theme.colors.textMuted;
+
+        doc
+          .font(this.selectFont(item.status, true))
+          .fillColor(sColor)
+          .fontSize(7.5)
+          .text(`[${item.status.toUpperCase()}]`, cardLeft + cardWidth - 80, itemTop + 3, {
+            width: 80,
+            align: 'right',
+            lineBreak: false,
+          });
+      }
+
+      // Description
+      if (item.description) {
+        doc
+          .font(this.selectFont(item.description, false))
+          .fillColor(theme.colors.textMuted)
+          .fontSize(8.5)
+          .text(item.description, cardLeft, itemTop + 18, {
+            width: cardWidth,
+            lineGap: 2,
+          });
+      }
+
+      doc.y = itemTop + itemHeight;
+    }
+
+    doc.moveDown(0.5);
+  }
+
+  /**
+   * Render Process / Workflow Diagram Steps
+   */
+  private static renderDiagram(
+    doc: PDFKit.PDFDocument,
+    block: DiagramBlock,
+    theme: any,
+    contentWidth: number,
+    bottomLimit: number
+  ): void {
+    const steps = block.steps || [];
+    if (steps.length === 0) return;
+
+    if (block.title) {
+      if (doc.y + 40 > bottomLimit) doc.addPage();
+      doc
+        .font(this.selectFont(block.title, true))
+        .fillColor(theme.colors.primary)
+        .fontSize(theme.typography.h4Size)
+        .text(block.title, theme.margins.left, doc.y, { width: contentWidth });
+      doc.moveDown(0.5);
+    }
+
+    const useHorizontal = block.direction === 'horizontal' || (steps.length <= 4 && block.direction !== 'vertical');
+
+    if (useHorizontal) {
+      const stepWidth = (contentWidth - (steps.length - 1) * 20) / steps.length;
+      const stepHeight = 70;
+
+      if (doc.y + stepHeight > bottomLimit) doc.addPage();
+
+      const startY = doc.y;
+
+      for (let idx = 0; idx < steps.length; idx++) {
+        const step = steps[idx];
+        const stepX = theme.margins.left + idx * (stepWidth + 20);
+
+        // Card box
+        doc
+          .roundedRect(stepX, startY, stepWidth, stepHeight, 5)
+          .fillColor(theme.colors.cardBackground)
+          .strokeColor(theme.colors.border)
+          .lineWidth(0.5)
+          .fillAndStroke();
+
+        // Step number badge
+        doc
+          .circle(stepX + 16, startY + 16, 9)
+          .fillColor(theme.colors.primary)
+          .fill();
+
+        doc
+          .font(this.selectFont(String(step.step), true))
+          .fillColor('#FFFFFF')
+          .fontSize(8)
+          .text(String(step.step), stepX + 7, startY + 12, { width: 18, align: 'center', lineBreak: false });
+
+        // Title
+        doc
+          .font(this.selectFont(step.title, true))
+          .fillColor(theme.colors.primary)
+          .fontSize(8.5)
+          .text(step.title, stepX + 30, startY + 11, {
+            width: stepWidth - 36,
+            lineBreak: false,
+            ellipsis: true,
+          });
+
+        // Description
+        if (step.description) {
+          doc
+            .font(this.selectFont(step.description, false))
+            .fillColor(theme.colors.textMuted)
+            .fontSize(7.5)
+            .text(step.description, stepX + 8, startY + 32, {
+              width: stepWidth - 16,
+              lineGap: 2,
+            });
+        }
+
+        // Connecting arrow to next step
+        if (idx < steps.length - 1) {
+          const arrowX = stepX + stepWidth + 4;
+          const arrowY = startY + stepHeight / 2 - 4;
+          doc
+            .font(this.selectFont('➔', true))
+            .fillColor(theme.colors.accent)
+            .fontSize(12)
+            .text('➔', arrowX, arrowY, { width: 14, lineBreak: false });
+        }
+      }
+
+      doc.y = startY + stepHeight + 14;
+    } else {
+      // Vertical flow
+      for (let idx = 0; idx < steps.length; idx++) {
+        const step = steps[idx];
+        if (doc.y + 40 > bottomLimit) doc.addPage();
+
+        const rowY = doc.y;
+
+        doc
+          .roundedRect(theme.margins.left, rowY, contentWidth, 34, 4)
+          .fillColor(theme.colors.cardBackground)
+          .strokeColor(theme.colors.border)
+          .lineWidth(0.5)
+          .fillAndStroke();
+
+        // Badge
+        doc
+          .circle(theme.margins.left + 18, rowY + 17, 9)
+          .fillColor(theme.colors.primary)
+          .fill();
+
+        doc
+          .font(this.selectFont(String(step.step), true))
+          .fillColor('#FFFFFF')
+          .fontSize(8)
+          .text(String(step.step), theme.margins.left + 9, rowY + 13, { width: 18, align: 'center', lineBreak: false });
+
+        doc
+          .font(this.selectFont(step.title, true))
+          .fillColor(theme.colors.primary)
+          .fontSize(9)
+          .text(step.title, theme.margins.left + 36, rowY + 8, {
+            width: contentWidth - 46,
+            lineBreak: false,
+            ellipsis: true,
+          });
+
+        if (step.description) {
+          doc
+            .font(this.selectFont(step.description, false))
+            .fillColor(theme.colors.textMuted)
+            .fontSize(8)
+            .text(step.description, theme.margins.left + 36, rowY + 20, {
+              width: contentWidth - 46,
+              lineBreak: false,
+              ellipsis: true,
+            });
+        }
+
+        doc.y = rowY + 38;
+
+        if (idx < steps.length - 1) {
+          doc
+            .font(this.selectFont('↓', true))
+            .fillColor(theme.colors.accent)
+            .fontSize(11)
+            .text('↓', theme.margins.left + 14, doc.y - 2, { width: 20, align: 'center', lineBreak: false });
+          doc.y += 12;
+        }
+      }
+      doc.moveDown(0.4);
+    }
+  }
+
+  /**
+   * Render Multi-Column Comparison Cards
+   */
+  private static renderComparison(
+    doc: PDFKit.PDFDocument,
+    block: ComparisonBlock,
+    theme: any,
+    contentWidth: number,
+    bottomLimit: number
+  ): void {
+    const cols = (block.columns || []).slice(0, 3);
+    if (cols.length === 0) return;
+
+    if (block.title) {
+      if (doc.y + 40 > bottomLimit) doc.addPage();
+      doc
+        .font(this.selectFont(block.title, true))
+        .fillColor(theme.colors.primary)
+        .fontSize(theme.typography.h3Size)
+        .text(block.title, theme.margins.left, doc.y, { width: contentWidth });
+      doc.moveDown(0.6);
+    }
+
+    const gap = 12;
+    const colWidth = (contentWidth - (cols.length - 1) * gap) / cols.length;
+    const maxPoints = Math.max(...cols.map((c) => (c.points ? c.points.length : 0)), 3);
+    const colHeight = 55 + maxPoints * 18;
+
+    if (doc.y + colHeight > bottomLimit) {
+      doc.addPage();
+    }
+
+    const startY = doc.y;
+
+    for (let cIdx = 0; cIdx < cols.length; cIdx++) {
+      const col = cols[cIdx];
+      const colX = theme.margins.left + cIdx * (colWidth + gap);
+
+      const isPrimary = Boolean(col.isPrimary);
+      const borderColor = isPrimary ? theme.colors.accent : theme.colors.border;
+      const borderWidth = isPrimary ? 1.5 : 0.75;
+
+      doc
+        .roundedRect(colX, startY, colWidth, colHeight, 5)
+        .fillColor(theme.colors.cardBackground)
+        .strokeColor(borderColor)
+        .lineWidth(borderWidth)
+        .fillAndStroke();
+
+      if (col.badge || isPrimary) {
+        const badgeText = (col.badge || 'RECOMMENDED').toUpperCase();
+        doc
+          .roundedRect(colX + 8, startY + 8, colWidth - 16, 14, 3)
+          .fillColor(isPrimary ? theme.colors.accent : theme.colors.primary)
+          .fill();
+
+        doc
+          .font(this.selectFont(badgeText, true))
+          .fillColor('#FFFFFF')
+          .fontSize(7)
+          .text(badgeText, colX + 8, startY + 11, {
+            width: colWidth - 16,
+            align: 'center',
+            lineBreak: false,
+          });
+      }
+
+      const titleY = (col.badge || isPrimary) ? startY + 28 : startY + 12;
+      doc
+        .font(this.selectFont(col.title, true))
+        .fillColor(theme.colors.primary)
+        .fontSize(10.5)
+        .text(col.title, colX + 10, titleY, {
+          width: colWidth - 20,
+          align: 'center',
+          lineBreak: false,
+        });
+
+      doc
+        .moveTo(colX + 10, titleY + 16)
+        .lineTo(colX + colWidth - 10, titleY + 16)
+        .strokeColor(theme.colors.border)
+        .lineWidth(0.5)
+        .stroke();
+
+      let ptY = titleY + 22;
+      for (const pt of col.points || []) {
+        doc
+          .font(this.selectFont('✓', true))
+          .fillColor(isPrimary ? '#16A34A' : theme.colors.accent)
+          .fontSize(8.5)
+          .text('✓', colX + 10, ptY, { width: 12, lineBreak: false });
+
+        doc
+          .font(this.selectFont(pt, false))
+          .fillColor(theme.colors.text)
+          .fontSize(8)
+          .text(pt, colX + 24, ptY, {
+            width: colWidth - 34,
+            lineBreak: false,
+            ellipsis: true,
+          });
+
+        ptY += 16;
+      }
+    }
+
+    doc.y = startY + colHeight + 16;
+  }
+
+  /**
+   * Render Professional Table of Contents
+   */
+  private static renderTableOfContents(
+    doc: PDFKit.PDFDocument,
+    docModel: DocumentModel,
+    theme: any,
+    contentWidth: number,
+    bottomLimit: number
+  ): void {
+    const headings = docModel.blocks.filter(
+      (b): b is HeadingBlock => b.type === 'heading' && (b.level === 1 || b.level === 2)
+    );
+    if (headings.length === 0) return;
+
+    if (doc.y + 120 > bottomLimit) doc.addPage();
+
+    const startY = doc.y;
+
+    doc
+      .font(this.selectFont('TABLE OF CONTENTS', true))
+      .fillColor(theme.colors.accent)
+      .fontSize(9)
+      .text('TABLE OF CONTENTS', theme.margins.left, startY, {
+        characterSpacing: 1.5,
+      });
+
+    doc.moveDown(0.4);
+
+    doc
+      .rect(theme.margins.left, doc.y, 36, 2)
+      .fillColor(theme.colors.accent)
+      .fill();
+
+    doc.moveDown(0.8);
+
+    let secIndex = 1;
+    for (const h of headings) {
+      if (doc.y + 20 > bottomLimit) doc.addPage();
+
+      const isH1 = h.level === 1;
+      const indent = isH1 ? 0 : 16;
+      const itemY = doc.y;
+
+      const titleStr = isH1 ? `${secIndex++}. ${h.text}` : `•  ${h.text}`;
+      const font = this.selectFont(titleStr, isH1);
+
+      doc
+        .font(font)
+        .fillColor(isH1 ? theme.colors.primary : theme.colors.text)
+        .fontSize(isH1 ? 9.5 : 8.5)
+        .text(titleStr, theme.margins.left + indent, itemY, {
+          width: contentWidth - indent - 40,
+          lineBreak: false,
+          ellipsis: true,
+        });
+
+      const leaderStart = theme.margins.left + indent + Math.min(titleStr.length * 5.5 + 20, contentWidth - 70);
+      const leaderEnd = theme.margins.left + contentWidth - 30;
+      if (leaderEnd > leaderStart) {
+        doc
+          .moveTo(leaderStart, itemY + 8)
+          .lineTo(leaderEnd, itemY + 8)
+          .dash(2, { space: 3 })
+          .strokeColor(theme.colors.border)
+          .lineWidth(0.5)
+          .stroke()
+          .undash();
+      }
+
+      const pageStr = isH1 ? `SEC ${secIndex - 1}` : '—';
+      doc
+        .font(this.selectFont(pageStr, false))
+        .fillColor(theme.colors.textMuted)
+        .fontSize(8)
+        .text(pageStr, theme.margins.left + contentWidth - 28, itemY, {
+          width: 28,
+          align: 'right',
+          lineBreak: false,
+        });
+
+      doc.y = itemY + (isH1 ? 18 : 15);
+    }
+
+    doc.moveDown(1.2);
   }
 
   /**
