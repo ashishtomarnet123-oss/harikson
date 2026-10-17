@@ -1,8 +1,11 @@
 export type DocumentThemeName =
   | 'corporate'
+  | 'professional'
+  | 'executive'
   | 'minimal'
   | 'technical'
   | 'academic'
+  | 'branded'
   | 'xarwiz';
 
 export type PageSizeName = 'A4' | 'LETTER' | 'LEGAL';

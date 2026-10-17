@@ -2,7 +2,7 @@ import React, { memo, useState, useCallback, useMemo } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import rehypeHighlight from 'rehype-highlight';
-import { Copy, Check, Maximize2 } from 'lucide-react';
+import { Copy, Check, Maximize2, FileText, Download, ExternalLink } from 'lucide-react';
 
 /* ────────────────────────────────────────────────────────────
    Secure Clipboard copy helper
@@ -83,6 +83,15 @@ const CodeBlockWrapper = memo(function CodeBlockWrapper({ children, onOpenArtifa
   // Extract raw unformatted text for copying or artifact inspection
   const rawCode = useMemo(() => getNodeText(children).replace(/\n$/, ''), [children]);
 
+  const pdfCardData = useMemo(() => {
+    if (language !== 'pdf-card') return null;
+    try {
+      return JSON.parse(rawCode);
+    } catch (e) {
+      return null;
+    }
+  }, [language, rawCode]);
+
   const handleCopy = useCallback(() => {
     copyToClipboard(rawCode)
       .then(() => {
@@ -97,6 +106,110 @@ const CodeBlockWrapper = memo(function CodeBlockWrapper({ children, onOpenArtifa
       onOpenArtifact({ language: language || 'text', code: rawCode });
     }
   }, [onOpenArtifact, language, rawCode]);
+
+  if (pdfCardData) {
+    const { title, filename, pageCount, sizeKb, theme, downloadUrl } = pdfCardData;
+    const displayName = title || filename || 'Document.pdf';
+    return (
+      <div
+        className="pdf-document-card"
+        style={{
+          margin: '16px 0',
+          padding: '16px 20px',
+          borderRadius: '12px',
+          background: 'linear-gradient(135deg, rgba(239, 68, 68, 0.08), rgba(37, 99, 235, 0.08))',
+          border: '1px solid rgba(239, 68, 68, 0.3)',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '12px',
+          boxShadow: '0 4px 16px rgba(0, 0, 0, 0.1)',
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <div
+              style={{
+                width: '42px',
+                height: '42px',
+                borderRadius: '8px',
+                background: 'linear-gradient(135deg, #ef4444, #b91c1c)',
+                color: '#ffffff',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                flexShrink: 0,
+                boxShadow: '0 2px 8px rgba(239, 68, 68, 0.3)',
+              }}
+            >
+              <FileText size={22} />
+            </div>
+            <div>
+              <div style={{ fontWeight: 600, fontSize: '15px', color: 'var(--text-primary, #f9fafb)' }}>
+                {displayName}
+              </div>
+              <div style={{ fontSize: '12px', color: 'var(--text-muted, #9ca3af)', marginTop: '2px', display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+                <span>{pageCount ? `${pageCount} Pages (A4)` : 'Multi-page PDF'}</span>
+                <span>•</span>
+                <span>{sizeKb ? `${sizeKb} KB` : 'Verified PDF'}</span>
+                {theme && (
+                  <>
+                    <span>•</span>
+                    <span style={{ textTransform: 'capitalize' }}>{theme} Theme</span>
+                  </>
+                )}
+                <span>•</span>
+                <span style={{ color: '#10b981', fontWeight: 500 }}>✅ Verified & Ready</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', paddingTop: '4px', flexWrap: 'wrap' }}>
+          <a
+            href={downloadUrl}
+            download={filename || `${displayName}.pdf`}
+            style={{
+              background: '#ef4444',
+              color: '#ffffff',
+              padding: '8px 16px',
+              borderRadius: '8px',
+              fontSize: '13px',
+              fontWeight: 600,
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              textDecoration: 'none',
+              boxShadow: '0 2px 6px rgba(239, 68, 68, 0.3)',
+            }}
+          >
+            <Download size={15} />
+            <span>Download PDF</span>
+          </a>
+          <a
+            href={downloadUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{
+              background: 'rgba(255, 255, 255, 0.06)',
+              border: '1px solid rgba(255, 255, 255, 0.15)',
+              color: 'var(--text-primary, #f3f4f6)',
+              padding: '8px 14px',
+              borderRadius: '8px',
+              fontSize: '13px',
+              fontWeight: 500,
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              textDecoration: 'none',
+            }}
+          >
+            <ExternalLink size={14} />
+            <span>Open Preview</span>
+          </a>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="code-block">

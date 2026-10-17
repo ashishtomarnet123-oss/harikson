@@ -11,7 +11,7 @@ import logger from '../utils/logger.js';
 import { requireScopes } from '../middleware/scopeAuth.js';
 import { SYSTEM_PROMPT } from '../prompts/system-prompt.js';
 import { TitleService } from '../services/titleService.js';
-import { UniversalPdfEngine } from '../services/pdf/index.js';
+import { UniversalPdfEngine, PdfOrchestrator } from '../services/pdf/index.js';
 
 const router = Router();
 const redis = new Redis(process.env.REDIS_URL || 'redis://redis:6379', {
@@ -683,16 +683,62 @@ async function handleChat(req: any, res: any) {
       logger.error(e, 'Failed to save user message');
     }
 
-    // In-Chat Multimodal Image Generation, Editing, Variation, and Understanding Engine
-    let attachedImageBuffer: Buffer | undefined;
-    let attachedImageMimeType: string | undefined;
+    // PDF Intent Recognition and Autonomous Handling
+    const priorAssistantRes = currentConvId
+      ? await executeTenantQuery(req.tenant.id, (client) =>
+          client.query(
+            `SELECT id FROM messages WHERE tenant_id = $1 AND conversation_id = $2 AND sender = 'assistant' LIMIT 1`,
+            [req.tenant.id, currentConvId]
+          )
+        )
+      : { rows: [] };
+    const hasPriorAssistantMessage = (priorAssistantRes.rows?.length || 0) > 0;
 
-    const { images } = req.body || {};
-    if (Array.isArray(images) && images.length > 0 && images[0]?.dataUrl) {
-      const match = images[0].dataUrl.match(/^data:([^;]+);base64,(.+)$/);
-      if (match) {
-        attachedImageMimeType = match[1];
-        attachedImageBuffer = Buffer.from(match[2], 'base64');
+    const pdfIntent = PdfOrchestrator.detectPdfIntent(message, hasPriorAssistantMessage);
+
+    // If user explicitly asks to export previous answer / conversation as PDF
+    if (pdfIntent.isPdfIntent && pdfIntent.type === 'EXPORT_PREVIOUS' && currentConvId) {
+      logger.info({ tenantId: req.tenant.id, convId: currentConvId, theme: pdfIntent.theme }, '[PdfOrchestrator] Executing EXPORT_PREVIOUS intent');
+
+      const exportResult = await PdfOrchestrator.executeExportPrevious({
+        tenantId: req.tenant.id,
+        userId,
+        conversationId: currentConvId,
+        userMessage: message,
+        theme: pdfIntent.theme,
+        orientation: pdfIntent.orientation,
+      });
+
+      await executeTenantQuery(req.tenant.id, (client) =>
+        client.query(
+          `INSERT INTO messages (tenant_id, conversation_id, sender, content, tokens_used)
+           VALUES ($1, $2, $3, $4, $5)`,
+          [req.tenant.id, currentConvId, 'assistant', exportResult.replyText, exportResult.tokensUsed]
+        )
+      );
+
+      if (stream) {
+        res.setHeader('Content-Type', 'text/event-stream');
+        res.setHeader('Cache-Control', 'no-cache, no-transform');
+        res.setHeader('Connection', 'keep-alive');
+        res.setHeader('X-Accel-Buffering', 'no');
+        if (currentConvId) res.setHeader('X-Conversation-Id', currentConvId);
+        if (currentConvTitle) res.setHeader('X-Conversation-Title', encodeURIComponent(currentConvTitle));
+        res.flushHeaders();
+        res.write(': stream-init\n\n');
+        res.write(`data: ${JSON.stringify({ conversationId: currentConvId, title: currentConvTitle, content: exportResult.replyText })}\n\n`);
+        if (exportResult.artifact) {
+          res.write(`data: ${JSON.stringify({ type: 'pdf_artifact', artifact: exportResult.artifact })}\n\n`);
+        }
+        res.write('data: [DONE]\n\n');
+        return res.end();
+      } else {
+        return res.json({
+          conversationId: currentConvId,
+          title: currentConvTitle,
+          message: exportResult.replyText,
+          artifact: exportResult.artifact,
+        });
       }
     }
 
@@ -717,8 +763,11 @@ async function handleChat(req: any, res: any) {
         ? clientHistory.find((m: any) => m.role === 'system' && m.content?.trim())
         : null;
       let baseSystemPrompt = (clientSystemMessage?.content || SYSTEM_PROMPT).trim();
-      // Keep system prompt lean to avoid blowing token budget on CPU inference
-      if (baseSystemPrompt.length > 2500) {
+      if (pdfIntent.isPdfIntent && pdfIntent.type === 'GENERATE_NEW_PDF') {
+        const pdfDirective = PdfOrchestrator.getDocumentPromptDirective(pdfIntent);
+        baseSystemPrompt = `${pdfDirective}\n\n${baseSystemPrompt}`;
+      } else if (baseSystemPrompt.length > 2500) {
+        // Keep standard system prompt lean to avoid blowing token budget on CPU inference
         baseSystemPrompt = baseSystemPrompt.slice(0, 2500);
       }
 
@@ -895,6 +944,26 @@ async function handleChat(req: any, res: any) {
               res.write(`data: ${JSON.stringify({ content: citationBlock, citations: retrievedCitations, conversationId: currentConvId, title: currentConvTitle })}\n\n`);
             } catch (_) {}
             fullResponseText += citationBlock;
+          }
+
+          // If this query requested a new document as a PDF, automatically compile, validate, and attach it
+          if (pdfIntent.isPdfIntent && pdfIntent.type === 'GENERATE_NEW_PDF' && fullResponseText.trim().length > 100) {
+            try {
+              const docTitle = pdfIntent.title || currentConvTitle || 'Executive Document';
+              const { artifact, cardMarkdown } = await PdfOrchestrator.compileAndAttachPdf({
+                tenantId: req.tenant.id,
+                content: fullResponseText,
+                title: docTitle,
+                theme: pdfIntent.theme,
+                orientation: pdfIntent.orientation,
+              });
+
+              res.write(`data: ${JSON.stringify({ content: cardMarkdown, conversationId: currentConvId, title: currentConvTitle })}\n\n`);
+              res.write(`data: ${JSON.stringify({ type: 'pdf_artifact', artifact })}\n\n`);
+              fullResponseText += cardMarkdown;
+            } catch (pdfErr: any) {
+              logger.error({ pdfErr: pdfErr?.message }, 'Failed to compile streamed content to PDF');
+            }
           }
 
           const completionTokens = ollamaCompletionTokens || countExactTokens(fullResponseText);

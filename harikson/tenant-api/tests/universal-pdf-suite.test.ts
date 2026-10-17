@@ -156,9 +156,106 @@ Regular paragraph text with [legit link](https://xarwiz.com).
   const multiVal = await PdfValidator.validateBuffer(multiPageRes.buffer);
   assert(multiVal.isValid, 'Multi-page document passed deep PDF validation');
 
+  // ----------------------------------------------------
+  // TEST 8: PdfOrchestrator Intent Detection
+  // ----------------------------------------------------
+  console.log('\nTest 8: PdfOrchestrator Intent Detection & Theme Selection');
+  const { PdfOrchestrator } = await import('../src/services/pdf/index.js');
+
+  const intent1 = PdfOrchestrator.detectPdfIntent('Make this into a PDF', true);
+  assert(intent1.isPdfIntent && intent1.type === 'EXPORT_PREVIOUS', 'Recognized "Make this into a PDF" as EXPORT_PREVIOUS');
+
+  const intent2 = PdfOrchestrator.detectPdfIntent('Export your previous answer as a PDF', true);
+  assert(intent2.isPdfIntent && intent2.type === 'EXPORT_PREVIOUS', 'Recognized "Export your previous answer as a PDF"');
+
+  const intent3 = PdfOrchestrator.detectPdfIntent('Give me the downloadable version', true);
+  assert(intent3.isPdfIntent && intent3.type === 'EXPORT_PREVIOUS', 'Recognized "Give me the downloadable version"');
+
+  const intent4 = PdfOrchestrator.detectPdfIntent('Create a PDF marketing strategy for my company', false);
+  assert(intent4.isPdfIntent && intent4.type === 'GENERATE_NEW_PDF', 'Recognized "Create a PDF marketing strategy..." as GENERATE_NEW_PDF');
+  assert(intent4.title?.includes('Marketing Strategy'), `Extracted title: ${intent4.title}`);
+
+  const intent5 = PdfOrchestrator.detectPdfIntent('Generate an investor pitch report in PDF format', false);
+  assert(intent5.isPdfIntent && intent5.theme === 'executive', 'Mapped investor pitch to executive theme');
+
+  const intent6 = PdfOrchestrator.detectPdfIntent('Create a technical architecture document as a PDF', false);
+  assert(intent6.isPdfIntent && intent6.theme === 'technical', 'Mapped architecture document to technical theme');
+
+  const intent7 = PdfOrchestrator.detectPdfIntent('What is a PDF?', true);
+  assert(!intent7.isPdfIntent && intent7.type === 'NONE', 'Correctly excluded informational question "What is a PDF?"');
+
+  const intent8 = PdfOrchestrator.detectPdfIntent('Explain the difference between PDF and DOCX files', true);
+  assert(!intent8.isPdfIntent && intent8.type === 'NONE', 'Correctly excluded educational question "difference between PDF and DOCX"');
+
+  // ----------------------------------------------------
+  // TEST 9: Executive, Professional & Branded Themes
+  // ----------------------------------------------------
+  console.log('\nTest 9: Executive, Professional & Branded Themes');
+  const execDoc = await UniversalPdfEngine.renderDirect('# Executive Board Report\n\nQ3 Financial and Strategic Review', {
+    theme: 'executive',
+    includeCoverPage: true,
+  });
+  assert(execDoc.buffer.length > 5000, `Rendered executive theme: ${execDoc.buffer.length} bytes`);
+  assert(execDoc.pageCount >= 2, `Cover page + content = ${execDoc.pageCount} pages`);
+
+  const profDoc = await UniversalPdfEngine.renderDirect('# Professional Proposal\n\nEnterprise Services Agreement', {
+    theme: 'professional' as any,
+  });
+  assert(profDoc.buffer.length > 4000, `Rendered professional theme alias: ${profDoc.buffer.length} bytes`);
+
+  // ----------------------------------------------------
+  // TEST 10: Complete End-to-End PDF Compilation & Storage
+  // ----------------------------------------------------
+  console.log('\nTest 10: Full End-to-End PDF Generation & Persistence');
+  const sampleTenant = 'test-e2e-tenant-0001';
+  const sampleContent = `# Comprehensive Business & Technology Strategy
+
+## Executive Summary
+This document provides a complete 360-degree blueprint for national AI deployment across sovereign cloud infrastructure.
+
+## Strategic Pillars
+**1. Infrastructure Sovereignty**
+Deploying dedicated on-premise compute nodes with zero foreign data egress.
+
+**2. Enterprise Automation**
+Integrating autonomous agents across document analysis, compliance auditing, and workflows.
+
+## Benchmarks & Milestones
+| Quarter | Target Milestones | SLA Requirement |
+| :--- | :--- | :---: |
+| Q1 2026 | Initial Pilot & Security Audit | 99.9% |
+| Q2 2026 | National Sovereign Cloud Rollout | 99.99% |
+| Q3 2026 | Full DPDP 2023 Certification | 100% |
+
+> **Security Note**: All cryptographic keys are rotated every 90 days in accordance with ISO 27001 standards.
+
+## Conclusion & Next Steps
+Immediate implementation commences with cluster provisioning in Asia-South regions.
+`;
+
+  const generated = await UniversalPdfEngine.generateDocumentPdf(sampleTenant, sampleContent, {
+    defaultTitle: 'Comprehensive Business & Technology Strategy',
+    theme: 'executive',
+    includeCoverPage: true,
+    includeHeaderFooter: true,
+  });
+
+  assert(generated.artifact.fileId.length > 0, `Generated artifact fileId: ${generated.artifact.fileId}`);
+  assert(generated.artifact.pageCount >= 2, `Verified page count: ${generated.artifact.pageCount}`);
+  assert(generated.artifact.sizeBytes > 8000, `Verified file size: ${generated.artifact.sizeBytes} bytes`);
+
+  // Verify file was written to disk and can be retrieved via storage service
+  const fetchedFile = PdfStorageService.getPdfFile(sampleTenant, generated.artifact.fileId);
+  assert(fetchedFile.exists, `File exists on storage: ${fetchedFile.filename}`);
+  assert(fetchedFile.buffer.length === generated.artifact.sizeBytes, 'Fetched buffer size matches generated size');
+
+  const fetchedVal = await PdfValidator.validateBuffer(fetchedFile.buffer);
+  assert(fetchedVal.isValid, 'Persisted file passed deep PDF validation (%PDF- signature and valid pages)');
+
   console.log('\n====================================================');
   console.log(`🎉 ALL ${passedTests}/${totalTests} TESTS PASSED SUCCESSFULLY!`);
   console.log('====================================================\n');
+  process.exit(0);
 }
 
 runTestSuite().catch(err => {

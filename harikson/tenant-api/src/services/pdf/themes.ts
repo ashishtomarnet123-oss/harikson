@@ -265,11 +265,72 @@ export const PDF_THEMES: Record<DocumentThemeName, PdfThemeTokens> = {
       right: 54,
     },
   },
+
+  executive: {
+    name: 'executive',
+    colors: {
+      primary: '#0F172A',       // Midnight Slate
+      secondary: '#1E293B',
+      accent: '#B45309',        // Deep Gold / Amber 700
+      text: '#0F172A',
+      textMuted: '#64748B',
+      background: '#FFFFFF',
+      cardBackground: '#FFFBEB',// Warm gold tint
+      border: '#E2E8F0',
+      tableHeaderBg: '#0F172A',
+      tableHeaderText: '#F8FAFC',
+      tableAltRowBg: '#F8FAFC',
+      codeBg: '#0F172A',
+      codeText: '#F59E0B',
+      calloutRibbon: {
+        info: '#B45309',
+        warning: '#D97706',
+        tip: '#059669',
+        note: '#475569',
+        quote: '#B45309',
+        success: '#16A34A',
+      },
+      calloutBg: {
+        info: '#FFFBEB',
+        warning: '#FEF3C7',
+        tip: '#ECFDF5',
+        note: '#F1F5F9',
+        quote: '#FFFDF5',
+        success: '#F0FDF4',
+      },
+    },
+    typography: {
+      baseFontSize: 10,
+      titleSize: 26,
+      subtitleSize: 13,
+      h1Size: 18,
+      h2Size: 14,
+      h3Size: 12,
+      h4Size: 10.5,
+      bodySize: 10,
+      captionSize: 8.5,
+      lineHeight: 1.5,
+    },
+    margins: {
+      top: 54,
+      bottom: 54,
+      left: 54,
+      right: 54,
+    },
+  },
+
+  // Aliases for seamless user intent mapping
+  get professional() {
+    return this.corporate;
+  },
+  get branded() {
+    return this.xarwiz;
+  },
 };
 
-export function getTheme(themeName?: DocumentThemeName): PdfThemeTokens {
-  if (themeName && PDF_THEMES[themeName]) {
-    return PDF_THEMES[themeName];
+export function getTheme(themeName?: DocumentThemeName | string): PdfThemeTokens {
+  if (themeName && (PDF_THEMES as any)[themeName]) {
+    return (PDF_THEMES as any)[themeName];
   }
   return PDF_THEMES.corporate;
 }

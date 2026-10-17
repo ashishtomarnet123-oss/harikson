@@ -12,6 +12,7 @@ import logger from '../../utils/logger.js';
 
 export * from './types.js';
 export { getTheme, PDF_THEMES };
+export { PdfOrchestrator } from './orchestrator.js';
 
 export class UniversalPdfEngine {
   /**
