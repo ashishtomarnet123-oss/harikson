@@ -56,6 +56,32 @@ export class ContentNormalizer {
   }
 
   /**
+   * Helper to determine whether a given title string is a prompt artifact or generic placeholder
+   */
+  public static isGenericOrPromptTitle(t?: string): boolean {
+    if (!t || typeof t !== 'string') return true;
+    const lower = t.trim().toLowerCase();
+    return (
+      lower === 'xarwiz document' ||
+      lower === 'xarwiz executive report' ||
+      lower === 'executive document' ||
+      lower === 'executive report' ||
+      lower === 'corporate report' ||
+      lower === 'document' ||
+      lower.startsWith('pdf for me') ||
+      lower.startsWith('pdf of') ||
+      lower.startsWith('pdf for') ||
+      lower.startsWith('make a pdf') ||
+      lower.startsWith('create a pdf') ||
+      lower.startsWith('generate a pdf') ||
+      lower.includes('of this detail') ||
+      lower.includes('of the above') ||
+      lower.includes('in executive theme') ||
+      lower.includes('in pdf format')
+    );
+  }
+
+  /**
    * Parse Markdown text into structured DocumentBlocks
    */
   public static fromMarkdown(
@@ -70,11 +96,14 @@ export class ContentNormalizer {
       includeHeaderFooter?: boolean;
     } = {}
   ): DocumentModel {
-    const cleanMd = this.sanitizeInput(markdown || '');
+    const strippedMd = this.stripModelDisclaimers(markdown || '');
+    const cleanMd = this.sanitizeInput(strippedMd);
     const lines = cleanMd.split(/\r?\n/);
     const blocks: DocumentBlock[] = [];
 
-    let detectedTitle = options.defaultTitle || '';
+    let detectedTitle = options.defaultTitle && !this.isGenericOrPromptTitle(options.defaultTitle)
+      ? options.defaultTitle
+      : '';
     let detectedSubtitle = '';
 
     let i = 0;
@@ -133,7 +162,7 @@ export class ContentNormalizer {
         const level = headingMatch[1].length as 1 | 2 | 3 | 4 | 5 | 6;
         const text = this.cleanInlineMarkdown(headingMatch[2].trim());
 
-        if (level === 1 && !detectedTitle) {
+        if (level === 1 && (!detectedTitle || this.isGenericOrPromptTitle(detectedTitle))) {
           detectedTitle = text;
         } else {
           blocks.push({
@@ -276,17 +305,33 @@ export class ContentNormalizer {
       if (paraLines.length > 0) {
         const fullPara = this.cleanInlineMarkdown(paraLines.join(' '));
         if (fullPara) {
-          blocks.push({
-            type: 'paragraph',
-            text: fullPara,
-          });
+          // If detectedTitle is still empty or a prompt artifact, and this first line looks like a title:
+          if (
+            blocks.length === 0 &&
+            (!detectedTitle || this.isGenericOrPromptTitle(detectedTitle)) &&
+            fullPara.length < 80 &&
+            !/[.!?]$/.test(fullPara) &&
+            !/^(?:overview|introduction|summary|note):/i.test(fullPara)
+          ) {
+            detectedTitle = fullPara;
+          } else {
+            blocks.push({
+              type: 'paragraph',
+              text: fullPara,
+            });
+          }
         }
       }
     }
 
-    // Default title if still empty
-    if (!detectedTitle) {
-      detectedTitle = options.defaultTitle || 'Xarwiz Executive Report';
+    // Default title if still empty or a generic prompt
+    if (!detectedTitle || this.isGenericOrPromptTitle(detectedTitle)) {
+      if (options.defaultTitle && !this.isGenericOrPromptTitle(options.defaultTitle)) {
+        detectedTitle = options.defaultTitle;
+      } else {
+        const firstHeading = blocks.find((b) => b.type === 'heading') as any;
+        detectedTitle = firstHeading?.text || 'Business Strategy Document';
+      }
     }
 
     return {
@@ -456,6 +501,79 @@ export class ContentNormalizer {
       // Strip HTML tags (<br>, <span>, etc.)
       .replace(/<[^>]+>/g, '')
       .trim();
+  }
+
+  /**
+   * Aggressively remove AI conversational preambles, apologies, meta-disclaimers,
+   * and conversion advice (e.g. "as a text-based model...", "you can use pandoc...")
+   * so they NEVER appear in generated PDF documents.
+   */
+  public static stripModelDisclaimers(input: string): string {
+    if (!input || typeof input !== 'string') return '';
+
+    // Split on paragraph boundaries (double newlines)
+    const paragraphs = input.split(/\r?\n\s*\r?\n/);
+    const cleanedParagraphs: string[] = [];
+
+    const isDisclaimerText = (t: string): boolean => {
+      const lower = t.toLowerCase();
+      // Apologies & capability claims
+      if (
+        /(?:i['’]?m\s+sorry|apolog(?:ies|ize)|as\s+(?:an?\s+)?(?:text-based|ai|language|large\s+language)\s+model|as\s+an\s+ai|cannot\s+(?:directly\s+)?(?:create|generate|produce|export|download|make)\s+(?:a\s+)?pdf|don['’]?t\s+have\s+the\s+(?:ability|capability)\s+to\s+(?:create|generate|produce|export|download|make)\s+(?:a\s+)?pdf)/i.test(lower)
+      ) {
+        return true;
+      }
+      // Suggestions to use external converters, markdown, word processors, pandoc
+      if (
+        /(?:use\s+this\s+markdown|copy\s+(?:and\s+paste\s+)?this\s+markdown|export\s+it\s+to\s+a\s+pdf\s+using|convert\s+(?:it\s+to\s+a|this\s+into\s+a)\s+pdf|software\s+that\s+supports\s+markdown\s+to\s+pdf|tool\s+such\s+as\s+pandoc|word\s+processor\s+that\s+supports|copy\s+and\s+paste\s+this\s+markdown\s+content)/i.test(lower)
+      ) {
+        return true;
+      }
+      // Conversational preambles introducing the document
+      if (
+        /^(?:here['’]?s|here\s+is)\s+(?:the\s+)?(?:markdown\s+text|markdown|blueprint|document|plan|report|strategy)\s+(?:for|of|below)?:?$/i.test(lower) ||
+        /^(?:certainly|sure|absolutely)!,?\s+(?:here['’]?s|here\s+is|below\s+is)/i.test(lower) ||
+        /^(?:i\s+hope\s+this\s+helps!|let\s+me\s+know\s+if\s+you\s+(?:need|have\s+any\s+questions)|feel\s+free\s+to\s+ask)/i.test(lower)
+      ) {
+        return true;
+      }
+      return false;
+    };
+
+    for (const para of paragraphs) {
+      const trimmed = para.trim();
+      if (!trimmed) continue;
+
+      if (isDisclaimerText(trimmed)) {
+        // Check if paragraph contains legitimate content lines mixed in (e.g., heading on the last line)
+        const lines = trimmed.split(/\r?\n/);
+        const nonDisclaimerLines = lines.filter((line) => {
+          const lTrim = line.trim();
+          if (!lTrim) return false;
+          return !isDisclaimerText(lTrim);
+        });
+        if (nonDisclaimerLines.length > 0) {
+          cleanedParagraphs.push(nonDisclaimerLines.join('\n'));
+        }
+        continue;
+      }
+
+      // Also clean individual inline disclaimer sentences from an otherwise valid paragraph
+      const cleanPara = trimmed
+        .replace(/I['’]?m\s+sorry\s+for\s+the\s+confusion[^.\n]*\./gi, '')
+        .replace(/As\s+(?:an?\s+)?(?:text-based|ai|language)\s+model[^.\n]*\./gi, '')
+        .replace(/However,?\s+you\s+can\s+use\s+this\s+markdown[^.\n]*\./gi, '')
+        .replace(/Here['’]?s\s+the\s+markdown\s+text\s+for[^:\n]*:?/gi, '')
+        .replace(/You\s+can\s+copy\s+and\s+paste\s+this\s+markdown[^.\n]*\./gi, '')
+        .replace(/Here\s+is\s+the\s+(?:markdown\s+)?text\s+for[^:\n]*:?/gi, '')
+        .trim();
+
+      if (cleanPara.length > 0) {
+        cleanedParagraphs.push(cleanPara);
+      }
+    }
+
+    return cleanedParagraphs.join('\n\n');
   }
 
   /**

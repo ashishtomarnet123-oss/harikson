@@ -45,9 +45,13 @@ export class PdfOrchestrator {
 
     // 2. Detect EXPORT_PREVIOUS intent: user wants the existing/previous response or conversation converted
     const exportPreviousPatterns = [
-      /^(?:please\s+)?(?:make|convert|turn|export|download|save|generate|get)\s+(?:this|it|the\s+above|the\s+previous|your\s+previous|prior|current|that|last)\s*(?:conversation|response|answer|strategy|report|plan)?\s*(?:in(?:to)?|as)?\s*(?:a\s*)?pdf/i,
-      /^(?:please\s+)?(?:can\s+you\s+)?(?:export|make|convert|download|save|turn)\s+(?:this|it|the\s+above|the\s+previous|your\s+previous|your\s+last|the\s+last)\s*(?:answer|response|message|content|strategy|report|plan)?\s*(?:as|into|to|in)?\s*(?:a\s*)?pdf/i,
-      /\b(?:export|turn|convert|save|make|download)\s+(?:the\s+above|this|your\s+previous|the\s+previous|last)\s+(?:answer|response|content|strategy|report|document)?\s*(?:as|into|in)?\s*(?:a\s*)?pdf\b/i,
+      /^(?:please\s+)?(?:make|convert|turn|export|download|save|generate|get)\s+(?:this|it|the\s+above|the\s+previous|your\s+previous|prior|current|that|last)\s*(?:conversation|response|answer|strategy|report|plan|detail|details|content)?\s*(?:in(?:to)?|as)?\s*(?:a\s*)?pdf/i,
+      /^(?:please\s+)?(?:can\s+you\s+)?(?:export|make|convert|download|save|turn)\s+(?:this|it|the\s+above|the\s+previous|your\s+previous|your\s+last|the\s+last)\s*(?:answer|response|message|content|strategy|report|plan|detail|details)?\s*(?:as|into|to|in)?\s*(?:a\s*)?pdf/i,
+      /\b(?:export|turn|convert|save|make|download)\s+(?:the\s+above|this|your\s+previous|the\s+previous|last)\s+(?:answer|response|content|strategy|report|document|detail|details)?\s*(?:as|into|in)?\s*(?:a\s*)?pdf\b/i,
+      // Prompts starting with "pdf of/for ...": "pdf for me of this detail", "pdf of this", "pdf of this detail", "pdf for this", "pdf of the above"
+      /^(?:please\s+)?(?:a\s+)?pdf\s+(?:for\s+me\s+)?(?:of|for|from)\s+(?:this|it|the\s+above|the\s+previous|that|these|all\s+this)\s*(?:detail|details|conversation|response|answer|strategy|report|plan|content)?/i,
+      /^(?:please\s+)?(?:give|send|provide|make|get|create)\s+(?:me\s+)?(?:a\s+)?pdf\s+(?:of|for|from)\s+(?:this|it|the\s+above|the\s+previous|that|these)\s*(?:detail|details|conversation|response|answer|strategy|report|plan|content)?/i,
+      /\bpdf\b.*\b(?:of\s+this|of\s+the\s+above|of\s+that|of\s+this\s+detail|of\s+these\s+details|from\s+above|for\s+me\s+of\s+this)\b/i,
       /^(?:give|send|provide)\s+me\s+the\s+downloadable\s+(?:pdf|version|file|report)/i,
       /^(?:please\s+)?(?:generate|create|export|download)\s+(?:the\s+)?pdf\s*(?:now|please|file)?$/i,
       /^(?:download|export)\s+(?:as|in|to)?\s*pdf$/i,
@@ -125,20 +129,35 @@ export class PdfOrchestrator {
   private static extractDocumentTitle(prompt: string): string {
     const cleaned = prompt
       .replace(/^(?:create|generate|write|draft|build|make|produce)\s+(?:a|an)?\s*/i, '')
+      .replace(/^(?:please\s+)?(?:a\s+)?pdf\s+(?:for\s+me\s+)?(?:of|for|from)?\s*/i, '')
+      .replace(/^(?:give|send|provide|make|get|create)\s+(?:me\s+)?(?:a\s+)?pdf\s+(?:of|for|from)?\s*/i, '')
       .replace(/\s+(?:as|in|into)\s+(?:a\s*)?pdf.*$/i, '')
       .replace(/\s+in\s+pdf\s+format.*$/i, '')
       .replace(/\s+pdf\s+report.*$/i, '')
       .replace(/\s+pdf.*$/i, '')
       .trim();
 
-    if (cleaned.length > 3 && cleaned.length < 80) {
-      // Capitalize first letter of each major word
+    const lower = cleaned.toLowerCase();
+    if (
+      !cleaned ||
+      cleaned.length <= 3 ||
+      lower === 'this' ||
+      lower === 'this detail' ||
+      lower === 'these details' ||
+      lower === 'the above' ||
+      lower === 'it' ||
+      lower === 'me of this detail'
+    ) {
+      return 'Business Strategy Document';
+    }
+
+    if (cleaned.length < 80) {
       return cleaned
         .split(' ')
         .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
         .join(' ');
     }
-    return 'Executive Document';
+    return 'Business Strategy Document';
   }
 
   /**
@@ -146,17 +165,21 @@ export class PdfOrchestrator {
    */
   public static getDocumentPromptDirective(intent: PdfIntentDetectionResult): string {
     const themeName = intent.theme || 'corporate';
-    return `### CRITICAL DOCUMENT GENERATION DIRECTIVE:
-The user specifically requested a publication-grade, comprehensive document to be compiled directly into a downloadable PDF by the Xarwiz Universal PDF Engine.
+    return `### CRITICAL SYSTEM INSTRUCTION: DIRECT DOCUMENT AUTHORING
+You are authoring a publication-grade, professional document that the Xarwiz Universal PDF Engine will compile directly into a formal PDF.
 Document Theme: ${themeName.toUpperCase()}
-Document Requirements:
-1. Provide an exhaustive, publication-quality document with a clear top-level Title (# Document Title).
+
+MANDATORY RULES:
+1. Start IMMEDIATELY with the top-level Title using markdown: # [Document Title].
 2. Include an **Executive Summary** providing a high-level briefing.
 3. Structure core content using standard ## Section and ### Subsection headings.
 4. Use detailed analytical paragraphs, bold numbered points (**1. Item Title**: explanation), bullet lists, and comparison Markdown tables where structured data is presented.
 5. Provide actionable conclusions, recommendations, or implementation milestones.
 6. Support English, Hindi, or mixed multi-lingual text where requested.
-7. CRITICAL: Do NOT output conversational apologies, meta-announcements, or disclaimers such as "As an AI, I cannot create a PDF" or "You can copy this into Word" — the platform's Universal PDF Engine will automatically compile, validate, and attach your output as a verified PDF file directly to this response.`;
+7. ABSOLUTE PROHIBITION ON AI APOLOGIES OR CONVERSION ADVICE:
+   - NEVER write conversational greetings, apologies, or disclaimers such as "I'm sorry", "as a text-based model", "I cannot create PDFs", "You can use this markdown text", or "use a tool such as pandoc".
+   - The platform backend automatically compiles your output into a verified PDF file.
+   - Begin directly with the document title and output ONLY publication document content.`;
   }
 
   /**

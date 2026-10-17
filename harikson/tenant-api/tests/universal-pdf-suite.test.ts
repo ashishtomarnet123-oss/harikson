@@ -252,6 +252,52 @@ Immediate implementation commences with cluster provisioning in Asia-South regio
   const fetchedVal = await PdfValidator.validateBuffer(fetchedFile.buffer);
   assert(fetchedVal.isValid, 'Persisted file passed deep PDF validation (%PDF- signature and valid pages)');
 
+  // ----------------------------------------------------
+  // TEST 11: AI Disclaimer & Meta-Text Scrubbing
+  // ----------------------------------------------------
+  console.log('\nTest 11: AI Model Disclaimer Scrubbing & Smart Title Detection');
+  const dirtyModelOutput = `I'm sorry for the confusion, but as a text-based model, I don't have the capability to create or produce PDF files. However, you can use this markdown text as a starting point and export it to a PDF using a tool or software that supports markdown to PDF conversion. Here’s the markdown text for the marketing strategy plan blueprint:
+
+Marketing Strategy Plan Blueprint
+
+1. Executive Summary
+- Overview: A concise summary of the marketing strategy.
+- Objectives: Define the specific outcomes.
+
+2. Market Analysis
+- Target Market: Identify and define your target audience.
+
+You can copy and paste this markdown content into a markdown editor or document, and then use a tool such as pandoc or a word processor that supports markdown to convert it to a PDF.`;
+
+  const normalizedDirty = ContentNormalizer.fromMarkdown(dirtyModelOutput, {
+    defaultTitle: 'Pdf For Me Of This Detail',
+    includeCoverPage: true,
+  });
+
+  // Verify that disclaimers are completely stripped
+  const dirtyAllText = normalizedDirty.blocks.map(b => (b as any).text || '').join(' ');
+  assert(!dirtyAllText.includes("text-based model"), 'Stripped "text-based model" disclaimer');
+  assert(!dirtyAllText.includes("capability to create"), 'Stripped capability apology');
+  assert(!dirtyAllText.includes("pandoc"), 'Stripped pandoc advice');
+  assert(!dirtyAllText.includes("export it to a PDF using a tool"), 'Stripped conversion advice');
+
+  // Verify title was promoted from content rather than keeping prompt artifact
+  assert(normalizedDirty.title === 'Marketing Strategy Plan Blueprint', `Title promoted to: ${normalizedDirty.title}`);
+
+  // Test intent detection on "Pdf For Me Of This Detail"
+  const intentExportDetail = PdfOrchestrator.detectPdfIntent('Pdf For Me Of This Detail', true);
+  assert(intentExportDetail.isPdfIntent, 'Recognized "Pdf For Me Of This Detail" as PDF intent');
+  assert(intentExportDetail.type === 'EXPORT_PREVIOUS', 'Recognized "Pdf For Me Of This Detail" as EXPORT_PREVIOUS');
+
+  // Verify full render of stripped document succeeds without disclaimers
+  const renderedClean = await UniversalPdfEngine.renderDirect(dirtyModelOutput, {
+    defaultTitle: 'Pdf For Me Of This Detail',
+    theme: 'executive',
+    includeCoverPage: true,
+  });
+  assert(renderedClean.buffer.length > 5000, `Rendered cleaned PDF buffer: ${renderedClean.buffer.length} bytes`);
+  assert(renderedClean.pageCount >= 2, `Rendered clean doc page count: ${renderedClean.pageCount}`);
+
   console.log('\n====================================================');
   console.log(`🎉 ALL ${passedTests}/${totalTests} TESTS PASSED SUCCESSFULLY!`);
   console.log('====================================================\n');
