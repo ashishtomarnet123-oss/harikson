@@ -222,14 +222,14 @@ export async function executeDatabaseCleanup(force = false): Promise<{
       [retentionDays]
     );
 
+    // Messages cascade-delete with their parent conversations, but we also clean up any orphaned messages
     deletedCounts.messages = await runBatchDelete(
       `DELETE FROM messages WHERE id IN (
-        SELECT id FROM messages 
-        WHERE deleted_at < NOW() - $1 * INTERVAL '1 day' 
-        AND tenant_id NOT IN (SELECT tenant_id FROM legal_holds WHERE status = 'active')
+        SELECT m.id FROM messages m
+        LEFT JOIN conversations c ON m.conversation_id = c.id
+        WHERE c.id IS NULL
         LIMIT 10000
-      )`,
-      [retentionDays]
+      )`
     );
 
     // F. Downgrade grace period checks

@@ -2326,6 +2326,7 @@ CRITICAL RULES:
 
     try {
       let currentConvId = activeConvId;
+      let fullBotText = '';
       const conversationIdParam = activeConvId || 'new';
       const idempotencyKey = `${conversationIdParam}:${Date.now()}:${Math.random()}`;
 
@@ -2487,6 +2488,8 @@ CRITICAL RULES:
           }
         }
 
+        fullBotText = fullText;
+
         setMessages((prev) => {
           const updated = [...prev];
           const last = updated[updated.length - 1];
@@ -2535,13 +2538,26 @@ CRITICAL RULES:
       if (isVoiceActive(voiceStateRef.current.state)) {
         dispatchVoice({ type: 'ERROR', message: err.message });
       }
+
+      // Persist any partial response received before the stream was interrupted
+      if (typeof window !== 'undefined' && currentConvId && fullBotText && fullBotText.trim()) {
+        try {
+          const partialHistory = [
+            ...messages,
+            { sender: 'user', text: userText },
+            { sender: 'bot', text: fullBotText, model },
+          ];
+          localStorage.setItem(`hk_conv_msgs_${currentConvId}`, JSON.stringify(partialHistory));
+        } catch (_) {}
+      }
+
       const friendlyErrMsg =
         err.message && err.message.toLowerCase().includes('network')
           ? 'Network connection was interrupted while receiving the AI response. Please click Regenerate to continue.'
           : err.message || 'Failed to send message. Please try again.';
       setError(friendlyErrMsg);
       setMessages((prev) =>
-        prev.filter((m) => !(m.sender === 'bot' && m.text === ''))
+        prev.filter((m) => !(m.sender === 'bot' && (!m.text || m.text === '')))
       );
     } finally {
       setLoading(false);
@@ -4093,9 +4109,35 @@ CRITICAL RULES:
 
                   {/* Error banner */}
                   {error && (
-                    <div className="error-banner">
-                      <TriangleAlert size={18} />
-                      <span>{error}</span>
+                    <div className="error-banner" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <TriangleAlert size={18} style={{ flexShrink: 0 }} />
+                        <span>{error}</span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setError(null);
+                          handleRegenerate(messages.length);
+                        }}
+                        style={{
+                          background: 'rgba(239, 68, 68, 0.15)',
+                          border: '1px solid rgba(239, 68, 68, 0.3)',
+                          color: '#ef4444',
+                          borderRadius: '6px',
+                          padding: '4px 10px',
+                          fontSize: '12px',
+                          fontWeight: 500,
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '6px',
+                          flexShrink: 0,
+                        }}
+                      >
+                        <RotateCw size={13} />
+                        <span>Regenerate</span>
+                      </button>
                     </div>
                   )}
 

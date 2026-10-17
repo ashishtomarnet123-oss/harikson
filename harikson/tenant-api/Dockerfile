@@ -23,4 +23,6 @@ COPY --from=builder /usr/src/app/assets ./assets
 
 EXPOSE 3008
 
+ENV NODE_OPTIONS="--max-old-space-size=4096"
+
 CMD ["node", "dist/index.js"]

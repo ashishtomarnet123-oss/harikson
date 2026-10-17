@@ -122,8 +122,8 @@ export class HariksonScheduler {
       Logger.warn(`🪦 [DLQ WORKER] Processing dead-letter job: queue=${job.data.originalQueue} jobId=${job.data.jobId} reason=${job.data.failedReason}`);
       try {
         await pool.query(
-          `INSERT INTO activity_logs (user_id, action, details, ip_address, created_at)
-           VALUES ('00000000-0000-0000-0000-000000000000', 'system.dlq.processed', $1, '127.0.0.1', NOW())`,
+          `INSERT INTO activity_logs (tenant_id, user_id, action, details, ip_address, created_at)
+           VALUES ('00000000-0000-0000-0000-000000000000', '00000000-0000-0000-0000-000000000000', 'system.dlq.processed', $1, '127.0.0.1', NOW())`,
           [JSON.stringify({ queue: job.data.originalQueue, jobId: job.data.jobId, reason: job.data.failedReason, failedAt: job.data.failedAt })]
         );
       } catch (dbErr) {
@@ -131,8 +131,10 @@ export class HariksonScheduler {
       }
     }, { connection: dlqWorkerConn, concurrency: 1 });
 
-    // 1. File Watcher Indexer (Incremental Indexer)
-    this.startIndexerWorker(tenantId || 'system', workspacePath || './');
+    // 1. File Watcher Indexer (Incremental Indexer - only if explicitly enabled)
+    if (process.env.ENABLE_WORKSPACE_WATCHER === 'true') {
+      this.startIndexerWorker(tenantId || 'system', workspacePath || './');
+    }
 
     // 2. Schedule repeatable/cron jobs
     try {
@@ -154,15 +156,15 @@ export class HariksonScheduler {
         await this.cleanupQueue.removeRepeatableByKey(job.key);
       }
 
-      // Add fresh global repeatable jobs
+      // Add fresh global repeatable jobs with sensible intervals to prevent memory & query saturation
       await this.memoryQueue.add('poller', {}, {
-        repeat: { every: 10000 },
+        repeat: { every: 60000 },
         removeOnComplete: true,
         removeOnFail: true,
       });
 
       await this.summarizerQueue.add('poller', {}, {
-        repeat: { every: 15000 },
+        repeat: { every: 120000 },
         removeOnComplete: true,
         removeOnFail: true,
       });

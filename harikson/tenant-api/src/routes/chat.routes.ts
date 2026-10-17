@@ -831,6 +831,7 @@ async function handleChat(req: any, res: any) {
         let ollamaPromptTokens = 0;
         let ollamaCompletionTokens = 0;
         let ollamaLatencyMs = 0;
+        let chunkBuffer = '';
         ollamaRes.data.on('data', (chunk: Buffer) => {
           if (streamEnded) return;
           if (!firstByteLogged) {
@@ -840,10 +841,14 @@ async function handleChat(req: any, res: any) {
               `[TIMING] First stream chunk from Ollama after ${Date.now() - ollamaCallStart}ms`
             );
           }
-          const lines = chunk.toString().split('\n').filter(Boolean);
+          chunkBuffer += chunk.toString('utf-8');
+          const lines = chunkBuffer.split('\n');
+          chunkBuffer = lines.pop() || '';
           for (const line of lines) {
+            const trimmed = line.trim();
+            if (!trimmed) continue;
             try {
-              const parsed = JSON.parse(line);
+              const parsed = JSON.parse(trimmed);
               if (parsed.message?.content) {
                 fullResponseText += parsed.message.content;
                 res.write(`data: ${JSON.stringify({ content: parsed.message.content, conversationId: currentConvId, title: currentConvTitle })}\n\n`);
@@ -860,6 +865,16 @@ async function handleChat(req: any, res: any) {
         });
 
         ollamaRes.data.on('end', async () => {
+          if (chunkBuffer.trim()) {
+            try {
+              const parsed = JSON.parse(chunkBuffer.trim());
+              if (parsed.message?.content) {
+                fullResponseText += parsed.message.content;
+                res.write(`data: ${JSON.stringify({ content: parsed.message.content, conversationId: currentConvId, title: currentConvTitle })}\n\n`);
+              }
+            } catch (_) {}
+            chunkBuffer = '';
+          }
           cleanupKeepalive();
           if (streamEnded) return;
           streamEnded = true;
