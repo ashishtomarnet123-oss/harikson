@@ -363,7 +363,9 @@ export function FileAttachmentCard({
         onKeyDown={(e) => {
           if (e.key === 'Enter' || e.key === ' ') {
             e.preventDefault();
-            onPreview && onPreview(file);
+            if (onPreview) {
+              onPreview(file);
+            }
           }
         }}
         style={{
@@ -406,7 +408,9 @@ export function FileAttachmentCard({
       onKeyDown={(e) => {
         if (e.key === 'Enter' || e.key === ' ') {
           e.preventDefault();
-          onPreview && onPreview(file);
+          if (onPreview) {
+            onPreview(file);
+          }
         }
       }}
     >

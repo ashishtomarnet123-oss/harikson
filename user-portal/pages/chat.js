@@ -1156,7 +1156,9 @@ function ChatPage() {
           if (typeof data.settings.pitch === 'number') setVoicePitch(data.settings.pitch);
           if (typeof data.settings.vadThreshold === 'number') {
             setVadThreshold(data.settings.vadThreshold);
-            vadControllerRef.current?.options && (vadControllerRef.current.options.silenceThresholdDb = data.settings.vadThreshold);
+            if (vadControllerRef.current?.options) {
+              vadControllerRef.current.options.silenceThresholdDb = data.settings.vadThreshold;
+            }
           }
           if (typeof data.settings.echoGateEnabled === 'boolean') setEchoGateEnabled(data.settings.echoGateEnabled);
           // Apply rate/pitch to chunked speaker

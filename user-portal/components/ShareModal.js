@@ -19,7 +19,11 @@ async function copyToClipboard(text) {
       ta.select();
       const ok = document.execCommand('copy');
       document.body.removeChild(ta);
-      ok ? resolve() : reject(new Error('copy failed'));
+      if (ok) {
+        resolve();
+      } else {
+        reject(new Error('copy failed'));
+      }
     } catch (e) { reject(e); }
   });
 }
