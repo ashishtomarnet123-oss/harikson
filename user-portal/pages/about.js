@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import {
   Menu,
   X,
@@ -828,8 +829,10 @@ export default function AboutPage() {
           box-shadow: 0 16px 36px rgba(15, 23, 42, 0.08);
         }
 
-        .founder-photo {
+        .founder-photo,
+        .founder-img-wrapper :global(img) {
           width: 100%;
+          height: auto;
           aspect-ratio: 4 / 3;
           object-fit: cover;
           object-position: center top;
@@ -1079,8 +1082,10 @@ export default function AboutPage() {
           box-shadow: 0 16px 36px rgba(15, 23, 42, 0.08);
         }
 
-        .india-gate-photo {
+        .india-gate-photo,
+        .india-visual-wrap :global(img) {
           width: 100%;
+          height: auto;
           aspect-ratio: 16 / 11;
           object-fit: cover;
           display: block;
@@ -1333,7 +1338,8 @@ export default function AboutPage() {
           background: #e2e8f0;
         }
 
-        .member-photo-img {
+        .member-photo-img,
+        .member-photo-frame :global(img) {
           width: 100%;
           height: 100%;
           object-fit: cover;
@@ -1845,7 +1851,13 @@ export default function AboutPage() {
 
               {/* Floating User Avatar circle at top right */}
               <div className="floating-top-avatar">
-                <img src="/assets/about/team-product.jpg" alt="Active team member" />
+                <Image
+                  src="/assets/about/team-product.webp"
+                  alt="Active team member"
+                  width={38}
+                  height={38}
+                  priority
+                />
               </div>
 
               {/* Angled 3D Dashboard Mockup */}
@@ -1859,9 +1871,33 @@ export default function AboutPage() {
                     </span>
                   </div>
                   <div className="avatar-cluster">
-                    <div className="avatar-mini"><img src="/assets/about/team-ashish.jpg" alt="" /></div>
-                    <div className="avatar-mini"><img src="/assets/about/team-product.jpg" alt="" /></div>
-                    <div className="avatar-mini"><img src="/assets/about/team-engineer.jpg" alt="" /></div>
+                    <div className="avatar-mini">
+                      <Image
+                        src="/assets/about/team-ashish.webp"
+                        alt=""
+                        width={22}
+                        height={22}
+                        priority
+                      />
+                    </div>
+                    <div className="avatar-mini">
+                      <Image
+                        src="/assets/about/team-product.webp"
+                        alt=""
+                        width={22}
+                        height={22}
+                        priority
+                      />
+                    </div>
+                    <div className="avatar-mini">
+                      <Image
+                        src="/assets/about/team-engineer.webp"
+                        alt=""
+                        width={22}
+                        height={22}
+                        priority
+                      />
+                    </div>
                   </div>
                 </div>
 
@@ -2067,10 +2103,14 @@ export default function AboutPage() {
         <section className="founder-story-sec" id="founder-story">
           <div className="container story-2col-grid">
             <div className="founder-img-wrapper">
-              <img
-                src="/assets/about/founder-ashish-v2.jpg"
+              <Image
+                src="/assets/about/founder-ashish-v2.webp"
                 alt="Ashish Tomar, Founder & CEO of Xarwiz"
+                width={1200}
+                height={896}
                 className="founder-photo"
+                loading="lazy"
+                sizes="(max-width: 1024px) 100vw, 50vw"
               />
 
               {/* Floating Quote Card */}
@@ -2232,10 +2272,14 @@ export default function AboutPage() {
         <section className="india-sec">
           <div className="container india-2col-grid">
             <div className="india-visual-wrap">
-              <img
-                src="/assets/about/india-gate.jpg"
+              <Image
+                src="/assets/about/india-gate.webp"
                 alt="India Gate at golden hour"
+                width={1200}
+                height={896}
                 className="india-gate-photo"
+                loading="lazy"
+                sizes="(max-width: 1024px) 100vw, 50vw"
               />
 
               <div className="india-badge-floating">
@@ -2420,10 +2464,14 @@ export default function AboutPage() {
               {/* Member 1: Ashish Tomar */}
               <div className="team-member-card">
                 <div className="member-photo-frame">
-                  <img
-                    src="/assets/about/team-ashish.jpg"
+                  <Image
+                    src="/assets/about/team-ashish.webp"
                     alt="Ashish Tomar"
+                    width={1024}
+                    height={1024}
                     className="member-photo-img"
+                    loading="lazy"
+                    sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
                   />
                 </div>
                 <div className="member-info-footer">
@@ -2446,10 +2494,14 @@ export default function AboutPage() {
               {/* Member 2: Product & Design */}
               <div className="team-member-card">
                 <div className="member-photo-frame">
-                  <img
-                    src="/assets/about/team-product.jpg"
+                  <Image
+                    src="/assets/about/team-product.webp"
                     alt="Product & Design Lead"
+                    width={1024}
+                    height={1024}
                     className="member-photo-img"
+                    loading="lazy"
+                    sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
                   />
                 </div>
                 <div className="member-info-footer">
@@ -2473,10 +2525,14 @@ export default function AboutPage() {
               {/* Member 3: Engineering */}
               <div className="team-member-card">
                 <div className="member-photo-frame">
-                  <img
-                    src="/assets/about/team-engineer.jpg"
+                  <Image
+                    src="/assets/about/team-engineer.webp"
                     alt="Engineering Lead"
+                    width={1024}
+                    height={1024}
                     className="member-photo-img"
+                    loading="lazy"
+                    sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
                   />
                 </div>
                 <div className="member-info-footer">
@@ -2500,10 +2556,14 @@ export default function AboutPage() {
               {/* Member 4: Operations */}
               <div className="team-member-card">
                 <div className="member-photo-frame">
-                  <img
-                    src="/assets/about/team-operations.jpg"
+                  <Image
+                    src="/assets/about/team-operations.webp"
                     alt="Operations Lead"
+                    width={1024}
+                    height={1024}
                     className="member-photo-img"
+                    loading="lazy"
+                    sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
                   />
                 </div>
                 <div className="member-info-footer">
@@ -2535,7 +2595,7 @@ export default function AboutPage() {
           <div
             className="earth-glow-backdrop"
             style={{
-              backgroundImage: 'url(/assets/about/earth-glow.jpg)',
+              backgroundImage: 'url(/assets/about/earth-glow.webp)',
             }}
           />
 
