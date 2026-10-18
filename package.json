@@ -13,7 +13,6 @@
     "build": "npm --prefix harikson/tenant-api install && npm --prefix harikson/tenant-api run build && npm --prefix user-portal install && npm --prefix user-portal run build && npm --prefix admin-panel install && npm --prefix admin-panel run build"
   },
   "dependencies": {
-    "chromium": "^3.0.3",
     "playwright-core": "^1.61.1"
   },
   "devDependencies": {
