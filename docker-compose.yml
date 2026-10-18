@@ -93,7 +93,7 @@ services:
     deploy:
       resources:
         limits:
-          memory: 512m
+          memory: 1536m
     healthcheck:
       test: ['CMD-SHELL', 'pg_isready -U neuravolt']
       interval: 10s
@@ -141,6 +141,7 @@ services:
     environment:
       - PORT=5001
       - NODE_ENV=production
+      - INTERNAL_API_SECRET
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
     networks:

@@ -8,16 +8,50 @@ dotenv.config();
 const app = express();
 const port = process.env.PORT || 5001;
 
-app.use(cors({ origin: '*' }));
-app.use(express.json());
+app.use(cors({ origin: false }));
+app.use(express.json({ limit: '100kb' }));
 
 app.use((req, _res, next) => {
-  console.log(`📡 [Orchestrator] ${req.method} ${req.path}`);
+  const sanitizedPath = req.path.replace(/[\r\n]/g, '');
+  console.log(`📡 [Orchestrator Audit] ${req.method} ${sanitizedPath} - Source IP: ${req.ip}`);
   next();
 });
 
+// Public health check
 app.get('/health', (_req, res) => {
   res.status(200).json({ status: 'healthy', timestamp: new Date().toISOString() });
+});
+
+// Guard all operational endpoints with internal secret authentication (fail-closed)
+app.use((req, res, next) => {
+  if (req.path === '/health') return next();
+
+  const expectedSecret = process.env.INTERNAL_API_SECRET;
+  if (!expectedSecret || expectedSecret.trim().length < 32) {
+    console.error('🚨 [Orchestrator Security] INTERNAL_API_SECRET is missing or insufficiently random (<32 chars)');
+    return res.status(503).json({ error: 'Service Unavailable: Orchestrator secret misconfigured' });
+  }
+
+  const providedSecret =
+    req.headers['x-internal-secret'] ||
+    (req.headers.authorization?.startsWith('Bearer ')
+      ? req.headers.authorization.slice(7)
+      : null);
+
+  if (!providedSecret || providedSecret !== expectedSecret) {
+    console.warn(`⚠️ [Orchestrator Security] Unauthorized access attempt to ${req.method} ${req.path} from IP ${req.ip}`);
+    return res.status(403).json({ error: 'Forbidden: Valid x-internal-secret required' });
+  }
+
+  next();
+});
+
+// Validate all ':name' parameters to prevent traversal / command injection
+app.param('name', (req, res, next, val) => {
+  if (!/^[a-zA-Z0-9_-]{2,64}$/.test(val)) {
+    return res.status(400).json({ error: 'Invalid resource name: Alphanumeric, hyphen, and underscore only (2-64 chars)' });
+  }
+  next();
 });
 
 // Instances Actions (by name)
