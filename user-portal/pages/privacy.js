@@ -33,8 +33,8 @@ export default function PrivacyPolicyPage() {
   }
 
   const sectionsData = [
-    { num: 1, cat: 'intro', title: 'Introduction', content: 'This Privacy Policy describes how Xarwiz Technologies LLP ("Xarwiz", "Company", "we", "us", or "our") processes, collects, stores, and protects personal data obtained from users of our Platform.' },
-    { num: 2, cat: 'intro', title: 'About Us', content: 'Company: Xarwiz Technologies LLP. Registered Office Address: Sector 62, Noida, Uttar Pradesh, India - 201301. LLPIN: AAK-1234. Support Email: support@xarwiz.com. Privacy Email: privacy@xarwiz.com.' },
+    { num: 1, cat: 'intro', title: 'Introduction', content: 'This Privacy Policy describes how VoltNovate Solutions LLP ("Xarwiz", "Company", "we", "us", or "our") processes, collects, stores, and protects personal data obtained from users of our Platform.' },
+    { num: 2, cat: 'intro', title: 'About Us', content: 'Company: VoltNovate Solutions LLP. Registered Office Address: Sector 62, Noida, Uttar Pradesh, India - 201301. LLPIN: AAK-1234. Support Email: support@xarwiz.com. Privacy Email: privacy@xarwiz.com.' },
     { num: 3, cat: 'intro', title: 'Definitions', content: 'Personal Data: Data about an individual who is identifiable. Sensitive Personal Data: Passwords, financial or biometric credentials. Processing: Automated operations performed on data. Data Principal: The individual whose data is processed. Data Fiduciary: Entity determining processing purposes (Xarwiz).' },
     { num: 4, cat: 'intro', title: 'Scope of this Policy', content: 'This policy applies to our websites, dashboards, user portals, developer APIs, SDKs, mobile systems, browser extensions, and collaborative workspaces.' },
     
@@ -76,7 +76,7 @@ export default function PrivacyPolicyPage() {
     
     { num: 28, cat: 'governance', title: 'Grievance Redressal Mechanism', content: 'In accordance with India\'s IT Act 2000 and DPDP Act 2023, privacy concerns may be directed to our Grievance Officer: Ashish Pratap Singh Tomar (grievance@xarwiz.com).' },
     { num: 29, cat: 'governance', title: 'Changes to this Privacy Policy', content: 'We reserve the right to modify this Privacy Policy. Material updates will be notified via email or dashboard banners 14 days before taking effect.' },
-    { num: 30, cat: 'governance', title: 'Contact Us', content: 'Company: Xarwiz Technologies LLP. Office: Sector 62, Noida, UP, India. Email: privacy@xarwiz.com.' },
+    { num: 30, cat: 'governance', title: 'Contact Us', content: 'Company: VoltNovate Solutions LLP. Office: Sector 62, Noida, UP, India. Email: privacy@xarwiz.com.' },
     { num: 31, cat: 'governance', title: 'Governing Law', content: 'This policy is governed by the laws of India. Legal disputes are subject to the exclusive jurisdiction of the courts of Noida, Uttar Pradesh, India.' },
     { num: 32, cat: 'governance', title: 'Definitions Appendix', content: 'Data Fiduciary: Xarwiz. Data Principal: User. Processing: Any operation performed on personal data.' },
     { num: 33, cat: 'governance', title: 'Annexures', content: 'Annexure A: Categories of Personal Data.\nAnnexure B: Retention Schedule.\nAnnexure C: Third-Party Service Providers.\nAnnexure D: International Transfers.\nAnnexure E: Security Measures.' }
@@ -318,7 +318,7 @@ export default function PrivacyPolicyPage() {
             <div>
               <span style={{ color: '#64748b', fontSize: '13px' }}>Corporate Registry:</span>
               <div style={{ fontSize: '14px', fontWeight: '600', color: '#1e293b', marginTop: '2px' }}>
-                Xarwiz Technologies LLP (LLPIN: AAK-1234)
+                VoltNovate Solutions LLP (LLPIN: AAK-1234)
               </div>
             </div>
             <div style={{ textAlign: 'right' }}>

@@ -63,7 +63,7 @@ export default function AboutPage() {
               "Discover Xarwiz, India's AI Platform for Agents & Automation. Learn how we're connecting AI agents, business knowledge, and workflows to help businesses work smarter.",
             mainEntity: {
               '@type': 'Organization',
-              name: 'Xarwiz Technologies LLP',
+              name: 'VoltNovate Solutions LLP',
               founder: {
                 '@type': 'Person',
                 name: 'Ashish Tomar',
