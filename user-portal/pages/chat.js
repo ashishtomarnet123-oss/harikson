@@ -777,9 +777,18 @@ function ChatPage() {
         msg + ' at ' + line + ':' + col + '\n' + (err ? err.stack : '')
       );
     };
-    window.addEventListener('unhandledrejection', (event) => {
-      setGlobalError('Unhandled Promise Rejection: ' + event.reason);
-    });
+    const handleRejection = (event) => {
+      if (event?.reason?.name === 'AbortError' || event?.reason?.message?.includes('aborted')) {
+        return;
+      }
+      const reasonMsg = event?.reason?.stack || event?.reason?.message || String(event?.reason || 'Unknown error');
+      console.error('Unhandled Promise Rejection:', reasonMsg);
+      setGlobalError('Unhandled Promise Rejection: ' + reasonMsg);
+    };
+    window.addEventListener('unhandledrejection', handleRejection);
+    return () => {
+      window.removeEventListener('unhandledrejection', handleRejection);
+    };
   }, []);
   const router = useRouter();
 
@@ -2324,9 +2333,10 @@ CRITICAL RULES:
     const controller = new AbortController();
     abortControllerRef.current = controller;
 
+    let currentConvId = activeConvId;
+    let fullBotText = '';
+
     try {
-      let currentConvId = activeConvId;
-      let fullBotText = '';
       const conversationIdParam = activeConvId || 'new';
       const idempotencyKey = `${conversationIdParam}:${Date.now()}:${Math.random()}`;
 
@@ -2519,25 +2529,35 @@ CRITICAL RULES:
 
       // Cache full messages locally for instant persistence
       if (typeof window !== 'undefined' && currentConvId) {
-        const fullHistory = [
-          ...messages,
-          { sender: 'user', text: userText },
-          { sender: 'bot', text: fullText, model },
-        ];
-        localStorage.setItem(`hk_conv_msgs_${currentConvId}`, JSON.stringify(fullHistory));
+        try {
+          const fullHistory = [
+            ...messages,
+            { sender: 'user', text: userText },
+            { sender: 'bot', text: fullText, model },
+          ];
+          localStorage.setItem(`hk_conv_msgs_${currentConvId}`, JSON.stringify(fullHistory));
+        } catch (storageErr) {
+          console.warn('Failed to cache full messages to localStorage:', storageErr);
+        }
       }
 
       // Refresh conversation list from backend / localStorage
-      fetchConversations();
+      try {
+        fetchConversations();
+      } catch (fcErr) {
+        console.warn('Failed to refresh conversations:', fcErr);
+      }
     } catch (err) {
       if (err.name === 'AbortError') {
         console.log('Stream generation aborted by user.');
         return;
       }
       console.error('Chat error:', err);
-      if (isVoiceActive(voiceStateRef.current.state)) {
-        dispatchVoice({ type: 'ERROR', message: err.message });
-      }
+      try {
+        if (isVoiceActive(voiceStateRef.current.state)) {
+          dispatchVoice({ type: 'ERROR', message: err.message });
+        }
+      } catch (_) {}
 
       // Persist any partial response received before the stream was interrupted
       if (typeof window !== 'undefined' && currentConvId && fullBotText && fullBotText.trim()) {
@@ -3378,15 +3398,38 @@ CRITICAL RULES:
             top: 0,
             left: 0,
             width: '100%',
-            background: 'red',
+            background: '#dc2626',
             color: 'white',
             zIndex: 9999,
-            padding: '20px',
+            padding: '16px 24px',
             whiteSpace: 'pre-wrap',
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'flex-start',
+            boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
           }}
         >
-          <h1>CLIENT SIDE CRASH!</h1>
-          {globalError}
+          <div>
+            <h3 style={{ margin: '0 0 6px 0', fontSize: '15px', fontWeight: 700 }}>Client-Side Notification</h3>
+            <p style={{ margin: 0, fontSize: '13px', opacity: 0.95 }}>{globalError}</p>
+          </div>
+          <button
+            onClick={() => setGlobalError('')}
+            style={{
+              background: 'rgba(255,255,255,0.2)',
+              border: 'none',
+              color: 'white',
+              padding: '6px 14px',
+              borderRadius: '4px',
+              cursor: 'pointer',
+              fontWeight: 600,
+              fontSize: '12px',
+              marginLeft: '16px',
+              flexShrink: 0,
+            }}
+          >
+            Dismiss
+          </button>
         </div>
       )}
       <Head>
