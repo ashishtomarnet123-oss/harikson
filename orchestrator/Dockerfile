@@ -17,6 +17,7 @@ RUN npm install --omit=dev --no-audit --no-fund
 
 COPY --from=builder /usr/src/app/dist ./dist
 
+USER node
 EXPOSE 5001
 
 CMD ["node", "dist/index.js"]

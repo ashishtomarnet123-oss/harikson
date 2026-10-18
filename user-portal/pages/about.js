@@ -26,6 +26,9 @@ import SEOHead, { defaultOrganizationSchema } from '../components/SEOHead';
 
 export default function AboutPage() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [activeCanvasTab, setActiveCanvasTab] = useState('Flow');
+  const [deployStatus, setDeployStatus] = useState('idle');
+  const [videoModalOpen, setVideoModalOpen] = useState(false);
 
   useEffect(() => {
     if (mobileMenuOpen) {
@@ -1876,56 +1879,111 @@ export default function AboutPage() {
 
                   <div className="dash-main-canvas">
                     <div className="dash-canvas-tabs">
-                      <span className="canvas-tab active">Flow</span>
-                      <span className="canvas-tab">Configuration</span>
-                      <span className="canvas-tab">Analytics</span>
-                      <span className="canvas-tab">Logs</span>
+                      {['Flow', 'Configuration', 'Analytics', 'Logs'].map((tab) => (
+                        <span
+                          key={tab}
+                          className={`canvas-tab ${activeCanvasTab === tab ? 'active' : ''}`}
+                          onClick={() => setActiveCanvasTab(tab)}
+                          style={{ cursor: 'pointer' }}
+                        >
+                          {tab}
+                        </span>
+                      ))}
                     </div>
 
-                    <div className="flow-diagram-container">
-                      <div className="node-pill trigger">
-                        <MessageSquare size={13} color="#1b68ff" />
-                        <div>
-                          <div className="node-title-bold">Trigger</div>
-                          <div className="node-subtext">New customer query</div>
-                        </div>
-                      </div>
-
-                      <div style={{ color: '#cbd5e1', lineHeight: 1, paddingLeft: 12 }}>↓</div>
-
-                      <div className="node-pill agent">
-                        <Bot size={14} color="#7c3aed" />
-                        <div>
-                          <div className="node-title-bold">AI Agent</div>
-                          <div className="node-subtext">Understands &amp; Responds</div>
-                        </div>
-                      </div>
-
-                      <div style={{ color: '#cbd5e1', lineHeight: 1, paddingLeft: 12 }}>↓</div>
-
-                      <div className="flow-branch-row">
-                        <div className="branch-node kb">
-                          <Database size={12} color="#10b981" />
+                    {activeCanvasTab === 'Flow' && (
+                      <div className="flow-diagram-container">
+                        <div className="node-pill trigger">
+                          <MessageSquare size={13} color="#1b68ff" />
                           <div>
-                            <div className="node-title-bold">Knowledge Base</div>
-                            <div className="node-subtext">Search documents</div>
+                            <div className="node-title-bold">Trigger</div>
+                            <div className="node-subtext">New customer query</div>
                           </div>
                         </div>
 
-                        <div className="branch-node tools">
-                          <Cpu size={12} color="#ec4899" />
+                        <div style={{ color: '#cbd5e1', lineHeight: 1, paddingLeft: 12 }}>↓</div>
+
+                        <div className="node-pill agent">
+                          <Bot size={14} color="#7c3aed" />
                           <div>
-                            <div className="node-title-bold">Tools</div>
-                            <div className="node-subtext">Take action</div>
+                            <div className="node-title-bold">AI Agent</div>
+                            <div className="node-subtext">Understands &amp; Responds</div>
+                          </div>
+                        </div>
+
+                        <div style={{ color: '#cbd5e1', lineHeight: 1, paddingLeft: 12 }}>↓</div>
+
+                        <div className="flow-branch-row">
+                          <div className="branch-node kb">
+                            <Database size={12} color="#10b981" />
+                            <div>
+                              <div className="node-title-bold">Knowledge Base</div>
+                              <div className="node-subtext">Search documents</div>
+                            </div>
+                          </div>
+
+                          <div className="branch-node tools">
+                            <Cpu size={12} color="#ec4899" />
+                            <div>
+                              <div className="node-title-bold">Tools</div>
+                              <div className="node-subtext">Take action</div>
+                            </div>
                           </div>
                         </div>
                       </div>
-                    </div>
+                    )}
+
+                    {activeCanvasTab === 'Configuration' && (
+                      <div style={{ padding: '16px', fontSize: '0.8rem', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid #f1f5f9', paddingBottom: '4px' }}>
+                          <span style={{ color: '#64748b' }}>Model:</span>
+                          <span style={{ fontWeight: 600 }}>Qwen 2.5 (3B / 7B)</span>
+                        </div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid #f1f5f9', paddingBottom: '4px' }}>
+                          <span style={{ color: '#64748b' }}>Vector RAG:</span>
+                          <span style={{ fontWeight: 600, color: '#10b981' }}>pgvector (Active)</span>
+                        </div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid #f1f5f9', paddingBottom: '4px' }}>
+                          <span style={{ color: '#64748b' }}>Tenant Isolation:</span>
+                          <span style={{ fontWeight: 600, color: '#1b68ff' }}>PostgreSQL RLS</span>
+                        </div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                          <span style={{ color: '#64748b' }}>Compliance:</span>
+                          <span style={{ fontWeight: 600 }}>DPDP Act 2023 Verified</span>
+                        </div>
+                      </div>
+                    )}
+
+                    {activeCanvasTab === 'Analytics' && (
+                      <div style={{ padding: '16px', fontSize: '0.8rem', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <span style={{ color: '#64748b' }}>Avg. Response Latency</span>
+                          <span style={{ fontWeight: 700, color: '#10b981' }}>118 ms</span>
+                        </div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <span style={{ color: '#64748b' }}>Query Success Rate</span>
+                          <span style={{ fontWeight: 700, color: '#1b68ff' }}>99.85%</span>
+                        </div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <span style={{ color: '#64748b' }}>Daily Tokens Processed</span>
+                          <span style={{ fontWeight: 700 }}>2.4M</span>
+                        </div>
+                      </div>
+                    )}
+
+                    {activeCanvasTab === 'Logs' && (
+                      <div style={{ padding: '12px', fontSize: '0.72rem', fontFamily: 'monospace', color: '#334155', display: 'flex', flexDirection: 'column', gap: '6px', background: '#f8fafc', borderRadius: '8px' }}>
+                        <div><span style={{ color: '#10b981' }}>[INFO]</span> Agent initialized in tenant scope</div>
+                        <div><span style={{ color: '#1b68ff' }}>[QUERY]</span> Customer support inquiry received</div>
+                        <div><span style={{ color: '#7c3aed' }}>[RAG]</span> Vector similarity match score 0.94</div>
+                        <div><span style={{ color: '#10b981' }}>[SSE]</span> Response streamed in 1.4s</div>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
 
-              {/* Floating Deploy Agent Card — Placed on hero-visual-wrap so it does not overlap Tools node */}
+              {/* Floating Deploy Agent Card */}
               <div className="deploy-agent-card">
                 <div className="deploy-card-title">Deploy Agent</div>
                 <div className="deploy-checklist">
@@ -1933,8 +1991,18 @@ export default function AboutPage() {
                   <div className="check-item"><span>✓</span> Configure</div>
                   <div className="check-item"><span>✓</span> Deploy</div>
                 </div>
-                <button className="btn-deploy-blue">
-                  Deploy →
+                <button
+                  className="btn-deploy-blue"
+                  onClick={() => {
+                    setDeployStatus('deploying');
+                    setTimeout(() => {
+                      setDeployStatus('deployed');
+                      setTimeout(() => setDeployStatus('idle'), 2500);
+                    }, 1000);
+                  }}
+                  disabled={deployStatus === 'deploying'}
+                >
+                  {deployStatus === 'deploying' ? 'Deploying...' : deployStatus === 'deployed' ? '✓ Deployed!' : 'Deploy →'}
                 </button>
               </div>
             </div>
@@ -2018,7 +2086,14 @@ export default function AboutPage() {
               </div>
 
               {/* Floating Play Button */}
-              <div className="founder-watch-floating">
+              <div
+                className="founder-watch-floating"
+                onClick={() => setVideoModalOpen(true)}
+                style={{ cursor: 'pointer' }}
+                role="button"
+                tabIndex={0}
+                onKeyDown={(e) => { if (e.key === 'Enter') setVideoModalOpen(true); }}
+              >
                 <div className="play-circle-btn">
                   <Play size={12} fill="#0b132b" />
                 </div>
@@ -2225,8 +2300,8 @@ export default function AboutPage() {
             <div>
               <div className="sec-eyebrow-text">OUR JOURNEY</div>
               <h2 className="sec-h2-title">
-                <span style={{ display: 'block', whiteSpace: 'nowrap' }}>From an idea to a platform</span>
-                <span style={{ display: 'block', whiteSpace: 'nowrap' }}>for what's next</span>
+                <span style={{ display: 'block' }}>From an idea to a platform</span>
+                <span style={{ display: 'block' }}>for what's next</span>
               </h2>
 
               <p className="story-paragraph">
@@ -2323,8 +2398,8 @@ export default function AboutPage() {
             <div>
               <div className="sec-eyebrow-text">MEET THE TEAM</div>
               <h2 className="sec-h2-title">
-                <span style={{ display: 'block', whiteSpace: 'nowrap' }}>A Team That Believes in</span>
-                <span style={{ display: 'block', whiteSpace: 'nowrap' }}>Practical AI for Real Impact</span>
+                <span style={{ display: 'block' }}>A Team That Believes in</span>
+                <span style={{ display: 'block' }}>Practical AI for Real Impact</span>
               </h2>
 
               <p className="story-paragraph">
@@ -2519,6 +2594,59 @@ export default function AboutPage() {
           </div>
         </section>
       </main>
+
+      {/* Video Modal */}
+      {videoModalOpen && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            backgroundColor: 'rgba(15, 23, 42, 0.85)',
+            backdropFilter: 'blur(8px)',
+            zIndex: 9999,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '20px',
+          }}
+          onClick={() => setVideoModalOpen(false)}
+        >
+          <div
+            style={{
+              position: 'relative',
+              width: '100%',
+              maxWidth: '720px',
+              backgroundColor: '#0b132b',
+              borderRadius: '16px',
+              overflow: 'hidden',
+              boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)',
+              border: '1px solid rgba(255, 255, 255, 0.1)',
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 20px', borderBottom: '1px solid rgba(255, 255, 255, 0.1)' }}>
+              <div style={{ color: '#ffffff', fontWeight: 600, fontSize: '1rem' }}>Founder's Message — Ashish Tomar</div>
+              <button
+                onClick={() => setVideoModalOpen(false)}
+                style={{ background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer', padding: '4px' }}
+                aria-label="Close video"
+              >
+                <X size={20} />
+              </button>
+            </div>
+            <div style={{ padding: '30px', textAlign: 'center', color: '#e2e8f0' }}>
+              <div style={{ width: '80px', height: '80px', borderRadius: '50%', background: 'linear-gradient(135deg, #1b68ff, #7c3aed)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px' }}>
+                <Play size={36} fill="#ffffff" color="#ffffff" style={{ marginLeft: '4px' }} />
+              </div>
+              <h3 style={{ fontSize: '1.25rem', fontWeight: 600, marginBottom: '10px', color: '#ffffff' }}>Empowering Indian Enterprises with Autonomous AI</h3>
+              <p style={{ fontSize: '0.9rem', color: '#94a3b8', maxWidth: '480px', margin: '0 auto 20px', lineHeight: 1.6 }}>
+                &ldquo;We built Xarwiz to bridge the gap between fragmented software tools and sovereign, reliable AI workflows tailored for high-growth businesses.&rdquo;
+              </p>
+              <div style={{ fontSize: '0.8rem', color: '#64748b' }}>Length: 2 min 36 sec • Sovereign Cloud AI Overview</div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ==============================================================
           10. FOOTER PRESERVATION — STRICTLY REUSED SITE FOOTER

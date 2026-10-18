@@ -2,6 +2,11 @@ import axios from 'axios';
 
 const ORCHESTRATOR_URL = process.env.ORCHESTRATOR_URL || 'http://orchestrator:5001';
 
+function getAuthHeaders() {
+  const secret = process.env.INTERNAL_API_SECRET;
+  return secret ? { 'x-internal-secret': secret } : {};
+}
+
 export class DockerService {
   static async createTenantStack(
     name: string,
@@ -9,7 +14,11 @@ export class DockerService {
     agentType: string
   ): Promise<{ containerId: string; domain: string }> {
     try {
-      const res = await axios.post(`${ORCHESTRATOR_URL}/tenants`, { name, plan, agentType });
+      const res = await axios.post(
+        `${ORCHESTRATOR_URL}/tenants`,
+        { name, plan, agentType },
+        { headers: getAuthHeaders() }
+      );
       return res.data;
     } catch (err: any) {
       console.warn(`⚠️ Orchestrator createTenantStack connection failed, simulating fallback:`, err.message);
@@ -22,7 +31,9 @@ export class DockerService {
 
   static async destroyTenantStack(name: string, containerId: string): Promise<void> {
     try {
-      await axios.delete(`${ORCHESTRATOR_URL}/tenants/${name}`);
+      await axios.delete(`${ORCHESTRATOR_URL}/tenants/${name}`, {
+        headers: getAuthHeaders(),
+      });
     } catch (err: any) {
       console.warn(`⚠️ Orchestrator destroyTenantStack failed:`, err.message);
     }
@@ -30,7 +41,9 @@ export class DockerService {
 
   static async stopTenantStack(name: string): Promise<void> {
     try {
-      await axios.post(`${ORCHESTRATOR_URL}/tenants/${name}/stop`);
+      await axios.post(`${ORCHESTRATOR_URL}/tenants/${name}/stop`, {}, {
+        headers: getAuthHeaders(),
+      });
     } catch (err: any) {
       console.warn(`⚠️ Orchestrator stopTenantStack failed:`, err.message);
     }
@@ -38,7 +51,9 @@ export class DockerService {
 
   static async startTenantStack(name: string): Promise<void> {
     try {
-      await axios.post(`${ORCHESTRATOR_URL}/tenants/${name}/start`);
+      await axios.post(`${ORCHESTRATOR_URL}/tenants/${name}/start`, {}, {
+        headers: getAuthHeaders(),
+      });
     } catch (err: any) {
       console.warn(`⚠️ Orchestrator startTenantStack failed:`, err.message);
     }
@@ -46,7 +61,9 @@ export class DockerService {
 
   static async restartTenantStack(name: string): Promise<void> {
     try {
-      await axios.post(`${ORCHESTRATOR_URL}/tenants/${name}/restart`);
+      await axios.post(`${ORCHESTRATOR_URL}/tenants/${name}/restart`, {}, {
+        headers: getAuthHeaders(),
+      });
     } catch (err: any) {
       console.warn(`⚠️ Orchestrator restartTenantStack failed:`, err.message);
     }
@@ -59,6 +76,7 @@ export class DockerService {
     try {
       const res = await axios.get(`${ORCHESTRATOR_URL}/tenants/${name}/metrics`, {
         params: { containerId },
+        headers: getAuthHeaders(),
       });
       return res.data;
     } catch (err: any) {

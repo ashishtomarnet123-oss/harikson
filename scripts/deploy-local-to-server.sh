@@ -74,6 +74,7 @@ REDIS_PASSWORD=harikson_redis_pwd
 JWT_SECRET=fa363ef72694cfa20cdf6fd5b236f22d171666ea8820793fa315242098c6221d
 TENANT_MASTER_KEY=bb08035417602a3a24ece51deef91936ee687eb6c58ac2c6837e80f32deba55d
 PAYMENT_ENCRYPTION_KEY=f29be28299aee78109431e43e66ec75933d11624a150ff1dd8087e2f003e744a
+INTERNAL_API_SECRET=e7b99c08d4b38d389a14f447cf0fbf377f80db268c78c8e1a1ef726a978f5629
 NEXTAUTH_SECRET=neuravolt_dev_jwt_secret_key_extremely_long_and_secure_value_12345!
 NEXTAUTH_URL=https://xarwiz.com
 NEXTAUTH_ADMIN_URL=https://admin.xarwiz.com
@@ -97,8 +98,8 @@ ENVEOF
     # Restart & Build services
     echo "Updating containers and configuring Traefik on port 80/443..."
     sudo docker compose up -d postgres redis
-    sudo docker compose build admin-api tenant-api admin-panel user-portal
-    sudo docker compose up -d --force-recreate traefik admin-api tenant-api admin-panel user-portal ollama
+    sudo docker compose build admin-api tenant-api admin-panel user-portal orchestrator
+    sudo docker compose up -d --force-recreate traefik admin-api tenant-api admin-panel user-portal ollama orchestrator
 REMOTE_SCRIPT
 
 echo -e "${GREEN}✓ Remote build & launch finished${NC}"
