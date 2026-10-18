@@ -66,14 +66,17 @@ describe('Xarwiz Security Remediation & Regression Test Suite', () => {
       );
     }
 
-    // Assert that backend ports are explicitly bound to 127.0.0.1
-    assert.ok(
-      composeContent.includes("'127.0.0.1:3008:3008'"),
-      'tenant-api must bind to 127.0.0.1'
+    // Assert that backend ports are not exposed publicly to 0.0.0.0 (either omitted or bound strictly to 127.0.0.1)
+    // Note: tenant-api and admin-api omit host port publishing to allow zero-downtime Blue-Green scaling (--scale=2)
+    assert.strictEqual(
+      /[-:\s]3008:3008/.test(composeContent) && !composeContent.includes("'127.0.0.1:3008:3008'"),
+      false,
+      'tenant-api must not expose public host ports'
     );
-    assert.ok(
-      composeContent.includes("'127.0.0.1:4000:4000'"),
-      'admin-api must bind to 127.0.0.1'
+    assert.strictEqual(
+      /[-:\s]4000:4000/.test(composeContent) && !composeContent.includes("'127.0.0.1:4000:4000'"),
+      false,
+      'admin-api must not expose public host ports'
     );
     assert.ok(
       composeContent.includes("'127.0.0.1:3018:3001'"),

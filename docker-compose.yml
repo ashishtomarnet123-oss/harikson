@@ -166,8 +166,6 @@ services:
     # whatever was last built locally there, ignoring new deploys entirely.
     image: ${REGISTRY:-ghcr.io}/${IMAGE_PREFIX:-ashishtomarnet123-oss/harikson}-tenant-api:latest
     restart: unless-stopped
-    ports:
-      - '127.0.0.1:3008:3008'
     environment:
       - DATABASE_URL=postgresql://neuravolt:${POSTGRES_PASSWORD:-neuravolt_dev_pwd}@postgres:5432/neuravolt
       - REDIS_URL=redis://:${REDIS_PASSWORD:-harikson_redis_pwd}@redis:6379
@@ -230,8 +228,6 @@ services:
       context: ./admin-api
     image: ${REGISTRY:-ghcr.io}/${IMAGE_PREFIX:-ashishtomarnet123-oss/harikson}-admin-api:latest
     restart: unless-stopped
-    ports:
-      - '127.0.0.1:4000:4000'
     environment:
       - DATABASE_URL=postgresql://neuravolt:${POSTGRES_PASSWORD:-neuravolt_dev_pwd}@postgres:5432/neuravolt
       - REDIS_URL=redis://:${REDIS_PASSWORD:-harikson_redis_pwd}@redis:6379
