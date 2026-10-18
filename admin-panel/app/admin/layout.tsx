@@ -27,6 +27,7 @@ import {
   Search,
   Scale,
   Mic,
+  TrendingUp,
 } from 'lucide-react';
 import { useAdminAuth } from '../../context/AdminAuthContext';
 import { getCookie, deleteCookie } from 'cookies-next';
@@ -36,6 +37,7 @@ const menuSections = [
     label: 'Core',
     items: [
       { name: 'Dashboard', path: '/admin/dashboard', icon: LayoutDashboard },
+      { name: 'Revenue & BI', path: '/admin/revenue', icon: TrendingUp },
       { name: 'Live Activity', path: '/admin/activity', icon: Activity },
       { name: 'AI Agents', path: '/admin/agents', icon: Bot },
       { name: 'Knowledge', path: '/admin/knowledge', icon: Database },

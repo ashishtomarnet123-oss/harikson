@@ -22,6 +22,7 @@ import {
   startIntegrationWorkers,
 } from './routers/integrations.js';
 import privacyRouter from './routers/privacy.js';
+import analyticsRouter from './routers/analytics.js';
 import fs from 'fs';
 import path from 'path';
 import pool from './db.js';
@@ -1449,6 +1450,8 @@ app.get('/admin/legal-holds/audit-logs', adminAuth, async (req, res) => {
 // PROTECTED ROUTES (Admin Authorization required)
 // ────────────────────────────────────────────────────────────
 app.use('/admin/agents', adminAuth, agentsRouter);
+app.use('/admin/analytics', adminAuth, analyticsRouter);
+app.use('/v1/admin/analytics', adminAuth, analyticsRouter);
 app.use('/admin', adminAuth, operationsRouter); // Phase 1-5 operations
 app.use('/admin/privacy', adminAuth, privacyRouter); // DPDP Privacy, Consent & Data Principal Rights
 app.use('/v1/admin/privacy', adminAuth, privacyRouter);
