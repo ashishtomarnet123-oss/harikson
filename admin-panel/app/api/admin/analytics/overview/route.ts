@@ -142,7 +142,7 @@ function parseDateRange(period: string, customStart?: string | null, customEnd?:
       bucket = 'month';
       break;
 
-    case 'custom':
+    case 'custom': {
       if (customStart) start = new Date(customStart);
       if (customEnd) end = new Date(customEnd);
       const spanMs = end.getTime() - start.getTime();
@@ -150,6 +150,7 @@ function parseDateRange(period: string, customStart?: string | null, customEnd?:
       compareEnd = new Date(start.getTime() - 1);
       bucket = spanMs <= 86400000 ? 'hour' : spanMs <= 32 * 86400000 ? 'day' : 'month';
       break;
+    }
 
     case 'all':
       start = new Date('2020-01-01T00:00:00Z');
