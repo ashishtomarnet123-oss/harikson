@@ -1,8 +1,11 @@
 import { Router, Request, Response } from 'express';
 import { z } from 'zod';
 import { ContextBuilder } from '../../services/context/context-builder.js';
+import { requireAuth } from '../../middleware/auth.js';
+import { WorkspaceSandbox } from '../../services/sandbox/workspace-sandbox.js';
 
 const router = Router();
+router.use(requireAuth);
 
 const buildContextSchema = z.object({
   conversationId: z.string().uuid().nullable().optional(),
@@ -12,7 +15,7 @@ const buildContextSchema = z.object({
   cursorPosition: z.number().optional(),
 });
 
-// POST /build - Assembles context-aware prompt
+// POST /build - Assembles context-aware prompt under authenticated sandbox
 router.post('/build', async (req: Request, res: Response) => {
   try {
     const check = buildContextSchema.safeParse(req.body);
@@ -29,19 +32,29 @@ router.post('/build', async (req: Request, res: Response) => {
       currentFile,
       cursorPosition,
     } = check.data;
-    const tenantId = (req as any).tenantId || (req as any).tenant?.id || (req.headers['x-tenant-id'] as string);
-    const userId = (req as any).userId || (req.headers['x-user-id'] as string);
+    const tenantId =
+      (req as any).user?.tenantId ||
+      (req as any).tenant?.id;
+    const userId =
+      (req as any).user?.userId ||
+      (req as any).user?.id;
 
     if (!tenantId || !userId) {
       return res.status(401).json({ hariksonError: 'Unauthorized: Missing tenant or user context' });
     }
+
+    // Sandbox workspace path strictly within tenant directory
+    const safeWorkspacePath = WorkspaceSandbox.getTenantWorkspace(
+      tenantId,
+      workspacePath
+    );
 
     const result = await ContextBuilder.build(
       tenantId,
       userId,
       userPrompt,
       conversationId || null,
-      workspacePath,
+      safeWorkspacePath,
       currentFile,
       cursorPosition
     );
@@ -55,7 +68,10 @@ router.post('/build', async (req: Request, res: Response) => {
       hariksonContextSources: result.contextSources,
     });
   } catch (error: any) {
-    return res.status(500).json({ hariksonError: error.message });
+    const safeMessage = error.message?.includes('Security Exception')
+      ? error.message
+      : 'Context assembly error';
+    return res.status(500).json({ hariksonError: safeMessage });
   }
 });
 

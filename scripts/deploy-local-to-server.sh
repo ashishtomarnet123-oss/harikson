@@ -61,27 +61,12 @@ gcloud compute ssh "${INSTANCE_NAME}" --zone="${ZONE}" << REMOTE_SCRIPT
 
     cd ${REMOTE_PATH}
 
-    # Write production .env on VM
-    cat << 'ENVEOF' > .env
-NODE_ENV=production
-DATA_DIR=/opt/xarwiz/data
-POSTGRES_USER=neuravolt
-POSTGRES_PASSWORD=neuravolt_dev_pwd
-POSTGRES_DB=neuravolt
-DATABASE_URL=postgresql://neuravolt:neuravolt_dev_pwd@postgres:5432/neuravolt
-REDIS_URL=redis://:harikson_redis_pwd@redis:6379
-REDIS_PASSWORD=harikson_redis_pwd
-JWT_SECRET=fa363ef72694cfa20cdf6fd5b236f22d171666ea8820793fa315242098c6221d
-TENANT_MASTER_KEY=bb08035417602a3a24ece51deef91936ee687eb6c58ac2c6837e80f32deba55d
-PAYMENT_ENCRYPTION_KEY=f29be28299aee78109431e43e66ec75933d11624a150ff1dd8087e2f003e744a
-INTERNAL_API_SECRET=e7b99c08d4b38d389a14f447cf0fbf377f80db268c78c8e1a1ef726a978f5629
-NEXTAUTH_SECRET=neuravolt_dev_jwt_secret_key_extremely_long_and_secure_value_12345!
-NEXTAUTH_URL=https://xarwiz.com
-NEXTAUTH_ADMIN_URL=https://admin.xarwiz.com
-NEXT_PUBLIC_API_URL=https://api.xarwiz.com
-ALLOWED_ORIGINS=https://xarwiz.com,https://www.xarwiz.com,https://admin.xarwiz.com,https://api.xarwiz.com,http://${VM_IP}:3001,http://${VM_IP}:3002,http://${VM_IP}:3008,http://${VM_IP}:3018,http://${VM_IP}:3028
-GF_SECURITY_ADMIN_PASSWORD=Admin@1234
-ENVEOF
+    # Verify production .env exists on VM; fail-closed if missing
+    if [ ! -f .env ]; then
+      echo "ERROR: Production .env file is missing on target host at ${REMOTE_PATH}/.env"
+      echo "Please provision .env from a secure secret vault or run scripts/rotate-secrets.js before deploying."
+      exit 1
+    fi
 
     # Fix permissions for data volumes
     sudo mkdir -p ${REMOTE_PATH}/data/{postgres,redis,grafana,prometheus,ollama,traefik}
@@ -91,8 +76,7 @@ ENVEOF
     sudo chown -R 472:472 ${REMOTE_PATH}/data/grafana 2>/dev/null || true
     sudo chown -R 65534:65534 ${REMOTE_PATH}/data/prometheus 2>/dev/null || true
 
-    # Adjust external ports and domain API URL in docker-compose.yml
-    sed -i 's/127.0.0.1://g' docker-compose.yml
+    # Ensure secure loopback bindings and resource allocation
     sed -i "s/cpus: '7.0'/cpus: '3.5'/g" docker-compose.yml
 
     # Restart & Build services
@@ -112,13 +96,13 @@ API_STATUS=$(curl -s -o /dev/null -w "%{http_code}" "https://api.xarwiz.com/heal
 DOMAIN_STATUS=$(curl -s -o /dev/null -w "%{http_code}" "https://xarwiz.com" 2>/dev/null || echo "failed")
 ADMIN_STATUS=$(curl -s -o /dev/null -w "%{http_code}" "https://admin.xarwiz.com/admin/login" 2>/dev/null || echo "failed")
 
-IP_API=$(curl -s -o /dev/null -w "%{http_code}" "http://${VM_IP}:3008/health" || echo "failed")
-IP_ADMIN=$(curl -s -o /dev/null -w "%{http_code}" "http://${VM_IP}:3018/admin/login" || echo "failed")
-IP_PORTAL=$(curl -s -o /dev/null -w "%{http_code}" "http://${VM_IP}:3028/login" || echo "failed")
+IP_API=$(curl -s -m 2 -o /dev/null -w "%{http_code}" "http://${VM_IP}:3008/health" 2>/dev/null || echo "BLOCKED")
+IP_ADMIN=$(curl -s -m 2 -o /dev/null -w "%{http_code}" "http://${VM_IP}:3018/admin/login" 2>/dev/null || echo "BLOCKED")
+IP_PORTAL=$(curl -s -m 2 -o /dev/null -w "%{http_code}" "http://${VM_IP}:3028/login" 2>/dev/null || echo "BLOCKED")
 
-echo -e "Direct IP Tenant API (Port 3008):   ${GREEN}HTTP ${IP_API}${NC}"
-echo -e "Direct IP Admin Panel (Port 3018):  ${GREEN}HTTP ${IP_ADMIN}${NC}"
-echo -e "Direct IP User Portal (Port 3028):  ${GREEN}HTTP ${IP_PORTAL}${NC}"
+echo -e "Direct IP Tenant API (Port 3008):   ${YELLOW}${IP_API} (Expected: BLOCKED)${NC}"
+echo -e "Direct IP Admin Panel (Port 3018):  ${YELLOW}${IP_ADMIN} (Expected: BLOCKED)${NC}"
+echo -e "Direct IP User Portal (Port 3028):  ${YELLOW}${IP_PORTAL} (Expected: BLOCKED)${NC}"
 echo -e "Domain User Portal (xarwiz.com):    ${GREEN}HTTP ${DOMAIN_STATUS}${NC}"
 echo -e "Domain Admin (admin.xarwiz.com):    ${GREEN}HTTP ${ADMIN_STATUS}${NC}"
 echo -e "Domain API (api.xarwiz.com):        ${GREEN}HTTP ${API_STATUS}${NC}"
@@ -129,5 +113,4 @@ echo -e "${GREEN}===============================================================
 echo -e "Main Website: https://xarwiz.com"
 echo -e "Admin Panel:  https://admin.xarwiz.com/admin/login"
 echo -e "Tenant API:   https://api.xarwiz.com/health"
-echo -e "Direct IP:    http://${VM_IP}:3018/admin/login"
 

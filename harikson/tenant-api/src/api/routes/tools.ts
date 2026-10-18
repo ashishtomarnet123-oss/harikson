@@ -1,6 +1,8 @@
 import { Router, Request, Response } from 'express';
 import { z } from 'zod';
 import { ToolExecutor } from '../../services/tools/executor.js';
+import { requireAuth } from '../../middleware/auth.js';
+import { WorkspaceSandbox } from '../../services/sandbox/workspace-sandbox.js';
 
 const router = Router();
 
@@ -15,8 +17,8 @@ const executeToolsSchema = z.object({
   ),
 });
 
-// POST /execute - Execute batch of tool calls sequentially
-router.post('/execute', async (req: Request, res: Response) => {
+// POST /execute - Execute batch of tool calls sequentially under authenticated sandbox
+router.post('/execute', requireAuth, async (req: Request, res: Response) => {
   try {
     const check = executeToolsSchema.safeParse(req.body);
     if (!check.success) {
@@ -27,13 +29,25 @@ router.post('/execute', async (req: Request, res: Response) => {
 
     const { conversationId, workspacePath, toolCalls } = check.data;
     const tenantId =
-      (req.headers['x-tenant-id'] as string) ||
-      '00000000-0000-0000-0000-000000000000';
+      (req as any).user?.tenantId ||
+      (req as any).tenant?.id;
+
+    if (!tenantId) {
+      return res
+        .status(403)
+        .json({ error: 'Access Denied: Missing tenant authorization context.' });
+    }
+
+    // Enforce workspace sandbox containment strictly within tenant directory
+    const safeWorkspacePath = WorkspaceSandbox.getTenantWorkspace(
+      tenantId,
+      workspacePath
+    );
 
     const results = await ToolExecutor.executeAll(
       tenantId,
       conversationId,
-      workspacePath,
+      safeWorkspacePath,
       toolCalls as any
     );
 
@@ -42,7 +56,10 @@ router.post('/execute', async (req: Request, res: Response) => {
       hariksonResults: results,
     });
   } catch (error: any) {
-    return res.status(500).json({ hariksonError: error.message });
+    const safeMessage = error.message?.includes('Security Exception')
+      ? error.message
+      : 'Tool execution encountered an error';
+    return res.status(500).json({ hariksonError: safeMessage });
   }
 });
 
