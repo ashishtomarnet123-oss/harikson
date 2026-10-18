@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
   TrendingUp,
   DollarSign,
@@ -26,31 +26,21 @@ import {
   ExternalLink,
   Zap,
   Activity,
+  Crown,
+  Star,
+  Package,
+  Edit2,
+  X,
+  Check,
+  Percent,
+  Sliders,
+  ChevronUp,
+  ChevronDown,
 } from 'lucide-react';
-import {
-  Card,
-  Metric,
-  Text,
-  Grid,
-  Flex,
-  Badge,
-  BadgeDelta,
-  AreaChart,
-  BarChart,
-  DonutChart,
-  Table,
-  TableHead,
-  TableRow,
-  TableHeaderCell,
-  TableBody,
-  TableCell,
-  TabGroup,
-  TabList,
-  Tab,
-  TabPanels,
-  TabPanel,
-} from '@tremor/react';
 import { getCookie } from 'cookies-next';
+import Link from 'next/link';
+
+// ─── Interfaces ─────────────────────────────────────────────────────────────
 
 interface OverviewPayload {
   period: string;
@@ -112,9 +102,14 @@ interface OverviewPayload {
   plansBreakdown: Array<{
     id: string;
     name: string;
+    tier?: string;
     price: number;
     billing: string;
     currency: string;
+    tokenLimit?: number;
+    agentLimit?: number;
+    isActive?: boolean;
+    isRecommended?: boolean;
     revenue: number;
     share: number;
     successfulPayments: number;
@@ -170,6 +165,20 @@ interface OverviewPayload {
   }>;
 }
 
+interface LivePlan {
+  id: string;
+  name: string;
+  tier?: string;
+  price: number;
+  billing: string;
+  currency: string;
+  token_limit?: number;
+  agent_limit?: number;
+  is_active?: boolean;
+  is_recommended?: boolean;
+  description?: string;
+}
+
 interface PaidUser {
   userId: string;
   userName: string;
@@ -211,19 +220,595 @@ interface Transaction {
 const DATE_PRESETS = [
   { label: 'Today', value: 'today' },
   { label: 'Yesterday', value: 'yesterday' },
-  { label: 'Last 7 Days', value: '7d' },
-  { label: 'Last 30 Days', value: '30d' },
+  { label: '7 Days', value: '7d' },
+  { label: '30 Days', value: '30d' },
   { label: 'This Week', value: 'this_week' },
-  { label: 'Last Week', value: 'last_week' },
   { label: 'This Month', value: 'this_month' },
-  { label: 'Last Month', value: 'last_month' },
   { label: 'This Quarter', value: 'this_quarter' },
-  { label: 'Last Quarter', value: 'last_quarter' },
   { label: 'This Year', value: 'this_year' },
-  { label: 'Last Year', value: 'last_year' },
   { label: 'All Time', value: 'all' },
-  { label: 'Custom Range', value: 'custom' },
+  { label: 'Custom', value: 'custom' },
 ];
+
+// ─── Number & Currency Formatter ─────────────────────────────────────────────
+
+function formatINR(val: number) {
+  return new Intl.NumberFormat('en-IN', {
+    style: 'currency',
+    currency: 'INR',
+    maximumFractionDigits: 0,
+  }).format(val || 0);
+}
+
+function formatCompactINR(val: number) {
+  if (val >= 10000000) return `₹${(val / 10000000).toFixed(2)}Cr`;
+  if (val >= 100000) return `₹${(val / 100000).toFixed(1)}L`;
+  if (val >= 1000) return `₹${(val / 1000).toFixed(1)}k`;
+  return `₹${Math.round(val)}`;
+}
+
+// ─── Native SVG Chart Components ─────────────────────────────────────────────
+
+// 1. Interactive Area / Spline Chart for Revenue Over Time
+function InteractiveSplineChart({
+  data,
+  showComparison = true,
+}: {
+  data: Array<{ label: string; date: string; revenue: number; orders: number; compareRevenue: number }>;
+  showComparison?: boolean;
+}) {
+  const [hoverIndex, setHoverIndex] = useState<number | null>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  if (!data || data.length === 0) {
+    return (
+      <div className="h-64 flex items-center justify-center text-gray-500 text-sm">
+        No time-series data available for this range
+      </div>
+    );
+  }
+
+  const width = 800;
+  const height = 260;
+  const padding = { top: 20, right: 30, bottom: 35, left: 60 };
+
+  const chartWidth = width - padding.left - padding.right;
+  const chartHeight = height - padding.top - padding.bottom;
+
+  const maxVal = Math.max(
+    ...data.map((d) => d.revenue),
+    ...(showComparison ? data.map((d) => d.compareRevenue || 0) : []),
+    100
+  );
+
+  const getX = (index: number) => {
+    if (data.length <= 1) return padding.left + chartWidth / 2;
+    return padding.left + (index / (data.length - 1)) * chartWidth;
+  };
+
+  const getY = (val: number) => {
+    return padding.top + chartHeight - (val / maxVal) * chartHeight;
+  };
+
+  // Build smooth cubic bezier curve
+  const buildSmoothPath = (values: number[]) => {
+    if (values.length === 0) return '';
+    const points = values.map((v, i) => ({ x: getX(i), y: getY(v) }));
+    if (points.length === 1) return `M ${points[0].x} ${points[0].y}`;
+
+    let path = `M ${points[0].x} ${points[0].y}`;
+    for (let i = 0; i < points.length - 1; i++) {
+      const p0 = points[i === 0 ? 0 : i - 1];
+      const p1 = points[i];
+      const p2 = points[i + 1];
+      const p3 = points[i + 2] || p2;
+
+      const cp1x = p1.x + (p2.x - p0.x) / 6;
+      const cp1y = p1.y + (p2.y - p0.y) / 6;
+      const cp2x = p2.x - (p3.x - p1.x) / 6;
+      const cp2y = p2.y - (p3.y - p1.y) / 6;
+
+      path += ` C ${cp1x.toFixed(1)} ${cp1y.toFixed(1)}, ${cp2x.toFixed(1)} ${cp2y.toFixed(1)}, ${p2.x.toFixed(1)} ${p2.y.toFixed(1)}`;
+    }
+    return path;
+  };
+
+  const revValues = data.map((d) => d.revenue);
+  const compValues = data.map((d) => d.compareRevenue || 0);
+
+  const splinePath = buildSmoothPath(revValues);
+  const compPath = showComparison ? buildSmoothPath(compValues) : '';
+
+  const areaPath = `${splinePath} L ${getX(data.length - 1)} ${padding.top + chartHeight} L ${getX(0)} ${padding.top + chartHeight} Z`;
+
+  // Grid line values
+  const yTicks = [0, maxVal * 0.25, maxVal * 0.5, maxVal * 0.75, maxVal];
+
+  // Mouse move handler for interactive crosshair
+  const handleMouseMove = (e: React.MouseEvent<SVGSVGElement>) => {
+    if (!containerRef.current) return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    const mouseX = e.clientX - rect.left;
+    const svgX = (mouseX / rect.width) * width;
+
+    if (svgX < padding.left || svgX > padding.left + chartWidth) {
+      setHoverIndex(null);
+      return;
+    }
+
+    const relX = svgX - padding.left;
+    const ratio = relX / chartWidth;
+    const index = Math.round(ratio * (data.length - 1));
+    if (index >= 0 && index < data.length) {
+      setHoverIndex(index);
+    }
+  };
+
+  const activePoint = hoverIndex !== null ? data[hoverIndex] : null;
+
+  return (
+    <div ref={containerRef} className="relative w-full select-none">
+      <svg
+        viewBox={`0 0 ${width} ${height}`}
+        className="w-full h-auto overflow-visible cursor-crosshair"
+        onMouseMove={handleMouseMove}
+        onMouseLeave={() => setHoverIndex(null)}
+      >
+        <defs>
+          <linearGradient id="revenueGlow" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="#6366f1" stopOpacity="0.45" />
+            <stop offset="60%" stopColor="#4f46e5" stopOpacity="0.12" />
+            <stop offset="100%" stopColor="#312e81" stopOpacity="0" />
+          </linearGradient>
+          <filter id="glowEffect" x="-20%" y="-20%" width="140%" height="140%">
+            <feDropShadow dx="0" dy="2" stdDeviation="4" floodColor="#6366f1" floodOpacity="0.6" />
+          </filter>
+        </defs>
+
+        {/* Horizontal Grid lines */}
+        {yTicks.map((tick, i) => {
+          const y = getY(tick);
+          return (
+            <g key={i}>
+              <line
+                x1={padding.left}
+                y1={y}
+                x2={padding.left + chartWidth}
+                y2={y}
+                stroke="#1e293b"
+                strokeWidth="1"
+                strokeDasharray="4 4"
+              />
+              <text
+                x={padding.left - 10}
+                y={y + 4}
+                textAnchor="end"
+                className="text-[10px] fill-gray-500 font-mono"
+              >
+                {formatCompactINR(tick)}
+              </text>
+            </g>
+          );
+        })}
+
+        {/* Area fill */}
+        <path d={areaPath} fill="url(#revenueGlow)" />
+
+        {/* Comparison Line */}
+        {showComparison && compPath && (
+          <path
+            d={compPath}
+            fill="none"
+            stroke="#64748b"
+            strokeWidth="2"
+            strokeDasharray="5 5"
+            opacity="0.7"
+          />
+        )}
+
+        {/* Main Spline Curve */}
+        <path
+          d={splinePath}
+          fill="none"
+          stroke="#818cf8"
+          strokeWidth="3"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          filter="url(#glowEffect)"
+        />
+
+        {/* X-axis labels */}
+        {data.map((d, i) => {
+          // Show ~6 evenly spaced labels
+          const step = Math.max(1, Math.floor(data.length / 6));
+          if (i % step !== 0 && i !== data.length - 1) return null;
+          return (
+            <text
+              key={i}
+              x={getX(i)}
+              y={height - 8}
+              textAnchor="middle"
+              className="text-[10px] fill-gray-400 font-sans"
+            >
+              {d.label}
+            </text>
+          );
+        })}
+
+        {/* Interactive Hover Crosshair */}
+        {hoverIndex !== null && (
+          <g>
+            <line
+              x1={getX(hoverIndex)}
+              y1={padding.top}
+              x2={getX(hoverIndex)}
+              y2={padding.top + chartHeight}
+              stroke="#818cf8"
+              strokeWidth="1.5"
+              strokeDasharray="3 3"
+              opacity="0.8"
+            />
+            {showComparison && (
+              <circle
+                cx={getX(hoverIndex)}
+                cy={getY(data[hoverIndex].compareRevenue || 0)}
+                r="4.5"
+                fill="#64748b"
+                stroke="#0f172a"
+                strokeWidth="2"
+              />
+            )}
+            <circle
+              cx={getX(hoverIndex)}
+              cy={getY(data[hoverIndex].revenue)}
+              r="6.5"
+              fill="#818cf8"
+              stroke="#ffffff"
+              strokeWidth="2.5"
+              filter="url(#glowEffect)"
+            />
+          </g>
+        )}
+      </svg>
+
+      {/* Floating Glassmorphic Tooltip */}
+      {activePoint && hoverIndex !== null && (
+        <div
+          className="absolute pointer-events-none bg-slate-900/95 border border-indigo-500/40 rounded-xl p-3 shadow-2xl backdrop-blur-md transition-all text-xs z-30"
+          style={{
+            left: `${Math.min(78, Math.max(18, (getX(hoverIndex) / width) * 100))}%`,
+            top: '8px',
+            transform: 'translateX(-50%)',
+          }}
+        >
+          <div className="font-bold text-gray-200 border-b border-slate-800 pb-1 mb-1.5 flex items-center justify-between gap-4">
+            <span>{activePoint.label}</span>
+            <span className="text-[10px] text-gray-400 font-normal">{activePoint.orders} order{activePoint.orders !== 1 ? 's' : ''}</span>
+          </div>
+          <div className="flex items-center justify-between gap-4 text-emerald-400 font-bold">
+            <span className="flex items-center gap-1.5 text-gray-300">
+              <span className="w-2 h-2 rounded-full bg-indigo-400 inline-block" />
+              Collected:
+            </span>
+            <span>{formatINR(activePoint.revenue)}</span>
+          </div>
+          {showComparison && (
+            <div className="flex items-center justify-between gap-4 text-gray-400 mt-1 text-[11px]">
+              <span className="flex items-center gap-1.5">
+                <span className="w-2 h-2 rounded-full bg-slate-500 inline-block" />
+                Previous:
+              </span>
+              <span>{formatINR(activePoint.compareRevenue || 0)}</span>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// 2. Interactive SVG Bar Chart for Gross vs Refunds vs Net
+function InteractiveBarChart({
+  data,
+}: {
+  data: Array<{ label: string; gross: number; refunds: number; net: number }>;
+}) {
+  const [hoverIndex, setHoverIndex] = useState<number | null>(null);
+
+  if (!data || data.length === 0) {
+    return (
+      <div className="h-60 flex items-center justify-center text-gray-500 text-sm">
+        No breakdown data available
+      </div>
+    );
+  }
+
+  const width = 600;
+  const height = 240;
+  const padding = { top: 20, right: 20, bottom: 35, left: 55 };
+
+  const chartWidth = width - padding.left - padding.right;
+  const chartHeight = height - padding.top - padding.bottom;
+
+  const maxVal = Math.max(
+    ...data.map((d) => Math.max(d.gross, d.net, d.refunds)),
+    100
+  );
+
+  const groupWidth = chartWidth / data.length;
+  const barWidth = Math.min(18, (groupWidth - 8) / 3);
+
+  const getY = (val: number) => {
+    return padding.top + chartHeight - (val / maxVal) * chartHeight;
+  };
+
+  const getBarHeight = (val: number) => {
+    return Math.max(2, (val / maxVal) * chartHeight);
+  };
+
+  const yTicks = [0, maxVal * 0.5, maxVal];
+
+  return (
+    <div className="relative w-full">
+      <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-auto overflow-visible">
+        {/* Horizontal grid lines */}
+        {yTicks.map((tick, i) => {
+          const y = getY(tick);
+          return (
+            <g key={i}>
+              <line
+                x1={padding.left}
+                y1={y}
+                x2={padding.left + chartWidth}
+                y2={y}
+                stroke="#1e293b"
+                strokeWidth="1"
+                strokeDasharray="4 4"
+              />
+              <text
+                x={padding.left - 8}
+                y={y + 4}
+                textAnchor="end"
+                className="text-[10px] fill-gray-500 font-mono"
+              >
+                {formatCompactINR(tick)}
+              </text>
+            </g>
+          );
+        })}
+
+        {/* Grouped Bars */}
+        {data.map((d, i) => {
+          const groupX = padding.left + i * groupWidth + (groupWidth - barWidth * 3 - 4) / 2;
+          const isHovered = hoverIndex === i;
+
+          return (
+            <g
+              key={i}
+              onMouseEnter={() => setHoverIndex(i)}
+              onMouseLeave={() => setHoverIndex(null)}
+              className="cursor-pointer transition-opacity"
+              opacity={hoverIndex === null || isHovered ? 1 : 0.4}
+            >
+              {/* Gross Bar (Indigo) */}
+              <rect
+                x={groupX}
+                y={getY(d.gross)}
+                width={barWidth}
+                height={getBarHeight(d.gross)}
+                fill="#6366f1"
+                rx="3"
+              />
+
+              {/* Refunds Bar (Rose) */}
+              <rect
+                x={groupX + barWidth + 2}
+                y={getY(d.refunds)}
+                width={barWidth}
+                height={getBarHeight(d.refunds)}
+                fill="#f43f5e"
+                rx="3"
+              />
+
+              {/* Net Bar (Emerald) */}
+              <rect
+                x={groupX + (barWidth + 2) * 2}
+                y={getY(d.net)}
+                width={barWidth}
+                height={getBarHeight(d.net)}
+                fill="#10b981"
+                rx="3"
+              />
+
+              {/* Label */}
+              <text
+                x={groupX + (barWidth * 3 + 4) / 2}
+                y={height - 10}
+                textAnchor="middle"
+                className={`text-[9px] font-sans ${isHovered ? 'fill-indigo-300 font-bold' : 'fill-gray-400'}`}
+              >
+                {d.label}
+              </text>
+            </g>
+          );
+        })}
+      </svg>
+
+      {/* Hover tooltip for Bar Chart */}
+      {hoverIndex !== null && data[hoverIndex] && (
+        <div className="absolute top-2 right-4 bg-slate-900/95 border border-indigo-500/40 rounded-xl p-2.5 shadow-xl text-xs z-20 pointer-events-none">
+          <div className="font-bold text-gray-200 border-b border-slate-800 pb-1 mb-1">
+            {data[hoverIndex].label}
+          </div>
+          <div className="text-indigo-400">Gross: {formatINR(data[hoverIndex].gross)}</div>
+          <div className="text-rose-400">Refunds: {formatINR(data[hoverIndex].refunds)}</div>
+          <div className="text-emerald-400 font-bold">Net: {formatINR(data[hoverIndex].net)}</div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// 3. Precision Interactive SVG Donut / Ring Chart
+function InteractiveDonutChart({
+  data,
+  centerLabel = 'Total',
+}: {
+  data: Array<{ status?: string; category?: string; count: number; color: string }>;
+  centerLabel?: string;
+}) {
+  const [hoveredIdx, setHoveredIdx] = useState<number | null>(null);
+
+  const total = useMemo(() => data.reduce((sum, d) => sum + (d.count || 0), 0), [data]);
+
+  if (total === 0) {
+    return (
+      <div className="h-52 flex flex-col items-center justify-center text-gray-500 text-xs">
+        <PieIcon className="w-8 h-8 text-gray-600 mb-2 opacity-40" />
+        <span>No distribution data recorded</span>
+      </div>
+    );
+  }
+
+  const size = 180;
+  const strokeWidth = 24;
+  const radius = (size - strokeWidth) / 2;
+  const circumference = 2 * Math.PI * radius;
+
+  let currentOffset = 0;
+
+  return (
+    <div className="flex flex-col items-center justify-center py-2">
+      <div className="relative" style={{ width: size, height: size }}>
+        <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} className="transform -rotate-90">
+          {/* Background circle track */}
+          <circle
+            cx={size / 2}
+            cy={size / 2}
+            r={radius}
+            fill="transparent"
+            stroke="#1e293b"
+            strokeWidth={strokeWidth - 6}
+          />
+
+          {/* Slices */}
+          {data.map((item, idx) => {
+            if (item.count <= 0) return null;
+            const slicePercent = item.count / total;
+            const strokeDasharray = `${slicePercent * circumference} ${circumference}`;
+            const strokeDashoffset = -currentOffset * circumference;
+            currentOffset += slicePercent;
+
+            const isHovered = hoveredIdx === idx;
+
+            return (
+              <circle
+                key={idx}
+                cx={size / 2}
+                cy={size / 2}
+                r={radius}
+                fill="transparent"
+                stroke={item.color}
+                strokeWidth={isHovered ? strokeWidth + 4 : strokeWidth}
+                strokeDasharray={strokeDasharray}
+                strokeDashoffset={strokeDashoffset}
+                className="transition-all duration-300 cursor-pointer"
+                onMouseEnter={() => setHoveredIdx(idx)}
+                onMouseLeave={() => setHoveredIdx(null)}
+              />
+            );
+          })}
+        </svg>
+
+        {/* Center metric */}
+        <div className="absolute inset-0 flex flex-col items-center justify-center text-center pointer-events-none">
+          {hoveredIdx !== null && data[hoveredIdx] ? (
+            <>
+              <span className="text-[11px] text-gray-400 font-medium">
+                {data[hoveredIdx].status || data[hoveredIdx].category}
+              </span>
+              <span className="text-lg font-black text-white">
+                {data[hoveredIdx].count}
+              </span>
+              <span className="text-[10px] text-emerald-400 font-mono">
+                {Math.round((data[hoveredIdx].count / total) * 100)}%
+              </span>
+            </>
+          ) : (
+            <>
+              <span className="text-xl font-black text-white tracking-tight">{total}</span>
+              <span className="text-[10px] text-gray-400 uppercase tracking-wider">{centerLabel}</span>
+            </>
+          )}
+        </div>
+      </div>
+
+      {/* Legend chips */}
+      <div className="grid grid-cols-2 gap-2 mt-4 w-full text-xs">
+        {data.map((item, idx) => {
+          const label = item.status || item.category || 'Unknown';
+          const pct = Math.round((item.count / total) * 100);
+          const isHovered = hoveredIdx === idx;
+
+          return (
+            <div
+              key={idx}
+              onMouseEnter={() => setHoveredIdx(idx)}
+              onMouseLeave={() => setHoveredIdx(null)}
+              className={`flex items-center justify-between p-1.5 rounded-lg border cursor-pointer transition ${
+                isHovered
+                  ? 'bg-slate-800/90 border-indigo-500/60 text-white'
+                  : 'bg-slate-900/40 border-slate-800/60 text-gray-400 hover:text-gray-200'
+              }`}
+            >
+              <div className="flex items-center gap-1.5 truncate">
+                <span
+                  className="w-2.5 h-2.5 rounded-full shrink-0"
+                  style={{ backgroundColor: item.color }}
+                />
+                <span className="truncate text-[11px] font-medium">{label}</span>
+              </div>
+              <span className="font-mono text-[11px] text-gray-300 ml-1">
+                {item.count} <span className="text-[9px] text-gray-500">({pct}%)</span>
+              </span>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// 4. Sparkline helper for Top KPI Cards
+function Sparkline({ data, color = '#6366f1' }: { data: number[]; color?: string }) {
+  if (!data || data.length < 2) return null;
+  const width = 80;
+  const height = 28;
+  const max = Math.max(...data, 1);
+  const min = Math.min(...data, 0);
+  const range = max - min || 1;
+
+  const points = data.map((v, i) => {
+    const x = (i / (data.length - 1)) * width;
+    const y = height - ((v - min) / range) * (height - 6) - 3;
+    return `${x.toFixed(1)},${y.toFixed(1)}`;
+  });
+
+  return (
+    <svg width={width} height={height} className="overflow-visible opacity-75">
+      <polyline
+        fill="none"
+        stroke={color}
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        points={points.join(' ')}
+      />
+    </svg>
+  );
+}
+
+// ─── Main Component ─────────────────────────────────────────────────────────
 
 export default function RevenueDashboard() {
   const [period, setPeriod] = useState<string>('30d');
@@ -233,10 +818,18 @@ export default function RevenueDashboard() {
   const [selectedTab, setSelectedTab] = useState<number>(0);
 
   const [overview, setOverview] = useState<OverviewPayload | null>(null);
+  const [livePlans, setLivePlans] = useState<LivePlan[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [refreshing, setRefreshing] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [lastRefreshed, setLastRefreshed] = useState<Date>(new Date());
+
+  // Plan upgrade modal state
+  const [upgradeModalOpen, setUpgradeModalOpen] = useState<boolean>(false);
+  const [targetUser, setTargetUser] = useState<PaidUser | null>(null);
+  const [selectedNewPlan, setSelectedNewPlan] = useState<string>('');
+  const [upgrading, setUpgrading] = useState<boolean>(false);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   // Paid users tab state
   const [users, setUsers] = useState<PaidUser[]>([]);
@@ -246,7 +839,6 @@ export default function RevenueDashboard() {
   const [usersStatusFilter, setUsersStatusFilter] = useState<string>('all');
   const [usersPage, setUsersPage] = useState<number>(1);
   const [usersTotalPages, setUsersTotalPages] = useState<number>(1);
-  const [usersSummary, setUsersSummary] = useState<any>(null);
 
   // Transactions tab state
   const [transactions, setTransactions] = useState<Transaction[]>([]);
@@ -256,7 +848,6 @@ export default function RevenueDashboard() {
   const [txProviderFilter, setTxProviderFilter] = useState<string>('all');
   const [txPage, setTxPage] = useState<number>(1);
   const [txTotalPages, setTxTotalPages] = useState<number>(1);
-  const [txSummary, setTxSummary] = useState<any>(null);
 
   const apiBase = '/api-proxy';
 
@@ -271,51 +862,78 @@ export default function RevenueDashboard() {
     };
   }, []);
 
-  // Fetch Overview Analytics
-  const fetchOverview = useCallback(async (isSilent = false) => {
-    if (!isSilent) setLoading(true);
-    else setRefreshing(true);
-    setError(null);
+  const showToast = (msg: string) => {
+    setToastMessage(msg);
+    setTimeout(() => setToastMessage(null), 3500);
+  };
 
+  // Fetch Live Subscription Plans from the Plan Section API
+  const fetchLivePlans = useCallback(async () => {
     try {
-      const params = new URLSearchParams({
-        period,
-        comparison,
-        ...(period === 'custom' && customStart ? { startDate: customStart } : {}),
-        ...(period === 'custom' && customEnd ? { endDate: customEnd } : {}),
-      });
-
-      // Try proxy first, then fallback to direct Next.js API route
-      let res = await fetch(`${apiBase}/v1/admin/analytics/overview?${params}`, {
+      let res = await fetch(`${apiBase}/v1/admin/plans`, {
         headers: getAuthHeaders(),
         credentials: 'include',
       });
-
       if (!res.ok) {
-        res = await fetch(`/api/admin/analytics/overview?${params}`, {
+        res = await fetch(`${apiBase}/admin/plans`, {
           headers: getAuthHeaders(),
           credentials: 'include',
         });
       }
-
-      if (!res.ok) {
-        const errData = await res.json().catch(() => ({}));
-        throw new Error(errData.error || `Failed to fetch analytics (Status ${res.status})`);
+      if (res.ok) {
+        const data = await res.json();
+        setLivePlans(data.plans || []);
       }
-
-      const data = await res.json();
-      setOverview(data);
-      setLastRefreshed(new Date());
-    } catch (err: any) {
-      console.error('Error fetching revenue analytics:', err);
-      setError(err.message || 'An unexpected error occurred while loading analytics.');
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
+    } catch (err) {
+      console.warn('Could not fetch live plans catalog:', err);
     }
-  }, [period, comparison, customStart, customEnd, apiBase, getAuthHeaders]);
+  }, [apiBase, getAuthHeaders]);
 
-  // Fetch Paid Users
+  // Fetch Overview Analytics
+  const fetchOverview = useCallback(
+    async (isSilent = false) => {
+      if (!isSilent) setLoading(true);
+      else setRefreshing(true);
+      setError(null);
+
+      try {
+        const params = new URLSearchParams({
+          period,
+          comparison,
+          ...(period === 'custom' && customStart ? { startDate: customStart } : {}),
+          ...(period === 'custom' && customEnd ? { endDate: customEnd } : {}),
+        });
+
+        let res = await fetch(`${apiBase}/v1/admin/analytics/overview?${params}`, {
+          headers: getAuthHeaders(),
+          credentials: 'include',
+        });
+
+        if (!res.ok) {
+          res = await fetch(`/api/admin/analytics/overview?${params}`, {
+            headers: getAuthHeaders(),
+            credentials: 'include',
+          });
+        }
+
+        if (!res.ok) {
+          throw new Error(`Failed to load analytics: HTTP ${res.status}`);
+        }
+
+        const data: OverviewPayload = await res.json();
+        setOverview(data);
+        setLastRefreshed(new Date());
+      } catch (err: any) {
+        setError(err.message || 'Error fetching analytics overview');
+      } finally {
+        setLoading(false);
+        setRefreshing(false);
+      }
+    },
+    [period, comparison, customStart, customEnd, apiBase, getAuthHeaders]
+  );
+
+  // Fetch Paid Users Directory
   const fetchUsers = useCallback(async () => {
     setUsersLoading(true);
     try {
@@ -343,7 +961,6 @@ export default function RevenueDashboard() {
         const data = await res.json();
         setUsers(data.users || []);
         setUsersTotalPages(data.pagination?.totalPages || 1);
-        setUsersSummary(data.summary || null);
       }
     } catch (err) {
       console.error('Failed to fetch paid users list:', err);
@@ -352,7 +969,7 @@ export default function RevenueDashboard() {
     }
   }, [usersPage, usersSearch, usersPlanFilter, usersStatusFilter, apiBase, getAuthHeaders]);
 
-  // Fetch Transactions
+  // Fetch Transactions Ledger
   const fetchTransactions = useCallback(async () => {
     setTxLoading(true);
     try {
@@ -380,7 +997,6 @@ export default function RevenueDashboard() {
         const data = await res.json();
         setTransactions(data.transactions || []);
         setTxTotalPages(data.pagination?.totalPages || 1);
-        setTxSummary(data.summary || null);
       }
     } catch (err) {
       console.error('Failed to fetch transactions list:', err);
@@ -389,9 +1005,42 @@ export default function RevenueDashboard() {
     }
   }, [txPage, txSearch, txStatusFilter, txProviderFilter, apiBase, getAuthHeaders]);
 
+  // Execute Plan Upgrade / Downgrade for a Tenant
+  const handleExecutePlanUpgrade = async () => {
+    if (!targetUser || !selectedNewPlan) return;
+    setUpgrading(true);
+    try {
+      const idempotencyKey = `plan:rev:${targetUser.tenantId}:${selectedNewPlan}:${Date.now()}`;
+      const res = await fetch(`${apiBase}/v1/admin/tenants/${targetUser.tenantId}/plan`, {
+        method: 'PUT',
+        headers: {
+          ...getAuthHeaders(),
+          'Idempotency-Key': idempotencyKey,
+        },
+        credentials: 'include',
+        body: JSON.stringify({ plan: selectedNewPlan }),
+      });
+
+      if (!res.ok) throw new Error('Plan change failed');
+
+      showToast(`Successfully upgraded ${targetUser.tenantName} to ${selectedNewPlan.toUpperCase()}`);
+      setUpgradeModalOpen(false);
+      setTargetUser(null);
+
+      // Re-fetch both users and overview to immediately update revenue & MRR in real time
+      fetchUsers();
+      fetchOverview(true);
+    } catch (err: any) {
+      showToast(`Upgrade error: ${err.message || 'Operation failed'}`);
+    } finally {
+      setUpgrading(false);
+    }
+  };
+
   useEffect(() => {
     fetchOverview();
-  }, [fetchOverview]);
+    fetchLivePlans();
+  }, [fetchOverview, fetchLivePlans]);
 
   useEffect(() => {
     if (selectedTab === 1) fetchUsers();
@@ -425,136 +1074,116 @@ export default function RevenueDashboard() {
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement('a');
     link.setAttribute('href', encodedUri);
-    link.setAttribute(
-      'download',
-      `xarwiz_bi_report_${period}_${new Date().toISOString().split('T')[0]}.csv`
-    );
+    link.setAttribute('download', `xarwiz_bi_report_${period}_${new Date().toISOString().split('T')[0]}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
   };
 
-  const formatINR = (val: number) => {
-    return new Intl.NumberFormat('en-IN', {
-      style: 'currency',
-      currency: 'INR',
-      maximumFractionDigits: 2,
-    }).format(val || 0);
-  };
-
-  const formatDeltaType = (pct: number) => {
-    if (pct > 0) return 'increase';
-    if (pct < 0) return 'decrease';
-    return 'unchanged';
-  };
-
   return (
-    <div className="space-y-8 pb-16">
-      {/* ─── Header & Global Controls ─── */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-gray-800 pb-6">
+    <div className="space-y-8 pb-16 min-h-screen text-slate-100">
+      {/* Toast Notification */}
+      {toastMessage && (
+        <div className="fixed bottom-6 right-6 z-50 flex items-center gap-2.5 px-4 py-3 rounded-xl bg-slate-900 border border-emerald-500/60 shadow-2xl text-emerald-400 text-sm font-medium animate-bounce">
+          <CheckCircle className="w-5 h-5 text-emerald-400" />
+          <span>{toastMessage}</span>
+        </div>
+      )}
+
+      {/* ─── Header & Live Synchronization Controls ─── */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-800 pb-6">
         <div>
           <div className="flex items-center gap-3">
-            <div className="p-2.5 rounded-xl bg-indigo-600/20 border border-indigo-500/30 text-indigo-400">
+            <div className="p-3 rounded-2xl bg-indigo-600/20 border border-indigo-500/30 text-indigo-400 shadow-lg shadow-indigo-600/10">
               <TrendingUp className="w-6 h-6" />
             </div>
             <div>
-              <h1 className="text-2xl font-bold text-white tracking-tight">
-                Revenue & Business Intelligence
-              </h1>
-              <p className="text-sm text-gray-400 mt-0.5">
-                Financial performance, subscription health, customer analytics & real-time reconciliation
+              <div className="flex items-center gap-3">
+                <h1 className="text-2xl font-black text-white tracking-tight">
+                  Revenue & Business Intelligence
+                </h1>
+                <span className="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-950/60 border border-emerald-700/50 text-emerald-400 text-[11px] font-semibold tracking-wide">
+                  <ShieldCheck className="w-3.5 h-3.5" /> Plan Sync Active
+                </span>
+              </div>
+              <p className="text-xs text-gray-400 mt-1">
+                Real-time financial performance, paying customer directory, live plan sync & reconciliation
               </p>
             </div>
           </div>
-          <div className="flex items-center gap-2 mt-3 text-xs text-gray-400">
-            <span className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-emerald-950/40 border border-emerald-800/40 text-emerald-400 font-medium">
-              <ShieldCheck className="w-3.5 h-3.5" /> Live Database Verified
+          <div className="flex items-center gap-3 mt-3 text-xs text-gray-400">
+            <span className="flex items-center gap-1 text-slate-300">
+              <Clock className="w-3.5 h-3.5 text-indigo-400" /> Last updated: {lastRefreshed.toLocaleTimeString()}
             </span>
             <span>•</span>
-            <span>Refreshed: {lastRefreshed.toLocaleTimeString()}</span>
+            <Link
+              href="/admin/tenants?tab=plans"
+              className="text-indigo-400 hover:text-indigo-300 underline flex items-center gap-1 transition"
+            >
+              <span>Manage Pricing in Plan Section</span>
+              <ExternalLink className="w-3 h-3" />
+            </Link>
           </div>
         </div>
 
-        {/* Action Buttons */}
+        {/* Global Controls */}
         <div className="flex flex-wrap items-center gap-2.5">
           <button
-            onClick={() => fetchOverview(true)}
+            onClick={() => {
+              fetchOverview(true);
+              fetchLivePlans();
+            }}
             disabled={refreshing || loading}
-            className="flex items-center gap-2 px-3.5 py-2 rounded-lg bg-gray-900 border border-gray-800 hover:border-gray-700 text-gray-300 hover:text-white text-sm font-medium transition disabled:opacity-50"
-            title="Refresh Data"
+            className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-slate-900 border border-slate-800 hover:border-slate-700 text-gray-200 hover:text-white text-xs font-semibold transition disabled:opacity-50 shadow-sm"
           >
-            <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin text-indigo-400' : ''}`} />
-            <span>{refreshing ? 'Refreshing...' : 'Refresh'}</span>
+            <RefreshCw className={`w-3.5 h-3.5 ${refreshing ? 'animate-spin text-indigo-400' : ''}`} />
+            <span>{refreshing ? 'Syncing...' : 'Sync Now'}</span>
           </button>
 
           <button
             onClick={handleExportCSV}
             disabled={loading || !overview}
-            className="flex items-center gap-2 px-3.5 py-2 rounded-lg bg-indigo-600/20 border border-indigo-500/30 hover:bg-indigo-600/30 text-indigo-300 hover:text-white text-sm font-medium transition disabled:opacity-50"
-            title="Export CSV"
+            className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-indigo-600/20 border border-indigo-500/30 hover:bg-indigo-600/30 text-indigo-300 hover:text-white text-xs font-semibold transition disabled:opacity-50 shadow-sm"
           >
-            <Download className="w-4 h-4" />
+            <Download className="w-3.5 h-3.5" />
             <span>Export CSV</span>
           </button>
         </div>
       </div>
 
-      {/* ─── Global Filter Bar ─── */}
-      <div className="p-4 rounded-xl bg-gray-900/60 border border-gray-800/80 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-        {/* Date Presets */}
-        <div className="flex items-center gap-2 flex-wrap">
-          <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider flex items-center gap-1.5 mr-1">
-            <Calendar className="w-3.5 h-3.5 text-indigo-400" /> Date Range:
+      {/* ─── Date Filter Pills & Comparison Selector ─── */}
+      <div className="flex flex-wrap items-center justify-between gap-4 bg-slate-900/60 p-3.5 rounded-2xl border border-slate-800/80 backdrop-blur-sm">
+        {/* Preset Date Pills */}
+        <div className="flex flex-wrap items-center gap-1.5">
+          <span className="text-xs text-gray-400 flex items-center gap-1.5 mr-2 font-medium">
+            <Calendar className="w-3.5 h-3.5 text-indigo-400" /> Range:
           </span>
-          <select
-            value={period}
-            onChange={(e) => setPeriod(e.target.value)}
-            className="bg-gray-950 border border-gray-800 text-gray-200 text-sm rounded-lg px-3 py-1.5 focus:outline-none focus:border-indigo-500 font-medium"
-          >
-            {DATE_PRESETS.map((p) => (
-              <option key={p.value} value={p.value}>
-                {p.label}
-              </option>
-            ))}
-          </select>
-
-          {/* Custom Date Inputs if 'custom' is selected */}
-          {period === 'custom' && (
-            <div className="flex items-center gap-2 ml-2">
-              <input
-                type="date"
-                value={customStart}
-                onChange={(e) => setCustomStart(e.target.value)}
-                className="bg-gray-950 border border-gray-800 text-gray-200 text-xs rounded-lg px-2.5 py-1.5 focus:outline-none focus:border-indigo-500"
-              />
-              <span className="text-gray-500 text-xs">to</span>
-              <input
-                type="date"
-                value={customEnd}
-                onChange={(e) => setCustomEnd(e.target.value)}
-                className="bg-gray-950 border border-gray-800 text-gray-200 text-xs rounded-lg px-2.5 py-1.5 focus:outline-none focus:border-indigo-500"
-              />
-              <button
-                onClick={() => fetchOverview(false)}
-                className="px-2.5 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-medium"
-              >
-                Apply
-              </button>
-            </div>
-          )}
+          {DATE_PRESETS.map((p) => (
+            <button
+              key={p.value}
+              onClick={() => setPeriod(p.value)}
+              className={`px-3 py-1.5 rounded-xl text-xs font-medium transition ${
+                period === p.value
+                  ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/20 font-bold'
+                  : 'bg-slate-950/60 text-gray-400 hover:text-gray-200 hover:bg-slate-800/60 border border-slate-800/60'
+              }`}
+            >
+              {p.label}
+            </button>
+          ))}
         </div>
 
-        {/* Comparison Option */}
-        <div className="flex items-center gap-2">
-          <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider flex items-center gap-1.5">
-            <Activity className="w-3.5 h-3.5 text-indigo-400" /> Comparison:
+        {/* Comparison Dropdown */}
+        <div className="flex items-center gap-2.5">
+          <span className="text-xs text-gray-400 flex items-center gap-1 font-medium">
+            <Activity className="w-3.5 h-3.5 text-indigo-400" /> Compare:
           </span>
           <select
             value={comparison}
             onChange={(e) => setComparison(e.target.value)}
-            className="bg-gray-950 border border-gray-800 text-gray-200 text-sm rounded-lg px-3 py-1.5 focus:outline-none focus:border-indigo-500 font-medium"
+            className="bg-slate-950 border border-slate-800 text-gray-200 text-xs rounded-xl px-3 py-1.5 focus:outline-none focus:border-indigo-500 font-medium"
           >
-            <option value="previous_period">Previous Equivalent Period</option>
+            <option value="previous_period">Previous Period</option>
             <option value="previous_month">Previous Month</option>
             <option value="previous_year">Previous Year</option>
             <option value="none">No Comparison</option>
@@ -564,14 +1193,14 @@ export default function RevenueDashboard() {
 
       {/* Error state */}
       {error && (
-        <div className="p-4 rounded-xl bg-red-950/30 border border-red-900/50 flex items-center justify-between text-red-300 text-sm">
+        <div className="p-4 rounded-2xl bg-red-950/40 border border-red-900/50 flex items-center justify-between text-red-300 text-sm">
           <div className="flex items-center gap-3">
             <AlertTriangle className="w-5 h-5 text-red-400 flex-shrink-0" />
             <span>{error}</span>
           </div>
           <button
             onClick={() => fetchOverview()}
-            className="px-3 py-1 bg-red-900/50 hover:bg-red-800/60 rounded text-xs font-medium text-white"
+            className="px-3.5 py-1.5 bg-red-900/50 hover:bg-red-800/60 rounded-xl text-xs font-bold text-white transition"
           >
             Retry
           </button>
@@ -580,992 +1209,1045 @@ export default function RevenueDashboard() {
 
       {/* Loading Skeleton */}
       {loading && !overview && (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 animate-pulse">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5 animate-pulse">
           {[...Array(8)].map((_, i) => (
-            <div key={i} className="h-28 rounded-xl bg-gray-900/40 border border-gray-800" />
+            <div key={i} className="h-32 rounded-2xl bg-slate-900/50 border border-slate-800" />
           ))}
         </div>
       )}
 
-      {/* ─── Executive Overview: Top Financial & Business KPIs ─── */}
+      {/* ─── Executive KPI Cards Snapshot ─── */}
       {overview && (
         <div className="space-y-6">
           {/* Row 1: Primary Financial Metrics */}
           <div>
-            <h2 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">
-              Financial Revenue Snapshot
-            </h2>
-            <Grid numItems={1} numItemsSm={2} numItemsLg={4} className="gap-5">
-              {/* Period Revenue */}
-              <Card
-                className="bg-gray-900/40 border-gray-800/80 hover:border-indigo-500/40 transition-all cursor-pointer"
-                decoration="top"
-                decorationColor="indigo"
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="text-[11px] font-bold text-gray-400 uppercase tracking-widest flex items-center gap-2">
+                <DollarSign className="w-3.5 h-3.5 text-indigo-400" /> Financial Performance Snapshot
+              </h2>
+              <span className="text-[10px] text-gray-500 font-mono">
+                {overview.dateRange.bucket === 'hour' ? 'Hourly Granularity' : 'Daily Granularity'}
+              </span>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+              {/* Card 1: Period Revenue */}
+              <div
                 onClick={() => setSelectedTab(0)}
+                className="group relative bg-slate-900/50 hover:bg-slate-900/80 border border-slate-800 hover:border-indigo-500/50 rounded-2xl p-5 transition-all cursor-pointer shadow-lg overflow-hidden"
               >
-                <Flex justifyContent="between" alignItems="center">
-                  <Text className="text-gray-400 font-medium text-xs">Collected Revenue (Selected Period)</Text>
-                  <DollarSign className="w-4 h-4 text-indigo-400" />
-                </Flex>
-                <Flex className="mt-2 items-baseline" justifyContent="between">
-                  <Metric className="text-white text-2xl font-bold">
+                <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-indigo-500 to-indigo-600" />
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-gray-400 font-medium">Collected Revenue</span>
+                  <div className="p-2 rounded-xl bg-indigo-600/10 text-indigo-400 group-hover:scale-110 transition">
+                    <TrendingUp className="w-4 h-4" />
+                  </div>
+                </div>
+                <div className="mt-3 flex items-baseline justify-between">
+                  <span className="text-2xl font-black text-white tracking-tight">
                     {formatINR(overview.kpis.periodRevenue)}
-                  </Metric>
+                  </span>
                   {comparison !== 'none' && (
-                    <BadgeDelta
-                      deltaType={formatDeltaType(overview.kpis.deltas.grossRevenue.percent)}
-                      size="xs"
+                    <span
+                      className={`text-[11px] px-2 py-0.5 rounded-full font-bold flex items-center gap-0.5 ${
+                        overview.kpis.deltas.grossRevenue.percent >= 0
+                          ? 'bg-emerald-950/60 border border-emerald-800 text-emerald-400'
+                          : 'bg-rose-950/60 border border-rose-800 text-rose-400'
+                      }`}
                     >
                       {overview.kpis.deltas.grossRevenue.percent >= 0 ? '+' : ''}
                       {overview.kpis.deltas.grossRevenue.percent}%
-                    </BadgeDelta>
+                    </span>
                   )}
-                </Flex>
-                <Text className="text-gray-500 text-xs mt-1.5">
-                  Gross: {formatINR(overview.kpis.grossRevenue)} • Refunds: {formatINR(overview.kpis.refunds)}
-                </Text>
-              </Card>
+                </div>
+                <div className="mt-2 flex items-center justify-between text-[11px] text-gray-400">
+                  <span>Gross: {formatCompactINR(overview.kpis.grossRevenue)}</span>
+                  <span>Refunds: {formatCompactINR(overview.kpis.refunds)}</span>
+                </div>
+                <div className="mt-2 pt-2 border-t border-slate-800/60 flex items-center justify-between">
+                  <span className="text-[10px] text-gray-500 font-mono">Net: {formatINR(overview.kpis.netRevenue)}</span>
+                  <Sparkline
+                    data={overview.revenueTimeSeries.map((d) => d.revenue)}
+                    color="#818cf8"
+                  />
+                </div>
+              </div>
 
-              {/* Today vs Yesterday */}
-              <Card className="bg-gray-900/40 border-gray-800/80" decoration="top" decorationColor="emerald">
-                <Flex justifyContent="between" alignItems="center">
-                  <Text className="text-gray-400 font-medium text-xs">Today's Collected Revenue</Text>
-                  <Clock className="w-4 h-4 text-emerald-400" />
-                </Flex>
-                <Flex className="mt-2 items-baseline" justifyContent="between">
-                  <Metric className="text-white text-2xl font-bold">
+              {/* Card 2: Today vs Yesterday */}
+              <div className="bg-slate-900/50 border border-slate-800 rounded-2xl p-5 shadow-lg relative overflow-hidden">
+                <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-emerald-500 to-teal-500" />
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-gray-400 font-medium">Today's Revenue</span>
+                  <div className="p-2 rounded-xl bg-emerald-600/10 text-emerald-400">
+                    <Clock className="w-4 h-4" />
+                  </div>
+                </div>
+                <div className="mt-3 flex items-baseline justify-between">
+                  <span className="text-2xl font-black text-white tracking-tight">
                     {formatINR(overview.kpis.revenueToday)}
-                  </Metric>
-                  <Badge size="xs" color="emerald">
-                    Yesterday: {formatINR(overview.kpis.revenueYesterday)}
-                  </Badge>
-                </Flex>
-                <Text className="text-gray-500 text-xs mt-1.5">
-                  Real-time midnight-to-now collection
-                </Text>
-              </Card>
+                  </span>
+                  <span className="text-[11px] px-2 py-0.5 rounded-full font-semibold bg-emerald-950/40 border border-emerald-800/40 text-emerald-400">
+                    Live
+                  </span>
+                </div>
+                <div className="mt-2 text-[11px] text-gray-400">
+                  Yesterday: <span className="text-gray-200 font-medium">{formatINR(overview.kpis.revenueYesterday)}</span>
+                </div>
+                <div className="mt-2 pt-2 border-t border-slate-800/60 text-[10px] text-gray-500">
+                  Real-time 00:00 to now collection
+                </div>
+              </div>
 
-              {/* Monthly Recurring Revenue (MRR) */}
-              <Card
-                className="bg-gray-900/40 border-gray-800/80 hover:border-blue-500/40 transition-all cursor-pointer"
-                decoration="top"
-                decorationColor="blue"
+              {/* Card 3: MRR / ARR */}
+              <div
                 onClick={() => setSelectedTab(2)}
+                className="group relative bg-slate-900/50 hover:bg-slate-900/80 border border-slate-800 hover:border-blue-500/50 rounded-2xl p-5 transition-all cursor-pointer shadow-lg overflow-hidden"
               >
-                <Flex justifyContent="between" alignItems="center">
-                  <Text className="text-gray-400 font-medium text-xs">Monthly Recurring Revenue (MRR)</Text>
-                  <Zap className="w-4 h-4 text-blue-400" />
-                </Flex>
-                <Flex className="mt-2 items-baseline" justifyContent="between">
-                  <Metric className="text-white text-2xl font-bold">
+                <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-blue-500 to-cyan-500" />
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-gray-400 font-medium">Monthly Recurring (MRR)</span>
+                  <div className="p-2 rounded-xl bg-blue-600/10 text-blue-400 group-hover:scale-110 transition">
+                    <Zap className="w-4 h-4" />
+                  </div>
+                </div>
+                <div className="mt-3 flex items-baseline justify-between">
+                  <span className="text-2xl font-black text-white tracking-tight">
                     {formatINR(overview.kpis.mrr)}
-                  </Metric>
-                  <Badge size="xs" color="blue">
-                    ARR: {formatINR(overview.kpis.arr)}
-                  </Badge>
-                </Flex>
-                <Text className="text-gray-500 text-xs mt-1.5">
-                  From {overview.kpis.activePaidSubscriptions} active recurring subscriptions
-                </Text>
-              </Card>
+                  </span>
+                  <span className="text-[11px] px-2 py-0.5 rounded-full font-semibold bg-blue-950/40 border border-blue-800/40 text-blue-400">
+                    ARR: {formatCompactINR(overview.kpis.arr)}
+                  </span>
+                </div>
+                <div className="mt-2 text-[11px] text-gray-400 flex items-center justify-between">
+                  <span>{overview.kpis.activePaidSubscriptions} active paid subscriptions</span>
+                </div>
+                <div className="mt-2 pt-2 border-t border-slate-800/60 text-[10px] text-indigo-400 flex items-center justify-between">
+                  <span>Click to inspect plan metrics</span>
+                  <ArrowUpRight className="w-3.5 h-3.5" />
+                </div>
+              </div>
 
-              {/* Lifetime Collected Revenue */}
-              <Card className="bg-gray-900/40 border-gray-800/80" decoration="top" decorationColor="amber">
-                <Flex justifyContent="between" alignItems="center">
-                  <Text className="text-gray-400 font-medium text-xs">Lifetime Business Revenue</Text>
-                  <ShieldCheck className="w-4 h-4 text-amber-400" />
-                </Flex>
-                <Flex className="mt-2 items-baseline" justifyContent="between">
-                  <Metric className="text-white text-2xl font-bold">
+              {/* Card 4: Lifetime Revenue */}
+              <div className="bg-slate-900/50 border border-slate-800 rounded-2xl p-5 shadow-lg relative overflow-hidden">
+                <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-amber-500 to-orange-500" />
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-gray-400 font-medium">Lifetime Collections</span>
+                  <div className="p-2 rounded-xl bg-amber-600/10 text-amber-400">
+                    <Crown className="w-4 h-4" />
+                  </div>
+                </div>
+                <div className="mt-3 flex items-baseline justify-between">
+                  <span className="text-2xl font-black text-white tracking-tight">
                     {formatINR(overview.kpis.lifetimeRevenue)}
-                  </Metric>
-                  <Badge size="xs" color="amber">
-                    {overview.kpis.lifetimePayingCustomers} Paying Customers
-                  </Badge>
-                </Flex>
-                <Text className="text-gray-500 text-xs mt-1.5">
-                  Earliest verified transactions to present
-                </Text>
-              </Card>
-            </Grid>
+                  </span>
+                  <span className="text-[11px] px-2 py-0.5 rounded-full font-semibold bg-amber-950/40 border border-amber-800/40 text-amber-400">
+                    {overview.kpis.lifetimePayingCustomers} Paid Users
+                  </span>
+                </div>
+                <div className="mt-2 text-[11px] text-gray-400">
+                  Verified payments across all gateways
+                </div>
+                <div className="mt-2 pt-2 border-t border-slate-800/60 text-[10px] text-gray-500">
+                  All-time cumulative financial volume
+                </div>
+              </div>
+            </div>
           </div>
 
-          {/* Row 2: Customer, Subscription & Unit Economics KPIs */}
+          {/* Row 2: Customer & Subscription Health */}
           <div>
-            <h2 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">
-              Customers, Subscriptions & Conversion
+            <h2 className="text-[11px] font-bold text-gray-400 uppercase tracking-widest mb-3 flex items-center gap-2">
+              <Users className="w-3.5 h-3.5 text-indigo-400" /> Customers & Subscription Dynamics
             </h2>
-            <Grid numItems={1} numItemsSm={2} numItemsLg={4} className="gap-5">
-              {/* Unique Paying Customers */}
-              <Card
-                className="bg-gray-900/40 border-gray-800/80 hover:border-emerald-500/40 transition-all cursor-pointer"
-                decoration="top"
-                decorationColor="emerald"
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+              {/* Card 5: Paying Customers */}
+              <div
                 onClick={() => setSelectedTab(1)}
+                className="group relative bg-slate-900/50 hover:bg-slate-900/80 border border-slate-800 hover:border-emerald-500/50 rounded-2xl p-5 transition-all cursor-pointer shadow-lg"
               >
-                <Flex justifyContent="between" alignItems="center">
-                  <Text className="text-gray-400 font-medium text-xs">Unique Paying Customers</Text>
-                  <Users className="w-4 h-4 text-emerald-400" />
-                </Flex>
-                <Flex className="mt-2 items-baseline" justifyContent="between">
-                  <Metric className="text-white text-2xl font-bold">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-gray-400 font-medium">Unique Paying Customers</span>
+                  <Users className="w-4 h-4 text-emerald-400 group-hover:scale-110 transition" />
+                </div>
+                <div className="mt-3 flex items-baseline justify-between">
+                  <span className="text-2xl font-black text-white">
                     {overview.kpis.payingCustomersPeriod}
-                  </Metric>
-                  <Badge size="xs" color="emerald">
-                    ARPPU: {formatINR(overview.kpis.arppu)}
-                  </Badge>
-                </Flex>
-                <Text className="text-gray-500 text-xs mt-1.5">
-                  Lifetime paying: {overview.kpis.lifetimePayingCustomers} • Click to view directory
-                </Text>
-              </Card>
+                  </span>
+                  <span className="text-[11px] px-2 py-0.5 rounded-full font-semibold bg-emerald-950/40 border border-emerald-800/40 text-emerald-400">
+                    ARPPU: {formatCompactINR(overview.kpis.arppu)}
+                  </span>
+                </div>
+                <div className="mt-2 text-[11px] text-gray-400 flex items-center justify-between">
+                  <span>View customer directory</span>
+                  <ArrowUpRight className="w-3.5 h-3.5 text-indigo-400" />
+                </div>
+              </div>
 
-              {/* Active Paid Subscriptions */}
-              <Card
-                className="bg-gray-900/40 border-gray-800/80 hover:border-indigo-500/40 transition-all cursor-pointer"
-                decoration="top"
-                decorationColor="indigo"
+              {/* Card 6: Active Paid Subscriptions */}
+              <div
                 onClick={() => setSelectedTab(2)}
+                className="group relative bg-slate-900/50 hover:bg-slate-900/80 border border-slate-800 hover:border-indigo-500/50 rounded-2xl p-5 transition-all cursor-pointer shadow-lg"
               >
-                <Flex justifyContent="between" alignItems="center">
-                  <Text className="text-gray-400 font-medium text-xs">Active Paid Subscriptions</Text>
-                  <CreditCard className="w-4 h-4 text-indigo-400" />
-                </Flex>
-                <Flex className="mt-2 items-baseline" justifyContent="between">
-                  <Metric className="text-white text-2xl font-bold">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-gray-400 font-medium">Active Paid Subscriptions</span>
+                  <CreditCard className="w-4 h-4 text-indigo-400 group-hover:scale-110 transition" />
+                </div>
+                <div className="mt-3 flex items-baseline justify-between">
+                  <span className="text-2xl font-black text-white">
                     {overview.kpis.activePaidSubscriptions}
-                  </Metric>
-                  <Badge size="xs" color="indigo">
+                  </span>
+                  <span className="text-[11px] px-2 py-0.5 rounded-full font-semibold bg-indigo-950/40 border border-indigo-800/40 text-indigo-400">
                     Churn: {overview.kpis.churnRate}%
-                  </Badge>
-                </Flex>
-                <Text className="text-gray-500 text-xs mt-1.5">
-                  {overview.kpis.cancelledSubscriptionsPeriod} cancellations during selected period
-                </Text>
-              </Card>
+                  </span>
+                </div>
+                <div className="mt-2 text-[11px] text-gray-400">
+                  {overview.kpis.cancelledSubscriptionsPeriod} cancellations in period
+                </div>
+              </div>
 
-              {/* Free vs Trial Users */}
-              <Card className="bg-gray-900/40 border-gray-800/80" decoration="top" decorationColor="violet">
-                <Flex justifyContent="between" alignItems="center">
-                  <Text className="text-gray-400 font-medium text-xs">Free & Trial Audience</Text>
+              {/* Card 7: Free & Trial Audience */}
+              <div className="bg-slate-900/50 border border-slate-800 rounded-2xl p-5 shadow-lg">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-gray-400 font-medium">Free & Trial Audience</span>
                   <Users className="w-4 h-4 text-violet-400" />
-                </Flex>
-                <Flex className="mt-2 items-baseline" justifyContent="between">
-                  <Metric className="text-white text-2xl font-bold">
+                </div>
+                <div className="mt-3 flex items-baseline justify-between">
+                  <span className="text-2xl font-black text-white">
                     {overview.kpis.freeUsers} Free
-                  </Metric>
-                  <Badge size="xs" color="violet">
-                    {overview.kpis.trialUsers} On Trial
-                  </Badge>
-                </Flex>
-                <Text className="text-gray-500 text-xs mt-1.5">
-                  Total users: {overview.kpis.totalUsers} • New in period: {overview.kpis.newUsersPeriod}
-                </Text>
-              </Card>
+                  </span>
+                  <span className="text-[11px] px-2 py-0.5 rounded-full font-semibold bg-violet-950/40 border border-violet-800/40 text-violet-400">
+                    {overview.kpis.trialUsers} Trial
+                  </span>
+                </div>
+                <div className="mt-2 text-[11px] text-gray-400">
+                  Conv. rate: <span className="text-emerald-400 font-bold">{overview.kpis.trialConversionRate}%</span>
+                </div>
+              </div>
 
-              {/* Payment Health & ATV */}
-              <Card
-                className="bg-gray-900/40 border-gray-800/80 hover:border-amber-500/40 transition-all cursor-pointer"
-                decoration="top"
-                decorationColor="amber"
+              {/* Card 8: Payment Success & ATV */}
+              <div
                 onClick={() => setSelectedTab(3)}
+                className="group relative bg-slate-900/50 hover:bg-slate-900/80 border border-slate-800 hover:border-amber-500/50 rounded-2xl p-5 transition-all cursor-pointer shadow-lg"
               >
-                <Flex justifyContent="between" alignItems="center">
-                  <Text className="text-gray-400 font-medium text-xs">Payment Success & Health</Text>
-                  <CheckCircle className="w-4 h-4 text-emerald-400" />
-                </Flex>
-                <Flex className="mt-2 items-baseline" justifyContent="between">
-                  <Metric className="text-white text-2xl font-bold">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-gray-400 font-medium">Payment Health & ATV</span>
+                  <CheckCircle className="w-4 h-4 text-emerald-400 group-hover:scale-110 transition" />
+                </div>
+                <div className="mt-3 flex items-baseline justify-between">
+                  <span className="text-2xl font-black text-white">
                     {overview.kpis.paidInvoicesCount} Paid
-                  </Metric>
-                  <Badge size="xs" color={overview.kpis.failedCount > 0 ? 'rose' : 'emerald'}>
+                  </span>
+                  <span
+                    className={`text-[11px] px-2 py-0.5 rounded-full font-semibold ${
+                      overview.kpis.failedCount > 0
+                        ? 'bg-rose-950/40 border border-rose-800/40 text-rose-400'
+                        : 'bg-emerald-950/40 border border-emerald-800/40 text-emerald-400'
+                    }`}
+                  >
                     {overview.kpis.failedCount} Failed
-                  </Badge>
-                </Flex>
-                <Text className="text-gray-500 text-xs mt-1.5">
-                  Avg Transaction: {formatINR(overview.kpis.averageTransactionValue)} • Click for transactions
-                </Text>
-              </Card>
-            </Grid>
+                  </span>
+                </div>
+                <div className="mt-2 text-[11px] text-gray-400 flex items-center justify-between">
+                  <span>ATV: {formatINR(overview.kpis.averageTransactionValue)}</span>
+                  <ArrowUpRight className="w-3.5 h-3.5 text-indigo-400" />
+                </div>
+              </div>
+            </div>
           </div>
 
-          {/* ─── Detailed Analytics Tabs ─── */}
+          {/* ─── Detailed Tabs ─── */}
           <div className="pt-4">
-            <TabGroup index={selectedTab} onIndexChange={setSelectedTab}>
-              <TabList className="border-b border-gray-800 mb-6">
-                <Tab className="text-sm font-medium py-3 px-4 focus:outline-none">
-                  Overview & Visual Analytics
-                </Tab>
-                <Tab className="text-sm font-medium py-3 px-4 focus:outline-none">
-                  Paid Customers ({overview.kpis.payingCustomersPeriod})
-                </Tab>
-                <Tab className="text-sm font-medium py-3 px-4 focus:outline-none">
-                  Plan Performance ({overview.plansBreakdown.length})
-                </Tab>
-                <Tab className="text-sm font-medium py-3 px-4 focus:outline-none">
-                  Transactions & Reconciliation ({overview.kpis.paidInvoicesCount})
-                </Tab>
-              </TabList>
+            <div className="flex items-center gap-2 border-b border-slate-800 mb-6 overflow-x-auto">
+              {[
+                { label: 'Overview & Visual Graphs', tab: 0, icon: TrendingUp },
+                {
+                  label: `Paid Customers (${overview.kpis.payingCustomersPeriod})`,
+                  tab: 1,
+                  icon: Users,
+                },
+                {
+                  label: `Plan Performance & Sync (${overview.plansBreakdown.length})`,
+                  tab: 2,
+                  icon: Layers,
+                },
+                {
+                  label: `Transactions & Ledger (${overview.kpis.paidInvoicesCount})`,
+                  tab: 3,
+                  icon: FileText,
+                },
+              ].map((t) => {
+                const Icon = t.icon;
+                const isActive = selectedTab === t.tab;
+                return (
+                  <button
+                    key={t.tab}
+                    onClick={() => setSelectedTab(t.tab)}
+                    className={`flex items-center gap-2 py-3 px-4 font-semibold text-xs rounded-t-xl transition border-b-2 whitespace-nowrap ${
+                      isActive
+                        ? 'border-indigo-500 text-white bg-slate-900/60 shadow-sm'
+                        : 'border-transparent text-gray-400 hover:text-gray-200 hover:border-slate-700'
+                    }`}
+                  >
+                    <Icon className={`w-4 h-4 ${isActive ? 'text-indigo-400' : 'text-gray-500'}`} />
+                    <span>{t.label}</span>
+                  </button>
+                );
+              })}
+            </div>
 
-              <TabPanels>
-                {/* ─── TAB 1: VISUAL ANALYTICS ─── */}
-                <TabPanel className="space-y-8">
-                  {/* Chart A: Revenue Over Time */}
-                  <Card className="bg-gray-900/40 border-gray-800/80">
-                    <Flex justifyContent="between" alignItems="center" className="mb-4">
+            {/* ─── TAB 0: VISUAL ANALYTICS & GRAPHS ─── */}
+            {selectedTab === 0 && (
+              <div className="space-y-8">
+                {/* Graph A: Revenue Over Time Spline Area Chart */}
+                <div className="bg-slate-900/50 border border-slate-800 rounded-2xl p-6 shadow-xl">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+                    <div>
+                      <div className="flex items-center gap-2.5">
+                        <h3 className="text-base font-bold text-white tracking-tight">
+                          Revenue Over Time (Interactive Spline)
+                        </h3>
+                        <span className="px-2 py-0.5 rounded-full bg-indigo-950/60 border border-indigo-800/60 text-indigo-400 text-[10px] font-semibold">
+                          Live Curve
+                        </span>
+                      </div>
+                      <p className="text-xs text-gray-400 mt-0.5">
+                        {overview.dateRange.bucket === 'hour'
+                          ? 'Hourly revenue trajectory in ₹ INR with mouse hover tracking'
+                          : 'Daily revenue trend in ₹ INR with comparison curve and order counts'}
+                      </p>
+                    </div>
+
+                    <div className="flex items-center gap-3">
+                      <div className="flex items-center gap-1.5 text-xs text-gray-300">
+                        <span className="w-3 h-0.5 bg-indigo-400 rounded-full" />
+                        <span>Current Period</span>
+                      </div>
+                      {comparison !== 'none' && (
+                        <div className="flex items-center gap-1.5 text-xs text-gray-400">
+                          <span className="w-3 h-0.5 border-b border-dashed border-gray-400" />
+                          <span>Comparison</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  <InteractiveSplineChart
+                    data={overview.revenueTimeSeries}
+                    showComparison={comparison !== 'none'}
+                  />
+                </div>
+
+                {/* Grid: Charts B & C */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  {/* Graph B: Gross vs Refunds vs Net */}
+                  <div className="bg-slate-900/50 border border-slate-800 rounded-2xl p-6 shadow-xl">
+                    <div className="flex items-center justify-between mb-4">
                       <div>
-                        <h3 className="text-base font-bold text-white">Revenue Over Time</h3>
-                        <p className="text-xs text-gray-400">
-                          {overview.dateRange.bucket === 'hour'
-                            ? 'Hourly collected revenue in INR'
-                            : overview.dateRange.bucket === 'day'
-                              ? 'Daily collected revenue trend in INR'
-                              : 'Monthly collected revenue in INR'}
-                        </p>
+                        <h3 className="text-sm font-bold text-white">Gross vs Refunds vs Net</h3>
+                        <p className="text-xs text-gray-400 mt-0.5">Reconciliation of collections & refunds</p>
                       </div>
-                      <div className="flex items-center gap-2">
-                        <Badge size="xs" color="indigo">
-                          Total Period: {formatINR(overview.kpis.periodRevenue)}
-                        </Badge>
+                      <div className="flex items-center gap-2 text-[10px]">
+                        <span className="flex items-center gap-1 text-indigo-400">
+                          <span className="w-2 h-2 rounded bg-indigo-500 inline-block" /> Gross
+                        </span>
+                        <span className="flex items-center gap-1 text-rose-400">
+                          <span className="w-2 h-2 rounded bg-rose-500 inline-block" /> Refunds
+                        </span>
+                        <span className="flex items-center gap-1 text-emerald-400">
+                          <span className="w-2 h-2 rounded bg-emerald-500 inline-block" /> Net
+                        </span>
                       </div>
-                    </Flex>
-                    <AreaChart
-                      className="h-72 mt-4"
-                      data={overview.revenueTimeSeries}
-                      index="label"
-                      categories={
-                        comparison !== 'none'
-                          ? ['revenue', 'compareRevenue']
-                          : ['revenue']
-                      }
-                      colors={['indigo', 'slate']}
-                      valueFormatter={(v) => formatINR(v)}
-                      showLegend={comparison !== 'none'}
-                      showGridLines={true}
-                    />
-                  </Card>
-
-                  {/* Grid: Charts B & C */}
-                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                    {/* Chart B: Gross vs Refunds vs Net */}
-                    <Card className="bg-gray-900/40 border-gray-800/80">
-                      <h3 className="text-base font-bold text-white mb-1">
-                        Gross vs Refunds vs Net Revenue
-                      </h3>
-                      <p className="text-xs text-gray-400 mb-4">
-                        Reconciliation of gross collections against processed refunds
-                      </p>
-                      <BarChart
-                        className="h-64 mt-2"
-                        data={overview.grossVsNet}
-                        index="label"
-                        categories={['gross', 'refunds', 'net']}
-                        colors={['blue', 'rose', 'emerald']}
-                        valueFormatter={(v) => formatINR(v)}
-                        showLegend={true}
-                      />
-                    </Card>
-
-                    {/* Chart C: Revenue by Subscription Plan */}
-                    <Card className="bg-gray-900/40 border-gray-800/80">
-                      <h3 className="text-base font-bold text-white mb-1">
-                        Revenue by Subscription Plan
-                      </h3>
-                      <p className="text-xs text-gray-400 mb-4">
-                        Collected revenue contribution per plan in INR
-                      </p>
-                      <BarChart
-                        className="h-64 mt-2"
-                        data={overview.plansBreakdown}
-                        index="name"
-                        categories={['revenue']}
-                        colors={['indigo']}
-                        valueFormatter={(v) => formatINR(v)}
-                        showLegend={false}
-                        layout="horizontal"
-                      />
-                    </Card>
+                    </div>
+                    <InteractiveBarChart data={overview.grossVsNet} />
                   </div>
 
-                  {/* Grid: Donut Distributions (Charts D, E, H) */}
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    {/* Chart D: Subscription Distribution */}
-                    <Card className="bg-gray-900/40 border-gray-800/80">
-                      <h3 className="text-sm font-bold text-white mb-1">
-                        Subscription Status Distribution
-                      </h3>
-                      <p className="text-xs text-gray-400 mb-4">Current subscription breakdown</p>
-                      <DonutChart
-                        className="h-52 mt-2"
-                        data={overview.subscriptionDistribution}
-                        category="count"
-                        index="status"
-                        colors={['emerald', 'blue', 'amber', 'rose', 'slate']}
-                        valueFormatter={(v) => `${v} subscriptions`}
-                      />
-                    </Card>
-
-                    {/* Chart E: Paying vs Free Users */}
-                    <Card className="bg-gray-900/40 border-gray-800/80">
-                      <h3 className="text-sm font-bold text-white mb-1">
-                        Paying vs Free Audience
-                      </h3>
-                      <p className="text-xs text-gray-400 mb-4">Customer conversion ratio</p>
-                      <DonutChart
-                        className="h-52 mt-2"
-                        data={overview.userDistribution}
-                        category="count"
-                        index="category"
-                        colors={['emerald', 'slate', 'blue']}
-                        valueFormatter={(v) => `${v} users`}
-                      />
-                    </Card>
-
-                    {/* Chart H: Payment Status Health */}
-                    <Card className="bg-gray-900/40 border-gray-800/80">
-                      <h3 className="text-sm font-bold text-white mb-1">
-                        Payment Health Distribution
-                      </h3>
-                      <p className="text-xs text-gray-400 mb-4">Transaction outcome breakdown</p>
-                      <DonutChart
-                        className="h-52 mt-2"
-                        data={overview.paymentStatusDistribution}
-                        category="count"
-                        index="status"
-                        colors={['emerald', 'rose', 'amber', 'violet']}
-                        valueFormatter={(v) => `${v} payments`}
-                      />
-                    </Card>
-                  </div>
-
-                  {/* Chart F: New Users vs New Paying Customers */}
-                  <Card className="bg-gray-900/40 border-gray-800/80">
-                    <h3 className="text-base font-bold text-white mb-1">
-                      New User Registrations vs New Paying Customers
-                    </h3>
-                    <p className="text-xs text-gray-400 mb-4">
-                      Tracking customer conversion timeline against platform signups
-                    </p>
-                    <AreaChart
-                      className="h-64 mt-2"
-                      data={overview.newUsersVsPaying}
-                      index="label"
-                      categories={['newUsers', 'newPayingCustomers']}
-                      colors={['cyan', 'emerald']}
-                      showLegend={true}
-                    />
-                  </Card>
-
-                  {/* Grid: Conversion Funnel & Geographic Breakdown */}
-                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                    {/* Chart J: Conversion Funnel */}
-                    <Card className="bg-gray-900/40 border-gray-800/80">
-                      <h3 className="text-base font-bold text-white mb-1">
-                        Audience Conversion Funnel
-                      </h3>
-                      <p className="text-xs text-gray-400 mb-4">
-                        Step-by-step conversion from registration to paid customer
+                  {/* Graph C: Revenue Contribution by Subscription Plan */}
+                  <div className="bg-slate-900/50 border border-slate-800 rounded-2xl p-6 shadow-xl flex flex-col justify-between">
+                    <div>
+                      <div className="flex items-center justify-between mb-1">
+                        <h3 className="text-sm font-bold text-white">Revenue by Subscription Plan</h3>
+                        <Link
+                          href="/admin/tenants?tab=plans"
+                          className="text-[11px] text-indigo-400 hover:text-indigo-300 flex items-center gap-1"
+                        >
+                          <span>Plan Settings</span>
+                          <ExternalLink className="w-3 h-3" />
+                        </Link>
+                      </div>
+                      <p className="text-xs text-gray-400 mb-5">
+                        Synchronized live with the Plan Section
                       </p>
-                      <div className="space-y-4 mt-4">
-                        {overview.conversionFunnel.map((step, idx) => (
-                          <div key={idx} className="space-y-1.5">
-                            <div className="flex items-center justify-between text-xs">
-                              <span className="font-semibold text-gray-200">
-                                {idx + 1}. {step.stage}
-                              </span>
-                              <div className="flex items-center gap-2">
-                                <span className="text-white font-bold">{step.count} users</span>
-                                <Badge size="xs" color="indigo">
-                                  {step.conversionRate}%
-                                </Badge>
+
+                      <div className="space-y-4">
+                        {overview.plansBreakdown.map((p) => {
+                          const tierColor =
+                            p.id === 'enterprise'
+                              ? 'bg-amber-500'
+                              : p.id === 'professional'
+                              ? 'bg-indigo-500'
+                              : p.id === 'starter'
+                              ? 'bg-blue-500'
+                              : 'bg-emerald-500';
+
+                          return (
+                            <div key={p.id} className="space-y-1.5">
+                              <div className="flex items-center justify-between text-xs">
+                                <span className="font-semibold text-gray-200 flex items-center gap-2">
+                                  <span className={`w-2 h-2 rounded-full ${tierColor}`} />
+                                  <span>{p.name}</span>
+                                  <span className="text-[10px] text-gray-500 font-mono">
+                                    ({p.activeSubscribers} sub{p.activeSubscribers !== 1 ? 's' : ''})
+                                  </span>
+                                </span>
+                                <span className="font-mono text-gray-300 font-bold">
+                                  {formatINR(p.revenue)} <span className="text-gray-500 text-[10px]">({p.share}%)</span>
+                                </span>
+                              </div>
+                              <div className="w-full h-2 bg-slate-950 rounded-full overflow-hidden border border-slate-800">
+                                <div
+                                  className={`h-full ${tierColor} transition-all duration-500`}
+                                  style={{ width: `${Math.max(2, p.share)}%` }}
+                                />
                               </div>
                             </div>
-                            <div className="w-full h-3 rounded-full bg-gray-800 overflow-hidden">
-                              <div
-                                className="h-full bg-gradient-to-r from-indigo-500 to-emerald-400 rounded-full transition-all duration-500"
-                                style={{ width: `${Math.max(5, step.conversionRate)}%` }}
-                              />
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    <div className="pt-4 mt-4 border-t border-slate-800/80 flex items-center justify-between text-xs text-gray-400">
+                      <span>Total Active MRR from Plans:</span>
+                      <span className="font-black text-white">{formatINR(overview.kpis.mrr)}</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Grid: 3 Interactive Ring / Donut Charts */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  {/* Donut 1: Subscriptions Distribution */}
+                  <div className="bg-slate-900/50 border border-slate-800 rounded-2xl p-5 shadow-xl">
+                    <h3 className="text-sm font-bold text-white mb-1">
+                      Subscription Distribution
+                    </h3>
+                    <p className="text-xs text-gray-400 mb-2">Live subscriber breakdown</p>
+                    <InteractiveDonutChart
+                      data={overview.subscriptionDistribution}
+                      centerLabel="Subs"
+                    />
+                  </div>
+
+                  {/* Donut 2: Paying vs Free Audience */}
+                  <div className="bg-slate-900/50 border border-slate-800 rounded-2xl p-5 shadow-xl">
+                    <h3 className="text-sm font-bold text-white mb-1">
+                      Paying vs Free Audience
+                    </h3>
+                    <p className="text-xs text-gray-400 mb-2">Conversion ratio across platform</p>
+                    <InteractiveDonutChart
+                      data={overview.userDistribution}
+                      centerLabel="Users"
+                    />
+                  </div>
+
+                  {/* Donut 3: Payment Health Distribution */}
+                  <div className="bg-slate-900/50 border border-slate-800 rounded-2xl p-5 shadow-xl">
+                    <h3 className="text-sm font-bold text-white mb-1">
+                      Payment Outcome Health
+                    </h3>
+                    <p className="text-xs text-gray-400 mb-2">Transaction settlement status</p>
+                    <InteractiveDonutChart
+                      data={overview.paymentStatusDistribution}
+                      centerLabel="Transactions"
+                    />
+                  </div>
+                </div>
+
+                {/* Conversion Funnel & Retention Snapshot */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  {/* Conversion Funnel */}
+                  <div className="bg-slate-900/50 border border-slate-800 rounded-2xl p-6 shadow-xl">
+                    <h3 className="text-sm font-bold text-white mb-1">Customer Conversion Funnel</h3>
+                    <p className="text-xs text-gray-400 mb-4">
+                      Stage progression from registration to active renewal
+                    </p>
+                    <div className="space-y-3">
+                      {overview.conversionFunnel.map((step, idx) => (
+                        <div key={idx} className="space-y-1">
+                          <div className="flex items-center justify-between text-xs">
+                            <span className="text-gray-300 font-medium">{step.stage}</span>
+                            <span className="font-mono text-gray-300">
+                              {step.count.toLocaleString()} users{' '}
+                              <span className="text-emerald-400 font-bold ml-1">({step.conversionRate}%)</span>
+                            </span>
+                          </div>
+                          <div className="w-full h-2 bg-slate-950 rounded-full overflow-hidden border border-slate-800">
+                            <div
+                              className="h-full bg-gradient-to-r from-indigo-500 to-emerald-500 transition-all duration-500"
+                              style={{ width: `${Math.max(4, step.conversionRate)}%` }}
+                            />
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Geographic & Regional Breakdown */}
+                  <div className="bg-slate-900/50 border border-slate-800 rounded-2xl p-6 shadow-xl">
+                    <h3 className="text-sm font-bold text-white mb-1">Geographic Distribution</h3>
+                    <p className="text-xs text-gray-400 mb-4">
+                      Revenue and customers by registered country
+                    </p>
+                    <div className="space-y-3 max-h-64 overflow-y-auto pr-1">
+                      {overview.geographicBreakdown.map((geo, idx) => (
+                        <div key={idx} className="flex items-center justify-between p-2 rounded-xl bg-slate-950/40 border border-slate-800 text-xs">
+                          <div className="flex items-center gap-2">
+                            <Globe className="w-4 h-4 text-indigo-400" />
+                            <span className="font-semibold text-gray-200">{geo.countryName}</span>
+                            <span className="text-[10px] text-gray-500 uppercase">({geo.countryCode})</span>
+                          </div>
+                          <div className="text-right">
+                            <div className="font-black text-white">{formatINR(geo.revenue)}</div>
+                            <div className="text-[10px] text-gray-400">
+                              {geo.payingCustomers} customer{geo.payingCustomers !== 1 ? 's' : ''} ({geo.conversionRate}%)
                             </div>
                           </div>
-                        ))}
-                      </div>
-                    </Card>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
 
-                    {/* Chart G: Geographic Breakdown */}
-                    <Card className="bg-gray-900/40 border-gray-800/80">
-                      <h3 className="text-base font-bold text-white mb-1">
-                        Audience & Geographic Revenue
+            {/* ─── TAB 1: PAID CUSTOMERS DIRECTORY WITH PLAN UPGRADE ─── */}
+            {selectedTab === 1 && (
+              <div className="space-y-6">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-slate-900/40 p-4 rounded-2xl border border-slate-800">
+                  <div className="relative flex-1 max-w-md">
+                    <Search className="w-4 h-4 text-gray-500 absolute left-3 top-1/2 -translate-y-1/2" />
+                    <input
+                      type="text"
+                      placeholder="Search customer by name, email, workspace..."
+                      value={usersSearch}
+                      onChange={(e) => {
+                        setUsersSearch(e.target.value);
+                        setUsersPage(1);
+                      }}
+                      className="w-full bg-slate-950 border border-slate-800 rounded-xl pl-9 pr-4 py-2 text-xs text-gray-200 placeholder-gray-500 focus:outline-none focus:border-indigo-500"
+                    />
+                  </div>
+
+                  <div className="flex items-center gap-3">
+                    {/* Live Plans Filter Dropdown */}
+                    <select
+                      value={usersPlanFilter}
+                      onChange={(e) => {
+                        setUsersPlanFilter(e.target.value);
+                        setUsersPage(1);
+                      }}
+                      className="bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-gray-200 focus:outline-none focus:border-indigo-500"
+                    >
+                      <option value="all">All Plans</option>
+                      {livePlans.map((lp) => (
+                        <option key={lp.id} value={lp.id}>
+                          {lp.name} ({lp.price > 0 ? formatINR(lp.price) : 'Free'})
+                        </option>
+                      ))}
+                    </select>
+
+                    <select
+                      value={usersStatusFilter}
+                      onChange={(e) => {
+                        setUsersStatusFilter(e.target.value);
+                        setUsersPage(1);
+                      }}
+                      className="bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-gray-200 focus:outline-none focus:border-indigo-500"
+                    >
+                      <option value="all">All Statuses</option>
+                      <option value="active">Active</option>
+                      <option value="cancelled">Cancelled</option>
+                      <option value="past_due">Past Due</option>
+                      <option value="trial">Trial</option>
+                    </select>
+                  </div>
+                </div>
+
+                {/* Table */}
+                <div className="bg-slate-900/50 border border-slate-800 rounded-2xl overflow-hidden shadow-xl">
+                  {usersLoading ? (
+                    <div className="p-12 text-center text-gray-500 text-xs">
+                      <RefreshCw className="w-5 h-5 animate-spin mx-auto text-indigo-400 mb-2" />
+                      Loading customer directory...
+                    </div>
+                  ) : users.length === 0 ? (
+                    <div className="p-12 text-center text-gray-500 text-xs">
+                      No customer records match your filter criteria.
+                    </div>
+                  ) : (
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left text-xs">
+                        <thead className="bg-slate-950/80 border-b border-slate-800 text-[11px] uppercase tracking-wider text-gray-400">
+                          <tr>
+                            <th className="py-3.5 px-4 font-semibold">Customer</th>
+                            <th className="py-3.5 px-4 font-semibold">Organization / Workspace</th>
+                            <th className="py-3.5 px-4 font-semibold">Current Plan</th>
+                            <th className="py-3.5 px-4 font-semibold">Status</th>
+                            <th className="py-3.5 px-4 font-semibold">Total Paid</th>
+                            <th className="py-3.5 px-4 font-semibold">Invoices</th>
+                            <th className="py-3.5 px-4 font-semibold text-right">Actions</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-800/60">
+                          {users.map((u) => (
+                            <tr key={u.userId} className="hover:bg-slate-800/30 transition">
+                              <td className="py-3.5 px-4">
+                                <div className="font-bold text-white">{u.userName}</div>
+                                <div className="text-[11px] text-gray-400">{u.email}</div>
+                              </td>
+                              <td className="py-3.5 px-4 font-medium text-gray-300">
+                                <div>{u.tenantName}</div>
+                                <div className="text-[10px] text-gray-500 font-mono">{u.tenantId.slice(0, 8)}...</div>
+                              </td>
+                              <td className="py-3.5 px-4">
+                                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold uppercase tracking-wider bg-indigo-950/50 border border-indigo-800/50 text-indigo-300">
+                                  <Crown className="w-3 h-3 text-amber-400" />
+                                  {u.currentPlan}
+                                </span>
+                              </td>
+                              <td className="py-3.5 px-4">
+                                <span
+                                  className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase ${
+                                    u.subscriptionStatus === 'active'
+                                      ? 'bg-emerald-950/50 border border-emerald-800/40 text-emerald-400'
+                                      : 'bg-slate-800 text-gray-400'
+                                  }`}
+                                >
+                                  {u.subscriptionStatus}
+                                </span>
+                              </td>
+                              <td className="py-3.5 px-4 font-black text-white font-mono">
+                                {formatINR(u.totalPaid)}
+                              </td>
+                              <td className="py-3.5 px-4 text-gray-300 font-mono">
+                                {u.paidInvoicesCount}
+                              </td>
+                              <td className="py-3.5 px-4 text-right">
+                                <button
+                                  onClick={() => {
+                                    setTargetUser(u);
+                                    setSelectedNewPlan(u.currentPlan.toLowerCase());
+                                    setUpgradeModalOpen(true);
+                                  }}
+                                  className="px-3 py-1.5 rounded-xl bg-indigo-600/20 hover:bg-indigo-600/30 border border-indigo-500/30 text-indigo-300 hover:text-white text-[11px] font-semibold transition"
+                                >
+                                  Change / Upgrade Plan
+                                </button>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+
+                  {/* Pagination */}
+                  <div className="p-4 border-t border-slate-800 flex items-center justify-between text-xs text-gray-400">
+                    <span>Page {usersPage} of {usersTotalPages}</span>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => setUsersPage((p) => Math.max(1, p - 1))}
+                        disabled={usersPage <= 1}
+                        className="p-1.5 rounded-lg border border-slate-800 disabled:opacity-40 hover:bg-slate-800"
+                      >
+                        <ChevronLeft className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => setUsersPage((p) => Math.min(usersTotalPages, p + 1))}
+                        disabled={usersPage >= usersTotalPages}
+                        className="p-1.5 rounded-lg border border-slate-800 disabled:opacity-40 hover:bg-slate-800"
+                      >
+                        <ChevronRight className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* ─── TAB 2: LIVE PLAN PERFORMANCE & SYNCHRONIZATION ─── */}
+            {selectedTab === 2 && (
+              <div className="space-y-6">
+                {/* Synchronization Banner */}
+                <div className="bg-gradient-to-r from-indigo-950/60 via-slate-900/60 to-purple-950/60 p-5 rounded-2xl border border-indigo-500/30 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2.5 rounded-xl bg-indigo-600/20 text-indigo-400">
+                      <Sliders className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <h3 className="text-sm font-bold text-white">
+                        Synchronized with Admin Plan Management
                       </h3>
-                      <p className="text-xs text-gray-400 mb-4">
-                        User population and collected revenue by country / region
+                      <p className="text-xs text-gray-400 mt-0.5">
+                        Whenever you create, edit, or adjust pricing/limits in the Plan Section, this dashboard automatically fetches the updated metrics.
                       </p>
-                      <div className="overflow-x-auto">
-                        <Table className="mt-2">
-                          <TableHead>
-                            <TableRow className="border-b border-gray-800 text-xs">
-                              <TableHeaderCell className="text-gray-400">Country</TableHeaderCell>
-                              <TableHeaderCell className="text-gray-400 text-right">Users</TableHeaderCell>
-                              <TableHeaderCell className="text-gray-400 text-right">Paying</TableHeaderCell>
-                              <TableHeaderCell className="text-gray-400 text-right">Revenue</TableHeaderCell>
-                              <TableHeaderCell className="text-gray-400 text-right">Conv. Rate</TableHeaderCell>
-                            </TableRow>
-                          </TableHead>
-                          <TableBody>
-                            {overview.geographicBreakdown.map((geo, idx) => (
-                              <TableRow key={idx} className="border-b border-gray-800/50 hover:bg-gray-800/20">
-                                <TableCell className="font-medium text-white flex items-center gap-2">
-                                  <Globe className="w-3.5 h-3.5 text-indigo-400" />
-                                  <span>{geo.countryName}</span>
-                                  <span className="text-xs text-gray-500">({geo.countryCode})</span>
-                                </TableCell>
-                                <TableCell className="text-right text-gray-300">
-                                  {geo.registeredUsers}
-                                </TableCell>
-                                <TableCell className="text-right text-emerald-400 font-semibold">
-                                  {geo.payingCustomers}
-                                </TableCell>
-                                <TableCell className="text-right text-white font-bold">
-                                  {formatINR(geo.revenue)}
-                                </TableCell>
-                                <TableCell className="text-right">
-                                  <Badge size="xs" color="indigo">
-                                    {geo.conversionRate}%
-                                  </Badge>
-                                </TableCell>
-                              </TableRow>
-                            ))}
-                          </TableBody>
-                        </Table>
-                      </div>
-                    </Card>
-                  </div>
-
-                  {/* Chart K: Cohort Retention */}
-                  <Card className="bg-gray-900/40 border-gray-800/80">
-                    <h3 className="text-base font-bold text-white mb-1">
-                      Signup Cohort Retention
-                    </h3>
-                    <p className="text-xs text-gray-400 mb-4">
-                      Retention percentage of signups remaining active across weekly and monthly intervals
-                    </p>
-                    <div className="overflow-x-auto">
-                      <Table className="mt-2">
-                        <TableHead>
-                          <TableRow className="border-b border-gray-800 text-xs">
-                            <TableHeaderCell className="text-gray-400">Signup Cohort</TableHeaderCell>
-                            <TableHeaderCell className="text-gray-400 text-right">Signups</TableHeaderCell>
-                            <TableHeaderCell className="text-gray-400 text-right">Week 1</TableHeaderCell>
-                            <TableHeaderCell className="text-gray-400 text-right">Month 1</TableHeaderCell>
-                            <TableHeaderCell className="text-gray-400 text-right">Month 2</TableHeaderCell>
-                            <TableHeaderCell className="text-gray-400 text-right">Month 3</TableHeaderCell>
-                          </TableRow>
-                        </TableHead>
-                        <TableBody>
-                          {overview.cohortRetention.map((cohort, idx) => (
-                            <TableRow key={idx} className="border-b border-gray-800/50">
-                              <TableCell className="font-medium text-white">{cohort.cohort}</TableCell>
-                              <TableCell className="text-right text-gray-300 font-bold">{cohort.signups}</TableCell>
-                              <TableCell className="text-right">
-                                <span className="px-2 py-0.5 rounded bg-emerald-950/60 text-emerald-400 text-xs font-semibold">
-                                  {cohort.week1}%
-                                </span>
-                              </TableCell>
-                              <TableCell className="text-right">
-                                <span className="px-2 py-0.5 rounded bg-emerald-950/40 text-emerald-300 text-xs font-semibold">
-                                  {cohort.month1}%
-                                </span>
-                              </TableCell>
-                              <TableCell className="text-right">
-                                <span className="px-2 py-0.5 rounded bg-blue-950/40 text-blue-300 text-xs font-semibold">
-                                  {cohort.month2}%
-                                </span>
-                              </TableCell>
-                              <TableCell className="text-right">
-                                <span className="px-2 py-0.5 rounded bg-indigo-950/40 text-indigo-300 text-xs font-semibold">
-                                  {cohort.month3}%
-                                </span>
-                              </TableCell>
-                            </TableRow>
-                          ))}
-                        </TableBody>
-                      </Table>
-                    </div>
-                  </Card>
-                </TabPanel>
-
-                {/* ─── TAB 2: PAID CUSTOMERS DIRECTORY ─── */}
-                <TabPanel className="space-y-6">
-                  {/* Summary Counters */}
-                  {usersSummary && (
-                    <Grid numItems={1} numItemsSm={2} numItemsLg={4} className="gap-5">
-                      <Card className="bg-gray-900/40 border-gray-800">
-                        <Text className="text-gray-400 text-xs font-medium">Total Paying Customers</Text>
-                        <Metric className="text-white text-2xl font-bold mt-1">
-                          {usersSummary.total_paying || 0}
-                        </Metric>
-                      </Card>
-                      <Card className="bg-gray-900/40 border-gray-800">
-                        <Text className="text-gray-400 text-xs font-medium">Active Paid Subscriptions</Text>
-                        <Metric className="text-emerald-400 text-2xl font-bold mt-1">
-                          {usersSummary.active_paying || 0}
-                        </Metric>
-                      </Card>
-                      <Card className="bg-gray-900/40 border-gray-800">
-                        <Text className="text-gray-400 text-xs font-medium">Churned Customers</Text>
-                        <Metric className="text-rose-400 text-2xl font-bold mt-1">
-                          {usersSummary.churned_paying || 0}
-                        </Metric>
-                      </Card>
-                      <Card className="bg-gray-900/40 border-gray-800">
-                        <Text className="text-gray-400 text-xs font-medium">Average Customer LTV</Text>
-                        <Metric className="text-indigo-400 text-2xl font-bold mt-1">
-                          {formatINR(parseFloat(usersSummary.avg_ltv || 0))}
-                        </Metric>
-                      </Card>
-                    </Grid>
-                  )}
-
-                  {/* Filter & Search Bar */}
-                  <div className="p-4 rounded-xl bg-gray-900/60 border border-gray-800 flex flex-col md:flex-row md:items-center justify-between gap-4">
-                    <div className="relative flex-1">
-                      <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
-                      <input
-                        type="text"
-                        placeholder="Search customers by name, email, or organization..."
-                        value={usersSearch}
-                        onChange={(e) => {
-                          setUsersSearch(e.target.value);
-                          setUsersPage(1);
-                        }}
-                        className="w-full bg-gray-950 border border-gray-800 rounded-lg pl-9 pr-4 py-2 text-sm text-gray-200 focus:outline-none focus:border-indigo-500"
-                      />
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <select
-                        value={usersPlanFilter}
-                        onChange={(e) => {
-                          setUsersPlanFilter(e.target.value);
-                          setUsersPage(1);
-                        }}
-                        className="bg-gray-950 border border-gray-800 text-gray-200 text-sm rounded-lg px-3 py-2 focus:outline-none focus:border-indigo-500"
-                      >
-                        <option value="all">All Plans</option>
-                        <option value="professional">Professional</option>
-                        <option value="starter">Starter</option>
-                        <option value="enterprise">Enterprise</option>
-                        <option value="free">Free</option>
-                      </select>
-
-                      <select
-                        value={usersStatusFilter}
-                        onChange={(e) => {
-                          setUsersStatusFilter(e.target.value);
-                          setUsersPage(1);
-                        }}
-                        className="bg-gray-950 border border-gray-800 text-gray-200 text-sm rounded-lg px-3 py-2 focus:outline-none focus:border-indigo-500"
-                      >
-                        <option value="all">All Statuses</option>
-                        <option value="active">Active</option>
-                        <option value="cancelled">Cancelled</option>
-                        <option value="past_due">Past Due</option>
-                        <option value="free">Free</option>
-                      </select>
                     </div>
                   </div>
 
-                  {/* Customers Table */}
-                  <Card className="bg-gray-900/40 border-gray-800/80 p-0 overflow-hidden">
-                    <div className="overflow-x-auto">
-                      <Table>
-                        <TableHead>
-                          <TableRow className="border-b border-gray-800 bg-gray-950/40 text-xs">
-                            <TableHeaderCell className="text-gray-400">Customer</TableHeaderCell>
-                            <TableHeaderCell className="text-gray-400">Workspace / Org</TableHeaderCell>
-                            <TableHeaderCell className="text-gray-400">Plan</TableHeaderCell>
-                            <TableHeaderCell className="text-gray-400">Status</TableHeaderCell>
-                            <TableHeaderCell className="text-gray-400">Signup Date</TableHeaderCell>
-                            <TableHeaderCell className="text-gray-400">Last Payment</TableHeaderCell>
-                            <TableHeaderCell className="text-gray-400 text-right">Total Paid</TableHeaderCell>
-                            <TableHeaderCell className="text-gray-400 text-right">Invoices</TableHeaderCell>
-                            <TableHeaderCell className="text-gray-400">Renewal</TableHeaderCell>
-                          </TableRow>
-                        </TableHead>
-                        <TableBody>
-                          {usersLoading ? (
-                            <TableRow>
-                              <TableCell colSpan={9} className="text-center py-8 text-gray-500">
-                                <div className="flex items-center justify-center gap-2">
-                                  <RefreshCw className="w-4 h-4 animate-spin text-indigo-400" />
-                                  <span>Loading customer directory...</span>
-                                </div>
-                              </TableCell>
-                            </TableRow>
-                          ) : users.length === 0 ? (
-                            <TableRow>
-                              <TableCell colSpan={9} className="text-center py-8 text-gray-500">
-                                No matching customers found.
-                              </TableCell>
-                            </TableRow>
-                          ) : (
-                            users.map((u) => (
-                              <TableRow key={u.userId} className="border-b border-gray-800/50 hover:bg-gray-800/20">
-                                <TableCell>
-                                  <div className="flex items-center gap-2.5">
-                                    <div className="w-8 h-8 rounded-full bg-indigo-600/20 border border-indigo-500/30 flex items-center justify-center text-xs font-bold text-indigo-300">
-                                      {u.userName.charAt(0).toUpperCase()}
-                                    </div>
-                                    <div>
-                                      <p className="font-semibold text-white text-sm">{u.userName}</p>
-                                      <p className="text-xs text-gray-400">{u.email}</p>
-                                    </div>
-                                  </div>
-                                </TableCell>
-                                <TableCell className="text-gray-300 font-medium">
-                                  {u.tenantName}
-                                </TableCell>
-                                <TableCell>
-                                  <Badge size="xs" color="indigo">
-                                    {u.currentPlan.toUpperCase()}
-                                  </Badge>
-                                </TableCell>
-                                <TableCell>
-                                  <Badge
-                                    size="xs"
-                                    color={
-                                      u.subscriptionStatus === 'active'
-                                        ? 'emerald'
-                                        : u.subscriptionStatus === 'cancelled'
-                                          ? 'rose'
-                                          : u.subscriptionStatus === 'past_due'
-                                            ? 'amber'
-                                            : 'slate'
-                                    }
-                                  >
-                                    {u.subscriptionStatus.toUpperCase()}
-                                  </Badge>
-                                </TableCell>
-                                <TableCell className="text-xs text-gray-400">
-                                  {new Date(u.signupDate).toLocaleDateString()}
-                                </TableCell>
-                                <TableCell className="text-xs text-gray-300">
-                                  {u.lastPaymentAt
-                                    ? new Date(u.lastPaymentAt).toLocaleDateString()
-                                    : 'None'}
-                                </TableCell>
-                                <TableCell className="text-right font-bold text-white">
-                                  {formatINR(u.totalPaid)}
-                                </TableCell>
-                                <TableCell className="text-right text-gray-300 font-medium">
-                                  {u.paidInvoicesCount}
-                                </TableCell>
-                                <TableCell className="text-xs text-gray-400">
-                                  {u.currentPeriodEnd
-                                    ? new Date(u.currentPeriodEnd).toLocaleDateString()
-                                    : '—'}
-                                </TableCell>
-                              </TableRow>
-                            ))
-                          )}
-                        </TableBody>
-                      </Table>
-                    </div>
+                  <Link
+                    href="/admin/tenants?tab=plans"
+                    className="shrink-0 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-xl transition flex items-center gap-2 shadow-lg shadow-indigo-600/20"
+                  >
+                    <span>Open Plan Section</span>
+                    <ExternalLink className="w-3.5 h-3.5" />
+                  </Link>
+                </div>
 
-                    {/* Pagination */}
-                    {usersTotalPages > 1 && (
-                      <div className="p-4 border-t border-gray-800 flex items-center justify-between text-xs text-gray-400">
-                        <span>Page {usersPage} of {usersTotalPages}</span>
-                        <div className="flex items-center gap-2">
-                          <button
-                            disabled={usersPage <= 1}
-                            onClick={() => setUsersPage((p) => Math.max(1, p - 1))}
-                            className="p-1.5 rounded bg-gray-950 border border-gray-800 hover:bg-gray-800 disabled:opacity-40"
-                          >
-                            <ChevronLeft className="w-4 h-4" />
-                          </button>
-                          <button
-                            disabled={usersPage >= usersTotalPages}
-                            onClick={() => setUsersPage((p) => Math.min(usersTotalPages, p + 1))}
-                            className="p-1.5 rounded bg-gray-950 border border-gray-800 hover:bg-gray-800 disabled:opacity-40"
-                          >
-                            <ChevronRight className="w-4 h-4" />
-                          </button>
-                        </div>
-                      </div>
-                    )}
-                  </Card>
-                </TabPanel>
+                {/* Plan Performance Matrix Grid */}
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
+                  {overview.plansBreakdown.map((plan) => {
+                    const isEnterprise = plan.id === 'enterprise';
+                    const isProfessional = plan.id === 'professional';
 
-                {/* ─── TAB 3: SUBSCRIPTION PLANS PERFORMANCE ─── */}
-                <TabPanel className="space-y-6">
-                  <Card className="bg-gray-900/40 border-gray-800/80 p-0 overflow-hidden">
-                    <div className="p-4 border-b border-gray-800">
-                      <h3 className="text-base font-bold text-white">Configured Subscription Plans Comparison</h3>
-                      <p className="text-xs text-gray-400">
-                        Comprehensive revenue generation, subscriber count, MRR contribution, and churn metrics
-                      </p>
-                    </div>
-                    <div className="overflow-x-auto">
-                      <Table>
-                        <TableHead>
-                          <TableRow className="border-b border-gray-800 bg-gray-950/40 text-xs">
-                            <TableHeaderCell className="text-gray-400">Plan Name</TableHeaderCell>
-                            <TableHeaderCell className="text-gray-400">Billing</TableHeaderCell>
-                            <TableHeaderCell className="text-gray-400 text-right">Configured Price</TableHeaderCell>
-                            <TableHeaderCell className="text-gray-400 text-right">Subscribers</TableHeaderCell>
-                            <TableHeaderCell className="text-gray-400 text-right">Gross Volume</TableHeaderCell>
-                            <TableHeaderCell className="text-gray-400 text-right">Net Revenue</TableHeaderCell>
-                            <TableHeaderCell className="text-gray-400 text-right">MRR Contribution</TableHeaderCell>
-                            <TableHeaderCell className="text-gray-400 text-right">Revenue Share</TableHeaderCell>
-                            <TableHeaderCell className="text-gray-400 text-right">Cancellations</TableHeaderCell>
-                            <TableHeaderCell className="text-gray-400 text-right">Churn Rate</TableHeaderCell>
-                          </TableRow>
-                        </TableHead>
-                        <TableBody>
-                          {overview.plansBreakdown.map((plan) => (
-                            <TableRow key={plan.id} className="border-b border-gray-800/50 hover:bg-gray-800/20">
-                              <TableCell className="font-bold text-white flex items-center gap-2">
-                                <span>{plan.name}</span>
-                                {plan.revenue > 0 && (
-                                  <Badge size="xs" color="emerald">
-                                    Top Earner
-                                  </Badge>
-                                )}
-                              </TableCell>
-                              <TableCell className="text-gray-400 capitalize">{plan.billing}</TableCell>
-                              <TableCell className="text-right font-medium text-gray-300">
-                                {formatINR(plan.price)}
-                              </TableCell>
-                              <TableCell className="text-right font-bold text-indigo-400">
+                    return (
+                      <div
+                        key={plan.id}
+                        className="bg-slate-900/50 border border-slate-800 hover:border-indigo-500/40 rounded-2xl p-5 shadow-xl transition flex flex-col justify-between relative overflow-hidden"
+                      >
+                        <div
+                          className={`absolute top-0 left-0 right-0 h-1 ${
+                            isEnterprise
+                              ? 'bg-amber-500'
+                              : isProfessional
+                              ? 'bg-indigo-500'
+                              : 'bg-emerald-500'
+                          }`}
+                        />
+
+                        <div>
+                          <div className="flex items-center justify-between mb-2">
+                            <span className="text-sm font-bold text-white flex items-center gap-1.5">
+                              {isEnterprise ? (
+                                <Crown className="w-4 h-4 text-amber-400" />
+                              ) : isProfessional ? (
+                                <Zap className="w-4 h-4 text-indigo-400" />
+                              ) : (
+                                <Package className="w-4 h-4 text-emerald-400" />
+                              )}
+                              {plan.name}
+                            </span>
+                            <span className="text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider bg-slate-800 border border-slate-700 text-gray-300">
+                              {plan.billing}
+                            </span>
+                          </div>
+
+                          <div className="text-2xl font-black text-white mt-1">
+                            {plan.price > 0 ? `${formatINR(plan.price)}` : 'Free'}
+                            <span className="text-[10px] text-gray-500 font-normal ml-1">/mo</span>
+                          </div>
+
+                          {/* Token & Agent Limits */}
+                          <div className="mt-3 py-2 px-3 rounded-xl bg-slate-950/60 border border-slate-800 text-[11px] text-gray-400 space-y-1">
+                            <div className="flex justify-between">
+                              <span>Token Quota:</span>
+                              <span className="font-mono text-gray-200">
+                                {plan.tokenLimit === -1 ? 'Unlimited' : `${(Number(plan.tokenLimit) || 0).toLocaleString()} tokens`}
+                              </span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span>Active Subscribers:</span>
+                              <span className="font-bold text-emerald-400 font-mono">
                                 {plan.activeSubscribers}
-                              </TableCell>
-                              <TableCell className="text-right text-white font-bold">
-                                {formatINR(plan.revenue)}
-                              </TableCell>
-                              <TableCell className="text-right text-emerald-400 font-bold">
-                                {formatINR(plan.revenue)}
-                              </TableCell>
-                              <TableCell className="text-right font-bold text-blue-400">
-                                {formatINR(plan.mrr)}
-                              </TableCell>
-                              <TableCell className="text-right">
-                                <Badge size="xs" color="indigo">
-                                  {plan.share}%
-                                </Badge>
-                              </TableCell>
-                              <TableCell className="text-right text-gray-400">{plan.cancellations}</TableCell>
-                              <TableCell className="text-right">
-                                <Badge size="xs" color={plan.churnRate > 0 ? 'rose' : 'emerald'}>
-                                  {plan.churnRate}%
-                                </Badge>
-                              </TableCell>
-                            </TableRow>
-                          ))}
-                        </TableBody>
-                      </Table>
-                    </div>
-                  </Card>
-                </TabPanel>
+                              </span>
+                            </div>
+                          </div>
 
-                {/* ─── TAB 4: TRANSACTIONS & RECONCILIATION ─── */}
-                <TabPanel className="space-y-6">
-                  {/* Summary row */}
-                  {txSummary && (
-                    <Grid numItems={1} numItemsSm={2} numItemsLg={4} className="gap-5">
-                      <Card className="bg-gray-900/40 border-gray-800">
-                        <Text className="text-gray-400 text-xs font-medium">Successful Payment Volume</Text>
-                        <Metric className="text-emerald-400 text-2xl font-bold mt-1">
-                          {formatINR(parseFloat(txSummary.successful_volume || 0))}
-                        </Metric>
-                      </Card>
-                      <Card className="bg-gray-900/40 border-gray-800">
-                        <Text className="text-gray-400 text-xs font-medium">Paid Invoices Count</Text>
-                        <Metric className="text-white text-2xl font-bold mt-1">
-                          {txSummary.successful_count || 0}
-                        </Metric>
-                      </Card>
-                      <Card className="bg-gray-900/40 border-gray-800">
-                        <Text className="text-gray-400 text-xs font-medium">Failed Invoices</Text>
-                        <Metric className="text-rose-400 text-2xl font-bold mt-1">
-                          {txSummary.failed_count || 0}
-                        </Metric>
-                      </Card>
-                      <Card className="bg-gray-900/40 border-gray-800">
-                        <Text className="text-gray-400 text-xs font-medium">Refunded Invoices</Text>
-                        <Metric className="text-purple-400 text-2xl font-bold mt-1">
-                          {txSummary.refunded_count || 0}
-                        </Metric>
-                      </Card>
-                    </Grid>
-                  )}
+                          {/* Financials for this plan */}
+                          <div className="mt-4 space-y-2 text-xs">
+                            <div className="flex justify-between">
+                              <span className="text-gray-400">MRR Contribution:</span>
+                              <span className="font-bold text-white">{formatINR(plan.mrr)}</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span className="text-gray-400">Period Revenue:</span>
+                              <span className="font-bold text-white">{formatINR(plan.revenue)}</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span className="text-gray-400">Revenue Share:</span>
+                              <span className="font-bold text-indigo-400">{plan.share}%</span>
+                            </div>
+                          </div>
+                        </div>
 
-                  {/* Filter & Search Bar */}
-                  <div className="p-4 rounded-xl bg-gray-900/60 border border-gray-800 flex flex-col md:flex-row md:items-center justify-between gap-4">
-                    <div className="relative flex-1">
-                      <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
-                      <input
-                        type="text"
-                        placeholder="Search transactions by invoice #, provider reference, customer..."
-                        value={txSearch}
-                        onChange={(e) => {
-                          setTxSearch(e.target.value);
-                          setTxPage(1);
-                        }}
-                        className="w-full bg-gray-950 border border-gray-800 rounded-lg pl-9 pr-4 py-2 text-sm text-gray-200 focus:outline-none focus:border-indigo-500"
-                      />
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <select
-                        value={txStatusFilter}
-                        onChange={(e) => {
-                          setTxStatusFilter(e.target.value);
-                          setTxPage(1);
-                        }}
-                        className="bg-gray-950 border border-gray-800 text-gray-200 text-sm rounded-lg px-3 py-2 focus:outline-none focus:border-indigo-500"
-                      >
-                        <option value="all">All Statuses</option>
-                        <option value="paid">Paid</option>
-                        <option value="failed">Failed</option>
-                        <option value="open">Open / Pending</option>
-                        <option value="refunded">Refunded</option>
-                      </select>
-
-                      <select
-                        value={txProviderFilter}
-                        onChange={(e) => {
-                          setTxProviderFilter(e.target.value);
-                          setTxPage(1);
-                        }}
-                        className="bg-gray-950 border border-gray-800 text-gray-200 text-sm rounded-lg px-3 py-2 focus:outline-none focus:border-indigo-500"
-                      >
-                        <option value="all">All Gateways</option>
-                        <option value="cashfree">Cashfree</option>
-                        <option value="razorpay">Razorpay</option>
-                        <option value="stripe">Stripe</option>
-                        <option value="phonepe">PhonePe</option>
-                      </select>
-                    </div>
-                  </div>
-
-                  {/* Transactions Table */}
-                  <Card className="bg-gray-900/40 border-gray-800/80 p-0 overflow-hidden">
-                    <div className="overflow-x-auto">
-                      <Table>
-                        <TableHead>
-                          <TableRow className="border-b border-gray-800 bg-gray-950/40 text-xs">
-                            <TableHeaderCell className="text-gray-400">Invoice Number</TableHeaderCell>
-                            <TableHeaderCell className="text-gray-400">Customer Workspace</TableHeaderCell>
-                            <TableHeaderCell className="text-gray-400">Plan</TableHeaderCell>
-                            <TableHeaderCell className="text-gray-400 text-right">Amount</TableHeaderCell>
-                            <TableHeaderCell className="text-gray-400">Provider</TableHeaderCell>
-                            <TableHeaderCell className="text-gray-400">Status</TableHeaderCell>
-                            <TableHeaderCell className="text-gray-400">Date & Time</TableHeaderCell>
-                            <TableHeaderCell className="text-gray-400 text-right">Receipt</TableHeaderCell>
-                          </TableRow>
-                        </TableHead>
-                        <TableBody>
-                          {txLoading ? (
-                            <TableRow>
-                              <TableCell colSpan={8} className="text-center py-8 text-gray-500">
-                                <div className="flex items-center justify-center gap-2">
-                                  <RefreshCw className="w-4 h-4 animate-spin text-indigo-400" />
-                                  <span>Loading verified transaction records...</span>
-                                </div>
-                              </TableCell>
-                            </TableRow>
-                          ) : transactions.length === 0 ? (
-                            <TableRow>
-                              <TableCell colSpan={8} className="text-center py-8 text-gray-500">
-                                No transaction records found.
-                              </TableCell>
-                            </TableRow>
-                          ) : (
-                            transactions.map((tx) => (
-                              <TableRow key={tx.id} className="border-b border-gray-800/50 hover:bg-gray-800/20">
-                                <TableCell className="font-mono text-xs text-indigo-400 font-semibold">
-                                  {tx.invoiceNumber}
-                                </TableCell>
-                                <TableCell className="font-medium text-white text-sm">
-                                  {tx.tenantName}
-                                </TableCell>
-                                <TableCell>
-                                  <Badge size="xs" color="indigo">
-                                    {tx.planName.toUpperCase()}
-                                  </Badge>
-                                </TableCell>
-                                <TableCell className="text-right font-bold text-white">
-                                  {formatINR(tx.amount)}
-                                </TableCell>
-                                <TableCell>
-                                  <Badge size="xs" color="blue">
-                                    {tx.provider.toUpperCase()}
-                                  </Badge>
-                                </TableCell>
-                                <TableCell>
-                                  <Badge
-                                    size="xs"
-                                    color={
-                                      tx.status === 'paid'
-                                        ? 'emerald'
-                                        : tx.status === 'failed'
-                                          ? 'rose'
-                                          : tx.status === 'refunded'
-                                            ? 'purple'
-                                            : 'amber'
-                                    }
-                                  >
-                                    {tx.status.toUpperCase()}
-                                  </Badge>
-                                </TableCell>
-                                <TableCell className="text-xs text-gray-400">
-                                  {new Date(tx.createdAt).toLocaleString()}
-                                </TableCell>
-                                <TableCell className="text-right">
-                                  {tx.pdfUrl ? (
-                                    <a
-                                      href={tx.pdfUrl}
-                                      target="_blank"
-                                      rel="noreferrer"
-                                      className="inline-flex items-center gap-1 text-xs text-indigo-400 hover:text-indigo-300 font-medium"
-                                    >
-                                      <FileText className="w-3.5 h-3.5" /> Receipt
-                                    </a>
-                                  ) : (
-                                    <span className="text-xs text-gray-600">—</span>
-                                  )}
-                                </TableCell>
-                              </TableRow>
-                            ))
-                          )}
-                        </TableBody>
-                      </Table>
-                    </div>
-
-                    {/* Pagination */}
-                    {txTotalPages > 1 && (
-                      <div className="p-4 border-t border-gray-800 flex items-center justify-between text-xs text-gray-400">
-                        <span>Page {txPage} of {txTotalPages}</span>
-                        <div className="flex items-center gap-2">
-                          <button
-                            disabled={txPage <= 1}
-                            onClick={() => setTxPage((p) => Math.max(1, p - 1))}
-                            className="p-1.5 rounded bg-gray-950 border border-gray-800 hover:bg-gray-800 disabled:opacity-40"
+                        {/* Action Link to Plan Section */}
+                        <div className="mt-5 pt-3 border-t border-slate-800/80 flex items-center justify-between">
+                          <Link
+                            href={`/admin/tenants?tab=plans&edit=${plan.id}`}
+                            className="text-xs text-indigo-400 hover:text-indigo-300 font-semibold flex items-center gap-1 transition"
                           >
-                            <ChevronLeft className="w-4 h-4" />
-                          </button>
-                          <button
-                            disabled={txPage >= txTotalPages}
-                            onClick={() => setTxPage((p) => Math.min(txTotalPages, p + 1))}
-                            className="p-1.5 rounded bg-gray-950 border border-gray-800 hover:bg-gray-800 disabled:opacity-40"
-                          >
-                            <ChevronRight className="w-4 h-4" />
-                          </button>
+                            <span>Configure Plan in Plans Section</span>
+                            <ArrowUpRight className="w-3.5 h-3.5" />
+                          </Link>
                         </div>
                       </div>
-                    )}
-                  </Card>
-                </TabPanel>
-              </TabPanels>
-            </TabGroup>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* ─── TAB 3: TRANSACTIONS & RECONCILIATION LEDGER ─── */}
+            {selectedTab === 3 && (
+              <div className="space-y-6">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-slate-900/40 p-4 rounded-2xl border border-slate-800">
+                  <div className="relative flex-1 max-w-md">
+                    <Search className="w-4 h-4 text-gray-500 absolute left-3 top-1/2 -translate-y-1/2" />
+                    <input
+                      type="text"
+                      placeholder="Search invoice number, organization..."
+                      value={txSearch}
+                      onChange={(e) => {
+                        setTxSearch(e.target.value);
+                        setTxPage(1);
+                      }}
+                      className="w-full bg-slate-950 border border-slate-800 rounded-xl pl-9 pr-4 py-2 text-xs text-gray-200 placeholder-gray-500 focus:outline-none focus:border-indigo-500"
+                    />
+                  </div>
+
+                  <div className="flex items-center gap-3">
+                    <select
+                      value={txStatusFilter}
+                      onChange={(e) => {
+                        setTxStatusFilter(e.target.value);
+                        setTxPage(1);
+                      }}
+                      className="bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-gray-200 focus:outline-none focus:border-indigo-500"
+                    >
+                      <option value="all">All Statuses</option>
+                      <option value="paid">Paid</option>
+                      <option value="failed">Failed</option>
+                      <option value="pending">Pending</option>
+                      <option value="refunded">Refunded</option>
+                    </select>
+
+                    <select
+                      value={txProviderFilter}
+                      onChange={(e) => {
+                        setTxProviderFilter(e.target.value);
+                        setTxPage(1);
+                      }}
+                      className="bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-gray-200 focus:outline-none focus:border-indigo-500"
+                    >
+                      <option value="all">All Providers</option>
+                      <option value="razorpay">Razorpay</option>
+                      <option value="stripe">Stripe</option>
+                      <option value="phonepe">PhonePe</option>
+                      <option value="cashfree">Cashfree</option>
+                      <option value="system">System</option>
+                    </select>
+                  </div>
+                </div>
+
+                {/* Transactions Table */}
+                <div className="bg-slate-900/50 border border-slate-800 rounded-2xl overflow-hidden shadow-xl">
+                  {txLoading ? (
+                    <div className="p-12 text-center text-gray-500 text-xs">
+                      <RefreshCw className="w-5 h-5 animate-spin mx-auto text-indigo-400 mb-2" />
+                      Loading ledger records...
+                    </div>
+                  ) : transactions.length === 0 ? (
+                    <div className="p-12 text-center text-gray-500 text-xs">
+                      No transaction records match the specified filters.
+                    </div>
+                  ) : (
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left text-xs">
+                        <thead className="bg-slate-950/80 border-b border-slate-800 text-[11px] uppercase tracking-wider text-gray-400">
+                          <tr>
+                            <th className="py-3.5 px-4 font-semibold">Invoice #</th>
+                            <th className="py-3.5 px-4 font-semibold">Workspace / Organization</th>
+                            <th className="py-3.5 px-4 font-semibold">Plan</th>
+                            <th className="py-3.5 px-4 font-semibold">Amount</th>
+                            <th className="py-3.5 px-4 font-semibold">Gateway</th>
+                            <th className="py-3.5 px-4 font-semibold">Status</th>
+                            <th className="py-3.5 px-4 font-semibold text-right">Date</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-800/60">
+                          {transactions.map((tx) => (
+                            <tr key={tx.id} className="hover:bg-slate-800/30 transition">
+                              <td className="py-3.5 px-4 font-mono font-bold text-gray-200">
+                                {tx.invoiceNumber}
+                              </td>
+                              <td className="py-3.5 px-4 font-medium text-gray-300">
+                                {tx.tenantName}
+                              </td>
+                              <td className="py-3.5 px-4">
+                                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-800 text-gray-300">
+                                  {tx.planName}
+                                </span>
+                              </td>
+                              <td className="py-3.5 px-4 font-black text-white font-mono">
+                                {formatINR(tx.amount)}
+                              </td>
+                              <td className="py-3.5 px-4 capitalize text-gray-400 font-medium">
+                                {tx.provider}
+                              </td>
+                              <td className="py-3.5 px-4">
+                                <span
+                                  className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase ${
+                                    tx.status === 'paid'
+                                      ? 'bg-emerald-950/60 border border-emerald-800/50 text-emerald-400'
+                                      : tx.status === 'failed'
+                                      ? 'bg-rose-950/60 border border-rose-800/50 text-rose-400'
+                                      : 'bg-amber-950/60 border border-amber-800/50 text-amber-400'
+                                  }`}
+                                >
+                                  {tx.status}
+                                </span>
+                              </td>
+                              <td className="py-3.5 px-4 text-right text-gray-400 font-mono text-[11px]">
+                                {tx.paidAt ? new Date(tx.paidAt).toLocaleDateString() : new Date(tx.createdAt).toLocaleDateString()}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+
+                  {/* Pagination */}
+                  <div className="p-4 border-t border-slate-800 flex items-center justify-between text-xs text-gray-400">
+                    <span>Page {txPage} of {txTotalPages}</span>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => setTxPage((p) => Math.max(1, p - 1))}
+                        disabled={txPage <= 1}
+                        className="p-1.5 rounded-lg border border-slate-800 disabled:opacity-40 hover:bg-slate-800"
+                      >
+                        <ChevronLeft className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => setTxPage((p) => Math.min(txTotalPages, p + 1))}
+                        disabled={txPage >= txTotalPages}
+                        className="p-1.5 rounded-lg border border-slate-800 disabled:opacity-40 hover:bg-slate-800"
+                      >
+                        <ChevronRight className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ─── Plan Upgrade / Downgrade Modal ─── */}
+      {upgradeModalOpen && targetUser && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 max-w-md w-full shadow-2xl space-y-5 animate-in fade-in zoom-in-95 duration-150">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-4">
+              <div>
+                <h3 className="text-base font-bold text-white flex items-center gap-2">
+                  <Crown className="w-4 h-4 text-amber-400" />
+                  Upgrade / Change Customer Plan
+                </h3>
+                <p className="text-xs text-gray-400 mt-0.5">
+                  Directly synchronize subscription & database permissions
+                </p>
+              </div>
+              <button
+                onClick={() => setUpgradeModalOpen(false)}
+                className="p-1.5 rounded-xl hover:bg-slate-800 text-gray-400 hover:text-white"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Target workspace info */}
+            <div className="p-3.5 rounded-2xl bg-slate-950 border border-slate-800 text-xs space-y-1.5">
+              <div className="flex justify-between">
+                <span className="text-gray-400">Customer:</span>
+                <span className="font-bold text-white">{targetUser.userName}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-400">Workspace / Tenant:</span>
+                <span className="font-semibold text-indigo-300">{targetUser.tenantName}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-400">Current Plan:</span>
+                <span className="font-bold uppercase text-amber-400">{targetUser.currentPlan}</span>
+              </div>
+            </div>
+
+            {/* Select New Plan from Synchronized Plans */}
+            <div>
+              <label className="block text-xs font-semibold text-gray-300 mb-2">
+                Select Destination Subscription Plan:
+              </label>
+              <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
+                {livePlans.map((lp) => {
+                  const isSelected = selectedNewPlan.toLowerCase() === lp.id.toLowerCase();
+                  return (
+                    <div
+                      key={lp.id}
+                      onClick={() => setSelectedNewPlan(lp.id)}
+                      className={`p-3 rounded-xl border cursor-pointer transition flex items-center justify-between ${
+                        isSelected
+                          ? 'bg-indigo-600/20 border-indigo-500 text-white'
+                          : 'bg-slate-950/60 border-slate-800 text-gray-400 hover:text-gray-200 hover:border-slate-700'
+                      }`}
+                    >
+                      <div>
+                        <div className="font-bold text-xs text-white flex items-center gap-1.5">
+                          <span>{lp.name}</span>
+                          {lp.is_recommended && (
+                            <span className="text-[9px] px-1.5 py-0.2 rounded bg-amber-950 text-amber-400 font-bold">
+                              ★ RECOMMENDED
+                            </span>
+                          )}
+                        </div>
+                        <div className="text-[10px] text-gray-400 mt-0.5">
+                          {lp.token_limit === -1 ? 'Unlimited Tokens' : `${((lp.token_limit || 0) / 1000).toFixed(0)}k Tokens`} • {lp.billing}
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <div className="font-black text-white text-xs">
+                          {lp.price > 0 ? formatINR(lp.price) : 'Free'}
+                        </div>
+                        <div className="text-[10px] text-gray-500">/mo</div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Modal Actions */}
+            <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-800">
+              <button
+                onClick={() => setUpgradeModalOpen(false)}
+                className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-gray-300 text-xs font-semibold transition"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleExecutePlanUpgrade}
+                disabled={upgrading || selectedNewPlan.toLowerCase() === targetUser.currentPlan.toLowerCase()}
+                className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white text-xs font-bold transition flex items-center gap-2 shadow-lg shadow-indigo-600/20"
+              >
+                {upgrading ? (
+                  <>
+                    <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                    <span>Updating Plan...</span>
+                  </>
+                ) : (
+                  <>
+                    <Check className="w-3.5 h-3.5" />
+                    <span>Apply Plan Change</span>
+                  </>
+                )}
+              </button>
+            </div>
           </div>
         </div>
       )}

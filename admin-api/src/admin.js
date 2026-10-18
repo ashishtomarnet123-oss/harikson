@@ -3472,6 +3472,32 @@ app.put('/admin/tenants/:id/plan', adminAuth, async (req, res) => {
       [plan.toLowerCase(), graceEnds, isDowngrade ? new Date() : null, id]
     );
 
+    // Synchronize subscription record for BI & Revenue tracking
+    const planDetails = newPlanRes.rows[0];
+    const planPrice = planDetails ? parseFloat(planDetails.price) || 0 : 0;
+    const planCurrency = planDetails ? planDetails.currency || 'INR' : 'INR';
+    const subStatus = 'active';
+
+    try {
+      const existingSub = await pool.query('SELECT id FROM subscriptions WHERE tenant_id = $1', [id]);
+      if (existingSub.rows.length > 0) {
+        await pool.query(
+          `UPDATE subscriptions 
+           SET plan_id = $1, amount = $2, currency = $3, status = $4, updated_at = NOW() 
+           WHERE tenant_id = $5`,
+          [plan.toLowerCase(), planPrice, planCurrency, subStatus, id]
+        );
+      } else {
+        await pool.query(
+          `INSERT INTO subscriptions (tenant_id, provider, provider_subscription_id, plan_id, status, amount, currency, created_at, updated_at)
+           VALUES ($1, 'system', $2, $3, $4, $5, $6, NOW(), NOW())`,
+          [id, `sub_${Date.now()}`, plan.toLowerCase(), subStatus, planPrice, planCurrency]
+        );
+      }
+    } catch (subSyncErr) {
+      logger.warn('Subscription sync warning on plan update:', subSyncErr.message);
+    }
+
     await pool.query(
       `INSERT INTO activity_logs (tenant_id, action, metadata)
        VALUES ($1, $2, $3)`,

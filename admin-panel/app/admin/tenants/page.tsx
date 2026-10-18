@@ -695,6 +695,20 @@ export default function TenantPlanManager() {
     type: 'success' | 'error';
   } | null>(null);
 
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      const tab = params.get('tab');
+      if (tab === 'plans' || tab === 'tenants' || tab === 'apikeys' || tab === 'webhooks') {
+        setActiveTab(tab as ActiveTab);
+      }
+      const editPlanId = params.get('edit');
+      if (editPlanId) {
+        setExpandedPlan(editPlanId);
+      }
+    }
+  }, []);
+
   // ── Tenants state ──
   const [tenants, setTenants] = useState<Tenant[]>([]);
   const [violations, setViolations] = useState<Violation[]>([]);

@@ -232,13 +232,24 @@ export async function GET(req: NextRequest) {
     // 3. Subscriptions & MRR snapshot
     const subsQuery = `
       SELECT
-        COALESCE(SUM(CASE WHEN status IN ('active', 'canceling') THEN amount ELSE 0 END), 0) AS mrr,
-        COUNT(CASE WHEN status IN ('active', 'canceling') AND amount > 0 THEN 1 END) AS active_paid_subs,
-        COUNT(CASE WHEN status IN ('trial', 'trialing') THEN 1 END) AS trial_subs,
-        COUNT(CASE WHEN status = 'cancelled' THEN 1 END) AS cancelled_subs_all,
-        COUNT(CASE WHEN status = 'cancelled' AND updated_at >= $1 AND updated_at <= $2 THEN 1 END) AS cancelled_subs_period,
-        COUNT(CASE WHEN status = 'past_due' THEN 1 END) AS past_due_subs
-      FROM subscriptions
+        COALESCE(SUM(
+          CASE 
+            WHEN s.status IN ('active', 'canceling') AND s.amount > 0 THEN s.amount 
+            WHEN (s.id IS NULL OR s.status IN ('active', 'canceling')) AND p.price > 0 AND t.status = 'active' THEN p.price
+            ELSE 0 
+          END
+        ), 0) AS mrr,
+        COUNT(DISTINCT CASE 
+          WHEN (s.status IN ('active', 'canceling') AND s.amount > 0) OR (p.price > 0 AND t.status = 'active') 
+          THEN COALESCE(s.tenant_id, t.id) 
+        END) AS active_paid_subs,
+        COUNT(DISTINCT CASE WHEN s.status IN ('trial', 'trialing') THEN s.id END) AS trial_subs,
+        COUNT(DISTINCT CASE WHEN s.status = 'cancelled' THEN s.id END) AS cancelled_subs_all,
+        COUNT(DISTINCT CASE WHEN s.status = 'cancelled' AND s.updated_at >= $1 AND s.updated_at <= $2 THEN s.id END) AS cancelled_subs_period,
+        COUNT(DISTINCT CASE WHEN s.status = 'past_due' THEN s.id END) AS past_due_subs
+      FROM plans p
+      LEFT JOIN subscriptions s ON LOWER(s.plan_id) = LOWER(p.id)
+      LEFT JOIN tenants t ON LOWER(t.plan) = LOWER(p.id)
     `;
     const subsRes = await pool.query(subsQuery, [start, end]);
     const subsKpi = subsRes.rows[0];
@@ -367,19 +378,28 @@ export async function GET(req: NextRequest) {
       SELECT
         p.id,
         p.name,
+        COALESCE(p.tier, 'starter') AS tier,
         p.price::numeric(10,2) AS price,
-        p.billing,
-        p.currency,
+        COALESCE(p.billing, 'monthly') AS billing,
+        COALESCE(p.currency, 'INR') AS currency,
+        COALESCE(p.token_limit, -1) AS token_limit,
+        COALESCE(p.agent_limit, -1) AS agent_limit,
+        COALESCE(p.is_active, true) AS is_active,
+        COALESCE(p.is_recommended, false) AS is_recommended,
         COALESCE(SUM(CASE WHEN i.status = 'paid' AND i.paid_at >= $1 AND i.paid_at <= $2 THEN i.amount ELSE 0 END), 0)::numeric(10,2) AS net_collected,
         COUNT(DISTINCT CASE WHEN i.status = 'paid' AND i.paid_at >= $1 AND i.paid_at <= $2 THEN i.id END)::int AS successful_payments,
         COUNT(DISTINCT CASE WHEN i.status = 'paid' AND i.paid_at >= $1 AND i.paid_at <= $2 THEN i.tenant_id END)::int AS paying_customers,
-        COUNT(DISTINCT CASE WHEN s.status IN ('active', 'canceling') THEN s.id END)::int AS active_subscribers,
+        COUNT(DISTINCT CASE 
+          WHEN (s.status IN ('active', 'canceling') OR (s.id IS NULL AND t.status = 'active'))
+          THEN COALESCE(s.tenant_id, t.id) 
+        END)::int AS active_subscribers,
         COUNT(DISTINCT CASE WHEN s.status = 'cancelled' AND s.updated_at >= $1 AND s.updated_at <= $2 THEN s.id END)::int AS cancellations
       FROM plans p
-      LEFT JOIN subscriptions s ON s.plan_id = p.id
-      LEFT JOIN invoices i ON i.subscription_id = s.id OR i.tenant_id = s.tenant_id
-      GROUP BY p.id, p.name, p.price, p.billing, p.currency
-      ORDER BY net_collected DESC
+      LEFT JOIN subscriptions s ON LOWER(s.plan_id) = LOWER(p.id)
+      LEFT JOIN tenants t ON LOWER(t.plan) = LOWER(p.id)
+      LEFT JOIN invoices i ON (i.subscription_id = s.id OR i.tenant_id = s.tenant_id OR i.tenant_id = t.id)
+      GROUP BY p.id, p.name, p.tier, p.price, p.billing, p.currency, p.token_limit, p.agent_limit, p.is_active, p.is_recommended
+      ORDER BY p.price ASC, net_collected DESC
     `;
     const planBreakdownRes = await pool.query(planBreakdownQuery, [start, end]);
 
@@ -397,15 +417,20 @@ export async function GET(req: NextRequest) {
       return {
         id: p.id,
         name: p.name,
+        tier: p.tier,
         price: parseFloat(p.price),
         billing: p.billing || 'monthly',
         currency: p.currency || 'INR',
+        tokenLimit: p.token_limit,
+        agentLimit: p.agent_limit,
+        isActive: p.is_active,
+        isRecommended: p.is_recommended,
         revenue: rev,
         share,
         successfulPayments: p.successful_payments,
         payingCustomers: p.paying_customers,
         activeSubscribers: subs,
-        mrr: p.billing === 'monthly' ? subs * parseFloat(p.price) : 0,
+        mrr: p.billing === 'monthly' ? subs * parseFloat(p.price) : (p.billing === 'yearly' ? Math.round((subs * parseFloat(p.price)) / 12) : 0),
         cancellations: canc,
         churnRate: planChurn,
       };
