@@ -93,7 +93,7 @@ export const HttpNode: INodeHandler = {
     const timer = setTimeout(() => controller.abort(), timeoutMs);
 
     try {
-      const response = await fetch(targetUrl, {
+      const response = await SSRFGuard.safeFetch(targetUrl, {
         method,
         headers,
         body,
@@ -329,7 +329,7 @@ export const SlackNode: INodeHandler = {
             ? { channel: input.config.channel, text: message }
             : { text: message };
 
-          await fetch(webhookUrl, {
+          await SSRFGuard.safeFetch(webhookUrl, {
             method: 'POST',
             headers,
             body: JSON.stringify(reqBody),

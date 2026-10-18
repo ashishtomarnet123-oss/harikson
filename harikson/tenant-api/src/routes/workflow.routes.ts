@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import crypto from 'crypto';
 import { executeTenantQuery, pool } from '../db/pool.js';
 import logger from '../utils/logger.js';
 import { WorkflowEngine } from '../services/workflow/engine.js';
@@ -206,7 +207,7 @@ router.post('/', async (req: any, res) => {
           description || '',
           trigger_type,
           cron_expression || null,
-          webhook_secret || null,
+          webhook_secret || (trigger_type === 'webhook' ? 'whsec_' + crypto.randomBytes(24).toString('hex') : null),
           status,
           JSON.stringify(steps),
           JSON.stringify(normalizedGraph),
@@ -778,7 +779,25 @@ router.post(['/:id/trigger', '/:id/webhook', '/:id/webhook/:token'], async (req:
       return res.status(400).json({ error: 'Workflow is paused or inactive' });
     }
 
-    if (workflow.webhook_secret && workflow.webhook_secret !== secretHeader) {
+    if (!workflow.webhook_secret || typeof workflow.webhook_secret !== 'string') {
+      return res.status(403).json({
+        error: 'Webhook execution rejected: Workflow has no configured webhook secret. Please configure a secret in workflow settings.',
+      });
+    }
+
+    const providedSecret = typeof secretHeader === 'string' ? secretHeader.trim() : '';
+    if (!providedSecret) {
+      return res.status(401).json({ error: 'Invalid or missing webhook secret' });
+    }
+
+    const isMatch =
+      Buffer.byteLength(providedSecret) === Buffer.byteLength(workflow.webhook_secret) &&
+      crypto.timingSafeEqual(
+        Buffer.from(providedSecret),
+        Buffer.from(workflow.webhook_secret)
+      );
+
+    if (!isMatch) {
       return res.status(401).json({ error: 'Invalid or missing webhook secret' });
     }
 

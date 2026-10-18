@@ -83,6 +83,16 @@ jobs:
             ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}-admin-panel:latest
             ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}-admin-panel:${{ github.sha }}
 
+      - name: Build & Push Orchestrator (Production)
+        uses: docker/build-push-action@v5
+        with:
+          context: ./orchestrator
+          file: ./orchestrator/Dockerfile
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}-orchestrator:latest
+            ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}-orchestrator:${{ github.sha }}
+
   blue-green-deploy-prod:
     name: Blue-Green Deploy to Production
     needs: build-and-push-prod
@@ -193,7 +203,7 @@ jobs:
             fi
 
       - name: Notify Slack on Failure
-        if: failure()
+        if: failure() && env.SLACK_WEBHOOK_URL != ''
         uses: slackapi/slack-github-action@v1.26.0
         with:
           payload: |

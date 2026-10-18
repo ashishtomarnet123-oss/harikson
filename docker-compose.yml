@@ -136,6 +136,7 @@ services:
   orchestrator:
     build:
       context: ./orchestrator
+    image: ${REGISTRY:-ghcr.io}/${IMAGE_PREFIX:-ashishtomarnet123-oss/harikson}-orchestrator:latest
     container_name: harikson-orchestrator
     restart: unless-stopped
     environment:
@@ -166,7 +167,7 @@ services:
     image: ${REGISTRY:-ghcr.io}/${IMAGE_PREFIX:-ashishtomarnet123-oss/harikson}-tenant-api:latest
     restart: unless-stopped
     ports:
-      - '3008:3008'
+      - '127.0.0.1:3008:3008'
     environment:
       - DATABASE_URL=postgresql://neuravolt:${POSTGRES_PASSWORD:-neuravolt_dev_pwd}@postgres:5432/neuravolt
       - REDIS_URL=redis://:${REDIS_PASSWORD:-harikson_redis_pwd}@redis:6379
@@ -230,7 +231,7 @@ services:
     image: ${REGISTRY:-ghcr.io}/${IMAGE_PREFIX:-ashishtomarnet123-oss/harikson}-admin-api:latest
     restart: unless-stopped
     ports:
-      - '4000:4000'
+      - '127.0.0.1:4000:4000'
     environment:
       - DATABASE_URL=postgresql://neuravolt:${POSTGRES_PASSWORD:-neuravolt_dev_pwd}@postgres:5432/neuravolt
       - REDIS_URL=redis://:${REDIS_PASSWORD:-harikson_redis_pwd}@redis:6379
@@ -283,7 +284,7 @@ services:
     restart: unless-stopped
     command: npx next start -p 3001
     ports:
-      - '3018:3001'
+      - '127.0.0.1:3018:3001'
     environment:
       - PORT=3001
       - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-https://api.xarwiz.com}
@@ -325,7 +326,7 @@ services:
     restart: unless-stopped
     command: npx next start -p 3002
     ports:
-      - '3028:3002'
+      - '127.0.0.1:3028:3002'
     environment:
       - PORT=3002
       - TENANT_API_URL=http://tenant-api:3008

@@ -8,7 +8,11 @@ const { Pool } = pg;
 export { RequestContext, requestContext };
 
 if (!process.env.DATABASE_URL) {
-  throw new Error('DATABASE_URL environment variable is required');
+  if (process.env.NODE_ENV === 'test') {
+    process.env.DATABASE_URL = 'postgres://test:test@localhost:5432/test';
+  } else {
+    throw new Error('DATABASE_URL environment variable is required');
+  }
 }
 
 export const pool = new Pool({
@@ -244,14 +248,17 @@ export function getCacheHitMetrics() {
 }
 
 // Periodically log cache hit/miss ratio metrics every 60s
-setInterval(() => {
-  const metrics = getCacheHitMetrics();
-  if (metrics.totalRequests > 0) {
-    logger.info(
-      `📊 [CACHE TELEMETRY] Redis DB Query Cache - Hits: ${metrics.hits}, Misses: ${metrics.misses}, Hit Ratio: ${metrics.hitRatioPercent}%`
-    );
-  }
-}, 60000);
+if (process.env.NODE_ENV !== 'test') {
+  const telemetryInterval = setInterval(() => {
+    const metrics = getCacheHitMetrics();
+    if (metrics.totalRequests > 0) {
+      logger.info(
+        `📊 [CACHE TELEMETRY] Redis DB Query Cache - Hits: ${metrics.hits}, Misses: ${metrics.misses}, Hit Ratio: ${metrics.hitRatioPercent}%`
+      );
+    }
+  }, 60000);
+  telemetryInterval.unref?.();
+}
 
 /**
  * Execute query with Redis caching wrapper.

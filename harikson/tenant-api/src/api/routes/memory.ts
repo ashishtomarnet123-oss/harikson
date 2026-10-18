@@ -1,13 +1,19 @@
 import { Router, Request, Response } from 'express';
 import { MemoryStore } from '../../services/memory/store.js';
+import { requireAuth } from '../../middleware/auth.js';
 
 const router = Router();
+router.use(requireAuth);
 
 // GET / - List all memories under active tenant/user scope
 router.get('/', async (req: Request, res: Response) => {
   try {
-    const tenantId = (req as any).tenantId || (req as any).tenant?.id || (req.headers['x-tenant-id'] as string);
-    const userId = (req as any).userId || (req.headers['x-user-id'] as string);
+    const tenantId =
+      (req as any).user?.tenantId ||
+      (req as any).tenant?.id;
+    const userId =
+      (req as any).user?.userId ||
+      (req as any).user?.id;
 
     if (!tenantId || !userId) {
       return res.status(401).json({ hariksonError: 'Unauthorized: Missing tenant or user context' });
@@ -33,8 +39,12 @@ router.get('/', async (req: Request, res: Response) => {
 router.delete('/:id', async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const tenantId = (req as any).tenantId || (req as any).tenant?.id || (req.headers['x-tenant-id'] as string);
-    const userId = (req as any).userId || (req.headers['x-user-id'] as string);
+    const tenantId =
+      (req as any).user?.tenantId ||
+      (req as any).tenant?.id;
+    const userId =
+      (req as any).user?.userId ||
+      (req as any).user?.id;
 
     if (!tenantId || !userId) {
       return res.status(401).json({ hariksonError: 'Unauthorized: Missing tenant or user context' });

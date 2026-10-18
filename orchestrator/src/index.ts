@@ -1,3 +1,4 @@
+import crypto from 'crypto';
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
@@ -33,12 +34,19 @@ app.use((req, res, next) => {
   }
 
   const providedSecret =
-    req.headers['x-internal-secret'] ||
-    (req.headers.authorization?.startsWith('Bearer ')
+    (typeof req.headers['x-internal-secret'] === 'string'
+      ? req.headers['x-internal-secret']
+      : null) ||
+    (typeof req.headers.authorization === 'string' && req.headers.authorization.startsWith('Bearer ')
       ? req.headers.authorization.slice(7)
       : null);
 
-  if (!providedSecret || providedSecret !== expectedSecret) {
+  const isSecretMatch =
+    providedSecret &&
+    Buffer.byteLength(providedSecret) === Buffer.byteLength(expectedSecret) &&
+    crypto.timingSafeEqual(Buffer.from(providedSecret), Buffer.from(expectedSecret));
+
+  if (!isSecretMatch) {
     console.warn(`⚠️ [Orchestrator Security] Unauthorized access attempt to ${req.method} ${req.path} from IP ${req.ip}`);
     return res.status(403).json({ error: 'Forbidden: Valid x-internal-secret required' });
   }

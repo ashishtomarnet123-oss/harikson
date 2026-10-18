@@ -1,8 +1,10 @@
 import { Router, Request, Response } from 'express';
 import { z } from 'zod';
 import { VectorSearchService } from '../../services/search/vector-search.js';
+import { requireAuth } from '../../middleware/auth.js';
 
 const router = Router();
+router.use(requireAuth);
 
 const searchSchema = z.object({
   query: z.string().min(1),
@@ -44,8 +46,12 @@ router.post('/', async (req: Request, res: Response) => {
 
     const { query, topK, filters } = check.data;
     const tenantId =
-      (req.headers['x-tenant-id'] as string) ||
-      '00000000-0000-0000-0000-000000000000';
+      (req as any).user?.tenantId ||
+      (req as any).tenant?.id;
+
+    if (!tenantId) {
+      return res.status(403).json({ error: 'Access Denied: Missing tenant authorization context.' });
+    }
 
     const topKCode = topK || 20;
     const topKMemory = topK || 5;
@@ -86,8 +92,12 @@ router.post('/code-only', async (req: Request, res: Response) => {
 
     const { query, topK, filters } = check.data;
     const tenantId =
-      (req.headers['x-tenant-id'] as string) ||
-      '00000000-0000-0000-0000-000000000000';
+      (req as any).user?.tenantId ||
+      (req as any).tenant?.id;
+
+    if (!tenantId) {
+      return res.status(403).json({ error: 'Access Denied: Missing tenant authorization context.' });
+    }
 
     // Set code_only to true
     const activeFilters = {
@@ -133,8 +143,12 @@ router.post('/memory-only', async (req: Request, res: Response) => {
 
     const { query, topK, filters } = check.data;
     const tenantId =
-      (req.headers['x-tenant-id'] as string) ||
-      '00000000-0000-0000-0000-000000000000';
+      (req as any).user?.tenantId ||
+      (req as any).tenant?.id;
+
+    if (!tenantId) {
+      return res.status(403).json({ error: 'Access Denied: Missing tenant authorization context.' });
+    }
 
     // Set memory_only to true
     const activeFilters = {

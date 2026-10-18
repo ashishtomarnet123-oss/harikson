@@ -2,11 +2,15 @@ import { Router, Request, Response } from 'express';
 import { z } from 'zod';
 import crypto from 'crypto';
 import { RepositoryIndexer } from '../../services/indexer/repository-indexer.js';
+import { requireAuth } from '../../middleware/auth.js';
+import { WorkspaceSandbox } from '../../services/sandbox/workspace-sandbox.js';
 
 const router = Router();
+router.use(requireAuth);
 
 interface IndexJob {
   id: string;
+  tenantId: string;
   workspacePath: string;
   status: 'pending' | 'running' | 'completed' | 'failed';
   progress: number;
@@ -36,13 +40,25 @@ router.post('/index', async (req: Request, res: Response) => {
 
     const { workspacePath } = check.data;
     const tenantId =
-      (req.headers['x-tenant-id'] as string) ||
-      '00000000-0000-0000-0000-000000000000';
+      (req as any).user?.tenantId ||
+      (req as any).tenant?.id;
+
+    if (!tenantId) {
+      return res
+        .status(403)
+        .json({ error: 'Access Denied: Missing tenant authorization context.' });
+    }
+
+    const safeWorkspacePath = WorkspaceSandbox.getTenantWorkspace(
+      tenantId,
+      workspacePath
+    );
 
     const jobId = crypto.randomUUID();
     const job: IndexJob = {
       id: jobId,
-      workspacePath,
+      tenantId,
+      workspacePath: safeWorkspacePath,
       status: 'pending',
       progress: 0,
       totalFiles: 0,
@@ -54,7 +70,7 @@ router.post('/index', async (req: Request, res: Response) => {
     activeJobs.set(jobId, job);
 
     // Run indexing asynchronously (fire-and-forget in the background)
-    RepositoryIndexer.indexWorkspace(tenantId, workspacePath, (progress) => {
+    RepositoryIndexer.indexWorkspace(tenantId, safeWorkspacePath, (progress) => {
       const currentJob = activeJobs.get(jobId);
       if (!currentJob) return;
 
@@ -102,8 +118,11 @@ router.post('/index', async (req: Request, res: Response) => {
 router.get('/index/status/:jobId', async (req: Request, res: Response) => {
   const { jobId } = req.params;
   const job = activeJobs.get(jobId);
+  const tenantId =
+    (req as any).user?.tenantId ||
+    (req as any).tenant?.id;
 
-  if (!job) {
+  if (!job || (tenantId && job.tenantId !== tenantId)) {
     return res.status(404).json({
       hariksonSuccess: false,
       hariksonMessage: 'Index job not found in workspace registry.',

@@ -2,6 +2,8 @@ import fs from 'fs';
 import path from 'path';
 import { exec } from 'child_process';
 import { IgnoreMatcher } from '../indexer/repository-indexer.js';
+import { WorkspaceSandbox } from '../sandbox/workspace-sandbox.js';
+import { SSRFGuard } from '../workflow/security/ssrf.js';
 
 export interface ToolParameter {
   type: 'string' | 'number' | 'boolean' | 'array' | 'object';
@@ -31,21 +33,16 @@ export class ToolRegistry {
     return Array.from(this.tools.values());
   }
 
-  // Helper: Securely resolve path inside workspace
+  // Helper: Securely resolve path inside workspace using WorkspaceSandbox
   static resolvePath(
     workspacePath: string,
     targetPath: string,
     allowOutside = false
   ): string {
-    const resolvedRoot = path.resolve(workspacePath);
-    const resolvedTarget = path.resolve(resolvedRoot, targetPath);
-
-    if (!allowOutside && !resolvedTarget.startsWith(resolvedRoot)) {
-      throw new Error(
-        `Access Denied: Path "${targetPath}" resolves outside of workspace.`
-      );
+    if (allowOutside) {
+      return path.resolve(workspacePath, targetPath);
     }
-    return resolvedTarget;
+    return WorkspaceSandbox.resolvePath(workspacePath, targetPath);
   }
 }
 
@@ -362,9 +359,17 @@ ToolRegistry.register({
   },
   handler: async (workspace, params) => {
     const { url, method, data } = params;
+
+    // Validate destination against SSRF Guard
+    const ssrfCheck = await SSRFGuard.validateUrl(url);
+    if (!ssrfCheck.safe) {
+      throw new Error(`Security Exception: SSRF blocked request. Reason: ${ssrfCheck.reason}`);
+    }
+
     const options: RequestInit = {
       method: method.toUpperCase(),
       headers: { 'Content-Type': 'application/json' },
+      redirect: 'manual', // Prevent redirect-based SSRF bypasses
     };
 
     if (options.method === 'POST' && data) {
@@ -372,6 +377,11 @@ ToolRegistry.register({
     }
 
     const res = await fetch(url, options);
+
+    if (res.status >= 300 && res.status < 400) {
+      throw new Error(`HTTP Request redirected to ${res.headers.get('location')} — automatic redirects are blocked for SSRF security.`);
+    }
+
     if (!res.ok) {
       throw new Error(`HTTP Request failed: Status ${res.status}`);
     }
