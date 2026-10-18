@@ -1,3 +1,5 @@
+import dotenv from 'dotenv';
+dotenv.config();
 import pg from 'pg';
 import logger from './utils/logger.js';
 import { traceQuery } from './utils/queryLogger.js';
