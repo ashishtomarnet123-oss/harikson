@@ -867,11 +867,12 @@ router.post(
   '/notifications',
   validate(notificationSchema),
   async (req, res) => {
-    const { user_id, type, title, message, link } = req.body;
+    const { user_id, type, title, message, link, tenant_id } = req.body;
     try {
+      const tenantId = tenant_id || '00000000-0000-0000-0000-000000000000';
       const result = await pool.query(
-        `INSERT INTO notifications (user_id, type, title, message, link) VALUES ($1,$2,$3,$4,$5) RETURNING *`,
-        [user_id || null, type, title, message, link || null]
+        `INSERT INTO notifications (tenant_id, user_id, type, title, message, link) VALUES ($1,$2,$3,$4,$5,$6) RETURNING *`,
+        [tenantId, user_id || null, type, title, message, link || null]
       );
       res.json(result.rows[0]);
     } catch (err) {

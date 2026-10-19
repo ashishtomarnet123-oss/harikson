@@ -1850,7 +1850,7 @@ app.post('/admin/users/:userId/impersonate', adminAuth, async (req, res) => {
     // Log the impersonation start event to activity_logs
     const ua = req.headers['user-agent'] || 'Unknown Browser';
     await pool.query(
-      `INSERT INTO activity_logs (user_id, tenant_id, action, metadata, ip_address, user_agent, impersonated_by, is_impersonation)
+      `INSERT INTO activity_logs (user_id, tenant_id, action, details, ip_address, user_agent, impersonated_by, is_impersonation)
        VALUES ($1, $2, $3, $4, $5, $6, $7, true)`,
       [
         user.id,
@@ -2035,9 +2035,9 @@ app.put(['/admin/users/:userId/status', '/v1/admin/users/:userId/status'], admin
 
     // Write audit log to activity_logs
     await pool.query(
-      `INSERT INTO activity_logs (user_id, action, metadata, created_at)
-       VALUES ($1, $2, $3, NOW())`,
-      [userId, status === 'active' ? 'user_access_approved' : 'user_status_updated', JSON.stringify({ previousStatus, newStatus: status })]
+      `INSERT INTO activity_logs (user_id, tenant_id, action, details, created_at)
+       VALUES ($1, $2, $3, $4, NOW())`,
+      [userId, updatedUser.tenant_id, status === 'active' ? 'user_access_approved' : 'user_status_updated', JSON.stringify({ previousStatus, newStatus: status })]
     ).catch(err => logger.warn('Audit log write failed:', err.message));
 
     res.status(200).json({
@@ -3499,7 +3499,7 @@ app.put('/admin/tenants/:id/plan', adminAuth, async (req, res) => {
     }
 
     await pool.query(
-      `INSERT INTO activity_logs (tenant_id, action, metadata)
+      `INSERT INTO activity_logs (tenant_id, action, details)
        VALUES ($1, $2, $3)`,
       [
         id,
@@ -3512,7 +3512,7 @@ app.put('/admin/tenants/:id/plan', adminAuth, async (req, res) => {
           pro_rated_credit: refundCredit,
         }),
       ]
-    );
+    ).catch((logErr) => logger.warn('Failed to insert activity log for plan change:', logErr.message));
 
     const selectQuery = `
       SELECT t.id, t.name, t.slug, t.plan, t.status, t.created_at,
@@ -3772,7 +3772,7 @@ app.get('/admin/impersonation/audit-logs', adminAuth, async (req, res) => {
     const isImpersonatedFilter = impersonatedOnly === 'true';
 
     const result = await pool.query(
-      `SELECT a.id, a.user_id, a.tenant_id, a.action, a.metadata, a.ip_address, a.user_agent, 
+      `SELECT a.id, a.user_id, a.tenant_id, a.action, a.details as metadata, a.ip_address, a.user_agent, 
               a.impersonated_by, a.is_impersonation, a.created_at,
               u.email as user_email,
               adm.email as impersonator_email

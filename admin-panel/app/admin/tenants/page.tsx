@@ -945,12 +945,22 @@ export default function TenantPlanManager() {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
           'Idempotency-Key': idempotencyKey,
         },
         body: JSON.stringify({ plan }),
       });
-      if (!res.ok) throw new Error('Update failed');
+      if (!res.ok) {
+        if (res.status === 401) {
+          showToast('Session expired. Please log in again.', 'error');
+          if (typeof window !== 'undefined') {
+            window.location.href = `/admin/login?redirect=${encodeURIComponent(window.location.pathname)}`;
+          }
+          return;
+        }
+        const errJson = await res.json().catch(() => ({}));
+        throw new Error(errJson.error || 'Update failed');
+      }
       const data = await res.json();
       if (data.success && data.tenant) {
         setTenants((prev) => prev.map((t) => (t.id === id ? data.tenant : t)));
@@ -959,8 +969,8 @@ export default function TenantPlanManager() {
         fetchData();
       }
       showToast('Plan updated successfully');
-    } catch {
-      showToast('Failed to update tenant plan.', 'error');
+    } catch (err: any) {
+      showToast(err?.message || 'Failed to update tenant plan.', 'error');
     }
   };
 
@@ -976,11 +986,21 @@ export default function TenantPlanManager() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
         body: JSON.stringify({ status: targetStatus }),
       });
-      if (!res.ok) throw new Error('Failed');
+      if (!res.ok) {
+        if (res.status === 401) {
+          showToast('Session expired. Please log in again.', 'error');
+          if (typeof window !== 'undefined') {
+            window.location.href = `/admin/login?redirect=${encodeURIComponent(window.location.pathname)}`;
+          }
+          return;
+        }
+        const errJson = await res.json().catch(() => ({}));
+        throw new Error(errJson.error || 'Failed');
+      }
       fetchData();
       if (selectedTenant?.id === id)
         setSelectedTenant((prev) =>
@@ -989,8 +1009,8 @@ export default function TenantPlanManager() {
       showToast(
         `Tenant ${targetStatus === 'active' ? 'activated' : 'suspended'}`
       );
-    } catch {
-      showToast('Failed to change tenant status.', 'error');
+    } catch (err: any) {
+      showToast(err?.message || 'Failed to change tenant status.', 'error');
     }
   };
 
@@ -1009,7 +1029,7 @@ export default function TenantPlanManager() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
         body: JSON.stringify({
           name: newTenantName,
@@ -1025,6 +1045,11 @@ export default function TenantPlanManager() {
         setNewTenantSlug('');
         setNewTenantPlan('starter');
         fetchData();
+      } else if (res.status === 401) {
+        showToast('Session expired. Please log in again.', 'error');
+        if (typeof window !== 'undefined') {
+          window.location.href = `/admin/login?redirect=${encodeURIComponent(window.location.pathname)}`;
+        }
       } else {
         showToast(data.error || 'Failed to create tenant', 'error');
       }
@@ -1057,7 +1082,7 @@ export default function TenantPlanManager() {
           method: 'PUT',
           headers: {
             'Content-Type': 'application/json',
-            Authorization: `Bearer ${token}`,
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
           },
           body: JSON.stringify({
             name: editTenantName,
@@ -1076,6 +1101,11 @@ export default function TenantPlanManager() {
             name: editTenantName,
             slug: editTenantSlug,
           });
+        }
+      } else if (res.status === 401) {
+        showToast('Session expired. Please log in again.', 'error');
+        if (typeof window !== 'undefined') {
+          window.location.href = `/admin/login?redirect=${encodeURIComponent(window.location.pathname)}`;
         }
       } else {
         showToast(data.error || 'Failed to update tenant', 'error');
@@ -1098,7 +1128,7 @@ export default function TenantPlanManager() {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
         body: JSON.stringify({ is_active: !plan.isActive }),
       });
@@ -1109,6 +1139,11 @@ export default function TenantPlanManager() {
         showToast(
           `Plan "${plan.name}" ${plan.isActive ? 'deactivated' : 'activated'}`
         );
+      } else if (res.status === 401) {
+        showToast('Session expired. Please log in again.', 'error');
+        if (typeof window !== 'undefined') {
+          window.location.href = `/admin/login?redirect=${encodeURIComponent(window.location.pathname)}`;
+        }
       } else {
         showToast('Failed to toggle plan status', 'error');
       }
@@ -1127,12 +1162,19 @@ export default function TenantPlanManager() {
       const res = await fetch(`${apiBase}/v1/admin/plans/${id}`, {
         credentials: 'include',
         method: 'DELETE',
-        headers: { Authorization: `Bearer ${token}` },
+        headers: {
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
       });
       if (res.ok) {
         setPlans((prev) => prev.filter((p) => p.id !== id));
         setDeleteConfirm(null);
         showToast(`Plan "${plan.name}" deleted`, 'error');
+      } else if (res.status === 401) {
+        showToast('Session expired. Please log in again.', 'error');
+        if (typeof window !== 'undefined') {
+          window.location.href = `/admin/login?redirect=${encodeURIComponent(window.location.pathname)}`;
+        }
       } else {
         showToast('Failed to delete plan', 'error');
       }
@@ -1155,7 +1197,7 @@ export default function TenantPlanManager() {
               method: 'PUT',
               headers: {
                 'Content-Type': 'application/json',
-                Authorization: `Bearer ${token}`,
+                ...(token ? { Authorization: `Bearer ${token}` } : {}),
               },
               body: JSON.stringify({ is_recommended: checkRecommended }),
             });
