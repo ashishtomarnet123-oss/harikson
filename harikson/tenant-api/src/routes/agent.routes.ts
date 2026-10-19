@@ -3,6 +3,7 @@ import { executeTenantQuery } from '../db/pool.js';
 import logger from '../utils/logger.js';
 import { HariksonOrchestrator } from '../services/agents/orchestrator.js';
 import { requireScopes } from '../middleware/scopeAuth.js';
+import { isPlatformDefaultModel } from '../middleware/entitlements.js';
 
 const router = Router();
 
@@ -33,6 +34,40 @@ router.post('/', requireScopes('chat:write'), async (req: any, res) => {
 
 
   const { name, model = 'qwen3-coder', systemPrompt = 'You are a helpful AI assistant.' } = req.body;
+
+  if (model && !isPlatformDefaultModel(model)) {
+    if (!req.entitlements?.customModels) {
+      return res.status(403).json({
+        error: 'Custom models are not enabled for your subscription plan. Please upgrade to Enterprise to use custom models.',
+        code: 'PLAN_FEATURE_DISABLED',
+        feature: 'custom_models',
+        plan: req.entitlements?.planId || 'free',
+        currentPlan: req.entitlements?.planId || 'free',
+      });
+    }
+
+    if (!/^[a-zA-Z0-9_\-.:]{2,100}$/.test(model)) {
+      return res.status(400).json({
+        error: 'Invalid custom model identifier format',
+        code: 'INVALID_MODEL_IDENTIFIER',
+      });
+    }
+
+    try {
+      const otherTenantModel = await executeTenantQuery(req.tenant.id, (client) =>
+        client.query(
+          `SELECT id FROM tenant_custom_models WHERE model_identifier = $1 AND tenant_id != $2`,
+          [model, req.tenant.id]
+        )
+      );
+      if (otherTenantModel.rows && otherTenantModel.rows.length > 0) {
+        return res.status(403).json({
+          error: 'Unauthorized model: this custom model belongs to another tenant.',
+          code: 'UNAUTHORIZED_MODEL_ACCESS',
+        });
+      }
+    } catch (_) {}
+  }
 
   try {
     const insertRes = await executeTenantQuery(req.tenant.id, (client) =>
@@ -82,6 +117,40 @@ router.put('/:id', requireScopes('chat:write'), async (req: any, res) => {
 
   const { id } = req.params;
   const { name, model, systemPrompt, status } = req.body;
+
+  if (model && !isPlatformDefaultModel(model)) {
+    if (!req.entitlements?.customModels) {
+      return res.status(403).json({
+        error: 'Custom models are not enabled for your subscription plan. Please upgrade to Enterprise to use custom models.',
+        code: 'PLAN_FEATURE_DISABLED',
+        feature: 'custom_models',
+        plan: req.entitlements?.planId || 'free',
+        currentPlan: req.entitlements?.planId || 'free',
+      });
+    }
+
+    if (!/^[a-zA-Z0-9_\-.:]{2,100}$/.test(model)) {
+      return res.status(400).json({
+        error: 'Invalid custom model identifier format',
+        code: 'INVALID_MODEL_IDENTIFIER',
+      });
+    }
+
+    try {
+      const otherTenantModel = await executeTenantQuery(req.tenant.id, (client) =>
+        client.query(
+          `SELECT id FROM tenant_custom_models WHERE model_identifier = $1 AND tenant_id != $2`,
+          [model, req.tenant.id]
+        )
+      );
+      if (otherTenantModel.rows && otherTenantModel.rows.length > 0) {
+        return res.status(403).json({
+          error: 'Unauthorized model: this custom model belongs to another tenant.',
+          code: 'UNAUTHORIZED_MODEL_ACCESS',
+        });
+      }
+    } catch (_) {}
+  }
 
   try {
     const updateRes = await executeTenantQuery(req.tenant.id, (client) =>
@@ -133,6 +202,19 @@ router.post('/:id/execute', requireScopes('chat:write'), async (req: any, res) =
     }
 
     const agent = agentRes.rows[0];
+
+    if (agent.model && !isPlatformDefaultModel(agent.model)) {
+      if (!req.entitlements?.customModels) {
+        return res.status(403).json({
+          error: 'Custom models are not enabled for your subscription plan. Please upgrade to Enterprise to execute custom model agents.',
+          code: 'PLAN_FEATURE_DISABLED',
+          feature: 'custom_models',
+          plan: req.entitlements?.planId || 'free',
+          currentPlan: req.entitlements?.planId || 'free',
+        });
+      }
+    }
+
     const startTime = Date.now();
 
     const result = await HariksonOrchestrator.executeTask(

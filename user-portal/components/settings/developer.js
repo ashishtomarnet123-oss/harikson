@@ -102,9 +102,9 @@ export default function DeveloperSettings({ onClose, onTabChange, setActiveTab }
         setKeys(Array.isArray(data) ? data : []);
       } else if (res && res.status === 403) {
         const errData = await res.json().catch(() => ({}));
-        if (errData.code === 'PLAN_UPGRADE_REQUIRED') {
+        if (errData.code === 'PLAN_UPGRADE_REQUIRED' || errData.code === 'PLAN_FEATURE_DISABLED') {
           setPlanGated(true);
-          setCurrentPlan(errData.currentPlan || 'free');
+          setCurrentPlan(errData.currentPlan || errData.plan || 'free');
         }
         setKeys([]);
       } else {
@@ -160,7 +160,7 @@ export default function DeveloperSettings({ onClose, onTabChange, setActiveTab }
         await fetchKeys();
       } else if (res.status === 403) {
         const errData = await res.json().catch(() => ({}));
-        if (errData.code === 'PLAN_UPGRADE_REQUIRED') {
+        if (errData.code === 'PLAN_UPGRADE_REQUIRED' || errData.code === 'PLAN_FEATURE_DISABLED') {
           setPlanGated(true);
           setShowCreateModal(false);
           handleNavigateToBilling();

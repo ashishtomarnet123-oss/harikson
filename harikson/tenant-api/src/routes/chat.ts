@@ -5,6 +5,7 @@ import { OllamaService } from '../services/ollama.service.js';
 import { ValidationService } from '../services/validation.service.js';
 import { MemoryRetriever } from '../services/memory/retriever.js';
 import { MemoryExtractor } from '../services/memory/extractor.js';
+import { requireApiAccess } from '../middleware/entitlements.js';
 
 const router = Router();
 
@@ -13,7 +14,7 @@ const chatSchema = z.object({
   useRag: z.boolean().default(true),
 });
 
-router.post('/', async (req: Request, res: Response) => {
+router.post('/', requireApiAccess, async (req: Request, res: Response) => {
   const redis = req.app.get('redis');
   const idempotencyKey = req.headers['idempotency-key'] as string;
   let dedupKey = '';

@@ -561,18 +561,32 @@ export default function BillingSettings() {
                   <div className="metric-header-row">
                     <span className="metric-title">RAG Documents Library</span>
                     <span className="metric-counts">
-                      {billing.usageMeters?.ragDocuments?.currentGB ?? '—'} GB /{' '}
-                      {billing.usageMeters?.ragDocuments?.limitGB ?? '—'} GB
+                      {billing.usageMeters?.ragDocuments?.currentCount !== undefined
+                        ? `${billing.usageMeters.ragDocuments.currentCount} / ${
+                            billing.usageMeters.ragDocuments.limitCount === null
+                              ? 'Unlimited'
+                              : `${billing.usageMeters.ragDocuments.limitCount} docs`
+                          }`
+                        : `${billing.usageMeters?.ragDocuments?.currentGB ?? '—'} GB / ${
+                            billing.usageMeters?.ragDocuments?.limitGB ?? '—'
+                          } GB`}
                     </span>
                     <span className="metric-pct-pill">
-                      {billing.usageMeters?.ragDocuments?.pct ?? '—'}% used
+                      {(billing.usageMeters?.ragDocuments?.countPct !== undefined
+                        ? billing.usageMeters.ragDocuments.countPct
+                        : billing.usageMeters?.ragDocuments?.pct) ?? '—'}% used
                     </span>
                   </div>
                   <div className="progress-track">
                     <div
                       className="progress-fill"
                       style={{
-                        width: `${Math.min(billing.usageMeters?.ragDocuments?.pct || 0, 100)}%`,
+                        width: `${Math.min(
+                          (billing.usageMeters?.ragDocuments?.countPct !== undefined
+                            ? billing.usageMeters?.ragDocuments?.countPct
+                            : billing.usageMeters?.ragDocuments?.pct) || 0,
+                          100
+                        )}%`,
                       }}
                     />
                   </div>

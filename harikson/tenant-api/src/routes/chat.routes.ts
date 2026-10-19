@@ -9,6 +9,8 @@ import { SecurityValidator } from '../services/document-intelligence/security/se
 import { countExactTokens } from '../services/tokenCountingService.js';
 import logger from '../utils/logger.js';
 import { requireScopes } from '../middleware/scopeAuth.js';
+import { requireAuth } from '../middleware/auth.js';
+import { requireApiAccess, isPlatformDefaultModel } from '../middleware/entitlements.js';
 import { SYSTEM_PROMPT } from '../prompts/system-prompt.js';
 import { TitleService } from '../services/titleService.js';
 import { UniversalPdfEngine, PdfOrchestrator } from '../services/pdf/index.js';
@@ -28,6 +30,9 @@ const redis = new Redis(process.env.REDIS_URL || 'redis://redis:6379', {
 // any caller list and read every other user's conversations in the tenant.
 router.use((req: any, res, next) => {
   const authHeader = req.headers.authorization || '';
+  if (authHeader.startsWith('Bearer hk_live_')) {
+    return requireAuth(req, res, next);
+  }
   const cookieToken = req.cookies?.hk_access_token;
   let token = '';
   if (authHeader.startsWith('Bearer ')) {
@@ -557,6 +562,65 @@ async function handleChat(req: any, res: any) {
   const { message, conversationId, agentId, model: rawModel = 'harikson-plus', stream = true, clientHistory, documentIds, collectionId } = req.body || {};
   if (!message) return res.status(400).json({ error: 'Message text is required' });
 
+  // Custom model entitlement check for rawModel
+  if (rawModel && !isPlatformDefaultModel(rawModel)) {
+    if (!req.entitlements?.customModels) {
+      return res.status(403).json({
+        error: 'Custom models are not enabled for your subscription plan. Please upgrade to Enterprise to use custom models.',
+        code: 'PLAN_FEATURE_DISABLED',
+        feature: 'custom_models',
+        plan: req.entitlements?.planId || 'free',
+        currentPlan: req.entitlements?.planId || 'free',
+      });
+    }
+
+    if (!/^[a-zA-Z0-9_\-.:]{2,100}$/.test(rawModel)) {
+      return res.status(400).json({
+        error: 'Invalid custom model identifier format',
+        code: 'INVALID_MODEL_IDENTIFIER',
+      });
+    }
+
+    try {
+      const otherTenantModel = await executeTenantQuery(req.tenant.id, (client) =>
+        client.query(
+          `SELECT id FROM tenant_custom_models WHERE model_identifier = $1 AND tenant_id != $2`,
+          [rawModel, req.tenant.id]
+        )
+      );
+      if (otherTenantModel.rows && otherTenantModel.rows.length > 0) {
+        return res.status(403).json({
+          error: 'Unauthorized model: this custom model belongs to another tenant.',
+          code: 'UNAUTHORIZED_MODEL_ACCESS',
+        });
+      }
+    } catch (_) {}
+  }
+
+  // Custom model entitlement check for agentId
+  if (agentId) {
+    try {
+      const agentRes = await executeTenantQuery(req.tenant.id, (client) =>
+        client.query(
+          `SELECT id, model FROM agents WHERE id = $1 AND tenant_id = $2`,
+          [agentId, req.tenant.id]
+        )
+      );
+      const agent = agentRes.rows?.[0];
+      if (agent?.model && !isPlatformDefaultModel(agent.model)) {
+        if (!req.entitlements?.customModels) {
+          return res.status(403).json({
+            error: 'Custom models are not enabled for your subscription plan. Please upgrade to Enterprise to chat with custom model agents.',
+            code: 'PLAN_FEATURE_DISABLED',
+            feature: 'custom_models',
+            plan: req.entitlements?.planId || 'free',
+            currentPlan: req.entitlements?.planId || 'free',
+          });
+        }
+      }
+    } catch (_) {}
+  }
+
   // Single-GPU VM — all tiers map to the loaded model until multi-model infra is available.
   const MODEL_MAP: Record<string, string> = {
     'harikson-plus':    'qwen2.5:3b',
@@ -1073,7 +1137,7 @@ router.post('/:id/interrupt', handleInterrupt);
 router.post('/v1/:id/interrupt', handleInterrupt);
 router.post('/conversations/:id/interrupt', handleInterrupt);
 
-router.post('/', requireScopes('chat:write'), handleChat);
-router.post('/v1', handleChat);
+router.post('/', requireApiAccess, requireScopes('chat:write'), handleChat);
+router.post('/v1', requireApiAccess, handleChat);
 
 export default router;

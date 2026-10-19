@@ -10,6 +10,8 @@ import { decryptDocumentContent } from '../services/documentEncryptionService.js
 import { OllamaClient } from '../llm/ollama.js';
 import logger from '../utils/logger.js';
 import { requireScopes } from '../middleware/scopeAuth.js';
+import { requireDocumentQuota } from '../middleware/entitlements.js';
+import { QuotaExceededError } from '../services/documentQuotaService.js';
 
 const router = Router();
 const upload = multer({
@@ -21,7 +23,7 @@ const upload = multer({
 // =========================================================================
 
 // POST /api/documents/upload
-router.post('/upload', requireScopes('documents:write'), upload.single('file'), async (req: any, res) => {
+router.post('/upload', requireScopes('documents:write'), requireDocumentQuota, upload.single('file'), async (req: any, res) => {
   if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
 
   const { originalname, buffer, mimetype } = req.file;
@@ -44,6 +46,21 @@ router.post('/upload', requireScopes('documents:write'), upload.single('file'), 
       document: result,
     });
   } catch (err: any) {
+    if (err instanceof QuotaExceededError || err?.code === 'PLAN_LIMIT_EXCEEDED') {
+      return res.status(403).json(
+        typeof err.toJSON === 'function'
+          ? err.toJSON()
+          : {
+              error: err.message,
+              code: 'PLAN_LIMIT_EXCEEDED',
+              feature: 'rag_documents',
+              limitReached: true,
+              currentUsage: err.currentUsage,
+              limit: err.limit,
+              plan: err.plan,
+            }
+      );
+    }
     logger.error('Document upload/processing error:', err);
     res.status(500).json({ error: err.message || 'Failed to process and index document' });
   }

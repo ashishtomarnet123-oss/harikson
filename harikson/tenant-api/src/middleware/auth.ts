@@ -50,9 +50,10 @@ export function requireAuth(req: Request, res: Response, next: NextFunction) {
 
     pool
       .query(
-        `SELECT k.id, k.tenant_id, k.user_id, k.scopes, k.status, t.id as resolved_tenant_id, t.slug as tenant_slug
+        `SELECT k.id, k.tenant_id, k.user_id, k.scopes, k.status, t.id as resolved_tenant_id, t.slug as tenant_slug, t.plan as tenant_plan, p.features as plan_features
          FROM tenant_api_keys k
          JOIN tenants t ON t.id = k.tenant_id
+         LEFT JOIN plans p ON LOWER(t.plan) = LOWER(p.id)
          WHERE k.key_hash = $1 AND k.status = 'active'`,
         [keyHash]
       )
@@ -62,6 +63,37 @@ export function requireAuth(req: Request, res: Response, next: NextFunction) {
         }
 
         const key = keyRes.rows[0];
+
+        // Resolve api_access entitlement for the tenant's effective plan
+        let featuresObj: Record<string, any> = {};
+        if (typeof key.plan_features === 'string') {
+          try {
+            featuresObj = JSON.parse(key.plan_features);
+          } catch (_) {
+            featuresObj = {};
+          }
+        } else if (key.plan_features && typeof key.plan_features === 'object' && !Array.isArray(key.plan_features)) {
+          featuresObj = key.plan_features;
+        }
+
+        const planId = (key.tenant_plan || 'free').toLowerCase();
+        let apiAccess = false;
+        if (typeof featuresObj.api_access === 'boolean') {
+          apiAccess = featuresObj.api_access;
+        } else {
+          // Documented safe policy: Starter, Professional, Enterprise default to true; Free defaults to false.
+          apiAccess = ['starter', 'professional', 'enterprise'].includes(planId);
+        }
+
+        if (!apiAccess) {
+          return res.status(403).json({
+            error: 'API access is not enabled for your subscription plan. Please upgrade your plan to use API keys.',
+            code: 'PLAN_FEATURE_DISABLED',
+            feature: 'api_access',
+            plan: planId,
+          });
+        }
+
         (req as any).user = {
           id: key.user_id,
           userId: key.user_id,
@@ -75,6 +107,19 @@ export function requireAuth(req: Request, res: Response, next: NextFunction) {
         (req as any).tenant = {
           id: key.resolved_tenant_id,
           slug: key.tenant_slug,
+          plan: key.tenant_plan || 'free',
+        };
+
+        (req as any).entitlements = {
+          planId,
+          planName: key.tenant_plan || 'Plan',
+          tokenLimit: -1,
+          storageLimitGb: -1,
+          imageLimitMonthly: 10,
+          features: featuresObj,
+          apiAccess: true,
+          isTrial: false,
+          trialEndsAt: null,
         };
 
         // Fire-and-forget: update last_used_at timestamp

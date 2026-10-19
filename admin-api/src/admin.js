@@ -3857,6 +3857,44 @@ app.post('/admin/api-keys', adminAuth, async (req, res) => {
   }
 
   try {
+    // Check if target tenant has api_access enabled on their plan
+    const tenantRes = await pool.query(
+      `SELECT t.id, t.plan, p.features
+       FROM tenants t
+       LEFT JOIN plans p ON LOWER(t.plan) = LOWER(p.id)
+       WHERE t.id = $1`,
+      [tenant_id]
+    );
+
+    if (tenantRes.rows.length === 0) {
+      return res.status(404).json({ error: 'Tenant not found' });
+    }
+
+    const tenantRow = tenantRes.rows[0];
+    let featuresObj = {};
+    if (typeof tenantRow.features === 'string') {
+      try { featuresObj = JSON.parse(tenantRow.features); } catch (_) {}
+    } else if (tenantRow.features && typeof tenantRow.features === 'object') {
+      featuresObj = tenantRow.features;
+    }
+
+    const planId = (tenantRow.plan || 'free').toLowerCase();
+    let hasApiAccess = false;
+    if (typeof featuresObj.api_access === 'boolean') {
+      hasApiAccess = featuresObj.api_access;
+    } else {
+      hasApiAccess = ['starter', 'professional', 'enterprise'].includes(planId);
+    }
+
+    if (!hasApiAccess) {
+      return res.status(403).json({
+        error: 'API access is not enabled for the tenant\'s subscription plan. Upgrade the plan to enable API key generation.',
+        code: 'PLAN_FEATURE_DISABLED',
+        feature: 'api_access',
+        plan: planId,
+      });
+    }
+
     const crypto = await import('crypto');
     const rawKey = 'hk_live_' + crypto.randomBytes(24).toString('hex');
     const keyPrefix = rawKey.substring(0, 12); // "hk_live_xxxx"

@@ -1,6 +1,6 @@
 import { authenticatedFetch, getApiConfig } from './apiHelper';
 import React, { useState, useEffect } from 'react';
-import { CheckCircle2, AlertCircle, RefreshCw } from 'lucide-react';
+import { CheckCircle2, AlertCircle, RefreshCw, Lock, ArrowRight } from 'lucide-react';
 
 export default function DeveloperConfigSettings() {
   const [webhookUrl, setWebhookUrl] = useState('');
@@ -14,9 +14,58 @@ export default function DeveloperConfigSettings() {
   const [rotating, setRotating] = useState(false);
   const [message, setMessage] = useState(null);
 
+  // Webhook Delivery Logs State
+  const [webhookLogs, setWebhookLogs] = useState([]);
+  const [logsLoading, setLogsLoading] = useState(false);
+  const [logsError, setLogsError] = useState(null);
+  const [planGatedLogs, setPlanGatedLogs] = useState(false);
+
   useEffect(() => {
     fetchConfig();
+    fetchWebhookLogs();
   }, []);
+
+  const handleUpgrade = () => {
+    window.dispatchEvent(new CustomEvent('settings:navigate', { detail: 'billing' }));
+  };
+
+  const fetchWebhookLogs = async () => {
+    try {
+      setLogsLoading(true);
+      setLogsError(null);
+      const { apiBase, tenantSlug } = getApiConfig();
+      const res = await authenticatedFetch(`${apiBase}/api/v1/user/developer/webhook-logs?limit=10`, {
+        credentials: 'include',
+        headers: { 'x-tenant-slug': tenantSlug },
+      });
+
+      if (res && res.ok) {
+        const data = await res.json();
+        setWebhookLogs(Array.isArray(data.logs) ? data.logs : []);
+        setPlanGatedLogs(false);
+      } else if (res && res.status === 403) {
+        const errData = await res.json().catch(() => ({}));
+        if (errData.code === 'PLAN_FEATURE_DISABLED' || errData.feature === 'webhook_logging') {
+          setPlanGatedLogs(true);
+          setLogsError(
+            errData.error ||
+              'Webhook logging is not enabled for your subscription plan. Upgrade to Professional or Enterprise to access webhook delivery history and logs.'
+          );
+        } else {
+          setLogsError(errData.error || 'Failed to load webhook logs.');
+        }
+        setWebhookLogs([]);
+      } else {
+        setLogsError('Failed to load webhook logs.');
+        setWebhookLogs([]);
+      }
+    } catch (e) {
+      setLogsError('Unable to load webhook delivery logs.');
+      setWebhookLogs([]);
+    } finally {
+      setLogsLoading(false);
+    }
+  };
 
   const fetchConfig = async () => {
     try {
@@ -160,6 +209,153 @@ export default function DeveloperConfigSettings() {
             </div>
           </div>
         </div>
+      </div>
+
+      <div className="settings-divider" />
+
+      {/* ── Webhook Delivery History ── */}
+      <div className="settings-section-block">
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+          <div>
+            <h2 className="settings-section-heading" style={{ margin: 0 }}>Webhook Delivery History</h2>
+            <p style={{ fontSize: '13px', color: '#64748b', margin: '4px 0 0 0' }}>
+              Inspect recent webhook delivery events, HTTP signatures, and payload status.
+            </p>
+          </div>
+          <button
+            type="button"
+            className="btn-change-photo"
+            onClick={fetchWebhookLogs}
+            disabled={logsLoading}
+            style={{ color: '#2563eb', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '6px' }}
+          >
+            <RefreshCw size={13} /> Refresh
+          </button>
+        </div>
+
+        {planGatedLogs ? (
+          <div
+            style={{
+              padding: '20px 24px',
+              borderRadius: '12px',
+              border: '1px solid #fed7aa',
+              background: '#fffbeb',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: '16px',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+              <div
+                style={{
+                  width: '38px',
+                  height: '38px',
+                  borderRadius: '10px',
+                  background: '#fef3c7',
+                  color: '#d97706',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  flexShrink: 0,
+                }}
+              >
+                <Lock size={18} />
+              </div>
+              <div>
+                <span style={{ fontSize: '14px', fontWeight: 600, color: '#92400e', display: 'block' }}>
+                  Webhook Logging Requires Upgrade
+                </span>
+                <p style={{ fontSize: '13px', color: '#b45309', margin: '3px 0 0 0' }}>
+                  {logsError || 'Webhook logging history is not enabled for your subscription plan. Upgrade to Professional or Enterprise to access webhook delivery history.'}
+                </p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={handleUpgrade}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                padding: '9px 16px',
+                background: '#d97706',
+                color: '#ffffff',
+                border: 'none',
+                borderRadius: '8px',
+                fontWeight: 600,
+                fontSize: '13px',
+                cursor: 'pointer',
+                whiteSpace: 'nowrap',
+                flexShrink: 0,
+              }}
+            >
+              <span>Upgrade Plan</span>
+              <ArrowRight size={14} />
+            </button>
+          </div>
+        ) : logsLoading ? (
+          <div style={{ padding: '24px', textAlign: 'center', color: '#64748b', fontSize: '13px' }}>
+            Loading webhook delivery history...
+          </div>
+        ) : logsError ? (
+          <div style={{ padding: '16px 20px', borderRadius: '10px', background: '#fef2f2', border: '1px solid #fecaca', color: '#b91c1c', fontSize: '13px' }}>
+            {logsError}
+          </div>
+        ) : webhookLogs.length === 0 ? (
+          <div style={{ padding: '28px', textAlign: 'center', background: '#f8fafc', borderRadius: '10px', border: '1px dashed #cbd5e1' }}>
+            <p style={{ margin: 0, fontSize: '13px', color: '#64748b' }}>
+              No webhook events recorded yet. Inbound and outbound events will appear here.
+            </p>
+          </div>
+        ) : (
+          <div style={{ overflowX: 'auto', borderRadius: '10px', border: '1px solid #e2e8f0' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px', textAlign: 'left' }}>
+              <thead>
+                <tr style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0', color: '#64748b' }}>
+                  <th style={{ padding: '10px 14px', fontWeight: 600 }}>Event ID</th>
+                  <th style={{ padding: '10px 14px', fontWeight: 600 }}>Provider</th>
+                  <th style={{ padding: '10px 14px', fontWeight: 600 }}>Event Type</th>
+                  <th style={{ padding: '10px 14px', fontWeight: 600 }}>Status</th>
+                  <th style={{ padding: '10px 14px', fontWeight: 600 }}>Timestamp</th>
+                </tr>
+              </thead>
+              <tbody>
+                {webhookLogs.map((log) => (
+                  <tr key={log.id} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                    <td style={{ padding: '10px 14px', fontFamily: 'monospace', color: '#334155' }}>
+                      {log.event_id || log.id.slice(0, 8)}
+                    </td>
+                    <td style={{ padding: '10px 14px', textTransform: 'capitalize', color: '#0f172a' }}>
+                      {log.provider_id || 'Webhook'}
+                    </td>
+                    <td style={{ padding: '10px 14px', color: '#0f172a' }}>
+                      {log.event_type}
+                    </td>
+                    <td style={{ padding: '10px 14px' }}>
+                      <span
+                        style={{
+                          display: 'inline-block',
+                          padding: '2px 8px',
+                          borderRadius: '12px',
+                          fontSize: '11px',
+                          fontWeight: 600,
+                          background: log.processed ? '#dcfce7' : log.processing_error ? '#fee2e2' : '#fef3c7',
+                          color: log.processed ? '#15803d' : log.processing_error ? '#b91c1c' : '#b45309',
+                        }}
+                      >
+                        {log.processed ? 'Delivered' : log.processing_error ? 'Failed' : 'Pending'}
+                      </span>
+                    </td>
+                    <td style={{ padding: '10px 14px', color: '#64748b' }}>
+                      {log.received_at ? new Date(log.received_at).toLocaleString() : '-'}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
 
       <div className="settings-divider" />

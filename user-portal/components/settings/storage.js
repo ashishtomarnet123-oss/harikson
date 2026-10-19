@@ -213,6 +213,7 @@ export default function StorageSettings({ onClose }) {
   const quotaBytes = storage?.quotaBytes || (storage?.quotaGB ? storage.quotaGB * 1024 * 1024 * 1024 : null);
   const totalBytes = storage?.totalBytes || 0;
   const docCount = storage?.documentCount || 0;
+  const docLimit = storage?.documentLimit ?? null;
   const usagePct = quotaBytes && quotaBytes > 0
     ? Math.min(100, Math.round((totalBytes / quotaBytes) * 1000) / 10)
     : (storage?.usagePct ?? 0);
@@ -283,12 +284,25 @@ export default function StorageSettings({ onClose }) {
             </div>
           </div>
           <div className="metric-value-row">
-            <div className="metric-value">{docCount}</div>
+            <div className="metric-value">
+              {docCount}
+              {docLimit !== null && (
+                <span style={{ fontSize: '0.6em', opacity: 0.7, fontWeight: 400 }}> / {docLimit}</span>
+              )}
+            </div>
           </div>
           <div className="metric-footer">
-            <div className="metric-pill pill-emerald">
+            <div
+              className={`metric-pill ${
+                docLimit !== null && docCount >= docLimit ? 'pill-amber' : 'pill-emerald'
+              }`}
+            >
               <CheckCircle2 size={12} />
-              <span>Ready for semantic search</span>
+              <span>
+                {docLimit !== null && docCount >= docLimit
+                  ? 'Plan document limit reached'
+                  : 'Ready for semantic search'}
+              </span>
             </div>
           </div>
         </div>
@@ -790,6 +804,12 @@ export default function StorageSettings({ onClose }) {
           background: rgba(168, 85, 247, 0.08);
           color: #9333ea;
           border: 1px solid rgba(168, 85, 247, 0.2);
+        }
+
+        .pill-amber {
+          background: rgba(245, 158, 11, 0.08);
+          color: #d97706;
+          border: 1px solid rgba(245, 158, 11, 0.2);
         }
 
         /* ── Capacity Progress ── */

@@ -4,6 +4,7 @@ import { executeTenantQuery } from '../../db/pool.js';
 import { encryptDocumentContent, decryptDocumentContent } from '../documentEncryptionService.js';
 import { OllamaClient } from '../../llm/ollama.js';
 import logger from '../../utils/logger.js';
+import { DocumentQuotaService, QuotaExceededError } from '../documentQuotaService.js';
 
 import { DocumentProcessor } from './processors/baseProcessor.js';
 import { PdfProcessor } from './processors/pdfProcessor.js';
@@ -129,25 +130,33 @@ export class DocumentIntelligenceEngine {
       }
     }
 
-    // 3. Create initial document record with 'processing' state
+    // 3. Atomically check quota with advisory lock and create initial document record with 'processing' state
     await executeTenantQuery(tenantId, async (client) => {
-      await client.query(
-        `INSERT INTO knowledge_documents (
-          id, tenant_id, user_id, title, filename, file_type, file_size_bytes,
-          content, content_hash, collection_id, is_active, rag_enabled, status, processing_step
-         )
-         VALUES ($1, $2, $3, $4, $4, $5, $6, '', $7, $8, true, true, 'processing', 'extracting')`,
-        [
-          documentId,
-          tenantId,
-          validUserId,
-          sanitizedFilename,
-          extension,
-          buffer.length,
-          contentHash,
-          collectionId || null,
-        ]
-      );
+      await client.query('BEGIN');
+      try {
+        await DocumentQuotaService.assertAndReserveSlot(tenantId, client);
+        await client.query(
+          `INSERT INTO knowledge_documents (
+            id, tenant_id, user_id, title, filename, file_type, file_size_bytes,
+            content, content_hash, collection_id, is_active, rag_enabled, status, processing_step
+           )
+           VALUES ($1, $2, $3, $4, $4, $5, $6, '', $7, $8, true, true, 'processing', 'extracting')`,
+          [
+            documentId,
+            tenantId,
+            validUserId,
+            sanitizedFilename,
+            extension,
+            buffer.length,
+            contentHash,
+            collectionId || null,
+          ]
+        );
+        await client.query('COMMIT');
+      } catch (err) {
+        await client.query('ROLLBACK');
+        throw err;
+      }
     });
 
     try {

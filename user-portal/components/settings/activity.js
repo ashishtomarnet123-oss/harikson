@@ -14,6 +14,8 @@ export default function ActivitySettings() {
   const [logs, setLogs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [planDisabled, setPlanDisabled] = useState(false);
+  const [apiBaseUrl, setApiBaseUrl] = useState('');
 
   useEffect(() => {
     fetchLogs();
@@ -24,6 +26,7 @@ export default function ActivitySettings() {
       setLoading(true);
       setError(null);
       const { apiBase, tenantSlug } = getApiConfig();
+      setApiBaseUrl(apiBase || '');
       let res;
       try {
         res = await authenticatedFetch(`${apiBase}/api/v1/user/activity`, {
@@ -43,16 +46,23 @@ export default function ActivitySettings() {
 
       if (res && res.ok) {
         const data = await res.json();
-        setLogs(data);
+        setLogs(Array.isArray(data) ? data : []);
+        setPlanDisabled(false);
       } else {
-        setLogs([
-          { id: '1', action: 'User Login', details: 'Successful authentication from web portal', ip: '127.0.0.1', timestamp: new Date().toISOString() }
-        ]);
+        const errData = await res.json().catch(() => ({}));
+        if (res && res.status === 403 && errData.code === 'PLAN_FEATURE_DISABLED') {
+          setError(
+            errData.error ||
+              'Audit trail is not enabled for your subscription plan. Please upgrade your plan to access audit history.'
+          );
+          setPlanDisabled(true);
+          setLogs([]);
+        } else {
+          setLogs([]);
+        }
       }
     } catch (err) {
-      setLogs([
-        { id: '1', action: 'User Login', details: 'Successful authentication from web portal', ip: '127.0.0.1', timestamp: new Date().toISOString() }
-      ]);
+      setLogs([]);
     } finally {
       setLoading(false);
     }
@@ -109,24 +119,117 @@ export default function ActivitySettings() {
 
   return (
     <>
-      <div className="settings-page-header">
-        <h1>Activity Timeline</h1>
-        <p>
-          A complete history of security and administrative actions taken on
-          your account.
-        </p>
+      <div
+        className="settings-page-header"
+        style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'flex-start',
+        }}
+      >
+        <div>
+          <h1>Activity Timeline</h1>
+          <p>
+            A complete history of security and administrative actions taken on
+            your account.
+          </p>
+        </div>
+        {!planDisabled && logs.length > 0 && (
+          <a
+            href={`${apiBaseUrl}/api/v1/user/activity/export?format=csv`}
+            download="activity_logs.csv"
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              fontSize: '12.5px',
+              color: 'var(--accent, #3b82f6)',
+              textDecoration: 'none',
+              fontWeight: 500,
+              padding: '6px 12px',
+              borderRadius: '6px',
+              background: 'var(--bg-hover)',
+              border: '1px solid var(--border)',
+            }}
+          >
+            Export CSV
+          </a>
+        )}
       </div>
 
       <div className="settings-section">
         <h2>Recent Activity</h2>
-        {error && <div className="settings-alert error">{error}</div>}
-
-        {logs.length === 0 ? (
-          <p style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>
-            No recent activity recorded.
-          </p>
+        {planDisabled ? (
+          <div
+            className="settings-card"
+            style={{ padding: '36px 24px', textAlign: 'center' }}
+          >
+            <div
+              style={{
+                width: '48px',
+                height: '48px',
+                margin: '0 auto 16px',
+                borderRadius: '50%',
+                background: 'rgba(239, 68, 68, 0.1)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: '#ef4444',
+              }}
+            >
+              <Shield size={24} />
+            </div>
+            <h3
+              style={{
+                fontSize: '16px',
+                fontWeight: '600',
+                color: 'var(--text-primary)',
+                marginBottom: '8px',
+              }}
+            >
+              Audit Trail Feature Required
+            </h3>
+            <p
+              style={{
+                fontSize: '13.5px',
+                color: 'var(--text-secondary)',
+                maxWidth: '440px',
+                margin: '0 auto 20px',
+                lineHeight: '1.5',
+              }}
+            >
+              {error ||
+                'Audit trail is not enabled for your subscription plan. Upgrade to the Professional or Enterprise plan to view and export complete activity logs.'}
+            </p>
+            <a
+              href="/settings/billing"
+              className="btn-primary"
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '8px',
+                padding: '8px 18px',
+                borderRadius: '8px',
+                fontSize: '13px',
+                fontWeight: '500',
+                textDecoration: 'none',
+                background: 'var(--accent, #3b82f6)',
+                color: '#fff',
+              }}
+            >
+              Upgrade Plan
+            </a>
+          </div>
         ) : (
-          <div className="settings-timeline">
+          <>
+            {error && <div className="settings-alert error">{error}</div>}
+
+            {logs.length === 0 ? (
+              <p style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>
+                No recent activity recorded.
+              </p>
+            ) : (
+              <div className="settings-timeline">
             {logs.map((log) => {
               const Icon = getIcon(log.action);
               return (
@@ -225,7 +328,10 @@ export default function ActivitySettings() {
             })}
           </div>
         )}
+          </>
+        )}
       </div>
     </>
   );
 }
+

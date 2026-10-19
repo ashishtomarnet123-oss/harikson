@@ -44,6 +44,7 @@ import voiceRoutes from './routes/voice.routes.js';
 import shareRoutes from './routes/share.routes.js';
 import privacyRoutes from './routes/privacy.routes.js';
 import pdfRoutes from './routes/pdf.routes.js';
+import modelsRoutes from './routes/models.routes.js';
 
 // Import existing API sub-routers
 import chatRouter from './routes/chat.js';
@@ -312,12 +313,15 @@ app.use('/api/user', userRoutes);
 app.use('/api/v1/user', userRoutes);
 app.use('/api/chat', chatRoutes);
 app.use('/api/v1/chat', chatRoutes);
+app.use('/v1/chat', chatRoutes);
 app.use('/api/documents', documentRoutes);
 app.use('/api/v1/documents', documentRoutes);
 app.use('/api/billing', billingRoutes);
 app.use('/api/v1/billing', billingRoutes);
 app.use('/api/agents', agentRoutes);
 app.use('/api/v1/agents', agentRoutes);
+app.use('/api/models', modelsRoutes);
+app.use('/api/v1/models', modelsRoutes);
 app.use('/api/widget', widgetRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/integrations', integrationsRoutes);

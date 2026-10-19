@@ -17,6 +17,8 @@ import {
   generateHashedBackupCodes,
 } from '../services/twoFactorService.js';
 import { RagService } from '../services/rag.service.js';
+import { DocumentQuotaService, QuotaExceededError } from '../services/documentQuotaService.js';
+import { requireAuditTrail, requireWebhookLogging, requirePrioritySupport } from '../middleware/entitlements.js';
 import jwt from 'jsonwebtoken';
 
 const router = Router();
@@ -251,19 +253,18 @@ router.post('/2fa/disable', async (req: any, res) => {
   }
 });
 
-// API Keys Endpoints
-// Only Starter, Professional, and Enterprise plans include API access.
-const API_KEY_PLANS = ['starter', 'professional', 'enterprise'];
-
+// API Keys Endpoints — governed by the plan's api_access feature entitlement
 router.get('/api-keys', async (req: any, res) => {
   // Entitlement check
-  const planId = req.entitlements?.planId || 'free';
-  if (!API_KEY_PLANS.includes(planId)) {
+  const hasApiAccess = req.entitlements?.apiAccess;
+  if (!hasApiAccess) {
+    const planId = req.entitlements?.planId || 'free';
     return res.status(403).json({
-      error: 'API key access is not available on your current plan.',
-      code: 'PLAN_UPGRADE_REQUIRED',
-      requiredPlans: API_KEY_PLANS,
+      error: 'API key access is not available on your current plan. Please upgrade your plan.',
+      code: 'PLAN_FEATURE_DISABLED',
+      feature: 'api_access',
       currentPlan: planId,
+      plan: planId,
     });
   }
 
@@ -282,14 +283,16 @@ router.get('/api-keys', async (req: any, res) => {
 });
 
 router.post('/api-keys', async (req: any, res) => {
-  // Plan entitlement check — API keys are a paid feature
-  const planId = req.entitlements?.planId || 'free';
-  if (!API_KEY_PLANS.includes(planId)) {
+  // Plan entitlement check — API keys require api_access feature entitlement
+  const hasApiAccess = req.entitlements?.apiAccess;
+  if (!hasApiAccess) {
+    const planId = req.entitlements?.planId || 'free';
     return res.status(403).json({
-      error: 'API key creation requires a Starter, Professional, or Enterprise plan.',
-      code: 'PLAN_UPGRADE_REQUIRED',
-      requiredPlans: API_KEY_PLANS,
+      error: 'API key creation requires an active plan with API access enabled. Please upgrade to continue.',
+      code: 'PLAN_FEATURE_DISABLED',
+      feature: 'api_access',
       currentPlan: planId,
+      plan: planId,
     });
   }
 
@@ -661,12 +664,19 @@ router.get('/billing', async (req: any, res) => {
     ).catch(() => ({ rows: [{ msg_count: 0 }] }));
     const msgCount = parseInt(usageRes.rows[0]?.msg_count, 10) || 0;
 
-    // Real RAG storage usage.
-    const storageRes = await pool.query(
-      `SELECT COALESCE(SUM(file_size_bytes), 0) as total_bytes FROM knowledge_documents WHERE tenant_id = $1 AND is_active = true`,
-      [tenantId]
-    ).catch(() => ({ rows: [{ total_bytes: 0 }] }));
+    // Real RAG storage and document count usage.
+    const [storageRes, quotaInfo] = await Promise.all([
+      pool.query(
+        `SELECT COALESCE(SUM(file_size_bytes), 0) as total_bytes, COUNT(*)::int as doc_count
+         FROM knowledge_documents
+         WHERE tenant_id = $1 AND is_active = true AND status != 'failed'`,
+        [tenantId]
+      ).catch(() => ({ rows: [{ total_bytes: 0, doc_count: 0 }] })),
+      DocumentQuotaService.resolveLimit(tenantId).catch(() => ({ limit: -1, plan: 'free' })),
+    ]);
     const storageGB = (parseInt(storageRes.rows[0]?.total_bytes, 10) || 0) / (1024 ** 3);
+    const docCount = storageRes.rows[0]?.doc_count || 0;
+    const docLimit = quotaInfo.limit;
 
     const messageLimit = plan.token_limit; // -1 = unlimited
     const storageLimit = plan.storage_limit_gb; // -1 = unlimited
@@ -699,6 +709,9 @@ router.get('/billing', async (req: any, res) => {
           currentGB: Math.round(storageGB * 10) / 10,
           limitGB: storageLimit === -1 ? null : storageLimit,
           pct: storageLimit > 0 ? Math.min(100, Math.round((storageGB / storageLimit) * 1000) / 10) : 0,
+          currentCount: docCount,
+          limitCount: docLimit === -1 ? null : docLimit,
+          countPct: docLimit > 0 ? Math.min(100, Math.round((docCount / docLimit) * 1000) / 10) : 0,
         },
       },
       features: Array.isArray(plan.features) ? plan.features : [],
@@ -1204,6 +1217,21 @@ router.post(['/rag-files', '/user/rag-files'], async (req: any, res) => {
 
     res.status(201).json(await listRagFiles(tenantId, req.user.userId));
   } catch (err: any) {
+    if (err instanceof QuotaExceededError || err?.code === 'PLAN_LIMIT_EXCEEDED') {
+      return res.status(403).json(
+        typeof err.toJSON === 'function'
+          ? err.toJSON()
+          : {
+              error: err.message,
+              code: 'PLAN_LIMIT_EXCEEDED',
+              feature: 'rag_documents',
+              limitReached: true,
+              currentUsage: err.currentUsage,
+              limit: err.limit,
+              plan: err.plan,
+            }
+      );
+    }
     logger.error('RAG file upload error:', err);
     res.status(500).json({ error: err.message || 'Failed to save and index file' });
   }
@@ -1467,16 +1495,19 @@ router.get('/usage', async (req: any, res) => {
 });
 
 // GET /api/user/activity & /api/v1/user/activity
-router.get('/activity', async (req: any, res) => {
+router.get(['/activity', '/user/activity'], requireAuditTrail, async (req: any, res) => {
   if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
 
   try {
+    const userRes = await pool.query('SELECT tenant_id FROM users WHERE id = $1', [req.user.userId]).catch(() => ({ rows: [] }));
+    const tenantId = userRes.rows[0]?.tenant_id || req.tenant?.id;
+
     const logsRes = await pool.query(
       `SELECT id, action, details, ip_address as ip, user_agent as device, created_at as timestamp 
        FROM activity_logs 
-       WHERE user_id = $1 
+       WHERE user_id = $1 AND ($2::text IS NULL OR tenant_id::text = $2::text OR tenant_id IS NULL)
        ORDER BY created_at DESC LIMIT 50`,
-      [req.user.userId]
+      [req.user.userId, tenantId || null]
     ).catch(() => ({ rows: [] }));
 
     const formattedLogs = (logsRes.rows || []).map((log: any) => ({
@@ -1492,6 +1523,45 @@ router.get('/activity', async (req: any, res) => {
   } catch (err: any) {
     logger.error('Fetch activity logs error:', err);
     res.json([]);
+  }
+});
+
+// GET /api/user/activity/export & /api/v1/user/activity/export
+router.get(['/activity/export', '/user/activity/export'], requireAuditTrail, async (req: any, res) => {
+  if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
+
+  try {
+    const userRes = await pool.query('SELECT tenant_id FROM users WHERE id = $1', [req.user.userId]).catch(() => ({ rows: [] }));
+    const tenantId = userRes.rows[0]?.tenant_id || req.tenant?.id;
+
+    const format = ((req.query.format as string) || 'csv').toLowerCase();
+    const limit = Math.min(parseInt(req.query.limit as string || '500', 10), 1000);
+
+    const logsRes = await pool.query(
+      `SELECT id, action, details, ip_address, user_agent, created_at 
+       FROM activity_logs 
+       WHERE user_id = $1 AND ($2::text IS NULL OR tenant_id::text = $2::text OR tenant_id IS NULL)
+       ORDER BY created_at DESC LIMIT $3`,
+      [req.user.userId, tenantId || null, limit]
+    ).catch(() => ({ rows: [] }));
+
+    if (format === 'json') {
+      res.setHeader('Content-Type', 'application/json');
+      res.setHeader('Content-Disposition', `attachment; filename="activity_logs_${Date.now()}.json"`);
+      return res.json({ success: true, logs: logsRes.rows });
+    }
+
+    let csv = 'ID,Timestamp,Action,Details,IP Address,Device\n';
+    for (const row of logsRes.rows) {
+      csv += `"${row.id}","${new Date(row.created_at).toISOString()}","${(row.action || '').replace(/"/g, '""')}","${(row.details || '').replace(/"/g, '""')}","${row.ip_address || ''}","${(row.user_agent || '').replace(/"/g, '""')}"\n`;
+    }
+
+    res.setHeader('Content-Type', 'text/csv');
+    res.setHeader('Content-Disposition', `attachment; filename="activity_logs_${Date.now()}.csv"`);
+    return res.status(200).send(csv);
+  } catch (err: any) {
+    logger.error('Export activity logs error:', err);
+    res.status(500).json({ error: 'Failed to export activity logs' });
   }
 });
 
@@ -1594,14 +1664,16 @@ router.post('/security/change-password', async (req: any, res) => {
 router.get('/developer/keys', async (req: any, res) => {
   if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
 
-  // Plan entitlement check — API keys are a paid feature
-  const planId = req.entitlements?.planId || 'free';
-  if (!API_KEY_PLANS.includes(planId)) {
+  // Plan entitlement check — API keys require api_access feature entitlement
+  const hasApiAccess = req.entitlements?.apiAccess;
+  if (!hasApiAccess) {
+    const planId = req.entitlements?.planId || 'free';
     return res.status(403).json({
-      error: 'API key access is not available on your current plan.',
-      code: 'PLAN_UPGRADE_REQUIRED',
-      requiredPlans: API_KEY_PLANS,
+      error: 'API key access is not available on your current plan. Please upgrade your plan.',
+      code: 'PLAN_FEATURE_DISABLED',
+      feature: 'api_access',
       currentPlan: planId,
+      plan: planId,
     });
   }
 
@@ -1622,14 +1694,16 @@ router.get('/developer/keys', async (req: any, res) => {
 router.post('/developer/keys', async (req: any, res) => {
   if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
 
-  // Plan entitlement check — API keys are a paid feature
-  const planId = req.entitlements?.planId || 'free';
-  if (!API_KEY_PLANS.includes(planId)) {
+  // Plan entitlement check — API keys require api_access feature entitlement
+  const hasApiAccess = req.entitlements?.apiAccess;
+  if (!hasApiAccess) {
+    const planId = req.entitlements?.planId || 'free';
     return res.status(403).json({
-      error: 'API key creation requires a Starter, Professional, or Enterprise plan. Please upgrade to continue.',
-      code: 'PLAN_UPGRADE_REQUIRED',
-      requiredPlans: API_KEY_PLANS,
+      error: 'API key creation requires an active plan with API access enabled. Please upgrade to continue.',
+      code: 'PLAN_FEATURE_DISABLED',
+      feature: 'api_access',
       currentPlan: planId,
+      plan: planId,
     });
   }
 
@@ -1758,6 +1832,184 @@ router.post('/developer/config/rotate-secret', async (req: any, res) => {
   }
 });
 
+function maskSensitivePayload(obj: any): any {
+  if (!obj || typeof obj !== 'object') return obj;
+  if (Array.isArray(obj)) return obj.map(maskSensitivePayload);
+  const SENSITIVE_KEYS = [
+    'secret', 'password', 'token', 'authorization', 'api_key', 'apikey',
+    'webhook_secret', 'signing_secret', 'signature', 'private_key', 'credential',
+    'x-webhook-signature', 'x-verify', 'client_secret'
+  ];
+  const cleaned: Record<string, any> = {};
+  for (const [k, v] of Object.entries(obj)) {
+    if (SENSITIVE_KEYS.some((sk) => k.toLowerCase().includes(sk))) {
+      cleaned[k] = '[REDACTED]';
+    } else if (v && typeof v === 'object') {
+      cleaned[k] = maskSensitivePayload(v);
+    } else {
+      cleaned[k] = v;
+    }
+  }
+  return cleaned;
+}
+
+// GET /api/user/developer/webhook-logs & /api/v1/user/developer/webhook-logs (also /webhooks/logs)
+router.get(['/developer/webhook-logs', '/webhooks/logs'], requireWebhookLogging, async (req: any, res) => {
+  if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
+
+  try {
+    const userRes = await pool.query('SELECT tenant_id FROM users WHERE id = $1', [req.user.userId]).catch(() => ({ rows: [] }));
+    const tenantId = userRes.rows[0]?.tenant_id || req.tenant?.id || req.user?.tenantId || req.user?.tenant_id;
+
+    if (!tenantId) {
+      return res.json({ success: true, logs: [], total: 0, limit: 50, offset: 0 });
+    }
+
+    const { provider, event_type, processed, limit = '50', offset = '0' } = req.query;
+    const parsedLimit = Math.min(Math.max(parseInt(limit as string, 10) || 50, 1), 100);
+    const parsedOffset = Math.max(parseInt(offset as string, 10) || 0, 0);
+
+    const conditions: string[] = ['tenant_id = $1'];
+    const params: any[] = [tenantId];
+
+    if (provider) {
+      params.push(provider);
+      conditions.push(`provider_id = $${params.length}`);
+    }
+    if (event_type) {
+      params.push(event_type);
+      conditions.push(`event_type = $${params.length}`);
+    }
+    if (typeof processed === 'string') {
+      params.push(processed === 'true');
+      conditions.push(`processed = $${params.length}`);
+    }
+
+    const whereClause = conditions.join(' AND ');
+
+    const countRes = await pool.query(
+      `SELECT COUNT(*) FROM webhook_events WHERE ${whereClause}`,
+      params
+    ).catch(() => ({ rows: [{ count: '0' }] }));
+
+    const total = parseInt(countRes.rows[0]?.count || '0', 10);
+
+    params.push(parsedLimit);
+    const limitPlaceholder = `$${params.length}`;
+    params.push(parsedOffset);
+    const offsetPlaceholder = `$${params.length}`;
+
+    const logsRes = await pool.query(
+      `SELECT id, provider_id, event_id, event_type, signature_valid, raw_payload, idempotency_key, processed, processing_error, received_at
+       FROM webhook_events
+       WHERE ${whereClause}
+       ORDER BY received_at DESC
+       LIMIT ${limitPlaceholder} OFFSET ${offsetPlaceholder}`,
+      params
+    ).catch(() => ({ rows: [] }));
+
+    const sanitizedLogs = (logsRes.rows || []).map((row: any) => ({
+      ...row,
+      raw_payload: maskSensitivePayload(row.raw_payload),
+    }));
+
+    res.json({
+      success: true,
+      logs: sanitizedLogs,
+      total,
+      limit: parsedLimit,
+      offset: parsedOffset,
+    });
+  } catch (err: any) {
+    logger.error('Fetch webhook logs error:', err);
+    res.status(500).json({ error: 'Failed to load webhook delivery logs' });
+  }
+});
+
+// GET /api/user/developer/webhook-logs/export & /api/v1/user/developer/webhook-logs/export (also /webhooks/logs/export)
+router.get(['/developer/webhook-logs/export', '/webhooks/logs/export'], requireWebhookLogging, async (req: any, res) => {
+  if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
+
+  try {
+    const userRes = await pool.query('SELECT tenant_id FROM users WHERE id = $1', [req.user.userId]).catch(() => ({ rows: [] }));
+    const tenantId = userRes.rows[0]?.tenant_id || req.tenant?.id || req.user?.tenantId || req.user?.tenant_id;
+
+    if (!tenantId) {
+      return res.status(400).json({ error: 'Tenant context required' });
+    }
+
+    const format = ((req.query.format as string) || 'csv').toLowerCase();
+    const limit = Math.min(parseInt((req.query.limit as string) || '500', 10), 1000);
+
+    const logsRes = await pool.query(
+      `SELECT id, provider_id, event_id, event_type, signature_valid, raw_payload, idempotency_key, processed, processing_error, received_at
+       FROM webhook_events
+       WHERE tenant_id = $1
+       ORDER BY received_at DESC
+       LIMIT $2`,
+      [tenantId, limit]
+    ).catch(() => ({ rows: [] }));
+
+    const sanitizedRows = (logsRes.rows || []).map((row: any) => ({
+      ...row,
+      raw_payload: maskSensitivePayload(row.raw_payload),
+    }));
+
+    if (format === 'json') {
+      res.setHeader('Content-Type', 'application/json');
+      res.setHeader('Content-Disposition', `attachment; filename="webhook_logs_${Date.now()}.json"`);
+      return res.json({ success: true, logs: sanitizedRows });
+    }
+
+    let csv = 'ID,Provider,Event ID,Event Type,Signature Valid,Processed,Error,Received At\n';
+    for (const row of sanitizedRows) {
+      csv += `"${row.id}","${(row.provider_id || '').replace(/"/g, '""')}","${(row.event_id || '').replace(/"/g, '""')}","${(row.event_type || '').replace(/"/g, '""')}",${!!row.signature_valid},${!!row.processed},"${(row.processing_error || '').replace(/"/g, '""')}","${new Date(row.received_at).toISOString()}"\n`;
+    }
+
+    res.setHeader('Content-Type', 'text/csv');
+    res.setHeader('Content-Disposition', `attachment; filename="webhook_logs_${Date.now()}.csv"`);
+    return res.status(200).send(csv);
+  } catch (err: any) {
+    logger.error('Export webhook logs error:', err);
+    res.status(500).json({ error: 'Failed to export webhook logs' });
+  }
+});
+
+// GET /api/user/developer/webhook-logs/:id & /api/v1/user/developer/webhook-logs/:id (also /webhooks/logs/:id)
+router.get(['/developer/webhook-logs/:id', '/webhooks/logs/:id'], requireWebhookLogging, async (req: any, res) => {
+  if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
+
+  try {
+    const userRes = await pool.query('SELECT tenant_id FROM users WHERE id = $1', [req.user.userId]).catch(() => ({ rows: [] }));
+    const tenantId = userRes.rows[0]?.tenant_id || req.tenant?.id || req.user?.tenantId || req.user?.tenant_id;
+
+    if (!tenantId) {
+      return res.status(404).json({ error: 'Webhook event not found' });
+    }
+
+    const logRes = await pool.query(
+      `SELECT id, provider_id, event_id, event_type, signature_valid, raw_payload, idempotency_key, processed, processing_error, received_at
+       FROM webhook_events
+       WHERE id = $1 AND tenant_id = $2`,
+      [req.params.id, tenantId]
+    ).catch(() => ({ rows: [] }));
+
+    if (logRes.rows.length === 0) {
+      return res.status(404).json({ error: 'Webhook event not found' });
+    }
+
+    const sanitizedLog = {
+      ...logRes.rows[0],
+      raw_payload: maskSensitivePayload(logRes.rows[0].raw_payload),
+    };
+
+    res.json({ success: true, log: sanitizedLog });
+  } catch (err: any) {
+    logger.error('Fetch single webhook log error:', err);
+    res.status(500).json({ error: 'Failed to load webhook event detail' });
+  }
+});
+
 // GET /api/user/storage & /api/v1/user/storage
 // Real usage computed from knowledge_documents (the same table the actual
 // document/RAG upload pipeline in document.routes.ts writes to — file_size_bytes
@@ -1771,19 +2023,20 @@ router.get('/storage', async (req: any, res) => {
     const userRes = await pool.query('SELECT tenant_id FROM users WHERE id = $1', [req.user.userId]).catch(() => ({ rows: [] }));
     const tenantId = userRes.rows[0]?.tenant_id || req.tenant.id;
 
-    const [docsRes, planRes] = await Promise.all([
+    const [docsRes, planRes, quotaInfo] = await Promise.all([
       pool.query(
-        `SELECT COALESCE(SUM(file_size_bytes), 0) as total_bytes, COUNT(*) as doc_count
+        `SELECT COALESCE(SUM(file_size_bytes), 0) as total_bytes, COUNT(*)::int as doc_count
          FROM knowledge_documents
-         WHERE tenant_id = $1 AND is_active = true`,
+         WHERE tenant_id = $1 AND is_active = true AND status != 'failed'`,
         [tenantId]
       ).catch(() => ({ rows: [{ total_bytes: 0, doc_count: 0 }] })),
       pool.query(
         `SELECT p.storage_limit_gb, p.name as plan_name
-         FROM tenants t JOIN plans p ON p.id = t.plan
+         FROM tenants t JOIN plans p ON LOWER(p.id) = LOWER(t.plan)
          WHERE t.id = $1`,
         [tenantId]
       ).catch(() => ({ rows: [] })),
+      DocumentQuotaService.resolveLimit(tenantId).catch(() => ({ limit: -1 })),
     ]);
 
     const { total_bytes, doc_count } = docsRes.rows[0];
@@ -1795,6 +2048,7 @@ router.get('/storage', async (req: any, res) => {
     res.json({
       totalBytes,
       documentCount: parseInt(doc_count, 10) || 0,
+      documentLimit: quotaInfo.limit === -1 ? null : quotaInfo.limit,
       quotaBytes,
       quotaGB,
       planName: plan?.plan_name || null,
@@ -1816,11 +2070,15 @@ router.post(['/analytics/track', '/user/analytics/track'], async (req: any, res)
   }
 
   try {
+    const userRes = await pool.query('SELECT tenant_id FROM users WHERE id = $1', [req.user.userId]).catch(() => ({ rows: [] }));
+    const tenantId = userRes.rows[0]?.tenant_id || req.tenant?.id;
+
     await pool.query(
-      `INSERT INTO activity_logs (user_id, action, details, ip_address, user_agent, created_at)
-       VALUES ($1, $2, $3, $4, $5, NOW())`,
+      `INSERT INTO activity_logs (user_id, tenant_id, action, details, ip_address, user_agent, created_at)
+       VALUES ($1, $2, $3, $4, $5, $6, NOW())`,
       [
         req.user.userId,
+        tenantId || null,
         action,
         details || null,
         req.headers['x-real-ip'] || req.ip || null,
@@ -1831,6 +2089,454 @@ router.post(['/analytics/track', '/user/analytics/track'], async (req: any, res)
   } catch (err: any) {
     logger.warn('Analytics track error:', err.message);
     res.json({ success: true });
+  }
+});
+
+// Helper function for breach detection
+export async function checkSlaBreaches(): Promise<{ checked: number; breached: number }> {
+  try {
+    const res = await pool.query(
+      `UPDATE support_tickets
+       SET sla_status = 'breached', updated_at = NOW()
+       WHERE first_responded_at IS NULL
+         AND first_response_due_at IS NOT NULL
+         AND first_response_due_at < NOW()
+         AND sla_status = 'within_sla'
+       RETURNING id`
+    );
+    return { checked: res.rowCount || 0, breached: res.rowCount || 0 };
+  } catch (err: any) {
+    logger.warn('SLA breach check error:', err?.message || err);
+    return { checked: 0, breached: 0 };
+  }
+}
+
+// GET /api/user/support/status & /api/v1/user/support/status
+// Returns the authenticated tenant's effective priority support entitlement and channel info.
+router.get(['/support/status', '/user/support/status'], async (req: any, res) => {
+  if (!req.user) return res.status(401).json({ error: 'Unauthorized: Authentication required' });
+
+  try {
+    const isPriority = !!req.entitlements?.prioritySupport;
+    const planId = req.entitlements?.planId || 'free';
+    const slaHours = typeof req.entitlements?.slaHours === 'number' && req.entitlements.slaHours > 0
+      ? req.entitlements.slaHours
+      : null;
+
+    res.json({
+      plan: planId,
+      prioritySupport: isPriority,
+      supportTier: isPriority ? 'priority' : 'standard',
+      supportEmail: isPriority ? 'priority-support@xarwiz.com' : 'support@xarwiz.com',
+      description: isPriority
+        ? 'Priority support enabled. Inquiries from your account receive prioritized queue handling.'
+        : 'Standard support enabled. Upgrade to Professional or Enterprise for priority support queue handling.',
+      slaHours: slaHours,
+      slaTargetHours: slaHours,
+      hasSla: slaHours !== null,
+      slaDescription: slaHours
+        ? `${slaHours}-hour first-response target`
+        : 'Standard community and email support (no contractual SLA target)',
+      sla: slaHours ? { responseTimeHours: slaHours } : null,
+      guaranteedResponseTime: slaHours ? `${slaHours} hours` : null,
+    });
+  } catch (err: any) {
+    logger.error('Fetch support status error:', err);
+    res.status(500).json({ error: 'Failed to load support status' });
+  }
+});
+
+// GET /api/user/support/tickets & /api/v1/user/support/tickets
+// Lists support tickets strictly scoped to the authenticated tenant (or all for administrators).
+router.get(['/support/tickets', '/user/support/tickets'], async (req: any, res) => {
+  if (!req.user) return res.status(401).json({ error: 'Unauthorized: Authentication required' });
+
+  try {
+    // Detect and flag any overdue tickets dynamically
+    await checkSlaBreaches();
+
+    const userRes = await pool.query('SELECT tenant_id, role FROM users WHERE id = $1', [req.user.userId]).catch(() => ({ rows: [] }));
+    const tenantId = userRes.rows[0]?.tenant_id || req.tenant?.id;
+    const userRole = userRes.rows[0]?.role || req.user.role;
+    const isAdmin = ['admin', 'superadmin'].includes(userRole) || !!req.user.isInternal;
+
+    let query: string;
+    let params: any[];
+
+    if (isAdmin && req.query.all === 'true') {
+      if (req.query.priority === 'priority') {
+        query = 'SELECT * FROM support_tickets WHERE is_priority = true ORDER BY created_at DESC';
+        params = [];
+      } else if (req.query.sla_status) {
+        query = 'SELECT * FROM support_tickets WHERE sla_status = $1 ORDER BY created_at DESC';
+        params = [req.query.sla_status];
+      } else {
+        query = 'SELECT * FROM support_tickets ORDER BY created_at DESC';
+        params = [];
+      }
+    } else {
+      if (!tenantId) return res.status(400).json({ error: 'Tenant context required' });
+      query = 'SELECT * FROM support_tickets WHERE tenant_id = $1 ORDER BY created_at DESC';
+      params = [tenantId];
+    }
+
+    const ticketsRes = await pool.query(query, params).catch(() => ({ rows: [] }));
+    
+    // Evaluate in-memory breach status if DB update was bypassed in mock context
+    const now = Date.now();
+    const mappedTickets = ticketsRes.rows.map((t: any) => {
+      let slaStatus = t.sla_status || (t.sla_hours ? 'within_sla' : 'no_sla');
+      if (
+        !t.first_responded_at &&
+        t.first_response_due_at &&
+        now > new Date(t.first_response_due_at).getTime() &&
+        slaStatus === 'within_sla'
+      ) {
+        slaStatus = 'breached';
+      }
+      return {
+        ...t,
+        sla_status: slaStatus,
+      };
+    });
+
+    res.json({ tickets: mappedTickets });
+  } catch (err: any) {
+    logger.error('Fetch support tickets error:', err);
+    res.status(500).json({ error: 'Failed to fetch support tickets' });
+  }
+});
+
+// GET /api/user/support/tickets/:id & /api/v1/user/support/tickets/:id
+// Get single support ticket details
+router.get(['/support/tickets/:id', '/user/support/tickets/:id'], async (req: any, res) => {
+  if (!req.user) return res.status(401).json({ error: 'Unauthorized: Authentication required' });
+
+  const { id } = req.params;
+  try {
+    const userRes = await pool.query('SELECT tenant_id, role FROM users WHERE id = $1', [req.user.userId]).catch(() => ({ rows: [] }));
+    const tenantId = userRes.rows[0]?.tenant_id || req.tenant?.id;
+    const userRole = userRes.rows[0]?.role || req.user.role;
+    const isAdmin = ['admin', 'superadmin'].includes(userRole) || !!req.user.isInternal;
+
+    const ticketRes = await pool.query('SELECT * FROM support_tickets WHERE id = $1', [id]).catch(() => ({ rows: [] }));
+    const ticket = ticketRes.rows[0];
+    if (!ticket) {
+      return res.status(404).json({ error: 'Ticket not found' });
+    }
+
+    if (ticket.tenant_id !== tenantId && !isAdmin) {
+      return res.status(403).json({ error: 'Forbidden: Cannot access ticket of another tenant' });
+    }
+
+    let slaStatus = ticket.sla_status || (ticket.sla_hours ? 'within_sla' : 'no_sla');
+    if (
+      !ticket.first_responded_at &&
+      ticket.first_response_due_at &&
+      Date.now() > new Date(ticket.first_response_due_at).getTime() &&
+      slaStatus === 'within_sla'
+    ) {
+      slaStatus = 'breached';
+    }
+
+    res.json({ ticket: { ...ticket, sla_status: slaStatus } });
+  } catch (err: any) {
+    logger.error('Fetch single support ticket error:', err);
+    res.status(500).json({ error: 'Failed to fetch ticket' });
+  }
+});
+
+// POST /api/user/support/ticket & /api/v1/user/support/ticket
+// Submits a support request. Server-side determines priority and effective SLA hours strictly from req.entitlements.
+router.post(['/support/ticket', '/user/support/ticket'], async (req: any, res) => {
+  if (!req.user) return res.status(401).json({ error: 'Unauthorized: Authentication required' });
+
+  const { subject, message, category } = req.body || {};
+  if (!subject || typeof subject !== 'string' || !subject.trim()) {
+    return res.status(400).json({ error: 'subject is required' });
+  }
+  if (!message || typeof message !== 'string' || !message.trim()) {
+    return res.status(400).json({ error: 'message is required' });
+  }
+
+  try {
+    const userRes = await pool.query('SELECT tenant_id, role, email FROM users WHERE id = $1', [req.user.userId]).catch(() => ({ rows: [] }));
+    const tenantId = userRes.rows[0]?.tenant_id || req.tenant?.id;
+    if (!tenantId) return res.status(400).json({ error: 'Tenant context required' });
+
+    // Server-side entitlement check: client-supplied flags/priority/SLA are completely ignored.
+    const isPriority = !!req.entitlements?.prioritySupport;
+    const priority = isPriority ? 'priority' : 'standard';
+    
+    // Effective SLA target in hours from entitlements
+    const slaHours = typeof req.entitlements?.slaHours === 'number' && req.entitlements.slaHours > 0
+      ? req.entitlements.slaHours
+      : null;
+
+    const now = new Date();
+    const firstResponseDueAt = slaHours ? new Date(now.getTime() + slaHours * 3600 * 1000) : null;
+    const slaStatus = slaHours ? 'within_sla' : 'no_sla';
+    const ticketId = crypto.randomUUID();
+
+    try {
+      await pool.query(
+        `INSERT INTO support_tickets (
+           id, tenant_id, user_id, subject, message, category,
+           priority, is_priority, status,
+           sla_hours, first_response_due_at, sla_status,
+           created_at, updated_at
+         )
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'open', $9, $10, $11, NOW(), NOW())`,
+        [
+          ticketId,
+          tenantId,
+          req.user.userId,
+          subject.trim().slice(0, 255),
+          message.trim(),
+          category || 'general',
+          priority,
+          isPriority,
+          slaHours,
+          firstResponseDueAt,
+          slaStatus,
+        ]
+      );
+    } catch (dbErr: any) {
+      logger.warn('Failed to insert support ticket into DB:', dbErr.message);
+    }
+
+    res.status(201).json({
+      success: true,
+      ticket: {
+        id: ticketId,
+        tenantId,
+        userId: req.user.userId,
+        subject: subject.trim().slice(0, 255),
+        message: message.trim(),
+        category: category || 'general',
+        priority,
+        isPriority,
+        status: 'open',
+        slaHours,
+        firstResponseDueAt: firstResponseDueAt ? firstResponseDueAt.toISOString() : null,
+        firstRespondedAt: null,
+        slaStatus,
+        createdAt: now.toISOString(),
+      },
+      message: isPriority
+        ? 'Support request submitted with priority handling.'
+        : 'Support request submitted with standard handling.',
+    });
+  } catch (err: any) {
+    logger.error('Create support ticket error:', err);
+    res.status(500).json({ error: 'Failed to create support ticket' });
+  }
+});
+
+// POST /api/user/support/tickets/:id/respond & /api/v1/user/support/tickets/:id/respond
+// Records a substantive support response from an authorized agent or administrator.
+// Automated creation acknowledgments do NOT use this endpoint.
+router.post(['/support/tickets/:id/respond', '/user/support/tickets/:id/respond'], async (req: any, res) => {
+  if (!req.user) return res.status(401).json({ error: 'Unauthorized: Authentication required' });
+
+  const { id } = req.params;
+  const { message } = req.body || {};
+  if (!message || typeof message !== 'string' || !message.trim()) {
+    return res.status(400).json({ error: 'message is required for support response' });
+  }
+
+  try {
+    const userRes = await pool.query('SELECT role FROM users WHERE id = $1', [req.user.userId]).catch(() => ({ rows: [] }));
+    const userRole = userRes.rows[0]?.role || req.user.role;
+    const isAgentOrAdmin = ['admin', 'superadmin', 'agent', 'support'].includes(userRole) || !!req.user.isInternal;
+
+    if (!isAgentOrAdmin) {
+      return res.status(403).json({
+        error: 'Forbidden: Only authorized support agents or administrators may record a substantive response',
+        code: 'UNAUTHORIZED_AGENT_ACTION',
+      });
+    }
+
+    const ticketRes = await pool.query('SELECT * FROM support_tickets WHERE id = $1', [id]).catch(() => ({ rows: [] }));
+    const ticket = ticketRes.rows[0];
+    if (!ticket) {
+      return res.status(404).json({ error: 'Ticket not found' });
+    }
+
+    const now = new Date();
+    const isFirstResponse = !ticket.first_responded_at;
+    let newSlaStatus = ticket.sla_status;
+
+    if (isFirstResponse) {
+      if (ticket.first_response_due_at) {
+        const dueTime = new Date(ticket.first_response_due_at).getTime();
+        newSlaStatus = now.getTime() <= dueTime ? 'met' : 'breached';
+      } else {
+        newSlaStatus = 'no_sla';
+      }
+    }
+
+    const updateRes = await pool.query(
+      `UPDATE support_tickets
+       SET first_responded_at = COALESCE(first_responded_at, $1),
+           first_responder_id = COALESCE(first_responder_id, $2),
+           first_response_text = COALESCE(first_response_text, $3),
+           sla_status = CASE
+             WHEN first_responded_at IS NOT NULL THEN sla_status
+             WHEN first_response_due_at IS NULL THEN 'no_sla'
+             WHEN $1 <= first_response_due_at THEN 'met'
+             ELSE 'breached'
+           END,
+           status = CASE WHEN status = 'open' THEN 'in_progress' ELSE status END,
+           updated_at = NOW()
+       WHERE id = $4
+       RETURNING *`,
+      [now, req.user.userId, message.trim(), id]
+    ).catch(() => ({ rows: [] }));
+
+    const updated = updateRes.rows[0] || {
+      ...ticket,
+      first_responded_at: ticket.first_responded_at || now.toISOString(),
+      first_responder_id: ticket.first_responder_id || req.user.userId,
+      first_response_text: ticket.first_response_text || message.trim(),
+      sla_status: newSlaStatus,
+      status: ticket.status === 'open' ? 'in_progress' : ticket.status,
+    };
+
+    res.json({
+      success: true,
+      ticket: updated,
+      isFirstResponse,
+      slaStatus: updated.sla_status,
+      message: 'Substantive response recorded successfully.',
+    });
+  } catch (err: any) {
+    logger.error('Record support response error:', err);
+    res.status(500).json({ error: 'Failed to record response' });
+  }
+});
+
+// POST /api/user/support/priority-escalate & /api/v1/user/support/priority-escalate
+// Priority-only operation: requires priority_support entitlement.
+router.post(['/support/priority-escalate', '/user/support/priority-escalate'], requirePrioritySupport, async (req: any, res) => {
+  const { ticketId, reason } = req.body || {};
+  if (!ticketId || typeof ticketId !== 'string') {
+    return res.status(400).json({ error: 'ticketId is required' });
+  }
+
+  try {
+    const userRes = await pool.query('SELECT tenant_id, role FROM users WHERE id = $1', [req.user.userId]).catch(() => ({ rows: [] }));
+    const tenantId = userRes.rows[0]?.tenant_id || req.tenant?.id;
+
+    // Verify ticket ownership for tenant isolation
+    const ticketRes = await pool.query(
+      'SELECT id, tenant_id, priority, is_priority FROM support_tickets WHERE id = $1',
+      [ticketId]
+    ).catch(() => ({ rows: [] }));
+
+    if (ticketRes.rows.length > 0) {
+      const ticket = ticketRes.rows[0];
+      if (ticket.tenant_id !== tenantId && !['admin', 'superadmin'].includes(userRes.rows[0]?.role)) {
+        return res.status(403).json({ error: 'Forbidden: Cannot escalate tickets of another tenant' });
+      }
+
+      await pool.query(
+        `UPDATE support_tickets SET priority = 'priority', is_priority = true, updated_at = NOW() WHERE id = $1`,
+        [ticketId]
+      ).catch(() => {});
+    }
+
+    res.json({
+      success: true,
+      escalated: true,
+      ticketId,
+      queue: 'priority_escalation',
+      reason: reason || null,
+      message: 'Ticket successfully escalated to priority support queue.',
+    });
+  } catch (err: any) {
+    logger.error('Priority escalate error:', err);
+    res.status(500).json({ error: 'Failed to escalate ticket' });
+  }
+});
+
+// PATCH /api/user/support/tickets/:id & /api/v1/user/support/tickets/:id
+// Update support ticket: prevents unauthorized tenants from modifying priority or escalation fields.
+router.patch(['/support/tickets/:id', '/user/support/tickets/:id'], async (req: any, res) => {
+  if (!req.user) return res.status(401).json({ error: 'Unauthorized: Authentication required' });
+
+  const { id } = req.params;
+  const { message, status, priority, is_priority, sla_hours, first_response_due_at, first_responded_at, sla_status } = req.body || {};
+
+  try {
+    const userRes = await pool.query('SELECT tenant_id, role FROM users WHERE id = $1', [req.user.userId]).catch(() => ({ rows: [] }));
+    const tenantId = userRes.rows[0]?.tenant_id || req.tenant?.id;
+    const userRole = userRes.rows[0]?.role || req.user.role;
+    const isAdmin = ['admin', 'superadmin'].includes(userRole) || !!req.user.isInternal;
+
+    const ticketRes = await pool.query('SELECT * FROM support_tickets WHERE id = $1', [id]).catch(() => ({ rows: [] }));
+    const ticket = ticketRes.rows[0];
+    if (!ticket) {
+      return res.status(404).json({ error: 'Ticket not found' });
+    }
+
+    // Tenant isolation: Tenant A cannot modify Tenant B's tickets
+    if (ticket.tenant_id !== tenantId && !isAdmin) {
+      return res.status(403).json({ error: 'Forbidden: Cannot modify tickets of another tenant' });
+    }
+
+    // Unauthorized users cannot alter priority or is_priority fields
+    if ((priority !== undefined || is_priority !== undefined) && !isAdmin) {
+      return res.status(403).json({
+        error: 'Forbidden: You are not authorized to modify ticket priority fields',
+        code: 'UNAUTHORIZED_PRIORITY_CHANGE',
+      });
+    }
+
+    // Unauthorized users cannot alter SLA fields
+    if (
+      (sla_hours !== undefined ||
+        first_response_due_at !== undefined ||
+        first_responded_at !== undefined ||
+        sla_status !== undefined) &&
+      !isAdmin
+    ) {
+      return res.status(403).json({
+        error: 'Forbidden: You are not authorized to modify ticket SLA fields',
+        code: 'UNAUTHORIZED_SLA_CHANGE',
+      });
+    }
+
+    const updatedPriority = isAdmin && priority !== undefined ? priority : ticket.priority;
+    const updatedIsPriority = isAdmin && is_priority !== undefined ? !!is_priority : ticket.is_priority;
+    const updatedStatus = status || ticket.status;
+    const updatedMessage = message ? `${ticket.message}\n\n[Update]: ${message}` : ticket.message;
+
+    const resolvedAt = status === 'resolved' ? (ticket.resolved_at || new Date()) : ticket.resolved_at;
+    const closedAt = status === 'closed' ? (ticket.closed_at || new Date()) : ticket.closed_at;
+
+    await pool.query(
+      `UPDATE support_tickets
+       SET message = $1, status = $2, priority = $3, is_priority = $4, resolved_at = $5, closed_at = $6, updated_at = NOW()
+       WHERE id = $7`,
+      [updatedMessage, updatedStatus, updatedPriority, updatedIsPriority, resolvedAt, closedAt, id]
+    ).catch(() => {});
+
+    res.json({
+      success: true,
+      ticket: {
+        ...ticket,
+        message: updatedMessage,
+        status: updatedStatus,
+        priority: updatedPriority,
+        isPriority: updatedIsPriority,
+        resolved_at: resolvedAt,
+        closed_at: closedAt,
+      },
+    });
+  } catch (err: any) {
+    logger.error('Update support ticket error:', err);
+    res.status(500).json({ error: 'Failed to update ticket' });
   }
 });
 

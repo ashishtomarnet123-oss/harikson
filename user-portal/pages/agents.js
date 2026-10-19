@@ -89,7 +89,12 @@ function AgentsPage() {
         fetchAgents();
         toast.success(isNew ? 'Agent created' : 'Agent updated');
       } else {
-        toast.error('Failed to save agent');
+        const errData = await res.json().catch(() => ({}));
+        if (errData?.code === 'PLAN_FEATURE_DISABLED' && errData?.feature === 'custom_models') {
+          toast.error(errData.error || 'Custom models require an Enterprise subscription. Please upgrade in Billing.');
+        } else {
+          toast.error(errData?.error || 'Failed to save agent');
+        }
       }
     } catch (err) {
       console.error('Save agent error:', err);

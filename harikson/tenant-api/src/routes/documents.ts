@@ -2,6 +2,7 @@ import { Router, Request, Response } from 'express';
 import multer from 'multer';
 import { z } from 'zod';
 import { RagService } from '../services/rag.service.js';
+import { QuotaExceededError } from '../services/documentQuotaService.js';
 
 const router = Router();
 const ALLOWED_EXTENSIONS = new Set(['pdf', 'txt', 'md', 'json', 'docx', 'csv', 'log']);
@@ -97,6 +98,21 @@ router.post(
         status: 'INDEXED',
       });
     } catch (error: any) {
+      if (error instanceof QuotaExceededError || error?.code === 'PLAN_LIMIT_EXCEEDED') {
+        return res.status(403).json(
+          typeof error.toJSON === 'function'
+            ? error.toJSON()
+            : {
+                error: error.message,
+                code: 'PLAN_LIMIT_EXCEEDED',
+                feature: 'rag_documents',
+                limitReached: true,
+                currentUsage: error.currentUsage,
+                limit: error.limit,
+                plan: error.plan,
+              }
+        );
+      }
       return res.status(500).json({ error: error.message });
     }
   }
@@ -126,6 +142,21 @@ router.post('/crawl', async (req: Request, res: Response) => {
       status: 'INDEXED',
     });
   } catch (error: any) {
+    if (error instanceof QuotaExceededError || error?.code === 'PLAN_LIMIT_EXCEEDED') {
+      return res.status(403).json(
+        typeof error.toJSON === 'function'
+          ? error.toJSON()
+          : {
+              error: error.message,
+              code: 'PLAN_LIMIT_EXCEEDED',
+              feature: 'rag_documents',
+              limitReached: true,
+              currentUsage: error.currentUsage,
+              limit: error.limit,
+              plan: error.plan,
+            }
+      );
+    }
     return res.status(500).json({ error: error.message });
   }
 });

@@ -7,6 +7,7 @@ import pLimit from 'p-limit';
 import axios from 'axios';
 import { encryptDocumentContent } from './documentEncryptionService.js';
 import { DocumentIntelligenceEngine } from './document-intelligence/index.js';
+import { DocumentQuotaService } from './documentQuotaService.js';
 
 export class RagService {
   private static async executeQuery<T>(
@@ -157,25 +158,33 @@ export class RagService {
       const { encryptedContent, iv, authTag, keyId } = encryptDocumentContent(newDocId, text);
 
       await this.executeQuery(tenantId, async (client) => {
-        await client.query(
-          `INSERT INTO knowledge_documents (
-            id, tenant_id, user_id, title, filename, file_type, file_size_bytes,
-            content, content_iv, content_tag, key_id, is_active, rag_enabled, status
-           )
-           VALUES ($1, $2, $3, $4, $4, $5, $6, $7, $8, $9, $10, true, true, 'indexed')`,
-          [
-            newDocId,
-            tenantId,
-            userId,
-            name,
-            fileType,
-            sizeBytes || text.length,
-            encryptedContent,
-            iv,
-            authTag,
-            keyId,
-          ]
-        );
+        await client.query('BEGIN');
+        try {
+          await DocumentQuotaService.assertAndReserveSlot(tenantId, client);
+          await client.query(
+            `INSERT INTO knowledge_documents (
+              id, tenant_id, user_id, title, filename, file_type, file_size_bytes,
+              content, content_iv, content_tag, key_id, is_active, rag_enabled, status
+             )
+             VALUES ($1, $2, $3, $4, $4, $5, $6, $7, $8, $9, $10, true, true, 'indexed')`,
+            [
+              newDocId,
+              tenantId,
+              userId,
+              name,
+              fileType,
+              sizeBytes || text.length,
+              encryptedContent,
+              iv,
+              authTag,
+              keyId,
+            ]
+          );
+          await client.query('COMMIT');
+        } catch (err) {
+          await client.query('ROLLBACK');
+          throw err;
+        }
       });
 
       // Generate embeddings in parallel (max 5 concurrent calls)
