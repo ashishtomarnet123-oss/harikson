@@ -130,6 +130,7 @@ export class NeuraCollectService {
     const effectiveReturnUrl = returnUrl || `https://xarwiz.com/settings/billing?status=success&provider=neuracollect&order_id={order_id}&planId=${planId}`;
 
     const payload = {
+      orderId: externalOrderId,
       externalOrderId,
       amount: formattedAmount,
       currency,
@@ -148,7 +149,11 @@ export class NeuraCollectService {
       const response = await axios.post(config.endpoint, payload, {
         headers: {
           'Content-Type': 'application/json',
+          'x-client-id': config.merchantId || 'xarwiz',
+          'x-app-id': config.merchantId || 'xarwiz',
+          'x-api-key': config.apiKey,
           'x-collect-api-key': config.apiKey,
+          'Authorization': `Bearer ${config.apiKey}`,
         },
         timeout: 15000,
       });
@@ -159,11 +164,11 @@ export class NeuraCollectService {
       const environment = data.environment || (config.isTestMode ? 'TEST' : 'PRODUCTION');
 
       // Cashfree-compatible hosted checkout redirect fallback if paymentSessionId is provided
-      const checkoutUrl = paymentSessionId
+      const checkoutUrl = data.checkoutUrl || data.paymentLink || (paymentSessionId
         ? (environment === 'TEST'
             ? `https://sandbox.cashfree.com/pg/view/sessions/${paymentSessionId}`
             : `https://payments.cashfree.com/forms/${paymentSessionId}`)
-        : effectiveReturnUrl;
+        : effectiveReturnUrl);
 
       return {
         paymentSessionId,
