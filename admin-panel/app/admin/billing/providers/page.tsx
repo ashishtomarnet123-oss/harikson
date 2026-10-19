@@ -8,6 +8,8 @@ import {
   Trash2,
   CheckCircle,
   HelpCircle,
+  Edit2,
+  X,
 } from 'lucide-react';
 import { getCookie } from 'cookies-next';
 
@@ -27,6 +29,7 @@ export default function BillingProvidersPage() {
   const [providers, setProviders] = useState<Provider[]>([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
 
   // Form states
   const [providerType, setProviderType] = useState<
@@ -83,13 +86,42 @@ export default function BillingProvidersPage() {
     fetchData();
   }, [apiBase]);
 
+  const handleStartEdit = (p: Provider) => {
+    setEditingId(p.id);
+    setProviderType(p.provider);
+    setName(p.name);
+    setMerchantId(p.merchant_id || '');
+    setIsTestMode(p.is_test_mode);
+    setApiKey('');
+    setApiSecret('');
+    setWebhookSecret('');
+    if (typeof window !== 'undefined') {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  };
+
+  const handleCancelEdit = () => {
+    setEditingId(null);
+    setName('');
+    setApiKey('');
+    setApiSecret('');
+    setWebhookSecret('');
+    setMerchantId('');
+    setIsTestMode(true);
+  };
+
   const handleSaveProvider = async (e: React.FormEvent) => {
     e.preventDefault();
     setSubmitting(true);
 
     try {
-      const res = await fetch(`${apiBase}/v1/admin/billing/providers`, {
-        method: 'POST',
+      const url = editingId
+        ? `${apiBase}/v1/admin/billing/providers/${editingId}`
+        : `${apiBase}/v1/admin/billing/providers`;
+      const method = editingId ? 'PUT' : 'POST';
+
+      const res = await fetch(url, {
+        method,
         headers: {
           'Content-Type': 'application/json',
         },
@@ -107,15 +139,17 @@ export default function BillingProvidersPage() {
 
       if (!res.ok) {
         const errData = await res.json().catch(() => ({}));
-        throw new Error(errData.error || 'Validation API call failed');
+        throw new Error(
+          errData.error || (editingId ? 'Failed to update provider' : 'Validation API call failed')
+        );
       }
 
-      alert('Payment provider validated & configured successfully!');
-      setName('');
-      setApiKey('');
-      setApiSecret('');
-      setWebhookSecret('');
-      setMerchantId('');
+      alert(
+        editingId
+          ? 'Payment provider configuration updated successfully!'
+          : 'Payment provider validated & configured successfully!'
+      );
+      handleCancelEdit();
       fetchData();
     } catch (err: any) {
       alert(
@@ -172,11 +206,25 @@ export default function BillingProvidersPage() {
         {/* Form Column */}
         <div className="bg-gray-900/40 border border-gray-800/80 rounded-2xl p-6 flex flex-col justify-between">
           <div>
-            <h3 className="text-base font-bold text-white uppercase tracking-wider mb-1">
-              Connect Account
-            </h3>
+            <div className="flex items-center justify-between mb-1">
+              <h3 className="text-base font-bold text-white uppercase tracking-wider">
+                {editingId ? 'Edit Merchant Account' : 'Connect Account'}
+              </h3>
+              {editingId && (
+                <button
+                  type="button"
+                  onClick={handleCancelEdit}
+                  className="px-2.5 py-0.5 text-[11px] font-bold bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 rounded-full flex items-center gap-1 transition-colors"
+                >
+                  <X className="w-3 h-3" />
+                  <span>Exit Edit</span>
+                </button>
+              )}
+            </div>
             <p className="text-xs text-gray-500 mb-6">
-              Validates credentials before saving to the encrypted database.
+              {editingId
+                ? 'Updating existing provider. Leave API key / secret blank to keep previously saved credentials.'
+                : 'Validates credentials before saving to the encrypted database.'}
             </p>
 
             <form onSubmit={handleSaveProvider} className="space-y-4">
@@ -316,9 +364,11 @@ export default function BillingProvidersPage() {
                 <div className="relative">
                   <input
                     type={showApiKey ? 'text' : 'password'}
-                    required
+                    required={!editingId}
                     placeholder={
-                      providerType === 'neuracollect'
+                      editingId
+                        ? '•••••••• (Leave blank to keep existing key)'
+                        : providerType === 'neuracollect'
                         ? 'nv_test_xxxx or nv_live_xxxx'
                         : providerType === 'cashfree'
                         ? 'cfsk_ma_test_xxxx'
@@ -361,9 +411,11 @@ export default function BillingProvidersPage() {
                 <div className="relative">
                   <input
                     type={showApiSecret ? 'text' : 'password'}
-                    required
+                    required={!editingId}
                     placeholder={
-                      providerType === 'neuracollect'
+                      editingId
+                        ? '•••••••• (Leave blank to keep existing secret)'
+                        : providerType === 'neuracollect'
                         ? 'nv_sec_xxxx (or same as API key)'
                         : providerType === 'cashfree'
                         ? 'cfsecret_xxxx'
@@ -407,7 +459,9 @@ export default function BillingProvidersPage() {
                   <input
                     type={showWebhookSecret ? 'text' : 'password'}
                     placeholder={
-                      providerType === 'neuracollect'
+                      editingId
+                        ? '•••••••• (Leave blank to keep existing webhook secret)'
+                        : providerType === 'neuracollect'
                         ? 'whsec_nv_xxxx'
                         : providerType === 'cashfree'
                         ? 'cfsk_webhook_xxxx (optional)'
@@ -447,15 +501,28 @@ export default function BillingProvidersPage() {
                 />
               </label>
 
-              <button
-                type="submit"
-                disabled={submitting}
-                className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl shadow-sm transition-all mt-4 disabled:opacity-50"
-              >
-                {submitting
-                  ? 'Verifying Credentials...'
-                  : 'Validate & Save Merchant'}
-              </button>
+              <div className="flex gap-2.5 mt-4">
+                <button
+                  type="submit"
+                  disabled={submitting}
+                  className="flex-1 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl shadow-sm transition-all disabled:opacity-50"
+                >
+                  {submitting
+                    ? 'Saving Changes...'
+                    : editingId
+                    ? 'Save & Update Merchant'
+                    : 'Validate & Save Merchant'}
+                </button>
+                {editingId && (
+                  <button
+                    type="button"
+                    onClick={handleCancelEdit}
+                    className="px-4 py-2.5 bg-gray-800 hover:bg-gray-700 text-gray-300 font-bold text-xs rounded-xl border border-gray-700 transition-all"
+                  >
+                    Cancel
+                  </button>
+                )}
+              </div>
             </form>
           </div>
         </div>
@@ -535,17 +602,29 @@ export default function BillingProvidersPage() {
                           </span>
                         </td>
                         <td className="py-4 px-5 text-right">
-                          <button
-                            onClick={() => handleDeleteProvider(p.id)}
-                            style={{ color: '#E11D48' }}
-                            className="p-1.5 bg-rose-900/30 hover:bg-rose-900/50 text-rose-400 border border-rose-800 rounded-lg transition-all"
-                            title="Disconnect Merchant"
-                          >
-                            <Trash2
-                              className="w-4 h-4"
+                          <div className="flex items-center justify-end gap-2">
+                            <button
+                              type="button"
+                              onClick={() => handleStartEdit(p)}
+                              className="px-2.5 py-1.5 bg-indigo-900/40 hover:bg-indigo-900/70 text-indigo-300 border border-indigo-700/60 rounded-lg transition-all flex items-center gap-1.5 text-xs font-semibold"
+                              title="Edit Merchant Configuration"
+                            >
+                              <Edit2 className="w-3.5 h-3.5 text-indigo-400" />
+                              <span>Edit</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteProvider(p.id)}
                               style={{ color: '#E11D48' }}
-                            />
-                          </button>
+                              className="p-1.5 bg-rose-900/30 hover:bg-rose-900/50 text-rose-400 border border-rose-800 rounded-lg transition-all"
+                              title="Disconnect Merchant"
+                            >
+                              <Trash2
+                                className="w-4 h-4"
+                                style={{ color: '#E11D48' }}
+                              />
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     ))

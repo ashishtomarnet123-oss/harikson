@@ -4163,6 +4163,86 @@ app.get('/admin/billing/providers', adminAuth, async (req, res) => {
   }
 });
 
+// 24b. PUT /admin/billing/providers/:id (update payment provider)
+app.put('/admin/billing/providers/:id', adminAuth, async (req, res) => {
+  const { id } = req.params;
+  const {
+    provider,
+    name,
+    api_key,
+    api_secret,
+    webhook_secret,
+    merchant_id,
+    is_test_mode,
+  } = req.body;
+
+  try {
+    const existingRes = await pool.query(
+      'SELECT * FROM payment_providers WHERE id = $1',
+      [id]
+    );
+    if (existingRes.rows.length === 0) {
+      return res.status(404).json({ error: 'Provider configuration not found' });
+    }
+    const existing = existingRes.rows[0];
+
+    // Encrypt new credentials if provided, otherwise preserve existing
+    let encryptedKey = existing.api_key_encrypted;
+    if (api_key && api_key.trim() && !api_key.includes('****')) {
+      encryptedKey = encryptText(api_key.trim());
+    }
+
+    let encryptedSecret = existing.api_secret_encrypted;
+    if (api_secret && api_secret.trim() && !api_secret.includes('****')) {
+      encryptedSecret = encryptText(api_secret.trim());
+    }
+
+    let encryptedWebhookSecret = existing.webhook_secret_encrypted;
+    if (webhook_secret && webhook_secret.trim() && !webhook_secret.includes('****')) {
+      encryptedWebhookSecret = encryptText(webhook_secret.trim());
+    }
+
+    const updatedProvider = provider || existing.provider;
+    const updatedName = name || existing.name;
+    const updatedMerchantId = merchant_id !== undefined ? merchant_id : existing.merchant_id;
+    const updatedTestMode = is_test_mode !== undefined ? is_test_mode : existing.is_test_mode;
+
+    const result = await pool.query(
+      `UPDATE payment_providers
+       SET provider = $1, name = $2, api_key_encrypted = $3, api_secret_encrypted = $4,
+           webhook_secret_encrypted = $5, merchant_id = $6, is_test_mode = $7, is_active = true
+       WHERE id = $8
+       RETURNING id, provider, name, merchant_id, is_active, is_test_mode, created_at`,
+      [
+        updatedProvider,
+        updatedName,
+        encryptedKey,
+        encryptedSecret,
+        encryptedWebhookSecret,
+        updatedMerchantId,
+        updatedTestMode,
+        id,
+      ]
+    );
+
+    const updated = result.rows[0];
+    await logAdminAction(
+      req.admin.id,
+      'update_payment_provider',
+      'payment_provider',
+      id,
+      existing,
+      updated,
+      req
+    );
+
+    res.status(200).json({ success: true, provider: updated });
+  } catch (err) {
+    logger.error('Failed to update payment provider:', err);
+    res.status(500).json({ error: 'Failed to update payment merchant' });
+  }
+});
+
 // 25. DELETE /admin/billing/providers/:id (deactivate provider)
 app.delete('/admin/billing/providers/:id', adminAuth, async (req, res) => {
   const { id } = req.params;
