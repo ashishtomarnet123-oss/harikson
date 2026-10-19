@@ -35,6 +35,42 @@ const getJwtSecret = () => {
   return secret;
 };
 
+export function getAuthCookieHeaders(
+  req: any,
+  accessToken: string,
+  refreshToken: string,
+  maxAgeAccess = 7 * 24 * 60 * 60,
+  maxAgeRefresh = 30 * 24 * 60 * 60
+): string[] {
+  const forwardedHost = (req.headers['x-forwarded-host'] as string) || '';
+  const host = (req.headers.host as string) || '';
+  const origin = (req.headers.origin as string) || '';
+  const isXarwiz = host.includes('xarwiz.com') || forwardedHost.includes('xarwiz.com') || origin.includes('xarwiz.com');
+  const domainSuffix = isXarwiz ? '; Domain=.xarwiz.com' : '';
+  const isHttps = req.headers['x-forwarded-proto'] === 'https' || (req.socket as any)?.encrypted;
+  const secureFlag = isHttps ? 'Secure; ' : '';
+
+  return [
+    `hk_access_token=${accessToken}; HttpOnly; ${secureFlag}SameSite=Lax; Path=/; Max-Age=${maxAgeAccess}${domainSuffix}`,
+    `hk_refresh_token=${refreshToken}; HttpOnly; ${secureFlag}SameSite=Lax; Path=/; Max-Age=${maxAgeRefresh}${domainSuffix}`,
+  ];
+}
+
+export function getClearCookieHeaders(req: any): string[] {
+  const forwardedHost = (req.headers['x-forwarded-host'] as string) || '';
+  const host = (req.headers.host as string) || '';
+  const origin = (req.headers.origin as string) || '';
+  const isXarwiz = host.includes('xarwiz.com') || forwardedHost.includes('xarwiz.com') || origin.includes('xarwiz.com');
+  const domainSuffix = isXarwiz ? '; Domain=.xarwiz.com' : '';
+  const isHttps = req.headers['x-forwarded-proto'] === 'https' || (req.socket as any)?.encrypted;
+  const secureFlag = isHttps ? 'Secure; ' : '';
+
+  return [
+    `hk_access_token=; HttpOnly; ${secureFlag}SameSite=Lax; Path=/; Max-Age=0${domainSuffix}`,
+    `hk_refresh_token=; HttpOnly; ${secureFlag}SameSite=Lax; Path=/; Max-Age=0${domainSuffix}`,
+  ];
+}
+
 // Helper: Handle Login Logic
 async function handleLogin(req: any, res: any) {
   const { email, password } = req.body;
@@ -187,9 +223,9 @@ async function handleLogin(req: any, res: any) {
     }
 
     if (user.force_password_change || user.must_change_password) {
-      return res.status(200).json({
+      return res.status(403).json({
         success: false,
-        error: 'Password change required before access.',
+        error: 'Password change required before access. Please reset your password or contact your administrator.',
         requirePasswordChange: true,
         mustChangePassword: true,
         code: 'FORCE_PASSWORD_CHANGE_REQUIRED',
@@ -217,7 +253,7 @@ async function handleLogin(req: any, res: any) {
       }
     }
 
-    const accessToken = jwt.sign({ userId: user.id, role: user.role }, getJwtSecret(), { expiresIn: '1h' });
+    const accessToken = jwt.sign({ userId: user.id, role: user.role }, getJwtSecret(), { expiresIn: '7d' });
     const refreshToken = crypto.randomBytes(64).toString('hex');
     const refreshTokenHash = crypto.createHash('sha256').update(refreshToken).digest('hex');
     const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
@@ -243,18 +279,11 @@ async function handleLogin(req: any, res: any) {
       ]
     );
 
-    const host = req.headers.host || '';
-    const domainSuffix = host.includes('xarwiz.com') ? '; Domain=.xarwiz.com' : '';
-    const isHttps = req.headers['x-forwarded-proto'] === 'https' || (req.socket as any)?.encrypted;
-    const secureFlag = isHttps ? 'Secure;' : '';
-
-    res.setHeader('Set-Cookie', [
-      `hk_access_token=${accessToken}; HttpOnly; ${secureFlag} SameSite=Strict; Path=/; Max-Age=${15 * 60}${domainSuffix}`,
-      `hk_refresh_token=${refreshToken}; HttpOnly; ${secureFlag} SameSite=Strict; Path=/; Max-Age=${30 * 24 * 60 * 60}${domainSuffix}`,
-    ]);
+    res.setHeader('Set-Cookie', getAuthCookieHeaders(req, accessToken, refreshToken));
 
     res.json({
       success: true,
+      accessToken,
       token: accessToken,
       refreshToken,
       user: {
@@ -466,7 +495,7 @@ router.post('/login/2fa', async (req, res) => {
       return res.status(401).json({ error: 'Invalid 2FA code' });
     }
 
-    const accessToken = jwt.sign({ userId: user.id, role: user.role }, getJwtSecret(), { expiresIn: '1h' });
+    const accessToken = jwt.sign({ userId: user.id, role: user.role }, getJwtSecret(), { expiresIn: '7d' });
     const refreshToken = crypto.randomBytes(64).toString('hex');
     const refreshTokenHash = crypto.createHash('sha256').update(refreshToken).digest('hex');
     const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
@@ -492,18 +521,11 @@ router.post('/login/2fa', async (req, res) => {
       ]
     );
 
-    const host = req.headers.host || '';
-    const domainSuffix = host.includes('xarwiz.com') ? '; Domain=.xarwiz.com' : '';
-    const isHttps = req.headers['x-forwarded-proto'] === 'https' || (req.socket as any)?.encrypted;
-    const secureFlag = isHttps ? 'Secure;' : '';
-
-    res.setHeader('Set-Cookie', [
-      `hk_access_token=${accessToken}; HttpOnly; ${secureFlag} SameSite=Strict; Path=/; Max-Age=${15 * 60}${domainSuffix}`,
-      `hk_refresh_token=${refreshToken}; HttpOnly; ${secureFlag} SameSite=Strict; Path=/; Max-Age=${30 * 24 * 60 * 60}${domainSuffix}`,
-    ]);
+    res.setHeader('Set-Cookie', getAuthCookieHeaders(req, accessToken, refreshToken));
 
     res.json({
       success: true,
+      accessToken,
       token: accessToken,
       refreshToken,
       user: {
@@ -554,8 +576,8 @@ async function handleRefresh(req: any, res: any) {
       return res.status(401).json({ error: 'User no longer exists' });
     }
 
-    // Issue new access token (1h) and rolling refresh token
-    const newAccessToken = jwt.sign({ userId: user.id, role: user.role }, getJwtSecret(), { expiresIn: '1h' });
+    // Issue new access token (7d) and rolling refresh token
+    const newAccessToken = jwt.sign({ userId: user.id, role: user.role }, getJwtSecret(), { expiresIn: '7d' });
     const newRefreshToken = crypto.randomBytes(64).toString('hex');
     const newRefreshTokenHash = crypto.createHash('sha256').update(newRefreshToken).digest('hex');
 
@@ -582,16 +604,7 @@ async function handleRefresh(req: any, res: any) {
       ]
     );
 
-    const host = req.headers.host || '';
-    const domainSuffix = host.includes('xarwiz.com') ? '; Domain=.xarwiz.com' : '';
-    const isHttps = req.headers['x-forwarded-proto'] === 'https' || (req.socket as any)?.encrypted;
-    const secureFlag = isHttps ? 'Secure; ' : '';
-
-    // Cookie max-age matches actual token lifetimes
-    res.setHeader('Set-Cookie', [
-      `hk_access_token=${newAccessToken}; HttpOnly; ${secureFlag}SameSite=Strict; Path=/; Max-Age=${60 * 60}${domainSuffix}`,
-      `hk_refresh_token=${newRefreshToken}; HttpOnly; ${secureFlag}SameSite=Strict; Path=/; Max-Age=${30 * 24 * 60 * 60}${domainSuffix}`,
-    ]);
+    res.setHeader('Set-Cookie', getAuthCookieHeaders(req, newAccessToken, newRefreshToken));
 
     res.json({
       success: true,
@@ -616,12 +629,7 @@ async function handleLogout(req: any, res: any) {
     await pool.query('DELETE FROM refresh_tokens WHERE token = $1', [refreshTokenHash]).catch(() => {});
   }
 
-  const host = req.headers.host || '';
-  const domainSuffix = host.includes('xarwiz.com') ? '; Domain=.xarwiz.com' : '';
-  res.setHeader('Set-Cookie', [
-    `hk_access_token=; HttpOnly; SameSite=Strict; Path=/; Max-Age=0${domainSuffix}`,
-    `hk_refresh_token=; HttpOnly; SameSite=Strict; Path=/; Max-Age=0${domainSuffix}`,
-  ]);
+  res.setHeader('Set-Cookie', getClearCookieHeaders(req));
 
   res.json({ success: true, message: 'Logged out successfully' });
 }

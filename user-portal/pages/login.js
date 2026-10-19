@@ -248,6 +248,18 @@ export default function LoginPage() {
         return;
       }
 
+      if (data.requirePasswordChange || data.mustChangePassword || data.code === 'FORCE_PASSWORD_CHANGE_REQUIRED') {
+        setError(data.error || data.message || 'Password change required before access. Please reset your password or contact support.');
+        setLoading(false);
+        return;
+      }
+
+      if (data.success === false) {
+        setError(data.error || data.message || 'Login failed. Please verify your credentials.');
+        setLoading(false);
+        return;
+      }
+
       if (!res.ok) throw new Error(data.error || `Login failed (${res.status})`);
       
       if (data.requires2FA) {
@@ -258,12 +270,16 @@ export default function LoginPage() {
       }
 
       const tokenToSave = data.accessToken || data.token;
+      if (!tokenToSave) {
+        setError(data.error || 'Login failed: server did not return a session token.');
+        setLoading(false);
+        return;
+      }
+
       if (data.refreshToken) {
         localStorage.setItem('hk_refresh_token', data.refreshToken);
       }
-      if (tokenToSave) {
-        localStorage.setItem('hk_access_token', tokenToSave);
-      }
+      localStorage.setItem('hk_access_token', tokenToSave);
       const serverSlug = data.user?.tenantSlug || tenantSlug;
       localStorage.setItem('hk_user', JSON.stringify({ ...data.user, tenantSlug: serverSlug }));
       localStorage.setItem('hk_tenant', serverSlug);
@@ -299,15 +315,16 @@ export default function LoginPage() {
         body: JSON.stringify({ userId, code: totpCode }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Verification failed');
+      if (!res.ok || data.success === false) throw new Error(data.error || 'Verification failed');
 
       const tokenToSave2FA = data.accessToken || data.token;
+      if (!tokenToSave2FA) {
+        throw new Error('Verification succeeded but no session token was issued.');
+      }
       if (data.refreshToken) {
         localStorage.setItem('hk_refresh_token', data.refreshToken);
       }
-      if (tokenToSave2FA) {
-        localStorage.setItem('hk_access_token', tokenToSave2FA);
-      }
+      localStorage.setItem('hk_access_token', tokenToSave2FA);
       const serverSlug2FA = data.user?.tenantSlug || tenantSlug;
       localStorage.setItem('hk_user', JSON.stringify({ ...data.user, tenantSlug: serverSlug2FA }));
       localStorage.setItem('hk_tenant', serverSlug2FA);
