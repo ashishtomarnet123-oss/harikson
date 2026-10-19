@@ -14,6 +14,12 @@ import { requireApiAccess, isPlatformDefaultModel } from '../middleware/entitlem
 import { SYSTEM_PROMPT } from '../prompts/system-prompt.js';
 import { TitleService } from '../services/titleService.js';
 import { UniversalPdfEngine, PdfOrchestrator } from '../services/pdf/index.js';
+import {
+  globalInferenceQueue,
+  InferenceOverloadError,
+  InferenceQueueTimeoutError,
+  InferenceAbortedError,
+} from '../services/inferenceQueue.js';
 
 const router = Router();
 const redis = new Redis(process.env.REDIS_URL || 'redis://redis:6379', {
@@ -558,6 +564,7 @@ async function handleChat(req: any, res: any) {
     logger.warn('Quota check failed, allowing request:', quotaErr);
   }
 
+  let releaseSlot: (() => void) | null = null;
   try {
   const { message, conversationId, agentId, model: rawModel = 'harikson-plus', stream = true, clientHistory, documentIds, collectionId } = req.body || {};
   if (!message) return res.status(400).json({ error: 'Message text is required' });
@@ -907,6 +914,10 @@ async function handleChat(req: any, res: any) {
 
       req.on('close', () => {
         cleanupKeepalive();
+        if (releaseSlot) {
+          releaseSlot();
+          releaseSlot = null;
+        }
         if (!streamEnded) {
           streamEnded = true;
           logger.info(`[STREAM] Client closed connection for conv ${currentConvId}, aborting Ollama`);
@@ -916,14 +927,43 @@ async function handleChat(req: any, res: any) {
       });
 
       try {
+        releaseSlot = await globalInferenceQueue.acquire(currentConvId || `req_${Date.now()}`, abortController.signal);
+      } catch (queueErr: any) {
+        cleanupKeepalive();
+        if (currentConvId) activeChatStreams.delete(currentConvId);
+
+        if (queueErr instanceof InferenceAbortedError || queueErr?.code === 'INFERENCE_ABORTED') {
+          return;
+        }
+
+        if (queueErr instanceof InferenceOverloadError || queueErr?.code === 'INFERENCE_OVERLOAD') {
+          logger.warn({ convId: currentConvId, err: queueErr.message }, '[CHAT] Inference capacity overload');
+          res.write(`data: ${JSON.stringify({ error: queueErr.message, code: queueErr.code, retryAfter: queueErr.retryAfter, conversationId: currentConvId })}\n\n`);
+          res.write(`data: [DONE]\n\n`);
+          return res.end();
+        }
+
+        if (queueErr instanceof InferenceQueueTimeoutError || queueErr?.code === 'INFERENCE_QUEUE_TIMEOUT') {
+          logger.warn({ convId: currentConvId, err: queueErr.message }, '[CHAT] Inference queue timeout');
+          res.write(`data: ${JSON.stringify({ error: queueErr.message, code: queueErr.code, conversationId: currentConvId })}\n\n`);
+          res.write(`data: [DONE]\n\n`);
+          return res.end();
+        }
+
+        throw queueErr;
+      }
+
+      try {
         const ollamaCallStart = Date.now();
-        logger.info({ model }, `[TIMING] Calling Ollama /api/chat with model=${model}`);
+        const ollamaKeepAlive = process.env.OLLAMA_KEEP_ALIVE || '30m';
+        logger.info({ model, ollamaKeepAlive }, `[TIMING] Calling Ollama /api/chat with model=${model}`);
         const ollamaRes = await axios.post(
           `${ollamaUrl}/api/chat`,
           {
             model,
             messages: ollamaMessages,
             stream: true,
+            keep_alive: ollamaKeepAlive,
           },
           {
             responseType: 'stream',
@@ -978,6 +1018,10 @@ async function handleChat(req: any, res: any) {
         });
 
         ollamaRes.data.on('end', async () => {
+          if (releaseSlot) {
+            releaseSlot();
+            releaseSlot = null;
+          }
           if (chunkBuffer.trim()) {
             try {
               const parsed = JSON.parse(chunkBuffer.trim());
@@ -1047,6 +1091,10 @@ async function handleChat(req: any, res: any) {
         });
 
         ollamaRes.data.on('error', async (err: any) => {
+          if (releaseSlot) {
+            releaseSlot();
+            releaseSlot = null;
+          }
           cleanupKeepalive();
           if (streamEnded) return;
           streamEnded = true;
@@ -1065,6 +1113,10 @@ async function handleChat(req: any, res: any) {
           } catch (_) {}
         });
       } catch (ollamaErr: any) {
+        if (releaseSlot) {
+          releaseSlot();
+          releaseSlot = null;
+        }
         cleanupKeepalive();
         streamEnded = true;
         if (currentConvId) activeChatStreams.delete(currentConvId);
@@ -1084,6 +1136,10 @@ async function handleChat(req: any, res: any) {
       return res.status(503).json({ error: AI_UNAVAILABLE_MSG });
     }
   } catch (err: any) {
+    if (releaseSlot) {
+      try { (releaseSlot as () => void)(); } catch (_) {}
+      releaseSlot = null;
+    }
     logger.error('Chat processing error:', err);
     try {
       if (res.headersSent) {

@@ -12,6 +12,9 @@ const nextConfig = {
   experimental: {
     proxyTimeout: 600000,
   },
+  images: {
+    formats: ['image/avif', 'image/webp'],
+  },
   async redirects() {
     return [
       {

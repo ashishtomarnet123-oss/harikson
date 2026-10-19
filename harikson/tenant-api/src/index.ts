@@ -222,7 +222,7 @@ app.use(async (req, res, next) => {
 
     if (!tenant) {
       // Health/readiness probes must work without a tenant
-      if (req.path === '/health' || req.path === '/ready') {
+      if (req.path === '/health' || req.path.startsWith('/health/') || req.path === '/ready') {
         return next();
       }
 
