@@ -283,7 +283,7 @@ export default function CookiePolicyPage() {
             <div>
               <span style={{ color: '#64748b', fontSize: '13px' }}>Corporate Registry:</span>
               <div style={{ fontSize: '14px', fontWeight: '600', color: '#1e293b', marginTop: '2px' }}>
-                Xarwiz Technologies LLP (LLPIN: AAK-1234)
+                Xarwiz Technologies LLP
               </div>
             </div>
             <div style={{ textAlign: 'right' }}>

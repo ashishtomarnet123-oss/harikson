@@ -34,7 +34,7 @@ export default function PrivacyPolicyPage() {
 
   const sectionsData = [
     { num: 1, cat: 'intro', title: 'Introduction', content: 'This Privacy Policy describes how VoltNovate Solutions LLP ("Xarwiz", "Company", "we", "us", or "our") processes, collects, stores, and protects personal data obtained from users of our Platform.' },
-    { num: 2, cat: 'intro', title: 'About Us', content: 'Company: VoltNovate Solutions LLP. Registered Office Address: Sector 62, Noida, Uttar Pradesh, India - 201301. LLPIN: AAK-1234. Support Email: support@xarwiz.com. Privacy Email: privacy@xarwiz.com.' },
+    { num: 2, cat: 'intro', title: 'About Us', content: 'Company: VoltNovate Solutions LLP. Registered Office Address: Sector 62, Noida, Uttar Pradesh, India - 201301. Support Email: support@xarwiz.com. Privacy Email: privacy@xarwiz.com.' },
     { num: 3, cat: 'intro', title: 'Definitions', content: 'Personal Data: Data about an individual who is identifiable. Sensitive Personal Data: Passwords, financial or biometric credentials. Processing: Automated operations performed on data. Data Principal: The individual whose data is processed. Data Fiduciary: Entity determining processing purposes (Xarwiz).' },
     { num: 4, cat: 'intro', title: 'Scope of this Policy', content: 'This policy applies to our websites, dashboards, user portals, developer APIs, SDKs, mobile systems, browser extensions, and collaborative workspaces.' },
     
@@ -318,7 +318,7 @@ export default function PrivacyPolicyPage() {
             <div>
               <span style={{ color: '#64748b', fontSize: '13px' }}>Corporate Registry:</span>
               <div style={{ fontSize: '14px', fontWeight: '600', color: '#1e293b', marginTop: '2px' }}>
-                VoltNovate Solutions LLP (LLPIN: AAK-1234)
+                VoltNovate Solutions LLP
               </div>
             </div>
             <div style={{ textAlign: 'right' }}>
