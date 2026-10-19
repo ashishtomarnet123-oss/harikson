@@ -7,7 +7,7 @@ function PrivacySettingsPage() {
   return (
     <>
       <Head>
-        <title>Privacy &amp; Consent Settings — Xarwiz</title>
+        <title>Privacy &amp; Consent Settings - Xarwiz</title>
         <meta name="description" content="Manage DPDP purpose-based consent and privacy rights preferences in Xarwiz" />
         <meta name="robots" content="noindex, nofollow" />
       </Head>

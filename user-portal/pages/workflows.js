@@ -669,7 +669,7 @@ function WorkflowsPage() {
   return (
     <DashboardShell title="AI Automations">
       <Head>
-        <title>AI Automations — Xarwiz</title>
+        <title>AI Automations - Xarwiz</title>
         <meta name="robots" content="noindex, nofollow" />
       </Head>
 
@@ -1351,7 +1351,7 @@ function WorkflowsPage() {
                       <Play size={12} /> {wf.execution_count || wf.total_runs || 0} runs
                     </span>
                     <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                      <Clock size={12} /> {wf.avg_duration_ms ? `${wf.avg_duration_ms}ms` : '—'}
+                      <Clock size={12} /> {wf.avg_duration_ms ? `${wf.avg_duration_ms}ms` : '-'}
                     </span>
                     <span style={{
                       display: 'flex',
@@ -1580,7 +1580,7 @@ function WorkflowsPage() {
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
               <div>
                 <h3 style={{ fontSize: '16px', fontWeight: 600, color: 'var(--shell-text)', margin: 0 }}>
-                  Test Webhook — {webhookTestWf.name}
+                  Test Webhook - {webhookTestWf.name}
                 </h3>
                 <p style={{ color: 'var(--shell-text-secondary)', fontSize: '13px', margin: '4px 0 0 0' }}>
                   Send a mock JSON payload to simulate an inbound webhook event.
@@ -2171,7 +2171,7 @@ function WorkflowsPage() {
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
               <div>
                 <h3 style={{ fontSize: '16px', fontWeight: 600, color: 'var(--shell-text)', margin: 0 }}>
-                  Execution Logs — {selectedWorkflowForHistory.name}
+                  Execution Logs - {selectedWorkflowForHistory.name}
                 </h3>
                 <p style={{ color: 'var(--shell-text-secondary)', fontSize: '13px', margin: '4px 0 0 0' }}>
                   Audit telemetry, node timing, inputs, and outputs.

@@ -238,7 +238,7 @@ export default function VoiceTelemetryPage() {
             <span className="text-2xl font-bold text-emerald-400">
               {overview?.avg_ttfa_ms !== null && overview?.avg_ttfa_ms !== undefined
                 ? `${overview.avg_ttfa_ms} ms`
-                : '—'}
+                : '-'}
             </span>
           </div>
           <div className="mt-1 text-xs flex items-center gap-1 text-emerald-500/90 font-medium">
@@ -333,7 +333,7 @@ export default function VoiceTelemetryPage() {
                         {Number(b.turns_count).toLocaleString()}
                       </td>
                       <td className="py-2.5 px-3 text-right">
-                        {b.avg_ttfa_ms ? `${b.avg_ttfa_ms}ms` : '—'}
+                        {b.avg_ttfa_ms ? `${b.avg_ttfa_ms}ms` : '-'}
                       </td>
                       <td className="py-2.5 px-3 text-right text-rose-400 font-semibold">
                         {b.stt_error_rate_pct}% ({b.stt_errors_count})
@@ -391,7 +391,7 @@ export default function VoiceTelemetryPage() {
                         {Number(t.turns_count).toLocaleString()}
                       </td>
                       <td className="py-2.5 px-3 text-right">
-                        {t.avg_ttfa_ms ? `${t.avg_ttfa_ms}ms` : '—'}
+                        {t.avg_ttfa_ms ? `${t.avg_ttfa_ms}ms` : '-'}
                       </td>
                       <td className="py-2.5 px-3 text-right text-amber-400">
                         {t.interrupt_rate_pct}%
@@ -456,7 +456,7 @@ export default function VoiceTelemetryPage() {
                     </td>
                     <td className="py-2.5 px-3 font-sans">
                       <div className="font-medium text-white">{s.tenant_name || s.tenant_slug || 'Default'}</div>
-                      <div className="text-[11px] text-gray-400">{s.user_email || (s.user_id ? s.user_id.slice(0, 8) : '—')}</div>
+                      <div className="text-[11px] text-gray-400">{s.user_email || (s.user_id ? s.user_id.slice(0, 8) : '-')}</div>
                     </td>
                     <td className="py-2.5 px-3">
                       <span className="px-2 py-0.5 rounded bg-gray-800/80 text-gray-300 text-[11px]">
@@ -475,7 +475,7 @@ export default function VoiceTelemetryPage() {
                     <td className="py-2.5 px-3 text-right text-gray-400 font-sans text-xs">
                       {s.started_at && !isNaN(new Date(s.started_at).getTime())
                         ? new Date(s.started_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })
-                        : '—'}
+                        : '-'}
                     </td>
                   </tr>
                 ))

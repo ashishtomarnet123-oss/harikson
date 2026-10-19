@@ -1079,7 +1079,7 @@ const ExecutionInspectorDrawer = ({
           <div className="p-2.5 rounded-xl bg-black/40 border border-white/10">
             <span className="text-[10px] text-slate-400 block mb-1">Duration</span>
             <span className="text-xs font-mono font-bold text-white">
-              {duration ? `${duration} ms` : '—'}
+              {duration ? `${duration} ms` : '-'}
             </span>
           </div>
         </div>
@@ -3686,7 +3686,7 @@ export default function VisualWorkflowEditor({
                     })
                     .map((c) => (
                       <option key={c.id} value={c.id}>
-                        {c.name} ({c.type}) — {c.metadata?.preview || '••••••••'}
+                        {c.name} ({c.type}) - {c.metadata?.preview || '••••••••'}
                       </option>
                     ))}
                 </select>

@@ -19,7 +19,7 @@ export function withAuth(WrappedComponent) {
         }
       }
       // router itself isn't guaranteed referentially stable across renders
-      // in the Pages Router (same issue already fixed in login.js/chat.js) —
+      // in the Pages Router (same issue already fixed in login.js/chat.js) -
       // depending on the whole object turned a single redirect into a tight
       // loop of repeated /api/auth/me calls. router.replace is a stable
       // method regardless, so only the pathname needs to be a dependency.

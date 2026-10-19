@@ -155,7 +155,7 @@ function AgentsPage() {
   return (
     <DashboardShell title="AI Agents">
       <Head>
-        <title>AI Agents — Xarwiz</title>
+        <title>AI Agents - Xarwiz</title>
         <meta name="robots" content="noindex, nofollow" />
       </Head>
 

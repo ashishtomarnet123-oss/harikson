@@ -150,7 +150,7 @@ export default function TaxRatesPage() {
           <div key={idx} className="bg-slate-900/60 border border-slate-800 rounded-2xl p-5 backdrop-blur-md">
             <div className="flex justify-between items-start mb-2">
               <span className="text-xs font-bold px-2.5 py-1 bg-slate-800 text-slate-300 rounded-lg">
-                {row.country_code} — {row.tax_name}
+                {row.country_code} - {row.tax_name}
               </span>
               <span className="text-xs text-slate-400">{row.total_invoices} Invoices</span>
             </div>

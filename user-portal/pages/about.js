@@ -79,7 +79,7 @@ export default function AboutPage() {
         @import url('https://fonts.googleapis.com/css2?family=Caveat:wght@600;700&family=Inter:wght@400;500;600;700;800&display=swap');
 
         /* ==============================================================
-           CORE STYLING & VARIABLES — EXACT MATCH TO REFERENCE
+           CORE STYLING & VARIABLES - EXACT MATCH TO REFERENCE
         ============================================================== */
         *, *::before, *::after {
           box-sizing: border-box;
@@ -127,7 +127,7 @@ export default function AboutPage() {
         }
 
         /* ==============================================================
-           1. HEADER — CLEAN WHITE, REFINED NAVIGATION
+           1. HEADER - CLEAN WHITE, REFINED NAVIGATION
         ============================================================== */
         .site-nav {
           position: sticky;
@@ -295,7 +295,7 @@ export default function AboutPage() {
         }
 
         /* ==============================================================
-           2. HERO SECTION — EXACT REFERENCE TWO-COLUMN COMPOSITION
+           2. HERO SECTION - EXACT REFERENCE TWO-COLUMN COMPOSITION
         ============================================================== */
         .hero-section {
           padding: 60px 0 56px 0;
@@ -689,7 +689,7 @@ export default function AboutPage() {
           border-left: 3px solid #ec4899;
         }
 
-        /* Floating Deploy Card — OVERHANGING OUTSIDE BOTTOM-RIGHT (Zero overlap with Tools node) */
+        /* Floating Deploy Card - OVERHANGING OUTSIDE BOTTOM-RIGHT (Zero overlap with Tools node) */
         .deploy-agent-card {
           position: absolute;
           bottom: 2px;
@@ -1294,7 +1294,7 @@ export default function AboutPage() {
         }
 
         /* ==============================================================
-           8. TEAM SECTION — 4 REFINED PERSONA CARDS
+           8. TEAM SECTION - 4 REFINED PERSONA CARDS
         ============================================================== */
         .team-sec {
           padding: 96px 0;
@@ -1386,7 +1386,7 @@ export default function AboutPage() {
         }
 
         /* ==============================================================
-           9. CLOSING CTA — DARK NAVY FINISH WITH GLOWING CURVED EARTH
+           9. CLOSING CTA - DARK NAVY FINISH WITH GLOWING CURVED EARTH
         ============================================================== */
         .closing-cta-sec {
           background: #030712;
@@ -1685,7 +1685,7 @@ export default function AboutPage() {
       `}</style>
 
       {/* ==============================================================
-          1. HEADER COMPONENT — EXACT REFERENCE NAVIGATION
+          1. HEADER COMPONENT - EXACT REFERENCE NAVIGATION
       ============================================================== */}
       <header className="site-nav">
         <div className="container nav-inner">
@@ -1794,7 +1794,7 @@ export default function AboutPage() {
 
       <main>
         {/* ==============================================================
-            2. HERO SECTION — EXACT REFERENCE TWO-COLUMN COMPOSITION
+            2. HERO SECTION - EXACT REFERENCE TWO-COLUMN COMPOSITION
         ============================================================== */}
         <section className="hero-section">
           <div className="container hero-grid">
@@ -1820,7 +1820,7 @@ export default function AboutPage() {
               <p className="hero-description">
                 We're building a connected AI platform where agents, business
                 knowledge and workflows work together to help businesses get
-                real work done — faster, smarter and at scale.
+                real work done - faster, smarter and at scale.
               </p>
 
               <div className="hero-btns-row">
@@ -2121,7 +2121,7 @@ export default function AboutPage() {
                 <div className="quote-body-text">
                   “We started Xarwiz to make AI useful in the places where real business work happens.”
                 </div>
-                <div className="quote-author-line">— Ashish Tomar</div>
+                <div className="quote-author-line">- Ashish Tomar</div>
                 <div className="quote-author-title">Founder &amp; CEO, Xarwiz</div>
               </div>
 
@@ -2158,8 +2158,8 @@ export default function AboutPage() {
               </p>
 
               <p className="story-paragraph">
-                We started Xarwiz to bring everything together — AI agents,
-                business knowledge, workflows and integrations — in one platform
+                We started Xarwiz to bring everything together - AI agents,
+                business knowledge, workflows and integrations - in one platform
                 that helps teams work more intelligently.
               </p>
 
@@ -2300,7 +2300,7 @@ export default function AboutPage() {
               </h2>
 
               <p className="story-paragraph">
-                We understand the unique needs of Indian businesses — from
+                We understand the unique needs of Indian businesses - from
                 diverse languages and workflows to the way teams actually work.
                 Our goal is to make advanced AI and automation accessible,
                 practical and valuable for every organization.
@@ -2435,7 +2435,7 @@ export default function AboutPage() {
         </section>
 
         {/* ==============================================================
-            8. TEAM SECTION — 4 REFINED PERSONA CARDS
+            8. TEAM SECTION - 4 REFINED PERSONA CARDS
         ============================================================== */}
         <section className="team-sec">
           <div className="container team-2col-grid">
@@ -2588,7 +2588,7 @@ export default function AboutPage() {
         </section>
 
         {/* ==============================================================
-            9. CLOSING CTA — DARK NAVY FINISH WITH GLOWING CURVED EARTH
+            9. CLOSING CTA - DARK NAVY FINISH WITH GLOWING CURVED EARTH
         ============================================================== */}
         <section className="closing-cta-sec">
           {/* Luminous Curved Earth Atmospheric Limb */}
@@ -2604,7 +2604,7 @@ export default function AboutPage() {
               <div className="closing-eyebrow">JOIN THE NEXT CHAPTER</div>
               <h2 className="closing-h2">
                 <span style={{ display: 'block' }}>Let's Build a Smarter,</span>
-                <span style={{ display: 'block' }}>More Productive Future — Together.</span>
+                <span style={{ display: 'block' }}>More Productive Future - Together.</span>
               </h2>
               <p className="closing-subcopy">
                 Be part of a platform that turns ideas into real impact with AI
@@ -2685,7 +2685,7 @@ export default function AboutPage() {
             onClick={(e) => e.stopPropagation()}
           >
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 20px', borderBottom: '1px solid rgba(255, 255, 255, 0.1)' }}>
-              <div style={{ color: '#ffffff', fontWeight: 600, fontSize: '1rem' }}>Founder's Message — Ashish Tomar</div>
+              <div style={{ color: '#ffffff', fontWeight: 600, fontSize: '1rem' }}>Founder's Message - Ashish Tomar</div>
               <button
                 onClick={() => setVideoModalOpen(false)}
                 style={{ background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer', padding: '4px' }}
@@ -2709,7 +2709,7 @@ export default function AboutPage() {
       )}
 
       {/* ==============================================================
-          10. FOOTER PRESERVATION — STRICTLY REUSED SITE FOOTER
+          10. FOOTER PRESERVATION - STRICTLY REUSED SITE FOOTER
       ============================================================== */}
       <FooterSection />
     </div>

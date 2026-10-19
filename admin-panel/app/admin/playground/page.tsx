@@ -100,7 +100,7 @@ export default function Playground() {
             <Terminal className="w-6 h-6 text-emerald-500" /> AI Playground
           </h1>
           <p className="text-gray-400 mt-1 text-sm">
-            Test models in isolation — requests are NOT counted against tenant
+            Test models in isolation - requests are NOT counted against tenant
             quotas.
           </p>
         </div>

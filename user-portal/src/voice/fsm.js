@@ -1,5 +1,5 @@
 /**
- * fsm.ts / fsm.js — Voice State Machine (Reducer Pattern)
+ * fsm.ts / fsm.js - Voice State Machine (Reducer Pattern)
  *
  * Single source of truth for all voice UI state.
  * Zero scattered booleans. Illegal transitions log a warning and are ignored.
@@ -53,7 +53,7 @@ export function voiceFSMReducer(state, action) {
   const go = (next, extra) => {
     if (!canTransition(state.state, next)) {
       console.debug(
-        `[VoiceFSM] ⚠️ Illegal transition: ${state.state} → ${next} (action: ${action.type}) — ignored`
+        `[VoiceFSM] ⚠️ Illegal transition: ${state.state} → ${next} (action: ${action.type}) - ignored`
       );
       return state;
     }
@@ -117,7 +117,7 @@ export function voiceFSMReducer(state, action) {
 
     case 'TTS_END':
       // After AI finishes speaking a full turn, return to listening for the next
-      // turn — NOT idle. Explicit stop is handled by the STOP action below.
+      // turn - NOT idle. Explicit stop is handled by the STOP action below.
       return go('listening', { transcript: '', ttfaStart: null });
 
     case 'BARGE_IN':

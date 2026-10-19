@@ -40,7 +40,7 @@ function expiryLabel(expiresAt) {
 }
 
 /**
- * ShareModal — complete share management dialog.
+ * ShareModal - complete share management dialog.
  *
  * Props:
  *   isOpen           {boolean}
@@ -266,7 +266,7 @@ export default function ShareModal({ isOpen, onClose, conversationId, conversati
             </div>
           )}
 
-          {/* IDLE — no active share */}
+          {/* IDLE - no active share */}
           {status === 'idle' && !showPrivacyWarning && (
             <div>
               <p style={{ margin: '0 0 16px', fontSize: '13.5px', color: '#475569', lineHeight: 1.6 }}>
@@ -323,7 +323,7 @@ export default function ShareModal({ isOpen, onClose, conversationId, conversati
             </div>
           )}
 
-          {/* Privacy warning — shown before actual creation */}
+          {/* Privacy warning - shown before actual creation */}
           {status === 'idle' && showPrivacyWarning && (
             <div>
               <div style={{
@@ -401,7 +401,7 @@ export default function ShareModal({ isOpen, onClose, conversationId, conversati
             </div>
           )}
 
-          {/* SHARED state — active share exists */}
+          {/* SHARED state - active share exists */}
           {status === 'shared' && (
             <div>
               {/* Status pill */}

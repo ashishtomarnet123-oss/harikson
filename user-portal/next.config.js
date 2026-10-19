@@ -1,7 +1,7 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   // Next.js kills any rewrites()-proxied request after this long and
-  // returns a bare "Internal Server Error" — defaults to 30000ms, which
+  // returns a bare "Internal Server Error" - defaults to 30000ms, which
   // is the exact, consistent cutoff behind every chat hang traced this
   // session (confirmed via request-level timing logs: tenant-api was
   // still legitimately waiting on Ollama, never actually stuck, when

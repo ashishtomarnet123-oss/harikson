@@ -97,7 +97,7 @@ export default function GrievancePage() {
           {
             '@context': 'https://schema.org',
             '@type': 'WebPage',
-            name: 'Grievance Redressal Mechanism — Xarwiz DPDP',
+            name: 'Grievance Redressal Mechanism - Xarwiz DPDP',
             url: 'https://xarwiz.com/grievance',
           },
         ]}

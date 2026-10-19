@@ -101,14 +101,14 @@ export default function PrivacyPolicyPage() {
     }}>
       <SEOHead
         title="Privacy Policy"
-        description="Xarwiz Privacy Policy — comprehensive personal data disclosures, legal bases, purpose-specific processing, and Data Principal Rights compliant with the Digital Personal Data Protection Act, 2023."
+        description="Xarwiz Privacy Policy - comprehensive personal data disclosures, legal bases, purpose-specific processing, and Data Principal Rights compliant with the Digital Personal Data Protection Act, 2023."
         canonicalPath="/privacy-policy"
         jsonLd={[
           defaultOrganizationSchema,
           {
             '@context': 'https://schema.org',
             '@type': 'WebPage',
-            name: 'Privacy Policy — Xarwiz AI Platform',
+            name: 'Privacy Policy - Xarwiz AI Platform',
             url: 'https://xarwiz.com/privacy-policy',
           },
         ]}

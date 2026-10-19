@@ -172,7 +172,7 @@ function ImageStudioPage() {
   return (
     <DashboardShell title="AI Image Studio">
       <Head>
-        <title>AI Image Studio — Xarwiz</title>
+        <title>AI Image Studio - Xarwiz</title>
         <meta name="robots" content="noindex, nofollow" />
       </Head>
 

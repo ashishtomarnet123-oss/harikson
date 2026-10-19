@@ -112,7 +112,7 @@ function appIcon(id) {
 }
 
 function timeAgo(isoString) {
-  if (!isoString) return '—';
+  if (!isoString) return '-';
   const diffMs = Date.now() - new Date(isoString).getTime();
   const mins = Math.floor(diffMs / 60000);
   if (mins < 1) return 'Just now';
@@ -360,7 +360,7 @@ export default function ConnectedAppsSettings() {
         body: JSON.stringify({ selectedFileIds, selectedFolderIds: [] }),
       });
       if (res.ok) {
-        setMessage({ type: 'success', text: 'Google Drive sync initiated — running in background.' });
+        setMessage({ type: 'success', text: 'Google Drive sync initiated - running in background.' });
         setShowPicker(false);
         await fetchStatus();
       } else {

@@ -69,7 +69,7 @@ export async function POST(req: NextRequest) {
         isValid = authenticator.verify({ token: code, secret: user.two_factor_secret });
       }
     } catch {
-      // otplib not available — fall through to backup code check below
+      // otplib not available - fall through to backup code check below
     }
 
     if (!isValid) {

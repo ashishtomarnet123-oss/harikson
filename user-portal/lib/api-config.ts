@@ -3,12 +3,12 @@
  */
 
 export function getApiBaseUrl(): string {
-  // 1. Browser Environment Resolution — takes priority over the env var
+  // 1. Browser Environment Resolution - takes priority over the env var
   // below. Any non-localhost browser access (a raw VM IP like
   // 34.131.237.79:3028, or a bare production domain like xarwiz.com with
   // no explicit port) must go through *this* Next.js server's own
   // rewrites() proxy (same origin) rather than a separate absolute API
-  // domain — that domain can be renamed/migrated (as happened moving from
+  // domain - that domain can be renamed/migrated (as happened moving from
   // a different domain) without ever needing a matching
   // frontend code change, since the browser never needs to know it exists.
   // This used to also require window.location.port to be set, which meant
@@ -35,7 +35,7 @@ export function getApiBaseUrl(): string {
     }
   }
 
-  // 2. Explicit Environment Variable Override — only reached for bare
+  // 2. Explicit Environment Variable Override - only reached for bare
   // production-domain access (no explicit port) or during SSR.
   const envUrl = process.env.NEXT_PUBLIC_API_BASE_URL;
   if (envUrl && envUrl.trim()) {

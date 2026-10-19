@@ -12,7 +12,7 @@ export default function SecurityPage() {
 
   return (
     <>
-      <Head><title>Security Policy — Xarwiz</title></Head>
+      <Head><title>Security Policy - Xarwiz</title></Head>
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '60vh', gap: '12px' }}>
         <Shield size={32} color="#6b7280" />
         <p style={{ fontSize: '14px', color: '#6b7280' }}>

@@ -63,7 +63,7 @@ const STATUS_CONFIG: Record<
 };
 
 function fmtBytes(b: number) {
-  if (!b) return '—';
+  if (!b) return '-';
   const k = 1024;
   const sizes = ['B', 'KB', 'MB', 'GB'];
   const i = Math.floor(Math.log(b) / Math.log(k));
@@ -75,7 +75,7 @@ function fmtTime(d: string) {
         dateStyle: 'short',
         timeStyle: 'short',
       })
-    : '—';
+    : '-';
 }
 
 export default function BackupsPage() {
@@ -240,7 +240,7 @@ export default function BackupsPage() {
       {runningCount > 0 && (
         <div className="flex items-center gap-3 px-4 py-3 bg-blue-950/30 border border-blue-800/40 rounded-xl text-blue-300 text-sm font-medium">
           <RefreshCw className="w-4 h-4 animate-spin" />
-          {runningCount} backup{runningCount > 1 ? 's' : ''} currently running —
+          {runningCount} backup{runningCount > 1 ? 's' : ''} currently running -
           auto-refreshing...
         </div>
       )}

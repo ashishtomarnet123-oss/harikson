@@ -108,14 +108,14 @@ export default function SecurityPolicyPage() {
     }}>
       <SEOHead
         title="Security Policy & Platform Safeguards"
-        description="Xarwiz Platform Security Policy — comprehensive technical controls, PostgreSQL Row-Level Security, AES-256 encryption, and CERT-In cybersecurity compliance."
+        description="Xarwiz Platform Security Policy - comprehensive technical controls, PostgreSQL Row-Level Security, AES-256 encryption, and CERT-In cybersecurity compliance."
         canonicalPath="/security-policy"
         jsonLd={[
           defaultOrganizationSchema,
           {
             '@context': 'https://schema.org',
             '@type': 'WebPage',
-            name: 'Security Policy — Xarwiz AI Platform',
+            name: 'Security Policy - Xarwiz AI Platform',
             url: 'https://xarwiz.com/security-policy',
           },
         ]}

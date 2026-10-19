@@ -26,7 +26,7 @@ export default function BillingSettings() {
   const [actionLoading, setActionLoading] = useState(false);
   const [selectedGateway, setSelectedGateway] = useState('phonepe');
 
-  // Display only — the backend owns the actual price charged (PLAN_CONFIG in
+  // Display only - the backend owns the actual price charged (PLAN_CONFIG in
   // user.routes.ts) and re-derives it from planId, never from anything sent
   // here. Keep these numbers in sync with that map so the modal doesn't show
   // a price different from what Razorpay actually charges.
@@ -192,7 +192,7 @@ export default function BillingSettings() {
         const data = await res.json();
         setBilling(data);
       } else {
-        // Do not fabricate plan/card/invoice data on a non-OK response — show
+        // Do not fabricate plan/card/invoice data on a non-OK response - show
         // a real error state instead so a user never mistakes a fake plan or
         // card for their actual billing status.
         setBilling(null);
@@ -209,7 +209,7 @@ export default function BillingSettings() {
   // There's no Razorpay-hosted billing portal to redirect to (this
   // integration uses Orders/Payments, not a separate hosted-portal product),
   // so "Manage Billing" and "Update payment method" both open the real
-  // Change Plan flow directly — re-running Razorpay Checkout (even for the
+  // Change Plan flow directly - re-running Razorpay Checkout (even for the
   // current plan) is the actual mechanism that updates the stored card.
   const handleManageBilling = () => setShowPlanModal(true);
 
@@ -219,7 +219,7 @@ export default function BillingSettings() {
     try {
       const { apiBase, tenantSlug } = getApiConfig();
 
-      // Free plan — no payment involved, activates directly.
+      // Free plan - no payment involved, activates directly.
       if (plan.id === 'free') {
         const res = await authenticatedFetch(`${apiBase}/api/v1/user/billing/change-plan`, {
           method: 'POST',
@@ -242,7 +242,7 @@ export default function BillingSettings() {
         return;
       }
 
-      // Paid plan — request checkout session with chosen gateway (PhonePe or Razorpay)
+      // Paid plan - request checkout session with chosen gateway (PhonePe or Razorpay)
       const checkoutRes = await authenticatedFetch(`${apiBase}/api/v1/user/billing/checkout`, {
         method: 'POST',
         credentials: 'include',
@@ -421,10 +421,10 @@ export default function BillingSettings() {
     }
     return invoices.map((inv) => (
       <tr key={inv.id || inv.number}>
-        <td className="inv-code">{inv.number || '—'}</td>
-        <td>{inv.date ? new Date(inv.date).toLocaleDateString() : '—'}</td>
-        <td>{billing?.planName || '—'}</td>
-        <td>{inv.amount != null ? `${inv.currency ? inv.currency + ' ' : ''}${inv.amount}` : '—'}</td>
+        <td className="inv-code">{inv.number || '-'}</td>
+        <td>{inv.date ? new Date(inv.date).toLocaleDateString() : '-'}</td>
+        <td>{billing?.planName || '-'}</td>
+        <td>{inv.amount != null ? `${inv.currency ? inv.currency + ' ' : ''}${inv.amount}` : '-'}</td>
         <td>
           <span className={`inv-status-pill ${(inv.status || '').toLowerCase()}`}>
             {inv.status || 'Unknown'}
@@ -500,12 +500,12 @@ export default function BillingSettings() {
                 {billing.isTrial && (
                   <div className="trial-pill-badge">
                     <Sparkles size={13} color="#2563eb" />
-                    <span>{billing.trialDays ?? '—'}-Day Free Trial Active</span>
+                    <span>{billing.trialDays ?? '-'}-Day Free Trial Active</span>
                   </div>
                 )}
 
                 <div className="plan-price-row">
-                  <span className="price-bold">{billing.price || '—'}</span>
+                  <span className="price-bold">{billing.price || '-'}</span>
                   {billing.isTrial && <span className="free-trial-tag">(Free Trial)</span>}
                   {billing.daysRemaining != null && (
                     <span className="days-remaining">| {billing.daysRemaining} days remaining</span>
@@ -516,8 +516,8 @@ export default function BillingSettings() {
                   <Calendar size={14} />
                   <span>
                     {billing.isTrial
-                      ? `Trial ends ${billing.trialEndDate || '—'}  •  Then ${billing.postTrialPrice || '—'}`
-                      : `Next billing date: ${billing.nextBillingDate || '—'}`}
+                      ? `Trial ends ${billing.trialEndDate || '-'}  •  Then ${billing.postTrialPrice || '-'}`
+                      : `Next billing date: ${billing.nextBillingDate || '-'}`}
                   </span>
                 </div>
 
@@ -540,11 +540,11 @@ export default function BillingSettings() {
                   <div className="metric-header-row">
                     <span className="metric-title">API Message Requests</span>
                     <span className="metric-counts">
-                      {billing.usageMeters?.apiRequests?.current?.toLocaleString() ?? '—'} /{' '}
-                      {billing.usageMeters?.apiRequests?.limit?.toLocaleString() ?? '—'}
+                      {billing.usageMeters?.apiRequests?.current?.toLocaleString() ?? '-'} /{' '}
+                      {billing.usageMeters?.apiRequests?.limit?.toLocaleString() ?? '-'}
                     </span>
                     <span className="metric-pct-pill">
-                      {billing.usageMeters?.apiRequests?.pct ?? '—'}% used
+                      {billing.usageMeters?.apiRequests?.pct ?? '-'}% used
                     </span>
                   </div>
                   <div className="progress-track">
@@ -567,14 +567,14 @@ export default function BillingSettings() {
                               ? 'Unlimited'
                               : `${billing.usageMeters.ragDocuments.limitCount} docs`
                           }`
-                        : `${billing.usageMeters?.ragDocuments?.currentGB ?? '—'} GB / ${
-                            billing.usageMeters?.ragDocuments?.limitGB ?? '—'
+                        : `${billing.usageMeters?.ragDocuments?.currentGB ?? '-'} GB / ${
+                            billing.usageMeters?.ragDocuments?.limitGB ?? '-'
                           } GB`}
                     </span>
                     <span className="metric-pct-pill">
                       {(billing.usageMeters?.ragDocuments?.countPct !== undefined
                         ? billing.usageMeters.ragDocuments.countPct
-                        : billing.usageMeters?.ragDocuments?.pct) ?? '—'}% used
+                        : billing.usageMeters?.ragDocuments?.pct) ?? '-'}% used
                     </span>
                   </div>
                   <div className="progress-track">
@@ -660,21 +660,21 @@ export default function BillingSettings() {
                   </div>
                   <div>
                     <div className="next-payment-amount">
-                      {billing.nextPaymentAmount || '—'}
+                      {billing.nextPaymentAmount || '-'}
                     </div>
                     <div className="next-payment-due">
-                      Due on {billing.nextBillingDate || '—'}
+                      Due on {billing.nextBillingDate || '-'}
                     </div>
                   </div>
                 </div>
                 <div className="next-payment-meta">
                   <div className="meta-row">
                     <span>Plan</span>
-                    <strong>{billing.planName?.replace(' Plan', '') || '—'}</strong>
+                    <strong>{billing.planName?.replace(' Plan', '') || '-'}</strong>
                   </div>
                   <div className="meta-row">
                     <span>Billing cycle</span>
-                    <strong>{billing.billingCycle || '—'}</strong>
+                    <strong>{billing.billingCycle || '-'}</strong>
                   </div>
                   <div className="meta-row">
                     <span>Payment method</span>

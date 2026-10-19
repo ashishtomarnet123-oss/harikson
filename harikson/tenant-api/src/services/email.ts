@@ -188,7 +188,7 @@ export const sendSubscriptionCancellation = async (to: string, planName: string,
     const { data, error } = await resend.emails.send({
       from: 'Xarwiz AI <noreply@xarwiz.com>',
       to,
-      subject: 'Subscription Cancelled — Xarwiz AI',
+      subject: 'Subscription Cancelled - Xarwiz AI',
       html: `
         <div style="font-family: sans-serif; padding: 20px; color: #1e293b; max-width: 600px; margin: 0 auto; border: 1px solid #e2e8f0; border-radius: 8px;">
           <h2 style="color: #ef4444; border-bottom: 2px solid #ef4444; padding-bottom: 10px;">Subscription Cancelled</h2>
@@ -227,7 +227,7 @@ export const sendVerificationEmail = async (to: string, verificationUrl: string)
     const { data, error } = await resend.emails.send({
       from: 'Xarwiz AI <noreply@xarwiz.com>',
       to,
-      subject: 'Verify your email — Xarwiz',
+      subject: 'Verify your email - Xarwiz',
       html: `
         <div style="font-family: sans-serif; padding: 20px; color: #1e293b; max-width: 600px; margin: 0 auto; border: 1px solid #e2e8f0; border-radius: 8px;">
           <h2 style="color: #2563eb; border-bottom: 2px solid #2563eb; padding-bottom: 10px;">Verify your Xarwiz Account</h2>
@@ -410,7 +410,7 @@ export const sendPrivacyRequestAcknowledgmentEmail = async (
     const { data, error } = await resend.emails.send({
       from: 'Xarwiz Privacy Office <privacy@xarwiz.com>',
       to,
-      subject: `[DPDP Privacy Request] Acknowledgment — ${details.trackingNumber}`,
+      subject: `[DPDP Privacy Request] Acknowledgment - ${details.trackingNumber}`,
       html: `
         <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; padding: 24px; color: #0f172a; max-width: 600px; margin: 0 auto; border: 1px solid #e2e8f0; border-radius: 12px; background-color: #ffffff;">
           <div style="border-bottom: 2px solid #3b82f6; padding-bottom: 12px; margin-bottom: 20px;">
@@ -454,7 +454,7 @@ export const sendGrievanceAcknowledgmentEmail = async (
     const { data, error } = await resend.emails.send({
       from: 'Xarwiz Grievance Officer <grievance@xarwiz.com>',
       to,
-      subject: `[DPDP Grievance Redressal] Acknowledgment — ${details.grievanceNumber}`,
+      subject: `[DPDP Grievance Redressal] Acknowledgment - ${details.grievanceNumber}`,
       html: `
         <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; padding: 24px; color: #0f172a; max-width: 600px; margin: 0 auto; border: 1px solid #e2e8f0; border-radius: 12px; background-color: #ffffff;">
           <div style="border-bottom: 2px solid #8b5cf6; padding-bottom: 12px; margin-bottom: 20px;">

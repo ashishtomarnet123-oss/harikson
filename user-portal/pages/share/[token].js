@@ -200,16 +200,16 @@ export default function SharePage() {
   return (
     <>
       <Head>
-        {/* noindex/nofollow — shared conversations must not be indexed */}
+        {/* noindex/nofollow - shared conversations must not be indexed */}
         <meta name="robots" content="noindex, nofollow" />
         <meta name="googlebot" content="noindex, nofollow" />
 
-        <title>{title ? `${title} — Xarwiz AI` : 'Shared conversation — Xarwiz AI'}</title>
+        <title>{title ? `${title} - Xarwiz AI` : 'Shared conversation - Xarwiz AI'}</title>
         <meta name="description" content="A shared, read-only AI conversation from Xarwiz AI." />
 
-        {/* Open Graph — kept generic to avoid leaking conversation content */}
+        {/* Open Graph - kept generic to avoid leaking conversation content */}
         <meta property="og:type" content="website" />
-        <meta property="og:title" content="Shared conversation — Xarwiz AI" />
+        <meta property="og:title" content="Shared conversation - Xarwiz AI" />
         <meta property="og:description" content="A shared, read-only AI conversation from Xarwiz AI." />
         <meta property="og:site_name" content="Xarwiz AI" />
 
@@ -349,7 +349,7 @@ export default function SharePage() {
 
         * { box-sizing: border-box; }
 
-        /* Code blocks — reuse the same classes as MarkdownRenderer */
+        /* Code blocks - reuse the same classes as MarkdownRenderer */
         .code-block {
           border-radius: 10px;
           border: 1px solid #e2e8f0;

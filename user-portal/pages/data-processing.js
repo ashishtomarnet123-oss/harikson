@@ -16,7 +16,7 @@ export default function DataProcessingPage() {
           {
             '@context': 'https://schema.org',
             '@type': 'WebPage',
-            name: 'Data Processing Addendum — Xarwiz AI Platform',
+            name: 'Data Processing Addendum - Xarwiz AI Platform',
             url: 'https://xarwiz.com/data-processing',
           },
         ]}

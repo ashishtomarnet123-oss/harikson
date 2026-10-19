@@ -99,7 +99,7 @@ export default function ActivityCenter() {
   };
 
   const fmtLatency = (ms: number) => {
-    return ms ? (ms >= 1000 ? `${(ms / 1000).toFixed(1)}s` : `${ms}ms`) : '—';
+    return ms ? (ms >= 1000 ? `${(ms / 1000).toFixed(1)}s` : `${ms}ms`) : '-';
   };
 
   return (
@@ -295,11 +295,11 @@ export default function ActivityCenter() {
                       {fmt(a.created_at)}
                     </td>
                     <td className="px-4 py-4 text-gray-900 font-semibold">
-                      {a.tenant_name || '—'}
+                      {a.tenant_name || '-'}
                     </td>
                     <td className="px-4 py-4">
                       <span className="inline-flex items-center px-2.5 py-0.5 rounded-lg text-xs font-semibold bg-blue-50 text-blue-800 border border-blue-100">
-                        {a.model || '—'}
+                        {a.model || '-'}
                       </span>
                     </td>
                     <td className="px-4 py-4">

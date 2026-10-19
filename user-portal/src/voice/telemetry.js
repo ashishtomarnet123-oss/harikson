@@ -1,5 +1,5 @@
 /**
- * telemetry.js — Voice Turn Latency Telemetry Module
+ * telemetry.js - Voice Turn Latency Telemetry Module
  *
  * Captures per-turn stage timestamps for the full voice pipeline:
  *   VAD speech-end → STT → LLM → TTS
@@ -19,15 +19,15 @@
  *   // payload is ready to be sent to POST /api/v1/voice/usage
  *
  * Pipeline stages tracked:
- *   sttStart        — VAD speech-end fires, turn begins
- *   sttFirstPartial — first partial transcript received
- *   sttFinal        — STT final result / handleTurnCommit()
- *   llmRequest      — fetch() / SSE connection opened
- *   llmFirstToken   — first SSE token received
- *   ttsRequest      — ChunkedSpeaker.startStream() called
- *   ttsFirstAudio   — onFirstAudio callback fires (browser started playing)
- *   ttsEnd          — onFinished callback fires (all audio played)
- *   bargeIn         — user interrupted (null if turn completed normally)
+ *   sttStart        - VAD speech-end fires, turn begins
+ *   sttFirstPartial - first partial transcript received
+ *   sttFinal        - STT final result / handleTurnCommit()
+ *   llmRequest      - fetch() / SSE connection opened
+ *   llmFirstToken   - first SSE token received
+ *   ttsRequest      - ChunkedSpeaker.startStream() called
+ *   ttsFirstAudio   - onFirstAudio callback fires (browser started playing)
+ *   ttsEnd          - onFinished callback fires (all audio played)
+ *   bargeIn         - user interrupted (null if turn completed normally)
  */
 
 const STAGES = [
@@ -50,7 +50,7 @@ export class VoiceTurnTelemetry {
 
   /**
    * Record a pipeline stage. Call this exactly once per stage.
-   * @param {string} stage — one of the STAGES constants
+   * @param {string} stage - one of the STAGES constants
    */
   mark(stage) {
     if (!STAGES.includes(stage)) {
@@ -94,7 +94,7 @@ export class VoiceTurnTelemetry {
    * All values are ms offsets from sttStart.
    *
    * @param {object} opts
-   * @param {boolean} opts.interrupted — true if turn was barged-in
+   * @param {boolean} opts.interrupted - true if turn was barged-in
    * @returns {{ stageLatency: object, turnTotalMs: number|null, ttfaMs: number|null }}
    */
   finalize(opts = {}) {
@@ -129,6 +129,6 @@ export class VoiceTurnTelemetry {
 
 /**
  * Singleton turn telemetry instance.
- * Import and use this directly in chat.js — one instance per voice session.
+ * Import and use this directly in chat.js - one instance per voice session.
  */
 export const turnTelemetry = new VoiceTurnTelemetry();

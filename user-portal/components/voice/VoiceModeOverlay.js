@@ -1,5 +1,5 @@
 /**
- * VoiceModeOverlay.js — Compact, luminous voice popover anchored near the mic button
+ * VoiceModeOverlay.js - Compact, luminous voice popover anchored near the mic button
  *
  * Designed as an unobtrusive, state-of-the-art voice capsule positioned
  * directly above the composer mic button, featuring real-time VoiceOrb animation,
@@ -25,7 +25,7 @@ import VoiceOrb from './VoiceOrb';
 // State-to-label mapping
 const STATE_LABELS = {
   idle:                { text: 'Voice Off',     hint: 'Voice mode is inactive.',                    icon: null },
-  listening:           { text: 'Listening…',    hint: 'Speak naturally — listening…',               icon: Mic },
+  listening:           { text: 'Listening…',    hint: 'Speak naturally - listening…',               icon: Mic },
   vad_detecting:       { text: 'Hearing you…',  hint: 'Receiving voice input…',                      icon: Mic },
   processing:          { text: 'Thinking…',     hint: 'Analyzing your query…',                       icon: Loader2 },
   streaming:           { text: 'Generating…',   hint: 'Synthesizing response…',                      icon: Loader2 },

@@ -474,7 +474,7 @@ function PlanEditModal({
       >
         <div className="px-6 py-4 border-b border-gray-800 flex justify-between items-center bg-gray-950/20">
           <h2 className="text-base font-bold text-white">
-            {isNew ? 'Create New Plan' : `Edit Plan — ${plan.name}`}
+            {isNew ? 'Create New Plan' : `Edit Plan - ${plan.name}`}
           </h2>
           <button
             onClick={onClose}
@@ -1332,7 +1332,7 @@ export default function TenantPlanManager() {
   const filteredViolations = violations.filter((v) =>
     (v.tenant || (v as any).key || '').toLowerCase().includes((filterTenant || '').toLowerCase())
   );
-  // Subscriber counts derived from shared tenants state — no extra fetch needed
+  // Subscriber counts derived from shared tenants state - no extra fetch needed
   const subscriberCount = (planId: string) =>
     tenants.filter(
       (t) => (t.plan || '').toLowerCase() === (planId || '').toLowerCase()
@@ -1398,7 +1398,7 @@ export default function TenantPlanManager() {
             </h1>
           </div>
           <p className="text-gray-500 text-sm ml-13">
-            Tenants, plans, API keys, and payment webhooks — all in one place.
+            Tenants, plans, API keys, and payment webhooks - all in one place.
           </p>
         </div>
         <div className="flex items-center gap-3 text-xs text-gray-500">
@@ -1495,7 +1495,7 @@ export default function TenantPlanManager() {
                     Token Consumption
                   </h3>
                   <p className="text-[10px] text-gray-500 mt-0.5">
-                    Prompt in vs. generation out — last 7 days
+                    Prompt in vs. generation out - last 7 days
                   </p>
                 </div>
                 <TrendingUp className="w-5 h-5 text-indigo-500" />
@@ -1842,7 +1842,7 @@ export default function TenantPlanManager() {
                           {v.endpoint || (v as any).key?.split(':')[1] || 'API'}
                         </td>
                         <td className="py-3 px-4 font-mono">
-                          {v.limit ?? '—'}
+                          {v.limit ?? '-'}
                         </td>
                         <td className="py-3 px-4 font-mono text-red-400">
                           {v.actual ?? (v as any).count ?? 0}
@@ -1890,7 +1890,7 @@ export default function TenantPlanManager() {
                     )}
                     {reconcile.map((r, i) => {
                       const amountNum = typeof r.amount === 'number' ? r.amount : parseFloat(String(r.amount)) || 0;
-                      const invoiceId = r.razorpay_id || (r as any).provider_invoice_id || '—';
+                      const invoiceId = r.razorpay_id || (r as any).provider_invoice_id || '-';
                       return (
                         <tr key={i} className="hover:bg-gray-800/10">
                           <td className="py-3 px-4 font-bold text-white">

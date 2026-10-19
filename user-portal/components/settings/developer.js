@@ -585,7 +585,7 @@ export default function DeveloperSettings({ onClose, onTabChange, setActiveTab }
               }}
             >
               <Sparkles size={16} />
-              <span>Upgrade Plan — from ₹19/mo</span>
+              <span>Upgrade Plan - from ₹19/mo</span>
               <ArrowRight size={15} />
             </button>
 
@@ -895,7 +895,7 @@ export default function DeveloperSettings({ onClose, onTabChange, setActiveTab }
                     >
                       <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
                         <Clock size={12} />
-                        Created: {k.createdAt ? new Date(k.createdAt).toLocaleDateString() : '—'}
+                        Created: {k.createdAt ? new Date(k.createdAt).toLocaleDateString() : '-'}
                       </span>
                       <span>&middot;</span>
                       <span>

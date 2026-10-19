@@ -593,7 +593,7 @@ export default function WorkflowsPage() {
   };
 
   const fmtDuration = (ms: number) =>
-    ms ? (ms >= 1000 ? `${(ms / 1000).toFixed(1)}s` : `${ms}ms`) : '—';
+    ms ? (ms >= 1000 ? `${(ms / 1000).toFixed(1)}s` : `${ms}ms`) : '-';
 
   const fmtTime = (d: string) =>
     d
@@ -603,7 +603,7 @@ export default function WorkflowsPage() {
           hour: '2-digit',
           minute: '2-digit',
         })
-      : '—';
+      : '-';
 
   /* ── Stats Metric Cards Configuration ─────────────────────────────────────── */
 
@@ -688,7 +688,7 @@ export default function WorkflowsPage() {
               Workflow Center
             </h1>
             <p className="text-gray-500 text-sm mt-0.5">
-              Cross-tenant orchestration & workflow telemetry — monitor, trigger, and debug automated AI pipelines.
+              Cross-tenant orchestration & workflow telemetry - monitor, trigger, and debug automated AI pipelines.
             </p>
           </div>
         </div>
@@ -1051,13 +1051,13 @@ export default function WorkflowsPage() {
                         <div>
                           <div className="text-[10px] text-gray-400 font-medium">Success</div>
                           <div className="text-xs font-bold text-emerald-600 mt-0.5">
-                            {wf.success_rate ? `${wf.success_rate}%` : '—'}
+                            {wf.success_rate ? `${wf.success_rate}%` : '-'}
                           </div>
                         </div>
                         <div>
                           <div className="text-[10px] text-gray-400 font-medium">Avg Duration</div>
                           <div className="text-xs font-bold text-indigo-600 mt-0.5">
-                            {wf.avg_duration_ms ? fmtDuration(wf.avg_duration_ms) : '—'}
+                            {wf.avg_duration_ms ? fmtDuration(wf.avg_duration_ms) : '-'}
                           </div>
                         </div>
                       </div>
@@ -1260,7 +1260,7 @@ export default function WorkflowsPage() {
                             <span>#{idx + 1} {conf.label}</span>
                             {step.value && (
                               <span className="text-gray-500 text-[10px] font-normal truncate max-w-[140px]">
-                                — {step.value}
+                                - {step.value}
                               </span>
                             )}
                           </div>
@@ -1327,7 +1327,7 @@ export default function WorkflowsPage() {
                                 </div>
 
                                 <div className="text-xs font-mono font-bold text-gray-900">
-                                  {ex.duration_ms ? fmtDuration(ex.duration_ms) : '—'}
+                                  {ex.duration_ms ? fmtDuration(ex.duration_ms) : '-'}
                                 </div>
                               </div>
 
@@ -1361,7 +1361,7 @@ export default function WorkflowsPage() {
                                                   <AlertCircle className="w-3.5 h-3.5 text-amber-500" />
                                                 )}
                                                 <span className="text-[10px] font-mono text-gray-500">
-                                                  {sr.durationMs ? `${sr.durationMs}ms` : '—'}
+                                                  {sr.durationMs ? `${sr.durationMs}ms` : '-'}
                                                 </span>
                                               </div>
                                             </div>
@@ -1845,7 +1845,7 @@ export default function WorkflowsPage() {
               </div>
               <div>
                 <h2 className="text-base font-bold text-white leading-tight">
-                  {fullCanvasModal.name} — Visual DAG Studio
+                  {fullCanvasModal.name} - Visual DAG Studio
                 </h2>
                 <p className="text-xs text-slate-400">
                   Interactive node-graph workflow canvas with dynamic branching and real-time execution telemetry.

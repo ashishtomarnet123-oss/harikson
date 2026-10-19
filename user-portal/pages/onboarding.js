@@ -48,7 +48,7 @@ const STEPS = [
   },
   {
     title: 'Start Your First Chat',
-    description: 'Ask anything — generate code, debug errors, or explore your knowledge base with RAG-powered search.',
+    description: 'Ask anything - generate code, debug errors, or explore your knowledge base with RAG-powered search.',
     icon: <ChatIcon />,
   },
 ];
@@ -79,7 +79,7 @@ export default function OnboardingPage() {
   return (
     <>
       <Head>
-        <title>Get Started — Xarwiz</title>
+        <title>Get Started - Xarwiz</title>
         <meta name="robots" content="noindex, nofollow" />
       </Head>
 

@@ -155,14 +155,14 @@ export default function TermsOfServicePage() {
     }}>
       <SEOHead
         title="Terms of Service"
-        description="Xarwiz Terms of Service — customer agreement governing platform subscriptions, API usage, acceptable use, AI model interactions, and Indian DPDP Act compliance."
+        description="Xarwiz Terms of Service - customer agreement governing platform subscriptions, API usage, acceptable use, AI model interactions, and Indian DPDP Act compliance."
         canonicalPath="/terms"
         jsonLd={[
           defaultOrganizationSchema,
           {
             '@context': 'https://schema.org',
             '@type': 'WebPage',
-            name: 'Terms of Service — Xarwiz AI Platform',
+            name: 'Terms of Service - Xarwiz AI Platform',
             url: 'https://xarwiz.com/terms',
           },
         ]}

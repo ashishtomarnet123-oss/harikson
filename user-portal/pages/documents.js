@@ -239,7 +239,7 @@ function DocumentsPage() {
   const pagedDocs = filteredDocs.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
   const formatSize = (bytes) => {
-    if (!bytes) return '—';
+    if (!bytes) return '-';
     if (bytes < 1024) return bytes + ' B';
     if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
     return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
@@ -250,7 +250,7 @@ function DocumentsPage() {
   return (
     <DashboardShell>
       <Head>
-        <title>Document Intelligence Workspace — Xarwiz</title>
+        <title>Document Intelligence Workspace - Xarwiz</title>
         <meta name="robots" content="noindex, nofollow" />
       </Head>
 
@@ -577,7 +577,7 @@ function DocumentsPage() {
                             <Folder size={12} /> {doc.collection_name}
                           </span>
                         ) : (
-                          '—'
+                          '-'
                         )}
                       </td>
                       <td style={{ padding: '12px 16px' }}>

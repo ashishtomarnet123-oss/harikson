@@ -99,7 +99,7 @@ export default function LoginPage() {
     if (typeof window !== 'undefined') {
       const hostname = window.location.hostname;
       if (hostname !== 'localhost' && hostname !== '127.0.0.1') {
-        // Any real browser access — with or without an explicit port —
+        // Any real browser access - with or without an explicit port -
         // always prefers this same origin's own Next.js proxy over an
         // absolute env-configured URL, which points at a specific domain
         // (previously api.xarwiz.com, now xarwiz.com) that can migrate
@@ -108,7 +108,7 @@ export default function LoginPage() {
         const parts = hostname.split('.');
         const isIP = !isNaN(Number(parts[0]));
         // A genuine tenant subdomain needs at least 3 labels
-        // (acme.xarwiz.com) — a bare domain (xarwiz.com) only has 2, and
+        // (acme.xarwiz.com) - a bare domain (xarwiz.com) only has 2, and
         // its first label isn't a tenant slug, it's just the domain name.
         const hasSubdomain = parts.length >= 3;
         const urlParams = new URLSearchParams(window.location.search);
@@ -174,7 +174,7 @@ export default function LoginPage() {
     }
     // Intentionally run once on mount only. `router` from useRouter() is
     // not guaranteed to be referentially stable across renders in the
-    // Pages Router — depending on it here caused this effect (and its
+    // Pages Router - depending on it here caused this effect (and its
     // /api/auth/me call) to re-fire repeatedly instead of once, which is
     // what produced the request loop / stuck-reloading symptom. Everything
     // this effect reads (window.location.search, router.query at the

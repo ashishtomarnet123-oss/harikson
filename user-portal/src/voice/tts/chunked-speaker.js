@@ -1,12 +1,12 @@
 /**
- * chunked-speaker.js — Sentence-Chunk Streaming TTS Engine
+ * chunked-speaker.js - Sentence-Chunk Streaming TTS Engine
  *
  * Consumes streaming text token-by-token from SSE, extracts complete sentences
  * using an aggressive boundary detector, and feeds them into a sequential
  * utterance queue.
  *
  * LATENCY OPTIMIZATION (Phase 3):
- * - Sentence splitting is now more aggressive — commas, semicolons, and clause
+ * - Sentence splitting is now more aggressive - commas, semicolons, and clause
  *   breaks are treated as split points when the accumulated text is long enough.
  * - First audio fires at the first comma-clause (~10–20 words), not the first period.
  * - This cuts Time-To-First-Audio by 40–60% in practice.
@@ -176,7 +176,7 @@ export class ChunkedSpeaker {
     // while the LLM is still generating "...with a high of 32 degrees."
     if (!isEnd && this.buffer.length >= COMMA_SPLIT_MIN_CHARS) {
       // Match comma, semicolon, colon, or dash followed by space
-      const clauseMatch = /([,;:]\s+|\s+[—–]\s+)/.exec(this.buffer);
+      const clauseMatch = /([,;:]\s+|\s+[-–]\s+)/.exec(this.buffer);
       if (clauseMatch) {
         const splitAt = clauseMatch.index + clauseMatch[0].length;
         const clause = this.buffer.slice(0, clauseMatch.index + 1).trim();
@@ -202,7 +202,7 @@ export class ChunkedSpeaker {
       this.queue.push(rawSentence);
     } else {
       // Split on commas or clause breaks for long sentences
-      const parts = rawSentence.split(/([,;:—–]\s+)/);
+      const parts = rawSentence.split(/([,;:-–]\s+)/);
       let current = '';
       for (const part of parts) {
         if ((current + part).length > MAX_CHUNK_CHARS && current.trim()) {
@@ -242,14 +242,14 @@ export class ChunkedSpeaker {
             this.hasFiredFirstAudio = true;
             const ttfa = this.startTime ? Date.now() - this.startTime : null;
             this.callbacks.onFirstAudio?.(ttfa);
-            console.debug(`[ChunkedSpeaker] ⚡ First audio fired — TTFA: ${ttfa}ms`);
+            console.debug(`[ChunkedSpeaker] ⚡ First audio fired - TTFA: ${ttfa}ms`);
           }
           this.callbacks.onSentenceStart?.(sentence);
         },
         onEnd: () => {
           this.isPlaying = false;
           if (this.queue.length > 0) {
-            // Schedule immediately — setTimeout(0) minimises inter-utterance gap
+            // Schedule immediately - setTimeout(0) minimises inter-utterance gap
             setTimeout(() => this.playNext(), 0);
           } else if (!this.streamActive) {
             this.callbacks.onFinished?.();

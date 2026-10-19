@@ -130,7 +130,7 @@ export default function DataRightsPage() {
           {
             '@context': 'https://schema.org',
             '@type': 'WebPage',
-            name: 'Data Principal Rights Portal — Xarwiz AI Platform',
+            name: 'Data Principal Rights Portal - Xarwiz AI Platform',
             url: 'https://xarwiz.com/data-rights',
           },
         ]}

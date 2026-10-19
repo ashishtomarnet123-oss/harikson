@@ -31,7 +31,7 @@ const redis = new Redis(process.env.REDIS_URL || 'redis://redis:6379', {
 // Every route below reads/writes conversations by user, so the caller must
 // be identified. Without this, req.user was always undefined and every
 // conversation got attributed to a shared placeholder ID instead of the
-// real caller — breaking per-user token attribution and, since the
+// real caller - breaking per-user token attribution and, since the
 // /conversations user filter was conditional on req.user existing, letting
 // any caller list and read every other user's conversations in the tenant.
 router.use((req: any, res, next) => {
@@ -63,7 +63,7 @@ const AI_UNAVAILABLE_MSG = 'AI service is temporarily unavailable. Please try ag
 const activeChatStreams = new Map<string, { abortController: AbortController; res: Response }>();
 
 // Browsers that used the app before conversations actually persisted
-// (chat.routes.ts's INSERT silently failed for a long time — see git
+// (chat.routes.ts's INSERT silently failed for a long time - see git
 // history) still have client-only fallback IDs like 'conv_<ts>_<rand>'
 // cached in localStorage. Those were never real rows. Passing one into a
 // uuid column throws a raw Postgres syntax error instead of a normal
@@ -136,7 +136,7 @@ router.get('/conversations', requireScopes('chat:read'), async (req: any, res) =
   }
 });
 
-// POST /api/chat/conversations/repair-titles — Batch repairs invalid historical titles safely
+// POST /api/chat/conversations/repair-titles - Batch repairs invalid historical titles safely
 router.post('/conversations/repair-titles', requireScopes('chat:write'), async (req: any, res) => {
   const tenantId = req.tenant.id;
 
@@ -194,7 +194,7 @@ router.get('/conversations/:id/messages', requireScopes('chat:read'), async (req
   const userId = req.user.userId;
 
   if (!UUID_RE.test(id)) {
-    // A client-only fallback ID — there are no server-side messages for it.
+    // A client-only fallback ID - there are no server-side messages for it.
     return res.json({ messages: [] });
   }
 
@@ -381,7 +381,7 @@ router.delete('/conversations/:id', requireScopes('chat:write'), async (req: any
   const userId = req.user.userId;
 
   if (!UUID_RE.test(id)) {
-    // A client-only fallback ID — nothing server-side to delete, but the
+    // A client-only fallback ID - nothing server-side to delete, but the
     // caller should still see success so it clears from their local list.
     return res.json({ success: true, message: 'Conversation deleted successfully' });
   }
@@ -390,7 +390,7 @@ router.delete('/conversations/:id', requireScopes('chat:write'), async (req: any
     // Soft-delete, not hard delete: billing usage (message quota, token
     // totals) is computed by counting real message/token rows for this
     // month, with no separate persistent counter. A hard delete here let a
-    // user erase their own usage history — and reset their quota — just by
+    // user erase their own usage history - and reset their quota - just by
     // deleting a conversation. deleted_at hides it from the conversation
     // list/messages views while billing/usage queries keep counting it.
     await executeTenantQuery(req.tenant.id, (client) =>
@@ -407,7 +407,7 @@ router.delete('/conversations/:id', requireScopes('chat:write'), async (req: any
   }
 });
 
-// PATCH /api/chat/conversations/:id — rename a conversation. The frontend
+// PATCH /api/chat/conversations/:id - rename a conversation. The frontend
 // has always called this, but no matching route ever existed here, so
 // renaming silently no-opped against a 404.
 router.patch('/conversations/:id', async (req: any, res) => {
@@ -445,7 +445,7 @@ router.patch('/conversations/:id', async (req: any, res) => {
   }
 });
 
-// POST /api/chat/conversations/:id/truncate — truncate messages from a given message onward (used when editing a user message)
+// POST /api/chat/conversations/:id/truncate - truncate messages from a given message onward (used when editing a user message)
 router.post('/conversations/:id/truncate', requireScopes('chat:write'), async (req: any, res) => {
   const { id } = req.params;
   const { fromMessageId, messageIndex } = req.body;
@@ -628,7 +628,7 @@ async function handleChat(req: any, res: any) {
     } catch (_) {}
   }
 
-  // Single-GPU VM — all tiers map to the loaded model until multi-model infra is available.
+  // Single-GPU VM - all tiers map to the loaded model until multi-model infra is available.
   const MODEL_MAP: Record<string, string> = {
     'harikson-plus':    'qwen2.5:3b',
     'harikson-max':     'qwen2.5:3b',
@@ -644,7 +644,7 @@ async function handleChat(req: any, res: any) {
   const userId = req.user.userId;
 
     // A client-only fallback ID from before this route persisted anything
-    // (see UUID_RE's comment) is not a real conversation — treat it the
+    // (see UUID_RE's comment) is not a real conversation - treat it the
     // same as no ID at all rather than trying to reuse it.
     let currentConvId = conversationId && UUID_RE.test(conversationId) ? conversationId : undefined;
     let currentConvTitle = '';
@@ -742,7 +742,7 @@ async function handleChat(req: any, res: any) {
     logger.info({ durationMs: Date.now() - ragStart }, `[TIMING] Document RAG lookup took ${Date.now() - ragStart}ms`);
     const promptTokens = countExactTokens(message) + countExactTokens(ragContext);
 
-    // Save user message — must be awaited so it persists before the response streams.
+    // Save user message - must be awaited so it persists before the response streams.
     try {
       await executeTenantQuery(req.tenant.id, (client) =>
         client.query(
@@ -829,7 +829,7 @@ async function handleChat(req: any, res: any) {
       const ollamaUrl = process.env.OLLAMA_URL || process.env.OLLAMA_HOST || 'http://ollama:11434';
       let fullResponseText = '';
 
-      // Build Ollama message list — include conversation history for context.
+      // Build Ollama message list - include conversation history for context.
       const clientSystemMessage = Array.isArray(clientHistory)
         ? clientHistory.find((m: any) => m.role === 'system' && m.content?.trim())
         : null;
@@ -847,7 +847,7 @@ async function handleChat(req: any, res: any) {
         : '';
 
       const systemContent = wrappedContext
-        ? `${baseSystemPrompt}\n\nUse this verified document context to answer. If the context contains OCR or raw scan text, do NOT verbatim echo broken symbols or raw OCR strings — synthesize and explain the true meaning clearly with exact citations:\n\n${wrappedContext}`
+        ? `${baseSystemPrompt}\n\nUse this verified document context to answer. If the context contains OCR or raw scan text, do NOT verbatim echo broken symbols or raw OCR strings - synthesize and explain the true meaning clearly with exact citations:\n\n${wrappedContext}`
         : baseSystemPrompt;
 
       let ollamaMessages: Array<{ role: string; content: string }> = [
@@ -1046,7 +1046,7 @@ async function handleChat(req: any, res: any) {
             }
             const citationBlock = '\n\n---\n### Sources & Citations\n' +
               Array.from(uniqueCitations.values()).slice(0, 4).map((c: any, i: number) =>
-                `${i + 1}. **${c.filename}** — *${c.sourceLocation}*`
+                `${i + 1}. **${c.filename}** - *${c.sourceLocation}*`
               ).join('\n');
             try {
               res.write(`data: ${JSON.stringify({ content: citationBlock, citations: retrievedCitations, conversationId: currentConvId, title: currentConvTitle })}\n\n`);

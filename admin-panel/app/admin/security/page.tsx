@@ -58,7 +58,7 @@ export default function SecurityPage() {
           dateStyle: 'short',
           timeStyle: 'short',
         })
-      : '—';
+      : '-';
 
   const actionIcon = (action: string) => {
     if (action?.includes('LOGIN_FAILED') || action?.includes('FAILED'))
@@ -86,13 +86,13 @@ export default function SecurityPage() {
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <Card className="bg-gray-900/60 border-red-900/40 p-4 text-center">
           <div className="text-3xl font-black text-red-400">
-            {loading ? '—' : (data?.failed_login_count_24h ?? 0)}
+            {loading ? '-' : (data?.failed_login_count_24h ?? 0)}
           </div>
           <div className="text-xs text-gray-500 mt-1">Failed Logins (24h)</div>
         </Card>
         <Card className="bg-gray-900/60 border-orange-900/40 p-4 text-center">
           <div className="text-3xl font-black text-orange-400">
-            {loading ? '—' : (data?.suspicious_ips?.length ?? 0)}
+            {loading ? '-' : (data?.suspicious_ips?.length ?? 0)}
           </div>
           <div className="text-xs text-gray-500 mt-1">
             Unique Suspicious IPs
@@ -100,7 +100,7 @@ export default function SecurityPage() {
         </Card>
         <Card className="bg-gray-900/60 border-yellow-900/40 p-4 text-center">
           <div className="text-3xl font-black text-yellow-400">
-            {loading ? '—' : (data?.rate_limit_hits_24h ?? 0)}
+            {loading ? '-' : (data?.rate_limit_hits_24h ?? 0)}
           </div>
           <div className="text-xs text-gray-500 mt-1">
             Rate Limit Hits (24h)
@@ -108,7 +108,7 @@ export default function SecurityPage() {
         </Card>
         <Card className="bg-gray-900/60 border-gray-800 p-4 text-center">
           <div className="text-3xl font-black text-emerald-400">
-            {loading ? '—' : (data?.audit_event_count ?? 0)}
+            {loading ? '-' : (data?.audit_event_count ?? 0)}
           </div>
           <div className="text-xs text-gray-500 mt-1">Audit Events</div>
         </Card>

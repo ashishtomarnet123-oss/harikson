@@ -43,7 +43,7 @@ export function AuthProvider({ children }) {
     setIsEmailVerified(true);
   }, []);
 
-  /** Silent token refresh — returns new access token string or null on failure. */
+  /** Silent token refresh - returns new access token string or null on failure. */
   const tryRefresh = useCallback(async () => {
     if (typeof window === 'undefined') return null;
     const { apiBase, tenantSlug } = getApiConfig();
@@ -64,7 +64,7 @@ export function AuthProvider({ children }) {
         return newToken;
       }
     } catch {
-      // Network error — do nothing, will retry on next interval or tab focus
+      // Network error - do nothing, will retry on next interval or tab focus
     }
     return null;
   }, []);
@@ -131,9 +131,9 @@ export function AuthProvider({ children }) {
         if (router.pathname !== '/verify-email') router.replace('/verify-email');
 
       } else if (res.status === 401) {
-        // Both /me AND /refresh returned 401 — session is genuinely over.
+        // Both /me AND /refresh returned 401 - session is genuinely over.
         if (!storedToken && !storedUser) {
-          // No session ever existed — redirect if on protected page
+          // No session ever existed - redirect if on protected page
           clearAuthData();
           if (!isPublicPage && router.pathname !== '/impersonate') router.replace('/login');
         } else if (!isPublicPage) {
@@ -143,7 +143,7 @@ export function AuthProvider({ children }) {
         }
 
       } else {
-        // 5xx or unexpected — DO NOT log user out. Preserve session from localStorage.
+        // 5xx or unexpected - DO NOT log user out. Preserve session from localStorage.
         if (storedUser && storedToken) {
           try {
             const parsedUser = JSON.parse(storedUser);
@@ -157,7 +157,7 @@ export function AuthProvider({ children }) {
         }
       }
     } catch (err) {
-      // Network offline / DNS failure — preserve session, never auto-logout
+      // Network offline / DNS failure - preserve session, never auto-logout
       console.warn('[Auth] Network error, preserving existing session:', err);
       if (storedUser && storedToken) {
         try {
@@ -185,7 +185,7 @@ export function AuthProvider({ children }) {
       if (!isAuthenticatedRef.current) return;
       const newToken = await tryRefresh();
       if (!newToken) {
-        // Refresh truly failed — run full checkAuth to determine whether to sign out
+        // Refresh truly failed - run full checkAuth to determine whether to sign out
         await checkAuth();
       }
     }, REFRESH_INTERVAL_MS);
@@ -197,7 +197,7 @@ export function AuthProvider({ children }) {
     if (typeof window === 'undefined') return;
     const onVisibilityChange = async () => {
       if (document.visibilityState === 'visible' && isAuthenticatedRef.current) {
-        await tryRefresh(); // silent — no spinner, no state change on success
+        await tryRefresh(); // silent - no spinner, no state change on success
       }
     };
     document.addEventListener('visibilitychange', onVisibilityChange);

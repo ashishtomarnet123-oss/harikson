@@ -84,14 +84,14 @@ export default function AcceptableUsePolicyPage() {
     }}>
       <SEOHead
         title="Acceptable Use Policy"
-        description="Xarwiz Acceptable Use Policy — standards for safe AI model interactions, agentic automation, prohibited conduct, and security integrity."
+        description="Xarwiz Acceptable Use Policy - standards for safe AI model interactions, agentic automation, prohibited conduct, and security integrity."
         canonicalPath="/aup"
         jsonLd={[
           defaultOrganizationSchema,
           {
             '@context': 'https://schema.org',
             '@type': 'WebPage',
-            name: 'Acceptable Use Policy — Xarwiz AI Platform',
+            name: 'Acceptable Use Policy - Xarwiz AI Platform',
             url: 'https://xarwiz.com/aup',
           },
         ]}

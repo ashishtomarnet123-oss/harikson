@@ -34,7 +34,7 @@ function getRazorpay(): Razorpay {
   return _razorpay;
 }
 
-// Server-side plan pricing — the price actually charged must come from the DB
+// Server-side plan pricing - the price actually charged must come from the DB
 // `plans` table, never from client input or a hardcoded map.
 async function getPlanFromDb(planId: string): Promise<{ id: string; name: string; price: number; currency: string } | null> {
   try {
@@ -253,7 +253,7 @@ router.post('/2fa/disable', async (req: any, res) => {
   }
 });
 
-// API Keys Endpoints — governed by the plan's api_access feature entitlement
+// API Keys Endpoints - governed by the plan's api_access feature entitlement
 router.get('/api-keys', async (req: any, res) => {
   // Entitlement check
   const hasApiAccess = req.entitlements?.apiAccess;
@@ -283,7 +283,7 @@ router.get('/api-keys', async (req: any, res) => {
 });
 
 router.post('/api-keys', async (req: any, res) => {
-  // Plan entitlement check — API keys require api_access feature entitlement
+  // Plan entitlement check - API keys require api_access feature entitlement
   const hasApiAccess = req.entitlements?.apiAccess;
   if (!hasApiAccess) {
     const planId = req.entitlements?.planId || 'free';
@@ -423,7 +423,7 @@ router.get('/workspace', async (req: any, res) => {
     let members: any[] = [];
     try {
       // Platform staff (superadmin/admin/founder) are excluded even when a
-      // row's tenant_id happens to match — legacy data from before tenants
+      // row's tenant_id happens to match - legacy data from before tenants
       // were properly isolated means some real tenants still share the
       // default tenant_id with these accounts, and a tenant's own member
       // list must never surface platform admins regardless of what the
@@ -488,7 +488,7 @@ router.post('/workspace/members', async (req: any, res) => {
     }
 
     // A caller-supplied password would let whoever calls this endpoint set
-    // a password they already know on the new account — always generate a
+    // a password they already know on the new account - always generate a
     // random one server-side instead; the new member resets it via the
     // normal forgot-password flow.
     const passwordHash = await bcrypt.hash(crypto.randomBytes(24).toString('hex'), 10);
@@ -507,7 +507,7 @@ router.post('/workspace/members', async (req: any, res) => {
 });
 
 // Roles settable on a tenant member via the workspace endpoints below.
-// Deliberately excludes 'admin'/'superadmin'/'founder' — those grant
+// Deliberately excludes 'admin'/'superadmin'/'founder' - those grant
 // platform-wide admin panel access (see admin-api's login), so a tenant
 // owner must never be able to grant them to a teammate through their own
 // workspace's member management.
@@ -515,7 +515,7 @@ const WORKSPACE_SETTABLE_ROLES = ['owner', 'user', 'member'];
 
 // Shared guard for the two endpoints below: neither previously checked the
 // caller's role NOR scoped the target user to the caller's own tenant at
-// all — any authenticated user, regardless of role, could change the role
+// all - any authenticated user, regardless of role, could change the role
 // of (or soft-delete) any user in the entire database, in any tenant, just
 // by knowing their id. Returns the caller's {tenantId, role}, or sends an
 // error response and returns null.
@@ -529,7 +529,7 @@ async function requireWorkspaceAdmin(req: any, res: any): Promise<{ tenantId: st
   }
   // 'owner' is the tenant-scoped workspace-management role assigned to
   // every new signup's founding member (see auth.routes.ts's handleRegister)
-  // — distinct from 'admin'/'superadmin'/'founder', which admin-api's own
+  // - distinct from 'admin'/'superadmin'/'founder', which admin-api's own
   // login also checks for platform-wide admin panel access. A tenant owner
   // must never be conflated with a platform admin.
   const allowedRoles = ['owner', 'admin', 'superadmin', 'founder'];
@@ -604,7 +604,7 @@ router.delete('/workspace/members/:id', async (req: any, res) => {
 });
 
 // GET /api/user/billing & /api/v1/user/billing
-// Real, DB-backed billing snapshot — no fabricated plan/card/usage/invoice
+// Real, DB-backed billing snapshot - no fabricated plan/card/usage/invoice
 // data anywhere in this handler. Every field either comes from a real row
 // or is left null/empty for the frontend's existing empty states to handle.
 router.get('/billing', async (req: any, res) => {
@@ -645,7 +645,7 @@ router.get('/billing', async (req: any, res) => {
       return res.status(500).json({ error: 'No plan configuration found for this tenant' });
     }
 
-    // Real payment method — only present if a real Razorpay payment stored
+    // Real payment method - only present if a real Razorpay payment stored
     // one in subscription.metadata (set at verification time). Never a
     // fabricated card.
     let paymentMethod: any = null;
@@ -747,7 +747,7 @@ router.post(['/billing/cancel', '/user/billing/cancel'], async (req: any, res) =
 
 // POST /api/user/billing/change-plan & /api/v1/user/billing/change-plan
 // Only handles the no-payment path (switching to the Free plan). Any paid
-// plan must go through /billing/checkout + /billing/verify-payment below —
+// plan must go through /billing/checkout + /billing/verify-payment below -
 // this used to accept a client-supplied `price` and activate immediately
 // with no payment provider involved at all, which let anyone "upgrade" for
 // free by just changing the request body.
@@ -785,7 +785,7 @@ router.post(['/billing/change-plan', '/user/billing/change-plan'], async (req: a
 
 // POST /api/user/billing/checkout & /api/v1/user/billing/checkout
 // Starts a paid plan upgrade (supports PhonePe and Razorpay). Free plan
-// changes never reach here — frontend routes those straight to /billing/change-plan.
+// changes never reach here - frontend routes those straight to /billing/change-plan.
 router.post(['/billing/checkout', '/user/billing/checkout'], async (req: any, res) => {
   if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
   const { planId, provider = 'phonepe' } = req.body;
@@ -793,7 +793,7 @@ router.post(['/billing/checkout', '/user/billing/checkout'], async (req: any, re
 
   if (!plan) return res.status(400).json({ error: 'Unknown planId' });
   if (Number(plan.price) <= 0) {
-    return res.status(400).json({ error: 'This plan does not require payment — call /billing/change-plan instead.' });
+    return res.status(400).json({ error: 'This plan does not require payment - call /billing/change-plan instead.' });
   }
 
   try {
@@ -889,7 +889,7 @@ router.post(['/billing/checkout', '/user/billing/checkout'], async (req: any, re
 // POST /api/user/billing/verify-payment & /api/v1/user/billing/verify-payment
 // Confirms a Razorpay Checkout payment and activates the plan. The HMAC
 // signature check is the only thing standing between "user clicked pay" and
-// "we actually got paid" — never activate a plan without it passing.
+// "we actually got paid" - never activate a plan without it passing.
 router.post(['/billing/verify-payment', '/user/billing/verify-payment'], async (req: any, res) => {
   if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
   const { razorpay_order_id, razorpay_payment_id, razorpay_signature, planId } = req.body;
@@ -971,7 +971,7 @@ router.post(['/billing/verify-payment', '/user/billing/verify-payment'], async (
     res.json({ success: true, message: `Successfully upgraded to ${plan.name}` });
   } catch (err: any) {
     logger.error('Razorpay payment verified but activation failed:', err);
-    res.status(500).json({ error: 'Payment was verified but activating your plan failed — contact support with payment ID ' + razorpay_payment_id });
+    res.status(500).json({ error: 'Payment was verified but activating your plan failed - contact support with payment ID ' + razorpay_payment_id });
   }
 });
 
@@ -1105,7 +1105,7 @@ router.post(['/billing/verify-cashfree', '/user/billing/verify-cashfree'], async
 
 // GET /api/user/billing/invoices/:id/receipt & /api/v1/user/billing/invoices/:id/receipt
 // A real, tenant-scoped, printable receipt generated from the actual invoice
-// row — not a Razorpay-hosted invoice (this integration uses Orders/Payments,
+// row - not a Razorpay-hosted invoice (this integration uses Orders/Payments,
 // not Razorpay's separate Invoices product). Opened directly via
 // window.open() from the browser, so auth relies on the same hk_access_token
 // cookie every other same-origin request already uses.
@@ -1129,7 +1129,7 @@ router.get(['/billing/invoices/:id/receipt', '/user/billing/invoices/:id/receipt
 
     const esc = (v: any) => String(v ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c] as string));
     const amountFmt = `${inv.currency === 'INR' ? '₹' : '$'}${parseFloat(inv.amount).toFixed(2)}`;
-    const dateFmt = inv.paid_at ? new Date(inv.paid_at).toLocaleDateString('en-US', { month: 'long', day: '2-digit', year: 'numeric' }) : '—';
+    const dateFmt = inv.paid_at ? new Date(inv.paid_at).toLocaleDateString('en-US', { month: 'long', day: '2-digit', year: 'numeric' }) : '-';
 
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
     res.send(`<!doctype html>
@@ -1237,7 +1237,7 @@ router.post(['/rag-files', '/user/rag-files'], async (req: any, res) => {
   }
 });
 
-// PATCH /api/user/rag-files/:id & /api/v1/user/rag-files/:id — toggles
+// PATCH /api/user/rag-files/:id & /api/v1/user/rag-files/:id - toggles
 // whether this file contributes to RAG retrieval in chat, without removing
 // it from the list (that's what DELETE is for).
 router.patch(['/rag-files/:id', '/user/rag-files/:id'], async (req: any, res) => {
@@ -1664,7 +1664,7 @@ router.post('/security/change-password', async (req: any, res) => {
 router.get('/developer/keys', async (req: any, res) => {
   if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
 
-  // Plan entitlement check — API keys require api_access feature entitlement
+  // Plan entitlement check - API keys require api_access feature entitlement
   const hasApiAccess = req.entitlements?.apiAccess;
   if (!hasApiAccess) {
     const planId = req.entitlements?.planId || 'free';
@@ -1694,7 +1694,7 @@ router.get('/developer/keys', async (req: any, res) => {
 router.post('/developer/keys', async (req: any, res) => {
   if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
 
-  // Plan entitlement check — API keys require api_access feature entitlement
+  // Plan entitlement check - API keys require api_access feature entitlement
   const hasApiAccess = req.entitlements?.apiAccess;
   if (!hasApiAccess) {
     const planId = req.entitlements?.planId || 'free';
@@ -2012,7 +2012,7 @@ router.get(['/developer/webhook-logs/:id', '/webhooks/logs/:id'], requireWebhook
 
 // GET /api/user/storage & /api/v1/user/storage
 // Real usage computed from knowledge_documents (the same table the actual
-// document/RAG upload pipeline in document.routes.ts writes to — file_size_bytes
+// document/RAG upload pipeline in document.routes.ts writes to - file_size_bytes
 // is tracked per document at indexing time). There is no storage quota field
 // on the plans table today, so this reports real usage without inventing a
 // fake capacity/percentage to compare it against.

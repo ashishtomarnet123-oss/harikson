@@ -51,7 +51,7 @@ function getApiPrefix(): string {
 }
 
 // ─────────────────────────────────────────────────────────────
-//  Safe JSON fetch helper — never throws on HTML or invalid JSON
+//  Safe JSON fetch helper - never throws on HTML or invalid JSON
 // ─────────────────────────────────────────────────────────────
 async function safeFetchJson(
   url: string,
@@ -126,7 +126,7 @@ export const AdminAuthProvider = ({ children }: { children: React.ReactNode }) =
     }
 
     try {
-      // PRIMARY: /api/auth/me — internal Next.js API route (direct DB, no proxy needed)
+      // PRIMARY: /api/auth/me - internal Next.js API route (direct DB, no proxy needed)
       const prefix = getApiPrefix();
       const { res: r1, data: d1 } = await safeFetchJson(`${prefix}/api/auth/me`);
       if (r1?.ok) {
@@ -134,7 +134,7 @@ export const AdminAuthProvider = ({ children }: { children: React.ReactNode }) =
         if (u) { setUser(u); return; }
       }
 
-      // FALLBACK: /api-proxy/v1/admin/auth/me — proxy to admin-api
+      // FALLBACK: /api-proxy/v1/admin/auth/me - proxy to admin-api
       const { res: r2, data: d2 } = await safeFetchJson(`${prefix}/api-proxy/v1/admin/auth/me`);
       if (r2?.ok) {
         const u = parseUser(d2);
@@ -165,7 +165,7 @@ export const AdminAuthProvider = ({ children }: { children: React.ReactNode }) =
     const destination = redirectUrl || '/admin/dashboard';
 
     try {
-      // PRIMARY: /api/auth/login — internal Next.js route (direct DB)
+      // PRIMARY: /api/auth/login - internal Next.js route (direct DB)
       const prefix = getApiPrefix();
       const { res: r1, data: d1 } = await safeFetchJson(`${prefix}/api/auth/login`, {
         method: 'POST',

@@ -527,7 +527,7 @@ export default function HelpCenter() {
                       {t.sla_hours ? `${t.sla_hours} hrs` : 'None'}
                     </td>
                     <td style={{ padding: '10px 14px', color: '#d1d5db' }}>
-                      {t.first_response_due_at ? new Date(t.first_response_due_at).toLocaleString() : '—'}
+                      {t.first_response_due_at ? new Date(t.first_response_due_at).toLocaleString() : '-'}
                     </td>
                     <td style={{ padding: '10px 14px' }}>
                       {renderSlaBadge(t.sla_status)}

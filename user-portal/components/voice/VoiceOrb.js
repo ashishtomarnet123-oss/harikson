@@ -1,5 +1,5 @@
 /**
- * VoiceOrb.js — High-performance Canvas-based animated voice orb
+ * VoiceOrb.js - High-performance Canvas-based animated voice orb
  *
  * Shows real-time microphone energy and FSM state through animated rings and glowing core.
  * Uses high-DPI ctx.scale(dpr, dpr) for crystal-clear Retina rendering.

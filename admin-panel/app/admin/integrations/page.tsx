@@ -392,7 +392,7 @@ function ActivityDrawer({
       >
         <div className="flex justify-between items-center mb-5">
           <h3 className="text-sm font-black text-white flex items-center gap-2">
-            <Activity className="w-4 h-4 text-indigo-400" /> {provider.name} —
+            <Activity className="w-4 h-4 text-indigo-400" /> {provider.name} -
             Activity Log
           </h3>
           <button
@@ -1081,7 +1081,7 @@ export default function IntegrationCenterPage() {
         <div className="bg-gradient-to-r from-indigo-950/60 to-purple-950/60 border border-indigo-800/40 rounded-2xl p-5 flex flex-wrap items-center gap-4">
           <div className="flex-1 min-w-0">
             <div className="text-sm font-black text-white mb-1">
-              🚀 Get started — connect your first integration
+              🚀 Get started - connect your first integration
             </div>
             <div className="text-xs text-gray-400">
               Start with GitHub for code-aware AI, then add Google Drive to sync
@@ -1140,7 +1140,7 @@ export default function IntegrationCenterPage() {
               {s.label}
             </div>
             <div className={`text-3xl font-black mt-1 ${s.color}`}>
-              {loading ? '—' : s.value}
+              {loading ? '-' : s.value}
             </div>
           </div>
         ))}

@@ -66,14 +66,14 @@ export default function CookiePolicyPage() {
     }}>
       <SEOHead
         title="Cookie Policy"
-        description="Xarwiz Cookie Policy — comprehensive disclosures on session security, local storage, analytics categorization, and DPDP Act consent management."
+        description="Xarwiz Cookie Policy - comprehensive disclosures on session security, local storage, analytics categorization, and DPDP Act consent management."
         canonicalPath="/cookie-policy"
         jsonLd={[
           defaultOrganizationSchema,
           {
             '@context': 'https://schema.org',
             '@type': 'WebPage',
-            name: 'Cookie Policy — Xarwiz AI Platform',
+            name: 'Cookie Policy - Xarwiz AI Platform',
             url: 'https://xarwiz.com/cookie-policy',
           },
         ]}

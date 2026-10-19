@@ -239,7 +239,7 @@ describe('Smart Conversation Titles & Technical SEO Test Suite', () => {
 
       assert.strictEqual(
         formatPageTitle('Marketing Strategy'),
-        'Marketing Strategy — Xarwiz'
+        'Marketing Strategy - Xarwiz'
       );
     });
 
@@ -249,7 +249,7 @@ describe('Smart Conversation Titles & Technical SEO Test Suite', () => {
 
       assert.strictEqual(
         formatPageTitle('Xarwiz Mobile Chat UI'),
-        'Xarwiz Mobile Chat UI — Xarwiz'
+        'Xarwiz Mobile Chat UI - Xarwiz'
       );
     });
 
@@ -259,15 +259,15 @@ describe('Smart Conversation Titles & Technical SEO Test Suite', () => {
 
       assert.strictEqual(
         formatPageTitle('Marketing Strategy — Xarwiz — Xarwiz'),
-        'Marketing Strategy — Xarwiz'
+        'Marketing Strategy - Xarwiz'
       );
       assert.strictEqual(
         formatPageTitle('Marketing Strategy - Xarwiz'),
-        'Marketing Strategy — Xarwiz'
+        'Marketing Strategy - Xarwiz'
       );
       assert.strictEqual(
         formatPageTitle('Dashboard — Xarwiz'),
-        'Dashboard — Xarwiz'
+        'Dashboard - Xarwiz'
       );
     });
 

@@ -1,5 +1,5 @@
 /**
- * vad-processor.js — AudioWorklet for Real-Time Energy & VAD Calculation
+ * vad-processor.js - AudioWorklet for Real-Time Energy & VAD Calculation
  *
  * Runs on the audio rendering thread. Computes RMS energy and dB over ~30ms
  * frames. Posts frame metrics back to the main thread via message port.

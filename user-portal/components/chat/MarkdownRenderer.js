@@ -45,7 +45,7 @@ function getNodeText(node) {
 }
 
 /* ────────────────────────────────────────────────────────────
-   URL Protocol Sanitizer — blocks javascript:, data:, vbscript:
+   URL Protocol Sanitizer - blocks javascript:, data:, vbscript:
 ──────────────────────────────────────────────────────────── */
 function isSafeUrl(url) {
   if (!url || typeof url !== 'string') return false;

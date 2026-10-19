@@ -85,7 +85,7 @@ function DashboardPage() {
   return (
     <DashboardShell title="Dashboard">
       <Head>
-        <title>Dashboard — Xarwiz</title>
+        <title>Dashboard - Xarwiz</title>
         <meta name="robots" content="noindex, nofollow" />
       </Head>
 

@@ -1,5 +1,5 @@
 /**
- * vad-controller.js — Main-thread Voice Activity Detector (VAD) & Echo Gate
+ * vad-controller.js - Main-thread Voice Activity Detector (VAD) & Echo Gate
  *
  * Runs an AudioWorklet (with AnalyserNode fallback) to measure microphone energy.
  * Detects speech start and speech end events with adaptive hangover timing.
@@ -31,7 +31,7 @@ export class VADController {
     this.options = {
       silenceThresholdDb: -42,        // Speech detection threshold in dBFS
       echoGateThresholdDb: -26,       // Elevated threshold during TTS playback
-      speechHangoverMs: 600,          // Default hangover — overridden adaptively
+      speechHangoverMs: 600,          // Default hangover - overridden adaptively
       minSpeechDurationMs: 120,       // Minimum speech duration to discard mouth clicks/pops
       deviceId: null,
       ...options,
@@ -90,11 +90,11 @@ export class VADController {
     if (/[?!]\s*$/.test(t)) return 400;
     if (/[.]\s*$/.test(t)) return 500;
 
-    // Trailing incomplete words — user is still formulating
+    // Trailing incomplete words - user is still formulating
     const INCOMPLETE_ENDINGS = /\b(and|or|the|in|is|are|was|were|to|of|a|an|with|for|on|at|by|from|but|so|if|that|this|which|who|what|when|where|how|i|we|they|he|she|it)\s*$/i;
     if (INCOMPLETE_ENDINGS.test(t)) return 900;
 
-    // Very short response — wait longer
+    // Very short response - wait longer
     const wordCount = t.split(/\s+/).filter(Boolean).length;
     if (wordCount < 3) return 800;
 
@@ -105,7 +105,7 @@ export class VADController {
   }
 
   /**
-   * Suspend VAD between AI speaking turns — keeps AudioContext + MediaStream alive.
+   * Suspend VAD between AI speaking turns - keeps AudioContext + MediaStream alive.
    * Much faster than stop()/start() (saves ~150–300ms re-init per turn).
    */
   suspend() {
@@ -127,7 +127,7 @@ export class VADController {
 
   /**
    * Resume VAD after AI finishes speaking.
-   * Reuses existing AudioContext + MediaStream — no hardware re-init needed.
+   * Reuses existing AudioContext + MediaStream - no hardware re-init needed.
    */
   resume() {
     if (!this.isSuspended && this.isListening) return;

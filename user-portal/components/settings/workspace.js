@@ -10,7 +10,7 @@ export default function WorkspaceSettings() {
   const [currentUserId, setCurrentUserId] = useState(null);
   const [currentUserRole, setCurrentUserRole] = useState(null);
   // Matches WORKSPACE_SETTABLE_ROLES + platform-admin roles allowed by
-  // requireWorkspaceAdmin on the backend (user.routes.ts) — the backend is
+  // requireWorkspaceAdmin on the backend (user.routes.ts) - the backend is
   // the actual authority here (it rejects unauthorized calls regardless),
   // this just keeps the UI from showing controls the viewer can't use.
   const canManageMembers = ['owner', 'admin', 'superadmin', 'founder'].includes(
@@ -19,7 +19,7 @@ export default function WorkspaceSettings() {
 
   useEffect(() => {
     fetchWorkspace();
-    // hk_user already holds the parsed current-user object (see AuthContext.js) —
+    // hk_user already holds the parsed current-user object (see AuthContext.js) -
     // no need to decode a token here at all. The previous code built a fake
     // sentinel string ('cookie_auth') and tried to base64-decode it as if it
     // were a JWT, which always failed.
@@ -260,7 +260,7 @@ export default function WorkspaceSettings() {
   };
 
   // 'owner' is the account founder's actual stored role (see auth.routes.ts's
-  // handleRegister and WORKSPACE_SETTABLE_ROLES on the backend) — displayed
+  // handleRegister and WORKSPACE_SETTABLE_ROLES on the backend) - displayed
   // as "Admin" here since that's the term this workspace's users expect for
   // "the person who manages this account." The stored value stays 'owner'
   // so it's never confused with the platform-wide 'admin' role.

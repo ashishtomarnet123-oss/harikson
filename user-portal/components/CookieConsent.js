@@ -23,7 +23,7 @@ export default function CookieConsent() {
     const hostname = window.location.hostname;
     let resolvedApi = 'http://localhost:3008';
     if (hostname !== 'localhost' && hostname !== '127.0.0.1') {
-      // Relative path — Next.js's rewrites() proxies /api/* to tenant-api
+      // Relative path - Next.js's rewrites() proxies /api/* to tenant-api
       // server-side, same origin, regardless of what domain is actually
       // being visited (e.g. xarwiz.com) or
       // whether that domain has an explicit port.
