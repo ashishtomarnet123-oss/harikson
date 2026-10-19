@@ -44,7 +44,7 @@ export default function SecurityPolicyPage() {
   }
 
   const sectionsData = [
-    { num: 1, cat: 'intro', title: 'Introduction', content: 'This Security Policy governs the technological safeguards, cloud architecture, and organizational security protocols deployed by VoltNovate Solutions LLP, Sector 62, Noida, Uttar Pradesh, India - 201301.' },
+    { num: 1, cat: 'intro', title: 'Introduction', content: 'This Security Policy governs the technological safeguards, cloud architecture, and organizational security protocols deployed by VoltNovate Solutions LLP, House No 2, Sai Dham Colony, DD Nagar, Gwalior, Madhya Pradesh - 474005, India.' },
     { num: 2, cat: 'intro', title: 'Security Principles', content: 'Our security architecture is governed by Confidentiality & Least Privilege (restricting data using Row-Level Security), Defense in Depth (multi-layered network boundaries), Zero Trust validation, and Privacy/AI Safety by Design.' },
     { num: 3, cat: 'intro', title: 'Governance', content: 'Our security operations are led by our CISO, who coordinates threat assessments. DevSecOps handles pipeline safety and container updates, while Risk Management conducts quarterly audits.' },
     { num: 4, cat: 'intro', title: 'Compliance', content: 'We comply with India\'s DPDP Act 2023, IT Act 2000, CERT-In Directions (incident notification reporting within 6 hours), ISO/IEC 27001 standard practices, and SOC 2 Type II controls.' },
@@ -69,7 +69,7 @@ export default function SecurityPolicyPage() {
     { num: 18, cat: 'incident', title: 'Disaster Recovery (BCDR)', content: 'Geo-redundant logical backups are created daily. Target RPO is 24 hours and RTO is 4 hours, verified by annual failover tests.' },
     
     { num: 19, cat: 'vendor', title: 'Third-Party Vendor Security', content: 'We audit subprocessors before integration. Main vendors include cloud hosts (AWS India, Cloudflare), billing gates (Stripe, Razorpay), and model providers (OpenAI, Anthropic).' },
-    { num: 20, cat: 'vendor', title: 'Physical Security', content: 'Noida offices enforce visitor logs and keycards. Vector indices are stored in ISO 27001 certified AWS server centers.' },
+    { num: 20, cat: 'vendor', title: 'Physical Security', content: 'Corporate offices enforce visitor logs and keycards. Vector indices are stored in ISO 27001 certified AWS server centers.' },
     { num: 21, cat: 'vendor', title: 'Employee Security', content: 'Background checks are run before onboarding. Security awareness and phishing tests are conducted annually.' },
     
     { num: 22, cat: 'governance', title: 'Customer Responsibilities', content: 'Users must set long passwords, activate Multi-Factor Authentication (MFA), and protect workspace keys.' },
@@ -79,7 +79,7 @@ export default function SecurityPolicyPage() {
     { num: 26, cat: 'governance', title: 'Privacy & Data Protection', content: 'We collect minimal user metrics. Consent is requested for cross-border transfers. Check our Privacy Policy for more details.' },
     { num: 27, cat: 'governance', title: 'AI Risk Management', content: 'We monitor prompt leakage, model theft risks, and output manipulation using safety boundaries.' },
     { num: 28, cat: 'governance', title: 'Enforcement', content: 'Policy violations result in warning emails, temporary query limits, workspace suspension, or reporting to law authorities.' },
-    { num: 29, cat: 'governance', title: 'Contact Information', content: 'VoltNovate Solutions LLP, Sector 62, Noida, Uttar Pradesh, India - 201301. Grievance Officer: Ashish Pratap Singh Tomar (grievance@xarwiz.com).' },
+    { num: 29, cat: 'governance', title: 'Contact Information', content: 'VoltNovate Solutions LLP, House No 2, Sai Dham Colony, DD Nagar, Gwalior, Madhya Pradesh - 474005, India. Grievance Officer: Ashish Pratap Singh Tomar (grievance@xarwiz.com).' },
     
     { num: 30, cat: 'appendices', title: 'APPENDIX A: Controls Mapping', content: 'Our security controls map directly to ISO 27001, SOC 2 Criteria, and the NIST CSF.' },
     { num: 31, cat: 'appendices', title: 'APPENDIX B: Encryption Standards', content: 'We mandate TLS 1.3 in transit and AES-256 for database tables.' },

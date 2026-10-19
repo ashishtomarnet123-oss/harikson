@@ -174,6 +174,10 @@ export default function FooterSection() {
               <p className="footer-brand-desc">
                 From AI agents and workflow automation to agentic coding, multilingual AI chat, and knowledge management everything works together in one platform.
               </p>
+              <p style={{ fontSize: '0.78rem', color: '#64748b', lineHeight: 1.5, margin: '12px 0 16px 0' }}>
+                <strong style={{ color: '#475569' }}>Registered Office:</strong><br />
+                House No 2, Sai Dham Colony, DD Nagar, Gwalior, Madhya Pradesh - 474005, India
+              </p>
               <div className="social-icons-row">
                 <a href="#" style={{ color: '#64748b', textDecoration: 'none', fontSize: '1.1rem' }}>𝕏</a>
                 <a href="#" style={{ color: '#64748b', textDecoration: 'none', fontSize: '1.1rem', fontWeight: 'bold' }}>in</a>
@@ -243,7 +247,11 @@ export default function FooterSection() {
           </div>
 
           <div className="footer-bottom-bar">
-            <div>© 2026 VoltNovate Solutions LLP. All rights reserved.</div>
+            <div>
+              © 2026 VoltNovate Solutions LLP. All rights reserved.
+              <span style={{ margin: '0 8px', color: '#cbd5e1' }}>•</span>
+              <span>Registered Office: House No 2, Sai Dham Colony, DD Nagar, Gwalior, Madhya Pradesh - 474005, India</span>
+            </div>
             <div className="footer-bottom-selectors">
               <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>Made in India <img src="/assets/india-flag.svg" alt="India Flag" style={{ width: 16, height: 11, borderRadius: 1, objectFit: 'cover' }} /> ▾</span>
               <span>English ▾</span>

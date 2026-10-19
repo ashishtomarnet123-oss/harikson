@@ -11,7 +11,7 @@ The system replaces scattered, unverified checkboxes with a centralized, purpose
 ### 2. Statutory Entity & Officer Mapping
 Based on verified corporate disclosures:
 - **Data Fiduciary**: Xarwiz Technologies LLP
-- **Registered Corporate Address**: Sector 62, Noida, Uttar Pradesh, India - 201301
+- **Registered Corporate Address**: House No 2, Sai Dham Colony, DD Nagar, Gwalior, Madhya Pradesh - 474005, India
 - **Designated Grievance Officer (Section 13)**: Ashish Pratap Singh Tomar
 - **Grievance Redressal Email**: `grievance@xarwiz.com`
 - **Data Protection & Privacy Office**: `privacy@xarwiz.com`

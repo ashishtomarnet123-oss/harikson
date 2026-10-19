@@ -199,7 +199,7 @@ export default function GrievancePage() {
                 Xarwiz Technologies LLP
               </p>
               <p style={{ margin: 0, fontSize: '13px', color: '#64748b', lineHeight: '1.4' }}>
-                Sector 62, Noida, Uttar Pradesh, India - 201301
+                House No 2, Sai Dham Colony, DD Nagar, Gwalior, Madhya Pradesh - 474005, India
               </p>
               <p style={{ margin: '6px 0 0 0', fontSize: '12px', color: '#94a3b8' }}>
                 Statutory Response Period: As notified under DPDP Rules

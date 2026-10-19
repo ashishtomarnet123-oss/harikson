@@ -18,9 +18,10 @@ export const defaultOrganizationSchema = {
   description: "India's enterprise AI business operating system and workflow automation platform.",
   address: {
     '@type': 'PostalAddress',
-    addressLocality: 'Noida',
-    addressRegion: 'Uttar Pradesh',
-    postalCode: '201301',
+    streetAddress: 'House No 2, Sai Dham Colony, DD Nagar',
+    addressLocality: 'Gwalior',
+    addressRegion: 'Madhya Pradesh',
+    postalCode: '474005',
     addressCountry: 'IN',
   },
   contactPoint: [

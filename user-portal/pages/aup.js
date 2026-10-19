@@ -32,7 +32,7 @@ export default function AcceptableUsePolicyPage() {
   }
 
   const sectionsData = [
-    { num: 1, cat: 'intro', title: 'Introduction', content: 'This Acceptable Use Policy ("AUP") governs the access and use of the website, applications, APIs, SDKs, browser extensions, and developer portals provided by VoltNovate Solutions LLP, Noida, Uttar Pradesh, India - 201301.' },
+    { num: 1, cat: 'intro', title: 'Introduction', content: 'This Acceptable Use Policy ("AUP") governs the access and use of the website, applications, APIs, SDKs, browser extensions, and developer portals provided by VoltNovate Solutions LLP, House No 2, Sai Dham Colony, DD Nagar, Gwalior, Madhya Pradesh - 474005, India.' },
     { num: 2, cat: 'intro', title: 'Definitions', content: 'AI Model/LLM: Machine learning algorithms processing prompts. Prompt: Text, query, dataset, or file uploaded to generate a response. Output: AI-generated responses. Malicious Activity: Attempts to bypass system security, rate limits, or RLS parameters.' },
     { num: 3, cat: 'intro', title: 'General Principles', content: 'Every user must comply with applicable Indian and global laws, respect third-party intellectual property under the Copyright Act 1957, protect personal data privacy, and safeguard login credentials and API keys.' },
     
@@ -56,7 +56,7 @@ export default function AcceptableUsePolicyPage() {
     { num: 17, cat: 'enforce', title: 'Appeals Process', content: 'You can submit review requests to appeals@xarwiz.com within 14 business days. All decisions by our trust and safety audit team are final.' },
     { num: 18, cat: 'enforce', title: 'Changes to this Policy', content: 'We reserve the right to modify this AUP. Changes are published on this page with updated version histories.' },
     
-    { num: 19, cat: 'governance', title: 'Contact Information', content: 'Company: VoltNovate Solutions LLP, Sector 62, Noida, Uttar Pradesh, India - 201301. Grievance Officer: Ashish Pratap Singh Tomar (grievance@xarwiz.com).' },
+    { num: 19, cat: 'governance', title: 'Contact Information', content: 'Company: VoltNovate Solutions LLP, House No 2, Sai Dham Colony, DD Nagar, Gwalior, Madhya Pradesh - 474005, India. Grievance Officer: Ashish Pratap Singh Tomar (grievance@xarwiz.com).' },
     
     { num: 20, cat: 'appendices', title: 'APPENDIX A: Examples of Acceptable Use', content: 'Creating client summaries from parsed transcripts, converting legacy code to Python, or draft layout suggestions for interfaces.' },
     { num: 21, cat: 'appendices', title: 'APPENDIX B: Examples of Prohibited Use', content: 'Generating phishing email formats, or configuring bots to harvest database tables.' },

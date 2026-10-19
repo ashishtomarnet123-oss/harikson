@@ -429,7 +429,7 @@ export const sendPrivacyRequestAcknowledgmentEmail = async (
           </p>
           <hr style="border: 0; border-top: 1px solid #e2e8f0; margin: 24px 0;" />
           <p style="font-size: 12px; color: #94a3b8; margin: 0;">
-            Xarwiz Technologies LLP &bull; Sector 62, Noida, Uttar Pradesh, India - 201301 &bull; Contact: privacy@xarwiz.com
+            VoltNovate Solutions LLP &bull; House No 2, Sai Dham Colony, DD Nagar, Gwalior, Madhya Pradesh - 474005, India &bull; Contact: privacy@xarwiz.com
           </p>
         </div>
       `,
@@ -474,7 +474,7 @@ export const sendGrievanceAcknowledgmentEmail = async (
           </p>
           <hr style="border: 0; border-top: 1px solid #e2e8f0; margin: 24px 0;" />
           <p style="font-size: 12px; color: #94a3b8; margin: 0;">
-            Xarwiz Technologies LLP &bull; Sector 62, Noida, Uttar Pradesh, India - 201301 &bull; Grievance Redressal Cell
+            VoltNovate Solutions LLP &bull; House No 2, Sai Dham Colony, DD Nagar, Gwalior, Madhya Pradesh - 474005, India &bull; Grievance Redressal Cell
           </p>
         </div>
       `,

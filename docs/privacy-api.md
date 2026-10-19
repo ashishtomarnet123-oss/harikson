@@ -23,7 +23,7 @@ Returns the active published Privacy Notice or a requested version.
     "summary": "Production DPDP Act 2023 compliant privacy notice...",
     "content_json": {
       "entity": "Xarwiz Technologies LLP",
-      "address": "Sector 62, Noida, Uttar Pradesh, India - 201301",
+      "address": "House No 2, Sai Dham Colony, DD Nagar, Gwalior, Madhya Pradesh - 474005, India",
       "grievance_officer": "Ashish Pratap Singh Tomar",
       "grievance_email": "grievance@xarwiz.com",
       "privacy_email": "privacy@xarwiz.com"

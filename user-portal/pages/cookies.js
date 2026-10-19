@@ -43,7 +43,7 @@ export default function CookiePolicyPage() {
     
     { num: 15, cat: 'rights', title: 'Your Rights as a Data Principal', content: 'Under India\'s DPDP Act, 2023 and global privacy frameworks (GDPR, CCPA), you hold legal rights over your cookies data, including the right to access and review cookie-linked data, request correction or erasure, and withdraw consent at any time.' },
     { num: 16, cat: 'rights', title: 'Updates to Cookie Policy', content: 'We may update this policy periodically to reflect changes in our operational procedures. We will publish the revised policy with a new version number and effective date on this page.' },
-    { num: 17, cat: 'rights', title: 'Contact Information', content: 'Company: Xarwiz Technologies LLP. Registered Office Address: Sector 62, Noida, Uttar Pradesh, India - 201301. Support Email: support@xarwiz.com. Privacy Email: privacy@xarwiz.com. Grievance Officer: Ashish Pratap Singh Tomar (grievance@xarwiz.com).' },
+    { num: 17, cat: 'rights', title: 'Contact Information', content: 'Company: Xarwiz Technologies LLP. Registered Office Address: House No 2, Sai Dham Colony, DD Nagar, Gwalior, Madhya Pradesh - 474005, India. Support Email: support@xarwiz.com. Privacy Email: privacy@xarwiz.com. Grievance Officer: Ashish Pratap Singh Tomar (grievance@xarwiz.com).' },
     { num: 18, cat: 'rights', title: 'Definitions', content: 'Cookie: A small text file sent to register identifiers. Personal Data: Details identifying a real person. Third Party: Entities other than the user or primary provider. Tracking Technology: Pixels, beacons, SDKs, or local database segments.' }
   ];
 
