@@ -104,7 +104,7 @@ export async function POST(req: NextRequest) {
     const accessToken = jwt.sign(
       { userId: user.id, role: user.role, type: 'access' },
       JWT_SECRET,
-      { expiresIn: '15m' }
+      { expiresIn: '7d' }
     );
     const refreshToken = jwt.sign(
       { userId: user.id, role: user.role, type: 'refresh' },
@@ -120,7 +120,7 @@ export async function POST(req: NextRequest) {
       isHttps ? 'Secure' : '',
       'SameSite=Lax',
       'Path=/',
-      `Max-Age=${15 * 60}`,
+      `Max-Age=${7 * 24 * 60 * 60}`,
     ]
       .filter(Boolean)
       .join('; ');

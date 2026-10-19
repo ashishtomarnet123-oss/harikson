@@ -793,6 +793,17 @@ export default function TenantPlanManager() {
         fetch(`${apiBase}/v1/admin/billing/webhooks`, { credentials: 'include' }),
       ]);
 
+      const unauthorized = [resPlans, resTenants, resViolations, resReconcile, resKeys, resWebhooks].some(
+        (r) => r.status === 'fulfilled' && r.value.status === 401
+      );
+      if (unauthorized) {
+        showToast('Session expired. Please log in again.', 'error');
+        if (typeof window !== 'undefined') {
+          window.location.href = `/admin/login?redirect=${encodeURIComponent(window.location.pathname)}`;
+        }
+        return;
+      }
+
       if (resPlans.status === 'fulfilled' && resPlans.value.ok) {
         const d = await resPlans.value.json();
         const rawPlans = (d.plans || []).map((p: any) => ({
@@ -1174,7 +1185,7 @@ export default function TenantPlanManager() {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
         body: JSON.stringify({
           name: updated.name,
@@ -1198,8 +1209,14 @@ export default function TenantPlanManager() {
         );
         setEditingPlan(null);
         showToast(`Plan "${updated.name}" saved`);
+      } else if (res.status === 401) {
+        showToast('Session expired. Please log in again.', 'error');
+        if (typeof window !== 'undefined') {
+          window.location.href = `/admin/login?redirect=${encodeURIComponent(window.location.pathname)}`;
+        }
       } else {
-        showToast('Failed to save plan changes', 'error');
+        const d = await res.json().catch(() => ({}));
+        showToast(d.error || 'Failed to save plan changes', 'error');
       }
     } catch {
       showToast('API communication error', 'error');
@@ -1220,7 +1237,7 @@ export default function TenantPlanManager() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
         body: JSON.stringify({
           id: newPlan.id || `plan_${Date.now()}`,
@@ -1243,8 +1260,14 @@ export default function TenantPlanManager() {
         await fetchData();
         setShowCreateModal(false);
         showToast(`Plan "${newPlan.name}" created!`);
+      } else if (res.status === 401) {
+        showToast('Session expired. Please log in again.', 'error');
+        if (typeof window !== 'undefined') {
+          window.location.href = `/admin/login?redirect=${encodeURIComponent(window.location.pathname)}`;
+        }
       } else {
-        showToast('Failed to create plan', 'error');
+        const d = await res.json().catch(() => ({}));
+        showToast(d.error || 'Failed to create plan', 'error');
       }
     } catch {
       showToast('API communication error', 'error');

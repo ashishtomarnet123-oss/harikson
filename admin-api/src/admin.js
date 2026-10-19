@@ -503,7 +503,7 @@ app.post('/admin/login', validate(loginSchema), async (req, res) => {
     }
 
     const accessToken = jwt.sign({ userId: user.id, role: user.role, type: 'access' }, jwtSecret, {
-      expiresIn: '15m',
+      expiresIn: '7d',
     });
     const refreshToken = jwt.sign({ userId: user.id, role: user.role, type: 'refresh' }, jwtSecret, {
       expiresIn: '30d',
@@ -517,7 +517,7 @@ app.post('/admin/login', validate(loginSchema), async (req, res) => {
       secure: isHttps,
       sameSite: 'strict',
       domain: cookieDomain,
-      maxAge: 15 * 60 * 1000, // 15m
+      maxAge: 7 * 24 * 60 * 60 * 1000, // 7d
     });
 
     res.cookie('admin_refresh_token', refreshToken, {
@@ -534,7 +534,7 @@ app.post('/admin/login', validate(loginSchema), async (req, res) => {
       secure: isHttps,
       sameSite: 'strict',
       domain: cookieDomain,
-      maxAge: 15 * 60 * 1000,
+      maxAge: 7 * 24 * 60 * 60 * 1000,
     });
 
     res.status(200).json({
@@ -586,7 +586,7 @@ app.post(['/admin/auth/refresh', '/admin/refresh'], async (req, res) => {
     }
 
     const newAccessToken = jwt.sign({ userId: decoded.userId, role: currentUser.role, type: 'access' }, jwtSecret, {
-      expiresIn: '15m',
+      expiresIn: '7d',
     });
     const newRefreshToken = jwt.sign({ userId: decoded.userId, role: currentUser.role, type: 'refresh' }, jwtSecret, {
       expiresIn: '30d',
@@ -600,7 +600,7 @@ app.post(['/admin/auth/refresh', '/admin/refresh'], async (req, res) => {
       secure: isProd,
       sameSite: 'strict',
       domain: cookieDomain,
-      maxAge: 15 * 60 * 1000,
+      maxAge: 7 * 24 * 60 * 60 * 1000,
     });
 
     res.cookie('admin_refresh_token', newRefreshToken, {
@@ -616,7 +616,7 @@ app.post(['/admin/auth/refresh', '/admin/refresh'], async (req, res) => {
       secure: isProd,
       sameSite: 'strict',
       domain: cookieDomain,
-      maxAge: 15 * 60 * 1000,
+      maxAge: 7 * 24 * 60 * 60 * 1000,
     });
 
     res.status(200).json({ success: true });
@@ -697,7 +697,7 @@ app.post(['/admin/first-login/reset', '/v1/admin/auth/first-login-reset'], async
     const cookieDomain = isProd ? '.xarwiz.com' : undefined;
 
     const accessToken = jwt.sign({ userId: tokenRecord.user_id, role: tokenRecord.role, type: 'access' }, jwtSecret, {
-      expiresIn: '15m',
+      expiresIn: '7d',
     });
     const refreshToken = jwt.sign({ userId: tokenRecord.user_id, role: tokenRecord.role, type: 'refresh' }, jwtSecret, {
       expiresIn: '30d',
@@ -708,7 +708,7 @@ app.post(['/admin/first-login/reset', '/v1/admin/auth/first-login-reset'], async
       secure: isProd,
       sameSite: 'strict',
       domain: cookieDomain,
-      maxAge: 15 * 60 * 1000,
+      maxAge: 7 * 24 * 60 * 60 * 1000,
     });
 
     res.cookie('admin_refresh_token', refreshToken, {
@@ -724,7 +724,7 @@ app.post(['/admin/first-login/reset', '/v1/admin/auth/first-login-reset'], async
       secure: isProd,
       sameSite: 'strict',
       domain: cookieDomain,
-      maxAge: 15 * 60 * 1000,
+      maxAge: 7 * 24 * 60 * 60 * 1000,
     });
 
     res.status(200).json({
@@ -5541,8 +5541,9 @@ app.put('/admin/plans/:id', adminAuth, async (req, res) => {
           tenant_limit = COALESCE($9, tenant_limit),
           agent_limit = COALESCE($10, agent_limit),
           model_access = COALESCE($11, model_access),
-          features = COALESCE($12, features),
-          description = COALESCE($13, description)
+          features = COALESCE($12::jsonb, features),
+          description = COALESCE($13, description),
+          updated_at = CURRENT_TIMESTAMP
       WHERE id = $14
       RETURNING *
     `,

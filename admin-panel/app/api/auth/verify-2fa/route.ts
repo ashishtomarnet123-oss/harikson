@@ -96,7 +96,7 @@ export async function POST(req: NextRequest) {
     const accessToken = jwt.sign(
       { userId: user.id, role: user.role, type: 'access' },
       JWT_SECRET,
-      { expiresIn: '15m' }
+      { expiresIn: '7d' }
     );
     const refreshToken = jwt.sign(
       { userId: user.id, role: user.role, type: 'refresh' },
@@ -105,7 +105,7 @@ export async function POST(req: NextRequest) {
     );
 
     const isHttps = req.nextUrl.protocol === 'https:' || req.headers.get('x-forwarded-proto') === 'https';
-    const cookieOpts = ['HttpOnly', isHttps ? 'Secure' : '', 'SameSite=Lax', 'Path=/', `Max-Age=${15 * 60}`]
+    const cookieOpts = ['HttpOnly', isHttps ? 'Secure' : '', 'SameSite=Lax', 'Path=/', `Max-Age=${7 * 24 * 60 * 60}`]
       .filter(Boolean).join('; ');
     const refreshOpts = ['HttpOnly', isHttps ? 'Secure' : '', 'SameSite=Lax', 'Path=/', `Max-Age=${30 * 24 * 60 * 60}`]
       .filter(Boolean).join('; ');
