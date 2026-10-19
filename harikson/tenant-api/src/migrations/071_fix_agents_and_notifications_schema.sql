@@ -8,6 +8,12 @@ ALTER TABLE notifications ADD COLUMN IF NOT EXISTS user_id UUID REFERENCES users
 ALTER TABLE notifications ADD COLUMN IF NOT EXISTS is_read BOOLEAN DEFAULT false;
 ALTER TABLE notifications ADD COLUMN IF NOT EXISTS link VARCHAR(500);
 
+-- 3. Ensure admin_audit_log has old_value, new_value, ip_address, user_agent columns
+ALTER TABLE admin_audit_log ADD COLUMN IF NOT EXISTS old_value JSONB;
+ALTER TABLE admin_audit_log ADD COLUMN IF NOT EXISTS new_value JSONB;
+ALTER TABLE admin_audit_log ADD COLUMN IF NOT EXISTS ip_address VARCHAR(100);
+ALTER TABLE admin_audit_log ADD COLUMN IF NOT EXISTS user_agent TEXT;
+
 -- Sync any existing records
 UPDATE notifications SET is_read = read WHERE is_read IS DISTINCT FROM read;
 
