@@ -36,4 +36,16 @@ router.get('/health/scheduler', (req, res) => {
   });
 });
 
+import { globalInferenceQueue } from '../services/inferenceQueue.js';
+
+// GET /health/inference - Inference queue status & operational metrics
+router.get('/health/inference', (_req, res) => {
+  const metrics = globalInferenceQueue.getMetrics();
+  res.json({
+    status: 'healthy',
+    queue: metrics,
+    timestamp: new Date().toISOString(),
+  });
+});
+
 export default router;

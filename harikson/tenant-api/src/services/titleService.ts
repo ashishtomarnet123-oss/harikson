@@ -410,6 +410,11 @@ export class TitleService {
     const fallback = this.generateDeterministicTitle(rawMessage);
     const cleanPrompt = this.cleanUserPrompt(rawMessage);
 
+    // On CPU-only or single-slot setups, avoid competing with live user chat streams
+    if (process.env.ENABLE_AI_TITLE_REFINEMENT !== 'true') {
+      return fallback;
+    }
+
     // If clean prompt is empty or very short, deterministic title is already optimal
     if (!cleanPrompt || cleanPrompt.length < 10) {
       return fallback;
