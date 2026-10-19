@@ -173,7 +173,7 @@ export class NeuraCollectService {
       return {
         paymentSessionId,
         gatewayOrderId,
-        amount: formattedAmount,
+        amount: Number(formattedAmount),
         currency,
         environment,
         checkoutUrl,
