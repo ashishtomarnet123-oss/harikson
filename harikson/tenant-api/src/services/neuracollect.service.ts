@@ -126,7 +126,7 @@ export class NeuraCollectService {
     const shortPlan = planId.replace(/[^a-zA-Z0-9]/g, '').slice(0, 10);
     const externalOrderId = `nc_${shortTenant}_${shortPlan}_${Date.now()}`;
 
-    const formattedAmount = Number(amountRupees.toFixed(2));
+    const formattedAmount = amountRupees.toFixed(2);
     const effectiveReturnUrl = returnUrl || `https://xarwiz.com/settings/billing?status=success&provider=neuracollect&order_id={order_id}&planId=${planId}`;
 
     const payload = {
