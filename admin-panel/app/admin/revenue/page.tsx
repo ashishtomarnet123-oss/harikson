@@ -2041,6 +2041,7 @@ export default function RevenueDashboard() {
                       <option value="stripe">Stripe</option>
                       <option value="phonepe">PhonePe</option>
                       <option value="cashfree">Cashfree</option>
+                      <option value="neuracollect">NeuraCollect</option>
                       <option value="system">System</option>
                     </select>
                   </div>

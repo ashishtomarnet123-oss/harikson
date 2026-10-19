@@ -13,7 +13,7 @@ import { getCookie } from 'cookies-next';
 
 interface Provider {
   id: string;
-  provider: 'stripe' | 'razorpay' | 'phonepe' | 'cashfree';
+  provider: 'stripe' | 'razorpay' | 'phonepe' | 'cashfree' | 'neuracollect';
   name: string;
   merchant_id: string;
   is_active: boolean;
@@ -30,8 +30,8 @@ export default function BillingProvidersPage() {
 
   // Form states
   const [providerType, setProviderType] = useState<
-    'razorpay' | 'stripe' | 'phonepe' | 'cashfree'
-  >('razorpay');
+    'razorpay' | 'stripe' | 'phonepe' | 'cashfree' | 'neuracollect'
+  >('neuracollect');
   const [name, setName] = useState('');
   const [apiKey, setApiKey] = useState('');
   const [apiSecret, setApiSecret] = useState('');
@@ -46,10 +46,12 @@ export default function BillingProvidersPage() {
 
   const apiBase = '/api-proxy';
   const [copiedUrl, setCopiedUrl] = useState<
-    'razorpay' | 'stripe' | 'phonepe' | 'cashfree' | null
+    'razorpay' | 'stripe' | 'phonepe' | 'cashfree' | 'neuracollect' | null
   >(null);
 
-  const getWebhookUrl = (type: 'razorpay' | 'stripe' | 'phonepe' | 'cashfree') => {
+  const getWebhookUrl = (
+    type: 'razorpay' | 'stripe' | 'phonepe' | 'cashfree' | 'neuracollect'
+  ) => {
     // Stable webhook endpoint for payment provider dashboards
     if (
       typeof window !== 'undefined' &&
@@ -145,7 +147,7 @@ export default function BillingProvidersPage() {
   };
 
   const copyWebhookToClipboard = (
-    type: 'razorpay' | 'stripe' | 'phonepe' | 'cashfree'
+    type: 'razorpay' | 'stripe' | 'phonepe' | 'cashfree' | 'neuracollect'
   ) => {
     const url = getWebhookUrl(type);
     navigator.clipboard.writeText(url);
@@ -162,8 +164,7 @@ export default function BillingProvidersPage() {
           Providers Manager
         </h1>
         <p className="text-gray-500 mt-1.5 text-sm sm:text-base">
-          Configure credentials for Razorpay (INR cards/netbanking), PhonePe (UPI
-          &amp; PG Standard Checkout), and Stripe (USD Global payments).
+          Configure credentials for NeuraCollect (NeuraVolt Gateway), Cashfree, PhonePe, Razorpay, and Stripe.
         </p>
       </div>
 
@@ -185,6 +186,17 @@ export default function BillingProvidersPage() {
                   Merchant Provider
                 </span>
                 <div className="flex flex-wrap gap-3">
+                  <label className="flex items-center gap-2 text-xs font-semibold text-gray-300 cursor-pointer select-none">
+                    <input
+                      type="radio"
+                      name="provider"
+                      value="neuracollect"
+                      checked={providerType === 'neuracollect'}
+                      onChange={() => setProviderType('neuracollect')}
+                      className="w-4 h-4 text-emerald-500 border-gray-300 focus:ring-emerald-500"
+                    />
+                    <span className="text-emerald-400 font-bold">NeuraCollect (NeuraVolt)</span>
+                  </label>
                   <label className="flex items-center gap-2 text-xs font-semibold text-gray-300 cursor-pointer select-none">
                     <input
                       type="radio"
@@ -241,7 +253,9 @@ export default function BillingProvidersPage() {
                   type="text"
                   required
                   placeholder={
-                    providerType === 'cashfree'
+                    providerType === 'neuracollect'
+                      ? 'e.g. NeuraCollect Primary Gateway'
+                      : providerType === 'cashfree'
                       ? 'e.g. Cashfree Embedded Gateway'
                       : providerType === 'phonepe'
                       ? 'e.g. PhonePe Production Gateway'
@@ -256,7 +270,9 @@ export default function BillingProvidersPage() {
               {/* Merchant ID */}
               <div>
                 <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">
-                  {providerType === 'cashfree'
+                  {providerType === 'neuracollect'
+                    ? 'NeuraCollect Merchant / Team ID'
+                    : providerType === 'cashfree'
                     ? 'Cashfree Partner Merchant ID (x-partner-merchantid)'
                     : providerType === 'phonepe'
                     ? 'PhonePe Merchant ID (MID)'
@@ -268,7 +284,9 @@ export default function BillingProvidersPage() {
                   type="text"
                   required
                   placeholder={
-                    providerType === 'cashfree'
+                    providerType === 'neuracollect'
+                      ? 'e.g. nv_team_prod (or default)'
+                      : providerType === 'cashfree'
                       ? 'e.g. CF_MERCHANT_12345 or App ID'
                       : providerType === 'phonepe'
                       ? 'PGTESTPAYUAT'
@@ -285,7 +303,9 @@ export default function BillingProvidersPage() {
               {/* API Key */}
               <div>
                 <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">
-                  {providerType === 'cashfree'
+                  {providerType === 'neuracollect'
+                    ? 'Collect API Key (x-collect-api-key)'
+                    : providerType === 'cashfree'
                     ? 'Cashfree Partner API Key (x-partner-apikey)'
                     : providerType === 'phonepe'
                     ? 'PhonePe Salt Index'
@@ -298,7 +318,9 @@ export default function BillingProvidersPage() {
                     type={showApiKey ? 'text' : 'password'}
                     required
                     placeholder={
-                      providerType === 'cashfree'
+                      providerType === 'neuracollect'
+                        ? 'nv_test_xxxx or nv_live_xxxx'
+                        : providerType === 'cashfree'
                         ? 'cfsk_ma_test_xxxx'
                         : providerType === 'phonepe'
                         ? '1'
@@ -326,7 +348,9 @@ export default function BillingProvidersPage() {
               {/* API Secret */}
               <div>
                 <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">
-                  {providerType === 'cashfree'
+                  {providerType === 'neuracollect'
+                    ? 'NeuraCollect Secret / Partner Key'
+                    : providerType === 'cashfree'
                     ? 'Cashfree Secret Key (or Partner Secret)'
                     : providerType === 'phonepe'
                     ? 'PhonePe Salt Key (Secret)'
@@ -339,7 +363,9 @@ export default function BillingProvidersPage() {
                     type={showApiSecret ? 'text' : 'password'}
                     required
                     placeholder={
-                      providerType === 'cashfree'
+                      providerType === 'neuracollect'
+                        ? 'nv_sec_xxxx (or same as API key)'
+                        : providerType === 'cashfree'
                         ? 'cfsecret_xxxx'
                         : providerType === 'phonepe'
                         ? '099eb0cd-02cf-4e2a-8aca-3e6c6aff0399'
@@ -369,7 +395,9 @@ export default function BillingProvidersPage() {
               {/* Webhook Secret */}
               <div>
                 <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">
-                  {providerType === 'cashfree'
+                  {providerType === 'neuracollect'
+                    ? 'NeuraCollect Webhook Secret (HMAC-SHA256)'
+                    : providerType === 'cashfree'
                     ? 'Cashfree Webhook Secret Key (defaults to Partner API Key)'
                     : providerType === 'phonepe'
                     ? 'Webhook Salt Key (Optional - defaults to Salt Key)'
@@ -379,7 +407,9 @@ export default function BillingProvidersPage() {
                   <input
                     type={showWebhookSecret ? 'text' : 'password'}
                     placeholder={
-                      providerType === 'cashfree'
+                      providerType === 'neuracollect'
+                        ? 'whsec_nv_xxxx'
+                        : providerType === 'cashfree'
                         ? 'cfsk_webhook_xxxx (optional)'
                         : providerType === 'phonepe'
                         ? 'Optional custom webhook key'
@@ -476,7 +506,9 @@ export default function BillingProvidersPage() {
                         <td className="py-4 px-5">
                           <span
                             className={`px-2.5 py-0.5 text-[10px] font-bold rounded-lg border uppercase ${
-                              p.provider === 'stripe'
+                              p.provider === 'neuracollect'
+                                ? 'bg-emerald-900/30 text-emerald-400 border-emerald-700'
+                                : p.provider === 'stripe'
                                 ? 'bg-purple-900/30 text-purple-400 border-purple-800'
                                 : p.provider === 'phonepe'
                                 ? 'bg-violet-900/30 text-violet-300 border-violet-700'
@@ -531,6 +563,32 @@ export default function BillingProvidersPage() {
               </h3>
               <p className="text-xs text-gray-500 mt-0.5">
                 Copy these callback URLs to your payment provider dashboard keys settings.
+              </p>
+            </div>
+
+            {/* NeuraCollect Box */}
+            <div className="p-4 bg-gray-950/30 border border-emerald-900/50 rounded-xl space-y-3">
+              <div className="flex justify-between items-center gap-4">
+                <span className="text-xs font-bold text-emerald-400 uppercase tracking-wider flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-emerald-500" />
+                  NeuraCollect Webhook (NeuraVolt S2S)
+                </span>
+                <button
+                  onClick={() => copyWebhookToClipboard('neuracollect')}
+                  className="px-3 py-1.5 bg-emerald-800 hover:bg-emerald-900 text-white text-xs font-semibold rounded-xl flex items-center gap-1 shadow-sm transition-all"
+                >
+                  <Copy className="w-3.5 h-3.5 text-white" />
+                  <span>
+                    {copiedUrl === 'neuracollect' ? 'Copied ✓' : 'Copy URL'}
+                  </span>
+                </button>
+              </div>
+              <div className="bg-gray-800 border border-gray-700 p-2.5 rounded-xl font-mono text-xs text-gray-400 break-all select-all">
+                {getWebhookUrl('neuracollect')}
+              </div>
+              <p className="text-[10px] text-gray-500 leading-relaxed">
+                <strong>NeuraCollect Dashboard configuration</strong>: Add as Outbound Webhook URL in NeuraVolt / NeuraCollect settings.
+                NeuraCollect sends JSON with <code>x-webhook-signature</code> (HMAC-SHA256) and <code>x-webhook-timestamp</code> headers. Activates tenant plan automatically on <code>order.paid</code> / <code>checkout.completed</code>.
               </p>
             </div>
 

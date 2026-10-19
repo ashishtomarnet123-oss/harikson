@@ -82,6 +82,10 @@ export async function processWebhookPayload(provider: string, eventType: string,
     await processCashfreeWebhookPayload(eventType, payload);
     return;
   }
+  if (provider === 'neuracollect') {
+    await processNeuraCollectWebhookPayload(eventType, payload);
+    return;
+  }
 
   const dataObject = payload?.data?.object || payload?.object || payload;
 
@@ -284,6 +288,85 @@ async function processCashfreeWebhookPayload(eventType: string, payload: any): P
     logger.info(`✅ Cashfree webhook processed payment success: Activated plan ${planId} for tenant ${tenantId}`);
   } else {
     logger.warn(`Cashfree webhook received non-success event (${eventType}) for order ${orderId}`);
+  }
+}
+
+async function processNeuraCollectWebhookPayload(eventType: string, payload: any): Promise<void> {
+  const data = payload?.data || {};
+  const orderId = payload.externalOrderId || payload.orderId || data.order?.order_id || ('nc_' + Date.now());
+  const paymentId = payload.gatewayOrderId || payload.paymentId || data.payment?.cf_payment_id || orderId;
+  const amount = Number(payload.amount || data.order?.order_amount || data.payment?.payment_amount || 0);
+
+  const isSuccess =
+    eventType === 'PAYMENT_SUCCESS_WEBHOOK' ||
+    eventType === 'PAYMENT_SUCCESS' ||
+    eventType === 'checkout.session.completed' ||
+    payload.status === 'SUCCESS' ||
+    payload.payment_status === 'SUCCESS' ||
+    data.payment?.payment_status === 'SUCCESS' ||
+    data.order?.order_status === 'PAID';
+
+  let tenantId = payload.tenantId || data.order?.order_tags?.tenant_id;
+  let planId = (payload.planId || data.order?.order_tags?.plan_id || 'starter').toLowerCase();
+
+  // Try extracting tenantId & planId from structured externalOrderId: nc_{tenant8}_{plan}_{timestamp}
+  if (!tenantId && typeof orderId === 'string' && orderId.startsWith('nc_')) {
+    const parts = orderId.split('_');
+    if (parts.length >= 3) {
+      const shortTenant = parts[1];
+      const parsedPlan = parts[2];
+      try {
+        const matchRes = await pool.query(
+          `SELECT id FROM tenants WHERE REPLACE(id::text, '-', '') LIKE $1 LIMIT 1`,
+          [`${shortTenant}%`]
+        );
+        if (matchRes.rows.length > 0) {
+          tenantId = matchRes.rows[0].id;
+          planId = parsedPlan.toLowerCase();
+        }
+      } catch (_) {}
+    }
+  }
+
+  if (!tenantId) {
+    const existingSub = await pool.query(
+      `SELECT tenant_id, plan_id FROM subscriptions WHERE provider = 'neuracollect' AND provider_subscription_id = $1`,
+      [orderId]
+    ).catch(() => ({ rows: [] }));
+    if (existingSub.rows.length > 0) {
+      tenantId = existingSub.rows[0].tenant_id;
+      planId = existingSub.rows[0].plan_id;
+    }
+  }
+
+  if (!tenantId) {
+    logger.warn(`[NeuraCollect Webhook] Missing tenantId for order ${orderId} — skipping activation`);
+    return;
+  }
+
+  if (isSuccess) {
+    const subRes = await pool.query(
+      `INSERT INTO subscriptions (tenant_id, provider, provider_subscription_id, plan_id, status, current_period_start, current_period_end, amount, currency, created_at, updated_at)
+       VALUES ($1, 'neuracollect', $2, $3, 'active', NOW(), NOW() + INTERVAL '30 days', $4, 'INR', NOW(), NOW())
+       ON CONFLICT (provider, provider_subscription_id) DO UPDATE SET status = 'active', updated_at = NOW()
+       RETURNING id`,
+      [tenantId, orderId, planId, amount]
+    );
+    const subscriptionId = subRes.rows[0]?.id || null;
+
+    const invoiceNumber = `INV-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}-${String(orderId).slice(-8).toUpperCase()}`;
+    await pool.query(
+      `INSERT INTO invoices (tenant_id, subscription_id, provider, provider_invoice_id, invoice_number, amount, currency, status, paid_at, created_at, updated_at)
+       VALUES ($1, $2, 'neuracollect', $3, $4, $5, 'INR', 'paid', NOW(), NOW(), NOW())
+       ON CONFLICT (provider, provider_invoice_id) DO NOTHING`,
+      [tenantId, subscriptionId, paymentId, invoiceNumber, amount]
+    );
+
+    await pool.query(`UPDATE tenants SET plan = $2, status = 'active', updated_at = NOW() WHERE id = $1`, [tenantId, planId]);
+    await invalidateTenantCache(tenantId);
+    logger.info(`✅ NeuraCollect webhook processed payment success: Activated plan ${planId} for tenant ${tenantId}`);
+  } else {
+    logger.warn(`NeuraCollect webhook received non-success event (${eventType}) for order ${orderId}`);
   }
 }
 

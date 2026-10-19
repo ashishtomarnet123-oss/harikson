@@ -9,6 +9,7 @@ import { executePlanChange, calculateProration } from '../services/prorationServ
 import { reactivateTenantSubscription } from '../services/dunningService.js';
 import { PhonePeService } from '../services/phonepe.service.js';
 import { CashfreeService } from '../services/cashfree.service.js';
+import { NeuraCollectService } from '../services/neuracollect.service.js';
 
 const router = Router();
 
@@ -166,6 +167,37 @@ router.post(['/webhooks/cashfree', '/billing/webhooks/cashfree'], async (req: an
   }
 });
 
+// POST /api/billing/webhooks/neuracollect & /webhooks/neuracollect
+router.post(['/webhooks/neuracollect', '/billing/webhooks/neuracollect'], async (req: any, res) => {
+  const timestamp = (req.headers['x-webhook-timestamp'] as string) || '';
+  const signature = (req.headers['x-webhook-signature'] as string) || '';
+  const rawBody = req.rawBody ? req.rawBody.toString() : JSON.stringify(req.body || {});
+
+  if (!signature || !timestamp) {
+    logger.warn('NeuraCollect webhook received without signature or timestamp headers');
+    return res.status(400).json({ error: 'Missing NeuraCollect webhook headers' });
+  }
+
+  const isValid = await NeuraCollectService.verifyWebhookSignature(rawBody, timestamp, signature);
+  if (!isValid && process.env.NODE_ENV === 'production') {
+    logger.warn('NeuraCollect webhook signature verification failed, rejecting');
+    return res.status(400).json({ error: 'Invalid webhook signature' });
+  }
+
+  const payload = req.body || {};
+  const orderId = payload.externalOrderId || payload.orderId || payload.gatewayOrderId || ('nc_' + Date.now());
+  const eventType = payload.eventType || payload.type || 'PAYMENT_SUCCESS_WEBHOOK';
+  const amount = Number(payload.amount || payload.order_amount || 0);
+
+  try {
+    await enqueueWebhookEvent('neuracollect', orderId, eventType, payload, amount);
+    return res.status(200).json({ received: true, status: 'pending', orderId });
+  } catch (err: any) {
+    logger.error('Failed to handle incoming NeuraCollect webhook:', err);
+    return res.status(200).json({ received: true, status: 'error_logged' });
+  }
+});
+
 // --- Auth middleware — everything below requires a valid JWT --- //
 
 router.use((req: any, res, next) => {
@@ -303,6 +335,30 @@ router.post('/checkout', async (req: any, res) => {
         paymentSessionId: cashfreeResult.paymentSessionId,
         orderId: cashfreeResult.orderId,
         provider: 'cashfree',
+      });
+    }
+
+    if (paymentProvider === 'neuracollect') {
+      const baseUrl = req.headers.origin || process.env.APP_BASE_URL || 'https://xarwiz.com';
+      const ncResult = await NeuraCollectService.initiatePayment({
+        tenantId: req.tenant?.id || req.user?.tenant_id,
+        planId: plan.id,
+        amountRupees: total,
+        currency: plan.currency || 'INR',
+        userId: req.user?.userId || req.user?.id,
+        customerEmail: req.user?.email,
+        customerName: req.user?.name,
+        returnUrl: `${baseUrl}/settings/billing?status=success&provider=neuracollect&order_id={order_id}&planId=${plan.id}`,
+      });
+
+      return res.json({
+        checkoutUrl: ncResult.checkoutUrl,
+        paymentSessionId: ncResult.paymentSessionId,
+        gatewayOrderId: ncResult.gatewayOrderId,
+        environment: ncResult.environment,
+        amount: ncResult.amount,
+        currency: ncResult.currency,
+        provider: 'neuracollect',
       });
     }
 

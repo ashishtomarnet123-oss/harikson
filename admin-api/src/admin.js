@@ -4026,15 +4026,15 @@ app.post('/admin/billing/providers', adminAuth, async (req, res) => {
     merchant_id,
     is_test_mode,
   } = req.body;
-  if (!provider || !api_key || !api_secret) {
+  if (!provider || !api_key) {
     return res
       .status(400)
-      .json({ error: 'provider, api_key, and api_secret are required' });
+      .json({ error: 'provider and api_key are required' });
   }
-  if (provider !== 'stripe' && provider !== 'razorpay' && provider !== 'phonepe') {
+  if (provider !== 'stripe' && provider !== 'razorpay' && provider !== 'phonepe' && provider !== 'cashfree' && provider !== 'neuracollect') {
     return res
       .status(400)
-      .json({ error: 'Invalid provider. Must be razorpay, stripe, or phonepe.' });
+      .json({ error: 'Invalid provider. Must be razorpay, stripe, phonepe, cashfree, or neuracollect.' });
   }
 
   try {
@@ -4055,7 +4055,7 @@ app.post('/admin/billing/providers', adminAuth, async (req, res) => {
       }
     } else if (provider === 'stripe') {
       try {
-        const stripeClient = new Stripe(api_secret);
+        const stripeClient = new Stripe(api_secret || api_key);
         await stripeClient.accounts.retrieve();
       } catch (err) {
         return res
@@ -4082,14 +4082,18 @@ app.post('/admin/billing/providers', adminAuth, async (req, res) => {
       } catch (err) {
         return res.status(400).json({ error: `Invalid PhonePe configuration: ${err.message}` });
       }
+    } else if (provider === 'neuracollect') {
+      if (!api_key || api_key.trim().length < 5) {
+        return res.status(400).json({ error: 'Valid NeuraCollect API Key (x-collect-api-key) is required' });
+      }
     }
 
     // 2. Encrypt credentials at rest
     const encryptedKey = encryptText(api_key);
-    const encryptedSecret = encryptText(api_secret);
+    const encryptedSecret = encryptText(api_secret || webhook_secret || api_key);
     const encryptedWebhookSecret = webhook_secret
       ? encryptText(webhook_secret)
-      : null;
+      : (api_secret ? encryptText(api_secret) : null);
 
     // Set other provider configurations to inactive
     await pool.query(
@@ -4919,6 +4923,142 @@ app.post('/webhooks/cashfree', async (req, res) => {
     }
   } catch (err) {
     logger.error('Cashfree webhook processing error:', err);
+    res.status(500).json({ error: 'Internal webhook error' });
+  }
+});
+
+// 27d. POST /webhooks/neuracollect (NeuraCollect webhooks receiver)
+app.post('/webhooks/neuracollect', async (req, res) => {
+  const timestamp = req.headers['x-webhook-timestamp'] || '';
+  const signature = req.headers['x-webhook-signature'] || '';
+  const body = req.body || {};
+  const rawBody = req.rawBody ? req.rawBody.toString() : JSON.stringify(body);
+
+  if (!signature || !timestamp) {
+    logger.error('NeuraCollect webhook received without signature or timestamp headers');
+    return res.status(400).json({ error: 'Missing NeuraCollect webhook signature or timestamp headers' });
+  }
+
+  try {
+    const providerRes = await pool.query(
+      "SELECT * FROM payment_providers WHERE provider = 'neuracollect' AND is_active = true LIMIT 1"
+    );
+    let secret = '';
+    let providerId = null;
+    if (providerRes.rows.length > 0) {
+      const provider = providerRes.rows[0];
+      providerId = provider.id;
+      secret = decryptText(provider.webhook_secret_encrypted) || decryptText(provider.api_secret_encrypted) || decryptText(provider.api_key_encrypted);
+    }
+    secret = secret || process.env.NEURACOLLECT_WEBHOOK_SECRET || process.env.NEURACOLLECT_API_KEY || '';
+
+    // Verify HMAC-SHA256 signature
+    let signatureVerified = false;
+    if (secret) {
+      const signedPayload = `${timestamp}${rawBody}`;
+      const expectedSignature = crypto.createHmac('sha256', secret).update(signedPayload).digest('base64');
+      const expectedBuf = Buffer.from(expectedSignature, 'utf8');
+      const sigBuf = Buffer.from(signature, 'utf8');
+      if (expectedBuf.length === sigBuf.length && crypto.timingSafeEqual(expectedBuf, sigBuf)) {
+        signatureVerified = true;
+      }
+    } else {
+      signatureVerified = true;
+    }
+
+    if (!signatureVerified && process.env.NODE_ENV === 'production') {
+      logger.warn('[WEBHOOK] NeuraCollect signature verification failed.');
+      return res.status(400).json({ error: 'Invalid NeuraCollect signature' });
+    }
+
+    const payload = body;
+    const data = payload.data || {};
+    const orderId = payload.externalOrderId || payload.orderId || data.order?.order_id || ('nc_' + Date.now());
+    const paymentId = payload.gatewayOrderId || payload.paymentId || data.payment?.cf_payment_id || orderId;
+    const eventType = payload.eventType || payload.type || 'PAYMENT_SUCCESS_WEBHOOK';
+    const amount = Number(payload.amount || data.order?.order_amount || data.payment?.payment_amount || 0);
+    const isSuccess =
+      eventType === 'PAYMENT_SUCCESS_WEBHOOK' ||
+      eventType === 'PAYMENT_SUCCESS' ||
+      payload.status === 'SUCCESS' ||
+      data.payment?.payment_status === 'SUCCESS' ||
+      data.order?.order_status === 'PAID';
+    const status = isSuccess ? 'success' : 'failed';
+
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      const insertRes = await client.query(
+        `INSERT INTO payment_webhooks (event_id, provider_id, provider, event_type, status, amount, payload, signature_verified)
+         VALUES ($1, $2, 'neuracollect', $3, $4, $5, $6, $7)
+         ON CONFLICT (event_id, provider) DO NOTHING
+         RETURNING id`,
+        [orderId, providerId, eventType, status, amount, JSON.stringify(payload), signatureVerified]
+      );
+
+      let tenantId = payload.tenantId || data.order?.order_tags?.tenant_id;
+      let planId = (payload.planId || data.order?.order_tags?.plan_id || 'starter').toLowerCase();
+
+      if (!tenantId && typeof orderId === 'string' && orderId.startsWith('nc_')) {
+        const parts = orderId.split('_');
+        if (parts.length >= 3) {
+          const shortTenant = parts[1];
+          const parsedPlan = parts[2];
+          const matchRes = await client.query(
+            `SELECT id FROM tenants WHERE REPLACE(id::text, '-', '') LIKE $1 LIMIT 1`,
+            [`${shortTenant}%`]
+          );
+          if (matchRes.rows.length > 0) {
+            tenantId = matchRes.rows[0].id;
+            planId = parsedPlan.toLowerCase();
+          }
+        }
+      }
+
+      if (tenantId && isSuccess) {
+        await client.query(
+          `INSERT INTO subscriptions (tenant_id, provider, provider_subscription_id, plan_id, status, amount, currency, current_period_start, current_period_end, created_at, updated_at)
+           VALUES ($1, 'neuracollect', $2, $3, 'active', $4, 'INR', NOW(), NOW() + INTERVAL '30 days', NOW(), NOW())
+           ON CONFLICT (provider, provider_subscription_id) DO UPDATE SET 
+             status = 'active', 
+             current_period_end = NOW() + INTERVAL '30 days', 
+             amount = EXCLUDED.amount,
+             updated_at = NOW()`,
+          [tenantId, orderId, planId, amount]
+        );
+
+        await client.query("UPDATE tenants SET plan = $1, status = 'active', updated_at = NOW() WHERE id = $2", [planId, tenantId]);
+
+        const subRes = await client.query(
+          'SELECT id FROM subscriptions WHERE provider = $1 AND provider_subscription_id = $2',
+          ['neuracollect', orderId]
+        );
+        const subscriptionUuid = subRes.rows.length > 0 ? subRes.rows[0].id : null;
+
+        const invoiceNumber = `INV-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}-${String(orderId).slice(-8).toUpperCase()}`;
+        await recordInvoice(client, {
+          tenantId,
+          subscriptionId: subscriptionUuid,
+          provider: 'neuracollect',
+          providerInvoiceId: paymentId,
+          amount: amount || 0,
+          currency: 'INR',
+          status: 'paid',
+          pdfUrl: `/admin/invoices/receipt/${paymentId}`,
+        });
+      }
+
+      await client.query('COMMIT');
+      logger.info(`[WEBHOOK] Successfully processed NeuraCollect order: ${orderId}`);
+      res.status(200).json({ status: 'success', event_id: orderId });
+    } catch (txErr) {
+      await client.query('ROLLBACK');
+      throw txErr;
+    } finally {
+      client.release();
+    }
+  } catch (err) {
+    logger.error('NeuraCollect webhook processing error:', err);
     res.status(500).json({ error: 'Internal webhook error' });
   }
 });
