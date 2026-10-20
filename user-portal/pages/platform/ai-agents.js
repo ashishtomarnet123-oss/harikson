@@ -25,6 +25,11 @@ import {
   Sliders,
   HelpCircle,
   ChevronDown,
+  ShieldAlert,
+  Server,
+  FileCheck2,
+  ExternalLink,
+  ChevronRight,
 } from 'lucide-react';
 
 export default function PlatformAiAgentsPage() {
@@ -38,23 +43,23 @@ export default function PlatformAiAgentsPage() {
   const FAQS = [
     {
       q: 'How do Xarwiz AI agents execute tools safely without compromising the host server?',
-      a: 'Every agent runs inside an isolated Workspace Sandbox bound strictly to the tenant directory. Tool calls like read_file, write_file, and bash_command execute within sandboxed child processes with path-traversal prevention, process execution timeouts, and strict privilege limits. System-critical OS files cannot be accessed or modified.',
+      a: 'Every agent runs inside an isolated Workspace Sandbox bound strictly to the tenant directory. Tool calls like read_file, write_file, and bash_command execute within sandboxed child processes with path-traversal prevention, process execution timeouts (default 30s), and strict privilege limits. System-critical OS files cannot be accessed or modified.',
     },
     {
-      q: 'Can agents retain context across long-running sessions?',
-      a: 'Yes. Agents leverage a dual-tier memory architecture: short-term sliding window context for immediate conversational turns, and long-term semantic persistence stored in PostgreSQL with pgvector embeddings. Agents retrieve prior decisions, file changes, and instructions dynamically during task execution.',
+      q: 'How does dual-tier vector memory persist context across long-running tasks?',
+      a: 'Agents leverage a dual-tier memory architecture: short-term sliding window context for immediate conversational turns, and long-term semantic persistence stored in PostgreSQL with pgvector embeddings. Agents retrieve prior decisions, file changes, and instructions dynamically using cosine similarity lookup.',
     },
     {
-      q: 'Which foundation models power agent reasoning and tool calling?',
-      a: 'Xarwiz supports structured JSON function calling with local open-source models via our integrated Ollama runtime (such as Qwen 2.5 Coder, Qwen 3, and Llama 3.2 variants) as well as frontier commercial models like GPT-4o. You can configure model temperature, token budgets, and system instructions per agent.',
+      q: 'Can custom internal APIs and microservices be registered as agent tools?',
+      a: 'Yes. Beyond native file and bash tools, Xarwiz allows you to register custom REST endpoints, OpenAPI schemas, and webhook dispatchers as typed agent tools. Agents validate arguments against JSON schemas before execution and handle authentication via encrypted tenant vault credentials.',
     },
     {
-      q: 'Can agents collaborate or delegate tasks to one another?',
-      a: 'Yes. Through the Xarwiz DAG Workflow Engine, agents can be chained as discrete execution nodes. A primary triage agent can analyze an incoming webhook payload, delegate data retrieval to a research agent, pass findings to a code generation agent, and output the result to Slack or GitHub.',
+      q: 'Can agents collaborate or delegate tasks to one another in workflows?',
+      a: 'Yes. Through the Xarwiz DAG Workflow Engine, agents can be chained as discrete execution nodes. A primary triage agent can analyze an incoming webhook payload, delegate data retrieval to a research agent, pass findings to a code generation agent, and dispatch the result to Slack or GitHub.',
     },
     {
-      q: 'How are tool-call failures or exceptions handled?',
-      a: 'When a tool execution returns an error (e.g. invalid syntax or file not found), the agent receives the structured error payload in its next reasoning step, allowing it to inspect the traceback, correct parameters, and self-heal or request human review.',
+      q: 'How are tool-call failures and exceptions handled automatically?',
+      a: 'When a tool execution returns an error (e.g. invalid syntax or file not found), the agent receives the structured error payload and stacktrace in its next reasoning turn. It analyzes the error, adjusts input parameters, and self-heals or triggers a human-in-the-loop review if thresholds are exceeded.',
     },
   ];
 
@@ -62,7 +67,7 @@ export default function PlatformAiAgentsPage() {
     <div className="agents-page">
       <SEOHead
         title="Autonomous AI Agents & Tool Calling - Xarwiz Platform"
-        description="Build and deploy autonomous AI agents with sandboxed tool execution, file system access, long-term memory, and verified local model hosting."
+        description="Build and deploy autonomous AI agents with sandboxed workspace execution, native file system tools, dual-tier vector memory, and deterministic guardrails."
         canonicalPath="/platform/ai-agents"
         jsonLd={[
           defaultOrganizationSchema,
@@ -73,7 +78,7 @@ export default function PlatformAiAgentsPage() {
             name: 'Xarwiz Autonomous AI Agents',
             url: 'https://xarwiz.com/platform/ai-agents',
             description:
-              'Technical specifications for Xarwiz autonomous AI agents with sandboxed tool calling, dual-tier memory, and sovereign model inference.',
+              'Enterprise-grade autonomous AI agents with sandboxed tool calling, dual-tier vector memory, and self-healing error recovery.',
           },
         ]}
       />
@@ -81,49 +86,61 @@ export default function PlatformAiAgentsPage() {
       <HeaderNav activePath="/platform" />
 
       <main className="agents-main">
-        {/* HERO SECTION */}
+        {/* BREADCRUMB & HERO */}
         <section className="agents-hero">
           <div className="container">
+            {/* Breadcrumb */}
+            <nav className="breadcrumb-nav" aria-label="Breadcrumb">
+              <Link href="/platform" className="crumb-link">Platform</Link>
+              <ChevronRight size={14} className="crumb-sep" />
+              <span className="crumb-current">AI Agents</span>
+            </nav>
+
             <div className="hero-content">
               <div className="hero-badge">
-                <Bot size={14} />
-                <span>Autonomous Execution Layer</span>
+                <Sparkles size={14} />
+                <span>Autonomous Execution Harness</span>
               </div>
               <h1 className="hero-title">
-                Autonomous AI Agents Built for <span className="blue-gradient">Real-World Execution</span>
+                Autonomous AI Agents Built for <span className="blue-gradient">Real-World Work</span>
               </h1>
               <p className="hero-subtitle">
-                Move beyond conversational chatbots. Xarwiz AI agents inspect workspaces, execute sandboxed bash commands, call external APIs, query vectorized knowledge, and self-correct on errors.
+                Move beyond conversational chatbots. Xarwiz AI agents inspect workspaces, execute sandboxed bash commands, call external APIs, query vectorized knowledge, and self-correct on errors with complete deterministic safety.
               </p>
               <div className="hero-cta-group">
                 <Link href="/signup" className="btn-primary">
                   <span>Deploy Your First Agent</span>
                   <ArrowRight size={16} />
                 </Link>
-                <Link href="/signup?source=book_demo" className="btn-secondary">
-                  <span>Book Architecture Demo</span>
+                <Link href="/contact" className="btn-secondary">
+                  <span>Schedule Architecture Demo</span>
                 </Link>
               </div>
 
               <div className="hero-stats-row">
                 <div className="hero-stat">
-                  <span className="stat-num">4+</span>
-                  <span className="stat-label">Verified Core Tools</span>
+                  <span className="stat-num">5+</span>
+                  <span className="stat-label">Sandboxed Core Tools</span>
+                </div>
+                <div className="hero-stat-sep" />
+                <div className="hero-stat">
+                  <span className="stat-num">&lt;50ms</span>
+                  <span className="stat-label">Vector Memory Recall</span>
                 </div>
                 <div className="hero-stat-sep" />
                 <div className="hero-stat">
                   <span className="stat-num">100%</span>
-                  <span className="stat-label">Sandboxed Workspace Isolation</span>
+                  <span className="stat-label">Tenant Workspace Isolation</span>
                 </div>
                 <div className="hero-stat-sep" />
                 <div className="hero-stat">
-                  <span className="stat-num">Local + Cloud</span>
-                  <span className="stat-label">Model Flexibility (Ollama/Frontier)</span>
+                  <span className="stat-num">Zero</span>
+                  <span className="stat-label">Host OS Tampering Risk</span>
                 </div>
               </div>
             </div>
 
-            {/* INTERACTIVE AGENT TERMINAL PREVIEW */}
+            {/* INTERACTIVE AGENT CONSOLE PREVIEW */}
             <div className="agent-terminal-card">
               <div className="terminal-header">
                 <div className="window-dots">
@@ -137,7 +154,7 @@ export default function PlatformAiAgentsPage() {
                 </div>
                 <div className="terminal-status">
                   <span className="pulse-dot" />
-                  <span>ACTIVE</span>
+                  <span>ACTIVE SANDBOX</span>
                 </div>
               </div>
 
@@ -172,16 +189,16 @@ export default function PlatformAiAgentsPage() {
                       <span className="ts">[22:15:02]</span> <span className="agent-tag">[AGENT_THOUGHT]</span> Analyzing task: &quot;Audit repository dependencies and update outdated configs&quot;
                     </div>
                     <div className="log-line">
-                      <span className="ts">[22:15:03]</span> <span className="tool-call">[TOOL_CALL]</span> read_file &#123; path: &quot;package.json&quot; &#125;
+                      <span className="ts">[22:15:03]</span> <span className="tool-call">[TOOL_CALL]</span> <span className="token-fn">read_file</span> &#123; path: <span className="token-str">&quot;package.json&quot;</span> &#125;
                     </div>
                     <div className="log-line success">
-                      <span className="ts">[22:15:03]</span> <span className="tool-res">[TOOL_RESULT]</span> File loaded (1.2KB) - 18 dependencies parsed.
+                      <span className="ts">[22:15:03]</span> <span className="tool-res">[TOOL_RESULT]</span> File loaded (1.2KB) &mdash; 18 dependencies parsed successfully.
                     </div>
                     <div className="log-line">
-                      <span className="ts">[22:15:05]</span> <span className="tool-call">[TOOL_CALL]</span> bash_command &#123; cmd: &quot;npm audit --json&quot;, timeout: 15000 &#125;
+                      <span className="ts">[22:15:05]</span> <span className="tool-call">[TOOL_CALL]</span> <span className="token-fn">bash_command</span> &#123; cmd: <span className="token-str">&quot;npm audit --json&quot;</span>, timeout: 15000 &#125;
                     </div>
                     <div className="log-line success">
-                      <span className="ts">[22:15:07]</span> <span className="tool-res">[TOOL_RESULT]</span> Sandbox exit code 0. 0 high vulnerabilities found.
+                      <span className="ts">[22:15:07]</span> <span className="tool-res">[TOOL_RESULT]</span> Sandbox exit code 0. 0 high vulnerabilities detected.
                     </div>
                     <div className="log-line">
                       <span className="ts">[22:15:08]</span> <span className="agent-tag">[AGENT_OUTPUT]</span> Completed dependency audit. Generating summary report in workspace...
@@ -190,11 +207,10 @@ export default function PlatformAiAgentsPage() {
                 )}
 
                 {activeTab === 'config' && (
-                  <div className="code-block json-block">
-                    <pre>{`{
+                  <div className="code-block dark-json">
+                    <pre><code>{`{
   "agent_id": "agt_devops_automator_09",
   "name": "Repo Maintenance Agent",
-  "model": "qwen2.5-coder:32b",
   "temperature": 0.2,
   "max_context_tokens": 8192,
   "workspace_sandbox": {
@@ -208,24 +224,28 @@ export default function PlatformAiAgentsPage() {
     "list_dir",
     "bash_command",
     "rag_query"
-  ]
-}`}</pre>
+  ],
+  "governance": {
+    "approval_threshold": "high_impact",
+    "audit_trail_immutable": true
+  }
+}`}</code></pre>
                   </div>
                 )}
 
                 {activeTab === 'memory' && (
                   <div className="code-block">
                     <div className="log-line">
-                      <span className="ts">[MEM_TIER_1]</span> Short-term buffer: 14 conversational turns (3,410 tokens).
+                      <span className="ts">[MEM_TIER_1]</span> <span className="token-keyword">Short-term buffer:</span> 14 conversational turns (3,410 tokens active).
                     </div>
                     <div className="log-line">
-                      <span className="ts">[MEM_TIER_2]</span> Long-term pgvector index: 84 prior session commits linked.
+                      <span className="ts">[MEM_TIER_2]</span> <span className="token-keyword">Long-term pgvector index:</span> 84 prior session commits linked.
                     </div>
                     <div className="log-line">
-                      <span className="ts">[QUERY]</span> Cosine similarity lookup: &quot;deploy target for staging&quot;
+                      <span className="ts">[QUERY]</span> Cosine similarity lookup: <span className="token-str">&quot;deploy target for staging&quot;</span>
                     </div>
                     <div className="log-line success">
-                      <span className="ts">[MATCH 0.94]</span> Tenant staging cluster: kube-in-blr-prod02.xarwiz.internal
+                      <span className="ts">[MATCH 0.94]</span> Tenant staging cluster: <span className="token-str">kube-in-blr-prod02.xarwiz.internal</span>
                     </div>
                   </div>
                 )}
@@ -377,70 +397,60 @@ export default function PlatformAiAgentsPage() {
           </div>
         </section>
 
-        {/* MODEL GOVERNANCE & SOVEREIGN HOSTING */}
-        <section className="governance-section">
+        {/* ENTERPRISE GUARDRAILS & GOVERNANCE SECTION */}
+        <section className="guardrails-section">
           <div className="container">
-            <div className="governance-card">
-              <div className="gov-left">
-                <span className="section-eyebrow">Data Sovereignty</span>
-                <h2>Local Ollama &amp; Frontier Model Hosting</h2>
-                <p>
-                  Organizations subject to strict data sovereignty mandates cannot send sensitive internal code or operational logs to foreign third-party APIs.
-                </p>
-                <p>
-                  Xarwiz provides an integrated Ollama runtime deployed in Indian sovereign data center regions. Run Qwen 2.5 Coder, Qwen 3, and Llama 3.2 locally on dedicated compute with zero data retention by external providers.
-                </p>
+            <div className="section-head">
+              <span className="section-eyebrow">Safety &amp; Compliance</span>
+              <h2 className="section-title">Enterprise Execution Guardrails</h2>
+              <p className="section-subtitle">
+                Deploy autonomous agents with complete peace of mind. Every action is gated by deterministic policies, non-root sandbox execution, and immutable audit logging.
+              </p>
+            </div>
 
-                <div className="gov-badges">
-                  <div className="g-badge">
-                    <ShieldCheck size={16} />
-                    <span>DPDP Act 2023 Compliant</span>
-                  </div>
-                  <div className="g-badge">
-                    <Lock size={16} />
-                    <span>Indian Data Localization</span>
-                  </div>
-                  <div className="g-badge">
-                    <Cpu size={16} />
-                    <span>Local Model Inference</span>
-                  </div>
+            <div className="guardrails-grid">
+              <div className="guardrail-card">
+                <div className="g-icon-wrap">
+                  <ShieldCheck size={24} />
                 </div>
+                <h3>Workspace Chroot Sandboxing</h3>
+                <p>
+                  Agent operations are strictly confined to tenant directory roots. System-level paths like <code>/etc</code>, <code>/var/run</code>, or host environment variables are physically inaccessible.
+                </p>
+                <div className="g-meta-tag">Deterministic Isolation</div>
               </div>
 
-              <div className="gov-right">
-                <div className="model-list">
-                  <div className="model-item">
-                    <div className="m-info">
-                      <span className="m-name">Qwen 2.5 Coder (32B / 7B)</span>
-                      <span className="m-desc">Specialized coding and bash reasoning</span>
-                    </div>
-                    <span className="m-tag tag-local">Ollama Local</span>
-                  </div>
-
-                  <div className="model-item">
-                    <div className="m-info">
-                      <span className="m-name">Llama 3.2 (3B / 1B)</span>
-                      <span className="m-desc">Low-latency task extraction and classification</span>
-                    </div>
-                    <span className="m-tag tag-local">Ollama Local</span>
-                  </div>
-
-                  <div className="model-item">
-                    <div className="m-info">
-                      <span className="m-name">OpenAI GPT-4o / Claude 3.5</span>
-                      <span className="m-desc">Complex multi-hop cross-domain orchestration</span>
-                    </div>
-                    <span className="m-tag tag-cloud">Frontier API</span>
-                  </div>
-
-                  <div className="model-item">
-                    <div className="m-info">
-                      <span className="m-name">Custom Enterprise Endpoint</span>
-                      <span className="m-desc">Bring your own vLLM / HuggingFace server</span>
-                    </div>
-                    <span className="m-tag tag-enterprise">Enterprise</span>
-                  </div>
+              <div className="guardrail-card">
+                <div className="g-icon-wrap">
+                  <Lock size={24} />
                 </div>
+                <h3>Human-in-the-Loop Approval Gates</h3>
+                <p>
+                  Configure automated pausing for sensitive tasks. If an agent attempts to execute high-impact code changes, deploy to production, or dispatch external webhooks, operator approval is required.
+                </p>
+                <div className="g-meta-tag">Policy Enforcement</div>
+              </div>
+
+              <div className="guardrail-card">
+                <div className="g-icon-wrap">
+                  <FileCheck2 size={24} />
+                </div>
+                <h3>Immutable JSON Audit Trail</h3>
+                <p>
+                  Every reasoning thought, tool invocation, parameter payload, execution duration, and return output is indexed into tamper-resistant audit logs for full compliance tracking.
+                </p>
+                <div className="g-meta-tag">DPDP Act 2023 Ready</div>
+              </div>
+
+              <div className="guardrail-card">
+                <div className="g-icon-wrap">
+                  <Zap size={24} />
+                </div>
+                <h3>Resource Quotas &amp; Circuit Breakers</h3>
+                <p>
+                  Prevent runaway execution loops with strict limits on maximum reasoning turns, token consumption ceilings, per-minute tool execution budgets, and command timeout thresholds.
+                </p>
+                <div className="g-meta-tag">Cost &amp; Loop Protection</div>
               </div>
             </div>
           </div>
@@ -489,18 +499,18 @@ export default function PlatformAiAgentsPage() {
             <div className="cta-box">
               <h2>Ready to Deploy Autonomous AI Agents?</h2>
               <p>
-                Start with our pre-configured agent templates or register your private model endpoints today.
+                Start with our pre-configured agent templates or build custom agent harnesses with full sandbox isolation.
               </p>
               <div className="cta-actions">
-                <Link href="/signup" className="btn-primary">
+                <Link href="/signup" className="btn-cta-primary">
                   <span>Request Platform Access</span>
                   <ArrowRight size={16} />
                 </Link>
-                <Link href="/platform/workflows" className="btn-secondary">
+                <Link href="/platform/workflows" className="btn-cta-secondary">
                   <span>Explore Workflow Engine</span>
                 </Link>
-                <Link href="/contact" className="btn-tertiary">
-                  <span>Talk to Solutions Engineer</span>
+                <Link href="/contact" className="btn-cta-tertiary">
+                  <span>Talk to Solutions Engineer &rarr;</span>
                 </Link>
               </div>
             </div>
@@ -513,9 +523,9 @@ export default function PlatformAiAgentsPage() {
       <style jsx>{`
         .agents-page {
           min-height: 100vh;
-          background-color: #0b1120;
-          color: #f8fafc;
-          font-family: 'Outfit', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+          background-color: #ffffff;
+          color: #0f172a;
+          font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
         }
 
         .container {
@@ -524,17 +534,46 @@ export default function PlatformAiAgentsPage() {
           padding: 0 24px;
         }
 
+        /* BREADCRUMB */
+        .breadcrumb-nav {
+          display: inline-flex;
+          align-items: center;
+          gap: 8px;
+          font-size: 0.85rem;
+          color: #64748b;
+          margin-bottom: 24px;
+        }
+
+        .crumb-link {
+          color: #64748b;
+          text-decoration: none;
+          transition: color 0.15s;
+        }
+
+        .crumb-link:hover {
+          color: #2563eb;
+        }
+
+        .crumb-sep {
+          color: #94a3b8;
+        }
+
+        .crumb-current {
+          color: #0f172a;
+          font-weight: 600;
+        }
+
         .blue-gradient {
-          background: linear-gradient(135deg, #60a5fa 0%, #3b82f6 50%, #2563eb 100%);
+          background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
           -webkit-background-clip: text;
           -webkit-text-fill-color: transparent;
         }
 
         /* HERO */
         .agents-hero {
-          padding: 80px 0 60px 0;
+          padding: 60px 0 80px 0;
           position: relative;
-          background: radial-gradient(circle at 50% 20%, rgba(37, 99, 235, 0.12) 0%, transparent 60%);
+          background: radial-gradient(circle at 50% 0%, rgba(37, 99, 235, 0.08) 0%, rgba(255, 255, 255, 0) 70%);
         }
 
         .hero-content {
@@ -549,27 +588,27 @@ export default function PlatformAiAgentsPage() {
           gap: 8px;
           padding: 6px 14px;
           border-radius: 9999px;
-          background: rgba(59, 130, 246, 0.1);
-          border: 1px solid rgba(59, 130, 246, 0.25);
-          color: #93c5fd;
+          background: rgba(37, 99, 235, 0.08);
+          border: 1px solid rgba(37, 99, 235, 0.2);
+          color: #2563eb;
           font-size: 0.82rem;
           font-weight: 600;
           margin-bottom: 24px;
         }
 
         .hero-title {
-          font-size: clamp(2.4rem, 4.8vw, 3.8rem);
+          font-size: clamp(2.3rem, 4.8vw, 3.6rem);
           font-weight: 800;
           line-height: 1.15;
           letter-spacing: -0.03em;
           margin-bottom: 20px;
-          color: #ffffff;
+          color: #0f172a;
         }
 
         .hero-subtitle {
-          font-size: clamp(1.05rem, 1.8vw, 1.22rem);
-          line-height: 1.6;
-          color: #94a3b8;
+          font-size: clamp(1.05rem, 1.8vw, 1.2rem);
+          line-height: 1.65;
+          color: #475569;
           margin-bottom: 36px;
         }
 
@@ -590,37 +629,38 @@ export default function PlatformAiAgentsPage() {
           color: #ffffff;
           padding: 14px 28px;
           border-radius: 10px;
-          font-weight: 700;
+          font-weight: 600;
           font-size: 0.95rem;
           text-decoration: none;
-          box-shadow: 0 4px 20px rgba(37, 99, 235, 0.35);
+          box-shadow: 0 4px 14px rgba(37, 99, 235, 0.25);
           transition: all 0.2s ease;
         }
 
         .btn-primary:hover {
           background: #1d4ed8;
           transform: translateY(-2px);
-          box-shadow: 0 8px 25px rgba(37, 99, 235, 0.5);
+          box-shadow: 0 8px 20px rgba(37, 99, 235, 0.35);
         }
 
         .btn-secondary {
           display: inline-flex;
           align-items: center;
           gap: 10px;
-          background: rgba(255, 255, 255, 0.05);
-          border: 1px solid rgba(255, 255, 255, 0.15);
-          color: #ffffff;
+          background: #ffffff;
+          border: 1px solid #cbd5e1;
+          color: #1e293b;
           padding: 14px 28px;
           border-radius: 10px;
           font-weight: 600;
           font-size: 0.95rem;
           text-decoration: none;
+          box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
           transition: all 0.2s ease;
         }
 
         .btn-secondary:hover {
-          background: rgba(255, 255, 255, 0.1);
-          border-color: rgba(255, 255, 255, 0.3);
+          background: #f8fafc;
+          border-color: #94a3b8;
           transform: translateY(-2px);
         }
 
@@ -630,7 +670,7 @@ export default function PlatformAiAgentsPage() {
           justify-content: center;
           gap: 32px;
           padding-top: 24px;
-          border-top: 1px solid rgba(255, 255, 255, 0.08);
+          border-top: 1px solid #e2e8f0;
         }
 
         .hero-stat {
@@ -643,30 +683,31 @@ export default function PlatformAiAgentsPage() {
         .stat-num {
           font-size: 1.4rem;
           font-weight: 800;
-          color: #60a5fa;
+          color: #2563eb;
         }
 
         .stat-label {
-          font-size: 0.8rem;
+          font-size: 0.78rem;
           color: #64748b;
           text-transform: uppercase;
           letter-spacing: 0.05em;
+          font-weight: 600;
         }
 
         .hero-stat-sep {
           width: 1px;
           height: 32px;
-          background: rgba(255, 255, 255, 0.1);
+          background: #e2e8f0;
         }
 
         /* TERMINAL CARD */
         .agent-terminal-card {
           max-width: 960px;
           margin: 0 auto;
-          background: #0f172a;
-          border: 1px solid rgba(59, 130, 246, 0.2);
+          background: #090e1a;
+          border: 1px solid #1e293b;
           border-radius: 16px;
-          box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+          box-shadow: 0 20px 40px -15px rgba(15, 23, 42, 0.25);
           overflow: hidden;
         }
 
@@ -675,8 +716,8 @@ export default function PlatformAiAgentsPage() {
           align-items: center;
           justify-content: space-between;
           padding: 12px 18px;
-          background: #090e1a;
-          border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+          background: #0f172a;
+          border-bottom: 1px solid #1e293b;
         }
 
         .window-dots {
@@ -698,8 +739,8 @@ export default function PlatformAiAgentsPage() {
           display: flex;
           align-items: center;
           gap: 8px;
-          font-family: monospace;
-          font-size: 0.82rem;
+          font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+          font-size: 0.8rem;
           color: #94a3b8;
         }
 
@@ -707,8 +748,8 @@ export default function PlatformAiAgentsPage() {
           display: flex;
           align-items: center;
           gap: 6px;
-          font-family: monospace;
-          font-size: 0.75rem;
+          font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+          font-size: 0.72rem;
           color: #4ade80;
           font-weight: 600;
         }
@@ -723,8 +764,8 @@ export default function PlatformAiAgentsPage() {
 
         .terminal-tabs {
           display: flex;
-          background: #0d1527;
-          border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+          background: #090e1a;
+          border-bottom: 1px solid #1e293b;
           padding: 0 12px;
         }
 
@@ -754,11 +795,12 @@ export default function PlatformAiAgentsPage() {
         }
 
         .terminal-body {
-          padding: 20px 24px;
+          padding: 24px;
           font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-          font-size: 0.86rem;
+          font-size: 0.85rem;
           line-height: 1.7;
-          min-height: 220px;
+          min-height: 240px;
+          background: #090e1a;
         }
 
         .code-block {
@@ -767,10 +809,28 @@ export default function PlatformAiAgentsPage() {
           gap: 8px;
         }
 
-        .json-block pre {
-          margin: 0;
+        .dark-json {
+          background: #090e1a;
           color: #cbd5e1;
+        }
+
+        .dark-json pre {
+          margin: 0;
+          color: #93c5fd;
           font-family: inherit;
+        }
+
+        .token-fn {
+          color: #38bdf8;
+          font-weight: 600;
+        }
+
+        .token-str {
+          color: #4ade80;
+        }
+
+        .token-keyword {
+          color: #f59e0b;
         }
 
         .log-line {
@@ -807,7 +867,9 @@ export default function PlatformAiAgentsPage() {
         /* PILLARS */
         .pillars-section {
           padding: 90px 0;
-          border-top: 1px solid rgba(255, 255, 255, 0.06);
+          background: #f8fafc;
+          border-top: 1px solid #e2e8f0;
+          border-bottom: 1px solid #e2e8f0;
         }
 
         .section-head {
@@ -820,7 +882,7 @@ export default function PlatformAiAgentsPage() {
           display: inline-block;
           font-size: 0.8rem;
           font-weight: 700;
-          color: #3b82f6;
+          color: #2563eb;
           text-transform: uppercase;
           letter-spacing: 0.08em;
           margin-bottom: 12px;
@@ -829,15 +891,15 @@ export default function PlatformAiAgentsPage() {
         .section-title {
           font-size: clamp(1.8rem, 3.2vw, 2.5rem);
           font-weight: 800;
-          color: #ffffff;
+          color: #0f172a;
           line-height: 1.25;
           margin-bottom: 16px;
           letter-spacing: -0.02em;
         }
 
         .section-subtitle {
-          font-size: 1.02rem;
-          color: #94a3b8;
+          font-size: 1.05rem;
+          color: #475569;
           line-height: 1.6;
         }
 
@@ -848,25 +910,26 @@ export default function PlatformAiAgentsPage() {
         }
 
         .pillar-card {
-          background: rgba(15, 23, 42, 0.6);
-          border: 1px solid rgba(255, 255, 255, 0.08);
+          background: #ffffff;
+          border: 1px solid #e2e8f0;
           border-radius: 16px;
           padding: 32px;
+          box-shadow: 0 2px 4px rgba(0, 0, 0, 0.02);
           transition: all 0.25s ease;
         }
 
         .pillar-card:hover {
-          border-color: rgba(59, 130, 246, 0.3);
-          transform: translateY(-2px);
-          background: rgba(15, 23, 42, 0.85);
+          border-color: #93c5fd;
+          transform: translateY(-3px);
+          box-shadow: 0 12px 24px -4px rgba(37, 99, 235, 0.08);
         }
 
         .pillar-icon-box {
           width: 48px;
           height: 48px;
           border-radius: 12px;
-          background: rgba(59, 130, 246, 0.12);
-          color: #60a5fa;
+          background: #eff6ff;
+          color: #2563eb;
           display: flex;
           align-items: center;
           justify-content: center;
@@ -876,24 +939,25 @@ export default function PlatformAiAgentsPage() {
         .pillar-card h3 {
           font-size: 1.25rem;
           font-weight: 700;
-          color: #ffffff;
+          color: #0f172a;
           margin-bottom: 12px;
         }
 
         .pillar-card p {
-          font-size: 0.92rem;
-          color: #94a3b8;
+          font-size: 0.95rem;
+          color: #475569;
           line-height: 1.6;
           margin-bottom: 20px;
         }
 
         .pillar-card code {
-          background: rgba(59, 130, 246, 0.15);
-          color: #93c5fd;
+          background: #f1f5f9;
+          color: #1e293b;
+          border: 1px solid #e2e8f0;
           padding: 2px 6px;
           border-radius: 4px;
-          font-family: monospace;
-          font-size: 0.84rem;
+          font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+          font-size: 0.85rem;
         }
 
         .pillar-checklist {
@@ -909,42 +973,42 @@ export default function PlatformAiAgentsPage() {
           display: flex;
           align-items: center;
           gap: 10px;
-          font-size: 0.86rem;
-          color: #cbd5e1;
+          font-size: 0.88rem;
+          color: #334155;
         }
 
         .check-ico {
-          color: #3b82f6;
+          color: #10b981;
           flex-shrink: 0;
         }
 
         /* TOOLS TABLE */
         .tools-matrix-section {
-          padding: 80px 0;
-          background: rgba(15, 23, 42, 0.35);
-          border-top: 1px solid rgba(255, 255, 255, 0.06);
+          padding: 90px 0;
+          background: #ffffff;
         }
 
         .tools-table-wrapper {
           overflow-x: auto;
-          background: #0f172a;
-          border: 1px solid rgba(255, 255, 255, 0.08);
+          background: #ffffff;
+          border: 1px solid #e2e8f0;
           border-radius: 16px;
+          box-shadow: 0 2px 6px rgba(0, 0, 0, 0.03);
         }
 
         .tools-table {
           width: 100%;
           border-collapse: collapse;
           text-align: left;
-          font-size: 0.88rem;
+          font-size: 0.9rem;
         }
 
         .tools-table th {
-          background: #090e1a;
+          background: #f8fafc;
           padding: 16px 20px;
-          color: #94a3b8;
+          color: #475569;
           font-weight: 700;
-          border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+          border-bottom: 1px solid #e2e8f0;
           text-transform: uppercase;
           font-size: 0.75rem;
           letter-spacing: 0.05em;
@@ -952,158 +1016,131 @@ export default function PlatformAiAgentsPage() {
 
         .tools-table td {
           padding: 18px 20px;
-          border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-          color: #cbd5e1;
-          vertical-align: top;
+          border-bottom: 1px solid #f1f5f9;
+          color: #334155;
+          vertical-align: middle;
           line-height: 1.5;
         }
 
+        .tools-table tr:last-child td {
+          border-bottom: none;
+        }
+
         .tool-code {
-          background: rgba(59, 130, 246, 0.15);
-          color: #60a5fa;
+          background: #eff6ff;
+          color: #2563eb;
+          border: 1px solid #dbeafe;
           padding: 4px 8px;
           border-radius: 6px;
-          font-family: monospace;
+          font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
           font-size: 0.85rem;
           font-weight: 700;
         }
 
-        /* GOVERNANCE */
-        .governance-section {
+        /* GUARDRAILS & GOVERNANCE */
+        .guardrails-section {
           padding: 90px 0;
-          border-top: 1px solid rgba(255, 255, 255, 0.06);
+          background: #f8fafc;
+          border-top: 1px solid #e2e8f0;
         }
 
-        .governance-card {
-          background: linear-gradient(135deg, rgba(30, 58, 138, 0.35) 0%, rgba(15, 23, 42, 0.8) 100%);
-          border: 1px solid rgba(59, 130, 246, 0.25);
-          border-radius: 20px;
-          padding: 44px;
+        .guardrails-grid {
           display: grid;
-          grid-template-columns: 1.2fr 1fr;
-          gap: 40px;
-          align-items: center;
+          grid-template-columns: repeat(2, 1fr);
+          gap: 24px;
         }
 
-        .gov-left h2 {
-          font-size: clamp(1.6rem, 2.8vw, 2.2rem);
-          font-weight: 800;
-          color: #ffffff;
-          line-height: 1.25;
-          margin-bottom: 16px;
-        }
-
-        .gov-left p {
-          font-size: 0.95rem;
-          color: #94a3b8;
-          line-height: 1.6;
-          margin-bottom: 14px;
-        }
-
-        .gov-badges {
-          display: flex;
-          flex-wrap: wrap;
-          gap: 12px;
-          margin-top: 24px;
-        }
-
-        .g-badge {
-          display: inline-flex;
-          align-items: center;
-          gap: 8px;
-          background: rgba(37, 99, 235, 0.15);
-          border: 1px solid rgba(59, 130, 246, 0.3);
-          color: #93c5fd;
-          padding: 8px 14px;
-          border-radius: 8px;
-          font-size: 0.82rem;
-          font-weight: 600;
-        }
-
-        .model-list {
+        .guardrail-card {
+          background: #ffffff;
+          border: 1px solid #e2e8f0;
+          border-radius: 16px;
+          padding: 32px;
+          box-shadow: 0 2px 4px rgba(0, 0, 0, 0.02);
+          transition: all 0.25s ease;
           display: flex;
           flex-direction: column;
-          gap: 12px;
         }
 
-        .model-item {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          padding: 14px 18px;
-          background: rgba(15, 23, 42, 0.7);
-          border: 1px solid rgba(255, 255, 255, 0.08);
+        .guardrail-card:hover {
+          border-color: #93c5fd;
+          transform: translateY(-2px);
+          box-shadow: 0 12px 24px -4px rgba(37, 99, 235, 0.08);
+        }
+
+        .g-icon-wrap {
+          width: 46px;
+          height: 46px;
           border-radius: 12px;
-        }
-
-        .m-info {
+          background: #eff6ff;
+          color: #2563eb;
           display: flex;
-          flex-direction: column;
-          gap: 3px;
+          align-items: center;
+          justify-content: center;
+          margin-bottom: 20px;
         }
 
-        .m-name {
-          font-size: 0.92rem;
+        .guardrail-card h3 {
+          font-size: 1.2rem;
           font-weight: 700;
-          color: #ffffff;
+          color: #0f172a;
+          margin-bottom: 10px;
         }
 
-        .m-desc {
-          font-size: 0.76rem;
-          color: #64748b;
+        .guardrail-card p {
+          font-size: 0.94rem;
+          color: #475569;
+          line-height: 1.6;
+          margin-bottom: 20px;
+          flex-grow: 1;
         }
 
-        .m-tag {
-          font-size: 0.72rem;
+        .guardrail-card code {
+          background: #f1f5f9;
+          color: #0f172a;
+          padding: 2px 6px;
+          border-radius: 4px;
+          font-size: 0.84rem;
+        }
+
+        .g-meta-tag {
+          align-self: flex-start;
+          font-size: 0.75rem;
           font-weight: 700;
+          color: #2563eb;
+          background: #eff6ff;
+          border: 1px solid #bfdbfe;
           padding: 4px 10px;
           border-radius: 6px;
           text-transform: uppercase;
           letter-spacing: 0.04em;
         }
 
-        .tag-local {
-          background: rgba(16, 185, 129, 0.15);
-          color: #34d399;
-          border: 1px solid rgba(16, 185, 129, 0.3);
-        }
-
-        .tag-cloud {
-          background: rgba(59, 130, 246, 0.15);
-          color: #60a5fa;
-          border: 1px solid rgba(59, 130, 246, 0.3);
-        }
-
-        .tag-enterprise {
-          background: rgba(168, 85, 247, 0.15);
-          color: #c084fc;
-          border: 1px solid rgba(168, 85, 247, 0.3);
-        }
-
         /* FAQ */
         .faq-section {
           padding: 90px 0;
-          border-top: 1px solid rgba(255, 255, 255, 0.06);
+          background: #ffffff;
+          border-top: 1px solid #e2e8f0;
         }
 
         .faq-list {
-          max-width: 800px;
+          max-width: 820px;
           margin: 0 auto;
           display: flex;
           flex-direction: column;
-          gap: 12px;
+          gap: 14px;
         }
 
         .faq-item {
-          background: #0f172a;
-          border: 1px solid rgba(255, 255, 255, 0.08);
+          background: #ffffff;
+          border: 1px solid #e2e8f0;
           border-radius: 12px;
           overflow: hidden;
           transition: all 0.2s;
         }
 
         .faq-item.expanded {
-          border-color: rgba(59, 130, 246, 0.3);
+          border-color: #2563eb;
+          box-shadow: 0 4px 12px rgba(37, 99, 235, 0.06);
         }
 
         .faq-question {
@@ -1111,11 +1148,11 @@ export default function PlatformAiAgentsPage() {
           display: flex;
           align-items: center;
           justify-content: space-between;
-          padding: 18px 22px;
+          padding: 18px 24px;
           background: none;
           border: none;
-          color: #f1f5f9;
-          font-size: 0.96rem;
+          color: #0f172a;
+          font-size: 0.98rem;
           font-weight: 700;
           text-align: left;
           cursor: pointer;
@@ -1129,44 +1166,49 @@ export default function PlatformAiAgentsPage() {
 
         .faq-item.expanded .faq-icon {
           transform: rotate(180deg);
-          color: #60a5fa;
+          color: #2563eb;
         }
 
         .faq-answer {
-          padding: 0 22px 20px 22px;
-          color: #94a3b8;
-          font-size: 0.9rem;
-          line-height: 1.6;
+          padding: 0 24px 20px 24px;
+          color: #475569;
+          font-size: 0.92rem;
+          line-height: 1.65;
+          border-top: 1px solid #f1f5f9;
+          padding-top: 16px;
         }
 
         /* CTA */
         .cta-banner-section {
-          padding: 60px 0 90px 0;
+          padding: 80px 0 100px 0;
+          background: #f8fafc;
+          border-top: 1px solid #e2e8f0;
         }
 
         .cta-box {
-          background: linear-gradient(135deg, #1e3a8a 0%, #1e40af 50%, #1d4ed8 100%);
+          background: linear-gradient(135deg, #1e40af 0%, #2563eb 100%);
           border-radius: 20px;
-          padding: 48px;
+          padding: 56px 40px;
           text-align: center;
-          border: 1px solid rgba(255, 255, 255, 0.15);
-          box-shadow: 0 25px 50px -12px rgba(29, 78, 216, 0.3);
+          box-shadow: 0 20px 35px -10px rgba(37, 99, 235, 0.35);
         }
 
         .cta-box h2 {
-          font-size: clamp(1.8rem, 3.2vw, 2.4rem);
+          font-size: clamp(1.9rem, 3.4vw, 2.6rem);
           font-weight: 800;
           color: #ffffff;
-          margin-bottom: 12px;
+          margin-bottom: 16px;
+          letter-spacing: -0.02em;
         }
 
         .cta-box p {
-          font-size: 1.05rem;
+          font-size: 1.1rem;
           color: #dbeafe;
-          margin-bottom: 32px;
-          max-width: 600px;
+          margin-bottom: 36px;
+          max-width: 640px;
           margin-left: auto;
           margin-right: auto;
+          line-height: 1.6;
         }
 
         .cta-actions {
@@ -1177,26 +1219,67 @@ export default function PlatformAiAgentsPage() {
           flex-wrap: wrap;
         }
 
-        .btn-tertiary {
+        .btn-cta-primary {
           display: inline-flex;
           align-items: center;
           gap: 10px;
-          background: transparent;
+          background: #ffffff;
+          color: #1e3a8a;
+          padding: 14px 28px;
+          border-radius: 10px;
+          font-weight: 700;
+          font-size: 0.95rem;
+          text-decoration: none;
+          box-shadow: 0 4px 14px rgba(0, 0, 0, 0.15);
+          transition: all 0.2s ease;
+        }
+
+        .btn-cta-primary:hover {
+          background: #f8fafc;
+          transform: translateY(-2px);
+          box-shadow: 0 8px 20px rgba(0, 0, 0, 0.2);
+        }
+
+        .btn-cta-secondary {
+          display: inline-flex;
+          align-items: center;
+          gap: 10px;
+          background: rgba(255, 255, 255, 0.15);
+          border: 1px solid rgba(255, 255, 255, 0.35);
           color: #ffffff;
           padding: 14px 28px;
           border-radius: 10px;
           font-weight: 600;
           font-size: 0.95rem;
+          text-decoration: none;
+          transition: all 0.2s ease;
+        }
+
+        .btn-cta-secondary:hover {
+          background: rgba(255, 255, 255, 0.25);
+          border-color: rgba(255, 255, 255, 0.5);
+          transform: translateY(-2px);
+        }
+
+        .btn-cta-tertiary {
+          display: inline-flex;
+          align-items: center;
+          gap: 8px;
+          color: #ffffff;
+          padding: 14px 20px;
+          font-weight: 600;
+          font-size: 0.95rem;
+          text-decoration: none;
+          transition: opacity 0.2s;
+        }
+
+        .btn-cta-tertiary:hover {
+          opacity: 0.85;
           text-decoration: underline;
-          text-underline-offset: 4px;
         }
 
         @media (max-width: 1024px) {
-          .governance-card {
-            grid-template-columns: 1fr;
-            padding: 32px;
-          }
-          .pillars-grid {
+          .pillars-grid, .guardrails-grid {
             grid-template-columns: 1fr;
           }
         }
@@ -1210,13 +1293,13 @@ export default function PlatformAiAgentsPage() {
             display: none;
           }
           .cta-box {
-            padding: 32px 20px;
+            padding: 40px 24px;
           }
           .cta-actions {
             flex-direction: column;
             width: 100%;
           }
-          .btn-primary, .btn-secondary, .btn-tertiary {
+          .btn-cta-primary, .btn-cta-secondary, .btn-cta-tertiary {
             width: 100%;
             justify-content: center;
             box-sizing: border-box;
