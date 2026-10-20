@@ -45,6 +45,7 @@ import shareRoutes from './routes/share.routes.js';
 import privacyRoutes from './routes/privacy.routes.js';
 import pdfRoutes from './routes/pdf.routes.js';
 import modelsRoutes from './routes/models.routes.js';
+import intakeRoutes from './routes/intake.routes.js';
 
 // Import existing API sub-routers
 import chatRouter from './routes/chat.js';
@@ -250,6 +251,23 @@ app.use(async (req, res, next) => {
         return next();
       }
 
+      // Public intake routes and platform staff intake review routes
+      // Submissions are stored in dedicated lead intake tables without tenant scoping
+      const isPublicIntakeRoute =
+        req.path.startsWith('/api/contact') ||
+        req.path.startsWith('/api/v1/contact') ||
+        req.path.startsWith('/api/careers') ||
+        req.path.startsWith('/api/v1/careers') ||
+        req.path.startsWith('/api/intake') ||
+        req.path.startsWith('/api/v1/intake') ||
+        req.path.startsWith('/api/admin/contact-submissions') ||
+        req.path.startsWith('/api/v1/admin/contact-submissions') ||
+        req.path.startsWith('/api/admin/career-applications') ||
+        req.path.startsWith('/api/v1/admin/career-applications');
+      if (isPublicIntakeRoute) {
+        return next();
+      }
+
       // Public share viewer endpoint — no tenant or auth context required.
       // Authorization is enforced inside the route handler via token hash lookup.
       if (req.path.startsWith('/api/public/')) {
@@ -352,6 +370,16 @@ app.use('/api/v1/pdf', pdfRoutes);
 app.use('/api/public', shareRoutes);
 app.use('/api', shareRoutes);
 app.use('/api/v1', shareRoutes);
+
+// Dedicated Lead & Careers Intake Routes (Completely separate from user registration)
+app.use('/api/intake', intakeRoutes);
+app.use('/api/v1/intake', intakeRoutes);
+app.use('/api/contact', intakeRoutes);
+app.use('/api/v1/contact', intakeRoutes);
+app.use('/api/careers', intakeRoutes);
+app.use('/api/v1/careers', intakeRoutes);
+app.use('/api/admin', intakeRoutes);
+app.use('/api/v1/admin', intakeRoutes);
 
 // Register specialized sub-routers
 app.use('/api/routes/chat', chatRouter);
