@@ -20,17 +20,12 @@ import {
 
 const CODE_EXAMPLES = {
   curl: `# Authenticate and stream real-time LLM agent completions via REST
-curl -X POST https://xarwiz.com/api/v1/chat/completions \\
+curl -X POST https://xarwiz.com/api/v1/chat \\
   -H "Authorization: Bearer hk_live_your_api_key_here" \\
   -H "Content-Type: application/json" \\
   -d '{
-    "model": "qwen2.5-coder:32b",
-    "messages": [
-      {
-        "role": "user",
-        "content": "Audit Q3 invoices against statutory Indian DPDP guidelines"
-      }
-    ],
+    "message": "Audit Q3 invoices against statutory Indian DPDP guidelines",
+    "model": "harikson-plus",
     "stream": true
   }'
 `,
@@ -41,7 +36,7 @@ import json
 API_KEY = "hk_live_your_api_key_here"
 BASE_URL = "https://xarwiz.com/api/v1"
 
-# Trigger a verified DAG workflow execution
+# Trigger a verified DAG workflow execution (returns 202 Accepted with executionId)
 response = requests.post(
     f"{BASE_URL}/workflows/invoice-processing-pipeline/execute",
     headers={
@@ -55,43 +50,74 @@ response = requests.post(
     timeout=30
 )
 
-print("Workflow Run Status:", response.json().get("status"))
+# Workflow executions are queued asynchronously via BullMQ
+data = response.json()
+print("Workflow Execution ID:", data.get("executionId"))
+print("Initial Status:", data.get("status"))  # "queued"
 `,
   node: `// Modern Node.js (v18+) native fetch integration
 const API_KEY = process.env.XARWIZ_API_KEY || "hk_live_your_api_key_here";
 
 async function executeAgent() {
-  const response = await fetch("https://xarwiz.com/api/v1/chat/completions", {
+  const response = await fetch("https://xarwiz.com/api/v1/chat", {
     method: "POST",
     headers: {
       "Authorization": \`Bearer \${API_KEY}\`,
       "Content-Type": "application/json"
     },
     body: JSON.stringify({
-      model: "qwen2.5-coder:32b",
-      messages: [
-        { role: "user", content: "Summarize Section 8 obligations under DPDP Act 2023" }
-      ]
+      message: "Summarize Section 8 obligations under DPDP Act 2023",
+      model: "harikson-plus",
+      stream: false
     })
   });
 
+  if (!response.ok) {
+    throw new Error(\`Xarwiz API returned HTTP \${response.status}\`);
+  }
+
+  // Response contains assistant response, tokens, and optional citations
   const data = await response.json();
-  console.log("Agent Output:", data.choices?.[0]?.message?.content);
+  console.log("Response:", data);
 }
 
-executeAgent();
+executeAgent().catch((err) => console.error("Execution failed:", err.message));
 `,
-  webhook: `// Inbound Webhook HMAC-SHA256 Signature Verification in Node.js
+  webhook: `// Inbound Webhook Signature & Replay Verification in Node.js
+// Note: HMAC verifies authenticity, but timestamp verification is required to prevent replay attacks.
 const crypto = require('crypto');
 
-function verifyXarwizWebhook(rawBody, signatureHeader, signingSecret) {
-  const hmac = crypto.createHmac('sha256', signingSecret);
-  const digest = 'sha256=' + hmac.update(rawBody).digest('hex');
-  return crypto.timingSafeEqual(Buffer.from(digest), Buffer.from(signatureHeader));
-}
+const MAX_TIMESTAMP_DRIFT_SEC = 300; // 5-minute tolerance against replay attacks
 
-// In your Express or Fastify handler:
-// const isValid = verifyXarwizWebhook(req.rawBody, req.headers['x-xarwiz-signature'], process.env.WEBHOOK_SECRET);
+function verifyXarwizWebhook(rawBody, signatureHeader, timestampHeader, signingSecret) {
+  if (!signatureHeader || !timestampHeader || !signingSecret) {
+    return false;
+  }
+
+  // 1. Replay attack prevention: verify timestamp freshness
+  const timestamp = parseInt(timestampHeader, 10);
+  const now = Math.floor(Date.now() / 1000);
+  if (isNaN(timestamp) || Math.abs(now - timestamp) > MAX_TIMESTAMP_DRIFT_SEC) {
+    return false; // Stale or replayed webhook request
+  }
+
+  // 2. Compute expected HMAC-SHA256 signature across timestamp and raw payload bytes
+  const signedPayload = \`\${timestamp}.\${rawBody}\`;
+  const expectedSignature = 'sha256=' + crypto
+    .createHmac('sha256', signingSecret)
+    .update(signedPayload, 'utf8')
+    .digest('hex');
+
+  // 3. Constant-time comparison protecting against timing analysis
+  const sigBuf = Buffer.from(signatureHeader, 'utf8');
+  const expBuf = Buffer.from(expectedSignature, 'utf8');
+
+  if (sigBuf.length !== expBuf.length) {
+    return false;
+  }
+
+  return crypto.timingSafeEqual(sigBuf, expBuf);
+}
 `,
 };
 

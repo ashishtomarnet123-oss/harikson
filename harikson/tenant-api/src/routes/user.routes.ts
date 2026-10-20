@@ -56,6 +56,20 @@ async function getPlanFromDb(planId: string): Promise<{ id: string; name: string
     return null;
   }
 }
+
+/**
+ * Neutralize CSV Formula Injection (DDE / command execution in spreadsheet software).
+ * Escapes embedded quotes and prepends a single quote if the cell begins with =, +, -, @, \t, or \r.
+ */
+export function sanitizeCsvCell(val: any): string {
+  if (val === null || val === undefined) return '';
+  let str = String(val).replace(/"/g, '""');
+  if (/^[=+\-@\t\r]/.test(str)) {
+    str = "'" + str;
+  }
+  return str;
+}
+
 router.use((req: any, _res, next) => {
   if (!req.user) {
     const authHeader = req.headers.authorization || '';
@@ -1761,7 +1775,7 @@ router.get(['/activity/export', '/user/activity/export'], requireAuditTrail, asy
 
     let csv = 'ID,Timestamp,Action,Details,IP Address,Device\n';
     for (const row of logsRes.rows) {
-      csv += `"${row.id}","${new Date(row.created_at).toISOString()}","${(row.action || '').replace(/"/g, '""')}","${(row.details || '').replace(/"/g, '""')}","${row.ip_address || ''}","${(row.user_agent || '').replace(/"/g, '""')}"\n`;
+      csv += `"${sanitizeCsvCell(row.id)}","${new Date(row.created_at).toISOString()}","${sanitizeCsvCell(row.action)}","${sanitizeCsvCell(row.details)}","${sanitizeCsvCell(row.ip_address)}","${sanitizeCsvCell(row.user_agent)}"\n`;
     }
 
     res.setHeader('Content-Type', 'text/csv');
@@ -2171,7 +2185,7 @@ router.get(['/developer/webhook-logs/export', '/webhooks/logs/export'], requireW
 
     let csv = 'ID,Provider,Event ID,Event Type,Signature Valid,Processed,Error,Received At\n';
     for (const row of sanitizedRows) {
-      csv += `"${row.id}","${(row.provider_id || '').replace(/"/g, '""')}","${(row.event_id || '').replace(/"/g, '""')}","${(row.event_type || '').replace(/"/g, '""')}",${!!row.signature_valid},${!!row.processed},"${(row.processing_error || '').replace(/"/g, '""')}","${new Date(row.received_at).toISOString()}"\n`;
+      csv += `"${sanitizeCsvCell(row.id)}","${sanitizeCsvCell(row.provider_id)}","${sanitizeCsvCell(row.event_id)}","${sanitizeCsvCell(row.event_type)}",${!!row.signature_valid},${!!row.processed},"${sanitizeCsvCell(row.processing_error)}","${new Date(row.received_at).toISOString()}"\n`;
     }
 
     res.setHeader('Content-Type', 'text/csv');

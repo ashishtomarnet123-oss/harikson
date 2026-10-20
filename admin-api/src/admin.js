@@ -54,6 +54,19 @@ if (!process.env.JWT_SECRET || process.env.JWT_SECRET.length < 32) {
 
 export { default as pool } from './db.js';
 
+/**
+ * Neutralize CSV Formula Injection (DDE / command execution in spreadsheet software).
+ * Escapes embedded quotes and prepends a single quote if the cell begins with =, +, -, @, \t, or \r.
+ */
+export function sanitizeCsvCell(val) {
+  if (val === null || val === undefined) return '';
+  let str = String(val).replace(/"/g, '""');
+  if (/^[=+\-@\t\r]/.test(str)) {
+    str = "'" + str;
+  }
+  return str;
+}
+
 // Encryption Helpers for credentials at rest
 export function validatePaymentKeyConfig() {
   const paymentKey = process.env.PAYMENT_ENCRYPTION_KEY;
@@ -889,7 +902,7 @@ app.get(['/admin/reports/gstr1', '/v1/admin/reports/gstr1'], adminAuth, async (r
 
     let csvContent = 'Invoice ID,Customer Name,Invoice Date,HSN/SAC Code,Description,Taxable Value (INR),GST Rate (%),CGST (INR),SGST (INR),Total Tax (INR),Invoice Total (INR)\n';
     for (const row of result.rows) {
-      csvContent += `"${row.invoice_id}","${row.customer_name}","${row.invoice_date}","${row.hsn_sac_code}","${row.description}",${row.taxable_value},${row.gst_rate_percent},${row.cgst_amount},${row.sgst_amount},${row.total_tax_amount},${row.total_invoice_value}\n`;
+      csvContent += `"${sanitizeCsvCell(row.invoice_id)}","${sanitizeCsvCell(row.customer_name)}","${sanitizeCsvCell(row.invoice_date)}","${sanitizeCsvCell(row.hsn_sac_code)}","${sanitizeCsvCell(row.description)}",${row.taxable_value},${row.gst_rate_percent},${row.cgst_amount},${row.sgst_amount},${row.total_tax_amount},${row.total_invoice_value}\n`;
     }
 
     res.setHeader('Content-Type', 'text/csv');
@@ -3737,7 +3750,7 @@ app.get('/admin/logs/export', adminAuth, async (req, res) => {
     `);
     const header = '"timestamp","tenant","model","endpoint","tokens"';
     const rows = result.rows.map(r =>
-      `"${r.timestamp}","${(r.tenant || '').replace(/"/g, '""')}","${r.model || ''}","${r.endpoint}","${r.tokens || 0}"`
+      `"${r.timestamp}","${sanitizeCsvCell(r.tenant)}","${sanitizeCsvCell(r.model)}","${sanitizeCsvCell(r.endpoint)}","${r.tokens || 0}"`
     );
     const csv = [header, ...rows].join('\n');
     res.setHeader('Content-Type', 'text/csv');
@@ -3823,7 +3836,7 @@ app.get('/admin/impersonation/audit-logs/export', adminAuth, async (req, res) =>
 
     let csv = 'ID,Timestamp,User Email,Action,Is Impersonated,Impersonated By Admin,IP Address\n';
     for (const row of result.rows) {
-      csv += `"${row.id}","${new Date(row.created_at).toISOString()}","${row.user_email || ''}","${(row.action || '').replace(/"/g, '""')}","${row.is_impersonation ? 'YES' : 'NO'}","${row.impersonator_email || ''}","${row.ip_address || ''}"\n`;
+      csv += `"${sanitizeCsvCell(row.id)}","${new Date(row.created_at).toISOString()}","${sanitizeCsvCell(row.user_email)}","${sanitizeCsvCell(row.action)}","${row.is_impersonation ? 'YES' : 'NO'}","${sanitizeCsvCell(row.impersonator_email)}","${sanitizeCsvCell(row.ip_address)}"\n`;
     }
 
     res.setHeader('Content-Type', 'text/csv');
