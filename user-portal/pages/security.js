@@ -236,8 +236,8 @@ export default function SecurityTrustCenterPage() {
                     <span>Exercise Data Principal Rights</span>
                     <ExternalLink size={15} />
                   </Link>
-                  <Link href="/grievance" className="btn-secondary">
-                    <span>Grievance Redressal Officer</span>
+                  <Link href="/contact" className="btn-secondary">
+                    <span>Contact Privacy Team</span>
                   </Link>
                 </div>
               </div>

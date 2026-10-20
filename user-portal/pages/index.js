@@ -1448,7 +1448,6 @@ export default function HomePage({ disableSeo = false } = {}) {
                 <li><Link href="/about">About Xarwiz</Link></li>
                 <li><Link href="/contact">Contact Team</Link></li>
                 <li><Link href="/careers">Careers</Link></li>
-                <li><Link href="/grievance">Grievance Redressal</Link></li>
               </ul>
             </div>
           </div>

@@ -12,7 +12,6 @@ Allow: /data-processing
 Allow: /security-policy
 Allow: /aup
 Allow: /data-rights
-Allow: /grievance
 Allow: /signup
 Allow: /platform
 Allow: /platform/
