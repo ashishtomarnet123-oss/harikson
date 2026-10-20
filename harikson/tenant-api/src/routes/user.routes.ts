@@ -35,13 +35,21 @@ function getRazorpay(): Razorpay {
   return _razorpay;
 }
 
+export function normalizePlanId(planId: string): string {
+  if (!planId) return 'free';
+  const clean = planId.trim().toLowerCase();
+  if (clean === 'pro') return 'professional';
+  return clean;
+}
+
 // Server-side plan pricing - the price actually charged must come from the DB
 // `plans` table, never from client input or a hardcoded map.
 async function getPlanFromDb(planId: string): Promise<{ id: string; name: string; price: number; currency: string } | null> {
   try {
+    const normalizedId = normalizePlanId(planId);
     const res = await pool.query(
       'SELECT id, name, price, currency FROM plans WHERE id = $1 AND is_active = true',
-      [planId]
+      [normalizedId]
     );
     return res.rows[0] || null;
   } catch {
@@ -750,7 +758,7 @@ router.get('/billing', async (req: any, res) => {
     if (sub) {
       plan = sub;
     } else {
-      const planRes = await pool.query('SELECT * FROM plans WHERE LOWER(id) = LOWER($1)', [tenant.plan]);
+      const planRes = await pool.query('SELECT * FROM plans WHERE LOWER(id) = LOWER($1)', [normalizePlanId(tenant.plan)]);
       plan = planRes.rows[0] || null;
     }
     if (!plan) {
@@ -1668,12 +1676,15 @@ router.get('/usage', async (req: any, res) => {
     try {
       const planRes = await pool.query(
         `SELECT p.token_limit FROM tenants t
-         LEFT JOIN plans p ON LOWER(t.plan) = LOWER(p.id)
+         LEFT JOIN plans p ON (LOWER(t.plan) = LOWER(p.id) OR (LOWER(t.plan) = 'pro' AND LOWER(p.id) = 'professional'))
          WHERE t.id = $1`,
         [tenantId]
       );
-      limitTokens = planRes.rows[0]?.token_limit ?? -1;
-    } catch { /* fall back to unlimited */ }
+      const planRow = planRes.rows[0];
+      limitTokens = (planRow && planRow.token_limit !== null && planRow.token_limit !== undefined)
+        ? Number(planRow.token_limit)
+        : 1000;
+    } catch { limitTokens = 1000; /* fall back to Free tier on error, not unlimited */ }
 
     res.json({
       daily: dailyList,

@@ -38,7 +38,7 @@ export function loadEntitlements() {
       const result: any = await executeCachedQuery(
         `SELECT p.id as plan_id, p.name as plan_name, p.token_limit, p.storage_limit_gb, COALESCE(p.image_limit_monthly, 10) as image_limit_monthly, p.features
          FROM tenants t
-         LEFT JOIN plans p ON LOWER(t.plan) = LOWER(p.id)
+         LEFT JOIN plans p ON (LOWER(t.plan) = LOWER(p.id) OR (LOWER(t.plan) = 'pro' AND LOWER(p.id) = 'professional'))
          WHERE t.id = $1`,
         [tenant.id],
         60,
@@ -58,7 +58,8 @@ export function loadEntitlements() {
           featuresObj = row.features;
         }
 
-        const planId = (row.plan_id || 'free').toLowerCase();
+        const rawPlanId = (row.plan_id || 'free').toLowerCase();
+        const planId = rawPlanId === 'pro' ? 'professional' : rawPlanId;
         let apiAccess = false;
         if (typeof featuresObj.api_access === 'boolean') {
           apiAccess = featuresObj.api_access;

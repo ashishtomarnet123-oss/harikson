@@ -393,7 +393,8 @@ router.post('/checkout', async (req: any, res) => {
   }
 
   try {
-    const planRes = await executeCachedQuery('SELECT * FROM plans WHERE id = $1', [planId], 300);
+    const normalizedPlanId = (planId || '').trim().toLowerCase() === 'pro' ? 'professional' : planId;
+    const planRes = await executeCachedQuery('SELECT * FROM plans WHERE id = $1', [normalizedPlanId], 300);
     const plan = planRes.rows?.[0];
 
     if (!plan) return res.status(404).json({ error: 'Selected plan not found' });
@@ -525,7 +526,8 @@ router.post('/proration-preview', async (req: any, res) => {
       60
     );
 
-    const newPlanRes = await executeCachedQuery('SELECT * FROM plans WHERE id = $1', [newPlanId], 300);
+    const targetPlanId = (newPlanId || '').trim().toLowerCase() === 'pro' ? 'professional' : newPlanId;
+    const newPlanRes = await executeCachedQuery('SELECT * FROM plans WHERE id = $1', [targetPlanId], 300);
     const newPlan = newPlanRes.rows?.[0];
 
     if (!newPlan) return res.status(404).json({ error: 'Selected new plan not found' });

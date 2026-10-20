@@ -534,12 +534,16 @@ async function handleChat(req: any, res: any) {
   try {
     const planRes = await pool.query(
       `SELECT p.token_limit FROM tenants t
-       LEFT JOIN plans p ON LOWER(t.plan) = LOWER(p.id)
+       LEFT JOIN plans p ON (LOWER(t.plan) = LOWER(p.id) OR (LOWER(t.plan) = 'pro' AND LOWER(p.id) = 'professional'))
        WHERE t.id = $1`,
       [req.tenant.id]
     );
-    const tokenLimit = planRes.rows[0]?.token_limit ?? -1;
-    // token_limit: -1 = unlimited, 0 = blocked, >0 = monthly cap
+    const planRow = planRes.rows[0];
+    // token_limit: -1 = unlimited (Enterprise), 0 = blocked, >0 = monthly cap
+    // Safety fallback: if plan is not found or null, fall back to Free tier (1,000 msgs), NEVER -1 (unlimited).
+    const tokenLimit = (planRow && planRow.token_limit !== null && planRow.token_limit !== undefined)
+      ? Number(planRow.token_limit)
+      : 1000;
     if (tokenLimit >= 0) {
       const usageRes = await executeTenantQuery(req.tenant.id, (client) =>
         client.query(
