@@ -164,10 +164,12 @@ export class NeuraCollectService {
       const environment = data.environment || (config.isTestMode ? 'TEST' : 'PRODUCTION');
 
       // Cashfree-compatible hosted checkout redirect fallback if paymentSessionId is provided
+      const checkoutBaseUrl = environment === 'TEST'
+        ? 'https://payments-test.cashfree.com/order/#'
+        : 'https://payments.cashfree.com/order/#';
+
       const checkoutUrl = data.checkoutUrl || data.paymentLink || (paymentSessionId
-        ? (environment === 'TEST'
-            ? `https://sandbox.cashfree.com/pg/view/sessions/${paymentSessionId}`
-            : `https://payments.cashfree.com/forms/${paymentSessionId}`)
+        ? `${checkoutBaseUrl}${paymentSessionId}`
         : effectiveReturnUrl);
 
       return {

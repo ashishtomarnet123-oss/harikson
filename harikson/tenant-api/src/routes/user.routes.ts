@@ -975,6 +975,8 @@ router.post(['/billing/checkout', '/user/billing/checkout'], async (req: any, re
         currency: plan.currency || 'INR',
         planId,
         planName: plan.name,
+        environment: ncResult.environment,
+        isTestMode: ncResult.environment === 'TEST',
       });
     }
 
