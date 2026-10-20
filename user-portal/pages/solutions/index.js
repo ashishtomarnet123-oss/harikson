@@ -38,8 +38,8 @@ export default function SolutionsOverviewPage() {
       a: 'Startups typically begin on our Starter or Professional plan to deploy autonomous triage agents and automate customer onboarding. As your data volume grows or you require custom webhook integrations, upgrading is seamless with zero downtime or migration friction.',
     },
     {
-      q: 'Can agencies manage separate client organizations under one master account?',
-      a: 'Yes. Agencies can configure isolated tenant workspaces. Each workspace features dedicated API keys, compartmentalized knowledge bases, separate webhook configurations, and independent message usage tracking to simplify client billing and data governance.',
+      q: 'Can organizations manage separate departments and business units under one master account?',
+      a: 'Yes. Enterprise accounts can configure isolated tenant workspaces. Each workspace features dedicated API keys, compartmentalized knowledge bases, separate webhook configurations, and independent message usage tracking to simplify internal billing and data governance.',
     },
     {
       q: 'How does Xarwiz ensure business operations teams remain compliant with DPDP Act 2023?',
@@ -58,8 +58,8 @@ export default function SolutionsOverviewPage() {
   return (
     <div className="solutions-page">
       <SEOHead
-        title="AI Solutions for Startups, Operations & Agencies - Xarwiz"
-        description="Discover how Xarwiz powers high-velocity startups, back-office operations, and digital agencies with autonomous AI agents and resilient DAG workflows."
+        title="AI Solutions for Startups, Operations & Technical Teams - Xarwiz"
+        description="Discover how Xarwiz powers high-velocity startups, back-office operations, and technical teams with autonomous AI agents and resilient DAG workflows."
         canonicalPath="/solutions"
         jsonLd={[
           defaultOrganizationSchema,
@@ -70,7 +70,7 @@ export default function SolutionsOverviewPage() {
             name: 'Xarwiz Enterprise & Team Solutions',
             url: 'https://xarwiz.com/solutions',
             description:
-              'Tailored AI agent and workflow automation solutions designed for high-growth startups, business operations, agencies, and technical builders.',
+              'Tailored AI agent and workflow automation solutions designed for high-growth startups, business operations, and technical builders.',
           },
         ]}
       />
@@ -184,26 +184,26 @@ export default function SolutionsOverviewPage() {
                 </div>
               </div>
 
-              {/* VERTICAL 3: AGENCIES */}
+              {/* VERTICAL 3: ENTERPRISE & MULTI-TENANT */}
               <div className="vertical-card">
                 <div className="v-card-top">
                   <div className="v-icon-box">
                     <Layers size={24} />
                   </div>
-                  <span className="v-tag">Agencies &amp; Consultancies</span>
+                  <span className="v-tag">Enterprise &amp; Multi-Tenant</span>
                 </div>
-                <h3>Manage Client Workspaces with Strict Isolation</h3>
+                <h3>Manage Isolated Workspaces with Strict Governance</h3>
                 <p>
-                  Deliver custom AI agents and workflow automations to clients while keeping client data, vector databases, and API keys strictly compartmentalized.
+                  Deploy custom AI agents and workflow automations across independent teams while keeping proprietary data, vector databases, and API keys strictly compartmentalized.
                 </p>
                 <ul className="v-list">
                   <li><CheckCircle2 size={16} className="v-check" /> Multi-tenant workspace segregation with zero data leaks</li>
-                  <li><CheckCircle2 size={16} className="v-check" /> Client-specific message tracking &amp; quota controls</li>
-                  <li><CheckCircle2 size={16} className="v-check" /> Exportable audit reports for corporate client compliance</li>
+                  <li><CheckCircle2 size={16} className="v-check" /> Tenant-specific message tracking &amp; quota controls</li>
+                  <li><CheckCircle2 size={16} className="v-check" /> Exportable audit reports for corporate compliance</li>
                 </ul>
                 <div className="v-card-footer">
-                  <Link href="/solutions/agencies" className="v-link">
-                    <span>Explore Agency Solutions</span>
+                  <Link href="/security" className="v-link">
+                    <span>Explore Enterprise Security</span>
                     <ArrowRight size={15} />
                   </Link>
                 </div>

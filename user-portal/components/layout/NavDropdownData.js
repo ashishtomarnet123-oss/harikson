@@ -61,9 +61,9 @@ export const NAV_ITEMS = [
             icon: 'Briefcase',
           },
           {
-            title: 'Agencies & Consultancies',
-            desc: 'Multi-tenant client workspaces with strict database schema isolation',
-            href: '/solutions/agencies',
+            title: 'Solutions Overview',
+            desc: 'Explore industry architectures, ROI benchmarks & production case studies',
+            href: '/solutions',
             icon: 'Layers',
           },
         ],

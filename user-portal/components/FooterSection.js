@@ -202,7 +202,7 @@ export default function FooterSection({ hideBanner = false }) {
               <ul className="footer-links">
                 <li><Link href="/solutions/startups">For Startups</Link></li>
                 <li><Link href="/solutions/operations">Business Operations</Link></li>
-                <li><Link href="/solutions/agencies">Agencies &amp; Partners</Link></li>
+                <li><Link href="/solutions">All Solutions</Link></li>
                 <li><Link href="/security">Security &amp; Compliance</Link></li>
               </ul>
             </div>
