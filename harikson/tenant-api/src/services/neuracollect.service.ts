@@ -159,18 +159,10 @@ export class NeuraCollectService {
       });
 
       const data = response.data || {};
+      const checkoutUrl = data.checkoutUrl || data.redirectUrl || data.paymentLink || '';
       const paymentSessionId = data.paymentSessionId || data.payment_session_id || '';
       const gatewayOrderId = data.gatewayOrderId || data.order_id || externalOrderId;
       const environment = data.environment || (config.isTestMode ? 'TEST' : 'PRODUCTION');
-
-      // Cashfree-compatible hosted checkout redirect fallback if paymentSessionId is provided
-      const checkoutBaseUrl = environment === 'TEST'
-        ? 'https://payments-test.cashfree.com/order/#'
-        : 'https://payments.cashfree.com/order/#';
-
-      const checkoutUrl = data.checkoutUrl || data.paymentLink || (paymentSessionId
-        ? `${checkoutBaseUrl}${paymentSessionId}`
-        : effectiveReturnUrl);
 
       return {
         paymentSessionId,
@@ -178,7 +170,7 @@ export class NeuraCollectService {
         amount: Number(formattedAmount),
         currency,
         environment,
-        checkoutUrl,
+        checkoutUrl: checkoutUrl || (paymentSessionId ? `https://payments.cashfree.com/order/#${paymentSessionId}` : effectiveReturnUrl),
       };
     } catch (err: any) {
       const errorData = err.response?.data || err.message;

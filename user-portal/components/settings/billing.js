@@ -318,68 +318,8 @@ export default function BillingSettings() {
 
       const order = await checkoutRes.json();
 
-      // If NeuraCollect, open Cashfree Embedded Checkout modal (with hosted redirect fallback)
+      // If NeuraCollect, redirect customer directly to NeuraCollect hosted checkoutUrl
       if (order.provider === 'neuracollect') {
-        if (order.paymentSessionId) {
-          try {
-            await loadCashfreeScript();
-            if (typeof window !== 'undefined' && window.Cashfree) {
-              const isProd =
-                order.environment === 'LIVE' ||
-                order.environment === 'PRODUCTION' ||
-                order.isTestMode === false;
-              const cashfree = window.Cashfree({
-                mode: isProd ? 'production' : 'sandbox',
-              });
-              cashfree
-                .checkout({
-                  paymentSessionId: order.paymentSessionId,
-                  redirectTarget: '_modal',
-                })
-                .then(async (result) => {
-                  if (result && result.error) {
-                    console.warn('Neuravolt Payments modal closed or error:', result.error);
-                    if (result.error.message) {
-                      setError(result.error.message);
-                    }
-                  }
-                  if (result && (result.paymentDetails || !result.error)) {
-                    setActionLoading(true);
-                    try {
-                      const { apiBase, tenantSlug } = getApiConfig();
-                      const verifyRes = await authenticatedFetch(
-                        `${apiBase}/api/v1/user/billing/verify-neuracollect`,
-                        {
-                          method: 'POST',
-                          credentials: 'include',
-                          headers: {
-                            'x-tenant-slug': tenantSlug,
-                            'Content-Type': 'application/json',
-                          },
-                          body: JSON.stringify({
-                            orderId: order.orderId,
-                            planId: plan.id,
-                          }),
-                        }
-                      );
-                      if (verifyRes && verifyRes.ok) {
-                        await fetchBilling();
-                        setShowPlanModal(false);
-                      }
-                    } catch (verifyErr) {
-                      console.error('Neuravolt Payments instant verification error:', verifyErr);
-                    } finally {
-                      setActionLoading(false);
-                    }
-                  }
-                });
-              return;
-            }
-          } catch (scriptErr) {
-            console.warn('Could not load Cashfree modal SDK for Neuravolt Payments, using redirect:', scriptErr);
-          }
-        }
-
         const targetUrl = order.checkoutUrl || order.redirectUrl;
         if (targetUrl) {
           window.location.href = targetUrl;
