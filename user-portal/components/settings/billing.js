@@ -44,7 +44,7 @@ export default function BillingSettings() {
     {
       id: 'starter',
       name: 'Starter Plan',
-      price: '₹19',
+      price: '₹149',
       period: '/ user / month',
       badge: 'Growing Teams',
       popular: false,
@@ -53,7 +53,7 @@ export default function BillingSettings() {
     {
       id: 'professional',
       name: 'Professional Plan',
-      price: '₹49',
+      price: '₹999',
       period: '/ user / month',
       badge: 'Most Popular',
       popular: true,
@@ -62,7 +62,7 @@ export default function BillingSettings() {
     {
       id: 'enterprise',
       name: 'Enterprise Tier',
-      price: '₹199',
+      price: '₹2499',
       period: '/ user / month',
       badge: 'Scale & Governance',
       popular: false,

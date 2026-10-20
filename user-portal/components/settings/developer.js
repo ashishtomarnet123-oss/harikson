@@ -585,7 +585,7 @@ export default function DeveloperSettings({ onClose, onTabChange, setActiveTab }
               }}
             >
               <Sparkles size={16} />
-              <span>Upgrade Plan - from ₹19/mo</span>
+              <span>Upgrade Plan - from ₹149/mo</span>
               <ArrowRight size={15} />
             </button>
 
