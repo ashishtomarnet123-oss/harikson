@@ -20,6 +20,7 @@ export async function createInvoice(invoiceData, externalClient = null) {
       subscriptionId = null,
       provider = 'stripe',
       providerInvoiceId,
+      invoiceNumber = null,
       amount,
       currency = 'INR',
       status = 'paid',
@@ -30,16 +31,19 @@ export async function createInvoice(invoiceData, externalClient = null) {
       paymentLast4 = '4242',
     } = invoiceData;
 
+    const generatedNumber = invoiceNumber || `INV-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}-${String(providerInvoiceId || Date.now()).slice(-8).toUpperCase()}`;
+
     // 1. Insert or update invoice in DB
     const invRes = await client.query(
       `INSERT INTO invoices (
-        tenant_id, subscription_id, provider, provider_invoice_id, 
+        tenant_id, subscription_id, provider, provider_invoice_id, invoice_number,
         amount, currency, status, paid_at, invoice_url, pdf_url
        )
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
        ON CONFLICT (provider, provider_invoice_id) DO UPDATE SET
          status = EXCLUDED.status,
          paid_at = EXCLUDED.paid_at,
+         invoice_number = COALESCE(invoices.invoice_number, EXCLUDED.invoice_number),
          invoice_url = EXCLUDED.invoice_url,
          pdf_url = EXCLUDED.pdf_url,
          updated_at = NOW()
@@ -49,6 +53,7 @@ export async function createInvoice(invoiceData, externalClient = null) {
         subscriptionId,
         provider,
         providerInvoiceId,
+        generatedNumber,
         amount,
         currency,
         status,
@@ -107,4 +112,14 @@ export async function createInvoice(invoiceData, externalClient = null) {
       client.release();
     }
   }
+}
+
+/**
+ * Universal wrapper supporting both recordInvoice(client, data) and recordInvoice(data, client)
+ */
+export async function recordInvoice(arg1, arg2) {
+  if (arg1 && arg1.query && typeof arg1.query === 'function') {
+    return createInvoice(arg2, arg1);
+  }
+  return createInvoice(arg1, arg2);
 }

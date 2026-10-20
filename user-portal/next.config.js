@@ -72,6 +72,10 @@ const nextConfig = {
         source: '/api/:path*',
         destination: `${tenantApiUrl}/api/:path*`,
       },
+      {
+        source: '/webhooks/:path*',
+        destination: `${tenantApiUrl}/webhooks/:path*`,
+      },
     ];
   },
 };
