@@ -306,10 +306,6 @@ const syncPipeline = new WorkflowBuilder("crm-billing-sync")
       q: 'Can Xarwiz synchronize data between Google Sheets, Notion, and our internal CRM?',
       a: 'Yes. With native connectors for Google Drive, Notion, Slack, and REST APIs, Xarwiz executes idempotent event-driven sync jobs that keep customer databases and accounting sheets in lockstep with zero duplicate records.',
     },
-    {
-      q: 'Can we self-host open-source models for sensitive financial operations?',
-      a: 'Yes. In addition to commercial cloud models, Xarwiz integrates natively with local self-hosted Ollama models (such as Qwen 2.5 and Llama 3.2) running within your isolated network perimeter, guaranteeing zero financial data leaves your infrastructure.',
-    },
   ];
 
   return (
