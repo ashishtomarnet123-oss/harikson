@@ -66,12 +66,6 @@ export const NAV_ITEMS = [
             href: '/solutions/agencies',
             icon: 'Layers',
           },
-          {
-            title: 'DPDP Statutory Compliance',
-            desc: 'Consent management, audit trails & Data Principal Rights self-service portal',
-            href: '/data-rights',
-            icon: 'FileCheck',
-          },
         ],
       },
     ],
@@ -135,9 +129,9 @@ export const NAV_ITEMS = [
             icon: 'FileText',
           },
           {
-            title: 'Data Principal Rights Portal',
-            desc: 'Statutory self-service portal to access, correct, or erase personal data',
-            href: '/data-rights',
+            title: 'Data Processing Agreement',
+            desc: 'Sub-processors, cross-border transfer safeguards & security measures',
+            href: '/data-processing',
             icon: 'ShieldCheck',
           },
           {

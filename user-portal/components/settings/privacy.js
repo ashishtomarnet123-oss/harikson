@@ -357,7 +357,7 @@ export default function DataPrivacySettings() {
             <p style={{ margin: '0 0 12px 0', fontSize: '12.5px', color: '#64748b' }}>
               Exercise rights under Sections 11, 12, and 14 for correction, nomination, or formal inquiries.
             </p>
-            <Link href="/data-rights">
+            <Link href="/contact">
               <a
                 style={{
                   padding: '8px 14px',
@@ -374,7 +374,7 @@ export default function DataPrivacySettings() {
                 }}
               >
                 <FileText size={14} />
-                Rights Request Portal &rarr;
+                Contact Privacy Officer &rarr;
               </a>
             </Link>
           </div>

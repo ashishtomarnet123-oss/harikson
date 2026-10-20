@@ -203,7 +203,6 @@ describe('Smart Conversation Titles & Technical SEO Test Suite', () => {
         'https://xarwiz.com/data-processing',
         'https://xarwiz.com/security-policy',
         'https://xarwiz.com/aup',
-        'https://xarwiz.com/data-rights',
         'https://xarwiz.com/grievance',
       ];
 

@@ -183,7 +183,7 @@ export default function DataProcessingPage() {
             </div>
 
             <div style={{ textAlign: 'center', marginTop: '32px', paddingTop: '24px', borderTop: '1px solid #e2e8f0' }}>
-              <Link href="/data-rights">
+              <Link href="/privacy">
                 <a style={{
                   display: 'inline-flex',
                   alignItems: 'center',
@@ -196,7 +196,7 @@ export default function DataProcessingPage() {
                   textDecoration: 'none',
                   fontSize: '15px'
                 }}>
-                  Access Data Principal Rights Portal &rarr;
+                  View DPDP Privacy Notice &rarr;
                 </a>
               </Link>
             </div>

@@ -800,8 +800,8 @@ const syncPipeline = new WorkflowBuilder("crm-billing-sync")
                 <Link href="/contact" className="btn-cta-secondary">
                   <span>Schedule Enterprise Demo</span>
                 </Link>
-                <Link href="/data-rights" className="btn-cta-tertiary">
-                  <span>Data Principal Rights Portal &rarr;</span>
+                <Link href="/security" className="btn-cta-tertiary">
+                  <span>Explore Trust & Security &rarr;</span>
                 </Link>
               </div>
 

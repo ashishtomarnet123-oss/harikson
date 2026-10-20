@@ -77,7 +77,7 @@ export function AuthProvider({ children }) {
       '/login', '/signup', '/verify-email', '/forgot-password', '/unlock-account',
       '/aup', '/privacy', '/privacy-policy', '/terms', '/cookies', '/cookie-policy',
       '/about', '/pricing', '/', '/platform', '/solutions', '/developers',
-      '/contact', '/careers', '/security', '/security-policy', '/data-rights',
+      '/contact', '/careers', '/security', '/security-policy',
       '/data-processing', '/share',
     ];
     const isPublicPage = publicPrefixes.some(prefix => 

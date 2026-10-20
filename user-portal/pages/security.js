@@ -94,8 +94,8 @@ export default function SecurityTrustCenterPage() {
                   <span>View 35-Clause Security Policy</span>
                   <ArrowRight size={16} />
                 </Link>
-                <Link href="/data-rights" className="btn-secondary">
-                  <span>Data Principal Rights Portal</span>
+                <Link href="/privacy" className="btn-secondary">
+                  <span>DPDP Privacy Notice</span>
                 </Link>
               </div>
 
@@ -232,9 +232,9 @@ export default function SecurityTrustCenterPage() {
                 </div>
 
                 <div className="dpdp-actions">
-                  <Link href="/data-rights" className="btn-primary">
-                    <span>Exercise Data Principal Rights</span>
-                    <ExternalLink size={15} />
+                  <Link href="/privacy" className="btn-primary">
+                    <span>DPDP Privacy Notice</span>
+                    <ArrowRight size={15} />
                   </Link>
                   <Link href="/contact" className="btn-secondary">
                     <span>Contact Privacy Team</span>
