@@ -248,10 +248,6 @@ const flow = new WorkflowBuilder("founder-weekly-digest")
       a: 'Startups deploy their first automated support agent or document index in under 15 minutes. We provide pre-configured, tested blueprints for GitHub PR review, customer inquiry triage, and Notion knowledge base synchronization with zero infrastructure setup.',
     },
     {
-      q: 'Can we switch between cloud frontier models and local open-source models as we scale?',
-      a: 'Yes. Xarwiz provides full model routing flexibility. You can start with cloud LLMs like GPT-4o, and seamlessly switch to local Ollama open-source models (such as Qwen 2.5 Coder or Llama 3.2) hosted in Indian cloud regions to lower unit economics and preserve 100% data sovereignty.',
-    },
-    {
       q: 'How does Xarwiz handle spikes in customer inquiries during Product Hunt or feature launches?',
       a: 'The Xarwiz asynchronous DAG orchestrator and webhook listeners queue and process incoming events with built-in concurrency controls, exponential backoff retries, and dead-letter queueing, guaranteeing that zero customer inquiries or webhooks are dropped during viral traffic surges.',
     },
