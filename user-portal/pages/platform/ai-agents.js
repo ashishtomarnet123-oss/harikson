@@ -518,7 +518,7 @@ export default function PlatformAiAgentsPage() {
         </section>
       </main>
 
-      <FooterSection />
+      <FooterSection hideBanner={true} />
 
       <style jsx>{`
         .agents-page {

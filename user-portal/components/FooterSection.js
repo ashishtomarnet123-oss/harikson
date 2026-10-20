@@ -1,7 +1,7 @@
 import React from 'react';
 import Link from 'next/link';
 
-export default function FooterSection() {
+export default function FooterSection({ hideBanner = false }) {
   return (
     <>
       <style jsx global>{`
@@ -140,27 +140,29 @@ export default function FooterSection() {
       `}</style>
 
       {/* FINAL BLUE CTA BANNER */}
-      <div className="final-blue-banner">
-        <div className="ai-3d-badge-graphic">N</div>
+      {!hideBanner && (
+        <div className="final-blue-banner">
+          <div className="ai-3d-badge-graphic">N</div>
 
-        <div className="final-cta-center">
-          <h2 className="final-cta-title">Ready to Build the Future with AI?</h2>
-          <div className="final-cta-sub">
-            Join thousands of Indian businesses building secure and compliant AI applications with Xarwiz.
+          <div className="final-cta-center">
+            <h2 className="final-cta-title">Ready to Build the Future with AI?</h2>
+            <div className="final-cta-sub">
+              Join thousands of Indian businesses building secure and compliant AI applications with Xarwiz.
+            </div>
+
+            <div className="final-cta-btns">
+              <Link href="/signup" className="btn-cta-white">Request Access</Link>
+              <Link href="/signup?source=book_live_demo" className="btn-cta-outline">Book Live Demo</Link>
+            </div>
           </div>
 
-          <div className="final-cta-btns">
-            <Link href="/signup" className="btn-cta-white">Request Access</Link>
-            <Link href="/signup?source=book_live_demo" className="btn-cta-outline">Book Live Demo</Link>
+          <div className="final-cta-right">
+            <div><span style={{ color: '#10B981', fontWeight: 800, marginRight: 6 }}>✓</span> No Credit Card</div>
+            <div><span style={{ color: '#10B981', fontWeight: 800, marginRight: 6 }}>✓</span> Deploy in 5 Minutes</div>
+            <div><span style={{ color: '#10B981', fontWeight: 800, marginRight: 6 }}>✓</span> Cancel Anytime</div>
           </div>
         </div>
-
-        <div className="final-cta-right">
-          <div><span style={{ color: '#10B981', fontWeight: 800, marginRight: 6 }}>✓</span> No Credit Card</div>
-          <div><span style={{ color: '#10B981', fontWeight: 800, marginRight: 6 }}>✓</span> Deploy in 5 Minutes</div>
-          <div><span style={{ color: '#10B981', fontWeight: 800, marginRight: 6 }}>✓</span> Cancel Anytime</div>
-        </div>
-      </div>
+      )}
 
       {/* FOOTER */}
       <footer className="footer-container">
@@ -242,7 +244,6 @@ export default function FooterSection() {
                 <li><Link href="/about">About Xarwiz</Link></li>
                 <li><Link href="/contact">Contact Team</Link></li>
                 <li><Link href="/careers">Careers</Link></li>
-                <li><Link href="/grievance">Grievance Redressal</Link></li>
               </ul>
             </div>
           </div>
