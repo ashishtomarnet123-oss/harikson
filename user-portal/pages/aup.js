@@ -3,6 +3,7 @@ import Head from 'next/head';
 import Link from 'next/link';
 import { ArrowLeft, Search, HelpCircle, Shield, AlertOctagon, Scale, BookOpen, ChevronRight } from 'lucide-react';
 import FooterSection from '../components/FooterSection';
+import HeaderNav from '../components/layout/HeaderNav';
 import SEOHead, { defaultOrganizationSchema } from '../components/SEOHead';
 
 export default function AcceptableUsePolicyPage() {
@@ -96,6 +97,8 @@ export default function AcceptableUsePolicyPage() {
           },
         ]}
       />
+
+      <HeaderNav activePath="/aup" />
 
       {/* Top Banner Gradient Hero */}
       <div style={{

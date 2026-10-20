@@ -14,6 +14,14 @@ Allow: /aup
 Allow: /data-rights
 Allow: /grievance
 Allow: /signup
+Allow: /platform
+Allow: /platform/
+Allow: /solutions
+Allow: /solutions/
+Allow: /developers
+Allow: /contact
+Allow: /careers
+Allow: /security
 Allow: /assets/
 Allow: /_next/static/
 

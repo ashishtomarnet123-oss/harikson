@@ -22,6 +22,7 @@ import {
   Zap,
   Settings,
 } from 'lucide-react';
+import HeaderNav from '../components/layout/HeaderNav';
 import FooterSection from '../components/FooterSection';
 import SEOHead, { defaultOrganizationSchema } from '../components/SEOHead';
 
@@ -1684,113 +1685,8 @@ export default function AboutPage() {
         }
       `}</style>
 
-      {/* ==============================================================
-          1. HEADER COMPONENT - EXACT REFERENCE NAVIGATION
-      ============================================================== */}
-      <header className="site-nav">
-        <div className="container nav-inner">
-          <div className="nav-left-group">
-            <Link href="/" className="brand-link" aria-label="Xarwiz Home">
-              <div className="brand-logo-mark">
-                <svg width="30" height="28" viewBox="0 0 32 30" fill="none">
-                  <path d="M4 4L14 15L4 26H9L16.5 17.5L24 26H29L19 15L29 4H24L16.5 12.5L9 4H4Z" fill="url(#brand-x-grad)" />
-                  <defs>
-                    <linearGradient id="brand-x-grad" x1="4" y1="4" x2="29" y2="26" gradientUnits="userSpaceOnUse">
-                      <stop stopColor="#1b68ff" />
-                      <stop offset="1" stopColor="#3b82f6" />
-                    </linearGradient>
-                  </defs>
-                </svg>
-              </div>
-              <span className="brand-logo-text">XARWIZ</span>
-            </Link>
-
-            <nav aria-label="Main Navigation">
-              <ul className="nav-menu-links">
-                <li>
-                  <Link href="/#platform" className="nav-item-link">
-                    Platform <ChevronDown size={14} color="#94a3b8" />
-                  </Link>
-                </li>
-                <li>
-                  <Link href="/#solutions" className="nav-item-link">
-                    Solutions <ChevronDown size={14} color="#94a3b8" />
-                  </Link>
-                </li>
-                <li>
-                  <Link href="/documents" className="nav-item-link">
-                    Resources <ChevronDown size={14} color="#94a3b8" />
-                  </Link>
-                </li>
-                <li>
-                  <Link href="/pricing" className="nav-item-link">
-                    Pricing
-                  </Link>
-                </li>
-                <li>
-                  <Link href="/about" className="nav-item-link active">
-                    About
-                  </Link>
-                </li>
-              </ul>
-            </nav>
-          </div>
-
-          <div className="nav-right-ctas">
-            <Link href="/login" className="btn-nav-login">
-              Login
-            </Link>
-            <Link href="/signup" className="btn-nav-primary">
-              Get Early Access <ArrowRight size={15} />
-            </Link>
-          </div>
-
-          <button
-            className="nav-mobile-toggle"
-            onClick={() => setMobileMenuOpen(true)}
-            aria-label="Open navigation menu"
-          >
-            <Menu size={22} />
-          </button>
-        </div>
-      </header>
-
-      {/* Mobile Drawer */}
-      {mobileMenuOpen && (
-        <div
-          className="mobile-drawer-overlay"
-          onClick={() => setMobileMenuOpen(false)}
-        >
-          <div className="mobile-drawer" onClick={(e) => e.stopPropagation()}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <svg width="24" height="22" viewBox="0 0 32 30" fill="none">
-                  <path d="M4 4L14 15L4 26H9L16.5 17.5L24 26H29L19 15L29 4H24L16.5 12.5L9 4H4Z" fill="#1b68ff" />
-                </svg>
-                <span style={{ fontSize: '1.2rem', fontWeight: 800, color: '#0b132b' }}>XARWIZ</span>
-              </div>
-              <button
-                onClick={() => setMobileMenuOpen(false)}
-                style={{ background: 'none', border: 'none', cursor: 'pointer' }}
-                aria-label="Close"
-              >
-                <X size={20} />
-              </button>
-            </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-              <Link href="/#platform" onClick={() => setMobileMenuOpen(false)} style={{ color: '#0b132b', textDecoration: 'none', fontWeight: 600 }}>Platform</Link>
-              <Link href="/#solutions" onClick={() => setMobileMenuOpen(false)} style={{ color: '#0b132b', textDecoration: 'none', fontWeight: 600 }}>Solutions</Link>
-              <Link href="/documents" onClick={() => setMobileMenuOpen(false)} style={{ color: '#0b132b', textDecoration: 'none', fontWeight: 600 }}>Resources</Link>
-              <Link href="/pricing" onClick={() => setMobileMenuOpen(false)} style={{ color: '#0b132b', textDecoration: 'none', fontWeight: 600 }}>Pricing</Link>
-              <Link href="/about" onClick={() => setMobileMenuOpen(false)} style={{ color: '#1b68ff', textDecoration: 'none', fontWeight: 700 }}>About</Link>
-            </div>
-            <div style={{ marginTop: 'auto', display: 'flex', flexDirection: 'column', gap: 12 }}>
-              <Link href="/login" onClick={() => setMobileMenuOpen(false)} className="btn-nav-login" style={{ textAlign: 'center' }}>Login</Link>
-              <Link href="/signup" onClick={() => setMobileMenuOpen(false)} className="btn-nav-primary" style={{ textAlign: 'center', justifyContent: 'center' }}>Get Early Access</Link>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Global Header */}
+      <HeaderNav activePath="/about" />
 
       <main>
         {/* ==============================================================

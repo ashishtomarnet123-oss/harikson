@@ -2,6 +2,7 @@ import Head from 'next/head';
 import Link from 'next/link';
 import { ArrowLeft, Shield, Check, Lock, Server, Cpu, Database, FileCheck, ExternalLink } from 'lucide-react';
 import FooterSection from '../components/FooterSection';
+import HeaderNav from '../components/layout/HeaderNav';
 import SEOHead, { defaultOrganizationSchema } from '../components/SEOHead';
 
 export default function DataProcessingPage() {
@@ -23,6 +24,7 @@ export default function DataProcessingPage() {
       />
 
       <div style={{ backgroundColor: '#f8fafc', minHeight: '100vh', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' }}>
+        <HeaderNav activePath="/privacy" />
         {/* Header */}
         <div style={{
           background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 100%)',

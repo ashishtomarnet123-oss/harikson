@@ -3,6 +3,7 @@ import Head from 'next/head';
 import Link from 'next/link';
 import { ArrowLeft, Search, Shield, Eye, ShieldAlert, Cpu, Database, RefreshCw, AlertCircle, HelpCircle, ChevronRight } from 'lucide-react';
 import FooterSection from '../components/FooterSection';
+import HeaderNav from '../components/layout/HeaderNav';
 import SEOHead, { defaultOrganizationSchema } from '../components/SEOHead';
 
 export default function PrivacyPolicyPage() {
@@ -113,6 +114,8 @@ export default function PrivacyPolicyPage() {
           },
         ]}
       />
+
+      <HeaderNav activePath="/privacy" />
 
       {/* Top Banner Gradient Hero */}
       <div style={{

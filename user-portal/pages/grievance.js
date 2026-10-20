@@ -3,6 +3,7 @@ import Head from 'next/head';
 import Link from 'next/link';
 import { ArrowLeft, ShieldAlert, Mail, Send, Search, CheckCircle, Clock, AlertTriangle, Building, User, RefreshCw } from 'lucide-react';
 import FooterSection from '../components/FooterSection';
+import HeaderNav from '../components/layout/HeaderNav';
 import SEOHead, { defaultOrganizationSchema } from '../components/SEOHead';
 
 export default function GrievancePage() {
@@ -104,6 +105,7 @@ export default function GrievancePage() {
       />
 
       <div style={{ backgroundColor: '#f8fafc', minHeight: '100vh', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' }}>
+        <HeaderNav activePath="/grievance" />
         {/* Header */}
         <div style={{
           background: 'linear-gradient(135deg, #1e1b4b 0%, #0f172a 100%)',

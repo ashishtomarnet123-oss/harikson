@@ -2,6 +2,7 @@ import { useState } from 'react';
 import Head from 'next/head';
 import Link from 'next/link';
 import { ArrowLeft, Search, Shield, Eye, ShieldAlert, Cpu, Database, RefreshCw, AlertCircle, HelpCircle, ChevronRight } from 'lucide-react';
+import HeaderNav from '../components/layout/HeaderNav';
 import FooterSection from '../components/FooterSection';
 import SEOHead, { defaultOrganizationSchema } from '../components/SEOHead';
 
@@ -120,6 +121,8 @@ export default function SecurityPolicyPage() {
           },
         ]}
       />
+
+      <HeaderNav activePath="/security" />
 
       {/* Top Banner Gradient Hero */}
       <div style={{

@@ -3,6 +3,7 @@ import Head from 'next/head';
 import Link from 'next/link';
 import { ArrowLeft, Shield, Download, FileText, CheckCircle, Clock, AlertTriangle, UserCheck, Search, Send, RefreshCw } from 'lucide-react';
 import FooterSection from '../components/FooterSection';
+import HeaderNav from '../components/layout/HeaderNav';
 import SEOHead, { defaultOrganizationSchema } from '../components/SEOHead';
 
 export default function DataRightsPage() {
@@ -137,6 +138,7 @@ export default function DataRightsPage() {
       />
 
       <div style={{ backgroundColor: '#f8fafc', minHeight: '100vh', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' }}>
+        <HeaderNav activePath="/data-rights" />
         {/* Hero Header */}
         <div style={{
           background: 'linear-gradient(135deg, #1e293b 0%, #0f172a 100%)',

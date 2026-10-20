@@ -189,30 +189,30 @@ export default function FooterSection() {
             <div>
               <div className="footer-col-title">Platform</div>
               <ul className="footer-links">
-                <li><Link href="/signup">AI Agent Builder</Link></li>
-                <li><Link href="/signup">Knowledge Base</Link></li>
-                <li><Link href="/signup">Workflows</Link></li>
-                <li><Link href="/signup">Multi-Language LLMs</Link></li>
+                <li><Link href="/platform/ai-agents">AI Agent Builder</Link></li>
+                <li><Link href="/platform/workflows">Workflow Engine</Link></li>
+                <li><Link href="/platform/knowledge-bases">Knowledge Base (RAG)</Link></li>
+                <li><Link href="/platform">Platform Overview</Link></li>
               </ul>
             </div>
 
             <div>
               <div className="footer-col-title">Solutions</div>
               <ul className="footer-links">
-                <li><Link href="/signup">Enterprise AI</Link></li>
-                <li><Link href="/privacy">DPDP Compliance</Link></li>
-                <li><Link href="/signup">Customer Support</Link></li>
-                <li><Link href="/signup">Healthcare AI</Link></li>
+                <li><Link href="/solutions/startups">For Startups</Link></li>
+                <li><Link href="/solutions/operations">Business Operations</Link></li>
+                <li><Link href="/solutions/agencies">Agencies &amp; Partners</Link></li>
+                <li><Link href="/data-rights">DPDP Compliance</Link></li>
               </ul>
             </div>
 
             <div>
               <div className="footer-col-title">Developers</div>
               <ul className="footer-links">
-                <li><Link href="/signup">API Documentation</Link></li>
-                <li><Link href="/signup">REST &amp; SDKs</Link></li>
-                <li><Link href="/signup">Webhooks</Link></li>
-                <li><Link href="/signup">GitHub Integration</Link></li>
+                <li><Link href="/developers">API Documentation</Link></li>
+                <li><Link href="/developers">REST &amp; SDKs</Link></li>
+                <li><Link href="/developers">Webhooks</Link></li>
+                <li><Link href="/developers">Integrations</Link></li>
               </ul>
             </div>
 
@@ -220,7 +220,7 @@ export default function FooterSection() {
               <div className="footer-col-title">Pricing</div>
               <ul className="footer-links">
                 <li><Link href="/pricing">Starter Plan</Link></li>
-                <li><Link href="/pricing">Growth Plan</Link></li>
+                <li><Link href="/pricing">Pro Plan</Link></li>
                 <li><Link href="/pricing">Enterprise Custom</Link></li>
                 <li><Link href="/pricing">Save 20% Annual</Link></li>
               </ul>
@@ -229,7 +229,7 @@ export default function FooterSection() {
             <div>
               <div className="footer-col-title">Resources</div>
               <ul className="footer-links">
-                <li><Link href="/security">Security</Link></li>
+                <li><Link href="/security">Security &amp; Trust</Link></li>
                 <li><Link href="/privacy">Privacy Policy</Link></li>
                 <li><Link href="/terms">Terms of Service</Link></li>
                 <li><Link href="/aup">Acceptable Use Policy</Link></li>
@@ -240,8 +240,9 @@ export default function FooterSection() {
               <div className="footer-col-title">Company</div>
               <ul className="footer-links">
                 <li><Link href="/about">About Xarwiz</Link></li>
-                <li><Link href="/login">Contact Team</Link></li>
-                <li><Link href="/login">Careers</Link></li>
+                <li><Link href="/contact">Contact Team</Link></li>
+                <li><Link href="/careers">Careers</Link></li>
+                <li><Link href="/grievance">Grievance Redressal</Link></li>
               </ul>
             </div>
           </div>

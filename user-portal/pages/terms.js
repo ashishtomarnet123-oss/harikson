@@ -3,6 +3,7 @@ import Head from 'next/head';
 import Link from 'next/link';
 import { ArrowLeft, Search, BookOpen, ShieldAlert, Cpu, Code2, CreditCard, ShieldCheck, AlertOctagon, Scale, Landmark, ChevronRight } from 'lucide-react';
 import FooterSection from '../components/FooterSection';
+import HeaderNav from '../components/layout/HeaderNav';
 import SEOHead, { defaultOrganizationSchema } from '../components/SEOHead';
 
 export default function TermsOfServicePage() {
@@ -167,6 +168,8 @@ export default function TermsOfServicePage() {
           },
         ]}
       />
+
+      <HeaderNav activePath="/terms" />
 
       {/* Top Banner Gradient Hero */}
       <div style={{
