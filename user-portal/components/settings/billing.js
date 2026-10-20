@@ -309,9 +309,13 @@ export default function BillingSettings() {
 
       if (!checkoutRes || !checkoutRes.ok) {
         const data = await checkoutRes?.json().catch(() => ({}));
-        setSelectedPlanName(plan.name);
-        setShowContactSales(true);
         setShowPlanModal(false);
+        if (data && data.error) {
+          setError(data.error);
+        } else {
+          setSelectedPlanName(plan.name);
+          setShowContactSales(true);
+        }
         setActionLoading(false);
         return;
       }

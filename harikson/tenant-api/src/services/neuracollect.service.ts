@@ -175,7 +175,11 @@ export class NeuraCollectService {
     } catch (err: any) {
       const errorData = err.response?.data || err.message;
       logger.error({ errorData }, '[NeuraCollectService] Failed to create checkout session');
-      throw new Error(err.response?.data?.message || 'NeuraCollect checkout initiation failed');
+      let msg = err.response?.data?.message || err.message || 'NeuraCollect checkout initiation failed';
+      if (typeof msg === 'string' && msg.includes('authentication Failed')) {
+        msg = 'Payment gateway authentication failed: Please check Cashfree API credentials in NeuraCollect dashboard.';
+      }
+      throw new Error(msg);
     }
   }
 
