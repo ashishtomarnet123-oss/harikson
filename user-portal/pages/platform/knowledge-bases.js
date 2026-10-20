@@ -482,13 +482,13 @@ export default function PlatformKnowledgeBasesPage() {
           margin-bottom: 24px;
         }
 
-        .crumb-link {
+        .breadcrumb-nav :global(.crumb-link) {
           color: #64748b;
           text-decoration: none;
           transition: color 0.15s;
         }
 
-        .crumb-link:hover {
+        .breadcrumb-nav :global(.crumb-link:hover) {
           color: #2563eb;
         }
 
@@ -559,7 +559,7 @@ export default function PlatformKnowledgeBasesPage() {
           margin-bottom: 48px;
         }
 
-        .btn-primary {
+        .hero-cta-group :global(.btn-primary) {
           display: inline-flex;
           align-items: center;
           gap: 10px;
@@ -574,13 +574,13 @@ export default function PlatformKnowledgeBasesPage() {
           transition: all 0.2s ease;
         }
 
-        .btn-primary:hover {
+        .hero-cta-group :global(.btn-primary:hover) {
           background: #1d4ed8;
           transform: translateY(-2px);
           box-shadow: 0 8px 20px rgba(37, 99, 235, 0.35);
         }
 
-        .btn-secondary {
+        .hero-cta-group :global(.btn-secondary) {
           display: inline-flex;
           align-items: center;
           gap: 10px;
@@ -596,7 +596,7 @@ export default function PlatformKnowledgeBasesPage() {
           transition: all 0.2s ease;
         }
 
-        .btn-secondary:hover {
+        .hero-cta-group :global(.btn-secondary:hover) {
           background: #f8fafc;
           border-color: #94a3b8;
           transform: translateY(-2px);
@@ -1237,63 +1237,64 @@ export default function PlatformKnowledgeBasesPage() {
           flex-wrap: wrap;
         }
 
-        .btn-cta-primary {
+        .cta-actions :global(.btn-cta-primary) {
           display: inline-flex;
           align-items: center;
           gap: 10px;
-          background: #ffffff;
-          color: #1e3a8a;
+          background: #ffffff !important;
+          color: #1e3a8a !important;
           padding: 14px 28px;
           border-radius: 10px;
           font-weight: 700;
           font-size: 0.95rem;
-          text-decoration: none;
+          text-decoration: none !important;
           box-shadow: 0 4px 14px rgba(0, 0, 0, 0.15);
           transition: all 0.2s ease;
         }
 
-        .btn-cta-primary:hover {
-          background: #f8fafc;
+        .cta-actions :global(.btn-cta-primary:hover) {
+          background: #f8fafc !important;
+          color: #1d4ed8 !important;
           transform: translateY(-2px);
           box-shadow: 0 8px 20px rgba(0, 0, 0, 0.2);
         }
 
-        .btn-cta-secondary {
+        .cta-actions :global(.btn-cta-secondary) {
           display: inline-flex;
           align-items: center;
           gap: 10px;
-          background: rgba(255, 255, 255, 0.15);
-          border: 1px solid rgba(255, 255, 255, 0.35);
-          color: #ffffff;
+          background: rgba(255, 255, 255, 0.15) !important;
+          border: 1px solid rgba(255, 255, 255, 0.35) !important;
+          color: #ffffff !important;
           padding: 14px 28px;
           border-radius: 10px;
           font-weight: 600;
           font-size: 0.95rem;
-          text-decoration: none;
+          text-decoration: none !important;
           transition: all 0.2s ease;
         }
 
-        .btn-cta-secondary:hover {
-          background: rgba(255, 255, 255, 0.25);
-          border-color: rgba(255, 255, 255, 0.5);
+        .cta-actions :global(.btn-cta-secondary:hover) {
+          background: rgba(255, 255, 255, 0.25) !important;
+          border-color: rgba(255, 255, 255, 0.5) !important;
           transform: translateY(-2px);
         }
 
-        .btn-cta-tertiary {
+        .cta-actions :global(.btn-cta-tertiary) {
           display: inline-flex;
           align-items: center;
           gap: 8px;
-          color: #ffffff;
+          color: #ffffff !important;
           padding: 14px 20px;
           font-weight: 600;
           font-size: 0.95rem;
-          text-decoration: none;
+          text-decoration: none !important;
           transition: opacity 0.2s;
         }
 
-        .btn-cta-tertiary:hover {
+        .cta-actions :global(.btn-cta-tertiary:hover) {
           opacity: 0.85;
-          text-decoration: underline;
+          text-decoration: underline !important;
         }
 
         @media (max-width: 1024px) {
@@ -1324,7 +1325,9 @@ export default function PlatformKnowledgeBasesPage() {
             flex-direction: column;
             width: 100%;
           }
-          .btn-cta-primary, .btn-cta-secondary, .btn-cta-tertiary {
+          .cta-actions :global(.btn-cta-primary),
+          .cta-actions :global(.btn-cta-secondary),
+          .cta-actions :global(.btn-cta-tertiary) {
             width: 100%;
             justify-content: center;
             box-sizing: border-box;
