@@ -25,6 +25,10 @@ import {
   Zap,
   ShieldCheck,
   FileText,
+  ChevronRight,
+  Send,
+  Boxes,
+  Cpu,
 } from 'lucide-react';
 
 export default function PlatformWorkflowsPage() {
@@ -81,9 +85,16 @@ export default function PlatformWorkflowsPage() {
       <HeaderNav activePath="/platform" />
 
       <main className="workflows-main">
-        {/* HERO SECTION */}
+        {/* BREADCRUMB & HERO SECTION */}
         <section className="workflows-hero">
           <div className="container">
+            {/* Breadcrumb */}
+            <nav className="breadcrumb-nav" aria-label="Breadcrumb">
+              <Link href="/platform" className="crumb-link">Platform</Link>
+              <ChevronRight size={14} className="crumb-sep" />
+              <span className="crumb-current">Workflows</span>
+            </nav>
+
             <div className="hero-content">
               <div className="hero-badge">
                 <Workflow size={14} />
@@ -100,14 +111,14 @@ export default function PlatformWorkflowsPage() {
                   <span>Build a Workflow</span>
                   <ArrowRight size={16} />
                 </Link>
-                <Link href="/signup?source=book_demo" className="btn-secondary">
-                  <span>Request Live Walkthrough</span>
+                <Link href="/contact" className="btn-secondary">
+                  <span>Schedule Workflow Demo</span>
                 </Link>
               </div>
 
               <div className="hero-stats-row">
                 <div className="hero-stat">
-                  <span className="stat-num">DAG</span>
+                  <span className="stat-num">DAG Engine</span>
                   <span className="stat-label">Execution Architecture</span>
                 </div>
                 <div className="hero-stat-sep" />
@@ -117,8 +128,13 @@ export default function PlatformWorkflowsPage() {
                 </div>
                 <div className="hero-stat-sep" />
                 <div className="hero-stat">
-                  <span className="stat-num">Sub-Second</span>
+                  <span className="stat-num">&lt;200ms</span>
                   <span className="stat-label">Node Transition Latency</span>
+                </div>
+                <div className="hero-stat-sep" />
+                <div className="hero-stat">
+                  <span className="stat-num">99.99%</span>
+                  <span className="stat-label">Execution Reliability</span>
                 </div>
               </div>
             </div>
@@ -186,7 +202,7 @@ export default function PlatformWorkflowsPage() {
                       <div className="node-body">
                         <span className="node-type">AI AGENT STEP</span>
                         <span className="node-title">Intent &amp; Priority Triage</span>
-                        <span className="node-detail">Qwen 2.5 Coder &bull; 240ms</span>
+                        <span className="node-detail">Claude 3.5 Sonnet &bull; 240ms</span>
                       </div>
                       <CheckCircle2 size={16} className="node-check" />
                     </div>
@@ -351,7 +367,7 @@ export default function PlatformWorkflowsPage() {
           </div>
         </section>
 
-        {/* WORKFLOW TEMPLATES SECTION */}
+        {/* WORKFLOW BLUEPRINTS / TEMPLATES SECTION */}
         <section className="templates-section">
           <div className="container">
             <div className="section-head">
@@ -367,7 +383,7 @@ export default function PlatformWorkflowsPage() {
                 <span className="t-category">Engineering &amp; DevOps</span>
                 <h4>Pull Request Review &amp; Security Scan</h4>
                 <p>
-                  Listens to GitHub PR webhooks, invokes a sandboxed Qwen 2.5 Coder agent to audit changed files, runs lint checks, and posts inline review comments.
+                  Listens to GitHub PR webhooks, invokes a sandboxed code audit agent to inspect changed files, runs lint checks, and posts inline review comments.
                 </p>
                 <div className="t-steps">
                   <span>GitHub Webhook</span> &rarr; <span>Agent Code Audit</span> &rarr; <span>Sandbox Lint</span> &rarr; <span>PR Comment</span>
@@ -445,15 +461,15 @@ export default function PlatformWorkflowsPage() {
                 Combine visual drag-and-drop simplicity with enterprise-grade DAG execution and code-level control.
               </p>
               <div className="cta-actions">
-                <Link href="/signup" className="btn-primary">
+                <Link href="/signup" className="btn-cta-primary">
                   <span>Request Platform Access</span>
                   <ArrowRight size={16} />
                 </Link>
-                <Link href="/platform/knowledge-bases" className="btn-secondary">
+                <Link href="/platform/knowledge-bases" className="btn-cta-secondary">
                   <span>Explore Knowledge Bases</span>
                 </Link>
-                <Link href="/contact" className="btn-tertiary">
-                  <span>Contact Sales</span>
+                <Link href="/contact" className="btn-cta-tertiary">
+                  <span>Talk to Solutions Engineer &rarr;</span>
                 </Link>
               </div>
             </div>
@@ -461,14 +477,14 @@ export default function PlatformWorkflowsPage() {
         </section>
       </main>
 
-      <FooterSection />
+      <FooterSection hideBanner={true} />
 
       <style jsx>{`
         .workflows-page {
           min-height: 100vh;
-          background-color: #0b1120;
-          color: #f8fafc;
-          font-family: 'Outfit', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+          background-color: #ffffff;
+          color: #0f172a;
+          font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
         }
 
         .container {
@@ -477,17 +493,46 @@ export default function PlatformWorkflowsPage() {
           padding: 0 24px;
         }
 
+        /* BREADCRUMB */
+        .breadcrumb-nav {
+          display: inline-flex;
+          align-items: center;
+          gap: 8px;
+          font-size: 0.85rem;
+          color: #64748b;
+          margin-bottom: 24px;
+        }
+
+        .crumb-link {
+          color: #64748b;
+          text-decoration: none;
+          transition: color 0.15s;
+        }
+
+        .crumb-link:hover {
+          color: #2563eb;
+        }
+
+        .crumb-sep {
+          color: #94a3b8;
+        }
+
+        .crumb-current {
+          color: #0f172a;
+          font-weight: 600;
+        }
+
         .blue-gradient {
-          background: linear-gradient(135deg, #60a5fa 0%, #3b82f6 50%, #2563eb 100%);
+          background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
           -webkit-background-clip: text;
           -webkit-text-fill-color: transparent;
         }
 
         /* HERO */
         .workflows-hero {
-          padding: 80px 0 60px 0;
+          padding: 60px 0 80px 0;
           position: relative;
-          background: radial-gradient(circle at 50% 20%, rgba(37, 99, 235, 0.12) 0%, transparent 60%);
+          background: radial-gradient(circle at 50% 0%, rgba(37, 99, 235, 0.08) 0%, rgba(255, 255, 255, 0) 70%);
         }
 
         .hero-content {
@@ -502,27 +547,27 @@ export default function PlatformWorkflowsPage() {
           gap: 8px;
           padding: 6px 14px;
           border-radius: 9999px;
-          background: rgba(59, 130, 246, 0.1);
-          border: 1px solid rgba(59, 130, 246, 0.25);
-          color: #93c5fd;
+          background: rgba(37, 99, 235, 0.08);
+          border: 1px solid rgba(37, 99, 235, 0.2);
+          color: #2563eb;
           font-size: 0.82rem;
           font-weight: 600;
           margin-bottom: 24px;
         }
 
         .hero-title {
-          font-size: clamp(2.4rem, 4.8vw, 3.8rem);
+          font-size: clamp(2.3rem, 4.8vw, 3.6rem);
           font-weight: 800;
           line-height: 1.15;
           letter-spacing: -0.03em;
           margin-bottom: 20px;
-          color: #ffffff;
+          color: #0f172a;
         }
 
         .hero-subtitle {
-          font-size: clamp(1.05rem, 1.8vw, 1.22rem);
-          line-height: 1.6;
-          color: #94a3b8;
+          font-size: clamp(1.05rem, 1.8vw, 1.2rem);
+          line-height: 1.65;
+          color: #475569;
           margin-bottom: 36px;
         }
 
@@ -543,37 +588,38 @@ export default function PlatformWorkflowsPage() {
           color: #ffffff;
           padding: 14px 28px;
           border-radius: 10px;
-          font-weight: 700;
+          font-weight: 600;
           font-size: 0.95rem;
           text-decoration: none;
-          box-shadow: 0 4px 20px rgba(37, 99, 235, 0.35);
+          box-shadow: 0 4px 14px rgba(37, 99, 235, 0.25);
           transition: all 0.2s ease;
         }
 
         .btn-primary:hover {
           background: #1d4ed8;
           transform: translateY(-2px);
-          box-shadow: 0 8px 25px rgba(37, 99, 235, 0.5);
+          box-shadow: 0 8px 20px rgba(37, 99, 235, 0.35);
         }
 
         .btn-secondary {
           display: inline-flex;
           align-items: center;
           gap: 10px;
-          background: rgba(255, 255, 255, 0.05);
-          border: 1px solid rgba(255, 255, 255, 0.15);
-          color: #ffffff;
+          background: #ffffff;
+          border: 1px solid #cbd5e1;
+          color: #1e293b;
           padding: 14px 28px;
           border-radius: 10px;
           font-weight: 600;
           font-size: 0.95rem;
           text-decoration: none;
+          box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
           transition: all 0.2s ease;
         }
 
         .btn-secondary:hover {
-          background: rgba(255, 255, 255, 0.1);
-          border-color: rgba(255, 255, 255, 0.3);
+          background: #f8fafc;
+          border-color: #94a3b8;
           transform: translateY(-2px);
         }
 
@@ -583,7 +629,7 @@ export default function PlatformWorkflowsPage() {
           justify-content: center;
           gap: 32px;
           padding-top: 24px;
-          border-top: 1px solid rgba(255, 255, 255, 0.08);
+          border-top: 1px solid #e2e8f0;
         }
 
         .hero-stat {
@@ -596,30 +642,31 @@ export default function PlatformWorkflowsPage() {
         .stat-num {
           font-size: 1.4rem;
           font-weight: 800;
-          color: #60a5fa;
+          color: #2563eb;
         }
 
         .stat-label {
-          font-size: 0.8rem;
+          font-size: 0.78rem;
           color: #64748b;
           text-transform: uppercase;
           letter-spacing: 0.05em;
+          font-weight: 600;
         }
 
         .hero-stat-sep {
           width: 1px;
           height: 32px;
-          background: rgba(255, 255, 255, 0.1);
+          background: #e2e8f0;
         }
 
         /* VISUALIZER */
         .dag-visualizer-card {
           max-width: 1020px;
           margin: 0 auto;
-          background: #0f172a;
-          border: 1px solid rgba(59, 130, 246, 0.2);
+          background: #090e1a;
+          border: 1px solid #1e293b;
           border-radius: 16px;
-          box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+          box-shadow: 0 20px 40px -15px rgba(15, 23, 42, 0.25);
           overflow: hidden;
         }
 
@@ -628,8 +675,8 @@ export default function PlatformWorkflowsPage() {
           align-items: center;
           justify-content: space-between;
           padding: 14px 20px;
-          background: #090e1a;
-          border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+          background: #0f172a;
+          border-bottom: 1px solid #1e293b;
         }
 
         .dag-meta {
@@ -639,12 +686,12 @@ export default function PlatformWorkflowsPage() {
         }
 
         .badge-wf {
-          background: rgba(59, 130, 246, 0.2);
+          background: rgba(37, 99, 235, 0.2);
           color: #60a5fa;
           padding: 3px 8px;
           border-radius: 6px;
-          font-family: monospace;
-          font-size: 0.78rem;
+          font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+          font-size: 0.76rem;
           font-weight: 700;
         }
 
@@ -658,8 +705,8 @@ export default function PlatformWorkflowsPage() {
           display: flex;
           align-items: center;
           gap: 8px;
-          font-family: monospace;
-          font-size: 0.76rem;
+          font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+          font-size: 0.74rem;
           color: #4ade80;
           font-weight: 700;
         }
@@ -674,8 +721,8 @@ export default function PlatformWorkflowsPage() {
 
         .dag-nav-tabs {
           display: flex;
-          background: #0d1527;
-          border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+          background: #090e1a;
+          border-bottom: 1px solid #1e293b;
           padding: 0 12px;
         }
 
@@ -706,6 +753,7 @@ export default function PlatformWorkflowsPage() {
 
         .visualizer-body {
           padding: 28px 24px;
+          background: #090e1a;
         }
 
         .dag-graph {
@@ -718,8 +766,8 @@ export default function PlatformWorkflowsPage() {
         }
 
         .dag-node {
-          background: rgba(30, 41, 59, 0.7);
-          border: 1px solid rgba(255, 255, 255, 0.1);
+          background: #0f172a;
+          border: 1px solid #1e293b;
           border-radius: 12px;
           padding: 16px;
           display: flex;
@@ -730,15 +778,15 @@ export default function PlatformWorkflowsPage() {
         }
 
         .dag-node.completed {
-          border-color: rgba(59, 130, 246, 0.4);
-          background: rgba(15, 23, 42, 0.9);
+          border-color: rgba(59, 130, 246, 0.35);
+          background: #0f172a;
         }
 
         .node-icon {
           width: 36px;
           height: 36px;
           border-radius: 8px;
-          background: rgba(59, 130, 246, 0.15);
+          background: rgba(37, 99, 235, 0.15);
           color: #60a5fa;
           display: flex;
           align-items: center;
@@ -788,7 +836,7 @@ export default function PlatformWorkflowsPage() {
         }
 
         .dag-arrow {
-          color: #475569;
+          color: #64748b;
           font-weight: 800;
           font-size: 1.2rem;
           flex-shrink: 0;
@@ -796,7 +844,7 @@ export default function PlatformWorkflowsPage() {
 
         .code-view pre {
           margin: 0;
-          font-family: monospace;
+          font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
           font-size: 0.84rem;
           color: #cbd5e1;
           line-height: 1.6;
@@ -813,10 +861,10 @@ export default function PlatformWorkflowsPage() {
           display: flex;
           align-items: center;
           gap: 12px;
-          background: rgba(15, 23, 42, 0.6);
-          padding: 12px 16px;
+          background: #0f172a;
+          padding: 14px 18px;
           border-radius: 8px;
-          border: 1px solid rgba(255, 255, 255, 0.06);
+          border: 1px solid #1e293b;
         }
 
         .r-label {
@@ -827,13 +875,15 @@ export default function PlatformWorkflowsPage() {
 
         .r-val {
           color: #60a5fa;
-          font-family: monospace;
+          font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
         }
 
         /* FEATURES GRID */
         .features-section {
           padding: 90px 0;
-          border-top: 1px solid rgba(255, 255, 255, 0.06);
+          background: #f8fafc;
+          border-top: 1px solid #e2e8f0;
+          border-bottom: 1px solid #e2e8f0;
         }
 
         .section-head {
@@ -846,7 +896,7 @@ export default function PlatformWorkflowsPage() {
           display: inline-block;
           font-size: 0.8rem;
           font-weight: 700;
-          color: #3b82f6;
+          color: #2563eb;
           text-transform: uppercase;
           letter-spacing: 0.08em;
           margin-bottom: 12px;
@@ -855,15 +905,15 @@ export default function PlatformWorkflowsPage() {
         .section-title {
           font-size: clamp(1.8rem, 3.2vw, 2.5rem);
           font-weight: 800;
-          color: #ffffff;
+          color: #0f172a;
           line-height: 1.25;
           margin-bottom: 16px;
           letter-spacing: -0.02em;
         }
 
         .section-subtitle {
-          font-size: 1.02rem;
-          color: #94a3b8;
+          font-size: 1.05rem;
+          color: #475569;
           line-height: 1.6;
         }
 
@@ -874,25 +924,26 @@ export default function PlatformWorkflowsPage() {
         }
 
         .feature-card {
-          background: rgba(15, 23, 42, 0.6);
-          border: 1px solid rgba(255, 255, 255, 0.08);
+          background: #ffffff;
+          border: 1px solid #e2e8f0;
           border-radius: 16px;
           padding: 32px;
+          box-shadow: 0 2px 4px rgba(0, 0, 0, 0.02);
           transition: all 0.25s ease;
         }
 
         .feature-card:hover {
-          border-color: rgba(59, 130, 246, 0.3);
-          transform: translateY(-2px);
-          background: rgba(15, 23, 42, 0.85);
+          border-color: #93c5fd;
+          transform: translateY(-3px);
+          box-shadow: 0 12px 24px -4px rgba(37, 99, 235, 0.08);
         }
 
         .feature-icon-box {
           width: 48px;
           height: 48px;
           border-radius: 12px;
-          background: rgba(59, 130, 246, 0.12);
-          color: #60a5fa;
+          background: #eff6ff;
+          color: #2563eb;
           display: flex;
           align-items: center;
           justify-content: center;
@@ -902,24 +953,25 @@ export default function PlatformWorkflowsPage() {
         .feature-card h3 {
           font-size: 1.25rem;
           font-weight: 700;
-          color: #ffffff;
+          color: #0f172a;
           margin-bottom: 12px;
         }
 
         .feature-card p {
-          font-size: 0.92rem;
-          color: #94a3b8;
+          font-size: 0.95rem;
+          color: #475569;
           line-height: 1.6;
           margin-bottom: 20px;
         }
 
         .feature-card code {
-          background: rgba(59, 130, 246, 0.15);
-          color: #93c5fd;
+          background: #f1f5f9;
+          color: #1e293b;
+          border: 1px solid #e2e8f0;
           padding: 2px 6px;
           border-radius: 4px;
-          font-family: monospace;
-          font-size: 0.84rem;
+          font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+          font-size: 0.85rem;
         }
 
         .f-list {
@@ -935,20 +987,19 @@ export default function PlatformWorkflowsPage() {
           display: flex;
           align-items: center;
           gap: 10px;
-          font-size: 0.86rem;
-          color: #cbd5e1;
+          font-size: 0.88rem;
+          color: #334155;
         }
 
         .c-ico {
-          color: #3b82f6;
+          color: #10b981;
           flex-shrink: 0;
         }
 
         /* TEMPLATES */
         .templates-section {
-          padding: 80px 0;
-          background: rgba(15, 23, 42, 0.35);
-          border-top: 1px solid rgba(255, 255, 255, 0.06);
+          padding: 90px 0;
+          background: #ffffff;
         }
 
         .templates-grid {
@@ -958,25 +1009,27 @@ export default function PlatformWorkflowsPage() {
         }
 
         .template-card {
-          background: #0f172a;
-          border: 1px solid rgba(255, 255, 255, 0.08);
+          background: #ffffff;
+          border: 1px solid #e2e8f0;
           border-radius: 16px;
           padding: 28px;
           display: flex;
           flex-direction: column;
           gap: 12px;
+          box-shadow: 0 2px 4px rgba(0, 0, 0, 0.02);
           transition: all 0.25s;
         }
 
         .template-card:hover {
-          border-color: rgba(59, 130, 246, 0.3);
+          border-color: #93c5fd;
           transform: translateY(-2px);
+          box-shadow: 0 12px 24px -4px rgba(37, 99, 235, 0.08);
         }
 
         .t-category {
           font-size: 0.75rem;
           font-weight: 700;
-          color: #38bdf8;
+          color: #2563eb;
           text-transform: uppercase;
           letter-spacing: 0.05em;
         }
@@ -984,56 +1037,58 @@ export default function PlatformWorkflowsPage() {
         .template-card h4 {
           font-size: 1.12rem;
           font-weight: 700;
-          color: #ffffff;
+          color: #0f172a;
           line-height: 1.35;
         }
 
         .template-card p {
-          font-size: 0.88rem;
-          color: #94a3b8;
-          line-height: 1.55;
+          font-size: 0.92rem;
+          color: #475569;
+          line-height: 1.6;
           flex-grow: 1;
         }
 
         .t-steps {
-          font-size: 0.78rem;
-          color: #cbd5e1;
-          background: rgba(30, 41, 59, 0.5);
-          padding: 10px 14px;
+          font-size: 0.8rem;
+          color: #475569;
+          background: #f8fafc;
+          padding: 12px 14px;
           border-radius: 8px;
-          border: 1px solid rgba(255, 255, 255, 0.05);
-          line-height: 1.4;
+          border: 1px solid #e2e8f0;
+          line-height: 1.5;
         }
 
         .t-steps span {
-          color: #60a5fa;
+          color: #2563eb;
           font-weight: 600;
         }
 
         /* FAQ */
         .faq-section {
           padding: 90px 0;
-          border-top: 1px solid rgba(255, 255, 255, 0.06);
+          background: #f8fafc;
+          border-top: 1px solid #e2e8f0;
         }
 
         .faq-list {
-          max-width: 800px;
+          max-width: 820px;
           margin: 0 auto;
           display: flex;
           flex-direction: column;
-          gap: 12px;
+          gap: 14px;
         }
 
         .faq-item {
-          background: #0f172a;
-          border: 1px solid rgba(255, 255, 255, 0.08);
+          background: #ffffff;
+          border: 1px solid #e2e8f0;
           border-radius: 12px;
           overflow: hidden;
           transition: all 0.2s;
         }
 
         .faq-item.expanded {
-          border-color: rgba(59, 130, 246, 0.3);
+          border-color: #2563eb;
+          box-shadow: 0 4px 12px rgba(37, 99, 235, 0.06);
         }
 
         .faq-question {
@@ -1041,11 +1096,11 @@ export default function PlatformWorkflowsPage() {
           display: flex;
           align-items: center;
           justify-content: space-between;
-          padding: 18px 22px;
+          padding: 18px 24px;
           background: none;
           border: none;
-          color: #f1f5f9;
-          font-size: 0.96rem;
+          color: #0f172a;
+          font-size: 0.98rem;
           font-weight: 700;
           text-align: left;
           cursor: pointer;
@@ -1059,44 +1114,49 @@ export default function PlatformWorkflowsPage() {
 
         .faq-item.expanded .faq-icon {
           transform: rotate(180deg);
-          color: #60a5fa;
+          color: #2563eb;
         }
 
         .faq-answer {
-          padding: 0 22px 20px 22px;
-          color: #94a3b8;
-          font-size: 0.9rem;
-          line-height: 1.6;
+          padding: 0 24px 20px 24px;
+          color: #475569;
+          font-size: 0.92rem;
+          line-height: 1.65;
+          border-top: 1px solid #f1f5f9;
+          padding-top: 16px;
         }
 
         /* CTA */
         .cta-banner-section {
-          padding: 60px 0 90px 0;
+          padding: 80px 0 100px 0;
+          background: #ffffff;
+          border-top: 1px solid #e2e8f0;
         }
 
         .cta-box {
-          background: linear-gradient(135deg, #1e3a8a 0%, #1e40af 50%, #1d4ed8 100%);
+          background: linear-gradient(135deg, #1e40af 0%, #2563eb 100%);
           border-radius: 20px;
-          padding: 48px;
+          padding: 56px 40px;
           text-align: center;
-          border: 1px solid rgba(255, 255, 255, 0.15);
-          box-shadow: 0 25px 50px -12px rgba(29, 78, 216, 0.3);
+          box-shadow: 0 20px 35px -10px rgba(37, 99, 235, 0.35);
         }
 
         .cta-box h2 {
-          font-size: clamp(1.8rem, 3.2vw, 2.4rem);
+          font-size: clamp(1.9rem, 3.4vw, 2.6rem);
           font-weight: 800;
           color: #ffffff;
-          margin-bottom: 12px;
+          margin-bottom: 16px;
+          letter-spacing: -0.02em;
         }
 
         .cta-box p {
-          font-size: 1.05rem;
+          font-size: 1.1rem;
           color: #dbeafe;
-          margin-bottom: 32px;
-          max-width: 600px;
+          margin-bottom: 36px;
+          max-width: 640px;
           margin-left: auto;
           margin-right: auto;
+          line-height: 1.6;
         }
 
         .cta-actions {
@@ -1107,18 +1167,63 @@ export default function PlatformWorkflowsPage() {
           flex-wrap: wrap;
         }
 
-        .btn-tertiary {
+        .btn-cta-primary {
           display: inline-flex;
           align-items: center;
           gap: 10px;
-          background: transparent;
+          background: #ffffff;
+          color: #1e3a8a;
+          padding: 14px 28px;
+          border-radius: 10px;
+          font-weight: 700;
+          font-size: 0.95rem;
+          text-decoration: none;
+          box-shadow: 0 4px 14px rgba(0, 0, 0, 0.15);
+          transition: all 0.2s ease;
+        }
+
+        .btn-cta-primary:hover {
+          background: #f8fafc;
+          transform: translateY(-2px);
+          box-shadow: 0 8px 20px rgba(0, 0, 0, 0.2);
+        }
+
+        .btn-cta-secondary {
+          display: inline-flex;
+          align-items: center;
+          gap: 10px;
+          background: rgba(255, 255, 255, 0.15);
+          border: 1px solid rgba(255, 255, 255, 0.35);
           color: #ffffff;
           padding: 14px 28px;
           border-radius: 10px;
           font-weight: 600;
           font-size: 0.95rem;
+          text-decoration: none;
+          transition: all 0.2s ease;
+        }
+
+        .btn-cta-secondary:hover {
+          background: rgba(255, 255, 255, 0.25);
+          border-color: rgba(255, 255, 255, 0.5);
+          transform: translateY(-2px);
+        }
+
+        .btn-cta-tertiary {
+          display: inline-flex;
+          align-items: center;
+          gap: 8px;
+          color: #ffffff;
+          padding: 14px 20px;
+          font-weight: 600;
+          font-size: 0.95rem;
+          text-decoration: none;
+          transition: opacity 0.2s;
+        }
+
+        .btn-cta-tertiary:hover {
+          opacity: 0.85;
           text-decoration: underline;
-          text-underline-offset: 4px;
         }
 
         @media (max-width: 1024px) {
@@ -1148,13 +1253,13 @@ export default function PlatformWorkflowsPage() {
             margin: 6px 0;
           }
           .cta-box {
-            padding: 32px 20px;
+            padding: 40px 24px;
           }
           .cta-actions {
             flex-direction: column;
             width: 100%;
           }
-          .btn-primary, .btn-secondary, .btn-tertiary {
+          .btn-cta-primary, .btn-cta-secondary, .btn-cta-tertiary {
             width: 100%;
             justify-content: center;
             box-sizing: border-box;
