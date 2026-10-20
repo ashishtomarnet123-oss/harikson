@@ -24,6 +24,8 @@ import {
   Key,
   HardDrive,
   Filter,
+  ChevronRight,
+  ExternalLink,
 } from 'lucide-react';
 
 export default function PlatformKnowledgeBasesPage() {
@@ -80,9 +82,16 @@ export default function PlatformKnowledgeBasesPage() {
       <HeaderNav activePath="/platform" />
 
       <main className="rag-main">
-        {/* HERO SECTION */}
+        {/* BREADCRUMB & HERO SECTION */}
         <section className="rag-hero">
           <div className="container">
+            {/* Breadcrumb */}
+            <nav className="breadcrumb-nav" aria-label="Breadcrumb">
+              <Link href="/platform" className="crumb-link">Platform</Link>
+              <ChevronRight size={14} className="crumb-sep" />
+              <span className="crumb-current">Knowledge Bases</span>
+            </nav>
+
             <div className="hero-content">
               <div className="hero-badge">
                 <Database size={14} />
@@ -92,22 +101,22 @@ export default function PlatformKnowledgeBasesPage() {
                 Enterprise Knowledge Bases with <span className="blue-gradient">Hybrid pgvector &amp; BM25</span>
               </h1>
               <p className="hero-subtitle">
-                Ground your AI agents in verified organizational knowledge. Combines semantic vector similarity with keyword precision to retrieve exact clauses, policies, and product specifications.
+                Ground your AI agents in verified organizational knowledge. Combines semantic vector similarity with keyword precision to retrieve exact clauses, policies, and product specifications with zero hallucinations.
               </p>
               <div className="hero-cta-group">
                 <Link href="/signup" className="btn-primary">
                   <span>Index Your Knowledge Base</span>
                   <ArrowRight size={16} />
                 </Link>
-                <Link href="/signup?source=book_demo" className="btn-secondary">
+                <Link href="/contact" className="btn-secondary">
                   <span>Schedule RAG Benchmark Demo</span>
                 </Link>
               </div>
 
               <div className="hero-stats-row">
                 <div className="hero-stat">
-                  <span className="stat-num">Hybrid</span>
-                  <span className="stat-label">pgvector + BM25 Search</span>
+                  <span className="stat-num">Hybrid Search</span>
+                  <span className="stat-label">pgvector + BM25 Fusion</span>
                 </div>
                 <div className="hero-stat-sep" />
                 <div className="hero-stat">
@@ -116,8 +125,13 @@ export default function PlatformKnowledgeBasesPage() {
                 </div>
                 <div className="hero-stat-sep" />
                 <div className="hero-stat">
-                  <span className="stat-num">Sub-40ms</span>
+                  <span className="stat-num">&lt;40ms</span>
                   <span className="stat-label">Vector Query Retrieval</span>
+                </div>
+                <div className="hero-stat-sep" />
+                <div className="hero-stat">
+                  <span className="stat-num">DPDP 2023</span>
+                  <span className="stat-label">Statutory Compliance</span>
                 </div>
               </div>
             </div>
@@ -131,7 +145,7 @@ export default function PlatformKnowledgeBasesPage() {
                 </div>
                 <div className="rag-status">
                   <span className="pulse-dot" />
-                  <span>INDEX STATUS: HEALTHY</span>
+                  <span>INDEX STATUS: HEALTHY (1,536-dim)</span>
                 </div>
               </div>
 
@@ -165,12 +179,12 @@ export default function PlatformKnowledgeBasesPage() {
                     <div className="query-bar">
                       <Search size={16} className="q-icon" />
                       <span className="q-text">Query: &quot;Section 4.2 Data Principal consent revocation procedure&quot;</span>
-                      <span className="q-pill">Hybrid Mode</span>
+                      <span className="q-pill">Hybrid Reciprocal Rank Fusion</span>
                     </div>
 
                     <div className="fusion-results">
                       <div className="res-item top-match">
-                        <div className="res-badge">Rank 1 &bull; Score: 0.962</div>
+                        <div className="res-badge">Rank 1 &bull; RRF Score: 0.962</div>
                         <div className="res-header">
                           <FileText size={14} />
                           <span className="doc-name">DPDP_Compliance_Handbook_2026.pdf (Page 14, Chunk 3)</span>
@@ -179,14 +193,14 @@ export default function PlatformKnowledgeBasesPage() {
                           &quot;Under Section 4.2, a Data Principal may withdraw consent at any time through the designated Data Rights Portal. Upon receipt of valid authentication, the fiduciary must cease processing within 7 business days...&quot;
                         </p>
                         <div className="res-tags">
-                          <span className="tag-vec">Vector Similarity: 0.941</span>
+                          <span className="tag-vec">Vector Cosine: 0.941</span>
                           <span className="tag-kw">BM25 ts_rank_cd: 0.984</span>
-                          <span className="tag-match">Exact Clause Match</span>
+                          <span className="tag-match">Exact Statutory Clause Match</span>
                         </div>
                       </div>
 
                       <div className="res-item">
-                        <div className="res-badge">Rank 2 &bull; Score: 0.871</div>
+                        <div className="res-badge">Rank 2 &bull; RRF Score: 0.871</div>
                         <div className="res-header">
                           <FileText size={14} />
                           <span className="doc-name">Customer_Terms_of_Service_v3.pdf (Page 6, Chunk 1)</span>
@@ -426,15 +440,15 @@ export default function PlatformKnowledgeBasesPage() {
                 Eliminate hallucinations and give your agents access to verified institutional knowledge.
               </p>
               <div className="cta-actions">
-                <Link href="/signup" className="btn-primary">
+                <Link href="/signup" className="btn-cta-primary">
                   <span>Request Platform Access</span>
                   <ArrowRight size={16} />
                 </Link>
-                <Link href="/platform" className="btn-secondary">
+                <Link href="/platform" className="btn-cta-secondary">
                   <span>Platform Overview</span>
                 </Link>
-                <Link href="/contact" className="btn-tertiary">
-                  <span>Talk to RAG Specialist</span>
+                <Link href="/contact" className="btn-cta-tertiary">
+                  <span>Talk to RAG Specialist &rarr;</span>
                 </Link>
               </div>
             </div>
@@ -442,14 +456,14 @@ export default function PlatformKnowledgeBasesPage() {
         </section>
       </main>
 
-      <FooterSection />
+      <FooterSection hideBanner={true} />
 
       <style jsx>{`
         .rag-page {
           min-height: 100vh;
-          background-color: #0b1120;
-          color: #f8fafc;
-          font-family: 'Outfit', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+          background-color: #ffffff;
+          color: #0f172a;
+          font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
         }
 
         .container {
@@ -458,17 +472,46 @@ export default function PlatformKnowledgeBasesPage() {
           padding: 0 24px;
         }
 
+        /* BREADCRUMB */
+        .breadcrumb-nav {
+          display: inline-flex;
+          align-items: center;
+          gap: 8px;
+          font-size: 0.85rem;
+          color: #64748b;
+          margin-bottom: 24px;
+        }
+
+        .crumb-link {
+          color: #64748b;
+          text-decoration: none;
+          transition: color 0.15s;
+        }
+
+        .crumb-link:hover {
+          color: #2563eb;
+        }
+
+        .crumb-sep {
+          color: #94a3b8;
+        }
+
+        .crumb-current {
+          color: #0f172a;
+          font-weight: 600;
+        }
+
         .blue-gradient {
-          background: linear-gradient(135deg, #60a5fa 0%, #3b82f6 50%, #2563eb 100%);
+          background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
           -webkit-background-clip: text;
           -webkit-text-fill-color: transparent;
         }
 
         /* HERO */
         .rag-hero {
-          padding: 80px 0 60px 0;
+          padding: 60px 0 80px 0;
           position: relative;
-          background: radial-gradient(circle at 50% 20%, rgba(37, 99, 235, 0.12) 0%, transparent 60%);
+          background: radial-gradient(circle at 50% 0%, rgba(37, 99, 235, 0.08) 0%, rgba(255, 255, 255, 0) 70%);
         }
 
         .hero-content {
@@ -483,27 +526,27 @@ export default function PlatformKnowledgeBasesPage() {
           gap: 8px;
           padding: 6px 14px;
           border-radius: 9999px;
-          background: rgba(59, 130, 246, 0.1);
-          border: 1px solid rgba(59, 130, 246, 0.25);
-          color: #93c5fd;
+          background: rgba(37, 99, 235, 0.08);
+          border: 1px solid rgba(37, 99, 235, 0.2);
+          color: #2563eb;
           font-size: 0.82rem;
           font-weight: 600;
           margin-bottom: 24px;
         }
 
         .hero-title {
-          font-size: clamp(2.4rem, 4.8vw, 3.8rem);
+          font-size: clamp(2.3rem, 4.8vw, 3.6rem);
           font-weight: 800;
           line-height: 1.15;
           letter-spacing: -0.03em;
           margin-bottom: 20px;
-          color: #ffffff;
+          color: #0f172a;
         }
 
         .hero-subtitle {
-          font-size: clamp(1.05rem, 1.8vw, 1.22rem);
-          line-height: 1.6;
-          color: #94a3b8;
+          font-size: clamp(1.05rem, 1.8vw, 1.2rem);
+          line-height: 1.65;
+          color: #475569;
           margin-bottom: 36px;
         }
 
@@ -524,37 +567,38 @@ export default function PlatformKnowledgeBasesPage() {
           color: #ffffff;
           padding: 14px 28px;
           border-radius: 10px;
-          font-weight: 700;
+          font-weight: 600;
           font-size: 0.95rem;
           text-decoration: none;
-          box-shadow: 0 4px 20px rgba(37, 99, 235, 0.35);
+          box-shadow: 0 4px 14px rgba(37, 99, 235, 0.25);
           transition: all 0.2s ease;
         }
 
         .btn-primary:hover {
           background: #1d4ed8;
           transform: translateY(-2px);
-          box-shadow: 0 8px 25px rgba(37, 99, 235, 0.5);
+          box-shadow: 0 8px 20px rgba(37, 99, 235, 0.35);
         }
 
         .btn-secondary {
           display: inline-flex;
           align-items: center;
           gap: 10px;
-          background: rgba(255, 255, 255, 0.05);
-          border: 1px solid rgba(255, 255, 255, 0.15);
-          color: #ffffff;
+          background: #ffffff;
+          border: 1px solid #cbd5e1;
+          color: #1e293b;
           padding: 14px 28px;
           border-radius: 10px;
           font-weight: 600;
           font-size: 0.95rem;
           text-decoration: none;
+          box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
           transition: all 0.2s ease;
         }
 
         .btn-secondary:hover {
-          background: rgba(255, 255, 255, 0.1);
-          border-color: rgba(255, 255, 255, 0.3);
+          background: #f8fafc;
+          border-color: #94a3b8;
           transform: translateY(-2px);
         }
 
@@ -564,7 +608,7 @@ export default function PlatformKnowledgeBasesPage() {
           justify-content: center;
           gap: 32px;
           padding-top: 24px;
-          border-top: 1px solid rgba(255, 255, 255, 0.08);
+          border-top: 1px solid #e2e8f0;
         }
 
         .hero-stat {
@@ -577,30 +621,31 @@ export default function PlatformKnowledgeBasesPage() {
         .stat-num {
           font-size: 1.4rem;
           font-weight: 800;
-          color: #60a5fa;
+          color: #2563eb;
         }
 
         .stat-label {
-          font-size: 0.8rem;
+          font-size: 0.78rem;
           color: #64748b;
           text-transform: uppercase;
           letter-spacing: 0.05em;
+          font-weight: 600;
         }
 
         .hero-stat-sep {
           width: 1px;
           height: 32px;
-          background: rgba(255, 255, 255, 0.1);
+          background: #e2e8f0;
         }
 
         /* INSPECTOR CARD */
         .rag-inspector-card {
           max-width: 980px;
           margin: 0 auto;
-          background: #0f172a;
-          border: 1px solid rgba(59, 130, 246, 0.2);
+          background: #090e1a;
+          border: 1px solid #1e293b;
           border-radius: 16px;
-          box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+          box-shadow: 0 20px 40px -15px rgba(15, 23, 42, 0.25);
           overflow: hidden;
         }
 
@@ -609,29 +654,29 @@ export default function PlatformKnowledgeBasesPage() {
           align-items: center;
           justify-content: space-between;
           padding: 14px 20px;
-          background: #090e1a;
-          border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+          background: #0f172a;
+          border-bottom: 1px solid #1e293b;
         }
 
         .rag-meta {
           display: flex;
           align-items: center;
           gap: 8px;
-          font-family: monospace;
-          font-size: 0.82rem;
+          font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+          font-size: 0.78rem;
           color: #94a3b8;
         }
 
         .meta-icon {
-          color: #60a5fa;
+          color: #3b82f6;
         }
 
         .rag-status {
           display: flex;
           align-items: center;
           gap: 8px;
-          font-family: monospace;
-          font-size: 0.76rem;
+          font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+          font-size: 0.74rem;
           color: #4ade80;
           font-weight: 700;
         }
@@ -646,8 +691,8 @@ export default function PlatformKnowledgeBasesPage() {
 
         .rag-tabs {
           display: flex;
-          background: #0d1527;
-          border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+          background: #090e1a;
+          border-bottom: 1px solid #1e293b;
           padding: 0 12px;
         }
 
@@ -678,16 +723,17 @@ export default function PlatformKnowledgeBasesPage() {
 
         .inspector-body {
           padding: 24px;
+          background: #090e1a;
         }
 
         .query-bar {
           display: flex;
           align-items: center;
           gap: 12px;
-          background: rgba(15, 23, 42, 0.8);
-          border: 1px solid rgba(255, 255, 255, 0.1);
-          border-radius: 10px;
-          padding: 12px 18px;
+          background: #0f172a;
+          border: 1px solid #1e293b;
+          padding: 12px 16px;
+          border-radius: 8px;
           margin-bottom: 20px;
         }
 
@@ -696,32 +742,32 @@ export default function PlatformKnowledgeBasesPage() {
         }
 
         .q-text {
-          font-size: 0.9rem;
-          color: #f1f5f9;
-          font-family: monospace;
+          font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+          font-size: 0.84rem;
+          color: #e2e8f0;
           flex-grow: 1;
         }
 
         .q-pill {
-          background: rgba(59, 130, 246, 0.2);
+          background: rgba(37, 99, 235, 0.2);
           color: #93c5fd;
-          font-size: 0.75rem;
+          font-size: 0.72rem;
           font-weight: 700;
-          padding: 4px 10px;
-          border-radius: 6px;
+          padding: 3px 8px;
+          border-radius: 4px;
         }
 
         .fusion-results {
           display: flex;
           flex-direction: column;
-          gap: 16px;
+          gap: 12px;
         }
 
         .res-item {
-          background: rgba(30, 41, 59, 0.4);
-          border: 1px solid rgba(255, 255, 255, 0.08);
-          border-radius: 12px;
-          padding: 18px;
+          background: #0f172a;
+          border: 1px solid #1e293b;
+          border-radius: 8px;
+          padding: 16px;
           position: relative;
         }
 
@@ -737,29 +783,27 @@ export default function PlatformKnowledgeBasesPage() {
           font-size: 0.72rem;
           font-weight: 700;
           color: #4ade80;
-          background: rgba(34, 197, 94, 0.12);
-          padding: 3px 8px;
-          border-radius: 4px;
+          font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
         }
 
         .res-header {
           display: flex;
           align-items: center;
           gap: 8px;
-          font-size: 0.88rem;
-          font-weight: 700;
-          color: #ffffff;
+          color: #60a5fa;
+          font-size: 0.82rem;
+          font-weight: 600;
           margin-bottom: 8px;
         }
 
         .doc-name {
-          color: #60a5fa;
+          color: #93c5fd;
         }
 
         .res-snippet {
-          font-size: 0.86rem;
+          font-size: 0.84rem;
           color: #cbd5e1;
-          line-height: 1.6;
+          line-height: 1.55;
           margin-bottom: 12px;
           font-style: italic;
         }
@@ -771,87 +815,91 @@ export default function PlatformKnowledgeBasesPage() {
         }
 
         .tag-vec, .tag-kw, .tag-match {
-          font-size: 0.72rem;
-          padding: 3px 8px;
+          font-size: 0.7rem;
+          font-weight: 600;
+          padding: 2px 8px;
           border-radius: 4px;
-          font-family: monospace;
         }
 
         .tag-vec {
-          background: rgba(59, 130, 246, 0.15);
-          color: #93c5fd;
-        }
-
-        .tag-kw {
           background: rgba(168, 85, 247, 0.15);
           color: #c084fc;
         }
 
-        .tag-match {
-          background: rgba(34, 197, 94, 0.15);
-          color: #4ade80;
+        .tag-kw {
+          background: rgba(16, 185, 129, 0.15);
+          color: #34d399;
         }
 
-        /* CHUNKING DEMO */
+        .tag-match {
+          background: rgba(59, 130, 246, 0.15);
+          color: #93c5fd;
+        }
+
         .chunk-stat-box {
           display: flex;
           gap: 24px;
-          background: rgba(15, 23, 42, 0.6);
           padding: 12px 16px;
+          background: #0f172a;
+          border: 1px solid #1e293b;
           border-radius: 8px;
+          font-size: 0.82rem;
+          color: #cbd5e1;
           margin-bottom: 16px;
-          font-size: 0.84rem;
-          color: #94a3b8;
+          flex-wrap: wrap;
         }
 
         .chunk-preview-grid {
-          display: grid;
-          grid-template-columns: 1fr 1fr 1fr;
+          display: flex;
           gap: 12px;
         }
 
         .chunk-block {
-          background: rgba(30, 41, 59, 0.6);
-          border: 1px solid rgba(255, 255, 255, 0.08);
+          flex: 1;
+          background: #0f172a;
+          border: 1px solid #1e293b;
           border-radius: 8px;
-          padding: 14px;
+          padding: 16px;
         }
 
         .chunk-block.overlap-border {
-          border-color: rgba(234, 179, 8, 0.4);
-          background: rgba(234, 179, 8, 0.05);
+          border-color: rgba(245, 158, 11, 0.4);
+          background: rgba(245, 158, 11, 0.05);
         }
 
         .chunk-id {
-          display: block;
+          font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
           font-size: 0.72rem;
           font-weight: 700;
           color: #60a5fa;
-          margin-bottom: 6px;
-          font-family: monospace;
+          display: block;
+          margin-bottom: 8px;
+        }
+
+        .overlap-border .chunk-id {
+          color: #fbbf24;
         }
 
         .chunk-block p {
-          font-size: 0.8rem;
-          color: #cbd5e1;
+          font-size: 0.78rem;
+          color: #94a3b8;
           line-height: 1.5;
+          margin: 0;
         }
 
-        /* SECURITY DEMO */
         .sec-feature-row {
           display: flex;
           flex-direction: column;
-          gap: 14px;
+          gap: 16px;
         }
 
         .sec-item {
           display: flex;
-          align-items: flex-start;
           gap: 14px;
-          background: rgba(15, 23, 42, 0.6);
-          border: 1px solid rgba(255, 255, 255, 0.06);
-          padding: 14px 18px;
-          border-radius: 10px;
+          background: #0f172a;
+          padding: 16px;
+          border-radius: 8px;
+          border: 1px solid #1e293b;
         }
 
         .s-ico {
@@ -862,21 +910,24 @@ export default function PlatformKnowledgeBasesPage() {
 
         .sec-item strong {
           display: block;
-          font-size: 0.9rem;
-          color: #ffffff;
+          color: #f1f5f9;
+          font-size: 0.88rem;
           margin-bottom: 4px;
         }
 
         .sec-item p {
-          font-size: 0.84rem;
           color: #94a3b8;
+          font-size: 0.8rem;
+          line-height: 1.5;
           margin: 0;
         }
 
-        /* PILLARS */
+        /* PILLARS SECTION */
         .pillars-section {
           padding: 90px 0;
-          border-top: 1px solid rgba(255, 255, 255, 0.06);
+          background: #f8fafc;
+          border-top: 1px solid #e2e8f0;
+          border-bottom: 1px solid #e2e8f0;
         }
 
         .section-head {
@@ -889,7 +940,7 @@ export default function PlatformKnowledgeBasesPage() {
           display: inline-block;
           font-size: 0.8rem;
           font-weight: 700;
-          color: #3b82f6;
+          color: #2563eb;
           text-transform: uppercase;
           letter-spacing: 0.08em;
           margin-bottom: 12px;
@@ -898,15 +949,15 @@ export default function PlatformKnowledgeBasesPage() {
         .section-title {
           font-size: clamp(1.8rem, 3.2vw, 2.5rem);
           font-weight: 800;
-          color: #ffffff;
+          color: #0f172a;
           line-height: 1.25;
           margin-bottom: 16px;
           letter-spacing: -0.02em;
         }
 
         .section-subtitle {
-          font-size: 1.02rem;
-          color: #94a3b8;
+          font-size: 1.05rem;
+          color: #475569;
           line-height: 1.6;
         }
 
@@ -917,25 +968,26 @@ export default function PlatformKnowledgeBasesPage() {
         }
 
         .pillar-card {
-          background: rgba(15, 23, 42, 0.6);
-          border: 1px solid rgba(255, 255, 255, 0.08);
+          background: #ffffff;
+          border: 1px solid #e2e8f0;
           border-radius: 16px;
           padding: 32px;
+          box-shadow: 0 2px 4px rgba(0, 0, 0, 0.02);
           transition: all 0.25s ease;
         }
 
         .pillar-card:hover {
-          border-color: rgba(59, 130, 246, 0.3);
-          transform: translateY(-2px);
-          background: rgba(15, 23, 42, 0.85);
+          border-color: #93c5fd;
+          transform: translateY(-3px);
+          box-shadow: 0 12px 24px -4px rgba(37, 99, 235, 0.08);
         }
 
         .pillar-icon-box {
           width: 48px;
           height: 48px;
           border-radius: 12px;
-          background: rgba(59, 130, 246, 0.12);
-          color: #60a5fa;
+          background: #eff6ff;
+          color: #2563eb;
           display: flex;
           align-items: center;
           justify-content: center;
@@ -945,13 +997,13 @@ export default function PlatformKnowledgeBasesPage() {
         .pillar-card h3 {
           font-size: 1.25rem;
           font-weight: 700;
-          color: #ffffff;
+          color: #0f172a;
           margin-bottom: 12px;
         }
 
         .pillar-card p {
-          font-size: 0.92rem;
-          color: #94a3b8;
+          font-size: 0.95rem;
+          color: #475569;
           line-height: 1.6;
           margin-bottom: 20px;
         }
@@ -969,136 +1021,144 @@ export default function PlatformKnowledgeBasesPage() {
           display: flex;
           align-items: center;
           gap: 10px;
-          font-size: 0.86rem;
-          color: #cbd5e1;
+          font-size: 0.88rem;
+          color: #334155;
         }
 
         .c-ico {
-          color: #3b82f6;
+          color: #10b981;
           flex-shrink: 0;
         }
 
-        /* SOURCES SECTION */
+        /* DATA SOURCES */
         .sources-section {
-          padding: 80px 0;
-          background: rgba(15, 23, 42, 0.35);
-          border-top: 1px solid rgba(255, 255, 255, 0.06);
+          padding: 90px 0;
+          background: #ffffff;
         }
 
         .sources-card {
-          background: #0f172a;
-          border: 1px solid rgba(59, 130, 246, 0.2);
+          background: #ffffff;
+          border: 1px solid #e2e8f0;
           border-radius: 20px;
-          padding: 40px;
+          padding: 48px;
           display: grid;
-          grid-template-columns: 1.2fr 1fr;
-          gap: 40px;
+          grid-template-columns: 1.1fr 0.9fr;
+          gap: 48px;
           align-items: center;
+          box-shadow: 0 2px 4px rgba(0, 0, 0, 0.02);
         }
 
         .sources-info h2 {
           font-size: clamp(1.6rem, 2.8vw, 2.2rem);
           font-weight: 800;
-          color: #ffffff;
-          line-height: 1.25;
+          color: #0f172a;
           margin-bottom: 16px;
+          line-height: 1.25;
         }
 
         .sources-info p {
-          font-size: 0.95rem;
-          color: #94a3b8;
-          line-height: 1.6;
-          margin-bottom: 24px;
+          font-size: 0.98rem;
+          color: #475569;
+          line-height: 1.65;
+          margin-bottom: 28px;
         }
 
         .sources-badges {
           display: flex;
-          gap: 10px;
           flex-wrap: wrap;
+          gap: 10px;
         }
 
         .s-badge {
-          background: rgba(59, 130, 246, 0.15);
-          color: #93c5fd;
-          border: 1px solid rgba(59, 130, 246, 0.3);
-          font-size: 0.82rem;
-          font-weight: 600;
+          background: #eff6ff;
+          color: #1d4ed8;
+          border: 1px solid #dbeafe;
           padding: 6px 14px;
           border-radius: 8px;
+          font-size: 0.84rem;
+          font-weight: 600;
         }
 
         .sources-visual {
           display: flex;
           flex-direction: column;
-          gap: 12px;
+          gap: 14px;
         }
 
         .source-item {
+          background: #f8fafc;
+          border: 1px solid #e2e8f0;
+          border-radius: 12px;
+          padding: 16px 20px;
           display: flex;
           align-items: center;
-          justify-content: space-between;
-          background: rgba(15, 23, 42, 0.8);
-          border: 1px solid rgba(255, 255, 255, 0.08);
-          padding: 14px 18px;
-          border-radius: 12px;
+          gap: 14px;
+          transition: all 0.2s;
+        }
+
+        .source-item:hover {
+          border-color: #93c5fd;
+          background: #ffffff;
+          box-shadow: 0 4px 12px rgba(37, 99, 235, 0.05);
         }
 
         .s-item-icon {
-          color: #60a5fa;
-          margin-right: 14px;
+          color: #2563eb;
           flex-shrink: 0;
         }
 
         .s-item-text {
-          display: flex;
-          flex-direction: column;
           flex-grow: 1;
         }
 
         .s-item-text strong {
-          font-size: 0.9rem;
-          color: #ffffff;
+          display: block;
+          font-size: 0.92rem;
+          color: #0f172a;
+          margin-bottom: 2px;
         }
 
         .s-item-text span {
-          font-size: 0.76rem;
+          font-size: 0.8rem;
           color: #64748b;
         }
 
         .s-item-status {
-          font-size: 0.72rem;
+          font-size: 0.74rem;
           font-weight: 700;
-          color: #34d399;
-          background: rgba(16, 185, 129, 0.15);
+          color: #10b981;
+          background: #ecfdf5;
           padding: 3px 8px;
           border-radius: 4px;
-          text-transform: uppercase;
+          border: 1px solid #a7f3d0;
         }
 
         /* FAQ */
         .faq-section {
           padding: 90px 0;
-          border-top: 1px solid rgba(255, 255, 255, 0.06);
+          background: #f8fafc;
+          border-top: 1px solid #e2e8f0;
         }
 
         .faq-list {
-          max-width: 800px;
+          max-width: 820px;
           margin: 0 auto;
           display: flex;
           flex-direction: column;
-          gap: 12px;
+          gap: 14px;
         }
 
         .faq-item {
-          background: #0f172a;
-          border: 1px solid rgba(255, 255, 255, 0.08);
+          background: #ffffff;
+          border: 1px solid #e2e8f0;
           border-radius: 12px;
           overflow: hidden;
           transition: all 0.2s;
         }
 
         .faq-item.expanded {
-          border-color: rgba(59, 130, 246, 0.3);
+          border-color: #2563eb;
+          box-shadow: 0 4px 12px rgba(37, 99, 235, 0.06);
         }
 
         .faq-question {
@@ -1106,11 +1166,11 @@ export default function PlatformKnowledgeBasesPage() {
           display: flex;
           align-items: center;
           justify-content: space-between;
-          padding: 18px 22px;
+          padding: 18px 24px;
           background: none;
           border: none;
-          color: #f1f5f9;
-          font-size: 0.96rem;
+          color: #0f172a;
+          font-size: 0.98rem;
           font-weight: 700;
           text-align: left;
           cursor: pointer;
@@ -1124,44 +1184,49 @@ export default function PlatformKnowledgeBasesPage() {
 
         .faq-item.expanded .faq-icon {
           transform: rotate(180deg);
-          color: #60a5fa;
+          color: #2563eb;
         }
 
         .faq-answer {
-          padding: 0 22px 20px 22px;
-          color: #94a3b8;
-          font-size: 0.9rem;
-          line-height: 1.6;
+          padding: 0 24px 20px 24px;
+          color: #475569;
+          font-size: 0.92rem;
+          line-height: 1.65;
+          border-top: 1px solid #f1f5f9;
+          padding-top: 16px;
         }
 
-        /* CTA */
+        /* CTA BANNER */
         .cta-banner-section {
-          padding: 60px 0 90px 0;
+          padding: 80px 0 100px 0;
+          background: #ffffff;
+          border-top: 1px solid #e2e8f0;
         }
 
         .cta-box {
-          background: linear-gradient(135deg, #1e3a8a 0%, #1e40af 50%, #1d4ed8 100%);
+          background: linear-gradient(135deg, #1e40af 0%, #2563eb 100%);
           border-radius: 20px;
-          padding: 48px;
+          padding: 56px 40px;
           text-align: center;
-          border: 1px solid rgba(255, 255, 255, 0.15);
-          box-shadow: 0 25px 50px -12px rgba(29, 78, 216, 0.3);
+          box-shadow: 0 20px 35px -10px rgba(37, 99, 235, 0.35);
         }
 
         .cta-box h2 {
-          font-size: clamp(1.8rem, 3.2vw, 2.4rem);
+          font-size: clamp(1.9rem, 3.4vw, 2.6rem);
           font-weight: 800;
           color: #ffffff;
-          margin-bottom: 12px;
+          margin-bottom: 16px;
+          letter-spacing: -0.02em;
         }
 
         .cta-box p {
-          font-size: 1.05rem;
+          font-size: 1.1rem;
           color: #dbeafe;
-          margin-bottom: 32px;
-          max-width: 600px;
+          margin-bottom: 36px;
+          max-width: 640px;
           margin-left: auto;
           margin-right: auto;
+          line-height: 1.6;
         }
 
         .cta-actions {
@@ -1172,18 +1237,63 @@ export default function PlatformKnowledgeBasesPage() {
           flex-wrap: wrap;
         }
 
-        .btn-tertiary {
+        .btn-cta-primary {
           display: inline-flex;
           align-items: center;
           gap: 10px;
-          background: transparent;
+          background: #ffffff;
+          color: #1e3a8a;
+          padding: 14px 28px;
+          border-radius: 10px;
+          font-weight: 700;
+          font-size: 0.95rem;
+          text-decoration: none;
+          box-shadow: 0 4px 14px rgba(0, 0, 0, 0.15);
+          transition: all 0.2s ease;
+        }
+
+        .btn-cta-primary:hover {
+          background: #f8fafc;
+          transform: translateY(-2px);
+          box-shadow: 0 8px 20px rgba(0, 0, 0, 0.2);
+        }
+
+        .btn-cta-secondary {
+          display: inline-flex;
+          align-items: center;
+          gap: 10px;
+          background: rgba(255, 255, 255, 0.15);
+          border: 1px solid rgba(255, 255, 255, 0.35);
           color: #ffffff;
           padding: 14px 28px;
           border-radius: 10px;
           font-weight: 600;
           font-size: 0.95rem;
+          text-decoration: none;
+          transition: all 0.2s ease;
+        }
+
+        .btn-cta-secondary:hover {
+          background: rgba(255, 255, 255, 0.25);
+          border-color: rgba(255, 255, 255, 0.5);
+          transform: translateY(-2px);
+        }
+
+        .btn-cta-tertiary {
+          display: inline-flex;
+          align-items: center;
+          gap: 8px;
+          color: #ffffff;
+          padding: 14px 20px;
+          font-weight: 600;
+          font-size: 0.95rem;
+          text-decoration: none;
+          transition: opacity 0.2s;
+        }
+
+        .btn-cta-tertiary:hover {
+          opacity: 0.85;
           text-decoration: underline;
-          text-underline-offset: 4px;
         }
 
         @media (max-width: 1024px) {
@@ -1192,7 +1302,7 @@ export default function PlatformKnowledgeBasesPage() {
           }
           .sources-card {
             grid-template-columns: 1fr;
-            padding: 32px;
+            padding: 36px 28px;
           }
         }
 
@@ -1205,16 +1315,16 @@ export default function PlatformKnowledgeBasesPage() {
             display: none;
           }
           .chunk-preview-grid {
-            grid-template-columns: 1fr;
+            flex-direction: column;
           }
           .cta-box {
-            padding: 32px 20px;
+            padding: 40px 24px;
           }
           .cta-actions {
             flex-direction: column;
             width: 100%;
           }
-          .btn-primary, .btn-secondary, .btn-tertiary {
+          .btn-cta-primary, .btn-cta-secondary, .btn-cta-tertiary {
             width: 100%;
             justify-content: center;
             box-sizing: border-box;
