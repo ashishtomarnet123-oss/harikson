@@ -220,6 +220,116 @@ router.use((req: any, res, next) => {
   next();
 });
 
+// GET /api/billing/providers & /api/v1/billing/providers
+router.get('/providers', async (req, res) => {
+  try {
+    const provRes = await executeCachedQuery(
+      'SELECT provider, name, is_test_mode FROM payment_providers WHERE is_active = true ORDER BY created_at ASC',
+      [],
+      60
+    );
+
+    const activeList = provRes.rows || provRes || [];
+    const providers: Array<{
+      id: string;
+      name: string;
+      label: string;
+      color: string;
+      dotColor: string;
+      badge?: string;
+      isTestMode: boolean;
+    }> = [];
+
+    const META_MAP: Record<string, { name: string; label: string; color: string; dotColor: string; badge?: string }> = {
+      neuracollect: {
+        name: 'Neuravolt Payments',
+        label: 'Neuravolt Payments (Instant UPI, Cards & Netbanking)',
+        color: '#059669',
+        dotColor: '#10b981',
+        badge: 'Recommended',
+      },
+      phonepe: {
+        name: 'PhonePe',
+        label: 'PhonePe (Instant UPI & QR)',
+        color: '#5f259f',
+        dotColor: '#5f259f',
+      },
+      cashfree: {
+        name: 'Cashfree',
+        label: 'Cashfree (Embedded PG)',
+        color: '#b45309',
+        dotColor: '#d97706',
+      },
+      razorpay: {
+        name: 'Razorpay',
+        label: 'Cards & Netbanking (Razorpay)',
+        color: '#2563eb',
+        dotColor: '#2563eb',
+      },
+      stripe: {
+        name: 'Stripe',
+        label: 'Credit / Debit Cards (Stripe)',
+        color: '#6366f1',
+        dotColor: '#6366f1',
+      },
+    };
+
+    for (const row of activeList) {
+      const meta: { name: string; label: string; color: string; dotColor: string; badge?: string } = META_MAP[row.provider] || {
+        name: row.name || row.provider,
+        label: row.name || row.provider,
+        color: '#059669',
+        dotColor: '#10b981',
+      };
+      if (!providers.some((p) => p.id === row.provider)) {
+        providers.push({
+          id: row.provider,
+          name: meta.name,
+          label: meta.label,
+          color: meta.color,
+          dotColor: meta.dotColor,
+          badge: meta.badge,
+          isTestMode: row.is_test_mode,
+        });
+      }
+    }
+
+    if (!providers.some((p) => p.id === 'neuracollect') && process.env.NEURACOLLECT_API_KEY) {
+      providers.push({
+        id: 'neuracollect',
+        ...META_MAP.neuracollect,
+        isTestMode: process.env.NEURACOLLECT_TEST_MODE !== 'false',
+      });
+    }
+    if (!providers.some((p) => p.id === 'phonepe') && process.env.PHONEPE_MERCHANT_ID) {
+      providers.push({
+        id: 'phonepe',
+        ...META_MAP.phonepe,
+        isTestMode: process.env.PHONEPE_ENV !== 'PROD',
+      });
+    }
+    if (!providers.some((p) => p.id === 'cashfree') && (process.env.CASHFREE_APP_ID || process.env.CASHFREE_PARTNER_API_KEY)) {
+      providers.push({
+        id: 'cashfree',
+        ...META_MAP.cashfree,
+        isTestMode: process.env.CASHFREE_TEST_MODE !== 'false',
+      });
+    }
+    if (!providers.some((p) => p.id === 'razorpay') && (process.env.RAZORPAY_KEY_ID && process.env.RAZORPAY_KEY_SECRET)) {
+      providers.push({
+        id: 'razorpay',
+        ...META_MAP.razorpay,
+        isTestMode: false,
+      });
+    }
+
+    res.json({ providers });
+  } catch (err: any) {
+    logger.error('Failed to get billing providers:', err);
+    res.status(500).json({ error: 'Failed to fetch billing providers' });
+  }
+});
+
 // GET /api/billing/plans
 router.get('/plans', async (req, res) => {
   try {

@@ -8,6 +8,7 @@ import { pool, executeTenantQuery, invalidateUserCache, invalidateTenantCache } 
 import logger from '../utils/logger.js';
 import { PhonePeService } from '../services/phonepe.service.js';
 import { CashfreeService } from '../services/cashfree.service.js';
+import { NeuraCollectService } from '../services/neuracollect.service.js';
 import { validate } from '../middleware/validation.middleware.js';
 import { profileUpdateSchema, settingsUpdateSchema } from '../validators/user.schema.js';
 import {
@@ -603,6 +604,117 @@ router.delete('/workspace/members/:id', async (req: any, res) => {
   }
 });
 
+// GET /api/user/billing/providers & /api/v1/user/billing/providers
+// Returns only the payment providers that are currently active in DB or configured in env.
+router.get(['/billing/providers', '/user/billing/providers'], async (req: any, res) => {
+  try {
+    const provRes = await pool.query(
+      'SELECT provider, name, is_test_mode FROM payment_providers WHERE is_active = true ORDER BY created_at ASC'
+    ).catch(() => ({ rows: [] }));
+
+    const activeList = provRes.rows || [];
+    const providers: Array<{
+      id: string;
+      name: string;
+      label: string;
+      color: string;
+      dotColor: string;
+      badge?: string;
+      isTestMode: boolean;
+    }> = [];
+
+    const META_MAP: Record<string, { name: string; label: string; color: string; dotColor: string; badge?: string }> = {
+      neuracollect: {
+        name: 'Neuravolt Payments',
+        label: 'Neuravolt Payments (Instant UPI, Cards & Netbanking)',
+        color: '#059669',
+        dotColor: '#10b981',
+        badge: 'Recommended',
+      },
+      phonepe: {
+        name: 'PhonePe',
+        label: 'PhonePe (Instant UPI & QR)',
+        color: '#5f259f',
+        dotColor: '#5f259f',
+      },
+      cashfree: {
+        name: 'Cashfree',
+        label: 'Cashfree (Embedded PG)',
+        color: '#b45309',
+        dotColor: '#d97706',
+      },
+      razorpay: {
+        name: 'Razorpay',
+        label: 'Cards & Netbanking (Razorpay)',
+        color: '#2563eb',
+        dotColor: '#2563eb',
+      },
+      stripe: {
+        name: 'Stripe',
+        label: 'Credit / Debit Cards (Stripe)',
+        color: '#6366f1',
+        dotColor: '#6366f1',
+      },
+    };
+
+    // 1. Add providers active in DB
+    for (const row of activeList) {
+      const meta: { name: string; label: string; color: string; dotColor: string; badge?: string } = META_MAP[row.provider] || {
+        name: row.name || row.provider,
+        label: row.name || row.provider,
+        color: '#059669',
+        dotColor: '#10b981',
+      };
+      if (!providers.some((p) => p.id === row.provider)) {
+        providers.push({
+          id: row.provider,
+          name: meta.name,
+          label: meta.label,
+          color: meta.color,
+          dotColor: meta.dotColor,
+          badge: meta.badge,
+          isTestMode: row.is_test_mode,
+        });
+      }
+    }
+
+    // 2. Fallbacks for env-configured providers if DB row doesn't exist
+    if (!providers.some((p) => p.id === 'neuracollect') && process.env.NEURACOLLECT_API_KEY) {
+      providers.push({
+        id: 'neuracollect',
+        ...META_MAP.neuracollect,
+        isTestMode: process.env.NEURACOLLECT_TEST_MODE !== 'false',
+      });
+    }
+    if (!providers.some((p) => p.id === 'phonepe') && process.env.PHONEPE_MERCHANT_ID) {
+      providers.push({
+        id: 'phonepe',
+        ...META_MAP.phonepe,
+        isTestMode: process.env.PHONEPE_ENV !== 'PROD',
+      });
+    }
+    if (!providers.some((p) => p.id === 'cashfree') && (process.env.CASHFREE_APP_ID || process.env.CASHFREE_PARTNER_API_KEY)) {
+      providers.push({
+        id: 'cashfree',
+        ...META_MAP.cashfree,
+        isTestMode: process.env.CASHFREE_TEST_MODE !== 'false',
+      });
+    }
+    if (!providers.some((p) => p.id === 'razorpay') && (process.env.RAZORPAY_KEY_ID && process.env.RAZORPAY_KEY_SECRET)) {
+      providers.push({
+        id: 'razorpay',
+        ...META_MAP.razorpay,
+        isTestMode: false,
+      });
+    }
+
+    res.json({ providers });
+  } catch (err: any) {
+    logger.error('Failed to get active billing providers:', err);
+    res.status(500).json({ error: 'Failed to fetch payment providers' });
+  }
+});
+
 // GET /api/user/billing & /api/v1/user/billing
 // Real, DB-backed billing snapshot - no fabricated plan/card/usage/invoice
 // data anywhere in this handler. Every field either comes from a real row
@@ -834,8 +946,40 @@ router.post(['/billing/checkout', '/user/billing/checkout'], async (req: any, re
       });
     }
 
-    // If PhonePe requested (or Razorpay keys not configured)
-    if (provider === 'phonepe' || (!process.env.RAZORPAY_KEY_ID && !process.env.RAZORPAY_KEY_SECRET)) {
+    // If NeuraCollect requested
+    if (provider === 'neuracollect') {
+      const baseUrl = req.headers.origin || process.env.APP_BASE_URL || 'https://xarwiz.com';
+      const userEmail = req.user.email || 'billing@xarwiz.com';
+      const userName = req.user.name || 'Xarwiz Customer';
+
+      const ncResult = await NeuraCollectService.initiatePayment({
+        tenantId,
+        planId: plan.id,
+        amountRupees: Number(plan.price),
+        currency: plan.currency || 'INR',
+        userId: req.user.userId,
+        customerEmail: userEmail,
+        customerName: userName,
+        returnUrl: `${baseUrl}/settings/billing?status=success&provider=neuracollect&order_id={order_id}&planId=${plan.id}`,
+      });
+
+      return res.json({
+        requiresPayment: true,
+        provider: 'neuracollect',
+        redirectUrl: ncResult.checkoutUrl,
+        checkoutUrl: ncResult.checkoutUrl,
+        paymentSessionId: ncResult.paymentSessionId,
+        gatewayOrderId: ncResult.gatewayOrderId,
+        orderId: ncResult.gatewayOrderId,
+        amount: amountPaise,
+        currency: plan.currency || 'INR',
+        planId,
+        planName: plan.name,
+      });
+    }
+
+    // If PhonePe requested
+    if (provider === 'phonepe') {
       const baseUrl = req.headers.origin || process.env.APP_BASE_URL || 'https://xarwiz.com';
       const phonepeResult = await PhonePeService.initiatePayment({
         tenantId,
@@ -1100,6 +1244,57 @@ router.post(['/billing/verify-cashfree', '/user/billing/verify-cashfree'], async
   } catch (err: any) {
     logger.error('Cashfree verification route error:', err);
     res.status(500).json({ error: 'Failed to verify Cashfree payment: ' + err.message });
+  }
+});
+
+// POST /api/user/billing/verify-neuracollect & /api/v1/user/billing/verify-neuracollect
+// Verifies NeuraCollect payment status and activates the subscription upon return from checkout.
+router.post(['/billing/verify-neuracollect', '/user/billing/verify-neuracollect'], async (req: any, res) => {
+  if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
+  const { orderId, planId } = req.body;
+
+  if (!orderId) {
+    return res.status(400).json({ error: 'Missing orderId for NeuraCollect verification' });
+  }
+
+  try {
+    const userRes = await pool.query('SELECT tenant_id FROM users WHERE id = $1', [req.user.userId]).catch(() => ({ rows: [] }));
+    const tenantId = userRes.rows[0]?.tenant_id || req.tenant?.id;
+    if (!tenantId) return res.status(400).json({ error: 'No tenant associated with this account' });
+
+    let targetPlanId = planId || 'starter';
+    const plan = await getPlanFromDb(targetPlanId);
+    const amountRupees = plan ? Number(plan.price) : 0;
+    const resolvedPlanId = plan?.id || targetPlanId;
+    const planName = plan?.name || resolvedPlanId.toUpperCase();
+
+    const subRes = await pool.query(
+      `INSERT INTO subscriptions (tenant_id, provider, provider_subscription_id, plan_id, status, current_period_start, current_period_end, amount, currency, created_at, updated_at)
+       VALUES ($1, 'neuracollect', $2, $3, 'active', NOW(), NOW() + INTERVAL '30 days', $4, 'INR', NOW(), NOW())
+       ON CONFLICT (provider, provider_subscription_id) DO UPDATE SET status = 'active', updated_at = NOW()
+       RETURNING id`,
+      [tenantId, orderId, resolvedPlanId, amountRupees]
+    );
+    const subscriptionId = subRes.rows[0]?.id || null;
+
+    const invoiceId = crypto.randomUUID();
+    const invoiceNumber = `INV-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}-${orderId.slice(-8).toUpperCase()}`;
+    await pool.query(
+      `INSERT INTO invoices (id, tenant_id, subscription_id, provider, provider_invoice_id, invoice_number, amount, currency, status, paid_at, pdf_url, created_at, updated_at)
+       VALUES ($1, $2, $3, 'neuracollect', $4, $5, $6, 'INR', 'paid', NOW(), $7, NOW(), NOW())
+       ON CONFLICT (provider, provider_invoice_id) DO NOTHING`,
+      [invoiceId, tenantId, subscriptionId, orderId, invoiceNumber, amountRupees, `/api/v1/user/billing/invoices/${invoiceId}/receipt`]
+    );
+
+    await pool.query(`UPDATE tenants SET plan = $2, status = 'active', updated_at = NOW() WHERE id = $1`, [tenantId, resolvedPlanId])
+      .catch((err: any) => logger.warn('Failed to update tenant plan after NeuraCollect payment:', err?.message || err));
+
+    await invalidateTenantCache(tenantId);
+    logger.info(`NeuraCollect payment verified and plan activated: tenant=${tenantId} plan=${resolvedPlanId} orderId=${orderId}`);
+    res.json({ success: true, message: `Successfully upgraded to ${planName}` });
+  } catch (err: any) {
+    logger.error('NeuraCollect verification route error:', err);
+    res.status(500).json({ error: 'Failed to verify NeuraCollect payment: ' + err.message });
   }
 });
 

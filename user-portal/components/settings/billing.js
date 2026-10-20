@@ -24,7 +24,8 @@ export default function BillingSettings() {
   const [showContactSales, setShowContactSales] = useState(false);
   const [selectedPlanName, setSelectedPlanName] = useState('');
   const [actionLoading, setActionLoading] = useState(false);
-  const [selectedGateway, setSelectedGateway] = useState('phonepe');
+  const [selectedGateway, setSelectedGateway] = useState('neuracollect');
+  const [activeGateways, setActiveGateways] = useState([]);
 
   // Display only - the backend owns the actual price charged (PLAN_CONFIG in
   // user.routes.ts) and re-derives it from planId, never from anything sent
@@ -99,13 +100,43 @@ export default function BillingSettings() {
 
   useEffect(() => {
     fetchBilling();
+    fetchProviders();
 
-    // Check if returning from PhonePe payment gateway redirect
+    // Check if returning from a payment gateway redirect
     if (typeof window !== 'undefined') {
       const urlParams = new URLSearchParams(window.location.search);
       const provider = urlParams.get('provider');
       const transactionId = urlParams.get('transactionId');
       const planId = urlParams.get('planId');
+
+      const ncOrderId = urlParams.get('order_id') || urlParams.get('orderId');
+      if (provider === 'neuracollect' && ncOrderId) {
+        setActionLoading(true);
+        const { apiBase, tenantSlug } = getApiConfig();
+        authenticatedFetch(`${apiBase}/api/v1/user/billing/verify-neuracollect`, {
+          method: 'POST',
+          credentials: 'include',
+          headers: {
+            'x-tenant-slug': tenantSlug,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ orderId: ncOrderId, planId }),
+        })
+          .then((res) => {
+            if (res && res.ok) {
+              fetchBilling();
+              window.history.replaceState({}, document.title, window.location.pathname);
+            } else {
+              setError('Neuravolt Payments verification failed or is still pending.');
+            }
+          })
+          .catch((err) => {
+            console.error('Neuravolt Payments verification error:', err);
+          })
+          .finally(() => {
+            setActionLoading(false);
+          });
+      }
 
       if (provider === 'phonepe' && transactionId) {
         setActionLoading(true);
@@ -206,6 +237,29 @@ export default function BillingSettings() {
     }
   };
 
+  const fetchProviders = async () => {
+    try {
+      const { apiBase, tenantSlug } = getApiConfig();
+      const res = await authenticatedFetch(`${apiBase}/api/v1/user/billing/providers`, {
+        credentials: 'include',
+        headers: { 'x-tenant-slug': tenantSlug },
+      });
+      if (res && res.ok) {
+        const data = await res.json();
+        const list = Array.isArray(data.providers) ? data.providers : [];
+        setActiveGateways(list);
+        if (list.length > 0) {
+          setSelectedGateway((prev) => {
+            if (list.some((p) => p.id === prev)) return prev;
+            return list[0].id;
+          });
+        }
+      }
+    } catch (err) {
+      console.warn('Failed to load active payment gateways:', err);
+    }
+  };
+
   // There's no Razorpay-hosted billing portal to redirect to (this
   // integration uses Orders/Payments, not a separate hosted-portal product),
   // so "Manage Billing" and "Update payment method" both open the real
@@ -263,6 +317,15 @@ export default function BillingSettings() {
       }
 
       const order = await checkoutRes.json();
+
+      // If NeuraCollect returned redirectUrl / checkoutUrl, redirect customer to checkout
+      if (order.provider === 'neuracollect') {
+        const targetUrl = order.checkoutUrl || order.redirectUrl;
+        if (targetUrl) {
+          window.location.href = targetUrl;
+          return;
+        }
+      }
 
       // If PhonePe returned redirectUrl, redirect customer to PhonePe Standard Checkout
       if (order.provider === 'phonepe' && order.redirectUrl) {
@@ -829,6 +892,7 @@ export default function BillingSettings() {
               style={{
                 display: 'flex',
                 alignItems: 'center',
+                flexWrap: 'wrap',
                 gap: '12px',
                 marginBottom: '20px',
                 padding: '12px 16px',
@@ -840,69 +904,61 @@ export default function BillingSettings() {
               <span style={{ fontSize: '12px', fontWeight: 700, color: '#475569', textTransform: 'uppercase' }}>
                 Pay With:
               </span>
-              <button
-                type="button"
-                onClick={() => setSelectedGateway('cashfree')}
-                style={{
-                  padding: '6px 14px',
-                  borderRadius: '8px',
-                  fontSize: '12px',
-                  fontWeight: 700,
-                  cursor: 'pointer',
-                  border: selectedGateway === 'cashfree' ? '2px solid #d97706' : '1px solid #cbd5e1',
-                  background: selectedGateway === 'cashfree' ? '#fffbeb' : '#fff',
-                  color: selectedGateway === 'cashfree' ? '#b45309' : '#64748b',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '6px',
-                  transition: 'all 0.15s ease',
-                }}
-              >
-                <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#d97706' }} />
-                Cashfree (Embedded PG)
-              </button>
-              <button
-                type="button"
-                onClick={() => setSelectedGateway('phonepe')}
-                style={{
-                  padding: '6px 14px',
-                  borderRadius: '8px',
-                  fontSize: '12px',
-                  fontWeight: 700,
-                  cursor: 'pointer',
-                  border: selectedGateway === 'phonepe' ? '2px solid #5f259f' : '1px solid #cbd5e1',
-                  background: selectedGateway === 'phonepe' ? '#f5f0ff' : '#fff',
-                  color: selectedGateway === 'phonepe' ? '#5f259f' : '#64748b',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '6px',
-                  transition: 'all 0.15s ease',
-                }}
-              >
-                <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#5f259f' }} />
-                PhonePe (Instant UPI &amp; QR)
-              </button>
-              <button
-                type="button"
-                onClick={() => setSelectedGateway('razorpay')}
-                style={{
-                  padding: '6px 14px',
-                  borderRadius: '8px',
-                  fontSize: '12px',
-                  fontWeight: 700,
-                  cursor: 'pointer',
-                  border: selectedGateway === 'razorpay' ? '2px solid #2563eb' : '1px solid #cbd5e1',
-                  background: selectedGateway === 'razorpay' ? '#eff6ff' : '#fff',
-                  color: selectedGateway === 'razorpay' ? '#2563eb' : '#64748b',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '6px',
-                  transition: 'all 0.15s ease',
-                }}
-              >
-                <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#2563eb' }} />
-                Cards &amp; Netbanking (Razorpay)
-              </button>
+              {activeGateways.length > 0 ? (
+                activeGateways.map((gw) => {
+                  const isSelected = selectedGateway === gw.id;
+                  const primaryColor = gw.color || '#059669';
+                  return (
+                    <button
+                      key={gw.id}
+                      type="button"
+                      onClick={() => setSelectedGateway(gw.id)}
+                      style={{
+                        padding: '6px 14px',
+                        borderRadius: '8px',
+                        fontSize: '12px',
+                        fontWeight: 700,
+                        cursor: 'pointer',
+                        border: isSelected ? `2px solid ${primaryColor}` : '1px solid #cbd5e1',
+                        background: isSelected ? (gw.id === 'neuracollect' ? '#ecfdf5' : '#eff6ff') : '#fff',
+                        color: isSelected ? primaryColor : '#64748b',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        transition: 'all 0.15s ease',
+                      }}
+                    >
+                      <span
+                        style={{
+                          width: '8px',
+                          height: '8px',
+                          borderRadius: '50%',
+                          background: gw.dotColor || primaryColor,
+                        }}
+                      />
+                      {gw.label || gw.name}
+                      {gw.badge && (
+                        <span
+                          style={{
+                            fontSize: '9px',
+                            background: '#10b981',
+                            color: '#fff',
+                            padding: '1px 5px',
+                            borderRadius: '6px',
+                            marginLeft: '4px',
+                          }}
+                        >
+                          {gw.badge}
+                        </span>
+                      )}
+                    </button>
+                  );
+                })
+              ) : (
+                <span style={{ fontSize: '12px', color: '#64748b' }}>
+                  Neuravolt Payments (Active)
+                </span>
+              )}
             </div>
 
             <div
