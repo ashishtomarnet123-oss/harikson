@@ -87,7 +87,7 @@ export default function PlatformKnowledgeBasesPage() {
           <div className="container">
             {/* Breadcrumb */}
             <nav className="breadcrumb-nav" aria-label="Breadcrumb">
-              <Link href="/platform" className="crumb-link">Platform</Link>
+              <Link href="/platform/ai-agents" className="crumb-link">Platform</Link>
               <ChevronRight size={14} className="crumb-sep" />
               <span className="crumb-current">Knowledge Bases</span>
             </nav>
@@ -444,8 +444,8 @@ export default function PlatformKnowledgeBasesPage() {
                   <span>Request Platform Access</span>
                   <ArrowRight size={16} />
                 </Link>
-                <Link href="/platform" className="btn-cta-secondary">
-                  <span>Platform Overview</span>
+                <Link href="/platform/workflows" className="btn-cta-secondary">
+                  <span>Explore Workflows</span>
                 </Link>
                 <Link href="/contact" className="btn-cta-tertiary">
                   <span>Talk to RAG Specialist &rarr;</span>

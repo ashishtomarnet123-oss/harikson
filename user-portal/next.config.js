@@ -37,6 +37,11 @@ const nextConfig = {
         destination: '/chat',
         permanent: true,
       },
+      {
+        source: '/platform',
+        destination: '/platform/ai-agents',
+        permanent: true,
+      },
     ];
   },
   async rewrites() {

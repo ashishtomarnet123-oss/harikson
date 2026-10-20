@@ -10,7 +10,7 @@ export const NAV_ITEMS = [
     id: 'platform',
     label: 'Platform',
     hasDropdown: true,
-    href: '/platform',
+    href: '/platform/ai-agents',
     columns: [
       {
         sectionTitle: 'Platform Capabilities',
@@ -33,12 +33,6 @@ export const NAV_ITEMS = [
             desc: 'Hybrid pgvector + BM25 search with AES-256 partition isolation',
             href: '/platform/knowledge-bases',
             icon: 'Database',
-          },
-          {
-            title: 'Platform Architecture',
-            desc: 'Overview of sovereign Indian cloud hosting and integrated model gateway',
-            href: '/platform',
-            icon: 'Cpu',
           },
         ],
       },

@@ -314,7 +314,7 @@ export default function SolutionsAgenciesPage() {
                 <Link href="/contact" className="btn-secondary">
                   <span>Contact Agency Lead</span>
                 </Link>
-                <Link href="/platform" className="btn-tertiary">
+                <Link href="/platform/ai-agents" className="btn-tertiary">
                   <span>Explore Platform Specs</span>
                 </Link>
               </div>

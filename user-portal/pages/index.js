@@ -1211,7 +1211,7 @@ export default function HomePage({ disableSeo = false } = {}) {
               <div className="integration-badge-item"><Database style={{ width: 16, height: 16, color: '#2563EB' }} /> <strong>Google Drive</strong></div>
               <div className="integration-badge-item"><FileText style={{ width: 16, height: 16, color: '#2563EB' }} /> <strong>Notion</strong></div>
               <div className="integration-badge-item"><Boxes style={{ width: 16, height: 16, color: '#2563EB' }} /> <strong>Figma</strong></div>
-              <Link href="/platform#integrations" style={{ fontSize: '0.82rem', fontWeight: 700, color: '#2563EB', textDecoration: 'none' }}>• And more...</Link>
+              <Link href="/platform/workflows" style={{ fontSize: '0.82rem', fontWeight: 700, color: '#2563EB', textDecoration: 'none' }}>• And more...</Link>
             </div>
           </div>
         </div>

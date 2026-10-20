@@ -90,7 +90,7 @@ export default function PlatformWorkflowsPage() {
           <div className="container">
             {/* Breadcrumb */}
             <nav className="breadcrumb-nav" aria-label="Breadcrumb">
-              <Link href="/platform" className="crumb-link">Platform</Link>
+              <Link href="/platform/ai-agents" className="crumb-link">Platform</Link>
               <ChevronRight size={14} className="crumb-sep" />
               <span className="crumb-current">Workflows</span>
             </nav>

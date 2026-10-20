@@ -109,7 +109,7 @@ sleep 35
 
 API_STATUS=$(curl -s -o /dev/null -w "%{http_code}" "https://api.xarwiz.com/health" 2>/dev/null || echo "failed")
 DOMAIN_STATUS=$(curl -s -o /dev/null -w "%{http_code}" "https://xarwiz.com" 2>/dev/null || echo "failed")
-PLATFORM_STATUS=$(curl -s -o /dev/null -w "%{http_code}" "https://xarwiz.com/platform" 2>/dev/null || echo "failed")
+PLATFORM_STATUS=$(curl -s -o /dev/null -w "%{http_code}" "https://xarwiz.com/platform/ai-agents" 2>/dev/null || echo "failed")
 SOLUTIONS_STATUS=$(curl -s -o /dev/null -w "%{http_code}" "https://xarwiz.com/solutions" 2>/dev/null || echo "failed")
 SECURITY_STATUS=$(curl -s -o /dev/null -w "%{http_code}" "https://xarwiz.com/security" 2>/dev/null || echo "failed")
 DEVELOPERS_STATUS=$(curl -s -o /dev/null -w "%{http_code}" "https://xarwiz.com/developers" 2>/dev/null || echo "failed")
@@ -124,7 +124,7 @@ echo -e "Direct IP Tenant API (Port 3008):   ${YELLOW}${IP_API} (Expected: BLOCK
 echo -e "Direct IP Admin Panel (Port 3018):  ${YELLOW}${IP_ADMIN} (Expected: BLOCKED)${NC}"
 echo -e "Direct IP User Portal (Port 3028):  ${YELLOW}${IP_PORTAL} (Expected: BLOCKED)${NC}"
 echo -e "Domain Home (xarwiz.com):           ${GREEN}HTTP ${DOMAIN_STATUS}${NC}"
-echo -e "Domain Platform (/platform):        ${GREEN}HTTP ${PLATFORM_STATUS}${NC}"
+echo -e "Domain Platform (/platform/ai-agents): ${GREEN}HTTP ${PLATFORM_STATUS}${NC}"
 echo -e "Domain Solutions (/solutions):      ${GREEN}HTTP ${SOLUTIONS_STATUS}${NC}"
 echo -e "Domain Security (/security):        ${GREEN}HTTP ${SECURITY_STATUS}${NC}"
 echo -e "Domain Developers (/developers):    ${GREEN}HTTP ${DEVELOPERS_STATUS}${NC}"
@@ -135,8 +135,8 @@ echo -e "Domain API (api.xarwiz.com):        ${GREEN}HTTP ${API_STATUS}${NC}"
 echo -e "\n${GREEN}======================================================================${NC}"
 echo -e "${GREEN}🎉 DOMAIN DEPLOYMENT TO XARWIZ.COM COMPLETED SUCCESSFULLY!${NC}"
 echo -e "${GREEN}======================================================================${NC}"
-echo -e "Main Website: https://xarwiz.com"
-echo -e "Platform:     https://xarwiz.com/platform"
+echo -e "Main Website:     https://xarwiz.com"
+echo -e "Platform Agents:  https://xarwiz.com/platform/ai-agents"
 echo -e "Solutions:    https://xarwiz.com/solutions"
 echo -e "Security:     https://xarwiz.com/security"
 echo -e "Developers:   https://xarwiz.com/developers"

@@ -194,7 +194,6 @@ export default function FooterSection({ hideBanner = false }) {
                 <li><Link href="/platform/ai-agents">AI Agent Builder</Link></li>
                 <li><Link href="/platform/workflows">Workflow Engine</Link></li>
                 <li><Link href="/platform/knowledge-bases">Knowledge Base (RAG)</Link></li>
-                <li><Link href="/platform">Platform Overview</Link></li>
               </ul>
             </div>
 
