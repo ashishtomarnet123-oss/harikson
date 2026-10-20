@@ -104,9 +104,8 @@ REMOTE_SCRIPT
 
 echo -e "${GREEN}✓ Remote build & launch finished${NC}"
 
-# 5. Health Check Verification
-echo -e "\n${YELLOW}[Step 4/4] Verifying live services & domain...${NC}"
-sleep 8
+echo -e "\n${YELLOW}[Step 4/4] Verifying live services & domain (waiting for health checks)...${NC}"
+sleep 35
 
 API_STATUS=$(curl -s -o /dev/null -w "%{http_code}" "https://api.xarwiz.com/health" 2>/dev/null || echo "failed")
 DOMAIN_STATUS=$(curl -s -o /dev/null -w "%{http_code}" "https://xarwiz.com" 2>/dev/null || echo "failed")
