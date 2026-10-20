@@ -86,7 +86,7 @@ const flow = new WorkflowBuilder("support-triage")
     minScore: 0.82
   })
   .reason({
-    model: "llama-3.2:3b", // local Indian cloud
+    model: "Xarwiz", // local Indian cloud
     prompt: "Answer user question with direct citations."
   })
   .branch({
@@ -230,7 +230,7 @@ const flow = new WorkflowBuilder("founder-weekly-digest")
   .cron("0 8 * * 1") // Every Monday at 08:00 AM
   .sql("SELECT count(*) as signups, sum(amount) as mrr FROM events WHERE created_at > now() - interval '7 days'")
   .reason({
-    model: "llama-3.2:3b",
+    model: "Xarwiz",
     prompt: "Generate 5-bullet executive summary comparing WoW growth metrics."
   })
   .action("slack.send_channel", { channel: "#founder-updates" })
