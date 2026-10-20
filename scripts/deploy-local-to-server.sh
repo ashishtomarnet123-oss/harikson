@@ -27,7 +27,7 @@ VM_IP=$(gcloud compute instances describe "${INSTANCE_NAME}" --zone="${ZONE}" --
 echo -e "${YELLOW}Target VM:${NC} ${INSTANCE_NAME} (${ZONE})"
 echo -e "${YELLOW}External IP:${NC} ${VM_IP}"
 
-# 2. Package local code cleanly (strip macOS metadata and large cache dirs)
+# 2. Package local code cleanly (strip macOS metadata, local envs and large cache dirs)
 echo -e "\n${YELLOW}[Step 1/4] Packaging local workspace...${NC}"
 COPYFILE_DISABLE=1 tar --exclude='node_modules' \
     --exclude='.next' \
@@ -36,6 +36,11 @@ COPYFILE_DISABLE=1 tar --exclude='node_modules' \
     --exclude='redis-data' \
     --exclude='.git' \
     --exclude='._*' \
+    --exclude='.env*' \
+    --exclude='*.env' \
+    --exclude='.DS_Store' \
+    --exclude='test-results' \
+    --exclude='playwright-report' \
     -czf "${TMP_ARCHIVE}" .
 
 ARCHIVE_SIZE=$(ls -lh "${TMP_ARCHIVE}" | awk '{print $5}')
@@ -54,10 +59,21 @@ gcloud compute ssh "${INSTANCE_NAME}" --zone="${ZONE}" << REMOTE_SCRIPT
     sudo mkdir -p ${REMOTE_PATH}
     sudo chown -R \$USER:\$USER ${REMOTE_PATH}
 
+    # Backup production .env before extraction
+    if [ -f ${REMOTE_PATH}/.env ]; then
+      cp -a ${REMOTE_PATH}/.env /tmp/.env.prod.bak
+    fi
+
     # Extract clean archive
     tar -xzf /tmp/harikson_deploy_latest.tar.gz -C ${REMOTE_PATH}
     rm -f /tmp/harikson_deploy_latest.tar.gz
     find ${REMOTE_PATH} -name "._*" -delete 2>/dev/null || true
+
+    # Restore production .env if backed up
+    if [ -f /tmp/.env.prod.bak ]; then
+      cp -a /tmp/.env.prod.bak ${REMOTE_PATH}/.env
+      rm -f /tmp/.env.prod.bak
+    fi
 
     cd ${REMOTE_PATH}
 
@@ -94,6 +110,11 @@ sleep 8
 
 API_STATUS=$(curl -s -o /dev/null -w "%{http_code}" "https://api.xarwiz.com/health" 2>/dev/null || echo "failed")
 DOMAIN_STATUS=$(curl -s -o /dev/null -w "%{http_code}" "https://xarwiz.com" 2>/dev/null || echo "failed")
+PLATFORM_STATUS=$(curl -s -o /dev/null -w "%{http_code}" "https://xarwiz.com/platform" 2>/dev/null || echo "failed")
+SOLUTIONS_STATUS=$(curl -s -o /dev/null -w "%{http_code}" "https://xarwiz.com/solutions" 2>/dev/null || echo "failed")
+SECURITY_STATUS=$(curl -s -o /dev/null -w "%{http_code}" "https://xarwiz.com/security" 2>/dev/null || echo "failed")
+DEVELOPERS_STATUS=$(curl -s -o /dev/null -w "%{http_code}" "https://xarwiz.com/developers" 2>/dev/null || echo "failed")
+CONTACT_STATUS=$(curl -s -o /dev/null -w "%{http_code}" "https://xarwiz.com/contact" 2>/dev/null || echo "failed")
 ADMIN_STATUS=$(curl -s -o /dev/null -w "%{http_code}" "https://admin.xarwiz.com/admin/login" 2>/dev/null || echo "failed")
 
 IP_API=$(curl -s -m 2 -o /dev/null -w "%{http_code}" "http://${VM_IP}:3008/health" 2>/dev/null || echo "BLOCKED")
@@ -103,7 +124,12 @@ IP_PORTAL=$(curl -s -m 2 -o /dev/null -w "%{http_code}" "http://${VM_IP}:3028/lo
 echo -e "Direct IP Tenant API (Port 3008):   ${YELLOW}${IP_API} (Expected: BLOCKED)${NC}"
 echo -e "Direct IP Admin Panel (Port 3018):  ${YELLOW}${IP_ADMIN} (Expected: BLOCKED)${NC}"
 echo -e "Direct IP User Portal (Port 3028):  ${YELLOW}${IP_PORTAL} (Expected: BLOCKED)${NC}"
-echo -e "Domain User Portal (xarwiz.com):    ${GREEN}HTTP ${DOMAIN_STATUS}${NC}"
+echo -e "Domain Home (xarwiz.com):           ${GREEN}HTTP ${DOMAIN_STATUS}${NC}"
+echo -e "Domain Platform (/platform):        ${GREEN}HTTP ${PLATFORM_STATUS}${NC}"
+echo -e "Domain Solutions (/solutions):      ${GREEN}HTTP ${SOLUTIONS_STATUS}${NC}"
+echo -e "Domain Security (/security):        ${GREEN}HTTP ${SECURITY_STATUS}${NC}"
+echo -e "Domain Developers (/developers):    ${GREEN}HTTP ${DEVELOPERS_STATUS}${NC}"
+echo -e "Domain Contact (/contact):          ${GREEN}HTTP ${CONTACT_STATUS}${NC}"
 echo -e "Domain Admin (admin.xarwiz.com):    ${GREEN}HTTP ${ADMIN_STATUS}${NC}"
 echo -e "Domain API (api.xarwiz.com):        ${GREEN}HTTP ${API_STATUS}${NC}"
 
@@ -111,6 +137,11 @@ echo -e "\n${GREEN}=============================================================
 echo -e "${GREEN}🎉 DOMAIN DEPLOYMENT TO XARWIZ.COM COMPLETED SUCCESSFULLY!${NC}"
 echo -e "${GREEN}======================================================================${NC}"
 echo -e "Main Website: https://xarwiz.com"
+echo -e "Platform:     https://xarwiz.com/platform"
+echo -e "Solutions:    https://xarwiz.com/solutions"
+echo -e "Security:     https://xarwiz.com/security"
+echo -e "Developers:   https://xarwiz.com/developers"
+echo -e "Contact:      https://xarwiz.com/contact"
 echo -e "Admin Panel:  https://admin.xarwiz.com/admin/login"
 echo -e "Tenant API:   https://api.xarwiz.com/health"
 
