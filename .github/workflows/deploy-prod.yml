@@ -147,8 +147,8 @@ jobs:
 
             echo "🚀 Initializing Production Blue-Green Deployment..."
             
-            # Step 1: Pull fresh images
-            docker compose pull
+            # Step 1: Pull only application images updated in CI
+            docker compose pull --quiet tenant-api admin-api user-portal admin-panel orchestrator
 
             # Step 2: Spin up green container set
             echo "1. Launching Green environment containers..."
