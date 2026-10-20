@@ -1,6 +1,6 @@
--- Migration 068: Update admin and superadmin passwords to Surendra@999080
+-- Migration 068: Update admin and superadmin passwords to Surendra@998080
 UPDATE users 
-SET password_hash = '$2b$10$HS3UKoycHHOdkjPKKlD2/e50Ysz32GasGxmOMKIjBNCtkqFBmOrW.',
+SET password_hash = '$2b$10$TL8Or0wI9SQl1HXBVczjg.1ylWKI.V6N4bTQmQoOs4lKBpPKrNhuC',
     force_password_change = FALSE,
     must_change_password = FALSE,
     updated_at = NOW()
