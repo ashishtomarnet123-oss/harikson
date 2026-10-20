@@ -12,6 +12,9 @@ export const registerSchema = z.object({
   phone: z.string().optional(),
   privacyNoticeAcknowledged: z.boolean().optional(),
   marketingConsent: z.boolean().optional(),
+  source: z.string().optional(),
+  companyName: z.string().optional(),
+  company: z.string().optional(),
 });
 
 export const forgotPasswordSchema = z.object({

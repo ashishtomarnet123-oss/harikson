@@ -58,9 +58,9 @@ export default function NeuravoltLightLandingPage() {
           </nav>
 
           <div className="flex items-center gap-3">
-            <button className="px-4 py-2 text-sm font-semibold text-slate-800 bg-white border border-slate-300 rounded-xl shadow-sm hover:bg-slate-50 transition">
+            <a href="/signup?source=book_demo" className="px-4 py-2 text-sm font-semibold text-slate-800 bg-white border border-slate-300 rounded-xl shadow-sm hover:bg-slate-50 transition">
               Book a Demo
-            </button>
+            </a>
             <button className="px-4 py-2 text-sm font-semibold text-white bg-blue-600 rounded-xl shadow-md shadow-blue-500/20 hover:bg-blue-700 transition">
               Start Free Trial
             </button>
@@ -100,9 +100,9 @@ export default function NeuravoltLightLandingPage() {
                 <button className="px-6 py-3 text-sm font-semibold text-white bg-blue-600 rounded-xl shadow-md shadow-blue-500/25 hover:bg-blue-700 transition">
                   Start Free for 14 Days
                 </button>
-                <button className="px-6 py-3 text-sm font-semibold text-slate-800 bg-white border border-slate-300 rounded-xl shadow-sm hover:bg-slate-50 transition">
+                <a href="/signup?source=book_live_demo" className="px-6 py-3 text-sm font-semibold text-slate-800 bg-white border border-slate-300 rounded-xl shadow-sm hover:bg-slate-50 transition">
                   Book Live Demo
-                </button>
+                </a>
               </div>
               <div className="flex items-center gap-3 text-xs text-slate-500">
                 <span>No credit card required</span>
@@ -278,9 +278,9 @@ export default function NeuravoltLightLandingPage() {
               <button className="px-6 py-3 bg-white text-blue-600 font-bold rounded-xl text-sm shadow hover:bg-slate-50 transition">
                 Start Free for 14 Days
               </button>
-              <button className="px-6 py-3 bg-transparent border border-blue-200 text-white font-bold rounded-xl text-sm hover:bg-white/10 transition">
+              <a href="/signup?source=book_live_demo" className="px-6 py-3 bg-transparent border border-blue-200 text-white font-bold rounded-xl text-sm hover:bg-white/10 transition">
                 Book Live Demo
-              </button>
+              </a>
             </div>
           </div>
           <div className="space-y-2 text-xs font-semibold text-blue-200">

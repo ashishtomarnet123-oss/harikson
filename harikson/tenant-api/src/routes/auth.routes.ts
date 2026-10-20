@@ -309,9 +309,11 @@ async function handleRegister(req: any, res: any) {
     name,
     phone,
     companyName,
+    company,
     tenantSlug,
     privacyNoticeAcknowledged,
     marketingConsent,
+    source,
   } = req.body;
   try {
     const ip =
@@ -349,7 +351,8 @@ async function handleRegister(req: any, res: any) {
     }
 
     // Every self-serve registration gets its own brand-new, isolated tenant
-    const effectiveSlug = (tenantSlug && tenantSlug !== 'default') ? tenantSlug : (companyName || name || 'workspace');
+    const effectiveCompany = companyName || company || null;
+    const effectiveSlug = (tenantSlug && tenantSlug !== 'default') ? tenantSlug : (effectiveCompany || name || 'workspace');
     const slugBase = effectiveSlug
       .toLowerCase()
       .replace(/[^a-z0-9-]/g, '')
@@ -361,7 +364,7 @@ async function handleRegister(req: any, res: any) {
       `INSERT INTO tenants (name, slug, plan, status, created_at)
        VALUES ($1, $2, 'free', 'active', NOW())
        RETURNING id`,
-      [companyName || (name ? `${name}'s Workspace` : 'My Workspace'), slugToUse]
+      [effectiveCompany || (name ? `${name}'s Workspace` : 'My Workspace'), slugToUse]
     );
     const tenantId = newTenantRes.rows[0].id;
 
@@ -369,24 +372,37 @@ async function handleRegister(req: any, res: any) {
     const verificationToken = crypto.randomBytes(32).toString('hex');
     const verificationTokenHash = crypto.createHash('sha256').update(verificationToken).digest('hex');
 
+    const cleanSource = (typeof source === 'string' && source.trim()) ? source.trim() : 'request_access';
+    const userSettings = { source: cleanSource };
+
     const newUserRes = await pool.query(
       `INSERT INTO users (
-        tenant_id, email, password_hash, name, phone, role, email_verified, email_verification_token, verification_token, status, created_at
+        tenant_id, email, password_hash, name, phone, company, role, email_verified, email_verification_token, verification_token, status, settings, created_at
        )
-       VALUES ($1, $2, $3, $4, $5, 'owner', true, $6, $6, 'pending', NOW())
+       VALUES ($1, $2, $3, $4, $5, $6, 'owner', true, $7, $7, 'pending', $8, NOW())
        RETURNING id, email, name, role, status, created_at`,
-      [tenantId, email, passwordHash, name, phone || null, verificationTokenHash]
+      [
+        tenantId,
+        email,
+        passwordHash,
+        name,
+        phone || null,
+        effectiveCompany,
+        verificationTokenHash,
+        JSON.stringify(userSettings),
+      ]
     );
 
     const user = newUserRes.rows[0];
 
     // Persist DPDP Consent Records & Audit Trail:
     // 1. service_processing (contractual necessity - granted upon account creation)
+    const consentCollectionSource = cleanSource === 'book_demo' || cleanSource === 'book_live_demo' ? cleanSource : 'signup';
     await pool.query(
       `INSERT INTO user_consents (tenant_id, user_id, purpose_id, status, notice_version, collection_source, last_changed_at)
-       VALUES ($1, $2, 'service_processing', 'granted', '2.0-dpdp', 'signup', NOW())
+       VALUES ($1, $2, 'service_processing', 'granted', '2.0-dpdp', $3, NOW())
        ON CONFLICT (tenant_id, user_id, purpose_id) DO NOTHING`,
-      [tenantId, user.id]
+      [tenantId, user.id, consentCollectionSource]
     ).catch((err) => logger.error('Failed to log service_processing consent:', err));
 
     await pool.query(
@@ -395,17 +411,17 @@ async function handleRegister(req: any, res: any) {
          notice_version, collection_source, ip_address, user_agent, metadata
        )
        VALUES ($1, $2, 'service_processing', 'granted', 'not_configured', 'granted',
-               '2.0-dpdp', 'signup', $3, $4, '{"lawful_basis": "contractual_necessity"}')`,
-      [tenantId, user.id, ip, userAgent]
+               '2.0-dpdp', $5, $3, $4, '{"lawful_basis": "contractual_necessity"}')`,
+      [tenantId, user.id, ip, userAgent, consentCollectionSource]
     ).catch((err) => logger.error('Failed to log service_processing audit event:', err));
 
     // 2. marketing_emails (unbundled optional consent - granted if checked, declined if unchecked)
     const marketingStatus = marketingConsent === true ? 'granted' : 'declined';
     await pool.query(
       `INSERT INTO user_consents (tenant_id, user_id, purpose_id, status, notice_version, collection_source, last_changed_at)
-       VALUES ($1, $2, 'marketing_emails', $3, '2.0-dpdp', 'signup', NOW())
+       VALUES ($1, $2, 'marketing_emails', $3, '2.0-dpdp', $4, NOW())
        ON CONFLICT (tenant_id, user_id, purpose_id) DO NOTHING`,
-      [tenantId, user.id, marketingStatus]
+      [tenantId, user.id, marketingStatus, consentCollectionSource]
     ).catch((err) => logger.error('Failed to log marketing consent:', err));
 
     await pool.query(
@@ -414,8 +430,8 @@ async function handleRegister(req: any, res: any) {
          notice_version, collection_source, ip_address, user_agent, metadata
        )
        VALUES ($1, $2, 'marketing_emails', $3, 'not_configured', $3,
-               '2.0-dpdp', 'signup', $4, $5, '{"lawful_basis": "consent"}')`,
-      [tenantId, user.id, marketingStatus, ip, userAgent]
+               '2.0-dpdp', $6, $4, $5, '{"lawful_basis": "consent"}')`,
+      [tenantId, user.id, marketingStatus, ip, userAgent, consentCollectionSource]
     ).catch((err) => logger.error('Failed to log marketing audit event:', err));
 
     // Assign Free Plan
@@ -433,11 +449,19 @@ async function handleRegister(req: any, res: any) {
       logger.error('Failed to send verification email:', err?.message || err)
     );
 
+    const successMsg =
+      cleanSource === 'book_demo'
+        ? 'Your demo request has been received.'
+        : cleanSource === 'book_live_demo'
+        ? 'Your live demo request has been received.'
+        : 'Your access request has been received.';
+
     res.status(201).json({
       success: true,
       status: 'pending_approval',
       requiresApproval: true,
-      message: 'Your access request has been received.',
+      source: cleanSource,
+      message: successMsg,
     });
   } catch (err: any) {
     logger.error('Registration error:', err?.message || err);

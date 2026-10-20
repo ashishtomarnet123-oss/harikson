@@ -1986,6 +1986,8 @@ app.get(['/admin/users', '/v1/admin/users'], adminAuth, async (req, res) => {
         u.country,
         u.bio,
         u.billing_info,
+        u.settings,
+        COALESCE(u.settings->>'source', 'request_access') as source,
         t.name as tenant_name,
         (SELECT COUNT(*) FROM conversations c WHERE c.user_id = u.id) as conversations_count,
         (SELECT COUNT(*) FROM messages m JOIN conversations c ON m.conversation_id = c.id WHERE c.user_id = u.id) as messages_count,

@@ -53,6 +53,53 @@ export default function SignupPage() {
     }
   }, [router]);
 
+  const requestSource =
+    (typeof router.query?.source === 'string' ? router.query.source : '') ||
+    (typeof window !== 'undefined'
+      ? new URLSearchParams(window.location.search).get('source') || ''
+      : '');
+
+  const isDemo = requestSource === 'book_demo';
+  const isLiveDemo = requestSource === 'book_live_demo';
+
+  const pageTitle = isLiveDemo
+    ? 'Book a Live Demo / Request Access'
+    : isDemo
+    ? 'Book a Demo / Request Access'
+    : 'Sign Up / Request Access';
+
+  const formHeading = isLiveDemo
+    ? 'Book a Live Demo'
+    : isDemo
+    ? 'Book a Demo'
+    : 'Request Access';
+
+  const formSubtitle = isLiveDemo
+    ? 'Schedule a live demonstration and request access to Xarwiz Cloud'
+    : isDemo
+    ? 'Schedule a product walkthrough and request access to Xarwiz Cloud'
+    : 'Request access to Xarwiz Cloud AI Platform';
+
+  const submitText = loading
+    ? 'Submitting request…'
+    : isLiveDemo
+    ? 'Book Live Demo'
+    : isDemo
+    ? 'Book a Demo'
+    : 'Request Access';
+
+  const successHeading = isLiveDemo
+    ? 'Live Demo Request Received'
+    : isDemo
+    ? 'Demo Request Received'
+    : 'Access Request Received';
+
+  const successMessage = isLiveDemo
+    ? "Thanks for requesting a live demo of Xarwiz Cloud.\n\nYour details have been submitted and your account is currently awaiting administrator review. Our team will reach out shortly to schedule your live walkthrough session.\n\nAs soon as an administrator approves your access, you will also be able to sign in and use the platform directly."
+    : isDemo
+    ? "Thanks for requesting a demo of Xarwiz Cloud.\n\nYour details have been submitted and your account is currently awaiting administrator review. Our team will reach out shortly to schedule your product walkthrough.\n\nAs soon as an administrator approves your access, you will also be able to sign in and use the platform directly."
+    : "Thanks for requesting access to Xarwiz Cloud.\n\nYou have been added to our invitation list. Your account is currently awaiting administrator approval.\n\nAs soon as an administrator approves your access, you'll be able to sign in and use the platform.\n\nWe'll notify you once your account has been approved.";
+
   const handleSignup = async (e) => {
     e.preventDefault();
     setError('');
@@ -89,6 +136,7 @@ export default function SignupPage() {
           phone,
           privacyNoticeAcknowledged,
           marketingConsent,
+          source: requestSource || 'request_access',
         }),
       });
       const data = await res.json();
@@ -104,7 +152,14 @@ export default function SignupPage() {
 
       if (data.requiresApproval || data.status === 'pending_approval' || data.success) {
         setIsPendingApproval(true);
-        setSuccess(data.message || 'Your access request has been received.');
+        setSuccess(
+          data.message ||
+            (isLiveDemo
+              ? 'Your live demo request has been received.'
+              : isDemo
+              ? 'Your demo request has been received.'
+              : 'Your access request has been received.')
+        );
       } else {
         setSuccess(data.message || 'Registration successful!');
       }
@@ -119,7 +174,7 @@ export default function SignupPage() {
   return (
     <>
       <SEOHead
-        title="Sign Up / Request Access"
+        title={pageTitle}
         description="Request access to your Xarwiz AI Platform workspace. Deploy autonomous AI agents, automate workflows, and connect enterprise data sources."
         canonicalPath="/signup"
       />
@@ -153,7 +208,7 @@ export default function SignupPage() {
               </div>
 
               <h1 className="login-title" style={{ fontSize: '1.4rem', marginBottom: '16px', color: '#0f172a' }}>
-                Access Request Received
+                {successHeading}
               </h1>
               
               <div style={{
@@ -165,15 +220,10 @@ export default function SignupPage() {
                 lineHeight: '1.75',
                 color: 'var(--text-secondary)',
                 textAlign: 'left',
-                marginBottom: '24px'
+                marginBottom: '24px',
+                whiteSpace: 'pre-line'
               }}>
-                Thanks for requesting access to Xarwiz Cloud.
-                <br /><br />
-                You have been added to our invitation list. Your account is currently awaiting administrator approval.
-                <br /><br />
-                As soon as an administrator approves your access, you'll be able to sign in and use the platform.
-                <br /><br />
-                We'll notify you once your account has been approved.
+                {successMessage}
               </div>
 
               <Link href="/login" passHref legacyBehavior>
@@ -193,8 +243,8 @@ export default function SignupPage() {
             </div>
           ) : (
             <>
-              <h1 className="login-title">Request Access</h1>
-              <p className="login-subtitle">Request access to Xarwiz Cloud AI Platform</p>
+              <h1 className="login-title">{formHeading}</h1>
+              <p className="login-subtitle">{formSubtitle}</p>
 
               <form onSubmit={handleSignup} autoComplete="on">
                 <div className="form-group">
@@ -314,7 +364,7 @@ export default function SignupPage() {
 
                 <button type="submit" className="btn-primary" disabled={loading}>
                   {loading && <span className="login-spinner" />}
-                  {loading ? 'Submitting request…' : 'Request Access'}
+                  {submitText}
                 </button>
               </form>
 

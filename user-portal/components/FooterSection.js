@@ -151,7 +151,7 @@ export default function FooterSection() {
 
           <div className="final-cta-btns">
             <Link href="/signup" className="btn-cta-white">Request Access</Link>
-            <Link href="/login" className="btn-cta-outline">Book Live Demo</Link>
+            <Link href="/signup?source=book_live_demo" className="btn-cta-outline">Book Live Demo</Link>
           </div>
         </div>
 

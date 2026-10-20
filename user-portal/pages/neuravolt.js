@@ -685,7 +685,7 @@ export default function NeuravoltLandingPage({ disableSeo = false } = {}) {
           </nav>
 
           <div className="header-ctas desktop-ctas">
-            <Link href="/login" className="btn-demo">Book a Demo</Link>
+            <Link href="/signup?source=book_demo" className="btn-demo">Book a Demo</Link>
             <Link href="/signup" className="btn-trial">Request Access</Link>
           </div>
 
@@ -734,7 +734,7 @@ export default function NeuravoltLandingPage({ disableSeo = false } = {}) {
                 <Link href="/signup" className="btn-mobile-primary" onClick={() => setMobileMenuOpen(false)}>
                   Request Access
                 </Link>
-                <Link href="/login" className="btn-mobile-secondary" onClick={() => setMobileMenuOpen(false)}>
+                <Link href="/signup?source=book_demo" className="btn-mobile-secondary" onClick={() => setMobileMenuOpen(false)}>
                   Book a Demo
                 </Link>
               </div>
@@ -782,7 +782,7 @@ export default function NeuravoltLandingPage({ disableSeo = false } = {}) {
 
             <div class="hero-buttons-row">
               <Link href="/signup" class="btn-hero-primary">Request Access</Link>
-              <Link href="/login" class="btn-hero-secondary">Book Live Demo</Link>
+              <Link href="/signup?source=book_live_demo" class="btn-hero-secondary">Book Live Demo</Link>
             </div>
 
             <div class="microcopy-row">
@@ -1425,7 +1425,7 @@ export default function NeuravoltLandingPage({ disableSeo = false } = {}) {
                 </ul>
               </div>
               <div>
-                <Link href="/login" class="btn-hero-secondary" style={{ width: '100%' }}>Book a Demo</Link>
+                <Link href="/signup?source=book_demo" class="btn-hero-secondary" style={{ width: '100%' }}>Book a Demo</Link>
               </div>
             </div>
 
@@ -1473,7 +1473,7 @@ export default function NeuravoltLandingPage({ disableSeo = false } = {}) {
 
               <div class="final-cta-btns">
                 <Link href="/signup" class="btn-cta-white">Request Access</Link>
-                <Link href="/login" class="btn-cta-outline">Book Live Demo</Link>
+                <Link href="/signup?source=book_live_demo" class="btn-cta-outline">Book Live Demo</Link>
               </div>
             </div>
 

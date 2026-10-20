@@ -45,6 +45,8 @@ interface User {
   email: string;
   role: string;
   status?: string;
+  source?: string;
+  settings?: any;
   tenant_name: string;
   created_at: string;
   conversations_count?: number;
@@ -72,7 +74,7 @@ export default function UsersPage() {
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'active' | 'suspended'>('all');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'demos' | 'active' | 'suspended'>('all');
   const apiBase = '/api-proxy';
   const [error, setError] = useState('');
 
@@ -849,6 +851,7 @@ export default function UsersPage() {
 
   // Filter Calculations
   const pendingCount = users.filter((u) => (u.status || 'active') === 'pending').length;
+  const demoCount = users.filter((u) => u.source === 'book_demo' || u.source === 'book_live_demo').length;
   const activeCount = users.filter((u) => (u.status || 'active') === 'active').length;
   const suspendedCount = users.filter((u) => u.status === 'suspended').length;
 
@@ -856,11 +859,20 @@ export default function UsersPage() {
     const q = (searchTerm || '').toLowerCase();
     const matchesSearch =
       (user.email || '').toLowerCase().includes(q) ||
+      (user.name || '').toLowerCase().includes(q) ||
+      (user.company || '').toLowerCase().includes(q) ||
+      (user.phone || '').toLowerCase().includes(q) ||
+      (user.source || '').toLowerCase().includes(q) ||
       (user.tenant_name || '').toLowerCase().includes(q) ||
       (user.role || '').toLowerCase().includes(q);
     
     const userStatus = user.status || 'active';
-    const matchesStatus = statusFilter === 'all' || userStatus === statusFilter;
+    const matchesStatus =
+      statusFilter === 'all'
+        ? true
+        : statusFilter === 'demos'
+        ? (user.source === 'book_demo' || user.source === 'book_live_demo')
+        : userStatus === statusFilter;
     
     return matchesSearch && matchesStatus;
   });
@@ -941,10 +953,10 @@ export default function UsersPage() {
             </div>
             <div>
               <div className="text-sm font-bold text-amber-900 dark:text-amber-200">
-                {pendingCount} Registration Request{pendingCount > 1 ? 's' : ''} Awaiting Approval
+                {pendingCount} Registration & Demo Request{pendingCount > 1 ? 's' : ''} Awaiting Approval
               </div>
               <div className="text-xs text-amber-700 dark:text-amber-400">
-                These users submitted public signup and require administrator authorization before they can log in.
+                These requests were submitted via Request Access / Book a Demo and require administrator authorization before users can log in.
               </div>
             </div>
           </div>
@@ -1020,6 +1032,17 @@ export default function UsersPage() {
             Pending Approval ({pendingCount})
           </button>
           <button
+            onClick={() => setStatusFilter('demos')}
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
+              statusFilter === 'demos'
+                ? 'bg-purple-600 text-white shadow-sm'
+                : 'text-purple-600 dark:text-purple-400 hover:bg-purple-500/10'
+            }`}
+          >
+            <Sparkles className="w-3.5 h-3.5" />
+            Demo Requests ({demoCount})
+          </button>
+          <button
             onClick={() => setStatusFilter('active')}
             className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
               statusFilter === 'active'
@@ -1089,8 +1112,17 @@ export default function UsersPage() {
                             {getInitials(user.email)}
                           </div>
                           <div className="min-w-0">
-                            <div className="font-semibold text-gray-900 dark:text-gray-200 truncate">
-                              {user.name || user.email}
+                            <div className="font-semibold text-gray-900 dark:text-gray-200 truncate flex items-center gap-1.5">
+                              <span>{user.name || user.email}</span>
+                              {user.source === 'book_live_demo' ? (
+                                <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-bold bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30 shrink-0">
+                                  Live Demo
+                                </span>
+                              ) : user.source === 'book_demo' ? (
+                                <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-bold bg-indigo-500/15 text-indigo-600 dark:text-indigo-400 border border-indigo-500/30 shrink-0">
+                                  Demo
+                                </span>
+                              ) : null}
                             </div>
                             <div className="text-[10px] text-gray-500 dark:text-gray-400 truncate">
                               {user.email}
@@ -1381,10 +1413,16 @@ export default function UsersPage() {
                 <div className="p-4 bg-amber-500/10 border border-amber-500/30 rounded-2xl flex items-center justify-between gap-4">
                   <div>
                     <div className="text-xs font-bold text-amber-900 dark:text-amber-200">
-                      User Awaiting Approval
+                      {selectedUser.source === 'book_live_demo'
+                        ? 'Live Demo Request Awaiting Approval'
+                        : selectedUser.source === 'book_demo'
+                        ? 'Demo Request Awaiting Approval'
+                        : 'User Awaiting Approval'}
                     </div>
                     <div className="text-[11px] text-amber-700 dark:text-amber-400 mt-0.5">
-                      This user submitted public signup and cannot access the platform until approved.
+                      {selectedUser.source === 'book_live_demo' || selectedUser.source === 'book_demo'
+                        ? 'This request was submitted via demo booking. Review details and allow access to activate their account.'
+                        : 'This user submitted public signup and cannot access the platform until approved.'}
                     </div>
                   </div>
                   <button
@@ -1642,6 +1680,40 @@ export default function UsersPage() {
                 </div>
 
                 <div className="bg-gray-50 dark:bg-gray-950/40 p-4 rounded-xl border border-gray-200 dark:border-gray-800/60 space-y-2.5 text-xs">
+                  <div className="flex justify-between items-center">
+                    <span className="text-gray-500 font-medium flex items-center gap-1.5">
+                      <Sparkles className="w-3.5 h-3.5 text-indigo-500" /> Request Source:
+                    </span>
+                    <span className="font-bold text-gray-800 dark:text-gray-200">
+                      {selectedUser.source === 'book_live_demo' ? (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30">
+                          Book Live Demo
+                        </span>
+                      ) : selectedUser.source === 'book_demo' ? (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-indigo-500/15 text-indigo-600 dark:text-indigo-400 border border-indigo-500/30">
+                          Book a Demo
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-slate-500/15 text-slate-600 dark:text-slate-400 border border-slate-500/30">
+                          {selectedUser.source || 'Request Access'}
+                        </span>
+                      )}
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-gray-500 font-medium flex items-center gap-1.5">
+                      <Clock className="w-3.5 h-3.5 text-gray-400" /> Submission Date & Time:
+                    </span>
+                    <span className="font-bold text-gray-800 dark:text-gray-200">
+                      {new Date(selectedUser.created_at).toLocaleString(undefined, {
+                        year: 'numeric',
+                        month: 'short',
+                        day: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit',
+                      })}
+                    </span>
+                  </div>
                   <div className="flex justify-between items-center">
                     <span className="text-gray-500 font-medium flex items-center gap-1.5">
                       <Phone className="w-3.5 h-3.5 text-gray-400" /> Phone Number:
