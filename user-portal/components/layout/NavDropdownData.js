@@ -102,49 +102,6 @@ export const NAV_ITEMS = [
     ],
   },
   {
-    id: 'pricing',
-    label: 'Pricing',
-    hasDropdown: false,
-    href: '/pricing',
-  },
-  {
-    id: 'resources',
-    label: 'Resources',
-    hasDropdown: true,
-    href: '/security',
-    columns: [
-      {
-        sectionTitle: 'Knowledge & Trust',
-        items: [
-          {
-            title: 'Security & Trust Center',
-            desc: 'SOC2/ISO readiness, AES-256 encryption, row-level security & pen-tests',
-            href: '/security',
-            icon: 'Lock',
-          },
-          {
-            title: 'DPDP Privacy Notice',
-            desc: 'Purpose-specific processing, consent safeguards & Indian data localization',
-            href: '/privacy',
-            icon: 'FileText',
-          },
-          {
-            title: 'Data Processing Agreement',
-            desc: 'Sub-processors, cross-border transfer safeguards & security measures',
-            href: '/data-processing',
-            icon: 'ShieldCheck',
-          },
-          {
-            title: 'Legal & Compliance Policies',
-            desc: 'Privacy Policy, Terms of Service, Acceptable Use & Grievance Redressal',
-            href: '/terms',
-            icon: 'Scale',
-          },
-        ],
-      },
-    ],
-  },
-  {
     id: 'company',
     label: 'Company',
     hasDropdown: true,
@@ -176,7 +133,7 @@ export const NAV_ITEMS = [
           {
             title: 'Grievance Redressal',
             desc: 'Statutory compliance channel under Indian DPDP Act 2023',
-            href: '/grievance',
+            href: '/terms',
             icon: 'Scale',
           },
         ],
