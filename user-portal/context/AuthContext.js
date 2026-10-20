@@ -73,10 +73,16 @@ export function AuthProvider({ children }) {
     if (typeof window === 'undefined') return;
 
     const { apiBase, tenantSlug } = getApiConfig();
-    const isPublicPage = [
-      '/login', '/signup', '/verify-email',
-      '/aup', '/privacy', '/terms', '/cookies', '/about', '/pricing', '/',
-    ].includes(router.pathname);
+    const publicPrefixes = [
+      '/login', '/signup', '/verify-email', '/forgot-password', '/unlock-account',
+      '/aup', '/privacy', '/privacy-policy', '/terms', '/cookies', '/cookie-policy',
+      '/about', '/pricing', '/', '/platform', '/solutions', '/developers',
+      '/contact', '/careers', '/security', '/security-policy', '/data-rights',
+      '/data-processing', '/share',
+    ];
+    const isPublicPage = publicPrefixes.some(prefix => 
+      router.pathname === prefix || (prefix !== '/' && router.pathname.startsWith(`${prefix}/`))
+    );
     const storedToken = localStorage.getItem('hk_access_token');
     const storedUser = localStorage.getItem('hk_user');
 
