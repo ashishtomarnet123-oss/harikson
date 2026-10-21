@@ -4,6 +4,7 @@ import { useRouter } from 'next/router';
 import {
   Shield,
   ChevronDown,
+  ChevronRight,
   Menu,
   X,
   ArrowRight,
@@ -224,27 +225,30 @@ export default function HeaderNav({ activePath = '' }) {
                                 </div>
                               )}
                               <div className="mega-menu-items-grid">
-                                {col.items.map((subItem, sIdx) => (
-                                  <Link
-                                    key={sIdx}
-                                    href={subItem.href}
-                                    className="mega-menu-item-link"
-                                    onClick={() => setActiveDropdown(null)}
-                                  >
-                                    <div className="icon-wrapper">
-                                      {renderIcon(subItem.icon)}
-                                    </div>
-                                    <div className="item-text-wrapper">
-                                      <div className="item-title-row">
+                                {col.items.map((subItem, sIdx) => {
+                                  const badgeClass = subItem.badge
+                                    ? `badge-${subItem.badge.toLowerCase().replace(/[^a-z0-9]/g, '-')}`
+                                    : '';
+                                  return (
+                                    <Link
+                                      key={sIdx}
+                                      href={subItem.href}
+                                      className="mega-menu-item-link"
+                                      onClick={() => setActiveDropdown(null)}
+                                    >
+                                      <div className="icon-wrapper">
+                                        {renderIcon(subItem.icon)}
+                                      </div>
+                                      <div className="item-text-wrapper">
                                         <span className="item-title">{subItem.title}</span>
                                         {subItem.badge && (
-                                          <span className="item-badge">{subItem.badge}</span>
+                                          <span className={`item-badge ${badgeClass}`}>{subItem.badge}</span>
                                         )}
                                       </div>
-                                      <p className="item-desc">{subItem.desc}</p>
-                                    </div>
-                                  </Link>
-                                ))}
+                                      <ChevronRight size={13} className="item-arrow" />
+                                    </Link>
+                                  );
+                                })}
                               </div>
                             </div>
                           ))}
@@ -348,27 +352,30 @@ export default function HeaderNav({ activePath = '' }) {
                           <div id={`mobile-sublinks-${item.id}`} className="mobile-sublinks-box">
                             {item.columns.map((col, cIdx) => (
                               <div key={cIdx} className="mobile-subcol">
-                                {col.items.map((sub, sIdx) => (
-                                  <Link
-                                    key={sIdx}
-                                    href={sub.href}
-                                    className="mobile-sublink"
-                                    onClick={() => setMobileMenuOpen(false)}
-                                  >
-                                    <div className="mobile-sublink-icon">
-                                      {renderIcon(sub.icon)}
-                                    </div>
-                                    <div className="mobile-sublink-content">
-                                      <div className="mobile-sublink-title">
-                                        {sub.title}
+                                {col.items.map((sub, sIdx) => {
+                                  const badgeClass = sub.badge
+                                    ? `badge-${sub.badge.toLowerCase().replace(/[^a-z0-9]/g, '-')}`
+                                    : '';
+                                  return (
+                                    <Link
+                                      key={sIdx}
+                                      href={sub.href}
+                                      className="mobile-sublink"
+                                      onClick={() => setMobileMenuOpen(false)}
+                                    >
+                                      <div className="mobile-sublink-icon">
+                                        {renderIcon(sub.icon)}
+                                      </div>
+                                      <div className="mobile-sublink-content">
+                                        <span className="mobile-sublink-title">{sub.title}</span>
                                         {sub.badge && (
-                                          <span className="mobile-sublink-badge">{sub.badge}</span>
+                                          <span className={`mobile-sublink-badge ${badgeClass}`}>{sub.badge}</span>
                                         )}
                                       </div>
-                                      <div className="mobile-sublink-desc">{sub.desc}</div>
-                                    </div>
-                                  </Link>
-                                ))}
+                                      <ChevronRight size={14} className="mobile-sublink-arrow" />
+                                    </Link>
+                                  );
+                                })}
                               </div>
                             ))}
                           </div>
@@ -511,36 +518,48 @@ export default function HeaderNav({ activePath = '' }) {
         .mega-menu-flyout {
           position: absolute;
           top: calc(100% + 8px);
-          left: 50%;
-          transform: translateX(-50%);
-          width: 480px;
+          left: 0;
+          min-width: 290px;
+          max-width: 320px;
+          width: max-content;
           background: #ffffff;
-          border: 1px solid #e2e8f0;
-          border-radius: 16px;
-          box-shadow: 0 20px 40px -15px rgba(15, 23, 42, 0.12), 0 0 0 1px rgba(0, 0, 0, 0.03);
-          padding: 16px;
+          border: 1px solid rgba(226, 232, 240, 0.9);
+          border-radius: 14px;
+          box-shadow: 0 16px 36px -6px rgba(15, 23, 42, 0.1), 0 0 0 1px rgba(15, 23, 42, 0.04);
+          padding: 8px;
           z-index: 1000;
-          animation: flyoutSlideDown 0.18s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+          animation: flyoutSlideDown 0.16s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+
+        /* Hover bridge to keep dropdown open smoothly while moving mouse */
+        .mega-menu-flyout::before {
+          content: '';
+          position: absolute;
+          top: -10px;
+          left: 0;
+          right: 0;
+          height: 10px;
         }
 
         @keyframes flyoutSlideDown {
           from {
             opacity: 0;
-            transform: translate(-50%, -6px);
+            transform: translateY(-4px);
           }
           to {
             opacity: 1;
-            transform: translate(-50%, 0);
+            transform: translateY(0);
           }
         }
 
         .mega-menu-section-header {
-          font-size: 0.72rem;
+          font-size: 0.68rem;
           font-weight: 700;
           text-transform: uppercase;
-          letter-spacing: 0.05em;
+          letter-spacing: 0.06em;
           color: #94a3b8;
-          padding: 4px 12px 8px;
+          padding: 6px 10px 6px;
+          margin-bottom: 2px;
         }
 
         .mega-menu-items-grid {
@@ -549,71 +568,129 @@ export default function HeaderNav({ activePath = '' }) {
           gap: 2px;
         }
 
+        /* Mega Menu Item Link - Guaranteed zero underlines & full hit target */
+        :global(.mega-menu-item-link),
         .mega-menu-item-link {
-          display: flex;
-          align-items: flex-start;
-          gap: 12px;
-          padding: 10px 12px;
-          border-radius: 10px;
-          text-decoration: none;
-          transition: background 0.15s ease;
+          display: flex !important;
+          align-items: center !important;
+          gap: 10px;
+          padding: 8px 10px;
+          border-radius: 9px;
+          text-decoration: none !important;
+          color: #0f172a !important;
+          background: transparent;
+          transition: all 0.15s cubic-bezier(0.16, 1, 0.3, 1);
+          cursor: pointer;
         }
 
+        :global(.mega-menu-item-link:hover),
         .mega-menu-item-link:hover {
-          background: #f8fafc;
+          background: #f8fafc !important;
+          text-decoration: none !important;
+        }
+
+        :global(.mega-menu-item-link *),
+        .mega-menu-item-link * {
+          text-decoration: none !important;
         }
 
         .icon-wrapper {
-          width: 36px;
-          height: 36px;
+          width: 32px;
+          height: 32px;
           border-radius: 8px;
-          background: #eff6ff;
-          color: #2563eb;
+          background: #f1f5f9;
+          border: 1px solid #e2e8f0;
+          color: #475569;
           display: flex;
           align-items: center;
           justify-content: center;
           flex-shrink: 0;
-          transition: transform 0.15s ease, background 0.15s ease;
+          transition: all 0.15s cubic-bezier(0.16, 1, 0.3, 1);
         }
 
+        :global(.mega-menu-item-link:hover) .icon-wrapper,
         .mega-menu-item-link:hover .icon-wrapper {
-          background: #dbeafe;
+          background: #eff6ff;
+          border-color: #bfdbfe;
+          color: #2563eb;
           transform: scale(1.05);
         }
 
         .item-text-wrapper {
           flex: 1;
-        }
-
-        .item-title-row {
           display: flex;
           align-items: center;
           gap: 8px;
-          margin-bottom: 2px;
+          min-width: 0;
         }
 
         .item-title {
-          font-size: 0.88rem;
-          font-weight: 600;
+          font-size: 0.86rem;
+          font-weight: 500;
           color: #0f172a;
+          letter-spacing: -0.01em;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          text-decoration: none !important;
+          transition: color 0.15s ease;
+        }
+
+        :global(.mega-menu-item-link:hover) .item-title,
+        .mega-menu-item-link:hover .item-title {
+          color: #2563eb;
+          font-weight: 600;
         }
 
         .item-badge {
           font-size: 0.65rem;
-          font-weight: 700;
+          font-weight: 600;
           padding: 2px 7px;
-          border-radius: 10px;
-          background: #f0fdf4;
-          color: #16a34a;
-          border: 1px solid #bbf7d0;
-          line-height: 1;
+          border-radius: 9999px;
+          line-height: 1.2;
+          white-space: nowrap;
+          letter-spacing: 0.01em;
+          background: #f1f5f9;
+          color: #475569;
+          border: 1px solid #e2e8f0;
         }
 
-        .item-desc {
-          margin: 0;
-          font-size: 0.78rem;
-          color: #64748b;
-          line-height: 1.4;
+        :global(.badge-popular),
+        .badge-popular {
+          background: #ecfdf5 !important;
+          color: #059669 !important;
+          border: 1px solid #a7f3d0 !important;
+        }
+
+        :global(.badge-fast-response),
+        .badge-fast-response {
+          background: #eff6ff !important;
+          color: #2563eb !important;
+          border: 1px solid #bfdbfe !important;
+        }
+
+        :global(.badge-we-re-hiring),
+        .badge-we-re-hiring {
+          background: #fdf4ff !important;
+          color: #9333ea !important;
+          border: 1px solid #f0abfc !important;
+        }
+
+        :global(.item-arrow),
+        .item-arrow {
+          opacity: 0;
+          color: #94a3b8;
+          flex-shrink: 0;
+          transition: all 0.15s ease;
+          transform: translateX(-3px);
+          margin-left: auto;
+        }
+
+        :global(.mega-menu-item-link:hover) :global(.item-arrow),
+        .mega-menu-item-link:hover :global(.item-arrow) {
+          opacity: 0.85;
+          color: #2563eb;
+          transform: translateX(0);
         }
 
         /* Desktop CTAs */
@@ -850,50 +927,83 @@ export default function HeaderNav({ activePath = '' }) {
           }
 
           .mobile-sublinks-box {
-            padding: 6px 8px 10px 12px;
+            padding: 4px 6px 8px 12px;
             display: flex;
             flex-direction: column;
-            gap: 8px;
+            gap: 4px;
           }
 
+          :global(.mobile-sublink),
           .mobile-sublink {
-            display: flex;
-            align-items: flex-start;
+            display: flex !important;
+            align-items: center !important;
             gap: 10px;
             padding: 8px 10px;
             border-radius: 8px;
-            text-decoration: none;
+            text-decoration: none !important;
+            color: #0f172a !important;
             background: #f8fafc;
+            transition: all 0.15s ease;
+          }
+
+          :global(.mobile-sublink:active),
+          .mobile-sublink:active {
+            background: #eff6ff !important;
+          }
+
+          :global(.mobile-sublink *),
+          .mobile-sublink * {
+            text-decoration: none !important;
           }
 
           .mobile-sublink-icon {
+            color: #475569;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+          }
+
+          :global(.mobile-sublink:hover) .mobile-sublink-icon,
+          .mobile-sublink:hover .mobile-sublink-icon {
             color: #2563eb;
-            margin-top: 2px;
+          }
+
+          .mobile-sublink-content {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            min-width: 0;
           }
 
           .mobile-sublink-title {
             font-size: 0.85rem;
-            font-weight: 600;
+            font-weight: 500;
             color: #0f172a;
-            display: flex;
-            align-items: center;
-            gap: 6px;
+            text-decoration: none !important;
+          }
+
+          :global(.mobile-sublink:hover) .mobile-sublink-title,
+          .mobile-sublink:hover .mobile-sublink-title {
+            color: #2563eb;
+            font-weight: 600;
           }
 
           .mobile-sublink-badge {
-            font-size: 0.6rem;
-            font-weight: 700;
-            padding: 2px 5px;
-            border-radius: 6px;
-            background: #f0fdf4;
-            color: #16a34a;
+            font-size: 0.62rem;
+            font-weight: 600;
+            padding: 2px 6px;
+            border-radius: 9999px;
+            background: #f1f5f9;
+            color: #475569;
           }
 
-          .mobile-sublink-desc {
-            font-size: 0.72rem;
-            color: #64748b;
-            line-height: 1.3;
-            margin-top: 2px;
+          :global(.mobile-sublink-arrow),
+          .mobile-sublink-arrow {
+            color: #cbd5e1;
+            flex-shrink: 0;
+            margin-left: auto;
           }
 
           .mobile-drawer-ctas {
