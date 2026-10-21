@@ -34,27 +34,8 @@ const redis = new Redis(process.env.REDIS_URL || 'redis://redis:6379', {
 // real caller - breaking per-user token attribution and, since the
 // /conversations user filter was conditional on req.user existing, letting
 // any caller list and read every other user's conversations in the tenant.
-router.use((req: any, res, next) => {
-  const authHeader = req.headers.authorization || '';
-  if (authHeader.startsWith('Bearer hk_live_')) {
-    return requireAuth(req, res, next);
-  }
-  const cookieToken = req.cookies?.hk_access_token;
-  let token = '';
-  if (authHeader.startsWith('Bearer ')) {
-    token = authHeader.substring(7);
-  } else if (cookieToken) {
-    token = cookieToken;
-  }
-  if (!token) {
-    return res.status(401).json({ error: 'Unauthorized' });
-  }
-  try {
-    req.user = jwt.verify(token, process.env.JWT_SECRET!);
-  } catch (err) {
-    return res.status(401).json({ error: 'Unauthorized' });
-  }
-  next();
+router.use((req: any, res: any, next: any) => {
+  return requireAuth(req, res, next);
 });
 
 const AI_UNAVAILABLE_MSG = 'AI service is temporarily unavailable. Please try again in a moment.';

@@ -195,27 +195,97 @@ router.get('/overview', async (req, res) => {
       prevKpi = prevKpisRes.rows[0];
     }
 
-    // 3. Subscriptions & MRR snapshot
+    // 3. Subscriptions & MRR snapshot (INR-Only reporting with auditable benchmark FX conversion)
     const subsQuery = `
+      WITH tenant_sub_data AS (
+        SELECT
+          t.id AS tenant_id,
+          s.amount,
+          s.currency AS sub_currency,
+          s.metadata AS sub_metadata,
+          p.price AS plan_price,
+          p.currency AS plan_currency,
+          p.billing AS plan_billing,
+          t.status AS tenant_status
+        FROM tenants t
+        LEFT JOIN LATERAL (
+          SELECT s.amount, s.currency, s.metadata
+          FROM subscriptions s
+          WHERE s.tenant_id = t.id AND s.status IN ('active', 'canceling') AND s.amount > 0
+          ORDER BY s.created_at DESC
+          LIMIT 1
+        ) s ON true
+        LEFT JOIN plans p ON (LOWER(t.plan) = LOWER(p.id) OR (LOWER(t.plan) = 'pro' AND LOWER(p.id) = 'professional'))
+      ),
+      tenant_mrr AS (
+        SELECT
+          tenant_id,
+          COALESCE(
+            amount,
+            CASE WHEN tenant_status = 'active' AND plan_price > 0 THEN plan_price ELSE 0 END
+          ) AS raw_monthly_amount,
+          COALESCE(
+            UPPER(TRIM(sub_currency)),
+            CASE WHEN tenant_status = 'active' AND plan_price > 0 AND plan_currency IS NOT NULL AND TRIM(plan_currency) != ''
+                 THEN UPPER(TRIM(plan_currency)) ELSE 'INR' END
+          ) AS currency,
+          -- Check if an explicit conversion rate was recorded in subscription metadata
+          (sub_metadata->>'fx_rate')::numeric AS explicit_fx_rate
+        FROM tenant_sub_data
+      ),
+      tenant_mrr_converted AS (
+        SELECT
+          tenant_id,
+          raw_monthly_amount,
+          currency,
+          CASE
+            WHEN raw_monthly_amount = 0 THEN 0
+            WHEN currency = 'INR' THEN raw_monthly_amount
+            WHEN currency = 'USD' THEN raw_monthly_amount * COALESCE(explicit_fx_rate, 84.50)
+            ELSE NULL -- Unapproved/unsupported foreign currency: cannot convert without official policy
+          END AS inr_monthly_amount
+        FROM tenant_mrr
+      ),
+      currency_kpi AS (
+        SELECT
+          COALESCE(
+            (SELECT json_object_agg(currency, currency_raw_sum)
+             FROM (
+               SELECT currency, SUM(raw_monthly_amount) AS currency_raw_sum
+               FROM tenant_mrr_converted
+               WHERE raw_monthly_amount > 0
+               GROUP BY currency
+             ) cb),
+            '{}'::json
+          ) AS mrr_by_currency,
+          (SELECT COUNT(*) FROM tenant_mrr_converted WHERE raw_monthly_amount > 0 AND inr_monthly_amount IS NULL) AS unconvertible_count,
+          (SELECT COALESCE(SUM(inr_monthly_amount), 0) FROM tenant_mrr_converted WHERE raw_monthly_amount > 0) AS total_mrr_inr,
+          (SELECT COUNT(DISTINCT currency) FROM tenant_mrr_converted WHERE raw_monthly_amount > 0) AS distinct_currency_count
+      ),
+      revenue_kpi AS (
+        SELECT
+          COUNT(DISTINCT CASE WHEN raw_monthly_amount > 0 THEN tenant_id END) AS active_paid_subs
+        FROM tenant_mrr_converted
+      ),
+      sub_metrics AS (
+        SELECT
+          COUNT(DISTINCT CASE WHEN status IN ('trial', 'trialing') THEN id END) AS trial_subs,
+          COUNT(DISTINCT CASE WHEN status = 'cancelled' THEN id END) AS cancelled_subs_all,
+          COUNT(DISTINCT CASE WHEN status = 'cancelled' AND updated_at >= $1 AND updated_at <= $2 THEN id END) AS cancelled_subs_period,
+          COUNT(DISTINCT CASE WHEN status = 'past_due' THEN id END) AS past_due_subs
+        FROM subscriptions
+      )
       SELECT
-        COALESCE(SUM(
-          CASE 
-            WHEN s.status IN ('active', 'canceling') AND s.amount > 0 THEN s.amount 
-            WHEN (s.id IS NULL OR s.status IN ('active', 'canceling')) AND p.price > 0 AND t.status = 'active' THEN p.price
-            ELSE 0 
-          END
-        ), 0) AS mrr,
-        COUNT(DISTINCT CASE 
-          WHEN (s.status IN ('active', 'canceling') AND s.amount > 0) OR (p.price > 0 AND t.status = 'active') 
-          THEN COALESCE(s.tenant_id, t.id) 
-        END) AS active_paid_subs,
-        COUNT(DISTINCT CASE WHEN s.status IN ('trial', 'trialing') THEN s.id END) AS trial_subs,
-        COUNT(DISTINCT CASE WHEN s.status = 'cancelled' THEN s.id END) AS cancelled_subs_all,
-        COUNT(DISTINCT CASE WHEN s.status = 'cancelled' AND s.updated_at >= $1 AND s.updated_at <= $2 THEN s.id END) AS cancelled_subs_period,
-        COUNT(DISTINCT CASE WHEN s.status = 'past_due' THEN s.id END) AS past_due_subs
-      FROM plans p
-      LEFT JOIN subscriptions s ON LOWER(s.plan_id) = LOWER(p.id)
-      LEFT JOIN tenants t ON LOWER(t.plan) = LOWER(p.id)
+        currency_kpi.mrr_by_currency,
+        currency_kpi.unconvertible_count,
+        currency_kpi.total_mrr_inr,
+        currency_kpi.distinct_currency_count,
+        revenue_kpi.active_paid_subs,
+        sub_metrics.trial_subs,
+        sub_metrics.cancelled_subs_all,
+        sub_metrics.cancelled_subs_period,
+        sub_metrics.past_due_subs
+      FROM currency_kpi, revenue_kpi, sub_metrics;
     `;
     const subsRes = await pool.query(subsQuery, [start, end]);
     const subsKpi = subsRes.rows[0];
@@ -243,15 +313,58 @@ router.get('/overview', async (req, res) => {
     const tenantsRes = await pool.query(tenantsQuery);
     const tenantKpi = tenantsRes.rows[0];
 
-    // Derived Financial KPIs
+    // Derived Financial KPIs (all in INR)
     const grossRev = parseFloat(currKpi.period_gross_revenue);
     const refunds = parseFloat(currKpi.period_refunds);
     const netRev = Math.max(0, grossRev - refunds);
-    const mrr = parseFloat(subsKpi.mrr);
-    const arr = mrr * 12;
+
+    const mrrByCurrencyRaw = subsKpi.mrr_by_currency || {};
+    const mrrByCurrency = {};
+    if (typeof mrrByCurrencyRaw === 'object' && mrrByCurrencyRaw !== null) {
+      Object.keys(mrrByCurrencyRaw).forEach((curr) => {
+        mrrByCurrency[curr] = parseFloat(mrrByCurrencyRaw[curr]) || 0;
+      });
+    }
+
+    const unconvertibleCount = parseInt(subsKpi.unconvertible_count, 10) || 0;
+    const currencyCount = parseInt(subsKpi.distinct_currency_count, 10) || 0;
+    const totalMrrInr = parseFloat(subsKpi.total_mrr_inr) || 0;
+    const currencies = Object.keys(mrrByCurrency);
+
+    let mrr = null;
+    let arr = null;
+    let mrrConsolidated = null;
+    let mrrStatus = 'empty';
+
+    if (currencyCount === 0) {
+      mrr = 0;
+      arr = 0;
+      mrrConsolidated = 0;
+      mrrStatus = 'zero_active_subscriptions';
+    } else if (unconvertibleCount > 0) {
+      // Unapproved foreign currency present that cannot be reliably converted:
+      // Mark MRR unavailable and explain why rather than reporting ₹0!
+      mrr = null;
+      arr = null;
+      mrrConsolidated = null;
+      mrrStatus = 'unsupported_currency_pending_conversion';
+    } else if (currencyCount === 1 && currencies[0] === 'INR') {
+      // 100% Native INR subscriptions
+      mrr = Math.round(totalMrrInr * 100) / 100;
+      arr = Math.round(mrr * 12 * 100) / 100;
+      mrrConsolidated = mrr;
+      mrrStatus = 'inr_native_verified';
+    } else {
+      // Contains converted USD subscriptions under audited benchmark FX rate (84.50 INR/USD)
+      mrr = Math.round(totalMrrInr * 100) / 100;
+      arr = Math.round(mrr * 12 * 100) / 100;
+      mrrConsolidated = mrr;
+      mrrStatus = 'inr_converted_with_fx_audit';
+    }
+
     const payingCustomers = parseInt(currKpi.paying_customers_period, 10);
     const paidInvoices = parseInt(currKpi.paid_invoice_count, 10);
-    const arppu = payingCustomers > 0 ? Math.round((grossRev / payingCustomers) * 100) / 100 : 0;
+    const arppu = payingCustomers > 0 && mrr !== null ? Math.round((grossRev / payingCustomers) * 100) / 100 : 0;
     const atv = paidInvoices > 0 ? Math.round((grossRev / paidInvoices) * 100) / 100 : 0;
 
     // Derived User & Sub KPIs
@@ -372,19 +485,45 @@ router.get('/overview', async (req, res) => {
         COALESCE(p.agent_limit, -1) AS agent_limit,
         COALESCE(p.is_active, true) AS is_active,
         COALESCE(p.is_recommended, false) AS is_recommended,
-        COALESCE(SUM(CASE WHEN i.status = 'paid' AND i.paid_at >= $1 AND i.paid_at <= $2 THEN i.amount ELSE 0 END), 0)::numeric(10,2) AS net_collected,
-        COUNT(DISTINCT CASE WHEN i.status = 'paid' AND i.paid_at >= $1 AND i.paid_at <= $2 THEN i.id END)::int AS successful_payments,
-        COUNT(DISTINCT CASE WHEN i.status = 'paid' AND i.paid_at >= $1 AND i.paid_at <= $2 THEN i.tenant_id END)::int AS paying_customers,
-        COUNT(DISTINCT CASE 
-          WHEN (s.status IN ('active', 'canceling') OR (s.id IS NULL AND t.status = 'active'))
-          THEN COALESCE(s.tenant_id, t.id) 
-        END)::int AS active_subscribers,
-        COUNT(DISTINCT CASE WHEN s.status = 'cancelled' AND s.updated_at >= $1 AND s.updated_at <= $2 THEN s.id END)::int AS cancellations
+        COALESCE((
+          SELECT SUM(i.amount)
+          FROM invoices i
+          JOIN tenants t ON t.id = i.tenant_id
+          WHERE (LOWER(t.plan) = LOWER(p.id) OR (LOWER(t.plan) = 'pro' AND LOWER(p.id) = 'professional'))
+            AND i.status = 'paid'
+            AND i.paid_at >= $1 AND i.paid_at <= $2
+        ), 0)::numeric(10,2) AS net_collected,
+        COALESCE((
+          SELECT COUNT(DISTINCT i.id)
+          FROM invoices i
+          JOIN tenants t ON t.id = i.tenant_id
+          WHERE (LOWER(t.plan) = LOWER(p.id) OR (LOWER(t.plan) = 'pro' AND LOWER(p.id) = 'professional'))
+            AND i.status = 'paid'
+            AND i.paid_at >= $1 AND i.paid_at <= $2
+        ), 0)::int AS successful_payments,
+        COALESCE((
+          SELECT COUNT(DISTINCT i.tenant_id)
+          FROM invoices i
+          JOIN tenants t ON t.id = i.tenant_id
+          WHERE (LOWER(t.plan) = LOWER(p.id) OR (LOWER(t.plan) = 'pro' AND LOWER(p.id) = 'professional'))
+            AND i.status = 'paid'
+            AND i.paid_at >= $1 AND i.paid_at <= $2
+        ), 0)::int AS paying_customers,
+        COALESCE((
+          SELECT COUNT(DISTINCT t.id)
+          FROM tenants t
+          LEFT JOIN subscriptions s ON s.tenant_id = t.id AND s.status IN ('active', 'canceling')
+          WHERE (LOWER(t.plan) = LOWER(p.id) OR (LOWER(t.plan) = 'pro' AND LOWER(p.id) = 'professional'))
+            AND (s.id IS NOT NULL OR t.status = 'active')
+        ), 0)::int AS active_subscribers,
+        COALESCE((
+          SELECT COUNT(DISTINCT s.id)
+          FROM subscriptions s
+          WHERE (LOWER(s.plan_id) = LOWER(p.id) OR (LOWER(s.plan_id) = 'pro' AND LOWER(p.id) = 'professional'))
+            AND s.status = 'cancelled'
+            AND s.updated_at >= $1 AND s.updated_at <= $2
+        ), 0)::int AS cancellations
       FROM plans p
-      LEFT JOIN subscriptions s ON LOWER(s.plan_id) = LOWER(p.id)
-      LEFT JOIN tenants t ON LOWER(t.plan) = LOWER(p.id)
-      LEFT JOIN invoices i ON (i.subscription_id = s.id OR i.tenant_id = s.tenant_id OR i.tenant_id = t.id)
-      GROUP BY p.id, p.name, p.tier, p.price, p.billing, p.currency, p.token_limit, p.agent_limit, p.is_active, p.is_recommended
       ORDER BY p.price ASC, net_collected DESC
     `;
     const planBreakdownRes = await pool.query(planBreakdownQuery, [start, end]);
@@ -622,6 +761,9 @@ router.get('/overview', async (req, res) => {
         netRevenue: netRev,
         mrr,
         arr,
+        mrrConsolidated,
+        mrrByCurrency,
+        mrrStatus,
         arppu,
         averageTransactionValue: atv,
         failedAmount: parseFloat(currKpi.failed_amount),
@@ -642,6 +784,8 @@ router.get('/overview', async (req, res) => {
         trialConversionRate,
         deltas,
       },
+      mrrByCurrency,
+      mrrStatus,
       revenueTimeSeries,
       grossVsNet,
       plansBreakdown,

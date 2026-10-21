@@ -59,8 +59,12 @@ interface OverviewPayload {
     grossRevenue: number;
     refunds: number;
     netRevenue: number;
-    mrr: number;
-    arr: number;
+    mrr: number | null;
+    arr: number | null;
+    mrrConsolidated?: number | null;
+    mrrByCurrency?: Record<string, number>;
+    mrrStatus?: string;
+    currency?: string;
     arppu: number;
     averageTransactionValue: number;
     failedAmount: number;
@@ -232,15 +236,21 @@ const DATE_PRESETS = [
 
 // ─── Number & Currency Formatter ─────────────────────────────────────────────
 
-function formatINR(val: number) {
+function formatINR(val: number | null | undefined, fallback: string = 'Unavailable'): string {
+  if (val === null || val === undefined || isNaN(val)) {
+    return fallback;
+  }
   return new Intl.NumberFormat('en-IN', {
     style: 'currency',
     currency: 'INR',
     maximumFractionDigits: 0,
-  }).format(val || 0);
+  }).format(val);
 }
 
-function formatCompactINR(val: number) {
+function formatCompactINR(val: number | null | undefined, fallback: string = 'Unavailable'): string {
+  if (val === null || val === undefined || isNaN(val)) {
+    return fallback;
+  }
   if (val >= 10000000) return `₹${(val / 10000000).toFixed(2)}Cr`;
   if (val >= 100000) return `₹${(val / 100000).toFixed(1)}L`;
   if (val >= 1000) return `₹${(val / 1000).toFixed(1)}k`;
@@ -1320,6 +1330,12 @@ export default function RevenueDashboard() {
                 </div>
                 <div className="mt-2 text-[11px] text-gray-400 flex items-center justify-between">
                   <span>{overview.kpis.activePaidSubscriptions} active paid subscriptions</span>
+                  {overview.kpis.mrrStatus === 'inr_converted_with_fx_audit' && (
+                    <span className="text-[10px] text-amber-400 font-medium bg-amber-950/40 px-1.5 py-0.5 rounded border border-amber-800/40">Audited USD→INR</span>
+                  )}
+                  {overview.kpis.mrrStatus === 'unsupported_currency_pending_conversion' && (
+                    <span className="text-[10px] text-rose-400 font-medium bg-rose-950/40 px-1.5 py-0.5 rounded border border-rose-800/40">Pending Verification</span>
+                  )}
                 </div>
                 <div className="mt-2 pt-2 border-t border-slate-800/60 text-[10px] text-indigo-400 flex items-center justify-between">
                   <span>Click to inspect plan metrics</span>

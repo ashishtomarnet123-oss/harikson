@@ -334,12 +334,57 @@ router.get('/providers', async (req, res) => {
 router.get('/plans', async (req, res) => {
   try {
     const plansRes = await executeCachedQuery(
-      'SELECT id, name, price, currency, interval, max_users, max_agents, max_documents, max_tokens, features FROM plans WHERE is_active = true ORDER BY price ASC',
+      'SELECT id, name, price, currency, billing, tenant_limit, agent_limit, token_limit, storage_limit_gb, features, is_active FROM plans WHERE is_active = true ORDER BY price ASC',
       [],
       300
     );
 
-    res.json({ plans: plansRes.rows || plansRes });
+    const rows = Array.isArray(plansRes) ? plansRes : plansRes.rows || [];
+    const plans = rows.map((row: any) => {
+      let featuresObj: any = {};
+      if (typeof row.features === 'string') {
+        try {
+          featuresObj = JSON.parse(row.features);
+        } catch (_) {
+          featuresObj = {};
+        }
+      } else if (row.features && typeof row.features === 'object') {
+        featuresObj = row.features;
+      }
+
+      let maxDocs = null;
+      if (featuresObj && typeof featuresObj === 'object' && !Array.isArray(featuresObj) && featuresObj.rag_documents !== undefined) {
+        const num = Number(featuresObj.rag_documents);
+        if (!isNaN(num)) maxDocs = num;
+      }
+      if (maxDocs === null) {
+        if (row.id === 'enterprise') maxDocs = -1;
+        else if (row.id === 'professional') maxDocs = 50000;
+        else if (row.id === 'starter') maxDocs = 500;
+        else if (row.id === 'free') maxDocs = 10;
+        else maxDocs = null;
+      }
+
+      return {
+        id: row.id,
+        name: row.name,
+        price: Number(row.price) || 0,
+        currency: row.currency || 'INR',
+        interval: row.billing || 'monthly',
+        billing: row.billing || 'monthly',
+        max_users: row.tenant_limit !== undefined ? row.tenant_limit : -1,
+        tenant_limit: row.tenant_limit !== undefined ? row.tenant_limit : -1,
+        max_agents: row.agent_limit !== undefined ? row.agent_limit : -1,
+        agent_limit: row.agent_limit !== undefined ? row.agent_limit : -1,
+        max_documents: maxDocs,
+        max_tokens: row.token_limit !== undefined ? row.token_limit : -1,
+        token_limit: row.token_limit !== undefined ? row.token_limit : -1,
+        storage_limit_gb: row.storage_limit_gb !== undefined ? row.storage_limit_gb : -1,
+        features: row.features,
+      };
+    });
+
+    res.json({ plans });
   } catch (err: any) {
     logger.error('Fetch plans error:', err);
     res.status(500).json({ error: 'Failed to fetch billing plans' });
@@ -480,7 +525,7 @@ router.post('/checkout', async (req: any, res) => {
         line_items: [
           {
             price_data: {
-              currency: plan.currency || 'usd',
+              currency: (plan.currency || 'INR').toLowerCase(),
               product_data: {
                 name: plan.name + ' Plan',
                 description: `Subscription plan with ${taxRate}% tax included`,

@@ -7,7 +7,7 @@
   "scripts": {
     "build": "tsc",
     "typecheck": "tsc --noEmit",
-    "test": "NODE_ENV=test DATABASE_URL=\"postgres://dummy:dummy@localhost:5432/dummy\" TENANT_MASTER_KEY=\"01234567890123456789012345678901\" JWT_SECRET=\"01234567890123456789012345678901\" REDIS_URL=\"redis://127.0.0.1:6379\" tsx --test tests/workflow-engine.test.ts tests/security-remediation.test.ts tests/inference-queue.test.ts tests/inference-concurrency-e2e.test.ts tests/mock-ollama-chat.test.ts tests/api-access-entitlement.test.ts tests/rag-document-quota.test.ts tests/audit-trail-entitlement.test.ts tests/webhook-logging-entitlement.test.ts tests/priority-support-entitlement.test.ts tests/sla-hours-entitlement.test.ts tests/custom-models-entitlement.test.ts tests/dpdp-compliance-entitlement.test.ts",
+    "test": "NODE_ENV=test DATABASE_URL=\"postgres://dummy:dummy@localhost:5432/dummy\" TENANT_MASTER_KEY=\"01234567890123456789012345678901\" JWT_SECRET=\"01234567890123456789012345678901\" REDIS_URL=\"redis://127.0.0.1:6379\" tsx --test tests/phase1-remediation.test.ts tests/workflow-engine.test.ts tests/security-remediation.test.ts tests/inference-queue.test.ts tests/inference-concurrency-e2e.test.ts tests/mock-ollama-chat.test.ts tests/api-access-entitlement.test.ts tests/rag-document-quota.test.ts tests/audit-trail-entitlement.test.ts tests/webhook-logging-entitlement.test.ts tests/priority-support-entitlement.test.ts tests/sla-hours-entitlement.test.ts tests/custom-models-entitlement.test.ts tests/dpdp-compliance-entitlement.test.ts",
     "start": "node dist/index.js",
     "dev": "tsx watch src/index.ts",
     "migrate": "tsx src/utils/migrate-cli.ts",

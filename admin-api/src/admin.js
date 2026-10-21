@@ -4362,7 +4362,7 @@ app.post('/webhooks/stripe', async (req, res) => {
       : eventObj.amount
         ? eventObj.amount / 100
         : 0;
-    const currency = eventObj.currency || 'USD';
+    const currency = (eventObj.currency || 'INR').toUpperCase();
     const status = eventObj.status || 'success';
 
     // Extract tenant_id from metadata
@@ -4413,12 +4413,18 @@ app.post('/webhooks/stripe', async (req, res) => {
       ) {
         const subId = eventObj.id;
         const plan = eventObj.metadata?.plan || 'starter';
-        let planId = plan.toLowerCase();
-        if (!['starter', 'professional', 'enterprise'].includes(planId)) {
-          if (planId === 'developer' || planId === 'solo') planId = 'starter';
-          else if (planId === 'pro') planId = 'professional';
-          else planId = 'starter';
+        let rawPlanId = String(plan).trim().toLowerCase();
+        if (rawPlanId === 'developer' || rawPlanId === 'solo') rawPlanId = 'starter';
+        else if (rawPlanId === 'pro') rawPlanId = 'professional';
+
+        const planCheck = await client.query('SELECT id, name FROM plans WHERE LOWER(id) = $1 AND is_active = true', [rawPlanId]);
+        if (planCheck.rows.length === 0) {
+          logger.warn(`[WEBHOOK WARNING] Plan '${rawPlanId}' not found in active plans table.`);
+          await client.query('ROLLBACK');
+          return res.status(400).json({ error: `Unknown or inactive plan: ${rawPlanId}` });
         }
+        const planId = planCheck.rows[0].id;
+
         const subStatus =
           eventObj.status === 'active'
             ? 'active'
@@ -4451,7 +4457,7 @@ app.post('/webhooks/stripe', async (req, res) => {
             ]
           );
           await client.query('UPDATE tenants SET plan = $1 WHERE id = $2', [
-            planId.toUpperCase(),
+            planId,
             tenantId,
           ]);
         }
@@ -4613,12 +4619,19 @@ app.post('/webhooks/razorpay', async (req, res) => {
         ) {
           const subId = entity.id;
           const plan = entity.notes?.plan || 'starter';
-          let planId = plan.toLowerCase();
-          if (!['starter', 'professional', 'enterprise'].includes(planId)) {
-            if (planId === 'developer' || planId === 'solo') planId = 'starter';
-            else if (planId === 'pro') planId = 'professional';
-            else planId = 'starter';
+          let rawPlanId = String(plan).trim().toLowerCase();
+          if (rawPlanId === 'developer' || rawPlanId === 'solo') rawPlanId = 'starter';
+          else if (rawPlanId === 'pro') rawPlanId = 'professional';
+
+          const planCheck = await client.query('SELECT id, name FROM plans WHERE LOWER(id) = $1 AND is_active = true', [rawPlanId]);
+          if (planCheck.rows.length === 0) {
+            logger.warn(`[WEBHOOK WARNING] Plan '${rawPlanId}' not found in active plans table.`);
+            await client.query('ROLLBACK');
+            return res.status(400).json({ error: `Unknown or inactive plan: ${rawPlanId}` });
           }
+          const planId = planCheck.rows[0].id;
+          const planDisplayName = planCheck.rows[0].name || (planId.charAt(0).toUpperCase() + planId.slice(1));
+
           const subStatus =
             entity.status === 'active' || entity.status === 'authenticated'
               ? 'active'
@@ -4652,7 +4665,7 @@ app.post('/webhooks/razorpay', async (req, res) => {
             ]
           );
           await client.query('UPDATE tenants SET plan = $1 WHERE id = $2', [
-            planId.toUpperCase(),
+            planId,
             tenantId,
           ]);
 
@@ -4673,7 +4686,7 @@ app.post('/webhooks/razorpay', async (req, res) => {
               currency: 'INR',
               status: 'paid',
               paidAt: new Date(),
-              planName: planId.toUpperCase(),
+              planName: planDisplayName,
             },
             client
           );
@@ -4829,11 +4842,18 @@ app.post('/webhooks/phonepe', async (req, res) => {
       }
 
       if (isSuccess && tenantId) {
-        if (!['starter', 'professional', 'enterprise'].includes(planId)) {
-          if (planId === 'developer' || planId === 'solo') planId = 'starter';
-          else if (planId === 'pro') planId = 'professional';
-          else planId = 'starter';
+        let rawPlanId = String(planId).trim().toLowerCase();
+        if (rawPlanId === 'developer' || rawPlanId === 'solo') rawPlanId = 'starter';
+        else if (rawPlanId === 'pro') rawPlanId = 'professional';
+
+        const planCheck = await client.query('SELECT id, name FROM plans WHERE LOWER(id) = $1 AND is_active = true', [rawPlanId]);
+        if (planCheck.rows.length === 0) {
+          logger.warn(`[WEBHOOK WARNING] Plan '${rawPlanId}' not found in active plans table.`);
+          await client.query('ROLLBACK');
+          return res.status(400).json({ error: `Unknown or inactive plan: ${rawPlanId}` });
         }
+        const canonicalPlanId = planCheck.rows[0].id;
+        const canonicalPlanName = planCheck.rows[0].name || (canonicalPlanId.charAt(0).toUpperCase() + canonicalPlanId.slice(1));
 
         await client.query(
           `INSERT INTO subscriptions (tenant_id, provider, provider_subscription_id, plan_id, status, current_period_start, current_period_end, amount, currency)
@@ -4844,11 +4864,11 @@ app.post('/webhooks/phonepe', async (req, res) => {
              current_period_end = NOW() + INTERVAL '30 days', 
              amount = EXCLUDED.amount,
              updated_at = NOW()`,
-          [tenantId, 'phonepe', merchantTxnId, planId, amount]
+          [tenantId, 'phonepe', merchantTxnId, canonicalPlanId, amount]
         );
 
         await client.query('UPDATE tenants SET plan = $1, status = \'active\', updated_at = NOW() WHERE id = $2', [
-          planId.toUpperCase(),
+          canonicalPlanId,
           tenantId,
         ]);
 
@@ -4868,7 +4888,7 @@ app.post('/webhooks/phonepe', async (req, res) => {
             currency: 'INR',
             status: 'paid',
             paidAt: new Date(),
-            planName: planId.toUpperCase(),
+            planName: canonicalPlanName,
           },
           client
         );
@@ -4976,6 +4996,18 @@ app.post('/webhooks/cashfree', async (req, res) => {
       }
 
       if (tenantId && isSuccess) {
+        let rawPlanId = String(planId).trim().toLowerCase();
+        if (rawPlanId === 'developer' || rawPlanId === 'solo') rawPlanId = 'starter';
+        else if (rawPlanId === 'pro') rawPlanId = 'professional';
+
+        const planCheck = await client.query('SELECT id, name FROM plans WHERE LOWER(id) = $1 AND is_active = true', [rawPlanId]);
+        if (planCheck.rows.length === 0) {
+          logger.warn(`[WEBHOOK WARNING] Cashfree plan '${rawPlanId}' not found in active plans table.`);
+          await client.query('ROLLBACK');
+          return res.status(400).json({ error: `Unknown or inactive plan: ${rawPlanId}` });
+        }
+        const canonicalPlanId = planCheck.rows[0].id;
+
         await client.query(
           `INSERT INTO subscriptions (tenant_id, provider, provider_subscription_id, plan_id, status, amount, currency, current_period_start, current_period_end, created_at, updated_at)
            VALUES ($1, 'cashfree', $2, $3, 'active', $4, 'INR', NOW(), NOW() + INTERVAL '30 days', NOW(), NOW())
@@ -4984,10 +5016,10 @@ app.post('/webhooks/cashfree', async (req, res) => {
              current_period_end = NOW() + INTERVAL '30 days', 
              amount = EXCLUDED.amount,
              updated_at = NOW()`,
-          [tenantId, orderId, planId, amount]
+          [tenantId, orderId, canonicalPlanId, amount]
         );
 
-        await client.query("UPDATE tenants SET plan = $1, status = 'active', updated_at = NOW() WHERE id = $2", [planId, tenantId]);
+        await client.query("UPDATE tenants SET plan = $1, status = 'active', updated_at = NOW() WHERE id = $2", [canonicalPlanId, tenantId]);
 
         const subRes = await client.query(
           'SELECT id FROM subscriptions WHERE provider = $1 AND provider_subscription_id = $2',
@@ -5113,6 +5145,18 @@ app.post('/webhooks/neuracollect', async (req, res) => {
       }
 
       if (tenantId && isSuccess) {
+        let rawPlanId = String(planId).trim().toLowerCase();
+        if (rawPlanId === 'developer' || rawPlanId === 'solo') rawPlanId = 'starter';
+        else if (rawPlanId === 'pro') rawPlanId = 'professional';
+
+        const planCheck = await client.query('SELECT id, name FROM plans WHERE LOWER(id) = $1 AND is_active = true', [rawPlanId]);
+        if (planCheck.rows.length === 0) {
+          logger.warn(`[WEBHOOK WARNING] NeuraCollect plan '${rawPlanId}' not found in active plans table.`);
+          await client.query('ROLLBACK');
+          return res.status(400).json({ error: `Unknown or inactive plan: ${rawPlanId}` });
+        }
+        const canonicalPlanId = planCheck.rows[0].id;
+
         await client.query(
           `INSERT INTO subscriptions (tenant_id, provider, provider_subscription_id, plan_id, status, amount, currency, current_period_start, current_period_end, created_at, updated_at)
            VALUES ($1, 'neuracollect', $2, $3, 'active', $4, 'INR', NOW(), NOW() + INTERVAL '30 days', NOW(), NOW())
@@ -5121,10 +5165,10 @@ app.post('/webhooks/neuracollect', async (req, res) => {
              current_period_end = NOW() + INTERVAL '30 days', 
              amount = EXCLUDED.amount,
              updated_at = NOW()`,
-          [tenantId, orderId, planId, amount]
+          [tenantId, orderId, canonicalPlanId, amount]
         );
 
-        await client.query("UPDATE tenants SET plan = $1, status = 'active', updated_at = NOW() WHERE id = $2", [planId, tenantId]);
+        await client.query("UPDATE tenants SET plan = $1, status = 'active', updated_at = NOW() WHERE id = $2", [canonicalPlanId, tenantId]);
 
         const subRes = await client.query(
           'SELECT id FROM subscriptions WHERE provider = $1 AND provider_subscription_id = $2',

@@ -118,7 +118,7 @@ interface Plan {
   tier: 'starter' | 'professional' | 'enterprise';
   price: number;
   billing: 'monthly' | 'yearly' | 'custom';
-  currency: 'INR' | 'USD';
+  currency: 'INR';
   isActive: boolean;
   isRecommended: boolean;
   tokenLimit: number;
@@ -577,7 +577,6 @@ function PlanEditModal({
                 className="w-full bg-gray-950 border border-gray-800 text-xs rounded-xl p-2.5 text-white outline-none focus:border-indigo-500"
               >
                 <option value="INR">INR (₹)</option>
-                <option value="USD">USD ($)</option>
               </select>
             </div>
           </div>

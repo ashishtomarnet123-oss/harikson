@@ -822,7 +822,7 @@ router.get('/billing', async (req: any, res) => {
     ).catch(() => ({ rows: [] }));
 
     const priceNum = parseFloat(sub?.plan_price ?? plan.price) || 0;
-    const currency = (sub?.plan_currency ?? plan.currency) === 'INR' ? '₹' : '$';
+    const currency = '₹';
     const dateFmt = (d: any) => (d ? new Date(d).toLocaleDateString('en-US', { month: 'long', day: '2-digit', year: 'numeric' }) : null);
 
     res.json({
@@ -1347,7 +1347,7 @@ router.get(['/billing/invoices/:id/receipt', '/user/billing/invoices/:id/receipt
     const inv = invRes.rows[0];
 
     const esc = (v: any) => String(v ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c] as string));
-    const amountFmt = `${inv.currency === 'INR' ? '₹' : '$'}${parseFloat(inv.amount).toFixed(2)}`;
+    const amountFmt = `₹${parseFloat(inv.amount).toFixed(2)}`;
     const dateFmt = inv.paid_at ? new Date(inv.paid_at).toLocaleDateString('en-US', { month: 'long', day: '2-digit', year: 'numeric' }) : '-';
 
     res.setHeader('Content-Type', 'text/html; charset=utf-8');

@@ -14,6 +14,7 @@ export interface AuthenticatedUser {
   isInternal?: boolean;
   scopes?: string[];
   apiKeyId?: string;
+  authType?: 'internal' | 'api_key' | 'session';
 }
 
 export function requireAuth(req: Request, res: Response, next: NextFunction) {
@@ -38,6 +39,7 @@ export function requireAuth(req: Request, res: Response, next: NextFunction) {
         userId: '00000000-0000-0000-0000-000000000001',
         role: 'internal_service',
         isInternal: true,
+        authType: 'internal',
       };
       return next();
     }
@@ -50,7 +52,7 @@ export function requireAuth(req: Request, res: Response, next: NextFunction) {
 
     pool
       .query(
-        `SELECT k.id, k.tenant_id, k.user_id, k.scopes, k.status, t.id as resolved_tenant_id, t.slug as tenant_slug, t.plan as tenant_plan, p.features as plan_features
+        `SELECT k.id, k.tenant_id, k.user_id, k.scopes, k.status, t.id as resolved_tenant_id, t.slug as tenant_slug, t.plan as tenant_plan, t.status as tenant_status, p.features as plan_features
          FROM tenant_api_keys k
          JOIN tenants t ON t.id = k.tenant_id
          LEFT JOIN plans p ON LOWER(t.plan) = LOWER(p.id)
@@ -63,6 +65,13 @@ export function requireAuth(req: Request, res: Response, next: NextFunction) {
         }
 
         const key = keyRes.rows[0];
+
+        if (key.tenant_status === 'suspended') {
+          return res.status(403).json({
+            error: 'Account or workspace suspended. Please contact administrator.',
+            code: 'ACCOUNT_SUSPENDED',
+          });
+        }
 
         // Resolve api_access entitlement for the tenant's effective plan
         let featuresObj: Record<string, any> = {};
@@ -102,12 +111,14 @@ export function requireAuth(req: Request, res: Response, next: NextFunction) {
           isDeveloperKey: true,
           scopes: key.scopes,
           apiKeyId: key.id,
+          authType: 'api_key',
         };
 
         (req as any).tenant = {
           id: key.resolved_tenant_id,
           slug: key.tenant_slug,
           plan: key.tenant_plan || 'free',
+          status: key.tenant_status || 'active',
         };
 
         (req as any).entitlements = {
@@ -157,7 +168,11 @@ export function requireAuth(req: Request, res: Response, next: NextFunction) {
 
   try {
     const decoded = jwt.verify(token, jwtSecret) as any;
-    (req as any).user = decoded;
+    (req as any).user = {
+      ...decoded,
+      authType: 'session',
+      isDeveloperKey: false,
+    };
 
     // Ensure tenant context aligns with authenticated user
     const tenantContext = (req as any).tenant;

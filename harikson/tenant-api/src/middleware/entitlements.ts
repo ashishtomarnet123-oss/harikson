@@ -216,7 +216,9 @@ export function requirePlan(...allowedPlans: string[]) {
 
 /**
  * Middleware to enforce the api_access plan feature entitlement.
- * Rejects requests from tenants whose effective plan does not have api_access enabled.
+ * Rejects requests from tenants whose effective plan does not have api_access enabled,
+ * while allowing authenticated browser session users on any plan (including Free) to access
+ * browser chat within their allowed monthly message/token quota.
  */
 export function requireApiAccess(req: Request, res: Response, next: NextFunction) {
   const user = (req as any).user;
@@ -228,7 +230,40 @@ export function requireApiAccess(req: Request, res: Response, next: NextFunction
   }
 
   // Internal service bypass
-  if (user.isInternal) {
+  if (user.isInternal || user.authType === 'internal') {
+    return next();
+  }
+
+  // Account or workspace suspension blocks both interactive browser users and API keys
+  if (user.status === 'suspended' || tenant?.status === 'suspended') {
+    return res.status(403).json({
+      error: 'Account or workspace suspended. Please contact administrator.',
+      code: 'ACCOUNT_SUSPENDED',
+    });
+  }
+
+  // Determine credential type using trusted server-generated authentication context.
+  // 1. Developer API key requests (authenticated via Bearer hk_live_... with role: 'developer' / apiKeyId)
+  //    are strictly gated by the plan's api_access entitlement.
+  // 2. Interactive browser session users (authenticated via user JWT or session cookie with authType: 'session')
+  //    are permitted to use the conversational interface subject to monthly message quotas.
+  const authHeader = req.headers.authorization || '';
+  const isInternal = user.isInternal === true || user.authType === 'internal' || user.role === 'internal_service';
+  const isDeveloperKey =
+    user.authType === 'api_key' ||
+    user.isDeveloperKey === true ||
+    user.role === 'developer' ||
+    Boolean(user.apiKeyId) ||
+    authHeader.startsWith('Bearer hk_live_');
+
+  // Authenticated browser interactive session users (including Free-plan users)
+  // are allowed to access chat within their plan message/token quotas.
+  const isBrowserSession =
+    user.authType === 'session' &&
+    !isDeveloperKey &&
+    !isInternal;
+
+  if (isBrowserSession) {
     return next();
   }
 
