@@ -118,7 +118,7 @@ const flow = new WorkflowBuilder("support-triage")
         },
         {
           num: '03',
-          name: 'Qwen 2.5 Coder Architectural Audit',
+          name: 'Xarwiz Architectural Audit',
           desc: 'Analyzes memory leaks, async race conditions, SQL injection, and API breakages.',
           badge: 'Inference',
         },
@@ -137,7 +137,7 @@ const flow = new WorkflowBuilder("github-pr-auditor")
     commands: ["npm ci", "npm run lint", "npm test"]
   })
   .reason({
-    model: "qwen2.5-coder:7b",
+    model: "Xarwiz",
     systemPrompt: "Audit code diff for race conditions, auth bypass, and edge cases."
   })
   .action("github.post_review_comment", {
@@ -549,7 +549,7 @@ const flow = new WorkflowBuilder("founder-weekly-digest")
                     <span>The Xarwiz Solution</span>
                   </div>
                   <p>
-                    Connect GitHub webhooks to an autonomous coding agent running sandboxed Qwen 2.5 Coder. Inspects diffs, runs test suites, and flags bugs in seconds.
+                    Connect GitHub webhooks to an autonomous coding agent powered by Xarwiz. Inspects diffs, runs test suites, and flags bugs in seconds.
                   </p>
                 </div>
 
@@ -689,14 +689,6 @@ const flow = new WorkflowBuilder("founder-weekly-digest")
                 <h4>Indian Cloud &amp; DPDP Sovereign Compliance</h4>
                 <p>
                   Host customer data inside Indian cloud borders with consent governance, audit logs, and automated Data Principal Rights handling on day one.
-                </p>
-              </div>
-
-              <div className="why-card">
-                <div className="why-icon-wrap"><Cpu size={20} /></div>
-                <h4>Local Ollama + Frontier Model Routing</h4>
-                <p>
-                  Mix and match high-reasoning frontier models with local self-hosted Ollama open-source models (Qwen 2.5, Llama 3.2) for near-zero marginal cost.
                 </p>
               </div>
             </div>
@@ -1662,7 +1654,7 @@ const flow = new WorkflowBuilder("founder-weekly-digest")
 
         .why-grid {
           display: grid;
-          grid-template-columns: repeat(4, 1fr);
+          grid-template-columns: repeat(3, 1fr);
           gap: 24px;
         }
 
