@@ -229,7 +229,6 @@ export default function SolutionsOverviewPage() {
                 <ul className="v-list">
                   <li><CheckCircle2 size={16} className="v-check" /> REST APIs &amp; Server-Sent Events (SSE) streaming</li>
                   <li><CheckCircle2 size={16} className="v-check" /> Sandboxed bash execution with strict path isolation</li>
-                  <li><CheckCircle2 size={16} className="v-check" /> Local Ollama model hosting (Qwen 2.5 Coder, Llama 3.2)</li>
                 </ul>
                 <div className="v-card-footer">
                   <Link href="/developers" className="v-link">
