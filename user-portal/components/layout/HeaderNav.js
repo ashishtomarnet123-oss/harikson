@@ -263,13 +263,11 @@ export default function HeaderNav({ activePath = '' }) {
 
           {/* Desktop Call to Actions */}
           <div className="header-ctas desktop-ctas">
-            <Link href="/signup?source=book_demo" className="btn-demo">
-              <Calendar size={15} className="cta-icon" />
-              <span>Book a Demo</span>
-            </Link>
             <Link href="/signup" className="btn-trial">
-              <span>Request Access</span>
-              <ArrowRight size={15} className="cta-arrow" />
+              Request Access
+            </Link>
+            <Link href="/signup?source=book_live_demo" className="btn-demo">
+              Book Live Demo
             </Link>
           </div>
 
@@ -392,16 +390,14 @@ export default function HeaderNav({ activePath = '' }) {
                   className="btn-mobile-primary"
                   onClick={() => setMobileMenuOpen(false)}
                 >
-                  <span>Request Access</span>
-                  <ArrowRight size={16} className="cta-arrow" />
+                  Request Access
                 </Link>
                 <Link
-                  href="/signup?source=book_demo"
+                  href="/signup?source=book_live_demo"
                   className="btn-mobile-secondary"
                   onClick={() => setMobileMenuOpen(false)}
                 >
-                  <Calendar size={16} className="cta-icon" />
-                  <span>Book a Demo</span>
+                  Book Live Demo
                 </Link>
               </div>
             </div>
@@ -700,77 +696,78 @@ export default function HeaderNav({ activePath = '' }) {
           gap: 12px;
         }
 
-        .btn-demo {
+        .btn-trial,
+        :global(.btn-trial),
+        .header-ctas :global(.btn-trial) {
           display: inline-flex;
           align-items: center;
-          gap: 8px;
-          background: rgba(255, 255, 255, 0.95);
-          border: 1px solid rgba(203, 213, 225, 0.9);
-          padding: 8px 18px;
-          border-radius: 10px;
-          font-size: 0.88rem;
-          font-weight: 600;
+          justify-content: center;
+          background: #2563eb;
+          border: none;
+          padding: 10px 22px;
+          border-radius: 12px;
+          font-size: 0.92rem;
+          font-weight: 700;
+          color: #ffffff;
+          text-decoration: none;
+          box-shadow: 0 8px 20px -2px rgba(37, 99, 235, 0.45);
+          transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+          cursor: pointer;
+          white-space: nowrap;
+        }
+
+        .btn-trial:hover,
+        :global(.btn-trial:hover),
+        .header-ctas :global(.btn-trial:hover) {
+          background: #1d4ed8;
+          color: #ffffff;
+          transform: translateY(-1px);
+          box-shadow: 0 10px 24px -2px rgba(37, 99, 235, 0.55);
+          text-decoration: none;
+        }
+
+        .btn-trial:focus-visible,
+        :global(.btn-trial:focus-visible),
+        .header-ctas :global(.btn-trial:focus-visible) {
+          outline: 2px solid #2563eb;
+          outline-offset: 2px;
+        }
+
+        .btn-demo,
+        :global(.btn-demo),
+        .header-ctas :global(.btn-demo) {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          background: #ffffff;
+          border: 1px solid #e2e8f0;
+          padding: 10px 22px;
+          border-radius: 12px;
+          font-size: 0.92rem;
+          font-weight: 700;
           color: #0f172a;
           text-decoration: none;
           box-shadow: 0 1px 3px rgba(15, 23, 42, 0.05);
           transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+          cursor: pointer;
+          white-space: nowrap;
         }
 
-        .btn-demo :global(.cta-icon) {
-          color: #64748b;
-          transition: color 0.2s ease, transform 0.2s ease;
-        }
-
-        .btn-demo:hover {
-          background: #ffffff;
-          border-color: #94a3b8;
-          color: #0284c7;
+        .btn-demo:hover,
+        :global(.btn-demo:hover),
+        .header-ctas :global(.btn-demo:hover) {
+          background: #f8fafc;
+          border-color: #cbd5e1;
+          color: #0f172a;
           transform: translateY(-1px);
           box-shadow: 0 4px 12px rgba(15, 23, 42, 0.08);
-        }
-
-        .btn-demo:hover :global(.cta-icon) {
-          color: #0284c7;
-          transform: scale(1.1);
-        }
-
-        .btn-demo:focus-visible {
-          outline: 2px solid #0284c7;
-          outline-offset: 2px;
-        }
-
-        .btn-trial {
-          display: inline-flex;
-          align-items: center;
-          gap: 8px;
-          background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
-          border: 1px solid rgba(255, 255, 255, 0.15);
-          padding: 8px 18px;
-          border-radius: 10px;
-          font-size: 0.88rem;
-          font-weight: 600;
-          color: #ffffff;
           text-decoration: none;
-          box-shadow: 0 4px 14px rgba(37, 99, 235, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.2);
-          transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
         }
 
-        .btn-trial :global(.cta-arrow) {
-          transition: transform 0.2s ease;
-        }
-
-        .btn-trial:hover {
-          background: linear-gradient(135deg, #1d4ed8 0%, #1e40af 100%);
-          transform: translateY(-1px);
-          box-shadow: 0 6px 20px rgba(37, 99, 235, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.25);
-        }
-
-        .btn-trial:hover :global(.cta-arrow) {
-          transform: translateX(3px);
-        }
-
-        .btn-trial:focus-visible {
-          outline: 2px solid #2563eb;
+        .btn-demo:focus-visible,
+        :global(.btn-demo:focus-visible),
+        .header-ctas :global(.btn-demo:focus-visible) {
+          outline: 2px solid #0284c7;
           outline-offset: 2px;
         }
 
@@ -1014,40 +1011,47 @@ export default function HeaderNav({ activePath = '' }) {
             gap: 10px;
           }
 
-          .btn-mobile-primary {
+          .btn-mobile-primary,
+          :global(.btn-mobile-primary),
+          .mobile-drawer-ctas :global(.btn-mobile-primary) {
             display: flex;
             align-items: center;
             justify-content: center;
-            gap: 8px;
-            background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+            background: #2563eb;
             color: #ffffff;
-            font-weight: 600;
+            font-weight: 700;
             font-size: 0.95rem;
             padding: 12px;
-            border-radius: 10px;
+            border-radius: 12px;
             text-decoration: none;
-            box-shadow: 0 4px 12px rgba(37, 99, 235, 0.25);
+            box-shadow: 0 8px 20px -2px rgba(37, 99, 235, 0.45);
             transition: all 0.2s ease;
           }
 
-          .btn-mobile-primary:active {
+          .btn-mobile-primary:active,
+          :global(.btn-mobile-primary:active) {
             transform: scale(0.99);
           }
 
-          .btn-mobile-secondary {
+          .btn-mobile-secondary,
+          :global(.btn-mobile-secondary),
+          .mobile-drawer-ctas :global(.btn-mobile-secondary) {
             display: flex;
             align-items: center;
             justify-content: center;
-            gap: 8px;
             background: #ffffff;
-            border: 1px solid #cbd5e1;
+            border: 1px solid #e2e8f0;
             color: #0f172a;
-            font-weight: 600;
+            font-weight: 700;
             font-size: 0.95rem;
             padding: 12px;
-            border-radius: 10px;
+            border-radius: 12px;
             text-decoration: none;
             transition: all 0.2s ease;
+          }
+
+          .btn-mobile-secondary:active {
+            background: #f8fafc;
           }
 
           .btn-mobile-secondary :global(.cta-icon) {
