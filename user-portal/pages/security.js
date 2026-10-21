@@ -78,6 +78,11 @@ export default function SecurityTrustCenterPage() {
         {/* HERO SECTION */}
         <section className="security-hero">
           <div className="container">
+            <nav className="breadcrumb-nav" aria-label="Breadcrumb">
+              <Link href="/" className="crumb-link">Home</Link>
+              <span className="crumb-sep">/</span>
+              <span className="crumb-current">Security &amp; Trust Center</span>
+            </nav>
             <div className="hero-content">
               <div className="hero-badge">
                 <ShieldCheck size={14} />
@@ -356,14 +361,15 @@ export default function SecurityTrustCenterPage() {
         </section>
       </main>
 
-      <FooterSection />
+      <FooterSection hideBanner={true} />
 
       <style jsx>{`
         .security-page {
           min-height: 100vh;
-          background-color: #0b1120;
-          color: #f8fafc;
+          background-color: #ffffff;
+          color: #0f172a;
           font-family: 'Outfit', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+          -webkit-font-smoothing: antialiased;
         }
 
         .container {
@@ -373,22 +379,52 @@ export default function SecurityTrustCenterPage() {
         }
 
         .blue-gradient {
-          background: linear-gradient(135deg, #60a5fa 0%, #3b82f6 50%, #2563eb 100%);
+          background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
           -webkit-background-clip: text;
           -webkit-text-fill-color: transparent;
         }
 
+        /* BREADCRUMB */
+        .breadcrumb-nav {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          font-size: 0.85rem;
+          color: #64748b;
+          margin-bottom: 24px;
+        }
+
+        .breadcrumb-nav :global(.crumb-link) {
+          color: #64748b;
+          text-decoration: none;
+          transition: color 0.15s ease;
+        }
+
+        .breadcrumb-nav :global(.crumb-link:hover) {
+          color: #2563eb;
+        }
+
+        .crumb-sep {
+          color: #94a3b8;
+        }
+
+        .crumb-current {
+          color: #0f172a;
+          font-weight: 600;
+        }
+
         /* HERO */
         .security-hero {
-          padding: 80px 0 60px 0;
+          padding: 50px 0 70px 0;
           position: relative;
-          background: radial-gradient(circle at 50% 20%, rgba(37, 99, 235, 0.12) 0%, transparent 60%);
+          background: radial-gradient(circle at 50% 0%, rgba(37, 99, 235, 0.07) 0%, rgba(255, 255, 255, 0) 70%);
+          border-bottom: 1px solid #f1f5f9;
         }
 
         .hero-content {
           text-align: center;
           max-width: 860px;
-          margin: 0 auto 50px auto;
+          margin: 0 auto;
         }
 
         .hero-badge {
@@ -397,9 +433,9 @@ export default function SecurityTrustCenterPage() {
           gap: 8px;
           padding: 6px 14px;
           border-radius: 9999px;
-          background: rgba(59, 130, 246, 0.1);
-          border: 1px solid rgba(59, 130, 246, 0.25);
-          color: #93c5fd;
+          background: #eff6ff;
+          border: 1px solid #dbeafe;
+          color: #2563eb;
           font-size: 0.82rem;
           font-weight: 600;
           margin-bottom: 24px;
@@ -411,13 +447,13 @@ export default function SecurityTrustCenterPage() {
           line-height: 1.15;
           letter-spacing: -0.03em;
           margin-bottom: 20px;
-          color: #ffffff;
+          color: #0f172a;
         }
 
         .hero-subtitle {
           font-size: clamp(1.05rem, 1.8vw, 1.22rem);
           line-height: 1.6;
-          color: #94a3b8;
+          color: #475569;
           margin-bottom: 36px;
         }
 
@@ -441,35 +477,37 @@ export default function SecurityTrustCenterPage() {
           font-weight: 700;
           font-size: 0.95rem;
           text-decoration: none;
-          box-shadow: 0 4px 20px rgba(37, 99, 235, 0.35);
+          box-shadow: 0 4px 14px rgba(37, 99, 235, 0.3);
           transition: all 0.2s ease;
         }
 
         .btn-primary:hover {
           background: #1d4ed8;
           transform: translateY(-2px);
-          box-shadow: 0 8px 25px rgba(37, 99, 235, 0.5);
+          box-shadow: 0 8px 20px rgba(37, 99, 235, 0.4);
         }
 
         .btn-secondary {
           display: inline-flex;
           align-items: center;
           gap: 10px;
-          background: rgba(255, 255, 255, 0.05);
-          border: 1px solid rgba(255, 255, 255, 0.15);
-          color: #ffffff;
+          background: #ffffff;
+          border: 1px solid #cbd5e1;
+          color: #0f172a;
           padding: 14px 28px;
           border-radius: 10px;
           font-weight: 600;
           font-size: 0.95rem;
           text-decoration: none;
+          box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
           transition: all 0.2s ease;
         }
 
         .btn-secondary:hover {
-          background: rgba(255, 255, 255, 0.1);
-          border-color: rgba(255, 255, 255, 0.3);
+          background: #f8fafc;
+          border-color: #94a3b8;
           transform: translateY(-2px);
+          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
         }
 
         .hero-stats-row {
@@ -478,7 +516,7 @@ export default function SecurityTrustCenterPage() {
           justify-content: center;
           gap: 32px;
           padding-top: 24px;
-          border-top: 1px solid rgba(255, 255, 255, 0.08);
+          border-top: 1px solid #e2e8f0;
           flex-wrap: wrap;
         }
 
@@ -492,7 +530,7 @@ export default function SecurityTrustCenterPage() {
         .stat-num {
           font-size: 1.4rem;
           font-weight: 800;
-          color: #60a5fa;
+          color: #2563eb;
         }
 
         .stat-label {
@@ -505,13 +543,14 @@ export default function SecurityTrustCenterPage() {
         .hero-stat-sep {
           width: 1px;
           height: 32px;
-          background: rgba(255, 255, 255, 0.1);
+          background: #e2e8f0;
         }
 
         /* PILLARS */
         .pillars-section {
           padding: 90px 0;
-          border-top: 1px solid rgba(255, 255, 255, 0.06);
+          background: #f8fafc;
+          border-top: 1px solid #f1f5f9;
         }
 
         .section-head {
@@ -524,7 +563,7 @@ export default function SecurityTrustCenterPage() {
           display: inline-block;
           font-size: 0.8rem;
           font-weight: 700;
-          color: #3b82f6;
+          color: #2563eb;
           text-transform: uppercase;
           letter-spacing: 0.08em;
           margin-bottom: 12px;
@@ -533,7 +572,7 @@ export default function SecurityTrustCenterPage() {
         .section-title {
           font-size: clamp(1.8rem, 3.2vw, 2.5rem);
           font-weight: 800;
-          color: #ffffff;
+          color: #0f172a;
           line-height: 1.25;
           margin-bottom: 16px;
           letter-spacing: -0.02em;
@@ -541,7 +580,7 @@ export default function SecurityTrustCenterPage() {
 
         .section-subtitle {
           font-size: 1.02rem;
-          color: #94a3b8;
+          color: #475569;
           line-height: 1.6;
         }
 
@@ -552,25 +591,27 @@ export default function SecurityTrustCenterPage() {
         }
 
         .pillar-card {
-          background: rgba(15, 23, 42, 0.6);
-          border: 1px solid rgba(255, 255, 255, 0.08);
+          background: #ffffff;
+          border: 1px solid #e2e8f0;
           border-radius: 16px;
           padding: 32px;
+          box-shadow: 0 4px 20px -2px rgba(15, 23, 42, 0.05);
           transition: all 0.25s ease;
         }
 
         .pillar-card:hover {
-          border-color: rgba(59, 130, 246, 0.3);
-          transform: translateY(-2px);
-          background: rgba(15, 23, 42, 0.85);
+          border-color: #93c5fd;
+          transform: translateY(-3px);
+          box-shadow: 0 12px 30px -4px rgba(37, 99, 235, 0.12);
         }
 
         .pillar-icon {
           width: 48px;
           height: 48px;
           border-radius: 12px;
-          background: rgba(59, 130, 246, 0.12);
-          color: #60a5fa;
+          background: #eff6ff;
+          border: 1px solid #dbeafe;
+          color: #2563eb;
           display: flex;
           align-items: center;
           justify-content: center;
@@ -580,13 +621,13 @@ export default function SecurityTrustCenterPage() {
         .pillar-card h3 {
           font-size: 1.25rem;
           font-weight: 700;
-          color: #ffffff;
+          color: #0f172a;
           margin-bottom: 12px;
         }
 
         .pillar-card p {
           font-size: 0.92rem;
-          color: #94a3b8;
+          color: #475569;
           line-height: 1.6;
           margin-bottom: 20px;
         }
@@ -605,43 +646,44 @@ export default function SecurityTrustCenterPage() {
           align-items: center;
           gap: 10px;
           font-size: 0.86rem;
-          color: #cbd5e1;
+          color: #334155;
         }
 
         .c-ico {
-          color: #3b82f6;
+          color: #2563eb;
           flex-shrink: 0;
         }
 
         /* DPDP SECTION */
         .dpdp-section {
-          padding: 80px 0;
-          background: rgba(15, 23, 42, 0.35);
-          border-top: 1px solid rgba(255, 255, 255, 0.06);
+          padding: 90px 0;
+          background: #ffffff;
+          border-top: 1px solid #f1f5f9;
         }
 
         .dpdp-card {
-          background: #0f172a;
-          border: 1px solid rgba(59, 130, 246, 0.2);
+          background: #f8fafc;
+          border: 1px solid #e2e8f0;
           border-radius: 20px;
           padding: 40px;
           display: grid;
           grid-template-columns: 1.2fr 1fr;
           gap: 40px;
           align-items: center;
+          box-shadow: 0 8px 30px -6px rgba(15, 23, 42, 0.05);
         }
 
         .dpdp-left h2 {
           font-size: clamp(1.6rem, 2.8vw, 2.2rem);
           font-weight: 800;
-          color: #ffffff;
+          color: #0f172a;
           line-height: 1.25;
           margin-bottom: 16px;
         }
 
         .dpdp-left p {
           font-size: 0.95rem;
-          color: #94a3b8;
+          color: #475569;
           line-height: 1.6;
           margin-bottom: 24px;
         }
@@ -658,18 +700,18 @@ export default function SecurityTrustCenterPage() {
           align-items: flex-start;
           gap: 12px;
           font-size: 0.88rem;
-          color: #cbd5e1;
+          color: #334155;
           line-height: 1.5;
         }
 
         .d-ico {
-          color: #34d399;
+          color: #16a34a;
           flex-shrink: 0;
           margin-top: 2px;
         }
 
         .d-point strong {
-          color: #ffffff;
+          color: #0f172a;
         }
 
         .dpdp-actions {
@@ -679,16 +721,17 @@ export default function SecurityTrustCenterPage() {
         }
 
         .docs-nav-box {
-          background: #090e1a;
-          border: 1px solid rgba(255, 255, 255, 0.08);
+          background: #ffffff;
+          border: 1px solid #e2e8f0;
           border-radius: 14px;
           padding: 24px;
+          box-shadow: 0 2px 10px rgba(15, 23, 42, 0.04);
         }
 
         .docs-nav-box h4 {
           font-size: 0.96rem;
           font-weight: 700;
-          color: #ffffff;
+          color: #0f172a;
           margin-bottom: 16px;
         }
 
@@ -702,19 +745,19 @@ export default function SecurityTrustCenterPage() {
           display: flex;
           align-items: center;
           gap: 12px;
-          background: rgba(30, 41, 59, 0.4);
-          border: 1px solid rgba(255, 255, 255, 0.06);
+          background: #f8fafc;
+          border: 1px solid #e2e8f0;
           padding: 12px 16px;
           border-radius: 8px;
           text-decoration: none;
-          color: #cbd5e1;
-          transition: all 0.2s;
+          color: #0f172a;
+          transition: all 0.2s ease;
         }
 
         .doc-link-item:hover {
-          border-color: rgba(59, 130, 246, 0.4);
-          background: rgba(59, 130, 246, 0.08);
-          color: #ffffff;
+          border-color: #bfdbfe;
+          background: #eff6ff;
+          color: #2563eb;
           transform: translateX(3px);
         }
 
@@ -726,7 +769,12 @@ export default function SecurityTrustCenterPage() {
 
         .d-info strong {
           font-size: 0.86rem;
-          color: #ffffff;
+          color: #0f172a;
+          transition: color 0.15s ease;
+        }
+
+        .doc-link-item:hover .d-info strong {
+          color: #2563eb;
         }
 
         .d-info span {
@@ -737,7 +785,8 @@ export default function SecurityTrustCenterPage() {
         /* FAQ */
         .faq-section {
           padding: 90px 0;
-          border-top: 1px solid rgba(255, 255, 255, 0.06);
+          background: #f8fafc;
+          border-top: 1px solid #f1f5f9;
         }
 
         .faq-list {
@@ -749,15 +798,21 @@ export default function SecurityTrustCenterPage() {
         }
 
         .faq-item {
-          background: #0f172a;
-          border: 1px solid rgba(255, 255, 255, 0.08);
+          background: #ffffff;
+          border: 1px solid #e2e8f0;
           border-radius: 12px;
           overflow: hidden;
-          transition: all 0.2s;
+          box-shadow: 0 2px 6px rgba(15, 23, 42, 0.03);
+          transition: all 0.2s ease;
+        }
+
+        .faq-item:hover {
+          border-color: #cbd5e1;
         }
 
         .faq-item.expanded {
-          border-color: rgba(59, 130, 246, 0.3);
+          border-color: #2563eb;
+          box-shadow: 0 4px 16px rgba(37, 99, 235, 0.08);
         }
 
         .faq-question {
@@ -768,7 +823,7 @@ export default function SecurityTrustCenterPage() {
           padding: 18px 22px;
           background: none;
           border: none;
-          color: #f1f5f9;
+          color: #0f172a;
           font-size: 0.96rem;
           font-weight: 700;
           text-align: left;
@@ -777,50 +832,53 @@ export default function SecurityTrustCenterPage() {
 
         .faq-icon {
           color: #64748b;
-          transition: transform 0.2s;
+          transition: transform 0.2s ease;
           flex-shrink: 0;
         }
 
         .faq-item.expanded .faq-icon {
           transform: rotate(180deg);
-          color: #60a5fa;
+          color: #2563eb;
         }
 
         .faq-answer {
           padding: 0 22px 20px 22px;
-          color: #94a3b8;
+          color: #475569;
           font-size: 0.9rem;
           line-height: 1.6;
         }
 
         /* CTA */
         .cta-banner-section {
-          padding: 60px 0 90px 0;
+          padding: 70px 0 90px 0;
+          background: #ffffff;
         }
 
         .cta-box {
-          background: linear-gradient(135deg, #1e3a8a 0%, #1e40af 50%, #1d4ed8 100%);
-          border-radius: 20px;
-          padding: 48px;
+          background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+          border-radius: 24px;
+          padding: 56px 40px;
           text-align: center;
-          border: 1px solid rgba(255, 255, 255, 0.15);
-          box-shadow: 0 25px 50px -12px rgba(29, 78, 216, 0.3);
+          border: 1px solid #bfdbfe;
+          box-shadow: 0 10px 25px -5px rgba(37, 99, 235, 0.1);
         }
 
         .cta-box h2 {
-          font-size: clamp(1.8rem, 3.2vw, 2.4rem);
+          font-size: clamp(1.8rem, 3.2vw, 2.5rem);
           font-weight: 800;
-          color: #ffffff;
-          margin-bottom: 12px;
+          color: #0f172a;
+          margin-bottom: 14px;
+          letter-spacing: -0.02em;
         }
 
         .cta-box p {
           font-size: 1.05rem;
-          color: #dbeafe;
-          margin-bottom: 32px;
-          max-width: 600px;
+          color: #334155;
+          margin-bottom: 36px;
+          max-width: 680px;
           margin-left: auto;
           margin-right: auto;
+          line-height: 1.6;
         }
 
         .cta-actions {
@@ -850,7 +908,7 @@ export default function SecurityTrustCenterPage() {
             display: none;
           }
           .cta-box {
-            padding: 32px 20px;
+            padding: 36px 20px;
           }
           .cta-actions {
             flex-direction: column;
