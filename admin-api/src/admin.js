@@ -367,9 +367,9 @@ app.get('/api/user/billing', (req, res, next) => {
     // Query active/latest subscription for this tenant
     const subRes = await pool.query(
       `
-      SELECT * FROM subscriptions 
-      WHERE tenant_id = $1 
-      ORDER BY created_at DESC 
+      SELECT * FROM subscriptions
+      WHERE tenant_id = $1
+      ORDER BY created_at DESC
       LIMIT 1
     `,
       [row.tenant_id]
@@ -650,7 +650,7 @@ app.get(['/admin/first-login/verify', '/v1/admin/auth/verify-first-login'], asyn
     const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
 
     const result = await pool.query(
-      `SELECT prt.*, u.email 
+      `SELECT prt.*, u.email
        FROM password_reset_tokens prt
        JOIN users u ON prt.user_id = u.id
        WHERE prt.token_hash = $1 AND prt.used_at IS NULL AND prt.expires_at > NOW()`,
@@ -680,7 +680,7 @@ app.post(['/admin/first-login/reset', '/v1/admin/auth/first-login-reset'], async
     const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
 
     const tokenRes = await pool.query(
-      `SELECT prt.*, u.role, u.email 
+      `SELECT prt.*, u.role, u.email
        FROM password_reset_tokens prt
        JOIN users u ON prt.user_id = u.id
        WHERE prt.token_hash = $1 AND prt.used_at IS NULL AND prt.expires_at > NOW()`,
@@ -818,7 +818,7 @@ app.get(['/admin/tax-rates', '/v1/admin/tax-rates'], adminAuth, async (req, res)
     );
 
     const summaryRes = await pool.query(`
-      SELECT 
+      SELECT
         COALESCE(tr.country_code, 'IN') as country_code,
         COALESCE(tr.tax_name, 'GST') as tax_name,
         COUNT(i.id)::int as total_invoices,
@@ -880,7 +880,7 @@ app.post(['/admin/tax-rates', '/v1/admin/tax-rates'], adminAuth, validate(taxRat
 app.get(['/admin/reports/gstr1', '/v1/admin/reports/gstr1'], adminAuth, async (req, res) => {
   try {
     const result = await pool.query(`
-      SELECT 
+      SELECT
         i.id as invoice_id,
         t.name as customer_name,
         t.id as tenant_id,
@@ -959,9 +959,9 @@ app.post('/admin/billing/invoices/:id/resend', adminAuth, async (req, res) => {
 
     const invoiceRow = invRes.rows[0];
     const userRes = await pool.query(
-      `SELECT email, name FROM users 
-       WHERE tenant_id = $1 
-       ORDER BY role = 'admin' DESC, created_at ASC 
+      `SELECT email, name FROM users
+       WHERE tenant_id = $1
+       ORDER BY role = 'admin' DESC, created_at ASC
        LIMIT 1`,
       [invoiceRow.tenant_id]
     );
@@ -1010,9 +1010,9 @@ app.post('/admin/users/:id/reset-2fa', adminAuth, async (req, res) => {
 
     // Reset 2FA secret, status, backup codes, and lockout counters
     await pool.query(
-      `UPDATE users 
-       SET two_factor_enabled = false, 
-           two_factor_secret = NULL, 
+      `UPDATE users
+       SET two_factor_enabled = false,
+           two_factor_secret = NULL,
            two_factor_backup_codes = '[]'::jsonb,
            failed_2fa_attempts = 0,
            locked_until = NULL
@@ -1043,7 +1043,7 @@ app.post(['/admin/users/:id/force-password-reset', '/v1/admin/users/:id/force-pa
   try {
     const { id } = req.params;
     const userRes = await pool.query(
-      `SELECT u.id, u.email, u.name, t.slug as tenant_slug, t.name as tenant_name 
+      `SELECT u.id, u.email, u.name, t.slug as tenant_slug, t.name as tenant_name
        FROM users u
        JOIN tenants t ON u.tenant_id = t.id
        WHERE u.id = $1`,
@@ -1110,9 +1110,9 @@ app.post('/admin/documents/rotate-keys', adminAuth, async (req, res) => {
     const { newKeyId = 'v2', batchSize = 100 } = req.body || {};
 
     const docsRes = await pool.query(
-      `SELECT id, content, content_iv, content_tag, key_id 
-       FROM knowledge_documents 
-       WHERE key_id IS NULL OR key_id != $1 
+      `SELECT id, content, content_iv, content_tag, key_id
+       FROM knowledge_documents
+       WHERE key_id IS NULL OR key_id != $1
        LIMIT $2`,
       [newKeyId, parseInt(batchSize)]
     );
@@ -1149,8 +1149,8 @@ app.post('/admin/documents/rotate-keys', adminAuth, async (req, res) => {
       const authTag = cipher.getAuthTag().toString('hex');
 
       await pool.query(
-        `UPDATE knowledge_documents 
-         SET content = $1, content_iv = $2, content_tag = $3, key_id = $4 
+        `UPDATE knowledge_documents
+         SET content = $1, content_iv = $2, content_tag = $3, key_id = $4
          WHERE id = $5`,
         [encrypted, iv.toString('hex'), authTag, newKeyId, doc.id]
       );
@@ -1220,8 +1220,8 @@ app.put('/admin/tenants/:id/widget-config', adminAuth, async (req, res) => {
     const widgetSecret = crypto.randomBytes(32).toString('hex');
 
     const result = await pool.query(
-      `UPDATE tenants 
-       SET widget_allowed_origins = $1, 
+      `UPDATE tenants
+       SET widget_allowed_origins = $1,
            widget_secret = COALESCE(widget_secret, $2)
        WHERE id = $3
        RETURNING id, name, slug, widget_allowed_origins, widget_secret`,
@@ -1249,7 +1249,7 @@ app.get('/admin/token-analytics', adminAuth, async (req, res) => {
     const { tenantId } = req.query;
 
     const perModelQuery = `
-      SELECT 
+      SELECT
         COALESCE(m.metadata->>'model', 'qwen3-coder') as model,
         COUNT(*)::int as request_count,
         ROUND(AVG(prompt_tokens))::int as avg_prompt_tokens,
@@ -1262,7 +1262,7 @@ app.get('/admin/token-analytics', adminAuth, async (req, res) => {
     `;
 
     const perUserQuery = `
-      SELECT 
+      SELECT
         u.id as user_id, u.email, u.name,
         DATE_TRUNC('month', m.created_at) as month,
         SUM(m.prompt_tokens)::bigint as prompt_tokens,
@@ -1277,7 +1277,7 @@ app.get('/admin/token-analytics', adminAuth, async (req, res) => {
     `;
 
     const ragQuery = `
-      SELECT 
+      SELECT
         kd.id as document_id, kd.filename, kd.file_type,
         COUNT(de.id)::int as chunk_count,
         COALESCE(SUM(LENGTH(de.content) / 4), 0)::bigint as estimated_tokens_contributed
@@ -1396,10 +1396,10 @@ app.post('/admin/tenants/:id/legal-holds/:holdId/lift', adminAuth, validate(lega
     const adminId = req.admin?.id || 'admin-system';
 
     const updateRes = await pool.query(
-      `UPDATE legal_holds 
-       SET status = 'lifted', 
-           lifted_at = NOW(), 
-           lifted_by_admin_email = $1, 
+      `UPDATE legal_holds
+       SET status = 'lifted',
+           lifted_at = NOW(),
+           lifted_by_admin_email = $1,
            lift_reason = $2
        WHERE id = $3 AND tenant_id = $4 AND status = 'active'
        RETURNING *`,
@@ -1443,7 +1443,7 @@ app.post('/admin/tenants/:id/legal-holds/:holdId/lift', adminAuth, validate(lega
 app.get('/admin/legal-holds/audit-logs', adminAuth, async (req, res) => {
   try {
     const result = await pool.query(
-      `SELECT al.*, t.name as tenant_name, t.slug as tenant_slug 
+      `SELECT al.*, t.name as tenant_name, t.slug as tenant_slug
        FROM legal_hold_audit_logs al
        JOIN tenants t ON al.tenant_id = t.id
        ORDER BY al.created_at DESC LIMIT 100`
@@ -1869,10 +1869,10 @@ app.post('/admin/users/:userId/impersonate', adminAuth, async (req, res) => {
         user.id,
         user.tenant_id,
         'Admin Impersonation Triggered',
-        JSON.stringify({ 
-          level: 'warning', 
-          color: '#ea580c', 
-          adminId: req.admin.id, 
+        JSON.stringify({
+          level: 'warning',
+          color: '#ea580c',
+          adminId: req.admin.id,
           adminEmail: req.admin.email,
           targetUserId: user.id,
           targetEmail: user.email,
@@ -1984,12 +1984,12 @@ app.post(['/auth/impersonate/confirm', '/api/auth/impersonate/confirm', '/admin/
 app.get(['/admin/users', '/v1/admin/users'], adminAuth, async (req, res) => {
   try {
     const query = `
-      SELECT 
-        u.id, 
-        u.email, 
-        u.role, 
+      SELECT
+        u.id,
+        u.email,
+        u.role,
         COALESCE(u.status, 'active') as status,
-        u.created_at, 
+        u.created_at,
         u.name,
         u.username,
         u.phone,
@@ -2071,7 +2071,7 @@ const handleGetEmailLogs = async (req, res) => {
   try {
     const { page = 1, limit = 20, type, status, search } = req.query;
     const offset = (Math.max(1, parseInt(page)) - 1) * parseInt(limit);
-    
+
     let whereConditions = [];
     let params = [];
     let paramIdx = 1;
@@ -2091,7 +2091,7 @@ const handleGetEmailLogs = async (req, res) => {
     }
 
     const whereClause = whereConditions.length > 0 ? `WHERE ${whereConditions.join(' AND ')}` : '';
-    
+
     const countRes = await pool.query(`SELECT COUNT(*) FROM email_logs ${whereClause}`, params);
     const total = parseInt(countRes.rows[0].count);
 
@@ -2126,7 +2126,7 @@ app.get('/v1/admin/emails/logs', adminAuth, handleGetEmailLogs);
 const handleGetEmailStats = async (req, res) => {
   try {
     const statsRes = await pool.query(`
-      SELECT 
+      SELECT
         COUNT(*) as total_sent,
         COUNT(CASE WHEN status = 'sent' THEN 1 END) as successful_count,
         COUNT(CASE WHEN status = 'failed' THEN 1 END) as failed_count,
@@ -2135,7 +2135,7 @@ const handleGetEmailStats = async (req, res) => {
         COUNT(CASE WHEN created_at >= NOW() - INTERVAL '1 hour' THEN 1 END) as last_hour_count
       FROM email_logs
     `);
-    
+
     const row = statsRes.rows[0] || {};
     const total = parseInt(row.total_sent || 0);
     const successful = parseInt(row.successful_count || 0);
@@ -3076,10 +3076,10 @@ app.get('/admin/users/:userId/conversations', adminAuth, async (req, res) => {
   const { userId } = req.params;
   try {
     const query = `
-      SELECT 
-        c.id, 
-        c.title, 
-        c.model, 
+      SELECT
+        c.id,
+        c.title,
+        c.model,
         c.created_at,
         (SELECT COUNT(*) FROM messages m WHERE m.conversation_id = c.id) as messages_count
       FROM conversations c
@@ -3479,8 +3479,8 @@ app.put('/admin/tenants/:id/plan', adminAuth, async (req, res) => {
       : null;
 
     await pool.query(
-      `UPDATE tenants 
-       SET plan = $1, 
+      `UPDATE tenants
+       SET plan = $1,
            downgrade_grace_ends = $2,
            plan_downgraded_at = $3
        WHERE id = $4`,
@@ -3497,8 +3497,8 @@ app.put('/admin/tenants/:id/plan', adminAuth, async (req, res) => {
       const existingSub = await pool.query('SELECT id FROM subscriptions WHERE tenant_id = $1', [id]);
       if (existingSub.rows.length > 0) {
         await pool.query(
-          `UPDATE subscriptions 
-           SET plan_id = $1, amount = $2, currency = $3, status = $4, updated_at = NOW() 
+          `UPDATE subscriptions
+           SET plan_id = $1, amount = $2, currency = $3, status = $4, updated_at = NOW()
            WHERE tenant_id = $5`,
           [plan.toLowerCase(), planPrice, planCurrency, subStatus, id]
         );
@@ -3787,7 +3787,7 @@ app.get('/admin/impersonation/audit-logs', adminAuth, async (req, res) => {
     const isImpersonatedFilter = impersonatedOnly === 'true';
 
     const result = await pool.query(
-      `SELECT a.id, a.user_id, a.tenant_id, a.action, a.details as metadata, a.ip_address, a.user_agent, 
+      `SELECT a.id, a.user_id, a.tenant_id, a.action, a.details as metadata, a.ip_address, a.user_agent,
               a.impersonated_by, a.is_impersonation, a.created_at,
               u.email as user_email,
               adm.email as impersonator_email
@@ -4326,8 +4326,9 @@ app.post('/webhooks/stripe', async (req, res) => {
     }
 
     let event;
+    let stripeInstance;
     try {
-      const stripeInstance = new Stripe(
+      stripeInstance = new Stripe(
         decryptText(provider.api_secret_encrypted)
       );
       event = stripeInstance.webhooks.constructEvent(
@@ -4362,8 +4363,28 @@ app.post('/webhooks/stripe', async (req, res) => {
       : eventObj.amount
         ? eventObj.amount / 100
         : 0;
-    const currency = (eventObj.currency || 'INR').toUpperCase();
-    const status = eventObj.status || 'success';
+    let rawCurrency = eventObj.currency || eventObj.items?.data?.[0]?.price?.currency || eventObj.plan?.currency;
+    if (!rawCurrency) {
+      try {
+        const targetPiId = eventObj.payment_intent || (eventObj.object === 'payment_intent' ? eventObj.id : null);
+        if (targetPiId && stripeInstance?.paymentIntents?.retrieve) {
+          const pi = await stripeInstance.paymentIntents.retrieve(targetPiId);
+          if (pi && pi.id === targetPiId && pi.currency) {
+            const piAmount = pi.amount ? pi.amount / 100 : 0;
+            if (amount === 0 || Math.abs(amount - piAmount) < 0.01) {
+              rawCurrency = pi.currency;
+            }
+          }
+        } else if (eventObj.invoice && stripeInstance?.invoices?.retrieve) {
+          const inv = await stripeInstance.invoices.retrieve(eventObj.invoice);
+          if (inv && inv.id === eventObj.invoice && inv.currency) {
+            rawCurrency = inv.currency;
+          }
+        }
+      } catch (lookupErr) {
+        logger.warn(`[WEBHOOK] Stripe authoritative lookup failed for ${eventId}: ${lookupErr.message}`);
+      }
+    }
 
     // Extract tenant_id from metadata
     const tenantId = eventObj.metadata?.tenant_id || null;
@@ -4375,36 +4396,68 @@ app.post('/webhooks/stripe', async (req, res) => {
       if (tRes.rows.length > 0) tenantName = tRes.rows[0].name;
     }
 
+    let unresolvedReason = null;
+    if (!rawCurrency) {
+      unresolvedReason = `Missing currency in Stripe event ${eventId} and authoritative lookup unavailable`;
+    } else if (String(rawCurrency).toUpperCase() !== 'INR') {
+      unresolvedReason = `Non-INR currency '${String(rawCurrency).toUpperCase()}' rejected. Platform strictly operates in INR.`;
+    }
+
     const client = await pool.connect();
     try {
       await client.query('BEGIN');
 
-      // Idempotency: Insert with DO NOTHING and RETURNING
-      const insertRes = await client.query(
+      // Concurrency-safe atomic insert or row lock
+      const lockRes = await client.query(
         `INSERT INTO payment_webhooks (event_id, provider_id, provider, event_type, status, amount, tenant_name, payload, signature_verified, processed_at)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW())
-         ON CONFLICT (event_id, provider) DO NOTHING
-         RETURNING id`,
+         VALUES ($1, $2, 'stripe', $3, 'pending', $4, $5, $6, true, NOW())
+         ON CONFLICT (event_id, provider) DO UPDATE SET
+           processed_at = NOW()
+         RETURNING id, status`,
         [
           eventId,
           provider.id,
-          'stripe',
           event.type,
-          status,
           amount,
           tenantName,
           JSON.stringify(event),
-          true,
         ]
       );
 
-      if (insertRes.rows.length === 0) {
+      const existingStatus = lockRes.rows[0].status;
+
+      // 1. If already processed, acknowledge idempotent replay safely without side-effects
+      if (existingStatus === 'processed') {
         await client.query('COMMIT');
-        logger.info(
-          `[WEBHOOK] Stripe event ${eventId} has already been processed.`
-        );
+        logger.info(`[WEBHOOK] Stripe event ${eventId} has already been processed.`);
         return res.status(200).json({ status: 'already_processed' });
       }
+
+      // 2. If unresolved (missing or non-INR currency), durably preserve as 'unresolved'
+      if (unresolvedReason) {
+        await client.query(
+          `UPDATE payment_webhooks
+           SET status = 'unresolved',
+               processing_error = $1,
+               amount = $2,
+               tenant_name = COALESCE($3, tenant_name),
+               payload = $4,
+               processed_at = NOW()
+           WHERE id = $5`,
+          [unresolvedReason, amount, tenantName, JSON.stringify(event), lockRes.rows[0].id]
+        );
+        await client.query('COMMIT');
+        logger.warn(`[WEBHOOK] Stripe event ${eventId} durably preserved with status='unresolved': ${unresolvedReason}`);
+        return res.status(200).json({
+          status: 'unresolved',
+          event_id: eventId,
+          reason: unresolvedReason,
+          message: 'Event durably stored with unresolved currency for manual or automated reconciliation',
+        });
+      }
+
+      // 3. Currency is verified INR
+      const currency = String(rawCurrency).toUpperCase();
 
       // Business Logic processing within transaction
       if (
@@ -4438,10 +4491,10 @@ app.post('/webhooks/stripe', async (req, res) => {
           await client.query(
             `INSERT INTO subscriptions (tenant_id, provider, provider_subscription_id, plan_id, status, current_period_start, current_period_end, amount, currency)
              VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-             ON CONFLICT (provider, provider_subscription_id) DO UPDATE SET 
-               status = EXCLUDED.status, 
-               current_period_start = EXCLUDED.current_period_start, 
-               current_period_end = EXCLUDED.current_period_end, 
+             ON CONFLICT (provider, provider_subscription_id) DO UPDATE SET
+               status = EXCLUDED.status,
+               current_period_start = EXCLUDED.current_period_start,
+               current_period_end = EXCLUDED.current_period_end,
                amount = EXCLUDED.amount,
                updated_at = NOW()`,
             [
@@ -4461,11 +4514,16 @@ app.post('/webhooks/stripe', async (req, res) => {
             tenantId,
           ]);
         }
-      } else if (event.type === 'invoice.paid') {
+      } else if (
+        event.type === 'invoice.paid' ||
+        event.type === 'invoice.payment_succeeded' ||
+        event.type === 'checkout.session.completed' ||
+        event.type === 'payment_intent.succeeded'
+      ) {
         const invId = eventObj.id;
-        const invoiceUrl = eventObj.hosted_invoice_url;
-        const pdfUrl = eventObj.invoice_pdf;
-        const subId = eventObj.subscription;
+        const invoiceUrl = eventObj.hosted_invoice_url || null;
+        const pdfUrl = eventObj.invoice_pdf || null;
+        const subId = eventObj.subscription || eventObj.id;
 
         if (tenantId) {
           const subRes = await client.query(
@@ -4492,13 +4550,54 @@ app.post('/webhooks/stripe', async (req, res) => {
             client
           );
         }
+      } else if (
+        event.type === 'invoice.payment_failed' ||
+        event.type === 'payment_intent.payment_failed'
+      ) {
+        if (tenantId) {
+          await client.query(
+            "UPDATE subscriptions SET status = 'past_due', updated_at = NOW() WHERE tenant_id = $1",
+            [tenantId]
+          );
+          await client.query(
+            "UPDATE tenants SET status = 'past_due' WHERE id = $1",
+            [tenantId]
+          );
+        }
+        await client.query(
+          `UPDATE payment_webhooks
+           SET status = 'failed',
+               processing_error = $1,
+               amount = $2,
+               tenant_name = COALESCE($3, tenant_name),
+               payload = $4,
+               processed_at = NOW()
+           WHERE id = $5`,
+          ['Payment failed at provider', amount, tenantName, JSON.stringify(event), lockRes.rows[0].id]
+        );
+        await client.query('COMMIT');
+        return res.status(200).json({ status: 'failed', event_id: eventId });
       }
 
+      // 4. Atomically transition webhook record to 'processed'
+      await client.query(
+        `UPDATE payment_webhooks
+         SET status = 'processed',
+             processing_error = NULL,
+             amount = $1,
+             tenant_name = COALESCE($2, tenant_name),
+             payload = $3,
+             processed_at = NOW()
+         WHERE id = $4`,
+        [amount, tenantName, JSON.stringify(event), lockRes.rows[0].id]
+      );
+
       await client.query('COMMIT');
-      res.status(200).json({ status: 'processed' });
+      return res.status(200).json({ status: 'processed', event_id: eventId });
     } catch (txErr) {
-      await client.query('ROLLBACK');
-      throw txErr;
+      await client.query('ROLLBACK').catch(() => {});
+      logger.error('Stripe webhook transaction failed:', txErr);
+      return res.status(500).json({ error: 'Database transaction failed: ' + txErr.message });
     } finally {
       client.release();
     }
@@ -4578,38 +4677,118 @@ app.post('/webhooks/razorpay', async (req, res) => {
     }
 
     const amount = entity?.amount ? entity.amount / 100 : 0;
-    const status = entity?.status || 'processed';
+    let rawCurrency = entity?.currency || eventData?.payload?.payment?.entity?.currency || eventData?.payload?.subscription?.entity?.currency || eventData?.payload?.order?.entity?.currency;
+    if (!rawCurrency) {
+      const paymentId = entity?.id && String(entity.id).startsWith('pay_') ? entity.id : eventData?.payload?.payment?.entity?.id;
+      const keyId = decryptText(provider.api_key_encrypted);
+      const keySecret = decryptText(provider.api_secret_encrypted);
+      if (paymentId && keyId && keySecret) {
+        try {
+          const authHeader = 'Basic ' + Buffer.from(`${keyId}:${keySecret}`).toString('base64');
+          const rzpRes = await fetch(`https://api.razorpay.com/v1/payments/${paymentId}`, {
+            headers: { Authorization: authHeader },
+          });
+          if (rzpRes.ok) {
+            const rzpPayment = await rzpRes.json();
+            if (rzpPayment && rzpPayment.id === paymentId && rzpPayment.currency) {
+              const rzpAmount = rzpPayment.amount ? rzpPayment.amount / 100 : 0;
+              if (amount === 0 || Math.abs(amount - rzpAmount) < 0.01) {
+                rawCurrency = rzpPayment.currency;
+              }
+            }
+          }
+        } catch (lookupErr) {
+          logger.warn(`[WEBHOOK] Razorpay authoritative lookup failed for ${paymentId}: ${lookupErr.message}`);
+        }
+      }
+    }
+
+    let unresolvedReason = null;
+    if (!rawCurrency) {
+      unresolvedReason = `Missing currency in Razorpay event ${eventId} and authoritative lookup unavailable`;
+    } else if (String(rawCurrency).toUpperCase() !== 'INR') {
+      unresolvedReason = `Non-INR currency '${String(rawCurrency).toUpperCase()}' rejected. Platform strictly operates in INR.`;
+    }
 
     const client = await pool.connect();
     try {
       await client.query('BEGIN');
 
-      // Idempotency: Insert with DO NOTHING and RETURNING
-      const insertRes = await client.query(
+      // Concurrency-safe atomic insert or row lock
+      const lockRes = await client.query(
         `INSERT INTO payment_webhooks (event_id, provider_id, provider, event_type, status, amount, tenant_name, payload, signature_verified, processed_at)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW())
-         ON CONFLICT (event_id, provider) DO NOTHING
-         RETURNING id`,
+         VALUES ($1, $2, 'razorpay', $3, 'pending', $4, $5, $6, true, NOW())
+         ON CONFLICT (event_id, provider) DO UPDATE SET
+           processed_at = NOW()
+         RETURNING id, status`,
         [
           eventId,
           provider.id,
-          'razorpay',
           eventType,
-          status,
           amount,
           tenantName,
           JSON.stringify(eventData),
-          true,
         ]
       );
 
-      if (insertRes.rows.length === 0) {
+      const existingStatus = lockRes.rows[0].status;
+
+      // 1. If already processed, acknowledge idempotent replay safely without side-effects
+      if (existingStatus === 'processed') {
         await client.query('COMMIT');
         logger.info(
           `[WEBHOOK] Razorpay event ${eventId} has already been processed.`
         );
         return res.status(200).json({ status: 'already_processed' });
       }
+
+      // 2. If unresolved (missing or non-INR currency), durably preserve as 'unresolved'
+      if (unresolvedReason) {
+        await client.query(
+          `UPDATE payment_webhooks
+           SET status = 'unresolved',
+               processing_error = $1,
+               amount = $2,
+               tenant_name = COALESCE($3, tenant_name),
+               payload = $4,
+               processed_at = NOW()
+           WHERE id = $5`,
+          [
+            unresolvedReason,
+            amount,
+            tenantName,
+            JSON.stringify(eventData),
+            lockRes.rows[0].id,
+          ]
+        );
+        await client.query('COMMIT');
+        logger.warn(`[WEBHOOK] Razorpay event ${eventId} durably preserved with status='unresolved': ${unresolvedReason}`);
+        return res.status(200).json({
+          status: 'unresolved',
+          event_id: eventId,
+          reason: unresolvedReason,
+          message: 'Event durably stored with unresolved currency for manual or automated reconciliation',
+        });
+      }
+
+      // 3. If failed event
+      if (eventType === 'payment.failed') {
+        await client.query(
+          `UPDATE payment_webhooks
+           SET status = 'failed',
+               processing_error = $1,
+               amount = $2,
+               tenant_name = COALESCE($3, tenant_name),
+               payload = $4,
+               processed_at = NOW()
+           WHERE id = $5`,
+          ['Payment failed at provider', amount, tenantName, JSON.stringify(eventData), lockRes.rows[0].id]
+        );
+        await client.query('COMMIT');
+        return res.status(200).json({ status: 'failed', event_id: eventId });
+      }
+
+      const currency = String(rawCurrency).toUpperCase();
 
       // Business logic processing within transaction
       if (tenantId) {
@@ -4646,10 +4825,10 @@ app.post('/webhooks/razorpay', async (req, res) => {
           await client.query(
             `INSERT INTO subscriptions (tenant_id, provider, provider_subscription_id, plan_id, status, current_period_start, current_period_end, amount, currency)
              VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-             ON CONFLICT (provider, provider_subscription_id) DO UPDATE SET 
-               status = EXCLUDED.status, 
-               current_period_start = EXCLUDED.current_period_start, 
-               current_period_end = EXCLUDED.current_period_end, 
+             ON CONFLICT (provider, provider_subscription_id) DO UPDATE SET
+               status = EXCLUDED.status,
+               current_period_start = EXCLUDED.current_period_start,
+               current_period_end = EXCLUDED.current_period_end,
                amount = EXCLUDED.amount,
                updated_at = NOW()`,
             [
@@ -4661,7 +4840,7 @@ app.post('/webhooks/razorpay', async (req, res) => {
               start,
               end,
               amount,
-              'INR',
+              currency,
             ]
           );
           await client.query('UPDATE tenants SET plan = $1 WHERE id = $2', [
@@ -4683,13 +4862,52 @@ app.post('/webhooks/razorpay', async (req, res) => {
               provider: 'razorpay',
               providerInvoiceId: entity.payment_id || entity.invoice_id || subId,
               amount: amount || 0,
-              currency: 'INR',
+              currency,
               status: 'paid',
               paidAt: new Date(),
               planName: planDisplayName,
             },
             client
           );
+        } else if (eventType === 'payment.captured' || eventType === 'order.paid') {
+          const payId = entity.id || eventId;
+          const plan = entity.notes?.plan || 'starter';
+          let rawPlanId = String(plan).trim().toLowerCase();
+          if (rawPlanId === 'developer' || rawPlanId === 'solo') rawPlanId = 'starter';
+          else if (rawPlanId === 'pro') rawPlanId = 'professional';
+
+          const planCheck = await client.query('SELECT id, name FROM plans WHERE LOWER(id) = $1 AND is_active = true', [rawPlanId]);
+          const canonicalPlanId = planCheck.rows[0]?.id || 'starter';
+          const planDisplayName = planCheck.rows[0]?.name || 'Starter Plan';
+
+          const subRes = await client.query(
+            `INSERT INTO subscriptions (tenant_id, provider, provider_subscription_id, plan_id, status, current_period_start, current_period_end, amount, currency)
+             VALUES ($1, 'razorpay', $2, $3, 'active', NOW(), NOW() + INTERVAL '30 days', $4, $5)
+             ON CONFLICT (provider, provider_subscription_id) DO UPDATE SET
+               status = 'active',
+               current_period_end = NOW() + INTERVAL '30 days',
+               amount = EXCLUDED.amount,
+               updated_at = NOW()
+             RETURNING id`,
+            [tenantId, entity.order_id || payId, canonicalPlanId, amount, currency]
+          );
+          const subscriptionUuid = subRes.rows[0]?.id || null;
+
+          await createInvoice(
+            {
+              tenantId,
+              subscriptionId: subscriptionUuid,
+              provider: 'razorpay',
+              providerInvoiceId: payId,
+              amount: amount || 0,
+              currency,
+              status: 'paid',
+              paidAt: new Date(),
+              planName: planDisplayName,
+            },
+            client
+          );
+          await client.query("UPDATE tenants SET plan = $1, status = 'active' WHERE id = $2", [canonicalPlanId, tenantId]);
         } else if (eventType === 'subscription.cancelled') {
           const subId = entity.id;
           await client.query(
@@ -4699,11 +4917,25 @@ app.post('/webhooks/razorpay', async (req, res) => {
         }
       }
 
+      // 4. Atomically transition webhook record to 'processed'
+      await client.query(
+        `UPDATE payment_webhooks
+         SET status = 'processed',
+             processing_error = NULL,
+             amount = $1,
+             tenant_name = COALESCE($2, tenant_name),
+             payload = $3,
+             processed_at = NOW()
+         WHERE id = $4`,
+        [amount, tenantName, JSON.stringify(eventData), lockRes.rows[0].id]
+      );
+
       await client.query('COMMIT');
-      res.status(200).json({ status: 'processed' });
+      return res.status(200).json({ status: 'processed' });
     } catch (txErr) {
-      await client.query('ROLLBACK');
-      throw txErr;
+      await client.query('ROLLBACK').catch(() => {});
+      logger.error('Razorpay webhook transaction failed:', txErr);
+      return res.status(500).json({ error: 'Database transaction failed: ' + txErr.message });
     } finally {
       client.release();
     }
@@ -4793,8 +5025,17 @@ app.post('/webhooks/phonepe', async (req, res) => {
     const phonepeTxnId = eventData.transactionId || merchantTxnId || ('phpe_' + Date.now());
     const eventType = decodedEvent.code || 'PAYMENT_SUCCESS';
     const amount = eventData.amount ? eventData.amount / 100 : 0;
-    const isSuccess = decodedEvent.success && (eventData.state === 'COMPLETED' || eventData.responseCode === 'SUCCESS');
-    const status = isSuccess ? 'processed' : 'failed';
+    const isSuccess = Boolean(
+      decodedEvent.success &&
+      (eventData.state === 'COMPLETED' || eventData.responseCode === 'SUCCESS' || eventType === 'PAYMENT_SUCCESS')
+    );
+    const isFailed = Boolean(
+      decodedEvent.success === false ||
+      eventData.state === 'FAILED' ||
+      eventData.responseCode === 'PAYMENT_ERROR' ||
+      eventData.responseCode === 'AUTHORIZATION_FAILED'
+    );
+    const status = isSuccess ? 'processed' : (isFailed ? 'failed' : 'pending');
 
     // Parse tenantId and planId from merchantTransactionId: TXN_<tenantId>_<planId>_<timestamp>
     let tenantId = null;
@@ -4802,9 +5043,44 @@ app.post('/webhooks/phonepe', async (req, res) => {
     const txnParts = merchantTxnId.split('_');
     if (txnParts.length >= 4) {
       tenantId = txnParts[1];
-      planId = txnParts[2].toLowerCase();
+      planId = txnParts.slice(2, -1).join('_').toLowerCase();
     } else if (txnParts.length === 3) {
       tenantId = txnParts[1];
+    }
+
+    let rawCurrency = eventData.currency || eventData.paymentInstrument?.currency;
+    if (!rawCurrency) {
+      const merchantId = decryptText(provider.api_key_encrypted) || process.env.PHONEPE_MERCHANT_ID;
+      const saltKey = decryptText(provider.api_secret_encrypted) || decryptText(provider.webhook_secret_encrypted) || process.env.PHONEPE_SALT_KEY;
+      const saltIndex = process.env.PHONEPE_SALT_INDEX || '1';
+      if (merchantId && saltKey && merchantTransactionId) {
+        try {
+          const statusPath = `/pg/v1/status/${merchantId}/${merchantTransactionId}`;
+          const statusHash = crypto.createHash('sha256').update(statusPath + saltKey).digest('hex') + '###' + saltIndex;
+          const host = process.env.PHONEPE_HOST_URL || (process.env.NODE_ENV === 'production' ? 'https://api.phonepe.com/apis/hermes' : 'https://api-preprod.phonepe.com/apis/pg-sandbox');
+          const phRes = await fetch(`${host}${statusPath}`, {
+            headers: {
+              'Content-Type': 'application/json',
+              'X-VERIFY': statusHash,
+              'X-MERCHANT-ID': merchantId,
+            },
+          });
+          if (phRes.ok) {
+            const phJson = await phRes.json();
+            if (phJson.success && phJson.data) {
+              const phData = phJson.data;
+              if (phData.transactionId && phData.amount) {
+                const lookupAmount = phData.amount / 100;
+                if (amount === 0 || Math.abs(amount - lookupAmount) < 0.01) {
+                  rawCurrency = phData.currency || phData.paymentInstrument?.currency;
+                }
+              }
+            }
+          }
+        } catch (lookupErr) {
+          logger.warn(`[WEBHOOK] PhonePe status lookup failed for ${merchantTransactionId}: ${lookupErr.message}`);
+        }
+      }
     }
 
     let tenantName = 'System';
@@ -4813,33 +5089,91 @@ app.post('/webhooks/phonepe', async (req, res) => {
       if (tRes.rows.length > 0) tenantName = tRes.rows[0].name;
     }
 
+    let unresolvedReason = null;
+    if (!rawCurrency) {
+      unresolvedReason = `Missing currency in PhonePe event ${phonepeTxnId} and authoritative lookup unavailable`;
+    } else if (String(rawCurrency).toUpperCase() !== 'INR') {
+      unresolvedReason = `Non-INR currency '${String(rawCurrency).toUpperCase()}' rejected. Platform strictly operates in INR.`;
+    }
+
     const client = await pool.connect();
     try {
       await client.query('BEGIN');
 
-      const insertRes = await client.query(
+      // Concurrency-safe atomic insert or row lock
+      const lockRes = await client.query(
         `INSERT INTO payment_webhooks (event_id, provider_id, provider, event_type, status, amount, tenant_name, payload, signature_verified, processed_at)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW())
-         ON CONFLICT (event_id, provider) DO NOTHING
-         RETURNING id`,
+         VALUES ($1, $2, 'phonepe', $3, 'pending', $4, $5, $6, true, NOW())
+         ON CONFLICT (event_id, provider) DO UPDATE SET
+           processed_at = NOW()
+         RETURNING id, status`,
         [
           phonepeTxnId,
           provider.id,
-          'phonepe',
           eventType,
-          status,
           amount,
           tenantName,
           JSON.stringify(decodedEvent),
-          true,
         ]
       );
 
-      if (insertRes.rows.length === 0) {
+      const existingStatus = lockRes.rows[0].status;
+
+      // 1. If already processed, acknowledge idempotent replay safely without side-effects
+      if (existingStatus === 'processed') {
         await client.query('COMMIT');
         logger.info(`[WEBHOOK] PhonePe event ${phonepeTxnId} has already been processed.`);
         return res.status(200).json({ status: 'already_processed' });
       }
+
+      // 2. If unresolved (missing or non-INR currency), durably preserve as 'unresolved'
+      if (unresolvedReason) {
+        await client.query(
+          `UPDATE payment_webhooks
+           SET status = 'unresolved',
+               processing_error = $1,
+               amount = $2,
+               tenant_name = COALESCE($3, tenant_name),
+               payload = $4,
+               processed_at = NOW()
+           WHERE id = $5`,
+          [
+            unresolvedReason,
+            amount,
+            tenantName,
+            JSON.stringify(decodedEvent),
+            lockRes.rows[0].id,
+          ]
+        );
+        await client.query('COMMIT');
+        logger.warn(`[WEBHOOK] PhonePe event ${phonepeTxnId} durably preserved with status='unresolved': ${unresolvedReason}`);
+        return res.status(200).json({
+          success: true,
+          status: 'unresolved',
+          event_id: phonepeTxnId,
+          reason: unresolvedReason,
+          message: 'Event durably stored with unresolved currency for manual or automated reconciliation',
+        });
+      }
+
+      // 3. If failed event
+      if (isFailed) {
+        await client.query(
+          `UPDATE payment_webhooks
+           SET status = 'failed',
+               processing_error = $1,
+               amount = $2,
+               tenant_name = COALESCE($3, tenant_name),
+               payload = $4,
+               processed_at = NOW()
+           WHERE id = $5`,
+          ['Payment failed at provider', amount, tenantName, JSON.stringify(decodedEvent), lockRes.rows[0].id]
+        );
+        await client.query('COMMIT');
+        return res.status(200).json({ status: 'failed', event_id: phonepeTxnId });
+      }
+
+      const currency = String(rawCurrency).toUpperCase();
 
       if (isSuccess && tenantId) {
         let rawPlanId = String(planId).trim().toLowerCase();
@@ -4857,14 +5191,15 @@ app.post('/webhooks/phonepe', async (req, res) => {
 
         await client.query(
           `INSERT INTO subscriptions (tenant_id, provider, provider_subscription_id, plan_id, status, current_period_start, current_period_end, amount, currency)
-           VALUES ($1, $2, $3, $4, 'active', NOW(), NOW() + INTERVAL '30 days', $5, 'INR')
-           ON CONFLICT (provider, provider_subscription_id) DO UPDATE SET 
-             status = 'active', 
-             current_period_start = NOW(), 
-             current_period_end = NOW() + INTERVAL '30 days', 
+           VALUES ($1, $2, $3, $4, 'active', NOW(), NOW() + INTERVAL '30 days', $5, $6)
+           ON CONFLICT (provider, provider_subscription_id) DO UPDATE SET
+             status = 'active',
+             current_period_start = NOW(),
+             current_period_end = NOW() + INTERVAL '30 days',
              amount = EXCLUDED.amount,
+             currency = EXCLUDED.currency,
              updated_at = NOW()`,
-          [tenantId, 'phonepe', merchantTxnId, canonicalPlanId, amount]
+          [tenantId, 'phonepe', merchantTxnId, canonicalPlanId, amount, currency]
         );
 
         await client.query('UPDATE tenants SET plan = $1, status = \'active\', updated_at = NOW() WHERE id = $2', [
@@ -4885,7 +5220,7 @@ app.post('/webhooks/phonepe', async (req, res) => {
             provider: 'phonepe',
             providerInvoiceId: phonepeTxnId,
             amount: amount || 0,
-            currency: 'INR',
+            currency,
             status: 'paid',
             paidAt: new Date(),
             planName: canonicalPlanName,
@@ -4894,11 +5229,25 @@ app.post('/webhooks/phonepe', async (req, res) => {
         );
       }
 
+      // 4. Atomically transition webhook record to 'processed'
+      await client.query(
+        `UPDATE payment_webhooks
+         SET status = 'processed',
+             processing_error = NULL,
+             amount = $1,
+             tenant_name = COALESCE($2, tenant_name),
+             payload = $3,
+             processed_at = NOW()
+         WHERE id = $4`,
+        [amount, tenantName, JSON.stringify(decodedEvent), lockRes.rows[0].id]
+      );
+
       await client.query('COMMIT');
-      res.status(200).json({ status: 'processed', success: true });
+      return res.status(200).json({ status: 'processed', success: true });
     } catch (txErr) {
-      await client.query('ROLLBACK');
-      throw txErr;
+      await client.query('ROLLBACK').catch(() => {});
+      logger.error('PhonePe webhook transaction failed:', txErr);
+      return res.status(500).json({ error: 'Database transaction failed: ' + txErr.message });
     } finally {
       client.release();
     }
@@ -4961,25 +5310,107 @@ app.post('/webhooks/cashfree', async (req, res) => {
     const cfPaymentId = payment.cf_payment_id || order.cf_order_id || orderId;
     const eventType = payload.type || 'PAYMENT_SUCCESS_WEBHOOK';
     const amount = Number(order.order_amount || payment.payment_amount || 0);
+    let rawCurrency = order.order_currency || payment.payment_currency || payload.order_currency || payload.currency || data.order_currency;
+    if (!rawCurrency) {
+      const appId = decryptText(provider.api_key_encrypted) || process.env.CASHFREE_APP_ID;
+      const secretKey = decryptText(provider.api_secret_encrypted) || decryptText(provider.webhook_secret_encrypted) || process.env.CASHFREE_SECRET_KEY;
+      if (appId && secretKey && orderId) {
+        try {
+          const cfHost = process.env.CASHFREE_BASE_URL || (process.env.NODE_ENV === 'production' ? 'https://api.cashfree.com/pg' : 'https://sandbox.cashfree.com/pg');
+          const cfRes = await fetch(`${cfHost}/orders/${orderId}`, {
+            headers: {
+              'x-client-id': appId,
+              'x-client-secret': secretKey,
+              'x-api-version': '2023-08-01',
+            },
+          });
+          if (cfRes.ok) {
+            const cfOrder = await cfRes.json();
+            if (cfOrder && cfOrder.order_id === orderId && cfOrder.order_currency) {
+              const cfOrderAmount = Number(cfOrder.order_amount || 0);
+              if (amount === 0 || Math.abs(amount - cfOrderAmount) < 0.01) {
+                rawCurrency = cfOrder.order_currency;
+              }
+            }
+          }
+        } catch (lookupErr) {
+          logger.warn(`[WEBHOOK] Cashfree authoritative order lookup failed for ${orderId}: ${lookupErr.message}`);
+        }
+      }
+    }
+
+    let unresolvedReason = null;
+    if (!rawCurrency) {
+      unresolvedReason = `Missing currency in Cashfree event ${orderId} and authoritative lookup unavailable`;
+    } else if (String(rawCurrency).toUpperCase() !== 'INR') {
+      unresolvedReason = `Non-INR currency '${String(rawCurrency).toUpperCase()}' rejected. Platform strictly operates in INR.`;
+    }
+
     const isSuccess = eventType === 'PAYMENT_SUCCESS_WEBHOOK' || payment.payment_status === 'SUCCESS' || order.order_status === 'PAID';
-    const status = isSuccess ? 'success' : 'failed';
+    const isFailed = eventType === 'PAYMENT_FAILED_WEBHOOK' || payment.payment_status === 'FAILED' || order.order_status === 'FAILED';
 
     const client = await pool.connect();
     try {
       await client.query('BEGIN');
-      const insertRes = await client.query(
-        `INSERT INTO payment_webhooks (event_id, provider_id, provider, event_type, status, amount, payload, signature_verified)
-         VALUES ($1, $2, 'cashfree', $3, $4, $5, $6, $7)
-         ON CONFLICT (event_id, provider) DO NOTHING
-         RETURNING id`,
-        [orderId, providerId, eventType, status, amount, JSON.stringify(payload), signatureVerified]
+
+      // Concurrency-safe atomic insert or row lock
+      const lockRes = await client.query(
+        `INSERT INTO payment_webhooks (event_id, provider_id, provider, event_type, status, amount, payload, signature_verified, processed_at)
+         VALUES ($1, $2, 'cashfree', $3, 'pending', $4, $5, $6, NOW())
+         ON CONFLICT (event_id, provider) DO UPDATE SET
+           processed_at = NOW()
+         RETURNING id, status`,
+        [orderId, providerId, eventType, amount, JSON.stringify(payload), signatureVerified]
       );
 
-      if (insertRes.rows.length === 0) {
+      const existingStatus = lockRes.rows[0].status;
+
+      // 1. If already processed, acknowledge idempotent replay safely without side-effects
+      if (existingStatus === 'processed') {
         await client.query('COMMIT');
         logger.info(`[WEBHOOK] Cashfree event ${orderId} has already been processed.`);
         return res.status(200).json({ status: 'already_processed' });
       }
+
+      // 2. If unresolved (missing or non-INR currency), durably preserve as 'unresolved'
+      if (unresolvedReason) {
+        await client.query(
+          `UPDATE payment_webhooks
+           SET status = 'unresolved',
+               processing_error = $1,
+               amount = $2,
+               payload = $3,
+               processed_at = NOW()
+           WHERE id = $4`,
+          [unresolvedReason, amount, JSON.stringify(payload), lockRes.rows[0].id]
+        );
+        await client.query('COMMIT');
+        logger.warn(`[WEBHOOK] Cashfree event ${orderId} durably preserved with status='unresolved': ${unresolvedReason}`);
+        return res.status(200).json({
+          status: 'unresolved',
+          event_id: orderId,
+          reason: unresolvedReason,
+          message: 'Event durably stored with unresolved currency for manual or automated reconciliation',
+        });
+      }
+
+      // 3. If failed event
+      if (isFailed) {
+        await client.query(
+          `UPDATE payment_webhooks
+           SET status = 'failed',
+               processing_error = $1,
+               amount = $2,
+               payload = $3,
+               processed_at = NOW()
+           WHERE id = $4`,
+          ['Payment failed or non-success at provider', amount, JSON.stringify(payload), lockRes.rows[0].id]
+        );
+        await client.query('COMMIT');
+        return res.status(200).json({ status: 'failed', event_id: orderId });
+      }
+
+      const currency = String(rawCurrency).toUpperCase();
 
       let tenantId = order.order_tags?.tenant_id || payload.tenantId;
       let planId = (order.order_tags?.plan_id || payload.planId || 'starter').toLowerCase();
@@ -5010,13 +5441,14 @@ app.post('/webhooks/cashfree', async (req, res) => {
 
         await client.query(
           `INSERT INTO subscriptions (tenant_id, provider, provider_subscription_id, plan_id, status, amount, currency, current_period_start, current_period_end, created_at, updated_at)
-           VALUES ($1, 'cashfree', $2, $3, 'active', $4, 'INR', NOW(), NOW() + INTERVAL '30 days', NOW(), NOW())
-           ON CONFLICT (provider, provider_subscription_id) DO UPDATE SET 
-             status = 'active', 
-             current_period_end = NOW() + INTERVAL '30 days', 
+           VALUES ($1, 'cashfree', $2, $3, 'active', $4, $5, NOW(), NOW() + INTERVAL '30 days', NOW(), NOW())
+           ON CONFLICT (provider, provider_subscription_id) DO UPDATE SET
+             status = 'active',
+             current_period_end = NOW() + INTERVAL '30 days',
              amount = EXCLUDED.amount,
+             currency = EXCLUDED.currency,
              updated_at = NOW()`,
-          [tenantId, orderId, canonicalPlanId, amount]
+          [tenantId, orderId, canonicalPlanId, amount, currency]
         );
 
         await client.query("UPDATE tenants SET plan = $1, status = 'active', updated_at = NOW() WHERE id = $2", [canonicalPlanId, tenantId]);
@@ -5033,18 +5465,33 @@ app.post('/webhooks/cashfree', async (req, res) => {
           provider: 'cashfree',
           providerInvoiceId: cfPaymentId,
           amount: amount || 0,
-          currency: 'INR',
+          currency,
           status: 'paid',
+          paidAt: new Date(),
+          planName: canonicalPlanId.toUpperCase() + ' Plan',
           pdfUrl: `/admin/invoices/receipt/${cfPaymentId}`,
         });
       }
 
+      // 4. Atomically transition webhook record to 'processed'
+      await client.query(
+        `UPDATE payment_webhooks
+         SET status = 'processed',
+             processing_error = NULL,
+             amount = $1,
+             payload = $2,
+             processed_at = NOW()
+         WHERE id = $3`,
+        [amount, JSON.stringify(payload), lockRes.rows[0].id]
+      );
+
       await client.query('COMMIT');
       logger.info(`[WEBHOOK] Successfully processed Cashfree order: ${orderId}`);
-      res.status(200).json({ status: 'success', event_id: orderId });
+      return res.status(200).json({ status: 'success', event_id: orderId });
     } catch (txErr) {
-      await client.query('ROLLBACK');
-      throw txErr;
+      await client.query('ROLLBACK').catch(() => {});
+      logger.error('Cashfree webhook transaction failed:', txErr);
+      return res.status(500).json({ error: 'Database transaction failed: ' + txErr.message });
     } finally {
       client.release();
     }
@@ -5104,26 +5551,99 @@ app.post('/webhooks/neuracollect', async (req, res) => {
     const data = payload.data || {};
     const orderId = payload.externalOrderId || payload.orderId || data.order?.order_id || ('nc_' + Date.now());
     const paymentId = payload.gatewayOrderId || payload.paymentId || data.payment?.cf_payment_id || orderId;
-    const eventType = payload.eventType || payload.type || 'PAYMENT_SUCCESS_WEBHOOK';
+    const eventType = payload.type || 'PAYMENT_SUCCESS_WEBHOOK';
     const amount = Number(payload.amount || data.order?.order_amount || data.payment?.payment_amount || 0);
-    const isSuccess =
-      eventType === 'PAYMENT_SUCCESS_WEBHOOK' ||
-      eventType === 'PAYMENT_SUCCESS' ||
-      payload.status === 'SUCCESS' ||
-      data.payment?.payment_status === 'SUCCESS' ||
-      data.order?.order_status === 'PAID';
-    const status = isSuccess ? 'success' : 'failed';
+    let rawCurrency = payload.currency || data.currency || data.order?.order_currency || data.order?.currency || data.payment?.currency || payload.data?.order?.currency;
+    if (!rawCurrency) {
+      const ncApiKey = apiKey || decryptText(provider.api_key_encrypted) || process.env.NEURACOLLECT_API_KEY;
+      if (ncApiKey && orderId) {
+        try {
+          const ncHost = process.env.NEURACOLLECT_BASE_URL || 'https://collect.neuravolt.ai';
+          const ncRes = await fetch(`${ncHost}/api/v1/orders/${orderId}`, {
+            headers: { Authorization: `Bearer ${ncApiKey}` },
+          });
+          if (ncRes.ok) {
+            const ncOrder = await ncRes.json();
+            if (ncOrder && (ncOrder.order_id === orderId || ncOrder.id === orderId) && ncOrder.currency) {
+              const ncAmount = Number(ncOrder.amount || ncOrder.order_amount || 0);
+              if (amount === 0 || Math.abs(amount - ncAmount) < 0.01) {
+                rawCurrency = ncOrder.currency;
+              }
+            }
+          }
+        } catch (lookupErr) {
+          logger.warn(`[WEBHOOK] NeuraCollect authoritative lookup failed for ${orderId}: ${lookupErr.message}`);
+        }
+      }
+    }
+
+    let unresolvedReason = null;
+    if (!rawCurrency) {
+      unresolvedReason = `Missing currency in NeuraCollect event ${orderId} and authoritative lookup unavailable`;
+    } else if (String(rawCurrency).toUpperCase() !== 'INR') {
+      unresolvedReason = `Non-INR currency '${String(rawCurrency).toUpperCase()}' rejected. Platform strictly operates in INR.`;
+    }
 
     const client = await pool.connect();
     try {
       await client.query('BEGIN');
-      const insertRes = await client.query(
-        `INSERT INTO payment_webhooks (event_id, provider_id, provider, event_type, status, amount, payload, signature_verified)
-         VALUES ($1, $2, 'neuracollect', $3, $4, $5, $6, $7)
-         ON CONFLICT (event_id, provider) DO NOTHING
-         RETURNING id`,
-        [orderId, providerId, eventType, status, amount, JSON.stringify(payload), signatureVerified]
+
+      // Concurrency-safe atomic insert or row lock
+      const lockRes = await client.query(
+        `INSERT INTO payment_webhooks (event_id, provider_id, provider, event_type, status, amount, payload, signature_verified, processed_at)
+         VALUES ($1, $2, 'neuracollect', $3, 'pending', $4, $5, $6, NOW())
+         ON CONFLICT (event_id, provider) DO UPDATE SET
+           processed_at = NOW()
+         RETURNING id, status`,
+        [
+          orderId,
+          providerId,
+          eventType,
+          amount,
+          JSON.stringify(payload),
+          signatureVerified,
+        ]
       );
+
+      const existingStatus = lockRes.rows[0].status;
+
+      // 1. If already processed, acknowledge idempotent replay safely without side-effects
+      if (existingStatus === 'processed') {
+        await client.query('COMMIT');
+        logger.info(`[WEBHOOK] NeuraCollect order ${orderId} has already been processed.`);
+        return res.status(200).json({ status: 'already_processed', event_id: orderId });
+      }
+
+      // 2. If unresolved (missing or non-INR currency), durably preserve as 'unresolved'
+      if (unresolvedReason) {
+        await client.query(
+          `UPDATE payment_webhooks
+           SET status = 'unresolved',
+               processing_error = $1,
+               payload = $2,
+               amount = $3,
+               processed_at = NOW()
+           WHERE id = $4`,
+          [unresolvedReason, JSON.stringify(payload), amount, lockRes.rows[0].id]
+        );
+        await client.query('COMMIT');
+        logger.warn(`[WEBHOOK] NeuraCollect event ${orderId} durably preserved with status='unresolved': ${unresolvedReason}`);
+        return res.status(200).json({
+          status: 'unresolved',
+          event_id: orderId,
+          reason: unresolvedReason,
+          message: 'Event durably stored with unresolved currency for manual or automated reconciliation',
+        });
+      }
+
+      // 3. Currency is verified INR
+      const currency = String(rawCurrency).toUpperCase();
+      const isSuccess =
+        eventType === 'PAYMENT_SUCCESS_WEBHOOK' ||
+        eventType === 'PAYMENT_SUCCESS' ||
+        payload.status === 'SUCCESS' ||
+        data.payment?.payment_status === 'SUCCESS' ||
+        data.order?.order_status === 'PAID';
 
       let tenantId = payload.tenantId || data.order?.order_tags?.tenant_id;
       let planId = (payload.planId || data.order?.order_tags?.plan_id || 'starter').toLowerCase();
@@ -5159,13 +5679,13 @@ app.post('/webhooks/neuracollect', async (req, res) => {
 
         await client.query(
           `INSERT INTO subscriptions (tenant_id, provider, provider_subscription_id, plan_id, status, amount, currency, current_period_start, current_period_end, created_at, updated_at)
-           VALUES ($1, 'neuracollect', $2, $3, 'active', $4, 'INR', NOW(), NOW() + INTERVAL '30 days', NOW(), NOW())
-           ON CONFLICT (provider, provider_subscription_id) DO UPDATE SET 
-             status = 'active', 
-             current_period_end = NOW() + INTERVAL '30 days', 
+           VALUES ($1, 'neuracollect', $2, $3, 'active', $4, $5, NOW(), NOW() + INTERVAL '30 days', NOW(), NOW())
+           ON CONFLICT (provider, provider_subscription_id) DO UPDATE SET
+             status = 'active',
+             current_period_end = NOW() + INTERVAL '30 days',
              amount = EXCLUDED.amount,
              updated_at = NOW()`,
-          [tenantId, orderId, canonicalPlanId, amount]
+          [tenantId, orderId, canonicalPlanId, amount, currency]
         );
 
         await client.query("UPDATE tenants SET plan = $1, status = 'active', updated_at = NOW() WHERE id = $2", [canonicalPlanId, tenantId]);
@@ -5176,25 +5696,39 @@ app.post('/webhooks/neuracollect', async (req, res) => {
         );
         const subscriptionUuid = subRes.rows.length > 0 ? subRes.rows[0].id : null;
 
-        const invoiceNumber = `INV-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}-${String(orderId).slice(-8).toUpperCase()}`;
         await recordInvoice(client, {
           tenantId,
           subscriptionId: subscriptionUuid,
           provider: 'neuracollect',
           providerInvoiceId: paymentId,
           amount: amount || 0,
-          currency: 'INR',
+          currency,
           status: 'paid',
+          paidAt: new Date(),
+          planName: canonicalPlanId.toUpperCase() + ' Plan',
           pdfUrl: `/admin/invoices/receipt/${paymentId}`,
         });
       }
 
+      // 4. Atomically transition webhook record to 'processed' (or 'failed')
+      await client.query(
+        `UPDATE payment_webhooks
+         SET status = $1,
+             processing_error = NULL,
+             amount = $2,
+             payload = $3,
+             processed_at = NOW()
+         WHERE id = $4`,
+        [isSuccess ? 'processed' : 'failed', amount, JSON.stringify(payload), lockRes.rows[0].id]
+      );
+
       await client.query('COMMIT');
       logger.info(`[WEBHOOK] Successfully processed NeuraCollect order: ${orderId}`);
-      res.status(200).json({ status: 'success', event_id: orderId });
+      return res.status(200).json({ status: isSuccess ? 'success' : 'failed', event_id: orderId });
     } catch (txErr) {
-      await client.query('ROLLBACK');
-      throw txErr;
+      await client.query('ROLLBACK').catch(() => {});
+      logger.error('NeuraCollect webhook transaction failed:', txErr);
+      return res.status(500).json({ error: 'Database transaction failed: ' + txErr.message });
     } finally {
       client.release();
     }
@@ -5215,7 +5749,7 @@ app.get('/admin/billing/webhooks', adminAuth, async (req, res) => {
     offset = 0,
   } = req.query;
   try {
-    let query = `SELECT w.id, w.event_id, w.provider, w.event_type, w.status, w.amount, w.tenant_name, w.payload, w.signature_verified, w.created_at 
+    let query = `SELECT w.id, w.event_id, w.provider, w.event_type, w.status, w.amount, w.tenant_name, w.payload, w.signature_verified, w.processing_error, w.processed_at, w.created_at
                  FROM payment_webhooks w WHERE 1=1`;
     const params = [];
 
@@ -5300,7 +5834,7 @@ app.get('/admin/billing/webhook-logs', adminAuth, async (req, res) => {
     offset = 0,
   } = req.query;
   try {
-    let query = `SELECT w.id, w.event_id, w.provider, w.event_type, w.status, w.amount, w.tenant_name, w.payload, w.signature_verified, w.processing_error, w.created_at, w.processed_at 
+    let query = `SELECT w.id, w.event_id, w.provider, w.event_type, w.status, w.amount, w.tenant_name, w.payload, w.signature_verified, w.processing_error, w.created_at, w.processed_at
                  FROM payment_webhooks w WHERE 1=1`;
     const params = [];
 
@@ -5368,7 +5902,429 @@ app.get('/admin/billing/webhook-logs', adminAuth, async (req, res) => {
   }
 });
 
-// POST /admin/billing/webhooks/:id/retry - Manual retry button for failed/pending webhooks
+/**
+ * Safely reconciles a webhook event by re-verifying provider credentials,
+ * querying authoritative provider APIs to resolve currency/status/amount,
+ * and atomically executing subscription & invoice updates if verified INR.
+ */
+async function reconcileWebhookEvent(webhookRecord) {
+  // 1. Signature verification check: Retries cannot bypass cryptographic verification
+  if (!webhookRecord.signature_verified) {
+    return {
+      success: false,
+      status: 'unverified_signature',
+      error: 'Cannot retry webhook with unverified signature. Cryptographic verification is strictly required.',
+    };
+  }
+
+  // 2. Already processed check: Idempotent return without duplicate side effects
+  if (webhookRecord.status === 'processed') {
+    return {
+      success: true,
+      status: 'already_processed',
+      message: `Webhook event ${webhookRecord.event_id} is already processed.`,
+      webhook: webhookRecord,
+    };
+  }
+
+  const providerName = String(webhookRecord.provider).toLowerCase();
+  const eventId = webhookRecord.event_id;
+  const payload = typeof webhookRecord.payload === 'string'
+    ? JSON.parse(webhookRecord.payload)
+    : (webhookRecord.payload || {});
+
+  // Fetch provider configuration
+  const provRes = await pool.query(
+    'SELECT * FROM payment_providers WHERE LOWER(provider) = $1 AND is_active = true LIMIT 1',
+    [providerName]
+  );
+  const provider = provRes.rows.length > 0 ? provRes.rows[0] : null;
+
+  let authoritativeCurrency = null;
+  let authoritativeAmount = Number(webhookRecord.amount || 0);
+  let isPaymentSuccessful = false;
+  let providerPaymentId = eventId;
+  let tenantId = webhookRecord.tenant_id || payload.tenantId || payload.metadata?.tenantId || payload.metadata?.tenant_id;
+  let planId = payload.planId || payload.metadata?.planId || payload.metadata?.plan_id || payload.plan || 'starter';
+
+  // Provider-specific authoritative resolution
+  if (providerName === 'stripe') {
+    const dataObj = payload.data?.object || payload.object || payload;
+    const targetPiId = dataObj.payment_intent || (typeof dataObj.id === 'string' && dataObj.id.startsWith('pi_') ? dataObj.id : null);
+    const targetInvId = dataObj.invoice || (typeof dataObj.id === 'string' && dataObj.id.startsWith('in_') ? dataObj.id : null);
+    const targetCsId = typeof dataObj.id === 'string' && dataObj.id.startsWith('cs_') ? dataObj.id : null;
+
+    tenantId = tenantId || dataObj.metadata?.tenant_id || dataObj.metadata?.tenantId;
+    planId = planId || dataObj.metadata?.plan || dataObj.metadata?.plan_id || dataObj.metadata?.planId;
+
+    let stripeInstance = null;
+    const stripeKey = provider ? decryptText(provider.api_secret_encrypted) : process.env.STRIPE_SECRET_KEY;
+    if (stripeKey) {
+      stripeInstance = new Stripe(stripeKey);
+    }
+
+    if (stripeInstance) {
+      try {
+        if (targetPiId && stripeInstance.paymentIntents?.retrieve) {
+          const pi = await stripeInstance.paymentIntents.retrieve(targetPiId);
+          if (pi && pi.id === targetPiId) {
+            authoritativeCurrency = pi.currency;
+            authoritativeAmount = pi.amount ? pi.amount / 100 : authoritativeAmount;
+            isPaymentSuccessful = pi.status === 'succeeded';
+            providerPaymentId = pi.id;
+          }
+        } else if (targetInvId && stripeInstance.invoices?.retrieve) {
+          const inv = await stripeInstance.invoices.retrieve(targetInvId);
+          if (inv && inv.id === targetInvId) {
+            authoritativeCurrency = inv.currency;
+            authoritativeAmount = inv.amount_paid ? inv.amount_paid / 100 : (inv.total ? inv.total / 100 : authoritativeAmount);
+            isPaymentSuccessful = inv.status === 'paid';
+            providerPaymentId = inv.id;
+          }
+        } else if (targetCsId && stripeInstance.checkout?.sessions?.retrieve) {
+          const cs = await stripeInstance.checkout.sessions.retrieve(targetCsId);
+          if (cs && cs.id === targetCsId) {
+            authoritativeCurrency = cs.currency;
+            authoritativeAmount = cs.amount_total ? cs.amount_total / 100 : authoritativeAmount;
+            isPaymentSuccessful = cs.payment_status === 'paid';
+            providerPaymentId = cs.id;
+          }
+        }
+      } catch (err) {
+        logger.warn(`[RECONCILIATION] Stripe lookup failed for ${eventId}: ${err.message}`);
+      }
+    }
+
+    if (!authoritativeCurrency) {
+      authoritativeCurrency = dataObj.currency;
+    }
+    if (!isPaymentSuccessful) {
+      isPaymentSuccessful = dataObj.status === 'succeeded' || dataObj.status === 'paid' || dataObj.payment_status === 'paid';
+    }
+  } else if (providerName === 'razorpay') {
+    const pEntity = payload.payload?.payment?.entity || payload.payment?.entity || payload;
+    const paymentId = pEntity.id || payload.razorpay_payment_id;
+    const orderId = pEntity.order_id || payload.razorpay_order_id;
+    providerPaymentId = paymentId || orderId || eventId;
+    tenantId = tenantId || pEntity.notes?.tenant_id || pEntity.notes?.tenantId;
+    planId = planId || pEntity.notes?.plan_id || pEntity.notes?.planId;
+
+    const rzpKeyId = provider ? decryptText(provider.api_key_encrypted) : process.env.RAZORPAY_KEY_ID;
+    const rzpSecret = provider ? decryptText(provider.api_secret_encrypted) : process.env.RAZORPAY_KEY_SECRET;
+    if (rzpKeyId && rzpSecret) {
+      try {
+        const rzp = new Razorpay({ key_id: rzpKeyId, key_secret: rzpSecret });
+        if (paymentId && rzp.payments?.fetch) {
+          const rzpPayment = await rzp.payments.fetch(paymentId);
+          if (rzpPayment && rzpPayment.id === paymentId) {
+            authoritativeCurrency = rzpPayment.currency;
+            authoritativeAmount = rzpPayment.amount ? rzpPayment.amount / 100 : authoritativeAmount;
+            isPaymentSuccessful = rzpPayment.status === 'captured' || rzpPayment.status === 'authorized';
+          }
+        }
+      } catch (err) {
+        logger.warn(`[RECONCILIATION] Razorpay lookup failed for ${eventId}: ${err.message}`);
+      }
+    }
+
+    if (!authoritativeCurrency) {
+      authoritativeCurrency = pEntity.currency;
+    }
+    if (!isPaymentSuccessful) {
+      isPaymentSuccessful = pEntity.status === 'captured' || pEntity.status === 'authorized' || webhookRecord.event_type === 'payment.captured';
+    }
+  } else if (providerName === 'phonepe') {
+    const pData = payload.data || {};
+    const txnId = pData.merchantTransactionId || payload.merchantTransactionId || eventId;
+    providerPaymentId = txnId;
+    tenantId = tenantId || pData.merchantUserId || pData.merchantCustomerId;
+
+    const merchantId = provider ? decryptText(provider.merchant_id_encrypted) : process.env.PHONEPE_MERCHANT_ID;
+    const saltKey = provider ? decryptText(provider.api_secret_encrypted) : process.env.PHONEPE_SALT_KEY;
+    const saltIndex = provider ? (decryptText(provider.api_key_encrypted) || '1') : (process.env.PHONEPE_SALT_INDEX || '1');
+    const isTest = provider ? provider.is_test_mode : (process.env.NODE_ENV !== 'production');
+    const phonepeHost = isTest ? 'https://api-preprod.phonepe.com/apis/pg-sandbox' : (process.env.PHONEPE_BASE_URL || 'https://api.phonepe.com/apis/hermes');
+
+    if (merchantId && saltKey && txnId) {
+      try {
+        const statusEndpoint = `/pg/v1/status/${merchantId}/${txnId}`;
+        const sha256 = crypto.createHash('sha256').update(statusEndpoint + saltKey).digest('hex');
+        const xVerify = `${sha256}###${saltIndex}`;
+        const resp = await fetch(`${phonepeHost}${statusEndpoint}`, {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-VERIFY': xVerify,
+            'X-MERCHANT-ID': merchantId,
+          },
+        });
+        if (resp.ok) {
+          const statusBody = await resp.json();
+          if (statusBody.success && (statusBody.code === 'PAYMENT_SUCCESS' || statusBody.data?.responseCode === 'SUCCESS')) {
+            isPaymentSuccessful = true;
+            authoritativeCurrency = statusBody.data?.paymentInstrument?.currency || 'INR';
+            if (statusBody.data?.amount) {
+              authoritativeAmount = statusBody.data.amount / 100;
+            }
+          }
+        }
+      } catch (err) {
+        logger.warn(`[RECONCILIATION] PhonePe lookup failed for ${eventId}: ${err.message}`);
+      }
+    }
+
+    if (!authoritativeCurrency) {
+      authoritativeCurrency = pData.currency || payload.currency || 'INR';
+    }
+    if (!isPaymentSuccessful) {
+      isPaymentSuccessful = payload.code === 'PAYMENT_SUCCESS' || pData.responseCode === 'SUCCESS';
+    }
+  } else if (providerName === 'cashfree') {
+    const data = payload.data || {};
+    const orderId = payload.orderId || data.order?.order_id || eventId;
+    providerPaymentId = payload.referenceId || data.payment?.cf_payment_id || orderId;
+    tenantId = tenantId || payload.tenantId || data.order?.order_tags?.tenant_id;
+    planId = planId || payload.planId || data.order?.order_tags?.plan_id;
+
+    const appId = provider ? decryptText(provider.api_key_encrypted) : process.env.CASHFREE_APP_ID;
+    const secretKey = provider ? decryptText(provider.api_secret_encrypted) : process.env.CASHFREE_SECRET_KEY;
+    const isTest = provider ? provider.is_test_mode : (process.env.NODE_ENV !== 'production');
+    const cfHost = isTest ? 'https://sandbox.cashfree.com' : 'https://api.cashfree.com';
+
+    if (appId && secretKey && orderId) {
+      try {
+        const resp = await fetch(`${cfHost}/pg/orders/${orderId}/payments`, {
+          headers: {
+            'x-client-id': appId,
+            'x-client-secret': secretKey,
+            'x-api-version': '2023-08-01',
+          },
+        });
+        if (resp.ok) {
+          const payments = await resp.json();
+          if (Array.isArray(payments) && payments.length > 0) {
+            const successfulPayment = payments.find((p) => p.payment_status === 'SUCCESS') || payments[0];
+            if (successfulPayment.payment_status === 'SUCCESS') {
+              isPaymentSuccessful = true;
+            }
+            if (successfulPayment.payment_currency) {
+              authoritativeCurrency = successfulPayment.payment_currency;
+            }
+            if (successfulPayment.payment_amount) {
+              authoritativeAmount = Number(successfulPayment.payment_amount);
+            }
+          }
+        }
+      } catch (err) {
+        logger.warn(`[RECONCILIATION] Cashfree lookup failed for ${eventId}: ${err.message}`);
+      }
+    }
+
+    if (!authoritativeCurrency) {
+      authoritativeCurrency = payload.currency || data.order?.order_currency || data.payment?.payment_currency;
+    }
+    if (!isPaymentSuccessful) {
+      isPaymentSuccessful = payload.type === 'PAYMENT_SUCCESS_WEBHOOK' || payload.txStatus === 'SUCCESS' || data.payment?.payment_status === 'SUCCESS';
+    }
+  } else if (providerName === 'neuracollect') {
+    const data = payload.data || {};
+    const orderId = payload.externalOrderId || payload.orderId || data.order?.order_id || eventId;
+    providerPaymentId = payload.gatewayOrderId || payload.paymentId || data.payment?.cf_payment_id || orderId;
+    tenantId = tenantId || payload.tenantId || data.order?.order_tags?.tenant_id;
+    planId = planId || payload.planId || data.order?.order_tags?.plan_id;
+
+    const ncApiKey = provider ? decryptText(provider.api_key_encrypted) : process.env.NEURACOLLECT_API_KEY;
+    const ncHost = process.env.NEURACOLLECT_BASE_URL || 'https://collect.neuravolt.ai';
+
+    if (ncApiKey && orderId) {
+      try {
+        const resp = await fetch(`${ncHost}/api/v1/orders/${orderId}`, {
+          headers: { Authorization: `Bearer ${ncApiKey}` },
+        });
+        if (resp.ok) {
+          const ncOrder = await resp.json();
+          if (ncOrder && (ncOrder.order_id === orderId || ncOrder.id === orderId)) {
+            if (ncOrder.currency) {
+              authoritativeCurrency = ncOrder.currency;
+            }
+            if (ncOrder.amount || ncOrder.order_amount) {
+              authoritativeAmount = Number(ncOrder.amount || ncOrder.order_amount);
+            }
+            if (ncOrder.status === 'PAID' || ncOrder.status === 'SUCCESS') {
+              isPaymentSuccessful = true;
+            }
+          }
+        }
+      } catch (err) {
+        logger.warn(`[RECONCILIATION] NeuraCollect lookup failed for ${eventId}: ${err.message}`);
+      }
+    }
+
+    if (!authoritativeCurrency) {
+      authoritativeCurrency = payload.currency || data.currency || data.order?.order_currency;
+    }
+    if (!isPaymentSuccessful) {
+      isPaymentSuccessful = payload.type === 'PAYMENT_SUCCESS_WEBHOOK' || payload.status === 'SUCCESS' || data.payment?.payment_status === 'SUCCESS' || data.order?.order_status === 'PAID';
+    }
+  }
+
+  // Validate currency and status
+  let unresolvedReason = null;
+  if (!authoritativeCurrency) {
+    unresolvedReason = `Missing currency in ${providerName} event ${eventId} and authoritative lookup unavailable`;
+  } else if (String(authoritativeCurrency).trim().toUpperCase() !== 'INR') {
+    unresolvedReason = `Non-INR currency '${String(authoritativeCurrency).toUpperCase()}' rejected. Platform strictly operates in INR.`;
+  }
+
+  if (unresolvedReason) {
+    await pool.query(
+      `UPDATE payment_webhooks
+       SET status = 'unresolved',
+           processing_error = $1,
+           processed_at = NOW()
+       WHERE id = $2`,
+      [unresolvedReason, webhookRecord.id]
+    );
+    return {
+      success: false,
+      status: 'unresolved',
+      error: unresolvedReason,
+      message: 'Currency could not be authoritatively resolved as INR. Webhook remains unresolved.',
+    };
+  }
+
+  if (!isPaymentSuccessful) {
+    const failReason = `Authoritative payment status verification failed for ${eventId} on ${providerName}.`;
+    await pool.query(
+      `UPDATE payment_webhooks
+       SET status = 'failed',
+           processing_error = $1,
+           processed_at = NOW()
+       WHERE id = $2`,
+      [failReason, webhookRecord.id]
+    );
+    return {
+      success: false,
+      status: 'failed',
+      error: failReason,
+      message: 'Payment verification failed at provider.',
+    };
+  }
+
+  // Authoritative verified INR payment
+  const verifiedCurrency = 'INR';
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+
+    // Row-lock webhook entry to avoid race condition
+    const lockRes = await client.query(
+      'SELECT id, status FROM payment_webhooks WHERE id = $1 FOR UPDATE',
+      [webhookRecord.id]
+    );
+    if (lockRes.rows.length === 0) {
+      await client.query('ROLLBACK');
+      return { success: false, status: 'not_found', error: 'Webhook record not found' };
+    }
+    if (lockRes.rows[0].status === 'processed') {
+      await client.query('COMMIT');
+      return {
+        success: true,
+        status: 'already_processed',
+        message: 'Webhook was already processed concurrently.',
+      };
+    }
+
+    // Match tenant if tenantId is missing
+    if (!tenantId && typeof eventId === 'string') {
+      const parts = eventId.split('_');
+      if (parts.length >= 2) {
+        const short = parts[1];
+        const match = await client.query(
+          `SELECT id FROM tenants WHERE REPLACE(id::text, '-', '') LIKE $1 LIMIT 1`,
+          [`${short}%`]
+        );
+        if (match.rows.length > 0) tenantId = match.rows[0].id;
+      }
+    }
+
+    if (tenantId) {
+      let rawPlanId = String(planId || 'starter').trim().toLowerCase();
+      if (rawPlanId === 'developer' || rawPlanId === 'solo') rawPlanId = 'starter';
+      else if (rawPlanId === 'pro') rawPlanId = 'professional';
+
+      const planCheck = await client.query(
+        'SELECT id, name FROM plans WHERE LOWER(id) = $1 AND is_active = true',
+        [rawPlanId]
+      );
+      const canonicalPlanId = planCheck.rows.length > 0 ? planCheck.rows[0].id : 'starter';
+
+      await client.query(
+        `INSERT INTO subscriptions (tenant_id, provider, provider_subscription_id, plan_id, status, amount, currency, current_period_start, current_period_end, created_at, updated_at)
+         VALUES ($1, $2, $3, $4, 'active', $5, $6, NOW(), NOW() + INTERVAL '30 days', NOW(), NOW())
+         ON CONFLICT (provider, provider_subscription_id) DO UPDATE SET
+           status = 'active',
+           current_period_end = NOW() + INTERVAL '30 days',
+           amount = EXCLUDED.amount,
+           currency = EXCLUDED.currency,
+           updated_at = NOW()`,
+        [tenantId, providerName, eventId, canonicalPlanId, authoritativeAmount, verifiedCurrency]
+      );
+
+      await client.query(
+        "UPDATE tenants SET plan = $1, status = 'active', updated_at = NOW() WHERE id = $2",
+        [canonicalPlanId, tenantId]
+      );
+
+      const subRes = await client.query(
+        'SELECT id FROM subscriptions WHERE provider = $1 AND provider_subscription_id = $2',
+        [providerName, eventId]
+      );
+      const subUuid = subRes.rows.length > 0 ? subRes.rows[0].id : null;
+
+      await recordInvoice(client, {
+        tenantId,
+        subscriptionId: subUuid,
+        provider: providerName,
+        providerInvoiceId: providerPaymentId,
+        amount: authoritativeAmount,
+        currency: verifiedCurrency,
+        status: 'paid',
+        paidAt: new Date(),
+        planName: canonicalPlanId.toUpperCase() + ' Plan',
+        pdfUrl: `/admin/invoices/receipt/${providerPaymentId}`,
+      });
+    }
+
+    await client.query(
+      `UPDATE payment_webhooks
+       SET status = 'processed',
+           processing_error = NULL,
+           amount = $1,
+           processed_at = NOW()
+       WHERE id = $2`,
+      [authoritativeAmount, webhookRecord.id]
+    );
+
+    await client.query('COMMIT');
+    logger.info(`[RECONCILIATION] Webhook event ${eventId} successfully reconciled and processed as INR`);
+    return {
+      success: true,
+      status: 'processed',
+      message: `Webhook event ${eventId} successfully reconciled and processed.`,
+      amount: authoritativeAmount,
+      currency: verifiedCurrency,
+    };
+  } catch (err) {
+    await client.query('ROLLBACK').catch(() => {});
+    logger.error(`[RECONCILIATION] Failed to commit reconciliation for ${eventId}:`, err);
+    throw err;
+  } finally {
+    client.release();
+  }
+}
+
+// POST /admin/billing/webhooks/:id/retry - Authoritative reconciliation and retry endpoint
 app.post('/admin/billing/webhooks/:id/retry', adminAuth, async (req, res) => {
   const { id } = req.params;
   try {
@@ -5379,29 +6335,62 @@ app.post('/admin/billing/webhooks/:id/retry', adminAuth, async (req, res) => {
 
     const event = webhookRes.rows[0];
 
-    // Reset status to pending in DB
-    await pool.query(
-      "UPDATE payment_webhooks SET status = 'pending', processing_error = NULL, processed_at = NULL WHERE id = $1",
-      [id]
-    );
+    // Cryptographic signature check: retries cannot bypass signature verification
+    if (!event.signature_verified) {
+      return res.status(400).json({
+        error: 'Cannot retry webhook with unverified signature',
+        message: 'Cryptographic signature verification is strictly required before retrying',
+      });
+    }
 
-    const payload = typeof event.payload === 'string' ? JSON.parse(event.payload) : event.payload;
+    logger.info(`🔄 [Admin] Synchronous authoritative reconciliation triggered for event ${event.event_id} (${event.provider})`);
 
-    logger.info(`🔄 [Admin] Manual webhook retry triggered for event ${event.event_id} (${event.provider})`);
+    const result = await reconcileWebhookEvent(event);
 
-    res.status(200).json({
+    if (result.status === 'already_processed') {
+      return res.status(200).json({
+        success: true,
+        message: result.message,
+        webhook: {
+          id: event.id,
+          event_id: event.event_id,
+          provider: event.provider,
+          status: 'processed',
+        },
+      });
+    }
+
+    if (!result.success) {
+      const statusCode = result.status === 'unverified_signature' ? 400 : 422;
+      return res.status(statusCode).json({
+        success: false,
+        status: result.status,
+        error: result.error,
+        message: result.message,
+        webhook: {
+          id: event.id,
+          event_id: event.event_id,
+          provider: event.provider,
+          status: result.status,
+        },
+      });
+    }
+
+    return res.status(200).json({
       success: true,
-      message: `Webhook event ${event.event_id} re-enqueued for retry processing`,
+      message: result.message,
       webhook: {
         id: event.id,
         event_id: event.event_id,
         provider: event.provider,
-        status: 'pending',
+        status: 'processed',
+        amount: result.amount,
+        currency: result.currency,
       },
     });
   } catch (err) {
-    logger.error('Failed to trigger manual webhook retry:', err);
-    res.status(500).json({ error: 'Failed to retry webhook' });
+    logger.error('Failed to trigger manual webhook retry/reconciliation:', err);
+    res.status(500).json({ error: 'Failed to reconcile webhook: ' + err.message });
   }
 });
 
@@ -5434,7 +6423,7 @@ app.get('/admin/billing/dunning-dashboard', adminAuth, async (req, res) => {
     );
 
     const recoveryRes = await pool.query(
-      `SELECT 
+      `SELECT
          COUNT(*) FILTER (WHERE status = 'active')::int as recovered,
          COUNT(*) FILTER (WHERE status = 'canceled')::int as canceled,
          COUNT(*) FILTER (WHERE status = 'past_due')::int as past_due
@@ -5516,6 +6505,12 @@ app.post('/admin/plans', adminAuth, async (req, res) => {
       .json({ error: 'Plan id, name, and tier are required' });
   }
 
+  if (currency && String(currency).trim().toUpperCase() !== 'INR') {
+    return res
+      .status(400)
+      .json({ error: 'Only INR plans are permitted. The platform operates strictly in INR (₹).' });
+  }
+
   try {
     const result = await pool.query(
       `
@@ -5587,6 +6582,12 @@ app.put('/admin/plans/:id', adminAuth, async (req, res) => {
     if (oldQuery.rows.length === 0)
       return res.status(404).json({ error: 'Plan not found' });
     const oldPlan = oldQuery.rows[0];
+
+    if (currency && String(currency).trim().toUpperCase() !== 'INR') {
+      return res
+        .status(400)
+        .json({ error: 'Only INR plans are permitted. The platform operates strictly in INR (₹).' });
+    }
 
     const result = await pool.query(
       `

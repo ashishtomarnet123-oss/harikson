@@ -90,6 +90,11 @@ export async function processWebhookPayload(provider: string, eventType: string,
   const dataObject = payload?.data?.object || payload?.object || payload;
 
   if (eventType === 'checkout.session.completed' || eventType === 'payment_intent.succeeded') {
+    const rawCurrency = dataObject?.currency || dataObject?.items?.data?.[0]?.price?.currency || dataObject?.plan?.currency;
+    if (rawCurrency && String(rawCurrency).trim().toUpperCase() !== 'INR') {
+      throw new Error(`Non-INR currency '${rawCurrency}' rejected for Stripe event. Platform strictly operates in INR.`);
+    }
+
     const tenantId = dataObject.metadata?.tenantId;
     const planId = dataObject.metadata?.planId;
 
@@ -132,7 +137,15 @@ async function processRazorpayWebhookPayload(eventType: string, payload: any): P
     const paymentId = paymentEntity?.id;
     const orderId = paymentEntity?.order_id;
     const amount = paymentEntity?.amount ? paymentEntity.amount / 100 : 0;
-    const currency = paymentEntity?.currency || 'INR';
+
+    const rawCurrency = paymentEntity?.currency || payload?.payload?.order?.entity?.currency;
+    if (!rawCurrency) {
+      throw new Error(`Missing currency in Razorpay event ${paymentId} - cannot activate without verified currency`);
+    }
+    const currency = String(rawCurrency).trim().toUpperCase();
+    if (currency !== 'INR') {
+      throw new Error(`Non-INR currency '${currency}' rejected for Razorpay event ${paymentId}. Platform strictly operates in INR.`);
+    }
 
     if (!tenantId || !planId || !paymentId) {
       logger.warn(`Razorpay ${eventType} webhook missing tenantId/planId/paymentId in notes — skipping activation`);
@@ -185,6 +198,15 @@ async function processPhonePeWebhookPayload(eventType: string, payload: any): Pr
     (data?.state === 'COMPLETED' || data?.responseCode === 'SUCCESS' || eventType === 'PAYMENT_SUCCESS');
   const amount = data?.amount ? data.amount / 100 : 0;
 
+  const rawCurrency = data?.currency || data?.paymentInstrument?.currency;
+  if (!rawCurrency) {
+    throw new Error(`Missing currency in PhonePe event ${transactionId} - cannot activate without verified currency`);
+  }
+  const currency = String(rawCurrency).trim().toUpperCase();
+  if (currency !== 'INR') {
+    throw new Error(`Non-INR currency '${currency}' rejected for PhonePe event ${transactionId}. Platform strictly operates in INR.`);
+  }
+
   // Extract tenantId and planId from merchantTransactionId: TXN_<tenantId>_<planId>_<timestamp>
   let tenantId: string | null = null;
   let planId = 'starter';
@@ -204,19 +226,19 @@ async function processPhonePeWebhookPayload(eventType: string, payload: any): Pr
   if (isSuccess) {
     const subRes = await pool.query(
       `INSERT INTO subscriptions (tenant_id, provider, provider_subscription_id, plan_id, status, current_period_start, current_period_end, amount, currency, created_at, updated_at)
-       VALUES ($1, 'phonepe', $2, $3, 'active', NOW(), NOW() + INTERVAL '30 days', $4, 'INR', NOW(), NOW())
+       VALUES ($1, 'phonepe', $2, $3, 'active', NOW(), NOW() + INTERVAL '30 days', $4, $5, NOW(), NOW())
        ON CONFLICT (provider, provider_subscription_id) DO UPDATE SET status = 'active', updated_at = NOW()
        RETURNING id`,
-      [tenantId, merchantTransactionId, planId, amount]
+      [tenantId, merchantTransactionId, planId, amount, currency]
     );
     const subscriptionId = subRes.rows[0]?.id || null;
 
     const invoiceNumber = `INV-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}-${String(transactionId).slice(-8).toUpperCase()}`;
     await pool.query(
       `INSERT INTO invoices (tenant_id, subscription_id, provider, provider_invoice_id, invoice_number, amount, currency, status, paid_at, created_at, updated_at)
-       VALUES ($1, $2, 'phonepe', $3, $4, $5, 'INR', 'paid', NOW(), NOW(), NOW())
+       VALUES ($1, $2, 'phonepe', $3, $4, $5, $6, 'paid', NOW(), NOW(), NOW())
        ON CONFLICT (provider, provider_invoice_id) DO NOTHING`,
-      [tenantId, subscriptionId, transactionId, invoiceNumber, amount]
+      [tenantId, subscriptionId, transactionId, invoiceNumber, amount, currency]
     );
 
     await pool.query(`UPDATE tenants SET plan = $2, status = 'active', updated_at = NOW() WHERE id = $1`, [tenantId, planId]);
@@ -239,6 +261,15 @@ async function processCashfreeWebhookPayload(eventType: string, payload: any): P
   const orderId = order.order_id || payload.orderId || ('cf_' + Date.now());
   const cfPaymentId = payment.cf_payment_id || order.cf_order_id || orderId;
   const amount = Number(order.order_amount || payment.payment_amount || 0);
+
+  const rawCurrency = payment?.payment_currency || order?.order_currency || data?.order_currency || data?.currency;
+  if (!rawCurrency) {
+    throw new Error(`Missing currency in Cashfree event ${cfPaymentId} - cannot activate without verified currency`);
+  }
+  const currency = String(rawCurrency).trim().toUpperCase();
+  if (currency !== 'INR') {
+    throw new Error(`Non-INR currency '${currency}' rejected for Cashfree event ${cfPaymentId}. Platform strictly operates in INR.`);
+  }
 
   const isSuccess =
     eventType === 'PAYMENT_SUCCESS_WEBHOOK' ||
@@ -268,19 +299,19 @@ async function processCashfreeWebhookPayload(eventType: string, payload: any): P
   if (isSuccess) {
     const subRes = await pool.query(
       `INSERT INTO subscriptions (tenant_id, provider, provider_subscription_id, plan_id, status, current_period_start, current_period_end, amount, currency, created_at, updated_at)
-       VALUES ($1, 'cashfree', $2, $3, 'active', NOW(), NOW() + INTERVAL '30 days', $4, 'INR', NOW(), NOW())
+       VALUES ($1, 'cashfree', $2, $3, 'active', NOW(), NOW() + INTERVAL '30 days', $4, $5, NOW(), NOW())
        ON CONFLICT (provider, provider_subscription_id) DO UPDATE SET status = 'active', updated_at = NOW()
        RETURNING id`,
-      [tenantId, orderId, planId, amount]
+      [tenantId, orderId, planId, amount, currency]
     );
     const subscriptionId = subRes.rows[0]?.id || null;
 
     const invoiceNumber = `INV-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}-${String(orderId).slice(-8).toUpperCase()}`;
     await pool.query(
       `INSERT INTO invoices (tenant_id, subscription_id, provider, provider_invoice_id, invoice_number, amount, currency, status, paid_at, created_at, updated_at)
-       VALUES ($1, $2, 'cashfree', $3, $4, $5, 'INR', 'paid', NOW(), NOW(), NOW())
+       VALUES ($1, $2, 'cashfree', $3, $4, $5, $6, 'paid', NOW(), NOW(), NOW())
        ON CONFLICT (provider, provider_invoice_id) DO NOTHING`,
-      [tenantId, subscriptionId, cfPaymentId, invoiceNumber, amount]
+      [tenantId, subscriptionId, cfPaymentId, invoiceNumber, amount, currency]
     );
 
     await pool.query(`UPDATE tenants SET plan = $2, status = 'active', updated_at = NOW() WHERE id = $1`, [tenantId, planId]);
@@ -296,6 +327,15 @@ async function processNeuraCollectWebhookPayload(eventType: string, payload: any
   const orderId = payload.externalOrderId || payload.orderId || data.order?.order_id || ('nc_' + Date.now());
   const paymentId = payload.gatewayOrderId || payload.paymentId || data.payment?.cf_payment_id || orderId;
   const amount = Number(payload.amount || data.order?.order_amount || data.payment?.payment_amount || 0);
+
+  const rawCurrency = payload?.currency || payload?.order?.currency || data?.currency;
+  if (!rawCurrency) {
+    throw new Error(`Missing currency in NeuraCollect event ${paymentId} - cannot activate without verified currency`);
+  }
+  const currency = String(rawCurrency).trim().toUpperCase();
+  if (currency !== 'INR') {
+    throw new Error(`Non-INR currency '${currency}' rejected for NeuraCollect event ${paymentId}. Platform strictly operates in INR.`);
+  }
 
   const isSuccess =
     eventType === 'PAYMENT_SUCCESS_WEBHOOK' ||
@@ -347,19 +387,19 @@ async function processNeuraCollectWebhookPayload(eventType: string, payload: any
   if (isSuccess) {
     const subRes = await pool.query(
       `INSERT INTO subscriptions (tenant_id, provider, provider_subscription_id, plan_id, status, current_period_start, current_period_end, amount, currency, created_at, updated_at)
-       VALUES ($1, 'neuracollect', $2, $3, 'active', NOW(), NOW() + INTERVAL '30 days', $4, 'INR', NOW(), NOW())
+       VALUES ($1, 'neuracollect', $2, $3, 'active', NOW(), NOW() + INTERVAL '30 days', $4, $5, NOW(), NOW())
        ON CONFLICT (provider, provider_subscription_id) DO UPDATE SET status = 'active', updated_at = NOW()
        RETURNING id`,
-      [tenantId, orderId, planId, amount]
+      [tenantId, orderId, planId, amount, currency]
     );
     const subscriptionId = subRes.rows[0]?.id || null;
 
     const invoiceNumber = `INV-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}-${String(orderId).slice(-8).toUpperCase()}`;
     await pool.query(
       `INSERT INTO invoices (tenant_id, subscription_id, provider, provider_invoice_id, invoice_number, amount, currency, status, paid_at, created_at, updated_at)
-       VALUES ($1, $2, 'neuracollect', $3, $4, $5, 'INR', 'paid', NOW(), NOW(), NOW())
+       VALUES ($1, $2, 'neuracollect', $3, $4, $5, $6, 'paid', NOW(), NOW(), NOW())
        ON CONFLICT (provider, provider_invoice_id) DO NOTHING`,
-      [tenantId, subscriptionId, paymentId, invoiceNumber, amount]
+      [tenantId, subscriptionId, paymentId, invoiceNumber, amount, currency]
     );
 
     await pool.query(`UPDATE tenants SET plan = $2, status = 'active', updated_at = NOW() WHERE id = $1`, [tenantId, planId]);
@@ -403,6 +443,18 @@ export async function handleWebhookRetryJob(job: Job): Promise<void> {
   } catch (err: any) {
     const errorMessage = err.message || 'Unknown processing error';
     logger.warn(`⚠️ [Webhook Error] Attempt ${attempt}/5 failed for ${eventId} (${provider}): ${errorMessage}`);
+
+    // If currency is missing or non-INR, do not re-enqueue repeatedly. Durably preserve as 'unresolved'.
+    if (errorMessage.includes('Missing currency') || errorMessage.includes('Non-INR') || errorMessage.includes('unresolved')) {
+      await pool.query(
+        `UPDATE payment_webhooks
+         SET status = 'unresolved', processing_error = $1, processed_at = NOW()
+         WHERE event_id = $2 AND provider = $3`,
+        [errorMessage, eventId, provider]
+      );
+      logger.warn(`🛑 Webhook ${eventId} (${provider}) permanently marked unresolved: ${errorMessage}`);
+      return;
+    }
 
     if (attempt < 5) {
       const nextAttempt = attempt + 1;

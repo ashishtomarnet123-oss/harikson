@@ -117,14 +117,21 @@ export async function GET(req: NextRequest) {
 
     const summaryQuery = `
       SELECT
-        COALESCE(SUM(CASE WHEN status = 'paid' THEN amount ELSE 0 END), 0)::numeric(10,2) AS successful_volume,
+        COALESCE(SUM(CASE WHEN status = 'paid' THEN
+          CASE WHEN currency IS NOT NULL AND TRIM(currency) != '' AND UPPER(TRIM(currency)) = 'INR' THEN amount WHEN UPPER(TRIM(currency)) = 'USD' THEN amount * 84.50 ELSE 0 END
+        ELSE 0 END), 0)::numeric(10,2) AS successful_volume,
         COUNT(CASE WHEN status = 'paid' THEN 1 END)::int AS successful_count,
         COUNT(CASE WHEN status IN ('failed', 'unpaid') THEN 1 END)::int AS failed_count,
         COUNT(CASE WHEN status = 'refunded' THEN 1 END)::int AS refunded_count,
-        COUNT(CASE WHEN status IN ('pending', 'open', 'draft') THEN 1 END)::int AS pending_count
+        COUNT(CASE WHEN status IN ('pending', 'open', 'draft') THEN 1 END)::int AS pending_count,
+        COUNT(CASE WHEN status = 'paid' AND (currency IS NULL OR TRIM(currency) = '' OR UPPER(TRIM(currency)) NOT IN ('INR', 'USD')) THEN 1 END)::int AS unconvertible_count,
+        COALESCE(SUM(CASE WHEN status = 'paid' AND (currency IS NULL OR TRIM(currency) = '' OR UPPER(TRIM(currency)) NOT IN ('INR', 'USD')) THEN amount ELSE 0 END), 0)::numeric(10,2) AS unconvertible_amount
       FROM invoices
     `;
     const summaryRes = await pool.query(summaryQuery);
+    const unconvCount = parseInt(summaryRes.rows[0].unconvertible_count, 10) || 0;
+    const unconvAmount = parseFloat(summaryRes.rows[0].unconvertible_amount) || 0;
+    const isComplete = unconvCount === 0;
 
     return NextResponse.json({
       success: true,
@@ -134,7 +141,7 @@ export async function GET(req: NextRequest) {
         provider: row.provider || 'direct',
         providerInvoiceId: row.provider_invoice_id,
         amount: parseFloat(row.amount),
-        currency: row.currency || 'INR',
+        currency: row.currency ? String(row.currency).trim().toUpperCase() : null,
         status: row.status,
         paidAt: row.paid_at,
         createdAt: row.created_at,
@@ -150,7 +157,16 @@ export async function GET(req: NextRequest) {
         limit,
         totalPages: Math.ceil(totalRecords / limit),
       },
-      summary: summaryRes.rows[0],
+      summary: {
+        ...summaryRes.rows[0],
+        successfulVolume: isComplete ? parseFloat(summaryRes.rows[0].successful_volume) : null,
+        isComplete,
+        completenessStatus: isComplete ? 'complete' : 'incomplete_unresolved_currencies',
+        unresolvedInvoices: {
+          count: unconvCount,
+          amount: unconvAmount,
+        },
+      },
     });
   } catch (err: any) {
     console.error('[/api/admin/analytics/transactions] Error:', err);

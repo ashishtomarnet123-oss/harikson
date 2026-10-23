@@ -155,9 +155,9 @@ router.get('/sessions', async (req: any, res) => {
 
   try {
     const sessionsRes = await pool.query(
-      `SELECT id, device_name, device_hash, last_ip, country_code, last_used_at, created_at 
-       FROM refresh_tokens 
-       WHERE user_id = $1 AND expires_at > NOW() 
+      `SELECT id, device_name, device_hash, last_ip, country_code, last_used_at, created_at
+       FROM refresh_tokens
+       WHERE user_id = $1 AND expires_at > NOW()
        ORDER BY last_used_at DESC`,
       [req.user.userId]
     );
@@ -230,9 +230,9 @@ router.post('/2fa/verify', async (req: any, res) => {
     const { plainCodes, hashedRecords } = await generateHashedBackupCodes();
 
     await pool.query(
-      `UPDATE users 
-       SET two_factor_enabled = true, 
-           two_factor_secret = two_factor_secret_temp, 
+      `UPDATE users
+       SET two_factor_enabled = true,
+           two_factor_secret = two_factor_secret_temp,
            two_factor_secret_temp = NULL,
            two_factor_backup_codes = $1
        WHERE id = $2`,
@@ -258,9 +258,9 @@ router.post('/2fa/disable', async (req: any, res) => {
 
   try {
     await pool.query(
-      `UPDATE users 
-       SET two_factor_enabled = false, 
-           two_factor_secret = NULL, 
+      `UPDATE users
+       SET two_factor_enabled = false,
+           two_factor_secret = NULL,
            two_factor_secret_temp = NULL,
            two_factor_backup_codes = NULL
        WHERE id = $1`,
@@ -928,6 +928,11 @@ router.post(['/billing/checkout', '/user/billing/checkout'], async (req: any, re
   if (!plan) return res.status(400).json({ error: 'Unknown planId' });
   if (Number(plan.price) <= 0) {
     return res.status(400).json({ error: 'This plan does not require payment - call /billing/change-plan instead.' });
+  }
+
+  const planCurrency = (plan.currency || 'INR').trim().toUpperCase();
+  if (planCurrency !== 'INR') {
+    return res.status(400).json({ error: 'Only INR plans are eligible for checkout. Selected plan is non-INR.' });
   }
 
   try {
@@ -1640,8 +1645,8 @@ router.get('/usage', async (req: any, res) => {
     try {
       const dbRes = await executeTenantQuery(tenantId, (client) =>
         client.query(
-          `SELECT DATE(m.created_at) as date_val, 
-                  COUNT(DISTINCT m.id) as queries_count, 
+          `SELECT DATE(m.created_at) as date_val,
+                  COUNT(DISTINCT m.id) as queries_count,
                   COALESCE(SUM(m.tokens_used), 0) as total_tokens
            FROM messages m
            JOIN conversations c ON m.conversation_id = c.id
@@ -1725,8 +1730,8 @@ router.get(['/activity', '/user/activity'], requireAuditTrail, async (req: any, 
     const tenantId = userRes.rows[0]?.tenant_id || req.tenant?.id;
 
     const logsRes = await pool.query(
-      `SELECT id, action, details, ip_address as ip, user_agent as device, created_at as timestamp 
-       FROM activity_logs 
+      `SELECT id, action, details, ip_address as ip, user_agent as device, created_at as timestamp
+       FROM activity_logs
        WHERE user_id = $1 AND ($2::text IS NULL OR tenant_id::text = $2::text OR tenant_id IS NULL)
        ORDER BY created_at DESC LIMIT 50`,
       [req.user.userId, tenantId || null]
@@ -1760,8 +1765,8 @@ router.get(['/activity/export', '/user/activity/export'], requireAuditTrail, asy
     const limit = Math.min(parseInt(req.query.limit as string || '500', 10), 1000);
 
     const logsRes = await pool.query(
-      `SELECT id, action, details, ip_address, user_agent, created_at 
-       FROM activity_logs 
+      `SELECT id, action, details, ip_address, user_agent, created_at
+       FROM activity_logs
        WHERE user_id = $1 AND ($2::text IS NULL OR tenant_id::text = $2::text OR tenant_id IS NULL)
        ORDER BY created_at DESC LIMIT $3`,
       [req.user.userId, tenantId || null, limit]
@@ -1794,8 +1799,8 @@ router.get('/devices', async (req: any, res) => {
   try {
     const sessionsRes = await pool.query(
       `SELECT id, device_name as name, device_hash, last_ip as ip, country_code, last_used_at as "lastActive", created_at
-       FROM refresh_tokens 
-       WHERE user_id = $1 AND expires_at > NOW() 
+       FROM refresh_tokens
+       WHERE user_id = $1 AND expires_at > NOW()
        ORDER BY last_used_at DESC`,
       [req.user.userId]
     ).catch(() => ({ rows: [] }));
@@ -1827,8 +1832,8 @@ router.delete('/devices/:id', async (req: any, res) => {
 
     const sessionsRes = await pool.query(
       `SELECT id, device_name as name, device_hash, last_ip as ip, country_code, last_used_at as "lastActive"
-       FROM refresh_tokens 
-       WHERE user_id = $1 AND expires_at > NOW() 
+       FROM refresh_tokens
+       WHERE user_id = $1 AND expires_at > NOW()
        ORDER BY last_used_at DESC`,
       [req.user.userId]
     ).catch(() => ({ rows: [] }));
@@ -2403,7 +2408,7 @@ router.get(['/support/tickets', '/user/support/tickets'], async (req: any, res) 
     }
 
     const ticketsRes = await pool.query(query, params).catch(() => ({ rows: [] }));
-    
+
     // Evaluate in-memory breach status if DB update was bypassed in mock context
     const now = Date.now();
     const mappedTickets = ticketsRes.rows.map((t: any) => {
@@ -2489,7 +2494,7 @@ router.post(['/support/ticket', '/user/support/ticket'], async (req: any, res) =
     // Server-side entitlement check: client-supplied flags/priority/SLA are completely ignored.
     const isPriority = !!req.entitlements?.prioritySupport;
     const priority = isPriority ? 'priority' : 'standard';
-    
+
     // Effective SLA target in hours from entitlements
     const slaHours = typeof req.entitlements?.slaHours === 'number' && req.entitlements.slaHours > 0
       ? req.entitlements.slaHours

@@ -198,18 +198,36 @@ export async function GET(req: NextRequest) {
     // 1. Current Period Financial KPIs & Totals
     const currentKpisQuery = `
       SELECT
-        COALESCE(SUM(CASE WHEN status = 'paid' AND paid_at >= CURRENT_DATE THEN amount ELSE 0 END), 0) AS revenue_today,
-        COALESCE(SUM(CASE WHEN status = 'paid' AND paid_at >= CURRENT_DATE - INTERVAL '1 day' AND paid_at < CURRENT_DATE THEN amount ELSE 0 END), 0) AS revenue_yesterday,
-        COALESCE(SUM(CASE WHEN status = 'paid' AND paid_at >= $1 AND paid_at <= $2 THEN amount ELSE 0 END), 0) AS period_gross_revenue,
-        COALESCE(SUM(CASE WHEN status = 'paid' THEN amount ELSE 0 END), 0) AS lifetime_revenue,
-        COALESCE(SUM(CASE WHEN status = 'refunded' AND created_at >= $1 AND created_at <= $2 THEN amount ELSE 0 END), 0) AS period_refunds,
-        COALESCE(SUM(CASE WHEN status IN ('failed', 'unpaid') AND created_at >= $1 AND created_at <= $2 THEN amount ELSE 0 END), 0) AS failed_amount,
+        COALESCE(SUM(CASE WHEN status = 'paid' AND paid_at >= CURRENT_DATE THEN
+          CASE WHEN currency IS NOT NULL AND TRIM(currency) != '' AND UPPER(TRIM(currency)) = 'INR' THEN amount WHEN UPPER(TRIM(currency)) = 'USD' THEN amount * 84.50 ELSE NULL END
+        ELSE 0 END), 0) AS revenue_today,
+        COALESCE(SUM(CASE WHEN status = 'paid' AND paid_at >= CURRENT_DATE - INTERVAL '1 day' AND paid_at < CURRENT_DATE THEN
+          CASE WHEN currency IS NOT NULL AND TRIM(currency) != '' AND UPPER(TRIM(currency)) = 'INR' THEN amount WHEN UPPER(TRIM(currency)) = 'USD' THEN amount * 84.50 ELSE NULL END
+        ELSE 0 END), 0) AS revenue_yesterday,
+        COALESCE(SUM(CASE WHEN status = 'paid' AND paid_at >= $1 AND paid_at <= $2 THEN
+          CASE WHEN currency IS NOT NULL AND TRIM(currency) != '' AND UPPER(TRIM(currency)) = 'INR' THEN amount WHEN UPPER(TRIM(currency)) = 'USD' THEN amount * 84.50 ELSE NULL END
+        ELSE 0 END), 0) AS period_gross_revenue,
+        COALESCE(SUM(CASE WHEN status = 'paid' THEN
+          CASE WHEN currency IS NOT NULL AND TRIM(currency) != '' AND UPPER(TRIM(currency)) = 'INR' THEN amount WHEN UPPER(TRIM(currency)) = 'USD' THEN amount * 84.50 ELSE NULL END
+        ELSE 0 END), 0) AS lifetime_revenue,
+        COALESCE(SUM(CASE WHEN status = 'refunded' AND created_at >= $1 AND created_at <= $2 THEN
+          CASE WHEN currency IS NOT NULL AND TRIM(currency) != '' AND UPPER(TRIM(currency)) = 'INR' THEN amount WHEN UPPER(TRIM(currency)) = 'USD' THEN amount * 84.50 ELSE NULL END
+        ELSE 0 END), 0) AS period_refunds,
+        COALESCE(SUM(CASE WHEN status IN ('failed', 'unpaid') AND created_at >= $1 AND created_at <= $2 THEN
+          CASE WHEN currency IS NOT NULL AND TRIM(currency) != '' AND UPPER(TRIM(currency)) = 'INR' THEN amount WHEN UPPER(TRIM(currency)) = 'USD' THEN amount * 84.50 ELSE NULL END
+        ELSE 0 END), 0) AS failed_amount,
         COUNT(CASE WHEN status IN ('failed', 'unpaid') AND created_at >= $1 AND created_at <= $2 THEN 1 END) AS failed_count,
-        COALESCE(SUM(CASE WHEN status IN ('open', 'pending', 'draft') AND created_at >= $1 AND created_at <= $2 THEN amount ELSE 0 END), 0) AS pending_amount,
+        COALESCE(SUM(CASE WHEN status IN ('open', 'pending', 'draft') AND created_at >= $1 AND created_at <= $2 THEN
+          CASE WHEN currency IS NOT NULL AND TRIM(currency) != '' AND UPPER(TRIM(currency)) = 'INR' THEN amount WHEN UPPER(TRIM(currency)) = 'USD' THEN amount * 84.50 ELSE NULL END
+        ELSE 0 END), 0) AS pending_amount,
         COUNT(CASE WHEN status IN ('open', 'pending', 'draft') AND created_at >= $1 AND created_at <= $2 THEN 1 END) AS pending_count,
         COUNT(CASE WHEN status = 'paid' AND paid_at >= $1 AND paid_at <= $2 THEN 1 END) AS paid_invoice_count,
         COUNT(DISTINCT CASE WHEN status = 'paid' AND paid_at >= $1 AND paid_at <= $2 THEN tenant_id END) AS paying_customers_period,
-        COUNT(DISTINCT CASE WHEN status = 'paid' THEN tenant_id END) AS lifetime_paying_customers
+        COUNT(DISTINCT CASE WHEN status = 'paid' THEN tenant_id END) AS lifetime_paying_customers,
+        COUNT(CASE WHEN status = 'paid' AND (currency IS NULL OR TRIM(currency) = '' OR UPPER(TRIM(currency)) NOT IN ('INR', 'USD')) THEN 1 END) AS unconvertible_invoice_count,
+        COALESCE(SUM(CASE WHEN status = 'paid' AND (currency IS NULL OR TRIM(currency) = '' OR UPPER(TRIM(currency)) NOT IN ('INR', 'USD')) THEN amount ELSE 0 END), 0) AS unconvertible_invoice_amount,
+        COUNT(CASE WHEN status = 'paid' AND paid_at >= CURRENT_DATE AND (currency IS NULL OR TRIM(currency) = '' OR UPPER(TRIM(currency)) NOT IN ('INR', 'USD')) THEN 1 END) AS unconvertible_today_count,
+        COUNT(CASE WHEN status = 'paid' AND paid_at >= $1 AND paid_at <= $2 AND (currency IS NULL OR TRIM(currency) = '' OR UPPER(TRIM(currency)) NOT IN ('INR', 'USD')) THEN 1 END) AS unconvertible_period_count
       FROM invoices
     `;
     const currentKpisRes = await pool.query(currentKpisQuery, [start, end]);
@@ -220,8 +238,12 @@ export async function GET(req: NextRequest) {
     if (comparison !== 'none' && compareStart && compareEnd) {
       const prevKpisQuery = `
         SELECT
-          COALESCE(SUM(CASE WHEN status = 'paid' AND paid_at >= $1 AND paid_at <= $2 THEN amount ELSE 0 END), 0) AS period_gross_revenue,
-          COALESCE(SUM(CASE WHEN status = 'refunded' AND created_at >= $1 AND created_at <= $2 THEN amount ELSE 0 END), 0) AS period_refunds,
+          COALESCE(SUM(CASE WHEN status = 'paid' AND paid_at >= $1 AND paid_at <= $2 THEN
+            CASE WHEN currency IS NOT NULL AND TRIM(currency) != '' AND UPPER(TRIM(currency)) = 'INR' THEN amount WHEN UPPER(TRIM(currency)) = 'USD' THEN amount * 84.50 ELSE NULL END
+          ELSE 0 END), 0) AS period_gross_revenue,
+          COALESCE(SUM(CASE WHEN status = 'refunded' AND created_at >= $1 AND created_at <= $2 THEN
+            CASE WHEN currency IS NOT NULL AND TRIM(currency) != '' AND UPPER(TRIM(currency)) = 'INR' THEN amount WHEN UPPER(TRIM(currency)) = 'USD' THEN amount * 84.50 ELSE NULL END
+          ELSE 0 END), 0) AS period_refunds,
           COUNT(CASE WHEN status = 'paid' AND paid_at >= $1 AND paid_at <= $2 THEN 1 END) AS paid_invoice_count,
           COUNT(DISTINCT CASE WHEN status = 'paid' AND paid_at >= $1 AND paid_at <= $2 THEN tenant_id END) AS paying_customers_period
         FROM invoices
@@ -230,7 +252,7 @@ export async function GET(req: NextRequest) {
       prevKpi = prevKpisRes.rows[0];
     }
 
-    // 3. Subscriptions & MRR snapshot (INR-Only reporting with auditable benchmark FX conversion)
+    // 3. Subscriptions & MRR snapshot (INR-Only reporting with auditable benchmark FX conversion and interval normalization)
     const subsQuery = `
       WITH tenant_sub_data AS (
         SELECT
@@ -238,13 +260,15 @@ export async function GET(req: NextRequest) {
           s.amount,
           s.currency AS sub_currency,
           s.metadata AS sub_metadata,
+          s.current_period_start,
+          s.current_period_end,
           p.price AS plan_price,
           p.currency AS plan_currency,
           p.billing AS plan_billing,
           t.status AS tenant_status
         FROM tenants t
         LEFT JOIN LATERAL (
-          SELECT s.amount, s.currency, s.metadata
+          SELECT s.amount, s.currency, s.metadata, s.current_period_start, s.current_period_end
           FROM subscriptions s
           WHERE s.tenant_id = t.id AND s.status IN ('active', 'canceling') AND s.amount > 0
           ORDER BY s.created_at DESC
@@ -255,14 +279,53 @@ export async function GET(req: NextRequest) {
       tenant_mrr AS (
         SELECT
           tenant_id,
-          COALESCE(
-            amount,
-            CASE WHEN tenant_status = 'active' AND plan_price > 0 THEN plan_price ELSE 0 END
-          ) AS raw_monthly_amount,
+          CASE
+            -- One-time charges are strictly excluded from recurring MRR/ARR
+            WHEN LOWER(TRIM(COALESCE(plan_billing, ''))) IN ('one_time', 'once', 'lifetime', 'onetime')
+                 OR (sub_metadata->>'is_one_time')::boolean IS TRUE THEN 0
+
+            -- Explicit annual or yearly billing
+            WHEN LOWER(TRIM(COALESCE(plan_billing, ''))) IN ('annual', 'yearly', 'year') THEN
+              CASE WHEN amount > 0 THEN amount / 12.0 WHEN plan_price > 0 THEN plan_price / 12.0 ELSE 0 END
+
+            -- Explicit monthly billing
+            WHEN LOWER(TRIM(COALESCE(plan_billing, ''))) IN ('monthly', 'month') THEN
+              CASE
+                -- Inconsistent inverted dates with monthly plan: flag as unresolved
+                WHEN current_period_end IS NOT NULL AND current_period_start IS NOT NULL AND current_period_end < current_period_start THEN NULL
+                WHEN amount > 0 THEN amount
+                WHEN tenant_status = 'active' AND plan_price > 0 THEN plan_price
+                ELSE 0
+              END
+
+            -- Date-derived intervals when plan_billing is not specified
+            WHEN current_period_end IS NOT NULL AND current_period_start IS NOT NULL AND current_period_end > current_period_start THEN
+              CASE
+                WHEN (current_period_end - current_period_start) > INTERVAL '60 days' THEN
+                  amount / GREATEST(1.0, ROUND(EXTRACT(EPOCH FROM (current_period_end - current_period_start)) / 2592000.0))
+                WHEN (current_period_end - current_period_start) >= INTERVAL '20 days' THEN
+                  amount
+                ELSE NULL -- Too short (< 20 days) without explicit monthly billing
+              END
+
+            -- Fallback when no subscription record exists but tenant is active on a plan
+            WHEN amount IS NULL AND tenant_status = 'active' AND plan_price > 0 THEN
+              CASE
+                WHEN LOWER(TRIM(COALESCE(plan_billing, ''))) IN ('annual', 'yearly', 'year') THEN plan_price / 12.0
+                WHEN LOWER(TRIM(COALESCE(plan_billing, ''))) IN ('monthly', 'month') THEN plan_price
+                ELSE NULL -- Unknown plan billing: cannot assume monthly!
+              END
+
+            -- Free plan / zero price
+            WHEN amount = 0 OR (amount IS NULL AND plan_price = 0) THEN 0
+
+            -- Missing dates, equal dates, or negative dates without explicit plan_billing: UNRESOLVED
+            ELSE NULL
+          END AS raw_monthly_amount,
           COALESCE(
             UPPER(TRIM(sub_currency)),
             CASE WHEN tenant_status = 'active' AND plan_price > 0 AND plan_currency IS NOT NULL AND TRIM(plan_currency) != ''
-                 THEN UPPER(TRIM(plan_currency)) ELSE 'INR' END
+                 THEN UPPER(TRIM(plan_currency)) ELSE NULL END
           ) AS currency,
           -- Check if an explicit conversion rate was recorded in subscription metadata
           (sub_metadata->>'fx_rate')::numeric AS explicit_fx_rate
@@ -275,6 +338,7 @@ export async function GET(req: NextRequest) {
           currency,
           CASE
             WHEN raw_monthly_amount = 0 THEN 0
+            WHEN raw_monthly_amount IS NULL THEN NULL
             WHEN currency = 'INR' THEN raw_monthly_amount
             WHEN currency = 'USD' THEN raw_monthly_amount * COALESCE(explicit_fx_rate, 84.50)
             ELSE NULL -- Unapproved/unsupported foreign currency: cannot convert without official policy
@@ -288,14 +352,15 @@ export async function GET(req: NextRequest) {
              FROM (
                SELECT currency, SUM(raw_monthly_amount) AS currency_raw_sum
                FROM tenant_mrr_converted
-               WHERE raw_monthly_amount > 0
+               WHERE raw_monthly_amount > 0 AND currency IS NOT NULL
                GROUP BY currency
              ) cb),
             '{}'::json
           ) AS mrr_by_currency,
-          (SELECT COUNT(*) FROM tenant_mrr_converted WHERE raw_monthly_amount > 0 AND inr_monthly_amount IS NULL) AS unconvertible_count,
+          (SELECT COUNT(*) FROM tenant_mrr_converted WHERE raw_monthly_amount > 0 AND (currency IS NULL OR inr_monthly_amount IS NULL)) AS unconvertible_count,
+          (SELECT COUNT(*) FROM tenant_mrr_converted WHERE raw_monthly_amount IS NULL) AS unresolved_interval_count,
           (SELECT COALESCE(SUM(inr_monthly_amount), 0) FROM tenant_mrr_converted WHERE raw_monthly_amount > 0) AS total_mrr_inr,
-          (SELECT COUNT(DISTINCT currency) FROM tenant_mrr_converted WHERE raw_monthly_amount > 0) AS distinct_currency_count
+          (SELECT COUNT(DISTINCT currency) FROM tenant_mrr_converted WHERE raw_monthly_amount > 0 AND currency IS NOT NULL) AS distinct_currency_count
       ),
       revenue_kpi AS (
         SELECT
@@ -313,6 +378,7 @@ export async function GET(req: NextRequest) {
       SELECT
         currency_kpi.mrr_by_currency,
         currency_kpi.unconvertible_count,
+        currency_kpi.unresolved_interval_count,
         currency_kpi.total_mrr_inr,
         currency_kpi.distinct_currency_count,
         revenue_kpi.active_paid_subs,
@@ -338,6 +404,12 @@ export async function GET(req: NextRequest) {
     const userKpi = usersRes.rows[0];
 
     // Derived Financial KPIs (all in INR)
+    const unconvertibleInvoiceCount = parseInt(currKpi.unconvertible_invoice_count, 10) || 0;
+    const unconvertibleInvoiceAmount = parseFloat(currKpi.unconvertible_invoice_amount) || 0;
+    const unconvertibleTodayCount = parseInt(currKpi.unconvertible_today_count, 10) || 0;
+    const unconvertiblePeriodCount = parseInt(currKpi.unconvertible_period_count, 10) || 0;
+    const revenueComplete = unconvertibleInvoiceCount === 0;
+
     const grossRev = parseFloat(currKpi.period_gross_revenue);
     const refunds = parseFloat(currKpi.period_refunds);
     const netRev = Math.max(0, grossRev - refunds);
@@ -351,6 +423,7 @@ export async function GET(req: NextRequest) {
     }
 
     const unconvertibleCount = parseInt(subsKpi.unconvertible_count, 10) || 0;
+    const unresolvedIntervalCount = parseInt(subsKpi.unresolved_interval_count, 10) || 0;
     const currencyCount = parseInt(subsKpi.distinct_currency_count, 10) || 0;
     const totalMrrInr = parseFloat(subsKpi.total_mrr_inr) || 0;
     const currencies = Object.keys(mrrByCurrency);
@@ -360,7 +433,14 @@ export async function GET(req: NextRequest) {
     let mrrConsolidated: number | null = null;
     let mrrStatus = 'empty';
 
-    if (currencyCount === 0) {
+    if (unresolvedIntervalCount > 0) {
+      // Subscriptions with unresolvable or inconsistent interval dates:
+      // Mark MRR unavailable and explain rather than silently assuming monthly!
+      mrr = null;
+      arr = null;
+      mrrConsolidated = null;
+      mrrStatus = 'unresolved_interval_pending_normalization';
+    } else if (currencyCount === 0) {
       mrr = 0;
       arr = 0;
       mrrConsolidated = 0;
@@ -443,8 +523,11 @@ export async function GET(req: NextRequest) {
     const timeSeriesQuery = `
       SELECT
         TO_CHAR(date_trunc('${dateTruncFormat}', paid_at), '${toCharPattern}') AS bucket_key,
-        COALESCE(SUM(amount), 0)::numeric(10,2) AS gross_revenue,
-        COUNT(id)::int AS orders_count
+        COALESCE(SUM(
+          CASE WHEN currency IS NOT NULL AND TRIM(currency) != '' AND UPPER(TRIM(currency)) = 'INR' THEN amount WHEN UPPER(TRIM(currency)) = 'USD' THEN amount * 84.50 ELSE 0 END
+        ), 0)::numeric(10,2) AS gross_revenue,
+        COUNT(id)::int AS orders_count,
+        COUNT(CASE WHEN (currency IS NULL OR TRIM(currency) = '' OR UPPER(TRIM(currency)) NOT IN ('INR', 'USD')) THEN 1 END)::int AS unresolved_count
       FROM invoices
       WHERE status = 'paid' AND paid_at >= $1 AND paid_at <= $2
       GROUP BY date_trunc('${dateTruncFormat}', paid_at)
@@ -465,6 +548,8 @@ export async function GET(req: NextRequest) {
       date: r.bucket_key,
       revenue: parseFloat(r.gross_revenue),
       orders: r.orders_count,
+      unresolvedCount: r.unresolved_count || 0,
+      hasUnresolved: (r.unresolved_count || 0) > 0,
       compareRevenue: compSeriesMap[idx] !== undefined ? compSeriesMap[idx] : 0,
     }));
 
@@ -475,6 +560,8 @@ export async function GET(req: NextRequest) {
         date: emptyLabel,
         revenue: 0,
         orders: 0,
+        unresolvedCount: 0,
+        hasUnresolved: false,
         compareRevenue: 0,
       });
     }
@@ -495,24 +582,60 @@ export async function GET(req: NextRequest) {
         COALESCE(p.tier, 'starter') AS tier,
         p.price::numeric(10,2) AS price,
         COALESCE(p.billing, 'monthly') AS billing,
-        COALESCE(p.currency, 'INR') AS currency,
+        p.currency AS currency,
         COALESCE(p.token_limit, -1) AS token_limit,
         COALESCE(p.agent_limit, -1) AS agent_limit,
         COALESCE(p.is_active, true) AS is_active,
         COALESCE(p.is_recommended, false) AS is_recommended,
-        COALESCE(SUM(CASE WHEN i.status = 'paid' AND i.paid_at >= $1 AND i.paid_at <= $2 THEN i.amount ELSE 0 END), 0)::numeric(10,2) AS net_collected,
-        COUNT(DISTINCT CASE WHEN i.status = 'paid' AND i.paid_at >= $1 AND i.paid_at <= $2 THEN i.id END)::int AS successful_payments,
-        COUNT(DISTINCT CASE WHEN i.status = 'paid' AND i.paid_at >= $1 AND i.paid_at <= $2 THEN i.tenant_id END)::int AS paying_customers,
-        COUNT(DISTINCT CASE 
-          WHEN (s.status IN ('active', 'canceling') OR (s.id IS NULL AND t.status = 'active'))
-          THEN COALESCE(s.tenant_id, t.id) 
-        END)::int AS active_subscribers,
-        COUNT(DISTINCT CASE WHEN s.status = 'cancelled' AND s.updated_at >= $1 AND s.updated_at <= $2 THEN s.id END)::int AS cancellations
+        COALESCE((
+          SELECT SUM(
+            CASE WHEN i.currency IS NOT NULL AND TRIM(i.currency) != '' AND UPPER(TRIM(i.currency)) = 'INR' THEN i.amount WHEN UPPER(TRIM(i.currency)) = 'USD' THEN i.amount * 84.50 ELSE 0 END
+          )
+          FROM invoices i
+          JOIN tenants t ON t.id = i.tenant_id
+          WHERE (LOWER(t.plan) = LOWER(p.id) OR (LOWER(t.plan) = 'pro' AND LOWER(p.id) = 'professional'))
+            AND i.status = 'paid'
+            AND i.paid_at >= $1 AND i.paid_at <= $2
+        ), 0)::numeric(10,2) AS net_collected,
+        COALESCE((
+          SELECT COUNT(DISTINCT i.id)
+          FROM invoices i
+          JOIN tenants t ON t.id = i.tenant_id
+          WHERE (LOWER(t.plan) = LOWER(p.id) OR (LOWER(t.plan) = 'pro' AND LOWER(p.id) = 'professional'))
+            AND i.status = 'paid'
+            AND i.paid_at >= $1 AND i.paid_at <= $2
+            AND (i.currency IS NULL OR TRIM(i.currency) = '' OR UPPER(TRIM(i.currency)) NOT IN ('INR', 'USD'))
+        ), 0)::int AS unresolved_payments,
+        COALESCE((
+          SELECT COUNT(DISTINCT i.id)
+          FROM invoices i
+          JOIN tenants t ON t.id = i.tenant_id
+          WHERE (LOWER(t.plan) = LOWER(p.id) OR (LOWER(t.plan) = 'pro' AND LOWER(p.id) = 'professional'))
+            AND i.status = 'paid'
+            AND i.paid_at >= $1 AND i.paid_at <= $2
+        ), 0)::int AS successful_payments,
+        COALESCE((
+          SELECT COUNT(DISTINCT i.tenant_id)
+          FROM invoices i
+          JOIN tenants t ON t.id = i.tenant_id
+          WHERE (LOWER(t.plan) = LOWER(p.id) OR (LOWER(t.plan) = 'pro' AND LOWER(p.id) = 'professional'))
+            AND i.status = 'paid'
+            AND i.paid_at >= $1 AND i.paid_at <= $2
+        ), 0)::int AS paying_customers,
+        COALESCE((
+          SELECT COUNT(DISTINCT t.id)
+          FROM tenants t
+          LEFT JOIN subscriptions s ON s.tenant_id = t.id AND s.status IN ('active', 'canceling')
+          WHERE (LOWER(t.plan) = LOWER(p.id) OR (LOWER(t.plan) = 'pro' AND LOWER(p.id) = 'professional'))
+        ), 0)::int AS active_subscribers,
+        COALESCE((
+          SELECT COUNT(DISTINCT s.id)
+          FROM subscriptions s
+          WHERE (LOWER(s.plan_id) = LOWER(p.id) OR (LOWER(s.plan_id) = 'pro' AND LOWER(p.id) = 'professional'))
+            AND s.status = 'cancelled'
+            AND s.updated_at >= $1 AND s.updated_at <= $2
+        ), 0)::int AS cancellations
       FROM plans p
-      LEFT JOIN subscriptions s ON LOWER(s.plan_id) = LOWER(p.id)
-      LEFT JOIN tenants t ON LOWER(t.plan) = LOWER(p.id)
-      LEFT JOIN invoices i ON (i.subscription_id = s.id OR i.tenant_id = s.tenant_id OR i.tenant_id = t.id)
-      GROUP BY p.id, p.name, p.tier, p.price, p.billing, p.currency, p.token_limit, p.agent_limit, p.is_active, p.is_recommended
       ORDER BY p.price ASC, net_collected DESC
     `;
     const planBreakdownRes = await pool.query(planBreakdownQuery, [start, end]);
@@ -527,6 +650,7 @@ export async function GET(req: NextRequest) {
       const share = totalPlanRevenue > 0 ? Math.round((rev / totalPlanRevenue) * 1000) / 10 : 0;
       const subs = parseInt(p.active_subscribers, 10);
       const canc = parseInt(p.cancellations, 10);
+      const unres = parseInt(p.unresolved_payments, 10) || 0;
       const planChurn = subs + canc > 0 ? Math.round((canc / (subs + canc)) * 1000) / 10 : 0;
       return {
         id: p.id,
@@ -534,7 +658,7 @@ export async function GET(req: NextRequest) {
         tier: p.tier,
         price: parseFloat(p.price),
         billing: p.billing || 'monthly',
-        currency: p.currency || 'INR',
+        currency: p.currency ? String(p.currency).trim().toUpperCase() : null,
         tokenLimit: p.token_limit,
         agentLimit: p.agent_limit,
         isActive: p.is_active,
@@ -542,6 +666,8 @@ export async function GET(req: NextRequest) {
         revenue: rev,
         share,
         successfulPayments: p.successful_payments,
+        unresolvedPayments: unres,
+        hasUnresolved: unres > 0,
         payingCustomers: p.paying_customers,
         activeSubscribers: subs,
         mrr: p.billing === 'monthly' ? subs * parseFloat(p.price) : (p.billing === 'yearly' ? Math.round((subs * parseFloat(p.price)) / 12) : 0),
@@ -600,7 +726,10 @@ export async function GET(req: NextRequest) {
         COALESCE(u.country, 'IN') AS country_code,
         COUNT(DISTINCT u.id)::int AS registered_users,
         COUNT(DISTINCT CASE WHEN i.status = 'paid' THEN u.id END)::int AS paying_customers,
-        COALESCE(SUM(CASE WHEN i.status = 'paid' AND i.paid_at >= $1 AND i.paid_at <= $2 THEN i.amount ELSE 0 END), 0)::numeric(10,2) AS revenue
+        COALESCE(SUM(CASE WHEN i.status = 'paid' AND i.paid_at >= $1 AND i.paid_at <= $2 THEN
+          CASE WHEN i.currency IS NOT NULL AND TRIM(i.currency) != '' AND UPPER(TRIM(i.currency)) = 'INR' THEN i.amount WHEN UPPER(TRIM(i.currency)) = 'USD' THEN i.amount * 84.50 ELSE 0 END
+        ELSE 0 END), 0)::numeric(10,2) AS revenue,
+        COUNT(CASE WHEN i.status = 'paid' AND i.paid_at >= $1 AND i.paid_at <= $2 AND (i.currency IS NULL OR TRIM(i.currency) = '' OR UPPER(TRIM(i.currency)) NOT IN ('INR', 'USD')) THEN 1 END)::int AS unresolved_count
       FROM users u
       LEFT JOIN invoices i ON i.tenant_id = u.tenant_id
       WHERE u.deleted_at IS NULL
@@ -624,12 +753,15 @@ export async function GET(req: NextRequest) {
       const reg = parseInt(g.registered_users, 10);
       const pay = parseInt(g.paying_customers, 10);
       const conv = reg > 0 ? Math.round((pay / reg) * 1000) / 10 : 0;
+      const unres = parseInt(g.unresolved_count, 10) || 0;
       return {
         countryCode: g.country_code,
         countryName: countryNames[g.country_code] || g.country_code,
         registeredUsers: reg,
         payingCustomers: pay,
         revenue: parseFloat(g.revenue),
+        unresolvedCount: unres,
+        hasUnresolved: unres > 0,
         conversionRate: conv,
       };
     });
@@ -657,13 +789,24 @@ export async function GET(req: NextRequest) {
         bucket,
       },
       kpis: {
-        revenueToday: parseFloat(currKpi.revenue_today),
-        revenueYesterday: parseFloat(currKpi.revenue_yesterday),
-        periodRevenue: grossRev,
-        lifetimeRevenue: parseFloat(currKpi.lifetime_revenue),
-        grossRevenue: grossRev,
+        revenueToday: (unconvertibleTodayCount === 0 && revenueComplete) ? parseFloat(currKpi.revenue_today) : null,
+        revenueYesterday: revenueComplete ? parseFloat(currKpi.revenue_yesterday) : null,
+        periodRevenue: (unconvertiblePeriodCount === 0 && revenueComplete) ? grossRev : null,
+        lifetimeRevenue: revenueComplete ? parseFloat(currKpi.lifetime_revenue) : null,
+        grossRevenue: (unconvertiblePeriodCount === 0 && revenueComplete) ? grossRev : null,
         refunds,
-        netRevenue: netRev,
+        netRevenue: (unconvertiblePeriodCount === 0 && revenueComplete) ? netRev : null,
+        revenueComplete,
+        completenessStatus: revenueComplete ? 'complete' : 'incomplete_unresolved_currencies',
+        unresolvedInvoices: {
+          count: unconvertibleInvoiceCount,
+          amount: unconvertibleInvoiceAmount,
+          periodCount: unconvertiblePeriodCount,
+        },
+        unresolvedSubscriptions: {
+          unconvertibleCurrencies: unconvertibleCount,
+          unresolvedIntervals: unresolvedIntervalCount,
+        },
         mrr,
         arr,
         mrrConsolidated,

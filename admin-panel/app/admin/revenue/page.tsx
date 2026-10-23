@@ -257,6 +257,29 @@ function formatCompactINR(val: number | null | undefined, fallback: string = 'Un
   return `₹${Math.round(val)}`;
 }
 
+function formatOriginalCurrency(amount: number | null | undefined, currency?: string): string {
+  if (amount === null || amount === undefined || isNaN(amount)) {
+    return 'Unavailable';
+  }
+  if (!currency || !currency.trim()) {
+    return `${amount} (Unresolved Currency)`;
+  }
+  const curr = currency.trim().toUpperCase();
+  if (curr === 'INR') {
+    return formatINR(amount);
+  }
+  if (curr === 'USD') {
+    return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount);
+  }
+  if (curr === 'EUR') {
+    return new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR' }).format(amount);
+  }
+  if (curr === 'GBP') {
+    return new Intl.NumberFormat('en-GB', { style: 'currency', currency: 'GBP' }).format(amount);
+  }
+  return `${amount} ${curr}`;
+}
+
 // ─── Native SVG Chart Components ─────────────────────────────────────────────
 
 // 1. Interactive Area / Spline Chart for Revenue Over Time
@@ -1066,14 +1089,17 @@ export default function RevenueDashboard() {
     let csvContent = 'data:text/csv;charset=utf-8,';
 
     if (selectedTab === 1 && users.length > 0) {
-      csvContent += 'User ID,Customer Name,Email,Tenant Name,Plan,Status,Signup Date,First Payment,Total Paid (INR),Invoices Count\n';
+      csvContent += 'User ID,Customer Name,Email,Tenant Name,Plan,Status,Signup Date,First Payment,Total Paid,Currency,Estimated INR,Invoices Count\n';
       users.forEach((u) => {
-        csvContent += `"${u.userId}","${u.userName}","${u.email}","${u.tenantName}","${u.currentPlan}","${u.subscriptionStatus}","${u.signupDate}","${u.firstPaymentAt || ''}",${u.totalPaid},${u.paidInvoicesCount}\n`;
+        const userEstInr = u.currency && u.currency.toUpperCase() === 'USD' ? (u.totalPaid * 84.50).toFixed(2) : (u.currency && u.currency.toUpperCase() === 'INR' ? u.totalPaid.toFixed(2) : 'UNRESOLVED');
+        const userCurr = !u.currency || !u.currency.trim() ? 'UNRESOLVED' : u.currency.toUpperCase();
+        csvContent += `"${u.userId}","${u.userName}","${u.email}","${u.tenantName}","${u.currentPlan}","${u.subscriptionStatus}","${u.signupDate}","${u.firstPaymentAt || ''}",${u.totalPaid},"${userCurr}",${userEstInr},${u.paidInvoicesCount}\n`;
       });
     } else if (selectedTab === 3 && transactions.length > 0) {
-      csvContent += 'Invoice Number,Customer Organization,Plan,Amount,Currency,Provider,Status,Paid At,Created At\n';
+      csvContent += 'Invoice Number,Customer Organization,Plan,Amount,Currency,Estimated INR,Provider,Status,Paid At,Created At\n';
       transactions.forEach((tx) => {
-        csvContent += `"${tx.invoiceNumber}","${tx.tenantName}","${tx.planName}",${tx.amount},"${tx.currency}","${tx.provider}","${tx.status}","${tx.paidAt || ''}","${tx.createdAt}"\n`;
+        const estInr = tx.currency && tx.currency.toUpperCase() === 'USD' ? (tx.amount * 84.50).toFixed(2) : (tx.currency && tx.currency.toUpperCase() === 'INR' ? tx.amount.toFixed(2) : 'UNRESOLVED');
+        csvContent += `"${tx.invoiceNumber}","${tx.tenantName}","${tx.planName}",${tx.amount},"${tx.currency || 'UNRESOLVED'}",${estInr},"${tx.provider}","${tx.status}","${tx.paidAt || ''}","${tx.createdAt}"\n`;
       });
     } else {
       csvContent += 'Period,Gross Revenue,Refunds,Net Revenue,MRR,ARR,ARPPU,Paying Customers,Active Subs,Total Users\n';
@@ -1841,7 +1867,25 @@ export default function RevenueDashboard() {
                                 </span>
                               </td>
                               <td className="py-3.5 px-4 font-black text-white font-mono">
-                                {formatINR(u.totalPaid)}
+                                {!u.currency || !u.currency.trim() ? (
+                                  <span className="text-amber-400 font-mono text-xs">{u.totalPaid} (Unresolved Currency)</span>
+                                ) : u.currency.trim().toUpperCase() === 'INR' ? (
+                                  formatINR(u.totalPaid)
+                                ) : u.currency.trim().toUpperCase() === 'USD' ? (
+                                  <div className="flex flex-col">
+                                    <span>{formatOriginalCurrency(u.totalPaid, u.currency)}</span>
+                                    <span className="text-[10px] text-gray-400 font-normal">
+                                      Est. {formatINR(u.totalPaid * 84.50)} (₹84.50/$)
+                                    </span>
+                                  </div>
+                                ) : (
+                                  <div className="flex flex-col">
+                                    <span>{formatOriginalCurrency(u.totalPaid, u.currency)}</span>
+                                    <span className="text-[10px] text-amber-400/80 font-normal">
+                                      (Unsupported Currency)
+                                    </span>
+                                  </div>
+                                )}
                               </td>
                               <td className="py-3.5 px-4 text-gray-300 font-mono">
                                 {u.paidInvoicesCount}
@@ -2082,7 +2126,7 @@ export default function RevenueDashboard() {
                             <th className="py-3.5 px-4 font-semibold">Invoice #</th>
                             <th className="py-3.5 px-4 font-semibold">Workspace / Organization</th>
                             <th className="py-3.5 px-4 font-semibold">Plan</th>
-                            <th className="py-3.5 px-4 font-semibold">Amount</th>
+                            <th className="py-3.5 px-4 font-semibold">Amount (Original / Est. INR)</th>
                             <th className="py-3.5 px-4 font-semibold">Gateway</th>
                             <th className="py-3.5 px-4 font-semibold">Status</th>
                             <th className="py-3.5 px-4 font-semibold text-right">Date</th>
@@ -2103,7 +2147,25 @@ export default function RevenueDashboard() {
                                 </span>
                               </td>
                               <td className="py-3.5 px-4 font-black text-white font-mono">
-                                {formatINR(tx.amount)}
+                                {!tx.currency || !tx.currency.trim() ? (
+                                  <span className="text-amber-400 font-mono text-xs">{tx.amount} (Unresolved Currency)</span>
+                                ) : tx.currency.trim().toUpperCase() === 'INR' ? (
+                                  formatINR(tx.amount)
+                                ) : tx.currency.trim().toUpperCase() === 'USD' ? (
+                                  <div className="flex flex-col">
+                                    <span>{formatOriginalCurrency(tx.amount, tx.currency)}</span>
+                                    <span className="text-[10px] text-gray-400 font-normal">
+                                      Est. {formatINR(tx.amount * 84.50)} (₹84.50/$)
+                                    </span>
+                                  </div>
+                                ) : (
+                                  <div className="flex flex-col">
+                                    <span>{formatOriginalCurrency(tx.amount, tx.currency)}</span>
+                                    <span className="text-[10px] text-amber-400/80 font-normal">
+                                      (Unsupported Currency)
+                                    </span>
+                                  </div>
+                                )}
                               </td>
                               <td className="py-3.5 px-4 capitalize text-gray-400 font-medium">
                                 {tx.provider}

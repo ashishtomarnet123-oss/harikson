@@ -444,6 +444,15 @@ router.post('/checkout', async (req: any, res) => {
 
     if (!plan) return res.status(404).json({ error: 'Selected plan not found' });
 
+    const planCurrency = (plan.currency || 'INR').trim().toUpperCase();
+    if (planCurrency !== 'INR') {
+      return res.status(400).json({ error: 'Only INR plans are eligible for checkout. Selected plan is non-INR.' });
+    }
+
+    if (Number(plan.price) <= 0) {
+      return res.status(400).json({ error: 'This plan does not require payment — use change-plan endpoint instead.' });
+    }
+
     const taxRes = await executeCachedQuery(
       'SELECT rate_percent FROM tax_rates WHERE country_code = $1 AND is_active = true LIMIT 1',
       [countryCode.toUpperCase()],

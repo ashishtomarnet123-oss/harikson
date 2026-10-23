@@ -105,7 +105,10 @@ export async function GET(req: NextRequest) {
         s.current_period_end,
         MIN(i.paid_at) AS first_payment_at,
         MAX(i.paid_at) AS last_payment_at,
-        COALESCE(SUM(CASE WHEN i.status = 'paid' THEN i.amount ELSE 0 END), 0)::numeric(10,2) AS total_paid,
+        COALESCE(SUM(CASE WHEN i.status = 'paid' THEN
+          CASE WHEN i.currency IS NOT NULL AND TRIM(i.currency) != '' AND UPPER(TRIM(i.currency)) = 'INR' THEN i.amount WHEN UPPER(TRIM(i.currency)) = 'USD' THEN i.amount * 84.50 ELSE 0 END
+        ELSE 0 END), 0)::numeric(10,2) AS total_paid,
+        COUNT(CASE WHEN i.status = 'paid' AND (i.currency IS NULL OR TRIM(i.currency) = '' OR UPPER(TRIM(i.currency)) NOT IN ('INR', 'USD')) THEN 1 END)::int AS unresolved_invoices_count,
         COUNT(CASE WHEN i.status = 'paid' THEN 1 END)::int AS paid_invoices_count,
         COALESCE(s.amount, 0)::numeric(10,2) AS renewal_amount,
         s.currency AS billing_currency
@@ -127,7 +130,9 @@ export async function GET(req: NextRequest) {
         COUNT(DISTINCT CASE WHEN i.status = 'paid' THEN u.id END)::int AS total_paying,
         COUNT(DISTINCT CASE WHEN s.status IN ('active', 'canceling') THEN u.id END)::int AS active_paying,
         COUNT(DISTINCT CASE WHEN s.status = 'cancelled' THEN u.id END)::int AS churned_paying,
-        COALESCE(AVG(CASE WHEN i.status = 'paid' THEN i.amount END), 0)::numeric(10,2) AS avg_ltv
+        COALESCE(AVG(CASE WHEN i.status = 'paid' THEN
+          CASE WHEN i.currency IS NOT NULL AND TRIM(i.currency) != '' AND UPPER(TRIM(i.currency)) = 'INR' THEN i.amount WHEN UPPER(TRIM(i.currency)) = 'USD' THEN i.amount * 84.50 ELSE 0 END
+        END), 0)::numeric(10,2) AS avg_ltv
       FROM users u
       JOIN tenants t ON u.tenant_id = t.id
       LEFT JOIN subscriptions s ON s.tenant_id = t.id
@@ -154,7 +159,8 @@ export async function GET(req: NextRequest) {
         totalPaid: parseFloat(row.total_paid),
         paidInvoicesCount: row.paid_invoices_count,
         renewalAmount: parseFloat(row.renewal_amount),
-        currency: row.billing_currency || 'INR',
+        currency: row.billing_currency ? String(row.billing_currency).trim().toUpperCase() : null,
+        hasUnresolvedInvoices: parseInt(row.unresolved_invoices_count, 10) > 0,
       })),
       pagination: {
         total: totalRecords,
