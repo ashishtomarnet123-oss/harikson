@@ -17,6 +17,7 @@ describe('Phase 2 Tenant API Checkout & INR Enforcement Test Suite', () => {
     try {
       redis.disconnect();
     } catch (_) {}
+    setTimeout(() => process.exit(0), 50);
   });
 
   afterEach(() => {

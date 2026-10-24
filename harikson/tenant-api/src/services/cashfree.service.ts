@@ -46,7 +46,7 @@ export interface ICashfreeOrderStatusResult {
   cfOrderId?: string;
   orderStatus: string; // 'PAID' | 'ACTIVE' | 'EXPIRED' | 'TERMINATED'
   orderAmount: number;
-  orderCurrency: string;
+  orderCurrency: string | null;
   customerDetails?: any;
   paymentSessionId?: string;
   rawResponse?: any;
@@ -323,7 +323,7 @@ export class CashfreeService {
         cfOrderId: data.cf_order_id ? String(data.cf_order_id) : undefined,
         orderStatus: data.order_status || 'UNKNOWN',
         orderAmount: Number(data.order_amount || 0),
-        orderCurrency: data.order_currency || 'INR',
+        orderCurrency: data.order_currency ? String(data.order_currency).trim().toUpperCase() : null,
         customerDetails: data.customer_details,
         paymentSessionId: data.payment_session_id,
         rawResponse: data,
@@ -332,8 +332,8 @@ export class CashfreeService {
       const errResponse = err.response?.data;
       logger.error(`[CashfreeService] Failed to fetch order status for ${orderId}:`, errResponse || err.message);
 
-      // In local development / test without active live keys
-      if (!config.partnerApiKey && !config.appId) {
+      // In local development without active live keys
+      if (!config.partnerApiKey && !config.appId && process.env.NODE_ENV !== 'production' && process.env.NODE_ENV !== 'test') {
         return {
           success: true,
           orderId,
@@ -350,7 +350,7 @@ export class CashfreeService {
         orderId,
         orderStatus: 'UNKNOWN',
         orderAmount: 0,
-        orderCurrency: 'INR',
+        orderCurrency: null,
         rawResponse: errResponse || { error: err.message },
       };
     }

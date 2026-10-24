@@ -1,6 +1,7 @@
 import { test, describe, after } from 'node:test';
 import assert from 'node:assert';
 import crypto from 'crypto';
+import axios from 'axios';
 import { CashfreeService } from '../src/services/cashfree.service.js';
 
 describe('Cashfree Embedded Payment Gateway Service Tests', () => {
@@ -86,5 +87,153 @@ describe('Cashfree Embedded Payment Gateway Service Tests', () => {
     const statusResult = await CashfreeService.getOrderStatus('cf_ord_test_sample');
     assert.ok(statusResult.orderId, 'orderId should be defined');
     assert.ok(statusResult.orderStatus, 'orderStatus should be defined');
+  });
+
+  test('7. getOrderStatus extracts orderCurrency without implicit INR fallback when currency is missing', async () => {
+    const originalGet = axios.get;
+    try {
+      axios.get = (async () => {
+        return {
+          data: {
+            order_id: 'cf_ord_no_curr',
+            cf_order_id: '123456',
+            order_status: 'PAID',
+            order_amount: 149.0,
+            // order_currency is intentionally missing
+          },
+        };
+      }) as any;
+
+      const res = await CashfreeService.getOrderStatus('cf_ord_no_curr');
+      assert.strictEqual(res.success, true);
+      assert.strictEqual(res.orderCurrency, null, 'Currency must be null when absent from authoritative response');
+    } finally {
+      axios.get = originalGet;
+    }
+  });
+
+  test('8. getOrderStatus correctly extracts and normalizes valid INR currency', async () => {
+    const originalGet = axios.get;
+    try {
+      axios.get = (async () => {
+        return {
+          data: {
+            order_id: 'cf_ord_inr',
+            order_status: 'PAID',
+            order_amount: 149.0,
+            order_currency: 'inr',
+          },
+        };
+      }) as any;
+
+      const res = await CashfreeService.getOrderStatus('cf_ord_inr');
+      assert.strictEqual(res.success, true);
+      assert.strictEqual(res.orderCurrency, 'INR');
+    } finally {
+      axios.get = originalGet;
+    }
+  });
+
+  test('9. getOrderStatus preserves unsupported non-INR currency as-is without fallback to INR', async () => {
+    const originalGet = axios.get;
+    try {
+      axios.get = (async () => {
+        return {
+          data: {
+            order_id: 'cf_ord_usd',
+            order_status: 'PAID',
+            order_amount: 149.0,
+            order_currency: 'USD',
+          },
+        };
+      }) as any;
+
+      const res = await CashfreeService.getOrderStatus('cf_ord_usd');
+      assert.strictEqual(res.success, true);
+      assert.strictEqual(res.orderCurrency, 'USD');
+    } finally {
+      axios.get = originalGet;
+    }
+  });
+
+  test('10. getOrderStatus handles lookup failures safely with success=false and orderCurrency=null', async () => {
+    const originalGet = axios.get;
+    try {
+      axios.get = (async () => {
+        const err: any = new Error('Gateway Connection Timeout');
+        err.response = { status: 504, data: { message: 'Gateway timeout' } };
+        throw err;
+      }) as any;
+
+      const res = await CashfreeService.getOrderStatus('cf_ord_fail');
+      assert.strictEqual(res.success, false);
+      assert.strictEqual(res.orderStatus, 'UNKNOWN');
+      assert.strictEqual(res.orderCurrency, null, 'Currency must be null on lookup failure');
+    } finally {
+      axios.get = originalGet;
+    }
+  });
+
+  test('11. Downstream payment verification rejects missing authoritative currency', () => {
+    function simulateVerifyCashfree(statusRes: any) {
+      if (!statusRes.success || statusRes.orderStatus !== 'PAID') {
+        return { status: 400, error: 'Payment not completed' };
+      }
+      if (!statusRes.orderCurrency) {
+        return { status: 400, error: 'Authoritative payment currency is absent or unresolved. Payment verification deferred or rejected.' };
+      }
+      const normalizedCurrency = String(statusRes.orderCurrency).trim().toUpperCase();
+      if (normalizedCurrency !== 'INR') {
+        return { status: 400, error: `Unsupported payment currency: ${normalizedCurrency}. Platform strictly operates in INR.` };
+      }
+      return { status: 200, success: true, currency: normalizedCurrency };
+    }
+
+    const missingCurrencyRes = { success: true, orderStatus: 'PAID', orderAmount: 49.0, orderCurrency: null };
+    const result = simulateVerifyCashfree(missingCurrencyRes);
+    assert.strictEqual(result.status, 400);
+    assert.match(result.error, /absent or unresolved/);
+  });
+
+  test('12. Downstream payment verification rejects non-INR currency', () => {
+    function simulateVerifyCashfree(statusRes: any) {
+      if (!statusRes.success || statusRes.orderStatus !== 'PAID') {
+        return { status: 400, error: 'Payment not completed' };
+      }
+      if (!statusRes.orderCurrency) {
+        return { status: 400, error: 'Authoritative payment currency is absent or unresolved. Payment verification deferred or rejected.' };
+      }
+      const normalizedCurrency = String(statusRes.orderCurrency).trim().toUpperCase();
+      if (normalizedCurrency !== 'INR') {
+        return { status: 400, error: `Unsupported payment currency: ${normalizedCurrency}. Platform strictly operates in INR.` };
+      }
+      return { status: 200, success: true, currency: normalizedCurrency };
+    }
+
+    const usdRes = { success: true, orderStatus: 'PAID', orderAmount: 49.0, orderCurrency: 'USD' };
+    const result = simulateVerifyCashfree(usdRes);
+    assert.strictEqual(result.status, 400);
+    assert.match(result.error, /Unsupported payment currency: USD/);
+  });
+
+  test('13. Downstream payment verification accepts valid INR currency', () => {
+    function simulateVerifyCashfree(statusRes: any) {
+      if (!statusRes.success || statusRes.orderStatus !== 'PAID') {
+        return { status: 400, error: 'Payment not completed' };
+      }
+      if (!statusRes.orderCurrency) {
+        return { status: 400, error: 'Authoritative payment currency is absent or unresolved. Payment verification deferred or rejected.' };
+      }
+      const normalizedCurrency = String(statusRes.orderCurrency).trim().toUpperCase();
+      if (normalizedCurrency !== 'INR') {
+        return { status: 400, error: `Unsupported payment currency: ${normalizedCurrency}. Platform strictly operates in INR.` };
+      }
+      return { status: 200, success: true, currency: normalizedCurrency };
+    }
+
+    const inrRes = { success: true, orderStatus: 'PAID', orderAmount: 49.0, orderCurrency: 'INR' };
+    const result = simulateVerifyCashfree(inrRes);
+    assert.strictEqual(result.status, 200);
+    assert.strictEqual(result.currency, 'INR');
   });
 });

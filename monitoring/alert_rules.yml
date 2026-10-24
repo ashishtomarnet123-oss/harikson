@@ -66,3 +66,82 @@ groups:
         annotations:
           summary: "High p95 response latency on {{ $labels.job }}"
           description: "95th percentile latency is above 5 seconds."
+
+  - name: billing_observability_alerts
+    rules:
+      - alert: SustainedWebhookFailures
+        expr: (sum by (provider) (rate(webhook_events_received_total[5m])) > 0.1) and ((sum by (provider) (rate(webhook_events_received_total{outcome="failed"}[5m])) / sum by (provider) (rate(webhook_events_received_total[5m]))) > 0.05)
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Sustained Webhook Processing Failures on {{ $labels.provider }}"
+          description: "Over 5% of webhooks from {{ $labels.provider }} have failed for >5m."
+          diagnostic_steps: "Inspect admin-api container logs for database transaction errors or provider payload schema changes."
+          response_action: "Check PostgreSQL health; if gateway payload changed, verify signature and payload decoder."
+
+      - alert: DatabaseMetricsQueryFailure
+        expr: webhook_unresolved_query_success == 0
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Database Query Failure During Metrics Scrape"
+          description: "Prometheus metrics scraper failed to query PostgreSQL payment_webhooks table."
+          diagnostic_steps: "Check PostgreSQL database connectivity and connection pool exhaustion."
+          response_action: "Verify database status and admin-api pool health."
+
+      - alert: GrowingUnresolvedWebhookBacklog
+        expr: webhook_unresolved_events_total > 10
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Unresolved Webhook Backlog Accumulating on {{ $labels.provider }}"
+          description: "{{ $value }} webhooks are stuck in 'unresolved' status."
+          diagnostic_steps: "Check GET /admin/billing/reconciliation to review missing currency or amount mismatches."
+          response_action: "Trigger POST /admin/billing/webhooks/:id/retry or inspect gateway status."
+
+      - alert: StaleUnresolvedWebhook
+        expr: webhook_unresolved_oldest_age_seconds > 1800
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Unresolved Webhook Older than 30 Minutes"
+          description: "Oldest unresolved webhook on {{ $labels.provider }} has been unresolved for >30 minutes."
+          diagnostic_steps: "Query payment_webhooks WHERE status = 'unresolved' ORDER BY created_at ASC LIMIT 5."
+          response_action: "Correlate with provider dashboard; manually reconcile if customer paid."
+
+      - alert: RepeatedAuthoritativeLookupFailures
+        expr: rate(webhook_authoritative_lookup_failures_total[5m]) > 0.2
+        for: 3m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Authoritative Payment Gateway API Lookup Failing"
+          description: "Authoritative lookup requests to {{ $labels.provider }} are failing at rate {{ $value }}/s."
+          diagnostic_steps: "Check outbound internet connectivity, API rate limits, or expired provider API keys."
+          response_action: "Verify API secret encryption and test gateway ping endpoint."
+
+      - alert: BillingReconciliationMismatchDetected
+        expr: increase(billing_reconciliation_mismatches_total[5m]) > 0
+        for: 0m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Financial Mismatch Detected Between Provider and Ledger"
+          description: "Provider reported payment amount or currency does not match internal invoice."
+          diagnostic_steps: "Inspect billing reconciliation logs for mismatch_type and provider invoice ID."
+          response_action: "Freeze automatic subscription renewal for affected tenant; audit gateway transaction."
+
+      - alert: WebhookSignatureFailureSpike
+        expr: rate(webhook_signature_failures_total[5m]) > 0.5
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Spike in Webhook Cryptographic Signature Verification Failures"
+          description: "Signature failures on {{ $labels.provider }} exceeded 0.5/sec."
+          diagnostic_steps: "Inspect client IP addresses in admin-api logs to check for webhook spoofing attacks or rotated webhook secret."
+          response_action: "Verify if provider rotated secret key in payment_providers table."

@@ -2702,6 +2702,8 @@ const handleEmailWebhook = async (req, res) => {
 };
 app.post('/webhooks/email', handleEmailWebhook);
 app.post('/v1/webhooks/email', handleEmailWebhook);
+app.post('/api/admin/email/webhook', handleEmailWebhook);
+app.post('/api/v1/admin/email/webhook', handleEmailWebhook);
 
 // PUT /admin/users/:userId/plan & /v1/admin/users/:userId/plan
 const handleUpdateUserPlan = async (req, res) => {

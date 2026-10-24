@@ -1232,6 +1232,21 @@ router.post(['/billing/verify-cashfree', '/user/billing/verify-cashfree'], async
       });
     }
 
+    if (!statusRes.orderCurrency) {
+      logger.warn(`Cashfree verification failed for ${orderId}: authoritative order currency is absent or unresolved`);
+      return res.status(400).json({
+        error: 'Authoritative payment currency is absent or unresolved. Payment verification deferred or rejected.',
+      });
+    }
+
+    const normalizedCurrency = String(statusRes.orderCurrency).trim().toUpperCase();
+    if (normalizedCurrency !== 'INR') {
+      logger.warn(`Cashfree verification rejected for ${orderId}: unsupported currency ${normalizedCurrency}`);
+      return res.status(400).json({
+        error: `Unsupported payment currency: ${normalizedCurrency}. Platform strictly operates in INR.`,
+      });
+    }
+
     const userRes = await pool.query('SELECT tenant_id FROM users WHERE id = $1', [req.user.userId]).catch(() => ({ rows: [] }));
     const tenantId = userRes.rows[0]?.tenant_id || req.tenant?.id;
     if (!tenantId) return res.status(400).json({ error: 'No tenant associated with this account' });
@@ -1248,10 +1263,10 @@ router.post(['/billing/verify-cashfree', '/user/billing/verify-cashfree'], async
 
     const subRes = await pool.query(
       `INSERT INTO subscriptions (tenant_id, provider, provider_subscription_id, plan_id, status, current_period_start, current_period_end, amount, currency, created_at, updated_at)
-       VALUES ($1, 'cashfree', $2, $3, 'active', NOW(), NOW() + INTERVAL '30 days', $4, 'INR', NOW(), NOW())
+       VALUES ($1, 'cashfree', $2, $3, 'active', NOW(), NOW() + INTERVAL '30 days', $4, $5, NOW(), NOW())
        ON CONFLICT (provider, provider_subscription_id) DO UPDATE SET status = 'active', updated_at = NOW()
        RETURNING id`,
-      [tenantId, orderId, resolvedPlanId, amountRupees]
+      [tenantId, orderId, resolvedPlanId, amountRupees, normalizedCurrency]
     );
     const subscriptionId = subRes.rows[0]?.id || null;
 
@@ -1259,9 +1274,9 @@ router.post(['/billing/verify-cashfree', '/user/billing/verify-cashfree'], async
     const invoiceNumber = `INV-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}-${orderId.slice(-8).toUpperCase()}`;
     await pool.query(
       `INSERT INTO invoices (id, tenant_id, subscription_id, provider, provider_invoice_id, invoice_number, amount, currency, status, paid_at, pdf_url, created_at, updated_at)
-       VALUES ($1, $2, $3, 'cashfree', $4, $5, $6, 'INR', 'paid', NOW(), $7, NOW(), NOW())
+       VALUES ($1, $2, $3, 'cashfree', $4, $5, $6, $7, 'paid', NOW(), $8, NOW(), NOW())
        ON CONFLICT (provider, provider_invoice_id) DO NOTHING`,
-      [invoiceId, tenantId, subscriptionId, orderId, invoiceNumber, amountRupees, `/api/v1/user/billing/invoices/${invoiceId}/receipt`]
+      [invoiceId, tenantId, subscriptionId, orderId, invoiceNumber, amountRupees, normalizedCurrency, `/api/v1/user/billing/invoices/${invoiceId}/receipt`]
     );
 
     await pool.query(`UPDATE tenants SET plan = $2, status = 'active', updated_at = NOW() WHERE id = $1`, [tenantId, resolvedPlanId])
