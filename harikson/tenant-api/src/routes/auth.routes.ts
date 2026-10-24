@@ -171,7 +171,8 @@ async function handleLogin(req: any, res: any) {
           WHERE id = $2`;
         queryParams = [failCount, user.id, unlockTokenHash];
 
-        const unlockUrl = `https://xarwiz.com/unlock-account?token=${unlockToken}`;
+        const appOrigin = process.env.USER_PORTAL_URL || process.env.APP_URL || 'https://xarwiz.com';
+        const unlockUrl = `${appOrigin.replace(/\/$/, '')}/unlock-account?token=${unlockToken}`;
         sendAccountLockoutAlert(user.email, unlockUrl, durationText).catch((err) =>
           logger.error('[ACCOUNT LOCKOUT ALERT ERROR]:', err.message)
         );
@@ -444,7 +445,8 @@ async function handleRegister(req: any, res: any) {
       [tenantId, 'sub_free_' + crypto.randomBytes(8).toString('hex')]
     ).catch((err) => logger.error('Failed to create free subscription:', err?.message || err));
 
-    const verifyUrl = `https://xarwiz.com/verify-email?token=${verificationToken}`;
+    const appOrigin = process.env.USER_PORTAL_URL || process.env.APP_URL || 'https://xarwiz.com';
+    const verifyUrl = `${appOrigin.replace(/\/$/, '')}/verify-email?token=${verificationToken}`;
     sendVerificationEmail(user.email, verifyUrl).catch((err) =>
       logger.error('Failed to send verification email:', err?.message || err)
     );
@@ -680,16 +682,19 @@ async function handleForgotPassword(req: any, res: any) {
       return res.json({ message: 'If that email exists, a password reset link has been sent.' });
     }
 
+    const user = userRes.rows[0];
     const resetToken = crypto.randomBytes(32).toString('hex');
     const resetTokenHash = crypto.createHash('sha256').update(resetToken).digest('hex');
     const expiresAt = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
 
     await pool.query(
-      'UPDATE users SET password_reset_token = $1, password_reset_expires = $2 WHERE id = $3',
-      [resetTokenHash, expiresAt, userRes.rows[0].id]
+      `INSERT INTO password_reset_tokens (tenant_id, user_id, token_hash, expires_at)
+       VALUES ($1, $2, $3, $4)`,
+      [user.tenant_id, user.id, resetTokenHash, expiresAt]
     );
 
-    const resetUrl = `https://xarwiz.com/reset-password?token=${resetToken}`;
+    const appOrigin = process.env.USER_PORTAL_URL || process.env.APP_URL || 'https://xarwiz.com';
+    const resetUrl = `${appOrigin.replace(/\/$/, '')}/reset-password?token=${resetToken}`;
     sendPasswordReset(email, resetUrl).catch((err) => logger.error('Failed to send password reset email:', err));
 
     res.json({ message: 'If that email exists, a password reset link has been sent.' });
@@ -705,31 +710,85 @@ router.post('/v1/forgot-password', validate(forgotPasswordSchema), handleForgotP
 // POST /reset-password
 async function handleResetPassword(req: any, res: any) {
   const { token, newPassword } = req.body;
+  const client = await pool.connect();
   try {
     const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
-    const userRes = await pool.query(
-      'SELECT * FROM users WHERE password_reset_token = $1 AND password_reset_expires > NOW() AND deleted_at IS NULL',
+    const passwordHash = await bcrypt.hash(newPassword, 12);
+
+    await client.query('BEGIN');
+
+    // Path 1: Check if dedicated secure database function exists (SECURITY DEFINER, RLS-safe)
+    let functionAttempted = false;
+    try {
+      const fnRes = await client.query(
+        'SELECT * FROM public.consume_password_reset_token($1, $2)',
+        [tokenHash, passwordHash]
+      );
+      if (fnRes.rows.length > 0) {
+        functionAttempted = true;
+        const row = fnRes.rows[0];
+        const isSuccess = row.success ?? row.out_success;
+        if (!isSuccess) {
+          await client.query('ROLLBACK');
+          return res.status(400).json({ error: 'Invalid, expired, or already used password reset token' });
+        }
+        await client.query('COMMIT');
+        return res.json({ message: 'Password has been reset successfully. Please log in with your new password.' });
+      }
+    } catch (fnErr: any) {
+      if (!fnErr.message?.includes('does not exist')) {
+        throw fnErr;
+      }
+      // Function does not exist yet; restart transaction for direct atomic fallback
+      await client.query('ROLLBACK');
+      await client.query('BEGIN');
+    }
+
+    // Path 2: Direct atomic transaction (fallback path before function migration)
+    const tokenUpdate = await client.query(
+      `UPDATE password_reset_tokens
+       SET used_at = NOW()
+       WHERE token_hash = $1 
+         AND used_at IS NULL 
+         AND expires_at > NOW()
+       RETURNING id, user_id, tenant_id`,
       [tokenHash]
     );
 
-    if (userRes.rows.length === 0) {
-      return res.status(400).json({ error: 'Invalid or expired password reset token' });
+    if (tokenUpdate.rows.length === 0) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ error: 'Invalid, expired, or already used password reset token' });
     }
 
-    const user = userRes.rows[0];
-    const passwordHash = await bcrypt.hash(newPassword, 12);
+    const { user_id, tenant_id } = tokenUpdate.rows[0];
 
-    await pool.query(
-      'UPDATE users SET password_hash = $1, password_reset_token = NULL, password_reset_expires = NULL WHERE id = $2',
-      [passwordHash, user.id]
+    const userUpdate = await client.query(
+      `UPDATE users 
+       SET password_hash = $1, force_password_change = FALSE, updated_at = NOW() 
+       WHERE id = $2 AND tenant_id = $3 AND deleted_at IS NULL
+       RETURNING id`,
+      [passwordHash, user_id, tenant_id]
     );
 
-    await pool.query('DELETE FROM refresh_tokens WHERE user_id = $1', [user.id]);
+    if (userUpdate.rows.length === 0) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ error: 'User associated with token not found or deactivated' });
+    }
+
+    // Invalidate all active refresh token sessions for this user
+    await client.query('DELETE FROM refresh_tokens WHERE user_id = $1', [user_id]);
+
+    await client.query('COMMIT');
 
     res.json({ message: 'Password has been reset successfully. Please log in with your new password.' });
   } catch (err: any) {
+    try {
+      await client.query('ROLLBACK');
+    } catch {}
     logger.error('Reset password error:', err);
     res.status(500).json({ error: 'Password reset failed' });
+  } finally {
+    client.release();
   }
 }
 

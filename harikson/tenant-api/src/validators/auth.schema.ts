@@ -23,6 +23,6 @@ export const forgotPasswordSchema = z.object({
 
 export const resetPasswordSchema = z.object({
   token: z.string().min(1, 'Token is required'),
-  email: z.string().email('Invalid email address'),
-  newPassword: z.string().min(6, 'New password must be at least 6 characters'),
+  email: z.string().email('Invalid email address').optional(),
+  newPassword: z.string().min(8, 'New password must be at least 8 characters'),
 });

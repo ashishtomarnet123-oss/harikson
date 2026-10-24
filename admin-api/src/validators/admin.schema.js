@@ -39,21 +39,52 @@ export const widgetConfigSchema = z.object({
 });
 
 export const sendEmailSchema = z.object({
-  subject: z.string().min(1).max(255),
-  body: z.string().min(1).max(50000),
-  templateId: z.string().uuid().optional(),
+  recipientType: z.enum(['single', 'all']).default('single'),
+  recipientEmail: z.string().email().max(255).optional().nullable(),
+  templateKey: z.string().max(100).optional().nullable(),
+  subject: z.string().max(255).optional().nullable(),
+  body_html: z.string().max(100000).optional().nullable(),
+  variables: z.record(z.any()).optional().default({}),
+}).refine((data) => {
+  if (data.recipientType === 'single' && !data.recipientEmail) {
+    return false;
+  }
+  if (!data.templateKey && (!data.subject || !data.body_html)) {
+    return false;
+  }
+  return true;
+}, {
+  message: 'recipientEmail is required for single mail, and either templateKey or subject and body_html are required',
 });
 
 export const smtpConfigSchema = z.object({
-  provider: z.enum(['resend', 'smtp', 'ses']).optional().default('resend'),
-  resend_api_key: z.string().max(255).optional(),
-  smtp_host: z.string().max(255).optional(),
-  smtp_port: z.number().int().min(1).max(65535).optional(),
-  smtp_user: z.string().max(255).optional(),
-  smtp_pass: z.string().max(255).optional(),
+  provider: z.enum(['resend', 'smtp']).default('resend'),
+  resend_api_key: z.string().max(255).optional().nullable(),
+  smtp_host: z.string().max(255).optional().nullable(),
+  smtp_port: z.union([z.number().int().min(1).max(65535), z.string()]).optional().nullable(),
+  smtp_user: z.string().max(255).optional().nullable(),
+  smtp_pass: z.string().max(255).optional().nullable(),
   smtp_secure: z.boolean().optional().default(true),
-  from_email: z.string().email().max(255).optional(),
-  from_name: z.string().max(100).optional(),
+  from_email: z.string().email().max(255).optional().nullable(),
+  from_name: z.string().max(100).optional().nullable(),
+});
+
+export const createEmailTemplateSchema = z.object({
+  template_key: z.string().min(1).max(100).regex(/^[a-z0-9_-]+$/i, 'Template key must be alphanumeric, hyphen or underscore'),
+  name: z.string().min(1).max(255),
+  subject: z.string().min(1).max(255),
+  body_html: z.string().min(1).max(100000),
+  body_text: z.string().max(100000).optional().nullable(),
+  available_variables: z.array(z.string().max(100)).optional().default([]),
+});
+
+export const updateEmailTemplateSchema = z.object({
+  name: z.string().min(1).max(255).optional(),
+  subject: z.string().min(1).max(255).optional(),
+  body_html: z.string().min(1).max(100000).optional(),
+  body_text: z.string().max(100000).optional().nullable(),
+  available_variables: z.array(z.string().max(100)).optional().nullable(),
+  is_active: z.boolean().optional(),
 });
 
 export const adminResetPasswordSchema = z.object({

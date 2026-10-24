@@ -173,6 +173,7 @@ services:
       - TENANT_MASTER_KEY
       - INTERNAL_API_SECRET
       - PAYMENT_ENCRYPTION_KEY
+      - EMAIL_ENCRYPTION_KEY
       - RAZORPAY_KEY_ID
       - RAZORPAY_KEY_SECRET
       - RAZORPAY_WEBHOOK_SECRET
@@ -238,6 +239,8 @@ services:
       - TENANT_API_URL=http://tenant-api:3008
       - INTERNAL_API_SECRET
       - PAYMENT_ENCRYPTION_KEY
+      - EMAIL_ENCRYPTION_KEY
+      - RESEND_WEBHOOK_SECRET
       - ALLOWED_ORIGINS=https://xarwiz.com,https://www.xarwiz.com,https://admin.xarwiz.com,http://localhost:3002,http://localhost:3018,http://localhost:3028
     depends_on:
       postgres:

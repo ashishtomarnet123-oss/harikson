@@ -3,6 +3,7 @@ import { ExpressionEngine } from '../expression/engine.js';
 import { SSRFGuard } from '../security/ssrf.js';
 import { CredentialService } from '../credential.service.js';
 import { Logger } from '../../../observability/logger.js';
+import { sendEmail } from '../../email.js';
 
 export const HttpNode: INodeHandler = {
   metadata: {
@@ -253,29 +254,75 @@ export const EmailNode: INodeHandler = {
     supportedCredentials: ['smtp', 'api_key'],
   },
   validate(config: any): IValidationResult {
+    const to = config?.to || config?.value;
+    if (!to) {
+      return {
+        valid: false,
+        errors: [{ field: 'to', message: 'Recipient email address (to) is required' }],
+      };
+    }
     return { valid: true, errors: [] };
   },
   async execute(input: INodeInput, context: IWorkflowExecutionContext): Promise<INodeOutput> {
-    const rawTo = input.config?.to || 'support@xarwiz.com';
+    const rawTo = input.config?.to || input.config?.value || '';
     const rawSubject = input.config?.subject || 'Xarwiz Automation Alert';
-    const rawBody = input.config?.bodyTemplate || input.config?.value || 'Workflow step executed successfully.';
+    const rawBody = input.config?.bodyTemplate || input.config?.body || 'Workflow step executed successfully.';
 
-    const to = ExpressionEngine.interpolate(rawTo, context);
+    const to = ExpressionEngine.interpolate(rawTo, context).trim();
     const subject = ExpressionEngine.interpolate(rawSubject, context);
     const body = ExpressionEngine.interpolate(rawBody, context);
 
-    Logger.info(`[EmailNode] Sending email to ${to} (subject: ${subject})`, { nodeId: input.nodeId });
+    if (!to || !to.includes('@')) {
+      return {
+        status: 'failed',
+        error: `Invalid recipient email address: "${to}"`,
+        retryable: false,
+      };
+    }
 
-    return {
-      status: 'success',
-      data: {
-        dispatched: true,
+    Logger.info(`[EmailNode] Dispatching email to ${to} (subject: ${subject})`, { nodeId: input.nodeId });
+
+    try {
+      const dispatchRes = await sendEmail({
         to,
         subject,
-        preview: body.slice(0, 100),
-        dispatchedAt: new Date().toISOString(),
-      },
-    };
+        html: body,
+        emailType: 'workflow_automation',
+        tenant_id: context.tenantId || null,
+        metadata: {
+          workflowId: context.workflowId,
+          executionId: context.executionId,
+          nodeId: input.nodeId,
+        },
+      });
+
+      if (!dispatchRes.success) {
+        Logger.error(`[EmailNode] Workflow email dispatch failed`, { error: dispatchRes.error, to, subject });
+        return {
+          status: 'failed',
+          error: dispatchRes.error || 'Failed to dispatch workflow email',
+          retryable: true,
+        };
+      }
+
+      return {
+        status: 'success',
+        data: {
+          dispatched: true,
+          to,
+          subject,
+          messageId: dispatchRes.data?.id,
+          dispatchedAt: new Date().toISOString(),
+        },
+      };
+    } catch (err: any) {
+      Logger.error(`[EmailNode] Workflow email execution error:`, { error: err.message });
+      return {
+        status: 'failed',
+        error: err.message || 'Workflow email dispatch encountered an unexpected error',
+        retryable: true,
+      };
+    }
   },
 };
 

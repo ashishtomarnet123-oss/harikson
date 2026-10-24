@@ -41,10 +41,24 @@ if (!process.env.JWT_SECRET) {
   }
 }
 
-import { sendInvoiceReceipt, sendImpersonationAlert, sendAccountApprovalEmail, sendWelcomeEmail, sendPasswordReset, getActiveSmtpConfig, verifySmtpConnection, sendEmail, renderAndSendTemplate, resetEmailRateLimit, resolveSmtpHost } from './services/email.js';
+import { sendInvoiceReceipt, sendImpersonationAlert, sendTwoFactorResetAlert, sendAccountApprovalEmail, sendWelcomeEmail, sendPasswordReset, getActiveSmtpConfig, verifySmtpConnection, sendEmail, renderAndSendTemplate, resetEmailRateLimit, resolveSmtpHost } from './services/email.js';
+import { encryptSecret, decryptSecret, redactSmtpConfig, verifyResendWebhookSignature } from './services/emailCrypto.js';
+import { enqueueEmailJob, getEmailJobStatus, startEmailWorker, stopEmailWorker } from './services/emailQueue.js';
 import { createInvoice, recordInvoice } from './services/invoiceService.js';
+import {
+  recordWebhookReceived,
+  recordSignatureFailure,
+  recordLookupFailure,
+  recordDuplicateDelivery,
+  recordRetryAttempt,
+  recordReconciliationMismatch,
+  recordStateTransitionFailure,
+  recordDbTransactionFailure,
+  recordProcessingDuration,
+  getBillingMetricsPrometheusText,
+} from './services/billingMetrics.js';
 import { validate } from './middleware/validation.middleware.js';
-import { loginSchema, taxRateSchema, userStatusSchema, legalHoldSchema, legalHoldLiftSchema, sendEmailSchema, smtpConfigSchema, adminResetPasswordSchema } from './validators/admin.schema.js';
+import { loginSchema, taxRateSchema, userStatusSchema, legalHoldSchema, legalHoldLiftSchema, sendEmailSchema, smtpConfigSchema, createEmailTemplateSchema, updateEmailTemplateSchema, adminResetPasswordSchema } from './validators/admin.schema.js';
 import { validatePasswordPolicy, generateCryptographicPassword } from './validators/passwordPolicy.js';
 
 if (!process.env.JWT_SECRET || process.env.JWT_SECRET.length < 32) {
@@ -1020,10 +1034,11 @@ app.post('/admin/users/:id/reset-2fa', adminAuth, async (req, res) => {
       [id]
     );
 
-    // Dispatch security alert email to user
-    await sendImpersonationAlert(user.email, {
+    // Dispatch dedicated 2FA reset security notification email to user
+    await sendTwoFactorResetAlert(user.email, {
       adminName: req.admin?.email || 'Administrator',
-      message: 'Your 2FA settings and backup codes have been reset by an administrator for security.',
+      timestamp: new Date().toUTCString(),
+      ip: req.ip || req.headers['x-forwarded-for'] || 'Admin Console',
     }).catch(err => logger.warn('Failed to send 2FA reset alert email:', err.message));
 
     res.status(200).json({
@@ -1558,15 +1573,56 @@ const metricsAuthGuard = (req, res, next) => {
 // GET /admin/metrics - Secured Prometheus Metrics Scrape Endpoint
 app.get('/admin/metrics', metricsAuthGuard, async (req, res) => {
   try {
-    const tenants = await pool.query("SELECT COUNT(*) FROM tenants WHERE status='active'");
-    const users = await pool.query("SELECT COUNT(*) FROM users WHERE deleted_at IS NULL");
-    const agents = await pool.query("SELECT COUNT(*) FROM agents WHERE status='active'");
-    const kbs = await pool.query("SELECT COUNT(*) FROM knowledge_bases");
+    let dbStatusGauge = 1;
+    let activeTenants = 0;
+    let totalUsers = 0;
+    let activeAgents = 0;
+    let totalKbs = 0;
+
+    try {
+      const tenants = await pool.query("SELECT COUNT(*) FROM tenants WHERE status='active'");
+      activeTenants = parseInt(tenants.rows[0]?.count, 10) || 0;
+    } catch (dbErr) {
+      dbStatusGauge = 0;
+      logger.warn('[METRICS] Failed to query active tenants for metrics:', dbErr.message);
+    }
+
+    try {
+      const users = await pool.query("SELECT COUNT(*) FROM users WHERE deleted_at IS NULL");
+      totalUsers = parseInt(users.rows[0]?.count, 10) || 0;
+    } catch (dbErr) {
+      dbStatusGauge = 0;
+      logger.warn('[METRICS] Failed to query total users for metrics:', dbErr.message);
+    }
+
+    try {
+      const agents = await pool.query("SELECT COUNT(*) FROM agents WHERE status='active'");
+      activeAgents = parseInt(agents.rows[0]?.count, 10) || 0;
+    } catch (dbErr) {
+      dbStatusGauge = 0;
+      logger.warn('[METRICS] Failed to query active agents for metrics:', dbErr.message);
+    }
+
+    try {
+      const kbs = await pool.query("SELECT COUNT(*) FROM knowledge_bases");
+      totalKbs = parseInt(kbs.rows[0]?.count, 10) || 0;
+    } catch (dbErr) {
+      dbStatusGauge = 0;
+      logger.warn('[METRICS] Failed to query knowledge bases for metrics:', dbErr.message);
+    }
 
     const memTotal = Math.round(os.totalmem() / (1024 * 1024));
     const memFree = Math.round(os.freemem() / (1024 * 1024));
     const memUsed = memTotal - memFree;
     const cpuLoad = os.loadavg()[0] || 0;
+
+    let billingMetricsText = '';
+    try {
+      billingMetricsText = await getBillingMetricsPrometheusText(pool);
+    } catch (metricsErr) {
+      logger.warn('[METRICS] Failed to generate billing metrics text:', metricsErr.message);
+      billingMetricsText = await getBillingMetricsPrometheusText(null);
+    }
 
     const metricsText = [
       '# HELP system_cpu_load System 1-minute CPU load average',
@@ -1581,29 +1637,35 @@ app.get('/admin/metrics', metricsAuthGuard, async (req, res) => {
       '# TYPE system_memory_total_mb gauge',
       `system_memory_total_mb ${memTotal}`,
       '',
+      '# HELP harikson_database_metrics_query_success Database query status for metrics scrape (1=success, 0=query failure)',
+      '# TYPE harikson_database_metrics_query_success gauge',
+      `harikson_database_metrics_query_success ${dbStatusGauge}`,
+      '',
       '# HELP harikson_active_tenants_total Total active tenants count',
       '# TYPE harikson_active_tenants_total gauge',
-      `harikson_active_tenants_total ${parseInt(tenants.rows[0].count)}`,
+      `harikson_active_tenants_total ${activeTenants}`,
       '',
       '# HELP harikson_total_users Total active users count',
       '# TYPE harikson_total_users gauge',
-      `harikson_total_users ${parseInt(users.rows[0].count)}`,
+      `harikson_total_users ${totalUsers}`,
       '',
       '# HELP harikson_active_agents_total Total active agents count',
       '# TYPE harikson_active_agents_total gauge',
-      `harikson_active_agents_total ${parseInt(agents.rows[0].count)}`,
+      `harikson_active_agents_total ${activeAgents}`,
       '',
       '# HELP harikson_knowledge_bases_total Total knowledge bases count',
       '# TYPE harikson_knowledge_bases_total gauge',
-      `harikson_knowledge_bases_total ${parseInt(kbs.rows[0].count)}`,
-      ''
+      `harikson_knowledge_bases_total ${totalKbs}`,
+      '',
+      billingMetricsText
     ].join('\n');
 
     res.setHeader('Content-Type', 'text/plain; version=0.0.4');
     res.status(200).send(metricsText);
   } catch (err) {
     logger.error('Failed to generate Prometheus metrics:', err);
-    res.status(500).json({ error: 'Failed to generate metrics' });
+    res.setHeader('Content-Type', 'text/plain; version=0.0.4');
+    res.status(500).send('# ERROR: Failed to generate metrics\n');
   }
 });
 
@@ -2182,7 +2244,16 @@ const handleSendUserEmail = async (req, res) => {
     } else if (emailType === 'welcome') {
       result = await sendWelcomeEmail(user.email, user.name);
     } else if (emailType === 'password_reset') {
-      const resetUrl = `https://app.xarwiz.com/reset-password?email=${encodeURIComponent(user.email)}`;
+      const resetToken = crypto.randomBytes(32).toString('hex');
+      const resetTokenHash = crypto.createHash('sha256').update(resetToken).digest('hex');
+      const expiresAt = new Date(Date.now() + 60 * 60 * 1000); // 1 hour expiration
+      await pool.query(
+        `INSERT INTO password_reset_tokens (tenant_id, user_id, token_hash, expires_at)
+         VALUES ($1, $2, $3, $4)`,
+        [user.tenant_id, user.id, resetTokenHash, expiresAt]
+      );
+      const userPortalBase = process.env.USER_PORTAL_URL || process.env.NEXTAUTH_URL || 'https://xarwiz.com';
+      const resetUrl = `${userPortalBase.replace(/\/+$/, '')}/reset-password?token=${resetToken}`;
       result = await sendPasswordReset(user.email, resetUrl, { bypassRateLimit: true });
     } else {
       return res.status(400).json({ error: 'Invalid emailType specified' });
@@ -2244,9 +2315,6 @@ app.get('/v1/admin/emails/templates', adminAuth, handleGetTemplates);
 // POST /admin/emails/templates & /v1/admin/emails/templates - Create template
 const handleCreateTemplate = async (req, res) => {
   const { template_key, name, subject, body_html, body_text, available_variables } = req.body;
-  if (!template_key || !name || !subject || !body_html) {
-    return res.status(400).json({ error: 'template_key, name, subject, and body_html are required' });
-  }
 
   try {
     const insertRes = await pool.query(
@@ -2261,8 +2329,8 @@ const handleCreateTemplate = async (req, res) => {
     res.status(500).json({ error: err.message || 'Failed to create email template' });
   }
 };
-app.post('/admin/emails/templates', adminAuth, handleCreateTemplate);
-app.post('/v1/admin/emails/templates', adminAuth, handleCreateTemplate);
+app.post('/admin/emails/templates', adminAuth, validate(createEmailTemplateSchema), handleCreateTemplate);
+app.post('/v1/admin/emails/templates', adminAuth, validate(createEmailTemplateSchema), handleCreateTemplate);
 
 // PUT /admin/emails/templates/:id & /v1/admin/emails/templates/:id - Update template
 const handleUpdateTemplate = async (req, res) => {
@@ -2292,8 +2360,8 @@ const handleUpdateTemplate = async (req, res) => {
     res.status(500).json({ error: 'Failed to update email template' });
   }
 };
-app.put('/admin/emails/templates/:id', adminAuth, handleUpdateTemplate);
-app.put('/v1/admin/emails/templates/:id', adminAuth, handleUpdateTemplate);
+app.put('/admin/emails/templates/:id', adminAuth, validate(updateEmailTemplateSchema), handleUpdateTemplate);
+app.put('/v1/admin/emails/templates/:id', adminAuth, validate(updateEmailTemplateSchema), handleUpdateTemplate);
 
 // DELETE /admin/emails/templates/:id & /v1/admin/emails/templates/:id - Delete template
 const handleDeleteTemplate = async (req, res) => {
@@ -2318,7 +2386,7 @@ app.delete('/v1/admin/emails/templates/:id', adminAuth, handleDeleteTemplate);
 const handleGetSmtpConfig = async (req, res) => {
   try {
     const config = await getActiveSmtpConfig();
-    res.json({ success: true, config });
+    res.json({ success: true, config: redactSmtpConfig(config) });
   } catch (err) {
     logger.error('Failed to get SMTP config:', err);
     res.status(500).json({ error: 'Failed to retrieve SMTP configuration' });
@@ -2332,8 +2400,31 @@ const handleUpdateSmtpConfig = async (req, res) => {
   let { provider, resend_api_key, smtp_host, smtp_port, smtp_user, smtp_pass, smtp_secure, from_email, from_name } = req.body;
 
   try {
-    const portNum = smtp_port ? parseInt(smtp_port) : 587;
-    const isSecure = portNum === 465;
+    // Fetch raw database row directly to preserve existing ciphertext without decrypting/re-encrypting
+    const rawRes = await pool.query(
+      'SELECT smtp_pass, resend_api_key FROM smtp_configs WHERE is_active = true ORDER BY updated_at DESC LIMIT 1'
+    );
+    const rawCurrent = rawRes.rows[0];
+
+    // Safe update semantics: preserve existing credentials if not supplied or masked placeholder
+    const isMaskedPassword = !smtp_pass || smtp_pass.trim() === '' || smtp_pass.includes('••••');
+    if (isMaskedPassword) {
+      smtp_pass = rawCurrent?.smtp_pass || null;
+    } else {
+      // Encrypt new password at rest exactly once
+      smtp_pass = encryptSecret(smtp_pass.trim());
+    }
+
+    const isMaskedApiKey = !resend_api_key || resend_api_key.trim() === '' || resend_api_key.includes('••••');
+    if (isMaskedApiKey) {
+      resend_api_key = rawCurrent?.resend_api_key || null;
+    } else {
+      // Encrypt new API key at rest exactly once
+      resend_api_key = encryptSecret(resend_api_key.trim());
+    }
+
+    const portNum = smtp_port ? parseInt(smtp_port, 10) : 587;
+    const isSecure = smtp_secure !== undefined ? Boolean(smtp_secure) : portNum === 465;
 
     // If host was entered as bare domain without mail./smtp., check if it resolves to a candidate host
     if (provider === 'smtp' && smtp_host) {
@@ -2344,7 +2435,7 @@ const handleUpdateSmtpConfig = async (req, res) => {
             smtp_host: candidates[0],
             smtp_port: portNum,
             smtp_user,
-            smtp_pass,
+            smtp_pass: decryptSecret(smtp_pass),
             smtp_secure: isSecure
           });
           if (testRes.success) {
@@ -2363,13 +2454,13 @@ const handleUpdateSmtpConfig = async (req, res) => {
       `INSERT INTO smtp_configs (provider, resend_api_key, smtp_host, smtp_port, smtp_user, smtp_pass, smtp_secure, from_email, from_name, is_active)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, true)
        RETURNING *`,
-      [provider || 'resend', resend_api_key, smtp_host, portNum, smtp_user, smtp_pass, isSecure, from_email || 'noreply@xarwiz.com', from_name || 'Xarwiz']
+      [provider || 'smtp', resend_api_key, smtp_host, portNum, smtp_user, smtp_pass, isSecure, from_email || 'noreply@xarwiz.com', from_name || 'Xarwiz']
     );
 
     res.json({
       success: true,
       message: 'SMTP settings updated and activated successfully',
-      config: insertRes.rows[0],
+      config: redactSmtpConfig(insertRes.rows[0]),
       resolvedHost: smtp_host
     });
   } catch (err) {
@@ -2377,13 +2468,20 @@ const handleUpdateSmtpConfig = async (req, res) => {
     res.status(500).json({ success: false, error: err.message || 'Failed to update SMTP configuration' });
   }
 };
-app.put('/admin/emails/smtp', adminAuth, handleUpdateSmtpConfig);
-app.put('/v1/admin/emails/smtp', adminAuth, handleUpdateSmtpConfig);
+app.put('/admin/emails/smtp', adminAuth, validate(smtpConfigSchema), handleUpdateSmtpConfig);
+app.put('/v1/admin/emails/smtp', adminAuth, validate(smtpConfigSchema), handleUpdateSmtpConfig);
 
 // POST /admin/emails/smtp/test & /v1/admin/emails/smtp/test - Test connection
 const handleTestSmtpConfig = async (req, res) => {
-  const config = req.body;
+  const config = { ...req.body };
   try {
+    // If password is not provided in test payload, use current active config credentials
+    if (!config.smtp_pass || config.smtp_pass.trim() === '' || config.smtp_pass === '••••••••') {
+      const active = await getActiveSmtpConfig();
+      if (active?.smtp_pass) {
+        config.smtp_pass = active.smtp_pass;
+      }
+    }
     const testResult = await verifySmtpConnection(config);
     if (!testResult.success) {
       return res.status(400).json({ success: false, error: testResult.error });
@@ -2408,57 +2506,202 @@ const handleSendCustomMail = async (req, res) => {
   try {
     let recipients = [];
     if (recipientType === 'all') {
-      const usersRes = await pool.query("SELECT email FROM users WHERE status = 'active'");
+      // DPDP Act 2023 compliance: require affirmative consent (status = 'granted') and exclude suppressed addresses (bounced/complained)
+      const usersRes = await pool.query(`
+        SELECT u.id, u.email 
+        FROM users u
+        WHERE u.status = 'active'
+          AND u.deleted_at IS NULL
+          AND EXISTS (
+            SELECT 1 FROM user_consents uc 
+            WHERE uc.user_id = u.id 
+              AND uc.purpose_id = 'marketing_emails' 
+              AND uc.status = 'granted'
+              AND (uc.valid_until IS NULL OR uc.valid_until > NOW())
+          )
+          AND NOT EXISTS (
+            SELECT 1 FROM email_logs el
+            WHERE el.recipient = u.email
+              AND el.status IN ('bounced', 'complained')
+          )
+      `);
       recipients = usersRes.rows.map(u => u.email);
     } else {
       if (!recipientEmail) {
         return res.status(400).json({ error: 'recipientEmail is required for individual mail' });
       }
+
+      // Check recipient affirmative consent and suppression status
+      const checkRes = await pool.query(`
+        SELECT 
+          EXISTS (
+            SELECT 1 FROM user_consents uc
+            JOIN users u ON u.id = uc.user_id
+            WHERE u.email = $1
+              AND uc.purpose_id = 'marketing_emails'
+              AND uc.status = 'granted'
+              AND (uc.valid_until IS NULL OR uc.valid_until > NOW())
+          ) AS has_affirmative_consent,
+          EXISTS (
+            SELECT 1 FROM user_consents uc
+            JOIN users u ON u.id = uc.user_id
+            WHERE u.email = $1
+              AND uc.purpose_id = 'marketing_emails'
+              AND uc.status IN ('declined', 'withdrawn')
+          ) AS has_explicitly_declined,
+          EXISTS (
+            SELECT 1 FROM email_logs el
+            WHERE el.recipient = $1
+              AND el.status IN ('bounced', 'complained')
+          ) AS is_suppressed
+      `, [recipientEmail]);
+
+      const { has_affirmative_consent, has_explicitly_declined, is_suppressed } = checkRes.rows[0] || {};
+
+      if (is_suppressed) {
+        return res.status(400).json({
+          error: 'Recipient address is on the delivery suppression list due to a previous bounce or complaint'
+        });
+      }
+
+      if (has_explicitly_declined || !has_affirmative_consent) {
+        return res.status(400).json({
+          error: 'Recipient does not have active affirmative consent for marketing communications (DPDP Act 2023)'
+        });
+      }
+
       recipients = [recipientEmail];
     }
 
     if (recipients.length === 0) {
-      return res.status(400).json({ error: 'No recipients found to dispatch mail' });
+      return res.status(400).json({ error: 'No eligible recipients found to dispatch mail' });
     }
 
-    let dispatchedCount = 0;
-    let errors = [];
+    // Queue dispatch through durable Redis BullMQ-compatible emailQueue
+    const job = await enqueueEmailJob({
+      recipients,
+      templateKey,
+      subject,
+      body_html,
+      variables,
+      emailType: recipientType === 'all' ? 'marketing_broadcast' : 'custom_broadcast',
+      metadata: { recipientType, requestedBy: req.user?.id || 'admin' }
+    });
 
-    for (const email of recipients) {
-      let result;
-      if (templateKey) {
-        result = await renderAndSendTemplate(templateKey, email, { email, ...(variables || {}) });
-      } else {
-        result = await sendEmail({
-          to: email,
-          subject,
-          html: body_html,
-          emailType: 'custom_broadcast',
-          metadata: { recipientType }
-        });
-      }
-
-      if (result.success) {
-        dispatchedCount++;
-      } else {
-        errors.push({ email, error: result.error });
-      }
-    }
-
-    res.json({
-      success: dispatchedCount > 0,
-      message: `Dispatched ${dispatchedCount} email(s) out of ${recipients.length} successfully`,
-      dispatchedCount,
-      totalRecipients: recipients.length,
-      errors
+    res.status(202).json({
+      success: true,
+      message: `Email dispatch job enqueued for ${recipients.length} recipient(s)`,
+      jobId: job.jobId,
+      recipientCount: recipients.length,
+      status: 'queued'
     });
   } catch (err) {
-    logger.error('Failed to send custom mail:', err);
-    res.status(500).json({ error: 'Failed to dispatch custom email' });
+    logger.error('Failed to enqueue custom mail:', err);
+    res.status(500).json({ error: 'Failed to enqueue custom email' });
   }
 };
-app.post('/admin/emails/send-custom', adminAuth, handleSendCustomMail);
-app.post('/v1/admin/emails/send-custom', adminAuth, handleSendCustomMail);
+app.post('/admin/emails/send-custom', adminAuth, validate(sendEmailSchema), handleSendCustomMail);
+app.post('/v1/admin/emails/send-custom', adminAuth, validate(sendEmailSchema), handleSendCustomMail);
+
+// GET /admin/emails/jobs/:jobId & /v1/admin/emails/jobs/:jobId - Track email job status
+const handleGetEmailJobStatus = async (req, res) => {
+  try {
+    const status = await getEmailJobStatus(req.params.jobId);
+    if (!status) {
+      return res.status(404).json({ error: 'Job not found' });
+    }
+    res.json({ success: true, job: status });
+  } catch (err) {
+    logger.error('Failed to get email job status:', err);
+    res.status(500).json({ error: 'Failed to retrieve email job status' });
+  }
+};
+app.get('/admin/emails/jobs/:jobId', adminAuth, handleGetEmailJobStatus);
+app.get('/v1/admin/emails/jobs/:jobId', adminAuth, handleGetEmailJobStatus);
+
+// POST /webhooks/email & /v1/webhooks/email - Webhook for email delivery status
+const handleEmailWebhook = async (req, res) => {
+  const webhookSecret = process.env.RESEND_WEBHOOK_SECRET;
+  const isProd = process.env.NODE_ENV === 'production';
+
+  // 1. Signature Verification
+  if (!webhookSecret) {
+    if (isProd) {
+      logger.error('[EMAIL WEBHOOK] RESEND_WEBHOOK_SECRET is not configured in production mode');
+      return res.status(401).json({ error: 'Webhook secret is not configured' });
+    } else {
+      logger.warn('[EMAIL WEBHOOK] Warning: RESEND_WEBHOOK_SECRET is not set; running in development mode');
+    }
+  } else {
+    const rawBodyBuffer = req.rawBody || (req.body ? Buffer.from(JSON.stringify(req.body), 'utf8') : Buffer.from(''));
+    const verifyResult = verifyResendWebhookSignature({
+      rawBody: rawBodyBuffer,
+      headers: req.headers,
+      secret: webhookSecret,
+      toleranceSeconds: 300,
+    });
+
+    if (!verifyResult.valid) {
+      logger.warn('[EMAIL WEBHOOK] Rejected invalid webhook signature:', verifyResult.error);
+      return res.status(401).json({ error: 'Invalid webhook signature', details: verifyResult.error });
+    }
+  }
+
+  const event = req.body;
+  try {
+    // Resend webhook format: { type: 'email.delivered' | 'email.bounced' | 'email.complained', data: { email_id: '...' } }
+    const eventType = event?.type;
+    const emailId = event?.data?.email_id || event?.data?.id;
+
+    if (!eventType || !emailId) {
+      return res.status(400).json({ error: 'Invalid webhook payload structure' });
+    }
+
+    // 2. Event Deduplication
+    const svixId = req.headers['svix-id'] || event.data?.id || emailId;
+    if (svixId) {
+      const dedupKey = `xarwiz:email_webhook_seen:${svixId}`;
+      try {
+        const isNew = await redis.set(dedupKey, '1', 'EX', 86400, 'NX');
+        if (!isNew) {
+          logger.info(`📬 [EMAIL WEBHOOK] Duplicate webhook event ${svixId} ignored`);
+          return res.status(200).json({ success: true, duplicate: true, message: 'Event already processed' });
+        }
+      } catch (redisErr) {
+        logger.warn('[EMAIL WEBHOOK] Dedup cache check failed, proceeding:', redisErr.message);
+      }
+    }
+
+    let status = null;
+    if (eventType === 'email.delivered') status = 'delivered';
+    else if (eventType === 'email.bounced') status = 'bounced';
+    else if (eventType === 'email.complained') status = 'complained';
+
+    if (status) {
+      await pool.query(
+        `UPDATE email_logs
+         SET status = $1,
+             error_message = COALESCE($2, error_message),
+             metadata = jsonb_set(COALESCE(metadata, '{}'::jsonb), '{webhook_event}', $3::jsonb)
+         WHERE resend_id = $4`,
+        [
+          status,
+          eventType === 'email.bounced' ? (event.data?.bounce_type || 'bounced') : null,
+          JSON.stringify(event),
+          emailId
+        ]
+      );
+      logger.info(`📬 [EMAIL WEBHOOK] Updated email log ${emailId} to ${status}`);
+    }
+
+    res.json({ success: true, received: true });
+  } catch (err) {
+    logger.error('Failed to process email webhook:', err);
+    res.status(500).json({ error: 'Failed to process webhook' });
+  }
+};
+app.post('/webhooks/email', handleEmailWebhook);
+app.post('/v1/webhooks/email', handleEmailWebhook);
 
 // PUT /admin/users/:userId/plan & /v1/admin/users/:userId/plan
 const handleUpdateUserPlan = async (req, res) => {
@@ -4991,6 +5234,7 @@ app.post('/webhooks/phonepe', async (req, res) => {
     }
 
     if (!isVerified) {
+      recordSignatureFailure('phonepe');
       logger.error('PhonePe webhook signature verification failed');
       await pool.query(
         `INSERT INTO payment_webhooks (event_id, provider_id, provider, event_type, status, amount, signature_verified, processing_error, payload)
@@ -5053,9 +5297,9 @@ app.post('/webhooks/phonepe', async (req, res) => {
       const merchantId = decryptText(provider.api_key_encrypted) || process.env.PHONEPE_MERCHANT_ID;
       const saltKey = decryptText(provider.api_secret_encrypted) || decryptText(provider.webhook_secret_encrypted) || process.env.PHONEPE_SALT_KEY;
       const saltIndex = process.env.PHONEPE_SALT_INDEX || '1';
-      if (merchantId && saltKey && merchantTransactionId) {
+      if (merchantId && saltKey && merchantTxnId) {
         try {
-          const statusPath = `/pg/v1/status/${merchantId}/${merchantTransactionId}`;
+          const statusPath = `/pg/v1/status/${merchantId}/${merchantTxnId}`;
           const statusHash = crypto.createHash('sha256').update(statusPath + saltKey).digest('hex') + '###' + saltIndex;
           const host = process.env.PHONEPE_HOST_URL || (process.env.NODE_ENV === 'production' ? 'https://api.phonepe.com/apis/hermes' : 'https://api-preprod.phonepe.com/apis/pg-sandbox');
           const phRes = await fetch(`${host}${statusPath}`, {
@@ -5076,9 +5320,12 @@ app.post('/webhooks/phonepe', async (req, res) => {
                 }
               }
             }
+          } else {
+            recordLookupFailure('phonepe');
           }
         } catch (lookupErr) {
-          logger.warn(`[WEBHOOK] PhonePe status lookup failed for ${merchantTransactionId}: ${lookupErr.message}`);
+          recordLookupFailure('phonepe');
+          logger.warn(`[WEBHOOK] PhonePe status lookup failed for ${merchantTxnId}: ${lookupErr.message}`);
         }
       }
     }
@@ -5122,6 +5369,8 @@ app.post('/webhooks/phonepe', async (req, res) => {
       // 1. If already processed, acknowledge idempotent replay safely without side-effects
       if (existingStatus === 'processed') {
         await client.query('COMMIT');
+        recordDuplicateDelivery('phonepe');
+        recordWebhookReceived('phonepe', eventType, 'already_processed');
         logger.info(`[WEBHOOK] PhonePe event ${phonepeTxnId} has already been processed.`);
         return res.status(200).json({ status: 'already_processed' });
       }
@@ -5146,6 +5395,7 @@ app.post('/webhooks/phonepe', async (req, res) => {
           ]
         );
         await client.query('COMMIT');
+        recordWebhookReceived('phonepe', eventType, 'unresolved');
         logger.warn(`[WEBHOOK] PhonePe event ${phonepeTxnId} durably preserved with status='unresolved': ${unresolvedReason}`);
         return res.status(200).json({
           success: true,
@@ -5170,6 +5420,7 @@ app.post('/webhooks/phonepe', async (req, res) => {
           ['Payment failed at provider', amount, tenantName, JSON.stringify(decodedEvent), lockRes.rows[0].id]
         );
         await client.query('COMMIT');
+        recordWebhookReceived('phonepe', eventType, 'failed');
         return res.status(200).json({ status: 'failed', event_id: phonepeTxnId });
       }
 
@@ -5243,9 +5494,11 @@ app.post('/webhooks/phonepe', async (req, res) => {
       );
 
       await client.query('COMMIT');
+      recordWebhookReceived('phonepe', eventType, 'processed');
       return res.status(200).json({ status: 'processed', success: true });
     } catch (txErr) {
       await client.query('ROLLBACK').catch(() => {});
+      recordDbTransactionFailure('phonepe_webhook_tx');
       logger.error('PhonePe webhook transaction failed:', txErr);
       return res.status(500).json({ error: 'Database transaction failed: ' + txErr.message });
     } finally {
@@ -6062,19 +6315,22 @@ async function reconcileWebhookEvent(webhookRecord) {
           const statusBody = await resp.json();
           if (statusBody.success && (statusBody.code === 'PAYMENT_SUCCESS' || statusBody.data?.responseCode === 'SUCCESS')) {
             isPaymentSuccessful = true;
-            authoritativeCurrency = statusBody.data?.paymentInstrument?.currency || 'INR';
+            authoritativeCurrency = statusBody.data?.paymentInstrument?.currency || statusBody.data?.currency || null;
             if (statusBody.data?.amount) {
               authoritativeAmount = statusBody.data.amount / 100;
             }
           }
+        } else {
+          recordLookupFailure('phonepe');
         }
       } catch (err) {
+        recordLookupFailure('phonepe');
         logger.warn(`[RECONCILIATION] PhonePe lookup failed for ${eventId}: ${err.message}`);
       }
     }
 
     if (!authoritativeCurrency) {
-      authoritativeCurrency = pData.currency || payload.currency || 'INR';
+      authoritativeCurrency = pData.currency || payload.currency || null;
     }
     if (!isPaymentSuccessful) {
       isPaymentSuccessful = payload.code === 'PAYMENT_SUCCESS' || pData.responseCode === 'SUCCESS';
@@ -6114,8 +6370,11 @@ async function reconcileWebhookEvent(webhookRecord) {
               authoritativeAmount = Number(successfulPayment.payment_amount);
             }
           }
+        } else {
+          recordLookupFailure('cashfree');
         }
       } catch (err) {
+        recordLookupFailure('cashfree');
         logger.warn(`[RECONCILIATION] Cashfree lookup failed for ${eventId}: ${err.message}`);
       }
     }
@@ -6154,8 +6413,11 @@ async function reconcileWebhookEvent(webhookRecord) {
               isPaymentSuccessful = true;
             }
           }
+        } else {
+          recordLookupFailure('neuracollect');
         }
       } catch (err) {
+        recordLookupFailure('neuracollect');
         logger.warn(`[RECONCILIATION] NeuraCollect lookup failed for ${eventId}: ${err.message}`);
       }
     }
@@ -6168,12 +6430,17 @@ async function reconcileWebhookEvent(webhookRecord) {
     }
   }
 
-  // Validate currency and status
+  // Validate currency, amount, and status
   let unresolvedReason = null;
   if (!authoritativeCurrency) {
+    recordReconciliationMismatch(providerName, 'currency_mismatch');
     unresolvedReason = `Missing currency in ${providerName} event ${eventId} and authoritative lookup unavailable`;
   } else if (String(authoritativeCurrency).trim().toUpperCase() !== 'INR') {
+    recordReconciliationMismatch(providerName, 'currency_mismatch');
     unresolvedReason = `Non-INR currency '${String(authoritativeCurrency).toUpperCase()}' rejected. Platform strictly operates in INR.`;
+  } else if (webhookRecord.amount > 0 && authoritativeAmount > 0 && Math.abs(Number(webhookRecord.amount) - Number(authoritativeAmount)) > 0.01) {
+    recordReconciliationMismatch(providerName, 'amount_mismatch');
+    unresolvedReason = `Amount mismatch for ${providerName} event ${eventId}: webhook recorded ${webhookRecord.amount} but authoritative provider returned ${authoritativeAmount}`;
   }
 
   if (unresolvedReason) {
@@ -6194,6 +6461,7 @@ async function reconcileWebhookEvent(webhookRecord) {
   }
 
   if (!isPaymentSuccessful) {
+    recordStateTransitionFailure(providerName, webhookRecord.status, 'failed');
     const failReason = `Authoritative payment status verification failed for ${eventId} on ${providerName}.`;
     await pool.query(
       `UPDATE payment_webhooks
@@ -6337,6 +6605,7 @@ app.post('/admin/billing/webhooks/:id/retry', adminAuth, async (req, res) => {
 
     // Cryptographic signature check: retries cannot bypass signature verification
     if (!event.signature_verified) {
+      recordRetryAttempt(event.provider, 'admin', 'unverified_signature');
       return res.status(400).json({
         error: 'Cannot retry webhook with unverified signature',
         message: 'Cryptographic signature verification is strictly required before retrying',
@@ -6348,6 +6617,7 @@ app.post('/admin/billing/webhooks/:id/retry', adminAuth, async (req, res) => {
     const result = await reconcileWebhookEvent(event);
 
     if (result.status === 'already_processed') {
+      recordRetryAttempt(event.provider, 'admin', 'already_processed');
       return res.status(200).json({
         success: true,
         message: result.message,
@@ -6361,6 +6631,7 @@ app.post('/admin/billing/webhooks/:id/retry', adminAuth, async (req, res) => {
     }
 
     if (!result.success) {
+      recordRetryAttempt(event.provider, 'admin', result.status || 'failed');
       const statusCode = result.status === 'unverified_signature' ? 400 : 422;
       return res.status(statusCode).json({
         success: false,
@@ -6376,6 +6647,7 @@ app.post('/admin/billing/webhooks/:id/retry', adminAuth, async (req, res) => {
       });
     }
 
+    recordRetryAttempt(event.provider, 'admin', 'processed');
     return res.status(200).json({
       success: true,
       message: result.message,
@@ -6929,11 +7201,13 @@ const server = app.listen(port, () => {
     `⚡ [Admin Management API] Operational and listening on port ${port}`
   );
   startIntegrationWorkers(pool);
+  startEmailWorker();
   initDb().catch((err) => logger.warn('[DB] initDb failed on startup:', err.message));
 });
 
 const gracefulShutdown = (signal) => {
   logger.info(`${signal} received. Starting graceful shutdown...`);
+  stopEmailWorker();
   server.close(async () => {
     logger.info('HTTP server closed. Closing connection pools...');
     try {

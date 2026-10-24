@@ -4,6 +4,7 @@ import Redis from 'ioredis';
 import nodemailer from 'nodemailer';
 import pool from '../db.js';
 import dns from 'dns/promises';
+import { encryptSecret, decryptSecret, redactSmtpConfig } from './emailCrypto.js';
 
 const resend = new Resend(process.env.RESEND_API_KEY || 're_dev_key');
 const redis = new Redis(process.env.REDIS_URL || 'redis://redis:6379');
@@ -51,24 +52,29 @@ export async function resolveSmtpHost(inputHost) {
 }
 
 // Helper to log all email dispatches into email_logs table
-export async function logEmailDispatch(recipient, emailType, subject, status, errorMessage = null, resendId = null, metadata = {}) {
+export async function logEmailDispatch(recipient, emailType, subject, status, errorMessage = null, resendId = null, metadata = {}, tenantId = null, userId = null) {
   try {
     await pool.query(
-      `INSERT INTO email_logs (recipient, email_type, subject, status, error_message, resend_id, metadata, created_at)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())`,
-      [recipient, emailType, subject, status, errorMessage, resendId, JSON.stringify(metadata)]
+      `INSERT INTO email_logs (recipient, email_type, subject, status, error_message, resend_id, metadata, tenant_id, user_id, created_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW())`,
+      [recipient, emailType, subject, status, errorMessage, resendId, JSON.stringify(metadata || {}), tenantId || null, userId || null]
     );
   } catch (err) {
     logger.warn('[EMAIL LOG INSERT FAILED]:', err.message);
   }
 }
 
-// Helper to fetch active SMTP config from database
+// Helper to fetch active SMTP config from database with transparent decryption
 export async function getActiveSmtpConfig() {
   try {
     const res = await pool.query('SELECT * FROM smtp_configs WHERE is_active = true ORDER BY updated_at DESC LIMIT 1');
     if (res.rows.length > 0) {
-      return res.rows[0];
+      const row = res.rows[0];
+      return {
+        ...row,
+        smtp_pass: decryptSecret(row.smtp_pass),
+        resend_api_key: decryptSecret(row.resend_api_key)
+      };
     }
   } catch (err) {
     logger.warn('[SMTP CONFIG FETCH FAILED]:', err.message);
@@ -268,12 +274,13 @@ export async function renderAndSendTemplate(templateKey, recipient, variables = 
     let text = template.body_text || '';
 
     Object.keys(variables).forEach((key) => {
-      const regex = new RegExp(`\\{\\{${key}\\}\\}`, 'g');
-      const raw = variables[key] || '';
+      const escapedKey = key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const regex = new RegExp(`\\{\\{${escapedKey}\\}\\}`, 'g');
+      const raw = String(variables[key] ?? '');
       const safe = escapeHtml(raw);
-      subject = subject.replace(regex, raw);
-      html = html.replace(regex, safe);
-      text = text.replace(regex, raw);
+      subject = subject.replace(regex, () => raw);
+      html = html.replace(regex, () => safe);
+      text = text.replace(regex, () => raw);
     });
 
     return await sendEmail({
@@ -495,45 +502,62 @@ export const sendInvoiceReceipt = async (to, invoiceDetails, options = {}) => {
     </div>
   `;
 
-  // 3x Retry Logic with Exponential Backoff (1s, 2s, 4s)
-  let attempts = 0;
-  const maxAttempts = 3;
-  let lastError = null;
+  // Dispatch through universal email dispatcher (supports both active custom SMTP and Resend)
+  const dispatchResult = await sendEmail({
+    to,
+    subject: `Your Xarwiz Invoice — #${invoiceNum}`,
+    html,
+    emailType: 'invoice_receipt',
+    metadata: {
+      invoiceId: id,
+      invoiceNum,
+      provider,
+      status,
+      plan_name,
+      amount: formattedAmount,
+      currency: formattedCurrency,
+    },
+    bypassRateLimit: options.bypassRateLimit ?? true,
+    maxLimit: options.maxLimit ?? 50,
+  });
 
-  while (attempts < maxAttempts) {
-    attempts++;
-    try {
-      const { data, error } = await resend.emails.send({
-        from: 'Xarwiz Billing <noreply@xarwiz.com>',
-        to,
-        bcc: 'billing@xarwiz.com',
-        subject: `Your Xarwiz Invoice — #${invoiceNum}`,
-        html,
-      });
-
-      if (error) {
-        lastError = error.message || String(error);
-        logger.warn(`⚠️ [Email Retry ${attempts}/${maxAttempts}] Resend failed: ${lastError}`);
-      } else {
-        logger.info(`✅ [INVOICE EMAIL] Receipt sent successfully to ${to} for invoice #${invoiceNum}`);
-        return { success: true, data };
-      }
-    } catch (err) {
-      lastError = err.message || String(err);
-      logger.warn(`⚠️ [Email Retry ${attempts}/${maxAttempts}] Resend threw exception: ${lastError}`);
-    }
-
-    if (attempts < maxAttempts) {
-      const backoffMs = Math.pow(2, attempts - 1) * 1000;
-      await new Promise((resolve) => setTimeout(resolve, backoffMs));
-    }
+  if (dispatchResult.success) {
+    logger.info(`✅ [INVOICE EMAIL] Receipt sent successfully to ${to} for invoice #${invoiceNum}`);
+  } else {
+    logger.error(`❌ [INVOICE EMAIL FAILED] Failed to send receipt for invoice #${invoiceNum} (Recipient: ${to}). Error: ${dispatchResult.error}`);
   }
 
-  logger.error(`❌ [INVOICE EMAIL FAILED] All ${maxAttempts} retries failed for invoice #${invoiceNum} (Recipient: ${to}). Error: ${lastError}`);
-  return {
-    success: false,
-    error: `Failed to send invoice receipt after ${maxAttempts} retries: ${lastError}`,
-  };
+  return dispatchResult;
+};
+
+export const sendTwoFactorResetAlert = async (to, details = {}, options = {}) => {
+  const adminName = details.adminName || 'System Administrator';
+  const timestamp = details.timestamp || new Date().toISOString();
+  const ip = details.ip || 'Unknown IP';
+
+  return await sendEmail({
+    to,
+    subject: 'Security Notification: Two-Factor Authentication Reset',
+    html: `
+      <div style="font-family: system-ui, -apple-system, sans-serif; padding: 24px; color: #1e293b; max-width: 600px; margin: 0 auto; border: 1px solid #e2e8f0; border-radius: 12px; background: #ffffff;">
+        <h2 style="color: #4f46e5; border-bottom: 2px solid #4f46e5; padding-bottom: 12px; margin-top: 0;">Two-Factor Authentication Reset</h2>
+        <p>Your two-factor authentication (2FA) settings and emergency backup codes have been reset by an administrator.</p>
+        <div style="background-color: #f8fafc; padding: 14px 18px; border-radius: 8px; border-left: 4px solid #4f46e5; margin: 18px 0; font-size: 14px;">
+          <p style="margin: 4px 0;"><strong>Authorized Administrator:</strong> ${escapeHtml(adminName)}</p>
+          <p style="margin: 4px 0;"><strong>Timestamp:</strong> ${escapeHtml(timestamp)}</p>
+          <p style="margin: 4px 0;"><strong>IP Address:</strong> ${escapeHtml(ip)}</p>
+        </div>
+        <p style="font-size: 14px; line-height: 1.5; color: #475569;">
+          For your security, we recommend signing in to your Xarwiz account and setting up an Authenticator App (TOTP) under <strong>Settings &gt; Security</strong> immediately.
+        </p>
+        <hr style="border: 0; border-top: 1px solid #e2e8f0; margin: 24px 0;" />
+        <p style="font-size: 12px; color: #94a3b8;">Xarwiz · Sovereign Enterprise AI Platform</p>
+      </div>
+    `,
+    emailType: 'two_factor_reset',
+    bypassRateLimit: options.bypassRateLimit ?? true,
+    maxLimit: options.maxLimit ?? 50,
+  });
 };
 
 export const sendImpersonationAlert = async (to, details = {}, options = {}) => {
