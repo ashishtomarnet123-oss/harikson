@@ -1,4 +1,4 @@
--- Migration 077: Enforce strict user approval status and revoke all active sessions
+-- Migration 078: Enforce strict user approval status and revoke all active sessions
 -- 1. Ensure status column default is 'pending' on users table
 ALTER TABLE users ALTER COLUMN status SET DEFAULT 'pending';
 
