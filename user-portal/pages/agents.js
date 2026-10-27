@@ -6,7 +6,19 @@ import { authenticatedFetch, getApiConfig } from '../components/settings/apiHelp
 import { Cpu, Plus, Pencil, Trash2, X, Play, Clock, Terminal, Loader, Send } from 'lucide-react';
 import { useToast } from '../context/ToastContext';
 
-const MODELS = ['qwen3-coder', 'qwen3-8b', 'qwen3-14b', 'qwen3-32b'];
+const MODELS = [
+  { id: 'harikson-coder-7b', label: 'Xarwiz Code (7B)' },
+  { id: 'harikson-chat-8b', label: 'Xarwiz Plus (8B)' },
+  { id: 'harikson-chat-14b', label: 'Xarwiz Plus (14B)' },
+  { id: 'harikson-chat-32b', label: 'Xarwiz Pro (32B)' },
+];
+
+const formatModelName = (raw) => {
+  if (!raw) return 'Xarwiz Plus';
+  const found = MODELS.find((m) => m.id === raw);
+  if (found) return found.label;
+  return raw.replace(/qwen3?-coder/i, 'Xarwiz Code').replace(/qwen3?/i, 'Xarwiz');
+};
 
 function AgentsPage() {
   const [agents, setAgents] = useState([]);
@@ -17,7 +29,7 @@ function AgentsPage() {
   const [error, setError] = useState(null);
 
   const [name, setName] = useState('');
-  const [model, setModel] = useState('qwen3-coder');
+  const [model, setModel] = useState('harikson-coder-7b');
   const [systemPrompt, setSystemPrompt] = useState('You are a helpful AI assistant.');
   const [status, setStatus] = useState('active');
   const toast = useToast();
@@ -57,7 +69,7 @@ function AgentsPage() {
     setIsNew(true);
     setEditing({});
     setName('');
-    setModel('qwen3-coder');
+    setModel('harikson-coder-7b');
     setSystemPrompt('You are a helpful AI assistant.');
     setStatus('active');
   };
@@ -66,7 +78,7 @@ function AgentsPage() {
     setIsNew(false);
     setEditing(agent);
     setName(agent.name || '');
-    setModel(agent.model || 'qwen3-coder');
+    setModel(agent.model || 'harikson-coder-7b');
     setSystemPrompt(agent.system_prompt || '');
     setStatus(agent.status || 'active');
   };
@@ -215,7 +227,7 @@ function AgentsPage() {
                         display: 'inline-block', marginTop: '6px',
                         fontSize: '11px', padding: '2px 8px', borderRadius: '4px',
                         backgroundColor: 'var(--shell-badge-bg)', color: '#a5b4fc', fontWeight: 500,
-                      }}>{agent.model}</span>
+                      }}>{formatModelName(agent.model)}</span>
                     </div>
                     <span style={{
                       fontSize: '11px', padding: '2px 8px', borderRadius: '10px', fontWeight: 500,
@@ -328,7 +340,7 @@ function AgentsPage() {
                       border: '1px solid var(--shell-card-border)', outline: 'none',
                     }}
                   >
-                    {MODELS.map((m) => <option key={m} value={m}>{m}</option>)}
+                    {MODELS.map((m) => <option key={m.id} value={m.id}>{m.label}</option>)}
                   </select>
                 </div>
 
@@ -405,7 +417,7 @@ function AgentsPage() {
                   Execute: {execAgent.name}
                 </h3>
                 <span style={{ fontSize: '12px', color: 'var(--shell-text-muted, #6b7280)' }}>
-                  Model: {execAgent.model} · POST /api/agents/{execAgent.id}/execute
+                  Model: {formatModelName(execAgent.model)} · POST /api/agents/{execAgent.id}/execute
                 </span>
               </div>
               <button onClick={() => { if (!execRunning) setExecAgent(null); }} style={{

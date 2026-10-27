@@ -1869,7 +1869,7 @@ export default function AboutPage() {
                       <div style={{ padding: '16px', fontSize: '0.8rem', display: 'flex', flexDirection: 'column', gap: '8px' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid #f1f5f9', paddingBottom: '4px' }}>
                           <span style={{ color: '#64748b' }}>Model:</span>
-                          <span style={{ fontWeight: 600 }}>Qwen 2.5 (3B / 7B)</span>
+                          <span style={{ fontWeight: 600 }}>Xarwiz Plus (3B / 7B)</span>
                         </div>
                         <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid #f1f5f9', paddingBottom: '4px' }}>
                           <span style={{ color: '#64748b' }}>Vector RAG:</span>

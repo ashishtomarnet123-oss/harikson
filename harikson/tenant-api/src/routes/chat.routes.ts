@@ -13,6 +13,7 @@ import { requireAuth } from '../middleware/auth.js';
 import { requireApiAccess, isPlatformDefaultModel } from '../middleware/entitlements.js';
 import { SYSTEM_PROMPT } from '../prompts/system-prompt.js';
 import { TitleService } from '../services/titleService.js';
+import { ValidationService } from '../services/validation.service.js';
 import { UniversalPdfEngine, PdfOrchestrator } from '../services/pdf/index.js';
 import {
   globalInferenceQueue,
@@ -988,8 +989,9 @@ async function handleChat(req: any, res: any) {
             try {
               const parsed = JSON.parse(trimmed);
               if (parsed.message?.content) {
-                fullResponseText += parsed.message.content;
-                res.write(`data: ${JSON.stringify({ content: parsed.message.content, conversationId: currentConvId, title: currentConvTitle })}\n\n`);
+                const sanitizedChunk = ValidationService.sanitizeWhiteLabeling(parsed.message.content);
+                fullResponseText += sanitizedChunk;
+                res.write(`data: ${JSON.stringify({ content: sanitizedChunk, conversationId: currentConvId, title: currentConvTitle })}\n\n`);
               }
               if (parsed.done === true) {
                 ollamaPromptTokens = parsed.prompt_eval_count || 0;
@@ -1011,8 +1013,9 @@ async function handleChat(req: any, res: any) {
             try {
               const parsed = JSON.parse(chunkBuffer.trim());
               if (parsed.message?.content) {
-                fullResponseText += parsed.message.content;
-                res.write(`data: ${JSON.stringify({ content: parsed.message.content, conversationId: currentConvId, title: currentConvTitle })}\n\n`);
+                const sanitizedChunk = ValidationService.sanitizeWhiteLabeling(parsed.message.content);
+                fullResponseText += sanitizedChunk;
+                res.write(`data: ${JSON.stringify({ content: sanitizedChunk, conversationId: currentConvId, title: currentConvTitle })}\n\n`);
               }
             } catch (_) {}
             chunkBuffer = '';

@@ -1,4 +1,18 @@
 export class ValidationService {
+  // White-label sanitizer: prevents foundation model / provider name leaks
+  static sanitizeWhiteLabeling(text: string): string {
+    if (!text) return text;
+    return text
+      .replace(/Qwen\s*2(?:\.5)?(?:-Coder)?(?::\w+)?/gi, 'Xarwiz Plus')
+      .replace(/Qwen\s*3(?:-Coder)?(?::\w+)?/gi, 'Xarwiz Pro')
+      .replace(/\bQwen\b/gi, 'Xarwiz')
+      .replace(/Tongyi\s*Qianwen/gi, 'Xarwiz Enterprise Engine')
+      .replace(/Alibaba\s*Cloud/gi, 'Xarwiz Cloud')
+      .replace(/developed\s+by\s+Alibaba/gi, 'developed by Xarwiz')
+      .replace(/created\s+by\s+Alibaba/gi, 'created by Xarwiz')
+      .replace(/trained\s+by\s+Alibaba/gi, 'trained by Xarwiz');
+  }
+
   // Check chat responses for toxicity and PII leaks
   static validateChat(text: string): { isValid: boolean; reason?: string } {
     // 1. PII Leak Check (Phone numbers, Email address patterns, SSN)

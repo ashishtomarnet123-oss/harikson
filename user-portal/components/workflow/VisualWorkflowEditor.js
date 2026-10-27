@@ -3463,7 +3463,7 @@ export default function VisualWorkflowEditor({
                     <option value="llama3:8b">Meta LLaMA 3 (8B)</option>
                     <option value="mistral">Mistral 7B Instruct</option>
                     <option value="deepseek-coder">DeepSeek Coder</option>
-                    <option value="qwen2.5">Qwen 2.5</option>
+                    <option value="harikson-plus">Xarwiz Plus (8B)</option>
                   </select>
                 </div>
                 <div>

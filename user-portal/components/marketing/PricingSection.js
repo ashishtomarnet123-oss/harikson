@@ -11,7 +11,7 @@ export default function PricingSection() {
       description: 'Ideal for developers testing private LLMs and building AI prototypes.',
       features: [
         '10,000 AI tokens / month',
-        'Xarwiz-3B & Qwen3-8B access',
+        'Xarwiz-3B & Xarwiz-8B access',
         '1 Private AI Workspace',
         'Community Support',
         'Standard Rate Limits'
@@ -27,7 +27,7 @@ export default function PricingSection() {
       description: 'For growing teams building production AI workflows and autonomous agents.',
       features: [
         '1,000,000 AI tokens / month',
-        'Full Model Fabric (Qwen3-32B, Qwen3-72B)',
+        'Full Model Fabric (Xarwiz-32B, Xarwiz-72B)',
         'Unlimited AI Workspaces & Agents',
         'Enterprise Vector RAG Engine',
         'DPDP Act 2023 Compliance Package',
