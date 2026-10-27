@@ -111,7 +111,8 @@ export function AuthProvider({ children }) {
 
       if (res.status === 200) {
         const data = await res.json();
-        if (data.status === 'pending' || data.status === 'pending_approval') {
+        const isApproved = data.status === 'active' || ['admin', 'superadmin', 'founder'].includes(data.role);
+        if (!isApproved) {
           clearAuthData();
           if (!isPublicPage && router.pathname !== '/impersonate') router.replace('/login');
           return;
@@ -153,7 +154,8 @@ export function AuthProvider({ children }) {
         if (storedUser && storedToken) {
           try {
             const parsedUser = JSON.parse(storedUser);
-            if (parsedUser.status !== 'pending' && parsedUser.status !== 'pending_approval') {
+            const isApproved = parsedUser.status === 'active' || ['admin', 'superadmin', 'founder'].includes(parsedUser.role);
+            if (isApproved) {
               setUser(parsedUser);
               setIsAuthenticated(true);
             } else {
@@ -168,8 +170,13 @@ export function AuthProvider({ children }) {
       if (storedUser && storedToken) {
         try {
           const parsedUser = JSON.parse(storedUser);
-          setUser(parsedUser);
-          setIsAuthenticated(true);
+          const isApproved = parsedUser.status === 'active' || ['admin', 'superadmin', 'founder'].includes(parsedUser.role);
+          if (isApproved) {
+            setUser(parsedUser);
+            setIsAuthenticated(true);
+          } else {
+            clearAuthData();
+          }
         } catch { clearAuthData(); }
       }
     } finally {

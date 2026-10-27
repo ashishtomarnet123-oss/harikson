@@ -109,16 +109,16 @@ async function handleLogin(req: any, res: any) {
     }
 
     let userResult = await pool.query(
-      'SELECT * FROM users WHERE email = $1 AND tenant_id = $2 AND deleted_at IS NULL',
-      [email, req.tenant?.id]
+      'SELECT * FROM users WHERE email = $1 AND tenant_id = $2 AND deleted_at IS NULL ORDER BY created_at DESC',
+      [cleanEmail, req.tenant?.id]
     );
     // Bare-domain login: tenant slug may be 'default' but user belongs to
     // a different tenant. Fall back to email-only lookup (limited to 1 row
     // so ambiguous multi-tenant emails still fail safely).
     if (userResult.rows.length === 0) {
       userResult = await pool.query(
-        'SELECT * FROM users WHERE email = $1 AND deleted_at IS NULL LIMIT 1',
-        [email]
+        'SELECT * FROM users WHERE email = $1 AND deleted_at IS NULL ORDER BY created_at DESC LIMIT 1',
+        [cleanEmail]
       );
     }
     const user = userResult.rows[0];
@@ -190,28 +190,31 @@ async function handleLogin(req: any, res: any) {
     await redis.del(key).catch(() => {});
     await redis.del(legacyKey).catch(() => {});
 
-    // Invite-only / Admin approval status check gate
-    const userStatus = user.status || 'active';
-    if (userStatus === 'pending' || userStatus === 'pending_approval') {
+    // Invite-only / Admin approval status check gate (Strict Allowlist Model)
+    // Only 'active' status is allowed. Platform admins are always allowed.
+    const isPlatformAdmin = ['admin', 'superadmin', 'founder'].includes(user.role);
+    const userStatus = (user.status || 'pending').toLowerCase().trim();
+
+    if (!isPlatformAdmin && userStatus !== 'active') {
+      if (userStatus === 'suspended') {
+        return res.status(403).json({
+          success: false,
+          code: 'ACCOUNT_SUSPENDED',
+          error: 'Your account has been suspended. Please contact platform support.',
+          message: 'Your account has been suspended. Please contact platform support.',
+          suspended: true,
+          status: 'suspended',
+          email: user.email,
+        });
+      }
+
       return res.status(403).json({
         success: false,
         code: 'ACCOUNT_PENDING_APPROVAL',
-        error: 'Your account is awaiting administrator approval.',
-        message: 'Your account is awaiting administrator approval.',
+        error: 'Your account is awaiting administrator approval. You will be able to log in once an administrator approves your access.',
+        message: 'Your account is awaiting administrator approval. You will be able to log in once an administrator approves your access.',
         pendingApproval: true,
-        status: 'pending',
-        email: user.email,
-      });
-    }
-
-    if (userStatus === 'suspended') {
-      return res.status(403).json({
-        success: false,
-        code: 'ACCOUNT_SUSPENDED',
-        error: 'Your account has been suspended. Please contact platform support.',
-        message: 'Your account has been suspended. Please contact platform support.',
-        suspended: true,
-        status: 'suspended',
+        status: userStatus,
         email: user.email,
       });
     }
@@ -316,6 +319,7 @@ async function handleLogin(req: any, res: any) {
         email: user.email,
         name: user.name,
         role: user.role,
+        status: user.status || 'pending',
         tenantId: resolvedTenantId,
         tenantSlug: resolvedTenantSlug,
       },
@@ -516,15 +520,18 @@ router.post('/login/2fa', async (req, res) => {
       return res.status(404).json({ error: 'User not found' });
     }
 
-    const userStatus = user.status || 'active';
-    if (userStatus === 'pending' || userStatus === 'pending_approval') {
+    const isPlatformAdmin = ['admin', 'superadmin', 'founder'].includes(user.role);
+    const userStatus = (user.status || 'pending').toLowerCase().trim();
+    if (!isPlatformAdmin && userStatus !== 'active') {
       return res.status(403).json({
         success: false,
-        code: 'ACCOUNT_PENDING_APPROVAL',
-        error: 'Your account is awaiting administrator approval.',
+        code: userStatus === 'suspended' ? 'ACCOUNT_SUSPENDED' : 'ACCOUNT_PENDING_APPROVAL',
+        error: userStatus === 'suspended'
+          ? 'Your account has been suspended.'
+          : 'Your account is awaiting administrator approval.',
         message: 'Your account is awaiting administrator approval.',
-        pendingApproval: true,
-        status: 'pending',
+        pendingApproval: userStatus !== 'suspended',
+        status: userStatus,
         email: user.email,
       });
     }
@@ -583,6 +590,7 @@ router.post('/login/2fa', async (req, res) => {
         email: user.email,
         name: user.name,
         role: user.role,
+        status: user.status || 'pending',
         tenantId: user.tenant_id,
       },
     });
@@ -623,7 +631,22 @@ async function handleRefresh(req: any, res: any) {
     const userRes = await pool.query('SELECT * FROM users WHERE id = $1 AND deleted_at IS NULL', [rtRecord.user_id]);
     const user = userRes.rows[0];
     if (!user) {
+      await pool.query('DELETE FROM refresh_tokens WHERE id = $1', [rtRecord.id]).catch(() => {});
       return res.status(401).json({ error: 'User no longer exists' });
+    }
+
+    const isPlatformAdmin = ['admin', 'superadmin', 'founder'].includes(user.role);
+    const userStatus = (user.status || 'pending').toLowerCase().trim();
+    if (!isPlatformAdmin && userStatus !== 'active') {
+      await pool.query('DELETE FROM refresh_tokens WHERE user_id = $1', [user.id]).catch(() => {});
+      return res.status(403).json({
+        success: false,
+        code: userStatus === 'suspended' ? 'ACCOUNT_SUSPENDED' : 'ACCOUNT_PENDING_APPROVAL',
+        error: userStatus === 'suspended'
+          ? 'Your account has been suspended.'
+          : 'Your account is awaiting administrator approval.',
+        pendingApproval: userStatus !== 'suspended',
+      });
     }
 
     // Issue new access token (7d) and rolling refresh token
@@ -1120,7 +1143,7 @@ async function handleMe(req: any, res: any) {
 
     const decoded: any = jwt.verify(token, getJwtSecret());
     const userRes = await pool.query(
-      'SELECT id, email, name, role, tenant_id, email_verified, COALESCE(status, \'active\') as status, created_at FROM users WHERE id = $1 AND deleted_at IS NULL',
+      'SELECT id, email, name, role, tenant_id, email_verified, COALESCE(status, \'pending\') as status, created_at FROM users WHERE id = $1 AND deleted_at IS NULL',
       [decoded.userId]
     );
 
@@ -1129,14 +1152,18 @@ async function handleMe(req: any, res: any) {
     }
 
     const user = userRes.rows[0];
-    if (user.status === 'pending' || user.status === 'pending_approval') {
+    const isPlatformAdmin = ['admin', 'superadmin', 'founder'].includes(user.role);
+    const userStatus = (user.status || 'pending').toLowerCase().trim();
+    if (!isPlatformAdmin && userStatus !== 'active') {
       return res.status(403).json({
         success: false,
-        code: 'ACCOUNT_PENDING_APPROVAL',
-        error: 'Your account is awaiting administrator approval.',
+        code: userStatus === 'suspended' ? 'ACCOUNT_SUSPENDED' : 'ACCOUNT_PENDING_APPROVAL',
+        error: userStatus === 'suspended'
+          ? 'Your account has been suspended.'
+          : 'Your account is awaiting administrator approval.',
         message: 'Your account is awaiting administrator approval.',
-        pendingApproval: true,
-        status: 'pending',
+        pendingApproval: userStatus !== 'suspended',
+        status: userStatus,
       });
     }
     const tenantRes = await pool.query('SELECT slug FROM tenants WHERE id = $1', [user.tenant_id]);
@@ -1147,6 +1174,7 @@ async function handleMe(req: any, res: any) {
       email: user.email,
       name: user.name,
       role: user.role,
+      status: user.status || 'pending',
       tenantId: user.tenant_id,
       tenantSlug,
       emailVerified: user.email_verified !== false,

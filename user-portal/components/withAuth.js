@@ -8,7 +8,8 @@ export function withAuth(WrappedComponent) {
     const router = useRouter();
     const { user, isAuthenticated, isEmailVerified, isLoading } = useAuth();
 
-    const isPending = user?.status === 'pending' || user?.status === 'pending_approval';
+    const isApproved = user?.status === 'active' || ['admin', 'superadmin', 'founder'].includes(user?.role);
+    const isPending = !isApproved;
 
     useEffect(() => {
       if (!isLoading) {

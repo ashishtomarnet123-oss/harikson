@@ -190,6 +190,32 @@ export function requireAuth(req: Request, res: Response, next: NextFunction) {
       return res.status(403).json({ error: 'Forbidden: Access to requested tenant denied' });
     }
 
+    // Strict account approval verification: only active users or platform admins are permitted
+    const isPlatformAdmin = ['admin', 'superadmin', 'founder'].includes(decoded.role);
+    if (!isPlatformAdmin && decoded.userId) {
+      pool
+        .query('SELECT status, deleted_at FROM users WHERE id = $1', [decoded.userId])
+        .then((userStatusRes) => {
+          if (userStatusRes.rows.length === 0 || userStatusRes.rows[0].deleted_at) {
+            return res.status(401).json({ error: 'Unauthorized: User account not found or deleted' });
+          }
+          const currentStatus = (userStatusRes.rows[0].status || 'pending').toLowerCase().trim();
+          if (currentStatus !== 'active') {
+            return res.status(403).json({
+              error: currentStatus === 'suspended' ? 'Account suspended' : 'Account pending administrator approval',
+              code: currentStatus === 'suspended' ? 'ACCOUNT_SUSPENDED' : 'ACCOUNT_PENDING_APPROVAL',
+              pendingApproval: currentStatus !== 'suspended',
+            });
+          }
+          return next();
+        })
+        .catch((dbErr) => {
+          logger.error('Failed to verify user status in requireAuth:', dbErr);
+          return res.status(500).json({ error: 'Authentication service error' });
+        });
+      return;
+    }
+
     return next();
   } catch (err: any) {
     return res.status(401).json({ error: 'Unauthorized: Invalid or expired token' });
