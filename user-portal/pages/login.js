@@ -29,6 +29,11 @@ export default function LoginPage() {
   const [pendingApproval, setPendingApproval] = useState(false);
   const [userId, setUserId] = useState('');
   const [resendStatus, setResendStatus] = useState('');
+  const [mustChangePassword, setMustChangePassword] = useState(false);
+  const [tempToken, setTempToken] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [showNewPassword, setShowNewPassword] = useState(false);
 
   useEffect(() => {
     if (!accountLocked || lockoutSeconds <= 0) return;
@@ -249,7 +254,9 @@ export default function LoginPage() {
       }
 
       if (data.requirePasswordChange || data.mustChangePassword || data.code === 'FORCE_PASSWORD_CHANGE_REQUIRED') {
-        setError(data.error || data.message || 'Password change required before access. Please reset your password or contact support.');
+        setMustChangePassword(true);
+        setTempToken(data.tempToken || '');
+        setError('');
         setLoading(false);
         return;
       }
@@ -335,6 +342,94 @@ export default function LoginPage() {
       router.replace(onboarded ? '/chat' : '/onboarding');
     } catch (err) {
       setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleForcePasswordChangeSubmit = async (e) => {
+    e.preventDefault();
+    setError('');
+
+    if (newPassword !== confirmPassword) {
+      setError('Passwords do not match. Please verify.');
+      return;
+    }
+
+    if (!newPassword || newPassword.length < 12) {
+      setError('Password must be at least 12 characters long according to security policy.');
+      return;
+    }
+
+    if (
+      !/[A-Z]/.test(newPassword) ||
+      !/[a-z]/.test(newPassword) ||
+      !/[0-9]/.test(newPassword) ||
+      !/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?~`]/.test(newPassword)
+    ) {
+      setError('Password must contain uppercase, lowercase, numbers, and at least one special character.');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const headers = {
+        'Content-Type': 'application/json',
+        'x-tenant-slug': tenantSlug,
+      };
+      if (tempToken) {
+        headers['Authorization'] = `Bearer ${tempToken}`;
+      }
+
+      const res = await fetch(`${apiBase}/api/auth/force-change-password`, {
+        method: 'POST',
+        headers,
+        credentials: 'include',
+        body: JSON.stringify({
+          tempToken,
+          email,
+          currentPassword: password,
+          newPassword,
+          confirmPassword,
+        }),
+      });
+
+      const text = await res.text();
+      let data = {};
+      try {
+        data = JSON.parse(text);
+      } catch {
+        data = { error: 'Unexpected server response.' };
+      }
+
+      if (!res.ok || !data.success) {
+        setError(data.error || data.message || 'Failed to update password.');
+        setLoading(false);
+        return;
+      }
+
+      const tokenToSave = data.accessToken || data.token;
+      if (!tokenToSave) {
+        setError('Password changed, but no session token was issued. Please sign in with your new password.');
+        setMustChangePassword(false);
+        setLoading(false);
+        return;
+      }
+
+      if (data.refreshToken) {
+        localStorage.setItem('hk_refresh_token', data.refreshToken);
+      }
+      localStorage.setItem('hk_access_token', tokenToSave);
+      const serverSlug = data.user?.tenantSlug || tenantSlug;
+      localStorage.setItem('hk_user', JSON.stringify({ ...data.user, tenantSlug: serverSlug }));
+      localStorage.setItem('hk_tenant', serverSlug);
+      localStorage.setItem('hk_api_base', apiBase);
+      trackEvent('force_password_change_success');
+      await checkAuth();
+      const onboarded = localStorage.getItem('hk_onboarded');
+      router.replace(onboarded ? '/chat' : '/onboarding');
+    } catch (err) {
+      setError(err?.message || 'Failed to update password. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -544,6 +639,105 @@ export default function LoginPage() {
                 }}
               >
                 Back to Login
+              </button>
+            </form>
+          ) : mustChangePassword ? (
+            <form onSubmit={handleForcePasswordChangeSubmit}>
+              <div
+                style={{
+                  background: 'rgba(99, 102, 241, 0.08)',
+                  border: '1px solid rgba(99, 102, 241, 0.25)',
+                  borderRadius: '10px',
+                  padding: '12px 14px',
+                  marginBottom: '18px',
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+                  <span style={{ fontSize: '15px' }}>🔐</span>
+                  <span style={{ fontWeight: '600', fontSize: '13px', color: 'var(--text-primary, #1e293b)' }}>
+                    Password Change Required
+                  </span>
+                </div>
+                <p style={{ margin: 0, fontSize: '12px', color: 'var(--text-secondary, #64748b)', lineHeight: '1.4' }}>
+                  Your administrator has required that you set a new private password before accessing your workspace.
+                </p>
+                <div style={{ marginTop: '8px', fontSize: '11px', color: 'var(--text-secondary, #64748b)', fontWeight: '500' }}>
+                  Account: <strong>{email}</strong>
+                </div>
+              </div>
+
+              <div className="form-group">
+                <label className="form-label" htmlFor="newPassword">
+                  New Password (Min 12 characters)
+                </label>
+                <div style={{ position: 'relative' }}>
+                  <input
+                    id="newPassword"
+                    type={showNewPassword ? 'text' : 'password'}
+                    className="form-input"
+                    placeholder="Enter new strong password"
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    required
+                    minLength={12}
+                    autoComplete="new-password"
+                    style={{ paddingRight: '40px' }}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowNewPassword(!showNewPassword)}
+                    style={{
+                      position: 'absolute',
+                      right: '10px',
+                      top: '50%',
+                      transform: 'translateY(-50%)',
+                      background: 'none',
+                      border: 'none',
+                      cursor: 'pointer',
+                      fontSize: '14px',
+                      color: 'var(--text-secondary, #64748b)',
+                    }}
+                    title={showNewPassword ? 'Hide password' : 'Show password'}
+                  >
+                    {showNewPassword ? '👁️' : '👁️‍🗨️'}
+                  </button>
+                </div>
+              </div>
+
+              <div className="form-group">
+                <label className="form-label" htmlFor="confirmPassword">
+                  Confirm New Password
+                </label>
+                <input
+                  id="confirmPassword"
+                  type={showNewPassword ? 'text' : 'password'}
+                  className="form-input"
+                  placeholder="Repeat new password"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  required
+                  autoComplete="new-password"
+                />
+              </div>
+
+              <button type="submit" className="btn-primary" disabled={loading}>
+                {loading && <span className="login-spinner" />}
+                {loading ? 'Updating Password…' : 'Update Password & Sign In'}
+              </button>
+
+              <button
+                type="button"
+                className="btn-secondary"
+                style={{ width: '100%', marginTop: '10px', background: 'transparent', border: '1px solid var(--border)' }}
+                onClick={() => {
+                  setMustChangePassword(false);
+                  setTempToken('');
+                  setNewPassword('');
+                  setConfirmPassword('');
+                  setError('');
+                }}
+              >
+                Cancel & Back to Sign In
               </button>
             </form>
           ) : (

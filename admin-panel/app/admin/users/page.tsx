@@ -246,7 +246,7 @@ export default function UsersPage() {
   const [resetNewPassword, setResetNewPassword] = useState('');
   const [resetConfirmPassword, setResetConfirmPassword] = useState('');
   const [showResetPassword, setShowResetPassword] = useState(false);
-  const [forcePasswordChange, setForcePasswordChange] = useState(true);
+  const [forcePasswordChange, setForcePasswordChange] = useState(false);
   const [revokeSessionsOnReset, setRevokeSessionsOnReset] = useState(true);
   const [sendEmailNotice, setSendEmailNotice] = useState(false);
   const [submittingReset, setSubmittingReset] = useState(false);
@@ -341,7 +341,7 @@ export default function UsersPage() {
     setResetNewPassword('');
     setResetConfirmPassword('');
     setShowResetPassword(false);
-    setForcePasswordChange(true);
+    setForcePasswordChange(false);
     setRevokeSessionsOnReset(true);
     setSendEmailNotice(false);
     setResetResult(null);
@@ -2181,24 +2181,56 @@ export default function UsersPage() {
                   )}
                 </div>
 
-                {/* Security options checklist */}
+                {/* Password Type Selection: Permanent vs Temporary */}
                 <div className="p-3 bg-gray-50 dark:bg-gray-950/40 rounded-xl border border-gray-200 dark:border-gray-800/60 space-y-2.5">
-                  <label className="flex items-start gap-2 cursor-pointer select-none">
-                    <input
-                      type="checkbox"
-                      checked={forcePasswordChange}
-                      onChange={(e) => setForcePasswordChange(e.target.checked)}
-                      className="mt-0.5 rounded border-gray-300 text-amber-600 focus:ring-amber-500"
-                    />
-                    <div>
-                      <span className="font-bold text-gray-800 dark:text-gray-200 block">
-                        Force user to change password on next login
+                  <div className="font-bold text-gray-800 dark:text-gray-200 text-xs">Password Assignment Type</div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <label
+                      onClick={() => setForcePasswordChange(false)}
+                      className={`p-2.5 rounded-lg border text-xs cursor-pointer transition-all flex flex-col gap-1 ${
+                        !forcePasswordChange
+                          ? 'bg-amber-500/10 border-amber-500 text-gray-900 dark:text-white font-bold'
+                          : 'bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-800 text-gray-500 hover:border-gray-300'
+                      }`}
+                    >
+                      <div className="flex items-center gap-1.5">
+                        <input
+                          type="radio"
+                          name="pwdType"
+                          checked={!forcePasswordChange}
+                          onChange={() => setForcePasswordChange(false)}
+                          className="text-amber-600 focus:ring-amber-500"
+                        />
+                        <span className="font-bold">Permanent Password</span>
+                      </div>
+                      <span className="text-[10px] text-gray-500 font-normal leading-tight">
+                        User can sign in immediately without mandatory password change.
                       </span>
-                      <span className="text-[11px] text-gray-500">
-                        Restricts normal application access until the user creates a new private password.
+                    </label>
+
+                    <label
+                      onClick={() => setForcePasswordChange(true)}
+                      className={`p-2.5 rounded-lg border text-xs cursor-pointer transition-all flex flex-col gap-1 ${
+                        forcePasswordChange
+                          ? 'bg-amber-500/10 border-amber-500 text-gray-900 dark:text-white font-bold'
+                          : 'bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-800 text-gray-500 hover:border-gray-300'
+                      }`}
+                    >
+                      <div className="flex items-center gap-1.5">
+                        <input
+                          type="radio"
+                          name="pwdType"
+                          checked={forcePasswordChange}
+                          onChange={() => setForcePasswordChange(true)}
+                          className="text-amber-600 focus:ring-amber-500"
+                        />
+                        <span className="font-bold">Temporary Password</span>
+                      </div>
+                      <span className="text-[10px] text-gray-500 font-normal leading-tight">
+                        User must create their own private password on next sign in.
                       </span>
-                    </div>
-                  </label>
+                    </label>
+                  </div>
 
                   <label className="flex items-start gap-2 cursor-pointer select-none">
                     <input

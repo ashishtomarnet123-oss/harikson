@@ -65,7 +65,7 @@ export const adminAuth = async (req, res, next) => {
     let result;
     try {
       result = await pool.query(
-        'SELECT id, role, email FROM users WHERE id = $1 LIMIT 1',
+        'SELECT id, role, email, tenant_id FROM users WHERE id = $1 LIMIT 1',
         [decoded.userId]
       );
     } catch (dbErr) {
@@ -94,7 +94,7 @@ export const adminAuth = async (req, res, next) => {
         .json({ error: 'Access Denied: Admin privilege required' });
     }
 
-    req.admin = { id: user.id, role: user.role, email: user.email };
+    req.admin = { id: user.id, role: user.role, email: user.email, tenant_id: user.tenant_id };
     next();
   } catch (err) {
     logger.error('Admin Auth Middleware error:', err.message || err);

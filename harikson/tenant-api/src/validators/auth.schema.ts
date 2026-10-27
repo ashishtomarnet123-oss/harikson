@@ -26,3 +26,12 @@ export const resetPasswordSchema = z.object({
   email: z.string().email('Invalid email address').optional(),
   newPassword: z.string().min(8, 'New password must be at least 8 characters'),
 });
+
+export const forceChangePasswordSchema = z.object({
+  tempToken: z.string().optional(),
+  email: z.string().email('Invalid email address').optional(),
+  currentPassword: z.string().optional(),
+  newPassword: z.string().min(12, 'Password must be at least 12 characters'),
+  confirmPassword: z.string().optional(),
+});
+

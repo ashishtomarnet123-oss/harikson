@@ -168,6 +168,16 @@ export function requireAuth(req: Request, res: Response, next: NextFunction) {
 
   try {
     const decoded = jwt.verify(token, jwtSecret) as any;
+
+    // A scoped temporary token for mandatory password change CANNOT access normal protected routes
+    if (decoded.purpose === 'force_password_change' || decoded.type === 'temp_change_password') {
+      return res.status(403).json({
+        error: 'Password change required before access. Please complete password change.',
+        code: 'FORCE_PASSWORD_CHANGE_REQUIRED',
+        mustChangePassword: true,
+      });
+    }
+
     (req as any).user = {
       ...decoded,
       authType: 'session',

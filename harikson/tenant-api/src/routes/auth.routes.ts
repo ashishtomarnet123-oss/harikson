@@ -11,6 +11,7 @@ import {
   registerSchema,
   forgotPasswordSchema,
   resetPasswordSchema,
+  forceChangePasswordSchema,
 } from '../validators/auth.schema.js';
 import {
   sendPasswordReset,
@@ -224,15 +225,38 @@ async function handleLogin(req: any, res: any) {
     }
 
     if (user.force_password_change || user.must_change_password) {
+      let tempToken = '';
+      try {
+        tempToken = jwt.sign(
+          {
+            userId: user.id,
+            email: user.email,
+            tenantId: req.tenant?.id || user.tenant_id,
+            role: user.role,
+            purpose: 'force_password_change',
+          },
+          getJwtSecret(),
+          { expiresIn: '15m' }
+        );
+      } catch (signErr: any) {
+        logger.error('Failed to sign force-password-change token:', signErr);
+      }
+
       return res.status(403).json({
         success: false,
         error: 'Password change required before access. Please reset your password or contact your administrator.',
         requirePasswordChange: true,
         mustChangePassword: true,
         code: 'FORCE_PASSWORD_CHANGE_REQUIRED',
-        message: 'Password change required before access.',
+        message: 'Password change required before access. Please set a new password.',
         userId: user.id,
         email: user.email,
+        tempToken,
+        user: {
+          id: user.id,
+          email: user.email,
+          name: user.name,
+        },
       });
     }
 
@@ -764,7 +788,7 @@ async function handleResetPassword(req: any, res: any) {
 
     const userUpdate = await client.query(
       `UPDATE users 
-       SET password_hash = $1, force_password_change = FALSE, updated_at = NOW() 
+       SET password_hash = $1, force_password_change = FALSE, must_change_password = FALSE, updated_at = NOW() 
        WHERE id = $2 AND tenant_id = $3 AND deleted_at IS NULL
        RETURNING id`,
       [passwordHash, user_id, tenant_id]
@@ -794,6 +818,228 @@ async function handleResetPassword(req: any, res: any) {
 
 router.post('/reset-password', validate(resetPasswordSchema), handleResetPassword);
 router.post('/v1/reset-password', validate(resetPasswordSchema), handleResetPassword);
+
+// POST /force-change-password and /v1/force-change-password
+async function handleForceChangePassword(req: any, res: any) {
+  const { tempToken, email, currentPassword, newPassword, confirmPassword } = req.body;
+  const authHeader = (req.headers.authorization as string) || '';
+  const bearerToken = authHeader.startsWith('Bearer ') ? authHeader.substring(7).trim() : '';
+  const effectiveToken = tempToken || bearerToken;
+
+  try {
+    let targetUserId: string | null = null;
+    let targetTenantId: string | null = null;
+    let targetUser: any = null;
+
+    // 1. Authenticate identity via scoped tempToken OR verified current credentials
+    if (effectiveToken) {
+      try {
+        const decoded = jwt.verify(effectiveToken, getJwtSecret()) as any;
+        if (decoded.purpose !== 'force_password_change') {
+          return res.status(403).json({ error: 'Invalid token purpose for password change' });
+        }
+        targetUserId = decoded.userId;
+        targetTenantId = decoded.tenantId;
+      } catch (tokenErr: any) {
+        if (!currentPassword || !email) {
+          return res.status(401).json({ error: 'Temporary password-change session expired. Please sign in again.' });
+        }
+      }
+    }
+
+    if (!targetUserId) {
+      if (!email || !currentPassword) {
+        return res.status(401).json({ error: 'Valid temporary token or current credentials required to change password.' });
+      }
+      const cleanEmail = email.toLowerCase().trim();
+      const userLookup = await pool.query(
+        'SELECT * FROM users WHERE email = $1 AND deleted_at IS NULL LIMIT 1',
+        [cleanEmail]
+      );
+      if (userLookup.rows.length === 0) {
+        return res.status(401).json({ error: 'Invalid email or current password.' });
+      }
+      targetUser = userLookup.rows[0];
+      const matches = await bcrypt.compare(currentPassword, targetUser.password_hash || '');
+      if (!matches) {
+        return res.status(401).json({ error: 'Invalid current password.' });
+      }
+      targetUserId = targetUser.id;
+      targetTenantId = targetUser.tenant_id;
+    }
+
+    if (!targetUser) {
+      const userRes = await pool.query(
+        'SELECT * FROM users WHERE id = $1 AND deleted_at IS NULL',
+        [targetUserId]
+      );
+      if (userRes.rows.length === 0) {
+        return res.status(404).json({ error: 'User account not found or has been deactivated.' });
+      }
+      targetUser = userRes.rows[0];
+    }
+
+    // 2. Account eligibility checks
+    if (targetUser.status === 'suspended') {
+      return res.status(403).json({ error: 'Account is suspended. Please contact platform support.' });
+    }
+    if (targetUser.status === 'pending' || targetUser.status === 'pending_approval') {
+      return res.status(403).json({ error: 'Account is awaiting administrator approval.' });
+    }
+
+    // 3. Password confirmation & policy validation
+    if (confirmPassword && newPassword !== confirmPassword) {
+      return res.status(400).json({ error: 'Passwords do not match. Please verify.' });
+    }
+
+    if (!newPassword || typeof newPassword !== 'string' || newPassword.length < 12) {
+      return res.status(400).json({ error: 'Password must be at least 12 characters long according to enterprise security policy.' });
+    }
+    if (newPassword.length > 256) {
+      return res.status(400).json({ error: 'Password must not exceed 256 characters.' });
+    }
+    if (!/[A-Z]/.test(newPassword)) {
+      return res.status(400).json({ error: 'Password must contain at least one uppercase letter (A-Z).' });
+    }
+    if (!/[a-z]/.test(newPassword)) {
+      return res.status(400).json({ error: 'Password must contain at least one lowercase letter (a-z).' });
+    }
+    if (!/[0-9]/.test(newPassword)) {
+      return res.status(400).json({ error: 'Password must contain at least one numeric digit (0-9).' });
+    }
+    if (!/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?~`]/.test(newPassword)) {
+      return res.status(400).json({ error: 'Password must contain at least one special character (e.g. !@#$%^&*).' });
+    }
+
+    // Prohibited common passwords check
+    const commonProhibited = ['password123!', 'password1234!', 'admin123456!', 'welcome12345!', 'changeme123!', 'xarwiz123456!'];
+    if (commonProhibited.includes(newPassword.toLowerCase().trim())) {
+      return res.status(400).json({ error: 'Password is too common or easily guessable. Please choose a stronger password.' });
+    }
+
+    // Prevent reuse of current password
+    if (targetUser.password_hash) {
+      const isSameAsCurrent = await bcrypt.compare(newPassword, targetUser.password_hash);
+      if (isSameAsCurrent) {
+        return res.status(400).json({ error: 'New password cannot be the same as your current temporary password.' });
+      }
+    }
+
+    // 4. Atomically persist new password hash and clear mandatory-change flags
+    const newPasswordHash = await bcrypt.hash(newPassword, 12);
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+
+      const updateRes = await client.query(
+        `UPDATE users
+         SET password_hash = $1,
+             force_password_change = FALSE,
+             must_change_password = FALSE,
+             password_changed_at = NOW(),
+             password_reset_at = NOW(),
+             failed_login_attempts = 0,
+             locked_until = NULL,
+             lockout_count = 0,
+             unlock_token = NULL,
+             updated_at = NOW()
+         WHERE id = $2 AND deleted_at IS NULL
+         RETURNING id, email, name, role, tenant_id`,
+        [newPasswordHash, targetUser.id]
+      );
+
+      if (updateRes.rows.length === 0) {
+        await client.query('ROLLBACK');
+        return res.status(404).json({ error: 'User record update failed.' });
+      }
+
+      // Invalidate all prior refresh tokens and reset tokens
+      await client.query('DELETE FROM refresh_tokens WHERE user_id = $1', [targetUser.id]);
+      await client.query('DELETE FROM password_reset_tokens WHERE user_id = $1', [targetUser.id]);
+
+      await client.query('COMMIT');
+    } catch (dbErr: any) {
+      try { await client.query('ROLLBACK'); } catch {}
+      logger.error('Failed to persist forced password change:', dbErr);
+      return res.status(500).json({ error: 'Database update failed while changing password.' });
+    } finally {
+      client.release();
+    }
+
+    // 5. Invalidate rate limits & Redis caches for this user
+    try {
+      const cleanEmail = targetUser.email.toLowerCase().trim();
+      await redis.del(`ratelimit:login:*:${cleanEmail}`).catch(() => {});
+      await redis.del(`user:${targetUser.id}:sessions`).catch(() => {});
+      await redis.del(`user_session:${targetUser.id}`).catch(() => {});
+    } catch {}
+
+    // 6. Resolve tenant slug
+    let resolvedTenantId = targetUser.tenant_id;
+    let resolvedTenantSlug = 'default';
+    if (resolvedTenantId) {
+      const tRes = await pool.query('SELECT slug FROM tenants WHERE id = $1', [resolvedTenantId]);
+      if (tRes.rows.length > 0) {
+        resolvedTenantSlug = tRes.rows[0].slug;
+      }
+    }
+
+    // 7. Establish authorized session
+    const accessToken = jwt.sign(
+      { userId: targetUser.id, role: targetUser.role, tenantId: resolvedTenantId },
+      getJwtSecret(),
+      { expiresIn: '7d' }
+    );
+    const refreshToken = crypto.randomBytes(64).toString('hex');
+    const refreshTokenHash = crypto.createHash('sha256').update(refreshToken).digest('hex');
+    const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+    const familyId = crypto.randomUUID();
+    const fingerprint = computeDeviceFingerprint(req);
+
+    await pool.query(
+      `INSERT INTO refresh_tokens (
+        token, user_id, tenant_id, expires_at, refresh_token_family,
+        device_hash, device_name, last_ip, country_code, last_used_at
+       )
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW())`,
+      [
+        refreshTokenHash,
+        targetUser.id,
+        resolvedTenantId,
+        expiresAt,
+        familyId,
+        fingerprint.deviceHash,
+        fingerprint.deviceName,
+        fingerprint.ip,
+        fingerprint.countryCode,
+      ]
+    ).catch((err) => logger.warn('Failed to insert initial refresh token:', err));
+
+    res.setHeader('Set-Cookie', getAuthCookieHeaders(req, accessToken, refreshToken));
+
+    return res.status(200).json({
+      success: true,
+      message: 'Password has been updated successfully. You are now signed in.',
+      accessToken,
+      token: accessToken,
+      refreshToken,
+      user: {
+        id: targetUser.id,
+        email: targetUser.email,
+        name: targetUser.name,
+        role: targetUser.role,
+        tenantId: resolvedTenantId,
+        tenantSlug: resolvedTenantSlug,
+      },
+    });
+  } catch (err: any) {
+    logger.error('Force change password error:', err);
+    return res.status(500).json({ error: 'Password change failed due to an unexpected error.' });
+  }
+}
+
+router.post('/force-change-password', validate(forceChangePasswordSchema), handleForceChangePassword);
+router.post('/v1/force-change-password', validate(forceChangePasswordSchema), handleForceChangePassword);
 
 // GET /verify-email
 router.get('/verify-email', async (req, res) => {

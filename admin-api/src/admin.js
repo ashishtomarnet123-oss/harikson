@@ -708,9 +708,9 @@ app.post(['/admin/first-login/reset', '/v1/admin/auth/first-login-reset'], async
     const tokenRecord = tokenRes.rows[0];
     const passwordHash = await bcrypt.hash(newPassword, 12);
 
-    // Update password, clear force_password_change flag
+    // Update password, clear force_password_change and must_change_password flags
     await pool.query(
-      'UPDATE users SET password_hash = $1, force_password_change = FALSE WHERE id = $2',
+      'UPDATE users SET password_hash = $1, force_password_change = FALSE, must_change_password = FALSE WHERE id = $2',
       [passwordHash, tokenRecord.user_id]
     );
 
@@ -2932,6 +2932,12 @@ async function verifyAdminCredentialPermission(req, res, targetUserId) {
 
   if (isSuperadminTarget && !isCallerSuperadmin) {
     res.status(403).json({ error: 'Access Denied: Ordinary administrators cannot manage Superadmin credentials.' });
+    return null;
+  }
+
+  // Tenant isolation: Ordinary tenant admin cannot manage credentials of another tenant's user
+  if (!isCallerSuperadmin && caller.tenant_id && targetUser.tenant_id && caller.tenant_id !== targetUser.tenant_id) {
+    res.status(403).json({ error: 'Access Denied: Cross-tenant credential management is prohibited.' });
     return null;
   }
 
