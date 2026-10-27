@@ -1,8 +1,12 @@
 import { Router } from 'express';
 import { executeTenantQuery } from '../db/pool.js';
 import logger from '../utils/logger.js';
+import { requireAuth } from '../middleware/auth.js';
 
 const router = Router();
+
+// Enforce authentication on all notification endpoints
+router.use(requireAuth);
 
 // GET /api/notifications
 router.get('/', async (req: any, res) => {

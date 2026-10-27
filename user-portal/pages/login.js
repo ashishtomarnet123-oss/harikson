@@ -272,6 +272,9 @@ export default function LoginPage() {
       if (data.requires2FA) {
         setRequires2FA(true);
         setUserId(data.userId);
+        if (data.preAuthToken || data.tempToken) {
+          setTempToken(data.preAuthToken || data.tempToken);
+        }
         setLoading(false);
         return;
       }
@@ -319,7 +322,7 @@ export default function LoginPage() {
           'x-tenant-slug': tenantSlug,
         },
         credentials: 'include',
-        body: JSON.stringify({ userId, code: totpCode }),
+        body: JSON.stringify({ userId, code: totpCode, preAuthToken: tempToken, tempToken }),
       });
       const data = await res.json();
       if (!res.ok || data.success === false) throw new Error(data.error || 'Verification failed');

@@ -6,6 +6,7 @@ import { ValidationService } from '../services/validation.service.js';
 import { MemoryRetriever } from '../services/memory/retriever.js';
 import { MemoryExtractor } from '../services/memory/extractor.js';
 import { requireApiAccess } from '../middleware/entitlements.js';
+import { requireAuth } from '../middleware/auth.js';
 
 const router = Router();
 
@@ -14,7 +15,7 @@ const chatSchema = z.object({
   useRag: z.boolean().default(true),
 });
 
-router.post('/', requireApiAccess, async (req: Request, res: Response) => {
+router.post('/', requireAuth, requireApiAccess, async (req: Request, res: Response) => {
   const redis = req.app.get('redis');
   const idempotencyKey = req.headers['idempotency-key'] as string;
   let dedupKey = '';
@@ -39,8 +40,8 @@ router.post('/', requireApiAccess, async (req: Request, res: Response) => {
     }
 
     const { message, useRag } = check.data;
-    const tenantId = (req as any).tenantId || (req as any).tenant?.id || (req.headers['x-tenant-id'] as string);
-    const userId = (req as any).userId || (req.headers['x-user-id'] as string);
+    const tenantId = (req as any).user?.tenantId || (req as any).tenantId || (req as any).tenant?.id;
+    const userId = (req as any).user?.userId || (req as any).userId;
 
     if (!tenantId || !userId) {
       return res.status(401).json({ error: 'Unauthorized: Missing tenant or user context' });

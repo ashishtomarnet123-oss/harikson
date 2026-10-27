@@ -14,7 +14,10 @@ http:
         frameDeny: true
         browserXssFilter: true
         referrerPolicy: "strict-origin-when-cross-origin"
-        permissionsPolicy: "camera=(), microphone=(self), geolocation=(), payment=()"
+        customRequestHeaders:
+          X-Internal-Secret: ""
+          X-User-Id: ""
+          X-Tenant-Id: ""
         customResponseHeaders:
           X-Content-Type-Options: "nosniff"
           X-Frame-Options: "DENY"

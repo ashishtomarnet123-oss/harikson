@@ -150,11 +150,28 @@ export function AuthProvider({ children }) {
         }
 
       } else {
-        // 5xx or unexpected - DO NOT log user out. Preserve session from localStorage.
+        // 5xx or unexpected - validate stored token structure and expiry before preserving session
         if (storedUser && storedToken) {
           try {
             const parsedUser = JSON.parse(storedUser);
-            const isApproved = parsedUser.status === 'active' || ['admin', 'superadmin', 'founder'].includes(parsedUser.role);
+            const tokenParts = storedToken.split('.');
+            const isJwt = tokenParts.length === 3;
+            let jwtExp = 0;
+            let jwtUserId = null;
+            if (isJwt) {
+              try {
+                const payload = JSON.parse(atob(tokenParts[1].replace(/-/g, '+').replace(/_/g, '/')));
+                jwtExp = payload.exp || 0;
+                jwtUserId = payload.userId || null;
+              } catch {}
+            }
+            const isUnexpired = isJwt && jwtExp > Date.now() / 1000;
+            const matchesUser = !jwtUserId || jwtUserId === parsedUser.id;
+            const isApproved =
+              isUnexpired &&
+              matchesUser &&
+              (parsedUser.status === 'active' || ['admin', 'superadmin', 'founder'].includes(parsedUser.role));
+
             if (isApproved) {
               setUser(parsedUser);
               setIsAuthenticated(true);
@@ -165,12 +182,29 @@ export function AuthProvider({ children }) {
         }
       }
     } catch (err) {
-      // Network offline / DNS failure - preserve session, never auto-logout
-      console.warn('[Auth] Network error, preserving existing session:', err);
+      // Network offline / DNS failure - validate stored token structure and expiry before preserving session
+      console.warn('[Auth] Network error, verifying existing session credentials:', err);
       if (storedUser && storedToken) {
         try {
           const parsedUser = JSON.parse(storedUser);
-          const isApproved = parsedUser.status === 'active' || ['admin', 'superadmin', 'founder'].includes(parsedUser.role);
+          const tokenParts = storedToken.split('.');
+          const isJwt = tokenParts.length === 3;
+          let jwtExp = 0;
+          let jwtUserId = null;
+          if (isJwt) {
+            try {
+              const payload = JSON.parse(atob(tokenParts[1].replace(/-/g, '+').replace(/_/g, '/')));
+              jwtExp = payload.exp || 0;
+              jwtUserId = payload.userId || null;
+            } catch {}
+          }
+          const isUnexpired = isJwt && jwtExp > Date.now() / 1000;
+          const matchesUser = !jwtUserId || jwtUserId === parsedUser.id;
+          const isApproved =
+            isUnexpired &&
+            matchesUser &&
+            (parsedUser.status === 'active' || ['admin', 'superadmin', 'founder'].includes(parsedUser.role));
+
           if (isApproved) {
             setUser(parsedUser);
             setIsAuthenticated(true);

@@ -23,8 +23,13 @@ export function requireScopes(...requiredScopes: Scope[]) {
   return (req: Request, res: Response, next: NextFunction) => {
     const user = req.user;
 
+    // Unauthenticated requests must be rejected
+    if (!user) {
+      return res.status(401).json({ error: 'Unauthorized: Authentication required' });
+    }
+
     // Standard session JWT logins have full user authorization
-    if (!user || !user.isDeveloperKey) {
+    if (!user.isDeveloperKey) {
       return next();
     }
 

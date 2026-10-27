@@ -10,8 +10,17 @@ import { CredentialService } from '../services/workflow/credential.service.js';
 import { WorkflowEventEmitter } from '../services/workflow/telemetry/events.js';
 import { enqueueWorkflowExecution } from '../services/workflow/queue.js';
 import { WorkflowScheduler } from '../services/workflow/scheduler.js';
+import { requireAuth } from '../middleware/auth.js';
 
 const router = Router();
+
+// Enforce authentication on all workflow endpoints (except authenticated inbound webhooks which use webhook_secret)
+router.use((req, res, next) => {
+  if (req.path.includes('/webhook') || req.path.includes('/trigger')) {
+    return next();
+  }
+  return requireAuth(req, res, next);
+});
 
 // ==============================================================================
 // 1. METADATA & NODE REGISTRY

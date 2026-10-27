@@ -3,8 +3,12 @@ import multer from 'multer';
 import { z } from 'zod';
 import { RagService } from '../services/rag.service.js';
 import { QuotaExceededError } from '../services/documentQuotaService.js';
+import { requireAuth } from '../middleware/auth.js';
 
 const router = Router();
+
+// Enforce authentication on all document endpoints
+router.use(requireAuth);
 const ALLOWED_EXTENSIONS = new Set(['pdf', 'txt', 'md', 'json', 'docx', 'csv', 'log']);
 const ALLOWED_MIME_TYPES = new Set([
   'application/pdf',
@@ -77,8 +81,8 @@ router.post(
       const sanitizedName = sanitizeFilename(req.file.originalname);
       const { buffer } = req.file;
       const extension = (sanitizedName.split('.').pop() || '').toLowerCase();
-      const tenantId = (req as any).tenantId || (req as any).tenant?.id || (req.headers['x-tenant-id'] as string);
-      const userId = (req as any).userId || (req.headers['x-user-id'] as string);
+      const tenantId = (req as any).user?.tenantId || (req as any).tenantId || (req as any).tenant?.id;
+      const userId = (req as any).user?.userId || (req as any).userId;
 
       if (!tenantId || !userId) {
         return res.status(401).json({ error: 'Unauthorized: Missing tenant or user context' });
@@ -127,8 +131,8 @@ router.post('/crawl', async (req: Request, res: Response) => {
     }
 
     const { url } = check.data;
-    const tenantId = (req as any).tenantId || (req as any).tenant?.id || (req.headers['x-tenant-id'] as string);
-    const userId = (req as any).userId || (req.headers['x-user-id'] as string);
+    const tenantId = (req as any).user?.tenantId || (req as any).tenantId || (req as any).tenant?.id;
+    const userId = (req as any).user?.userId || (req as any).userId;
 
     if (!tenantId || !userId) {
       return res.status(401).json({ error: 'Unauthorized: Missing tenant or user context' });

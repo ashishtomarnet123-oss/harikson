@@ -9,11 +9,16 @@ import { SecurityValidator } from '../services/document-intelligence/security/se
 import { decryptDocumentContent } from '../services/documentEncryptionService.js';
 import { OllamaClient } from '../llm/ollama.js';
 import logger from '../utils/logger.js';
+import { requireAuth } from '../middleware/auth.js';
 import { requireScopes } from '../middleware/scopeAuth.js';
 import { requireDocumentQuota } from '../middleware/entitlements.js';
 import { QuotaExceededError } from '../services/documentQuotaService.js';
 
 const router = Router();
+
+// Enforce authentication on all document routes
+router.use(requireAuth);
+
 const upload = multer({
   limits: { fileSize: 50 * 1024 * 1024 }, // 50MB max file size limit
 });

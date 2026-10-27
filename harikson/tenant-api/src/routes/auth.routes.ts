@@ -264,10 +264,24 @@ async function handleLogin(req: any, res: any) {
     }
 
     if (user.two_factor_enabled) {
+      const preAuthToken = jwt.sign(
+        {
+          userId: user.id,
+          email: user.email,
+          role: user.role,
+          tenantId: req.tenant?.id || user.tenant_id,
+          type: '2fa_pending',
+        },
+        getJwtSecret(),
+        { expiresIn: '5m' }
+      );
+
       return res.json({
         success: false,
         requires2FA: true,
         userId: user.id,
+        preAuthToken,
+        tempToken: preAuthToken,
       });
     }
 
@@ -507,9 +521,51 @@ router.post('/v1/login', validate(loginSchema), handleLogin);
 
 // POST /login/2fa - Complete 2FA Login
 router.post('/login/2fa', async (req, res) => {
-  const { userId, code } = req.body;
+  const { userId, code, preAuthToken, tempToken } = req.body;
   if (!userId || !code) {
     return res.status(400).json({ error: 'userId and 2FA code are required' });
+  }
+
+  // Pre-auth token verification: must prove user completed primary password authentication
+  const token =
+    preAuthToken ||
+    tempToken ||
+    (req.headers['authorization']?.startsWith('Bearer ') ? req.headers['authorization'].slice(7) : null);
+
+  if (!token) {
+    return res.status(401).json({
+      error: 'Pre-authentication token required. Please log in with your email and password first.',
+    });
+  }
+
+  let decodedToken: any;
+  try {
+    decodedToken = jwt.verify(token, getJwtSecret());
+  } catch (tokenErr) {
+    return res.status(401).json({
+      error: 'Invalid or expired pre-authentication token. Please log in with your password again.',
+    });
+  }
+
+  if (decodedToken.type !== '2fa_pending' || decodedToken.userId !== userId) {
+    return res.status(403).json({ error: 'Invalid pre-authentication credentials' });
+  }
+
+  // Strict rate limiting on 2FA attempts: 5 attempts per 15 minutes per IP + userId
+  const clientIp =
+    (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() ||
+    (req.headers['x-real-ip'] as string) ||
+    req.socket?.remoteAddress ||
+    '127.0.0.1';
+  const rateLimitKey = `ratelimit:2fa:${clientIp}:${userId}`;
+  const attempts = await redis.incr(rateLimitKey);
+  if (attempts === 1) {
+    await redis.expire(rateLimitKey, 15 * 60);
+  }
+  if (attempts > 5) {
+    return res.status(429).json({
+      error: 'Too many failed 2FA verification attempts. Rate limit exceeded. Try again in 15 minutes.',
+    });
   }
 
   try {
@@ -551,6 +607,8 @@ router.post('/login/2fa', async (req, res) => {
     if (!isCodeValid) {
       return res.status(401).json({ error: 'Invalid 2FA code' });
     }
+
+    await redis.del(rateLimitKey).catch(() => {});
 
     const accessToken = jwt.sign({ userId: user.id, role: user.role }, getJwtSecret(), { expiresIn: '7d' });
     const refreshToken = crypto.randomBytes(64).toString('hex');
