@@ -27,6 +27,13 @@ export async function runMigrations(pool: pg.Pool) {
   const lockClient = await pool.connect();
 
   try {
+    // If connected as least-privilege application runtime role, skip DDL execution
+    const userRes = await lockClient.query('SELECT CURRENT_USER as u');
+    const currentUser = userRes.rows[0]?.u;
+    if (currentUser === 'xarwiz_tenant_app' || currentUser === 'xarwiz_admin_app') {
+      logger.info(`[DB] Least-privilege role "${currentUser}" detected — DDL schema managed externally.`);
+      return;
+    }
     // 1. Acquire session-level advisory lock to serialize concurrent pod startups
     await lockClient.query('SELECT pg_advisory_lock($1)', [MIGRATION_ADVISORY_LOCK_ID]);
 

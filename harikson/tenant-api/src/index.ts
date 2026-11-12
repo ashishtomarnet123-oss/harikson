@@ -430,8 +430,16 @@ const PORT = process.env.PORT || 3008;
 
 async function startServer() {
   try {
-    await runMigrations(pool);
-    logger.info('Database migrations completed successfully.');
+    try {
+      await runMigrations(pool);
+      logger.info('Database migrations completed successfully.');
+    } catch (migErr: any) {
+      if (migErr.code === '42501' || migErr.message?.includes('permission denied')) {
+        logger.info('[DB] Least-privilege role detected: schema managed externally by migrator.');
+      } else {
+        throw migErr;
+      }
+    }
 
     // Initialize background worker scheduler
     try {
