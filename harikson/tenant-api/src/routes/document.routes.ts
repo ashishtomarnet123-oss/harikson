@@ -13,7 +13,6 @@ import { requireAuth } from '../middleware/auth.js';
 import { requireScopes } from '../middleware/scopeAuth.js';
 import { requireDocumentQuota } from '../middleware/entitlements.js';
 import { QuotaExceededError } from '../services/documentQuotaService.js';
-import { requireAuth } from '../middleware/auth.js';
 
 const router = Router();
 router.use(requireAuth);

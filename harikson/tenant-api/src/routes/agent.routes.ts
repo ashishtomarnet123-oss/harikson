@@ -5,13 +5,9 @@ import { HariksonOrchestrator } from '../services/agents/orchestrator.js';
 import { requireAuth } from '../middleware/auth.js';
 import { requireScopes } from '../middleware/scopeAuth.js';
 import { isPlatformDefaultModel } from '../middleware/entitlements.js';
-import { requireAuth } from '../middleware/auth.js';
 import { parsePagination, buildPaginatedResponse } from '../utils/standardApi.js';
 
 const router = Router();
-router.use(requireAuth);
-
-// Enforce authentication on all agent endpoints
 router.use(requireAuth);
 
 // GET /api/agents
