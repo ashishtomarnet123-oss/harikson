@@ -195,10 +195,14 @@ async function deactivateKnowledgeDocument(tenantId: string, knowledgeDocumentId
 async function processGoogleDriveSyncJob(job: Job<SyncJobData>): Promise<void> {
   const { jobId, connectionId, tenantId, userId } = job.data;
 
-  await pool.query(`UPDATE integration_sync_jobs SET status = 'running', started_at = NOW() WHERE id = $1`, [jobId]);
+  await executeTenantQuery(tenantId, async (client) => {
+    await client.query(`UPDATE integration_sync_jobs SET status = 'running', started_at = NOW() WHERE id = $1`, [jobId]);
+  });
 
   try {
-    const connRes = await pool.query(`SELECT settings FROM integration_connections WHERE id = $1`, [connectionId]);
+    const connRes = await executeTenantQuery(tenantId, async (client) => {
+      return client.query(`SELECT settings FROM integration_connections WHERE id = $1`, [connectionId]);
+    });
     const settings = connRes.rows[0]?.settings || {};
 
     const accessToken = await getValidAccessToken(connectionId);
@@ -279,31 +283,37 @@ async function processGoogleDriveSyncJob(job: Job<SyncJobData>): Promise<void> {
       if (previous.knowledge_document_id) {
         await deactivateKnowledgeDocument(tenantId, previous.knowledge_document_id);
       }
-      await pool.query(
-        `UPDATE integration_synced_files SET is_deleted = true WHERE connection_id = $1 AND external_file_id = $2`,
-        [connectionId, fileId]
-      );
+      await executeTenantQuery(tenantId, async (client) => {
+        await client.query(
+          `UPDATE integration_synced_files SET is_deleted = true WHERE connection_id = $1 AND external_file_id = $2`,
+          [connectionId, fileId]
+        );
+      });
     }
 
-    await pool.query(`UPDATE integration_sync_jobs SET status = 'completed', completed_at = NOW() WHERE id = $1`, [jobId]);
-    await pool.query(
-      `UPDATE integration_connections
-       SET status = 'connected', last_sync_at = NOW(), files_indexed_count = $1, last_error = NULL, updated_at = NOW()
-       WHERE id = $2`,
-      [processed, connectionId]
-    );
+    await executeTenantQuery(tenantId, async (client) => {
+      await client.query(`UPDATE integration_sync_jobs SET status = 'completed', completed_at = NOW() WHERE id = $1`, [jobId]);
+      await client.query(
+        `UPDATE integration_connections
+         SET status = 'connected', last_sync_at = NOW(), files_indexed_count = $1, last_error = NULL, updated_at = NOW()
+         WHERE id = $2`,
+        [processed, connectionId]
+      );
+    });
     await invalidateTenantCache(tenantId);
     logger.info(`✅ Google Drive sync completed for connection ${connectionId}: ${processed} processed, ${failed} failed`);
   } catch (err: any) {
     logger.error(`❌ Google Drive sync job ${jobId} failed:`, err);
-    await pool.query(`UPDATE integration_sync_jobs SET status = 'failed', error_message = $1, completed_at = NOW() WHERE id = $2`, [
-      err.message,
-      jobId,
-    ]);
-    await pool.query(
-      `UPDATE integration_connections SET status = 'error', last_error = $1, error_count = error_count + 1, updated_at = NOW() WHERE id = $2`,
-      [err.message, connectionId]
-    );
+    await executeTenantQuery(tenantId, async (client) => {
+      await client.query(`UPDATE integration_sync_jobs SET status = 'failed', error_message = $1, completed_at = NOW() WHERE id = $2`, [
+        err.message,
+        jobId,
+      ]);
+      await client.query(
+        `UPDATE integration_connections SET status = 'error', last_error = $1, error_count = error_count + 1, updated_at = NOW() WHERE id = $2`,
+        [err.message, connectionId]
+      );
+    });
     throw err;
   }
 }

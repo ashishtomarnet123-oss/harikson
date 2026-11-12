@@ -16,22 +16,40 @@ router.get('/', async (req: Request, res: Response) => {
       (req as any).user?.id;
 
     if (!tenantId || !userId) {
-      return res.status(401).json({ hariksonError: 'Unauthorized: Missing tenant or user context' });
+      const errMsg = 'Unauthorized: Missing tenant or user context';
+      return res.status(401).json({
+        error: errMsg,
+        message: errMsg,
+        hariksonError: errMsg,
+      });
     }
 
-    const memories = await MemoryStore.list(tenantId, userId);
+    const rawMemories = await MemoryStore.list(tenantId, userId);
+    const standardized = rawMemories.map((m) => ({
+      id: m.id,
+      text: m.memory,
+      importance: m.importance,
+      createdAt: m.created_at,
+      updatedAt: m.updated_at,
+      hariksonMemoryId: m.id,
+      hariksonMemoryText: m.memory,
+      hariksonMemoryImportance: m.importance,
+      hariksonCreatedAt: m.created_at,
+      hariksonUpdatedAt: m.updated_at,
+    }));
 
     return res.status(200).json({
-      hariksonMemories: memories.map((m) => ({
-        hariksonMemoryId: m.id,
-        hariksonMemoryText: m.memory,
-        hariksonMemoryImportance: m.importance,
-        hariksonCreatedAt: m.created_at,
-        hariksonUpdatedAt: m.updated_at,
-      })),
+      memories: standardized,
+      total: standardized.length,
+      hariksonMemories: standardized,
     });
   } catch (error: any) {
-    return res.status(500).json({ hariksonError: error.message });
+    const errMsg = error.message || 'Memory query error';
+    return res.status(500).json({
+      error: errMsg,
+      message: errMsg,
+      hariksonError: errMsg,
+    });
   }
 });
 
@@ -47,25 +65,42 @@ router.delete('/:id', async (req: Request, res: Response) => {
       (req as any).user?.id;
 
     if (!tenantId || !userId) {
-      return res.status(401).json({ hariksonError: 'Unauthorized: Missing tenant or user context' });
+      const errMsg = 'Unauthorized: Missing tenant or user context';
+      return res.status(401).json({
+        error: errMsg,
+        message: errMsg,
+        hariksonError: errMsg,
+      });
     }
 
     const deleted = await MemoryStore.delete(tenantId, userId, id);
     if (!deleted) {
+      const errMsg = 'Memory not found or access denied.';
       return res.status(404).json({
+        error: errMsg,
+        message: errMsg,
+        success: false,
         hariksonSuccess: false,
-        hariksonMessage: 'Memory not found or access denied.',
+        hariksonMessage: errMsg,
       });
     }
 
+    const successMsg = 'Memory deleted successfully from Xarwiz memory store.';
     return res.status(200).json({
+      success: true,
+      deletedId: id,
+      message: successMsg,
       hariksonSuccess: true,
       hariksonDeletedId: id,
-      hariksonMessage:
-        'Memory deleted successfully from Xarwiz memory store.',
+      hariksonMessage: successMsg,
     });
   } catch (error: any) {
-    return res.status(500).json({ hariksonError: error.message });
+    const errMsg = error.message || 'Memory delete error';
+    return res.status(500).json({
+      error: errMsg,
+      message: errMsg,
+      hariksonError: errMsg,
+    });
   }
 });
 

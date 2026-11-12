@@ -1,32 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { Pool } from 'pg';
-import jwt from 'jsonwebtoken';
-
-let primaryPool: InstanceType<typeof Pool> | null = null;
-function getPool() {
-  if (!primaryPool) {
-    if (!process.env.DATABASE_URL) throw new Error('DATABASE_URL is required');
-    primaryPool = new Pool({
-      connectionString: process.env.DATABASE_URL,
-      max: 5,
-      idleTimeoutMillis: 30000,
-      connectionTimeoutMillis: 3000,
-    });
-  }
-  return primaryPool;
-}
-
-function getJwtSecret(): string {
-  const raw = process.env.JWT_SECRET || process.env.NEXTAUTH_SECRET;
-  if (!raw || raw.length < 32) {
-    throw new Error('FATAL: JWT_SECRET must be set and at least 32 characters');
-  }
-  return raw;
-}
+import { getDbPool } from '../../../../lib/db';
+import {
+  verifyAdminToken,
+  signAdminAccessToken,
+  signAdminRefreshToken,
+  storeAdminRefreshToken,
+  recordAdminAuditLog,
+} from '../../../../lib/auth';
 
 export async function POST(req: NextRequest) {
+  const rawIp = req.headers.get('x-real-ip') || req.headers.get('x-forwarded-for') || 'unknown';
+  const ip = rawIp.split(',')[0].trim().replace(/^::ffff:/, '');
+
   try {
-    const JWT_SECRET = getJwtSecret();
     const body = await req.json().catch(() => ({}));
     const { tempToken, code } = body as { tempToken?: string; code?: string };
 
@@ -37,22 +23,20 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    let decoded: any;
-    try {
-      decoded = jwt.verify(tempToken, JWT_SECRET);
-    } catch {
+    const tokenVerification = await verifyAdminToken(tempToken, '2fa_pending');
+    if (!tokenVerification.valid || !tokenVerification.user) {
       return NextResponse.json(
-        { error: '2FA session expired. Please login again.' },
+        { error: tokenVerification.error || '2FA session expired. Please login again.' },
         { status: 401 }
       );
     }
 
-    if (decoded.type !== '2fa_pending') {
-      return NextResponse.json({ error: 'Invalid token type' }, { status: 401 });
-    }
+    const decoded = tokenVerification.user;
 
-    const userResult = await getPool().query(
-      `SELECT id, email, role, two_factor_secret, two_factor_backup_codes FROM users WHERE id = $1`,
+    const userResult = await getDbPool().query(
+      `SELECT id, tenant_id, email, role, two_factor_secret, two_factor_backup_codes, status
+       FROM users
+       WHERE id = $1 AND deleted_at IS NULL`,
       [decoded.userId]
     );
     const user = userResult.rows[0];
@@ -60,16 +44,21 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'User not found or 2FA not configured' }, { status: 401 });
     }
 
+    if (user.status === 'suspended' || user.status === 'inactive') {
+      return NextResponse.json({ error: 'Administrator account suspended or inactive' }, { status: 403 });
+    }
+
     let isValid = false;
+    let authMethod = 'totp';
     try {
       const moduleName = 'otplib';
       const otplib = await import(/* webpackIgnore: true */ moduleName);
       const authenticator = (otplib as any).authenticator || (otplib as any).default?.authenticator;
       if (authenticator) {
-        isValid = authenticator.verify({ token: code, secret: user.two_factor_secret });
+        isValid = authenticator.verify({ token: code.trim(), secret: user.two_factor_secret });
       }
     } catch {
-      // otplib not available - fall through to backup code check below
+      // otplib unavailable - fall through to backup code check below
     }
 
     if (!isValid) {
@@ -77,38 +66,63 @@ export async function POST(req: NextRequest) {
       const bcrypt = await import('bcryptjs');
       for (const bc of backupCodes) {
         if (bc.used_at) continue;
-        if (await bcrypt.compare(code, bc.hash)) {
+        if (await bcrypt.compare(code.trim(), bc.hash)) {
           bc.used_at = new Date().toISOString();
-          await getPool().query(
+          await getDbPool().query(
             `UPDATE users SET two_factor_backup_codes = $1 WHERE id = $2`,
             [JSON.stringify(backupCodes), user.id]
           );
           isValid = true;
+          authMethod = 'backup_code';
           break;
         }
       }
     }
 
     if (!isValid) {
+      await recordAdminAuditLog(user.id, 'ADMIN_2FA_VERIFICATION_FAILED', 'user', user.id, { ip });
       return NextResponse.json({ error: 'Invalid 2FA code' }, { status: 401 });
     }
 
-    const accessToken = jwt.sign(
-      { userId: user.id, role: user.role, type: 'access' },
-      JWT_SECRET,
-      { expiresIn: '7d' }
-    );
-    const refreshToken = jwt.sign(
-      { userId: user.id, role: user.role, type: 'refresh' },
-      JWT_SECRET,
-      { expiresIn: '30d' }
-    );
+    // Issue cryptographically signed admin tokens
+    const { token: accessToken } = signAdminAccessToken({
+      userId: user.id,
+      role: user.role,
+      email: user.email,
+    });
+    const { token: refreshToken } = signAdminRefreshToken({
+      userId: user.id,
+      role: user.role,
+    });
+
+    await storeAdminRefreshToken(user.id, refreshToken, user.tenant_id);
+
+    await recordAdminAuditLog(user.id, 'ADMIN_2FA_VERIFICATION_SUCCESS', 'user', user.id, {
+      ip,
+      method: authMethod,
+      role: user.role,
+    });
 
     const isHttps = req.nextUrl.protocol === 'https:' || req.headers.get('x-forwarded-proto') === 'https';
-    const cookieOpts = ['HttpOnly', isHttps ? 'Secure' : '', 'SameSite=Lax', 'Path=/', `Max-Age=${7 * 24 * 60 * 60}`]
-      .filter(Boolean).join('; ');
-    const refreshOpts = ['HttpOnly', isHttps ? 'Secure' : '', 'SameSite=Lax', 'Path=/', `Max-Age=${30 * 24 * 60 * 60}`]
-      .filter(Boolean).join('; ');
+    const accessCookieOpts = [
+      'HttpOnly',
+      isHttps ? 'Secure' : '',
+      'SameSite=Lax',
+      'Path=/',
+      `Max-Age=${8 * 60 * 60}`, // 8 hours
+    ]
+      .filter(Boolean)
+      .join('; ');
+
+    const refreshCookieOpts = [
+      'HttpOnly',
+      isHttps ? 'Secure' : '',
+      'SameSite=Lax',
+      'Path=/',
+      `Max-Age=${30 * 24 * 60 * 60}`, // 30 days
+    ]
+      .filter(Boolean)
+      .join('; ');
 
     const response = NextResponse.json({
       success: true,
@@ -117,12 +131,13 @@ export async function POST(req: NextRequest) {
         email: user.email,
         role: user.role,
         isAdmin: true,
+        isFounder: user.role === 'founder' || user.role === 'superadmin',
       },
     });
 
-    response.headers.append('Set-Cookie', `admin_access_token=${accessToken}; ${cookieOpts}`);
-    response.headers.append('Set-Cookie', `admin_token=${accessToken}; ${cookieOpts}`);
-    response.headers.append('Set-Cookie', `admin_refresh_token=${refreshToken}; ${refreshOpts}`);
+    response.headers.append('Set-Cookie', `admin_access_token=${accessToken}; ${accessCookieOpts}`);
+    response.headers.append('Set-Cookie', `admin_token=${accessToken}; ${accessCookieOpts}`);
+    response.headers.append('Set-Cookie', `admin_refresh_token=${refreshToken}; ${refreshCookieOpts}`);
 
     return response;
   } catch (err: any) {

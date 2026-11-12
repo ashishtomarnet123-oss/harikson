@@ -1,12 +1,16 @@
 import { Queue, Worker, Job } from 'bullmq';
 import { Redis } from 'ioredis';
-import { pool, invalidateTenantCache } from '../db/pool.js';
+import { pool, executeTenantQuery, invalidateTenantCache } from '../db/pool.js';
 import logger from '../utils/logger.js';
 
-const redisConnection = new Redis(process.env.REDIS_URL || 'redis://redis:6379', {
+const defaultRedisUrl = process.env.NODE_ENV === 'test' ? 'redis://127.0.0.1:6379' : 'redis://redis:6379';
+const redisConnection = new Redis(process.env.REDIS_URL || defaultRedisUrl, {
   maxRetriesPerRequest: null,
+  lazyConnect: process.env.NODE_ENV === 'test',
 });
+redisConnection.on('error', (err) => logger.debug('WebhookRetry Redis error: ' + err.message));
 
+export const webhookRedisConnection = redisConnection;
 export const webhookRetryQueue = new Queue('webhookRetryQueue', { connection: redisConnection });
 export const webhookDeadLetterQueue = new Queue('webhookDeadLetterQueue', { connection: redisConnection });
 
@@ -33,7 +37,7 @@ export async function enqueueWebhookEvent(
     const insertRes = await pool.query(
       `INSERT INTO payment_webhooks (event_id, provider, event_type, status, payload, signature_verified, amount, tenant_name, created_at)
        VALUES ($1, $2, $3, 'pending', $4, true, $5, $6, NOW())
-       ON CONFLICT (event_id, provider) DO UPDATE 
+       ON CONFLICT (event_id, provider) DO UPDATE
        SET payload = EXCLUDED.payload, signature_verified = true
        RETURNING id, status`,
       [eventId, provider, eventType, JSON.stringify(payload), amount, tenantName]
@@ -96,12 +100,34 @@ export async function processWebhookPayload(provider: string, eventType: string,
     }
 
     const tenantId = dataObject.metadata?.tenantId;
-    const planId = dataObject.metadata?.planId;
+    const planId = (dataObject.metadata?.planId || 'starter').toLowerCase();
+    const paymentId = dataObject.payment_intent || dataObject.id;
+    const amount = dataObject.amount_total ? dataObject.amount_total / 100 : (dataObject.amount ? dataObject.amount / 100 : 0);
 
     if (tenantId && planId) {
+      const subtotal = parseFloat((amount / 1.18).toFixed(2));
+      const taxAmount = parseFloat((amount - subtotal).toFixed(2));
+
+      const subRes = await pool.query(
+        `INSERT INTO subscriptions (tenant_id, provider, provider_subscription_id, plan_id, status, current_period_start, current_period_end, amount, currency, created_at, updated_at)
+         VALUES ($1, 'stripe', $2, $3, 'active', NOW(), NOW() + INTERVAL '30 days', $4, 'INR', NOW(), NOW())
+         ON CONFLICT (provider, provider_subscription_id) DO UPDATE SET status = 'active', updated_at = NOW()
+         RETURNING id`,
+        [tenantId, dataObject.subscription || dataObject.id, planId, amount]
+      );
+      const subscriptionId = subRes.rows[0]?.id || null;
+
+      const invoiceNumber = `INV-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}-${String(paymentId).slice(-8).toUpperCase()}`;
       await pool.query(
-        `UPDATE tenants SET status = 'active', updated_at = NOW() WHERE id = $1`,
-        [tenantId]
+        `INSERT INTO invoices (tenant_id, subscription_id, provider, provider_invoice_id, invoice_number, amount, currency, status, subtotal, tax_amount, total, paid_at, created_at, updated_at)
+         VALUES ($1, $2, 'stripe', $3, $4, $5, 'INR', 'paid', $6, $7, $8, NOW(), NOW(), NOW())
+         ON CONFLICT (provider, provider_invoice_id) DO NOTHING`,
+        [tenantId, subscriptionId, paymentId, invoiceNumber, amount, subtotal, taxAmount, amount]
+      );
+
+      await pool.query(
+        `UPDATE tenants SET status = 'active', plan = $2, updated_at = NOW() WHERE id = $1`,
+        [tenantId, planId]
       );
       await invalidateTenantCache(tenantId);
       logger.info(`✅ Webhook processed payment success: Activated plan ${planId} for tenant ${tenantId}`);
@@ -109,10 +135,24 @@ export async function processWebhookPayload(provider: string, eventType: string,
   } else if (eventType === 'customer.subscription.deleted') {
     const tenantId = dataObject.metadata?.tenantId;
     if (tenantId) {
-      await pool.query(
-        `UPDATE tenants SET status = 'canceled', updated_at = NOW() WHERE id = $1`,
+      const subId = dataObject.subscription || dataObject.id;
+      if (subId) {
+        await pool.query(
+          `UPDATE subscriptions SET status = 'cancelled', updated_at = NOW()
+           WHERE tenant_id = $1 AND provider_subscription_id = $2`,
+          [tenantId, subId]
+        );
+      }
+      const activeSubs = await pool.query(
+        `SELECT id FROM subscriptions WHERE tenant_id = $1 AND status = 'active'`,
         [tenantId]
       );
+      if (activeSubs.rows.length === 0) {
+        await pool.query(
+          `UPDATE tenants SET status = 'canceled', updated_at = NOW() WHERE id = $1`,
+          [tenantId]
+        );
+      }
       await invalidateTenantCache(tenantId);
       logger.info(`🚫 Webhook processed cancellation for tenant ${tenantId}`);
     }
@@ -161,12 +201,14 @@ async function processRazorpayWebhookPayload(eventType: string, payload: any): P
     );
     const subscriptionId = subRes.rows[0]?.id || null;
 
+    const subtotal = parseFloat((amount / 1.18).toFixed(2));
+    const taxAmount = parseFloat((amount - subtotal).toFixed(2));
     const invoiceNumber = `INV-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}-${String(paymentId).slice(-8).toUpperCase()}`;
     await pool.query(
-      `INSERT INTO invoices (tenant_id, subscription_id, provider, provider_invoice_id, invoice_number, amount, currency, status, paid_at, created_at, updated_at)
-       VALUES ($1, $2, 'razorpay', $3, $4, $5, $6, 'paid', NOW(), NOW(), NOW())
+      `INSERT INTO invoices (tenant_id, subscription_id, provider, provider_invoice_id, invoice_number, amount, currency, status, subtotal, tax_amount, total, paid_at, created_at, updated_at)
+       VALUES ($1, $2, 'razorpay', $3, $4, $5, $6, 'paid', $7, $8, $9, NOW(), NOW(), NOW())
        ON CONFLICT (provider, provider_invoice_id) DO NOTHING`,
-      [tenantId, subscriptionId, paymentId, invoiceNumber, amount, currency]
+      [tenantId, subscriptionId, paymentId, invoiceNumber, amount, currency, subtotal, taxAmount, amount]
     );
 
     await pool.query(`UPDATE tenants SET plan = $2, status = 'active', updated_at = NOW() WHERE id = $1`, [tenantId, planId]);
@@ -175,10 +217,23 @@ async function processRazorpayWebhookPayload(eventType: string, payload: any): P
   } else if (eventType === 'subscription.cancelled' || eventType === 'subscription.completed') {
     const subEntity = payload?.payload?.subscription?.entity;
     const tenantId = subEntity?.notes?.tenantId;
+    const subId = subEntity?.id;
 
     if (tenantId) {
-      await pool.query(`UPDATE tenants SET status = 'canceled', updated_at = NOW() WHERE id = $1`, [tenantId]);
-      await pool.query(`UPDATE subscriptions SET status = 'cancelled', updated_at = NOW() WHERE tenant_id = $1`, [tenantId]);
+      if (subId) {
+        await pool.query(
+          `UPDATE subscriptions SET status = 'cancelled', updated_at = NOW()
+           WHERE tenant_id = $1 AND provider_subscription_id = $2`,
+          [tenantId, subId]
+        );
+      }
+      const activeSubs = await pool.query(
+        `SELECT id FROM subscriptions WHERE tenant_id = $1 AND status = 'active'`,
+        [tenantId]
+      );
+      if (activeSubs.rows.length === 0) {
+        await pool.query(`UPDATE tenants SET status = 'canceled', updated_at = NOW() WHERE id = $1`, [tenantId]);
+      }
       await invalidateTenantCache(tenantId);
       logger.info(`🚫 Razorpay webhook processed cancellation for tenant ${tenantId}`);
     }
@@ -233,12 +288,14 @@ async function processPhonePeWebhookPayload(eventType: string, payload: any): Pr
     );
     const subscriptionId = subRes.rows[0]?.id || null;
 
+    const subtotal = parseFloat((amount / 1.18).toFixed(2));
+    const taxAmount = parseFloat((amount - subtotal).toFixed(2));
     const invoiceNumber = `INV-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}-${String(transactionId).slice(-8).toUpperCase()}`;
     await pool.query(
-      `INSERT INTO invoices (tenant_id, subscription_id, provider, provider_invoice_id, invoice_number, amount, currency, status, paid_at, created_at, updated_at)
-       VALUES ($1, $2, 'phonepe', $3, $4, $5, $6, 'paid', NOW(), NOW(), NOW())
+      `INSERT INTO invoices (tenant_id, subscription_id, provider, provider_invoice_id, invoice_number, amount, currency, status, subtotal, tax_amount, total, paid_at, created_at, updated_at)
+       VALUES ($1, $2, 'phonepe', $3, $4, $5, $6, 'paid', $7, $8, $9, NOW(), NOW(), NOW())
        ON CONFLICT (provider, provider_invoice_id) DO NOTHING`,
-      [tenantId, subscriptionId, transactionId, invoiceNumber, amount, currency]
+      [tenantId, subscriptionId, transactionId, invoiceNumber, amount, currency, subtotal, taxAmount, amount]
     );
 
     await pool.query(`UPDATE tenants SET plan = $2, status = 'active', updated_at = NOW() WHERE id = $1`, [tenantId, planId]);
@@ -246,6 +303,13 @@ async function processPhonePeWebhookPayload(eventType: string, payload: any): Pr
     logger.info(`✅ PhonePe webhook processed payment success: Activated plan ${planId} for tenant ${tenantId}`);
   } else {
     logger.warn(`PhonePe webhook received non-success state (${data?.state}) for transaction ${merchantTransactionId}`);
+    if (transactionId) {
+      await pool.query(
+        `UPDATE invoices SET status = 'uncollectible', updated_at = NOW()
+         WHERE provider = 'phonepe' AND provider_invoice_id = $1 AND status IN ('draft', 'open', 'pending_payment')`,
+        [transactionId]
+      );
+    }
   }
 }
 
@@ -306,12 +370,14 @@ async function processCashfreeWebhookPayload(eventType: string, payload: any): P
     );
     const subscriptionId = subRes.rows[0]?.id || null;
 
+    const subtotal = parseFloat((amount / 1.18).toFixed(2));
+    const taxAmount = parseFloat((amount - subtotal).toFixed(2));
     const invoiceNumber = `INV-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}-${String(orderId).slice(-8).toUpperCase()}`;
     await pool.query(
-      `INSERT INTO invoices (tenant_id, subscription_id, provider, provider_invoice_id, invoice_number, amount, currency, status, paid_at, created_at, updated_at)
-       VALUES ($1, $2, 'cashfree', $3, $4, $5, $6, 'paid', NOW(), NOW(), NOW())
+      `INSERT INTO invoices (tenant_id, subscription_id, provider, provider_invoice_id, invoice_number, amount, currency, status, subtotal, tax_amount, total, paid_at, created_at, updated_at)
+       VALUES ($1, $2, 'cashfree', $3, $4, $5, $6, 'paid', $7, $8, $9, NOW(), NOW(), NOW())
        ON CONFLICT (provider, provider_invoice_id) DO NOTHING`,
-      [tenantId, subscriptionId, cfPaymentId, invoiceNumber, amount, currency]
+      [tenantId, subscriptionId, cfPaymentId, invoiceNumber, amount, currency, subtotal, taxAmount, amount]
     );
 
     await pool.query(`UPDATE tenants SET plan = $2, status = 'active', updated_at = NOW() WHERE id = $1`, [tenantId, planId]);
@@ -319,6 +385,13 @@ async function processCashfreeWebhookPayload(eventType: string, payload: any): P
     logger.info(`✅ Cashfree webhook processed payment success: Activated plan ${planId} for tenant ${tenantId}`);
   } else {
     logger.warn(`Cashfree webhook received non-success event (${eventType}) for order ${orderId}`);
+    if (cfPaymentId) {
+      await pool.query(
+        `UPDATE invoices SET status = 'uncollectible', updated_at = NOW()
+         WHERE provider = 'cashfree' AND provider_invoice_id = $1 AND status IN ('draft', 'open', 'pending_payment')`,
+        [cfPaymentId]
+      );
+    }
   }
 }
 
@@ -394,12 +467,14 @@ async function processNeuraCollectWebhookPayload(eventType: string, payload: any
     );
     const subscriptionId = subRes.rows[0]?.id || null;
 
+    const subtotal = parseFloat((amount / 1.18).toFixed(2));
+    const taxAmount = parseFloat((amount - subtotal).toFixed(2));
     const invoiceNumber = `INV-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}-${String(orderId).slice(-8).toUpperCase()}`;
     await pool.query(
-      `INSERT INTO invoices (tenant_id, subscription_id, provider, provider_invoice_id, invoice_number, amount, currency, status, paid_at, created_at, updated_at)
-       VALUES ($1, $2, 'neuracollect', $3, $4, $5, $6, 'paid', NOW(), NOW(), NOW())
+      `INSERT INTO invoices (tenant_id, subscription_id, provider, provider_invoice_id, invoice_number, amount, currency, status, subtotal, tax_amount, total, paid_at, created_at, updated_at)
+       VALUES ($1, $2, 'neuracollect', $3, $4, $5, $6, 'paid', $7, $8, $9, NOW(), NOW(), NOW())
        ON CONFLICT (provider, provider_invoice_id) DO NOTHING`,
-      [tenantId, subscriptionId, paymentId, invoiceNumber, amount, currency]
+      [tenantId, subscriptionId, paymentId, invoiceNumber, amount, currency, subtotal, taxAmount, amount]
     );
 
     await pool.query(`UPDATE tenants SET plan = $2, status = 'active', updated_at = NOW() WHERE id = $1`, [tenantId, planId]);
@@ -407,6 +482,13 @@ async function processNeuraCollectWebhookPayload(eventType: string, payload: any
     logger.info(`✅ NeuraCollect webhook processed payment success: Activated plan ${planId} for tenant ${tenantId}`);
   } else {
     logger.warn(`NeuraCollect webhook received non-success event (${eventType}) for order ${orderId}`);
+    if (paymentId) {
+      await pool.query(
+        `UPDATE invoices SET status = 'uncollectible', updated_at = NOW()
+         WHERE provider = 'neuracollect' AND provider_invoice_id = $1 AND status IN ('draft', 'open', 'pending_payment')`,
+        [paymentId]
+      );
+    }
   }
 }
 
@@ -434,8 +516,8 @@ export async function handleWebhookRetryJob(job: Job): Promise<void> {
 
     // 3. Mark processed on success
     await pool.query(
-      `UPDATE payment_webhooks 
-       SET status = 'processed', processed_at = NOW(), processing_error = NULL 
+      `UPDATE payment_webhooks
+       SET status = 'processed', processed_at = NOW(), processing_error = NULL
        WHERE event_id = $1 AND provider = $2`,
       [eventId, provider]
     );
@@ -461,8 +543,8 @@ export async function handleWebhookRetryJob(job: Job): Promise<void> {
       const delayMs = RETRY_DELAYS_MS[attempt] || 5 * 60 * 1000;
 
       await pool.query(
-        `UPDATE payment_webhooks 
-         SET status = 'pending', processing_error = $1 
+        `UPDATE payment_webhooks
+         SET status = 'pending', processing_error = $1
          WHERE event_id = $2 AND provider = $3`,
         [errorMessage, eventId, provider]
       );
@@ -481,8 +563,8 @@ export async function handleWebhookRetryJob(job: Job): Promise<void> {
     } else {
       // 5th Failure: Mark failed, alert admin, send to Dead Letter Queue
       await pool.query(
-        `UPDATE payment_webhooks 
-         SET status = 'failed', processing_error = $1 
+        `UPDATE payment_webhooks
+         SET status = 'failed', processing_error = $1
          WHERE event_id = $2 AND provider = $3`,
         [errorMessage, eventId, provider]
       );
@@ -502,13 +584,15 @@ export async function handleWebhookRetryJob(job: Job): Promise<void> {
 }
 
 // Initialize BullMQ Worker for Webhook Retries
-export const webhookRetryWorker = new Worker(
-  'webhookRetryQueue',
-  async (job: Job) => {
-    await handleWebhookRetryJob(job);
-  },
-  {
-    connection: redisConnection,
-    concurrency: 5,
-  }
-);
+export const webhookRetryWorker = process.env.NODE_ENV === 'test'
+  ? null
+  : new Worker(
+      'webhookRetryQueue',
+      async (job: Job) => {
+        await handleWebhookRetryJob(job);
+      },
+      {
+        connection: redisConnection,
+        concurrency: 5,
+      }
+    );

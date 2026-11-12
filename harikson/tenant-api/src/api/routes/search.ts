@@ -38,9 +38,11 @@ router.post('/', async (req: Request, res: Response) => {
   try {
     const check = searchSchema.safeParse(req.body);
     if (!check.success) {
+      const errMsg = "Invalid request payload. 'query' parameter is required.";
       return res.status(400).json({
-        hariksonError:
-          "Invalid request payload. 'query' parameter is required.",
+        error: errMsg,
+        message: errMsg,
+        hariksonError: errMsg,
       });
     }
 
@@ -75,7 +77,12 @@ router.post('/', async (req: Request, res: Response) => {
       hariksonQueryEmbeddingTimeMs: queryEmbeddingTimeMs,
     });
   } catch (error: any) {
-    return res.status(500).json({ hariksonError: error.message });
+    const errMsg = error.message || 'Search execution error';
+    return res.status(500).json({
+      error: errMsg,
+      message: errMsg,
+      hariksonError: errMsg,
+    });
   }
 });
 
@@ -84,9 +91,11 @@ router.post('/code-only', async (req: Request, res: Response) => {
   try {
     const check = searchSchema.safeParse(req.body);
     if (!check.success) {
+      const errMsg = "Invalid request payload. 'query' parameter is required.";
       return res.status(400).json({
-        hariksonError:
-          "Invalid request payload. 'query' parameter is required.",
+        error: errMsg,
+        message: errMsg,
+        hariksonError: errMsg,
       });
     }
 
@@ -126,7 +135,12 @@ router.post('/code-only', async (req: Request, res: Response) => {
       hariksonQueryEmbeddingTimeMs: queryEmbeddingTimeMs,
     });
   } catch (error: any) {
-    return res.status(500).json({ hariksonError: error.message });
+    const errMsg = error.message || 'Search execution error';
+    return res.status(500).json({
+      error: errMsg,
+      message: errMsg,
+      hariksonError: errMsg,
+    });
   }
 });
 
@@ -135,9 +149,11 @@ router.post('/memory-only', async (req: Request, res: Response) => {
   try {
     const check = searchSchema.safeParse(req.body);
     if (!check.success) {
+      const errMsg = "Invalid request payload. 'query' parameter is required.";
       return res.status(400).json({
-        hariksonError:
-          "Invalid request payload. 'query' parameter is required.",
+        error: errMsg,
+        message: errMsg,
+        hariksonError: errMsg,
       });
     }
 
@@ -177,7 +193,12 @@ router.post('/memory-only', async (req: Request, res: Response) => {
       hariksonQueryEmbeddingTimeMs: queryEmbeddingTimeMs,
     });
   } catch (error: any) {
-    return res.status(500).json({ hariksonError: error.message });
+    const errMsg = error.message || 'Search execution error';
+    return res.status(500).json({
+      error: errMsg,
+      message: errMsg,
+      hariksonError: errMsg,
+    });
   }
 });
 

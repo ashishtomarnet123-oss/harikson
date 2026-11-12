@@ -3,13 +3,15 @@ import { UniversalPdfEngine } from '../services/pdf/index.js';
 import { PdfStorageService } from '../services/pdf/storage.js';
 import logger from '../utils/logger.js';
 import { requireScopes } from '../middleware/scopeAuth.js';
+import { requireAuth } from '../middleware/auth.js';
 
 const router = Router();
+router.use(requireAuth);
 
 // =========================================================================
 // 1. GENERATE PDF (Returns artifact reference with download URL)
 // =========================================================================
-router.post('/generate', async (req: any, res) => {
+router.post('/generate', requireScopes('documents:write', 'chat:write'), async (req: any, res) => {
   try {
     const tenantId = req.tenant?.id;
     if (!tenantId) {
@@ -44,7 +46,7 @@ router.post('/generate', async (req: any, res) => {
 // =========================================================================
 // 2. EXPORT PDF DIRECT (Streams file buffer directly to browser)
 // =========================================================================
-router.post('/export', async (req: any, res) => {
+router.post('/export', requireScopes('documents:read', 'chat:read'), async (req: any, res) => {
   try {
     const { markdown, document, messages, title, filename, options = {} } = req.body || {};
     const input = document || (messages ? { messages, title } : (markdown || ''));
@@ -77,13 +79,17 @@ router.post('/export', async (req: any, res) => {
 // =========================================================================
 // 3. SECURE DOWNLOAD (Tenant-scoped file retrieval)
 // =========================================================================
-router.get('/download/:fileId', async (req: any, res) => {
+router.get('/download/:fileId', requireScopes('documents:read', 'chat:read'), async (req: any, res) => {
   try {
     const tenantId = req.tenant?.id;
     const { fileId } = req.params;
 
     if (!tenantId || !fileId) {
       return res.status(400).json({ error: 'Missing tenant or file identification' });
+    }
+
+    if (!/^[a-zA-Z0-9_\-]{8,64}$/.test(fileId)) {
+      return res.status(400).json({ error: 'Invalid file identification format' });
     }
 
     const file = PdfStorageService.getPdfFile(tenantId, fileId);

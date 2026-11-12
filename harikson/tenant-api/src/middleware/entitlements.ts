@@ -477,6 +477,12 @@ export function requireDocumentQuota(req: Request, res: Response, next: NextFunc
  * Standard Platform Models available to all subscription tiers without requiring the custom_models entitlement.
  */
 export const PLATFORM_DEFAULT_MODELS: readonly string[] = [
+  'xarwiz-plus',
+  'xarwiz-max',
+  'xarwiz-pro',
+  'xarwiz-mini',
+  'xarwiz-8b',
+  'xarwiz-plus-8b',
   'harikson-plus',
   'harikson-max',
   'harikson-pro',

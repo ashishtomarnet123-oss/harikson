@@ -1,6 +1,7 @@
 import logger from '../utils/logger.js';
 import axios from 'axios';
 import * as cheerio from 'cheerio';
+import { SSRFGuard } from './workflow/security/ssrf.js';
 
 /**
  * Detects all HTTP/HTTPS URLs in a given text string.
@@ -13,7 +14,7 @@ export function extractUrls(text: string): string[] {
 }
 
 /**
- * Fetches the HTML of the provided URLs, extracts clean text.
+ * Fetches the HTML of the provided URLs, extracts clean text with SSRF protection.
  */
 export async function crawlUrls(urls: string[]): Promise<string> {
   if (!urls || urls.length === 0) return '';
@@ -22,8 +23,27 @@ export async function crawlUrls(urls: string[]): Promise<string> {
 
   for (const url of urls) {
     try {
-      const response = await axios.get(url, { timeout: 10000 });
-      const html = response.data;
+      const ssrfCheck = await SSRFGuard.validateUrl(url);
+      if (!ssrfCheck.safe) {
+        logger.warn(`[crawlUrls] SSRF blocked attempt to crawl: ${url} (${ssrfCheck.reason})`);
+        results.push(`URL: ${url}\nError: Access denied by SSRF protection (${ssrfCheck.reason}).`);
+        continue;
+      }
+
+      const response = await SSRFGuard.safeFetch(url, {
+        signal: AbortSignal.timeout(10000),
+        headers: {
+          'User-Agent':
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+        },
+      });
+
+      if (!response.ok) {
+        results.push(`URL: ${url}\nError: HTTP ${response.status} ${response.statusText}`);
+        continue;
+      }
+
+      const html = await response.text();
       const $ = cheerio.load(html);
 
       // Remove unwanted tags

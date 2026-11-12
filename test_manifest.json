@@ -1,0 +1,443 @@
+{
+  "generatedAt": "2026-11-12T04:41:19.004Z",
+  "environment": {
+    "nodeVersion": "v24.22.1",
+    "platform": "darwin",
+    "arch": "arm64"
+  },
+  "summary": {
+    "totalTestFiles": 25,
+    "totalSuites": 65,
+    "totalIndividualTests": 382,
+    "totalPassed": 382,
+    "totalFailed": 0,
+    "totalSkipped": 0
+  },
+  "suites": [
+    {
+      "file": "harikson/tenant-api/tests/phase1-admin-auth-security.test.ts",
+      "command": "./node_modules/.bin/tsx --test tests/phase1-admin-auth-security.test.ts",
+      "passed": 10,
+      "failed": 0,
+      "skipped": 0,
+      "suitesCount": 1,
+      "durationMs": 1051,
+      "testCasesCount": 11,
+      "sampleTests": [
+        "1. Admin Login: must reject historical backdoor passwords when password_hash does not match (642.011709ms)",
+        "2. Static Code Check: admin-panel and admin-api have zero occurrences of backdoor password bypasses (1.993208ms)",
+        "3. Secret Hygiene: fallback dev JWT secret string is eliminated from all admin analytics routes (1.564875ms)",
+        "4. Secret Length: system refuses to sign or verify with secrets shorter than 32 characters (0.361042ms)",
+        "5. Claim & Algorithm Enforcement: token algorithm is restricted to HS256 and rejects alg:none (0.786042ms)"
+      ]
+    },
+    {
+      "file": "harikson/tenant-api/tests/phase2-checkout-integrity.test.ts",
+      "command": "./node_modules/.bin/tsx --test tests/phase2-checkout-integrity.test.ts",
+      "passed": 18,
+      "failed": 0,
+      "skipped": 0,
+      "suitesCount": 4,
+      "durationMs": 567,
+      "testCasesCount": 22,
+      "sampleTests": [
+        "1. Rejects checkout for a USD plan with HTTP 400 (1.010083ms)",
+        "2. Rejects checkout for an unsupported currency (EUR) plan with HTTP 400 (0.190375ms)",
+        "3. Rejects checkout for a free plan (price = 0) with HTTP 400 (0.177083ms)",
+        "4. Accepts checkout for valid INR paid plans (0.194291ms)",
+        "5. Handles missing plan currency safely by defaulting to INR if price is positive (0.199541ms)"
+      ]
+    },
+    {
+      "file": "harikson/tenant-api/tests/phase3-multi-tenant-isolation.test.ts",
+      "command": "./node_modules/.bin/tsx --test tests/phase3-multi-tenant-isolation.test.ts",
+      "passed": 10,
+      "failed": 0,
+      "skipped": 0,
+      "suitesCount": 1,
+      "durationMs": 1985,
+      "testCasesCount": 11,
+      "sampleTests": [
+        "1. Migration 078 Audit: all 18 unshielded tables and admin tables have ENABLE & FORCE ROW LEVEL SECURITY (0.981209ms)",
+        "2. executeTenantQuery Input Validation: rejects invalid, empty, or malformed tenantId upfront (0.69375ms)",
+        "3. Context Lifecycle: executeTenantQuery sets app.current_tenant, runs query, and clears context in finally (2.651667ms)",
+        "4. Connection Pollution Guard: connectWithValidation detects dirty tenant context and discards connection (1504.6085ms)",
+        "5. Transaction Rollback on Error: aborted callback transaction issues ROLLBACK before clearing context (1.297167ms)"
+      ]
+    },
+    {
+      "file": "harikson/tenant-api/tests/phase4-billing-financial-integrity.test.ts",
+      "command": "./node_modules/.bin/tsx --test tests/phase4-billing-financial-integrity.test.ts",
+      "passed": 10,
+      "failed": 0,
+      "skipped": 0,
+      "suitesCount": 1,
+      "durationMs": 1028,
+      "testCasesCount": 11,
+      "sampleTests": [
+        "1. calculateProration computes mid-cycle upgrade charge, credit, and 18% standard GST (1.069042ms)",
+        "2. calculateProration yields ₹0 credit when upgrading from free or active trial plans (0.305167ms)",
+        "3. FIN-001 Check: executePlanChange creates pending invoice without elevating plan if payment is unverified (1.426916ms)",
+        "4. executePlanChange allows plan elevation and marks invoice paid ONLY when paymentVerified is true (17.183375ms)",
+        "5. FIN-002 Check: Downgrade from unverified or unpaid plan yields ₹0 credit and records no false credits (0.782083ms)"
+      ]
+    },
+    {
+      "file": "harikson/tenant-api/tests/phase5-payment-gateways-webhooks.test.ts",
+      "command": "./node_modules/.bin/tsx --test tests/phase5-payment-gateways-webhooks.test.ts",
+      "passed": 10,
+      "failed": 0,
+      "skipped": 0,
+      "suitesCount": 1,
+      "durationMs": 938,
+      "testCasesCount": 11,
+      "sampleTests": [
+        "1. Stripe Staging: processes checkout.session.completed with verified INR currency, 18% GST, and active subscription (14.882375ms)",
+        "2. Razorpay Staging: processes payment.captured with verified notes, 18% GST invoice, and plan activation (1.21925ms)",
+        "3. PhonePe Staging: decodes base64 S2S response, verifies checksum, generates GST invoice, and updates plan (0.904541ms)",
+        "4. Cashfree Staging: processes PAYMENT_SUCCESS_WEBHOOK with order tags, generates GST invoice, and updates plan (0.947875ms)",
+        "5. NeuraCollect Staging: processes PAYMENT_SUCCESS with structured externalOrderId, 18% GST, and plan activation (0.998375ms)"
+      ]
+    },
+    {
+      "file": "harikson/tenant-api/tests/phase6-admin-user-panel-widget.test.ts",
+      "command": "./node_modules/.bin/tsx --test tests/phase6-admin-user-panel-widget.test.ts",
+      "passed": 11,
+      "failed": 0,
+      "skipped": 0,
+      "suitesCount": 1,
+      "durationMs": 1134,
+      "testCasesCount": 12,
+      "sampleTests": [
+        "1. GET /api/widget/embed.js delivers self-executing chat widget JS bundle (26.121709ms)",
+        "2. GET /api/widget/script.js delivers identical production widget bundle (2.611917ms)",
+        "3. GET /api/widget/config returns custom tenant branding and greeting (8.19025ms)",
+        "4. GET /api/widget/config enforces widget_allowed_origins and rejects unauthorized origin (2.285375ms)",
+        "5. POST /api/widget/chat rejects messages from unauthorized origins (10.35225ms)"
+      ]
+    },
+    {
+      "file": "harikson/tenant-api/tests/phase7-api-standardization-contract.test.ts",
+      "command": "./node_modules/.bin/tsx --test tests/phase7-api-standardization-contract.test.ts",
+      "passed": 11,
+      "failed": 0,
+      "skipped": 0,
+      "suitesCount": 1,
+      "durationMs": 1422,
+      "testCasesCount": 12,
+      "sampleTests": [
+        "1. standardApi Parser & Formatter: parsePagination and buildPaginatedResponse adhere to specification (0.904625ms)",
+        "2. Legacy Error Envelope Standardization: Search endpoint returns error, message, and legacy hariksonError (40.196125ms)",
+        "3. Legacy Context Error Envelope: returns standard error and backward compatible hariksonError (3.593084ms)",
+        "4. Legacy Tools Error Envelope: returns standard error and hariksonError on tool execution failure (2.406292ms)",
+        "5. Legacy Orchestrator Error Envelope: returns standard error and hariksonError when prompt is absent (2.283875ms)"
+      ]
+    },
+    {
+      "file": "harikson/tenant-api/tests/phase8-database-reliability-integrity.test.ts",
+      "command": "./node_modules/.bin/tsx --test tests/phase8-database-reliability-integrity.test.ts",
+      "passed": 11,
+      "failed": 0,
+      "skipped": 0,
+      "suitesCount": 1,
+      "durationMs": 706,
+      "testCasesCount": 12,
+      "sampleTests": [
+        "1. Checksum Hashing: calculates deterministic SHA-256 checksums matching file contents (0.921916ms)",
+        "2. Migration Integrity Verification: inspects database meta and reports zero drift on clean migrations (53.032875ms)",
+        "3. Migration Idempotency & Locking: repeated runMigrations executions acquire locks and succeed safely (12.48825ms)",
+        "4. Atomic Tenant Transaction Rollback: rolls back changes and clears tenant context when an inner query fails (48.583459ms)",
+        "5. Atomic Tenant Transaction Commit: commits all changes atomically and returns execution payload on success (6.440416ms)"
+      ]
+    },
+    {
+      "file": "harikson/tenant-api/tests/phase9-devops-infrastructure.test.ts",
+      "command": "./node_modules/.bin/tsx --test tests/phase9-devops-infrastructure.test.ts",
+      "passed": 11,
+      "failed": 0,
+      "skipped": 0,
+      "suitesCount": 1,
+      "durationMs": 496,
+      "testCasesCount": 12,
+      "sampleTests": [
+        "1. Prometheus Scrape Targets: targets admin-api on port 4000 and tenant-api on port 3008 (4.350791ms)",
+        "2. Prometheus Bearer Token File: exists on disk and is configured for authenticated scrapers (0.923667ms)",
+        "3. Metrics Endpoint Auth: blocks unauthorized requests and allows Bearer token / internal secret (34.111417ms)",
+        "4. Traefik Routing & TLS: all public routers use Let's Encrypt resolver and TLS options enforce TLS 1.2+ (5.084917ms)",
+        "5. Resource Limits: all containers define explicit CPU and memory cgroup limits (1.796417ms)"
+      ]
+    },
+    {
+      "file": "harikson/tenant-api/tests/phase10-auth-and-security.test.ts",
+      "command": "./node_modules/.bin/tsx --test tests/phase10-auth-and-security.test.ts",
+      "passed": 10,
+      "failed": 0,
+      "skipped": 0,
+      "suitesCount": 5,
+      "durationMs": 637,
+      "testCasesCount": 15,
+      "sampleTests": [
+        "Enforces valid signature and rejects forged/tampered tokens (3.634458ms)",
+        "Rejects expired JWT tokens (0.566334ms)",
+        "Rejects algorithm manipulation attacks (e.g. \"none\" algorithm) (0.176834ms)",
+        "1. JWT Cryptographic Security & Verification (5.109458ms)",
+        "Verifies correct password using bcrypt and rejects invalid password (277.976084ms)"
+      ]
+    },
+    {
+      "file": "harikson/tenant-api/tests/phase10-billing-and-payments.test.ts",
+      "command": "./node_modules/.bin/tsx --test tests/phase10-billing-and-payments.test.ts",
+      "passed": 9,
+      "failed": 0,
+      "skipped": 0,
+      "suitesCount": 4,
+      "durationMs": 517,
+      "testCasesCount": 13,
+      "sampleTests": [
+        "Calculates upgrade proration with 18% GST (Starter $50 -> Professional $150) (0.936958ms)",
+        "Calculates downgrade proration resulting in negative net amount (credit balance) (0.219125ms)",
+        "afeguards against zero-cost Enterprise plan upgrade bypass (0.256375ms)",
+        "1. Proration Calculations & GST Taxation (2.09875ms)",
+        "tripe: Generates and verifies HMAC-SHA256 timestamped signatures (0.595084ms)"
+      ]
+    },
+    {
+      "file": "harikson/tenant-api/tests/phase10-core-workflows-documents-agents.test.ts",
+      "command": "./node_modules/.bin/tsx --test tests/phase10-core-workflows-documents-agents.test.ts",
+      "passed": 10,
+      "failed": 0,
+      "skipped": 0,
+      "suitesCount": 5,
+      "durationMs": 311,
+      "testCasesCount": 15,
+      "sampleTests": [
+        "Encrypts document text and decrypts cleanly with matching key and authTag (1.786541ms)",
+        "Rejects decryption and detects tampering when ciphertext or authTag is altered (0.413208ms)",
+        "Enforces document upload whitelist (PDF, DOCX, TXT, CSV) and rejects executable formats (0.162458ms)",
+        "1. Document Security & AES-256-GCM Encryption at Rest (3.129042ms)",
+        "Topologically sorts valid DAG nodes into executable dependency order (0.787375ms)"
+      ]
+    },
+    {
+      "file": "harikson/tenant-api/tests/phase10-e2e-contracts-regression.test.ts",
+      "command": "./node_modules/.bin/tsx --test tests/phase10-e2e-contracts-regression.test.ts",
+      "passed": 10,
+      "failed": 0,
+      "skipped": 0,
+      "suitesCount": 5,
+      "durationMs": 344,
+      "testCasesCount": 15,
+      "sampleTests": [
+        "tandardizes successful response contract envelope { success: true, data: ... } (2.36225ms)",
+        "tandardizes error response contract envelope { success: false, error: { code, message } } (0.164958ms)",
+        "tandardizes pagination envelope schema and calculations (0.185ms)",
+        "1. API Contract Envelopes & Response Consistency (3.466959ms)",
+        "Executes full administrative control plane lifecycle hermetically (2.839583ms)"
+      ]
+    },
+    {
+      "file": "harikson/tenant-api/tests/phase11-ai-security-hardening.test.ts",
+      "command": "./node_modules/.bin/tsx --test tests/phase11-ai-security-hardening.test.ts",
+      "passed": 24,
+      "failed": 0,
+      "skipped": 0,
+      "suitesCount": 8,
+      "durationMs": 3311,
+      "testCasesCount": 32,
+      "sampleTests": [
+        "Blocks internal cloud metadata service (169.254.169.254) (1.111042ms)",
+        "Blocks loopback IPv4 addresses (127.0.0.1, 127.0.0.2) (0.252792ms)",
+        "Blocks private RFC1918 subnets (10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16) (0.200667ms)",
+        "Blocks restricted Docker and internal platform hostnames (0.308667ms)",
+        "Blocks dangerous non-HTTP/HTTPS protocols (0.313375ms)"
+      ]
+    },
+    {
+      "file": "harikson/tenant-api/tests/phase13-enterprise-readiness-acceptance.test.ts",
+      "command": "./node_modules/.bin/tsx --test tests/phase13-enterprise-readiness-acceptance.test.ts",
+      "passed": 35,
+      "failed": 0,
+      "skipped": 0,
+      "suitesCount": 16,
+      "durationMs": 599,
+      "testCasesCount": 51,
+      "sampleTests": [
+        "Verifies admin JWT structure, signature, and role enforcement (3.082625ms)",
+        "Enforces brute-force login throttling and lockout after threshold failures (0.255ms)",
+        "Validates single-use refresh token rotation and revocation (0.197667ms)",
+        "1. Admin Authentication & Security Hardening (4.278042ms)",
+        "Verifies user token carries explicit tenant context (0.778667ms)"
+      ]
+    },
+    {
+      "file": "harikson/tenant-api/tests/universal-pdf-suite.test.ts",
+      "command": "./node_modules/.bin/tsx tests/universal-pdf-suite.test.ts",
+      "passed": 81,
+      "failed": 0,
+      "skipped": 0,
+      "suitesCount": 1,
+      "durationMs": 4406,
+      "testCasesCount": 81,
+      "sampleTests": [
+        "Extracted top heading as title",
+        "tripped raw script tags",
+        "tripped iframe tags",
+        "reserved genuine user content",
+        "Found table block"
+      ]
+    },
+    {
+      "file": "harikson/tenant-api/tests/audit-trail-entitlement.test.ts",
+      "command": "./node_modules/.bin/tsx --test tests/audit-trail-entitlement.test.ts",
+      "passed": 12,
+      "failed": 0,
+      "skipped": 0,
+      "suitesCount": 1,
+      "durationMs": 1333,
+      "testCasesCount": 13,
+      "sampleTests": [
+        "1. Tenant with audit_trail: true is permitted to access activity audit history (1.133791ms)",
+        "2. Tenant with audit_trail: false is denied with HTTP 403 Forbidden and PLAN_FEATURE_DISABLED (0.301458ms)",
+        "3. Mandatory security logging (activity_logs insert) persists regardless of audit_trail flag (42.399875ms)",
+        "4. Mandatory consent & privacy logging continues when audit_trail is false (11.109625ms)",
+        "5. Tenant isolation: query scopes by authenticated tenant_id, preventing cross-tenant access (25.079917ms)"
+      ]
+    },
+    {
+      "file": "harikson/tenant-api/tests/custom-models-entitlement.test.ts",
+      "command": "./node_modules/.bin/tsx --test tests/custom-models-entitlement.test.ts",
+      "passed": 13,
+      "failed": 0,
+      "skipped": 0,
+      "suitesCount": 1,
+      "durationMs": 4843,
+      "testCasesCount": 14,
+      "sampleTests": [
+        "1. A tenant with custom_models: true can register and use custom models (15.752ms)",
+        "2. A tenant with custom_models: false is denied the protected operation with 403 PLAN_FEATURE_DISABLED (0.364334ms)",
+        "3. Explicit Boolean configuration overrides the fallback (1.606959ms)",
+        "4. Missing or malformed configuration follows documented fallback (Enterprise=true, others=false) (5.80775ms)",
+        "5. Default platform models remain available to tenants without the custom-model entitlement (0.83275ms)"
+      ]
+    },
+    {
+      "file": "harikson/tenant-api/tests/dpdp-compliance-entitlement.test.ts",
+      "command": "./node_modules/.bin/tsx --test tests/dpdp-compliance-entitlement.test.ts",
+      "passed": 14,
+      "failed": 0,
+      "skipped": 0,
+      "suitesCount": 1,
+      "durationMs": 1261,
+      "testCasesCount": 15,
+      "sampleTests": [
+        "1. dpdp_compliance: false does not disable mandatory consent operations (5.893125ms)",
+        "2. Missing or malformed feature configuration does not disable mandatory privacy safeguards (1.056125ms)",
+        "3. Consent records continue to be created and preserved (1.240542ms)",
+        "4. Applicable privacy data-export workflows remain accessible for all tiers (1.058583ms)",
+        "5. Applicable access, correction, erasure, and grievance workflows remain available (8.607667ms)"
+      ]
+    },
+    {
+      "file": "harikson/tenant-api/tests/priority-support-entitlement.test.ts",
+      "command": "./node_modules/.bin/tsx --test tests/priority-support-entitlement.test.ts",
+      "passed": 12,
+      "failed": 0,
+      "skipped": 0,
+      "suitesCount": 1,
+      "durationMs": 1268,
+      "testCasesCount": 13,
+      "sampleTests": [
+        "1. Tenant with priority_support: true receives supported priority treatment (55.97925ms)",
+        "2. Tenant with priority_support: false retains standard support access (9.064167ms)",
+        "3. Priority-only operations return 403 PLAN_FEATURE_DISABLED when disabled (3.659625ms)",
+        "4. Explicit boolean configuration overrides fallback behavior (3.420083ms)",
+        "5. Missing or malformed configuration follows documented fallback (3.100875ms)"
+      ]
+    },
+    {
+      "file": "harikson/tenant-api/tests/sla-hours-entitlement.test.ts",
+      "command": "./node_modules/.bin/tsx --test tests/sla-hours-entitlement.test.ts",
+      "passed": 15,
+      "failed": 0,
+      "skipped": 0,
+      "suitesCount": 1,
+      "durationMs": 2109,
+      "testCasesCount": 16,
+      "sampleTests": [
+        "1. A ticket receives the correct configured SLA target at creation (Starter=72h, Pro=12h, Ent=2h, Free=null) (99.567167ms)",
+        "2. Deadline calculation is correct for supported target values (calendar hours from creation) (13.792334ms)",
+        "3. Missing or malformed configuration follows documented fallback policy (11.063208ms)",
+        "4. Explicit configured values are respected (custom hours and 0 meaning no SLA) (4.875334ms)",
+        "5. A substantive response before the deadline is recorded correctly (sla_status: met) (11.775958ms)"
+      ]
+    },
+    {
+      "file": "harikson/tenant-api/tests/webhook-logging-entitlement.test.ts",
+      "command": "./node_modules/.bin/tsx --test tests/webhook-logging-entitlement.test.ts",
+      "passed": 13,
+      "failed": 0,
+      "skipped": 0,
+      "suitesCount": 1,
+      "durationMs": 1740,
+      "testCasesCount": 14,
+      "sampleTests": [
+        "1. Tenant with webhook_logging: true can access permitted webhook history (1.158334ms)",
+        "2. Tenant with webhook_logging: false receives 403 PLAN_FEATURE_DISABLED (0.306208ms)",
+        "3. Explicit feature configuration overrides fallback (Starter with true, Pro with false) (3.367666ms)",
+        "4. Missing or malformed feature configuration follows documented fallback (8.62125ms)",
+        "5. Tenant isolation: Tenant A cannot access Tenant B's webhook records (74.015458ms)"
+      ]
+    },
+    {
+      "file": "harikson/tenant-api/tests/cashfree.test.ts",
+      "command": "./node_modules/.bin/tsx --test tests/cashfree.test.ts",
+      "passed": 13,
+      "failed": 0,
+      "skipped": 0,
+      "suitesCount": 1,
+      "durationMs": 1140,
+      "testCasesCount": 14,
+      "sampleTests": [
+        "1. Config retrieval returns valid Cashfree endpoints and apiVersion (39.325875ms)",
+        "2. Partner request headers include x-partner-apikey, x-partner-merchantid, and x-api-version (0.228333ms)",
+        "3. Signature verification succeeds for valid HMAC-SHA256 signature (0.427916ms)",
+        "4. Signature verification fails for tampered or invalid signature (0.129417ms)",
+        "5. Initiate payment generates valid order ID and payment session (358.76475ms)"
+      ]
+    },
+    {
+      "file": "harikson/tenant-api/tests/phonepe.test.ts",
+      "command": "./node_modules/.bin/tsx --test tests/phonepe.test.ts",
+      "passed": 5,
+      "failed": 0,
+      "skipped": 0,
+      "suitesCount": 1,
+      "durationMs": 1274,
+      "testCasesCount": 6,
+      "sampleTests": [
+        "1. Config retrieval returns valid sandbox defaults (25.777ms)",
+        "2. Signature verification succeeds for valid X-VERIFY checksum (2.259583ms)",
+        "3. Signature verification fails for tampered or invalid checksum (1.364791ms)",
+        "4. Webhook response decoding parses typed payload accurately (0.387458ms)",
+        "5. Initiate payment generates valid transaction ID and sandbox redirect URL (454.003417ms)"
+      ]
+    },
+    {
+      "file": "admin-api/tests/admin-auth.test.js",
+      "command": "node --test tests/admin-auth.test.js",
+      "passed": 4,
+      "failed": 0,
+      "skipped": 0,
+      "suitesCount": 1,
+      "durationMs": 141,
+      "testCasesCount": 5,
+      "sampleTests": [
+        "OST /admin/auth/login - validates admin JWT authentication (0.682875ms)",
+        "Tenant CRUD - creates, lists, updates, and deletes tenants (0.641833ms)",
+        "Impersonation Flow - generates short-lived 5-minute single-use Redis token (0.137583ms)",
+        "lan Management - creates and updates subscription plans (0.108125ms)",
+        "dmin API Test Suite (2.564708ms)"
+      ]
+    }
+  ]
+}

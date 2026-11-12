@@ -2,29 +2,12 @@ import { Router, Response } from 'express';
 import jwt from 'jsonwebtoken';
 import { executeTenantQuery } from '../db/pool.js';
 import logger from '../utils/logger.js';
+import { requireAuth } from '../middleware/auth.js';
 
 const router = Router();
 
 // Require authenticated user for all voice operations
-router.use((req: any, res: Response, next) => {
-  const authHeader = req.headers.authorization || '';
-  const cookieToken = req.cookies?.hk_access_token;
-  let token = '';
-  if (authHeader.startsWith('Bearer ')) {
-    token = authHeader.substring(7);
-  } else if (cookieToken) {
-    token = cookieToken;
-  }
-  if (!token) {
-    return res.status(401).json({ error: 'Unauthorized' });
-  }
-  try {
-    req.user = jwt.verify(token, process.env.JWT_SECRET!);
-  } catch (err) {
-    return res.status(401).json({ error: 'Unauthorized' });
-  }
-  next();
-});
+router.use(requireAuth);
 
 /**
  * POST /api/voice/session — Start a new voice session

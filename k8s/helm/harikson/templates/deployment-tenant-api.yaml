@@ -48,6 +48,16 @@ spec:
                 secretKeyRef:
                   name: harikson-secrets
                   key: jwt-secret
+            - name: TENANT_MASTER_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: harikson-secrets
+                  key: tenant-master-key
+            - name: INTERNAL_API_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: harikson-secrets
+                  key: internal-api-secret
             - name: PAYMENT_ENCRYPTION_KEY
               valueFrom:
                 secretKeyRef:

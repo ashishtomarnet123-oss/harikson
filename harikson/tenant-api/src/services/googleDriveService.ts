@@ -1,5 +1,5 @@
 import { google } from 'googleapis';
-import pdf from 'pdf-parse';
+import pdf from 'pdf-parse/lib/pdf-parse.js';
 import mammoth from 'mammoth';
 
 function getOAuthConfig() {

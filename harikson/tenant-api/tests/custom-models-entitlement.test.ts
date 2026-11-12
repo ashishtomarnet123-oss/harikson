@@ -170,7 +170,7 @@ describe('Xarwiz Isolated Bug Fix 7: Custom Models Plan Feature Enforcement Test
         name: 'Enterprise Custom LLM',
         modelIdentifier: 'custom-enterprise-8b',
         baseModel: 'qwen3-8b',
-        endpointUrl: 'https://llm.enterprise.com/v1',
+        endpointUrl: 'https://example.com/v1',
         apiKey: 'sk-live-secret-enterprise-12345',
       },
     });

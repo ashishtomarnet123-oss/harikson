@@ -616,6 +616,12 @@ async function handleChat(req: any, res: any) {
 
   // Single-GPU VM - all tiers map to the loaded model until multi-model infra is available.
   const MODEL_MAP: Record<string, string> = {
+    'xarwiz-plus':      'qwen2.5:3b',
+    'xarwiz-max':       'qwen2.5:3b',
+    'xarwiz-pro':       'qwen2.5:3b',
+    'xarwiz-mini':      'qwen2.5:3b',
+    'xarwiz-8b':        'qwen2.5:3b',
+    'xarwiz-plus-8b':   'qwen2.5:3b',
     'harikson-plus':    'qwen2.5:3b',
     'harikson-max':     'qwen2.5:3b',
     'harikson-pro':     'qwen2.5:3b',

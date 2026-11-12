@@ -1,6 +1,7 @@
 import PDFDocument from 'pdfkit';
 import path from 'path';
 import fs from 'fs';
+import { fileURLToPath } from 'url';
 import {
   DocumentModel,
   DocumentBlock,
@@ -40,12 +41,15 @@ export class PdfRenderer {
   private static initFonts(): void {
     if (this.fontsInitialized) return;
 
-    // Search common font locations
+    // Search common font locations across monorepo layouts and subdirectories
+    const currentDir = path.dirname(fileURLToPath(import.meta.url));
     const candidateDirs = [
       path.resolve(process.cwd(), 'assets/fonts'),
+      path.resolve(process.cwd(), 'harikson/tenant-api/assets/fonts'),
       path.resolve(process.cwd(), 'dist/assets/fonts'),
-      path.join(path.dirname(new URL(import.meta.url).pathname), '../../../assets/fonts'),
-      path.join(path.dirname(new URL(import.meta.url).pathname), '../../../../assets/fonts'),
+      path.join(currentDir, '../../../assets/fonts'),
+      path.join(currentDir, '../../../../assets/fonts'),
+      path.join(currentDir, '../../assets/fonts'),
     ];
 
     let fontDir: string | null = null;

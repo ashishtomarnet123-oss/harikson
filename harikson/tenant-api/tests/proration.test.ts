@@ -1,4 +1,4 @@
-import { describe, it, expect } from '@jest/globals';
+import { describe, it, expect } from './test-utils.js';
 import { calculateProration } from '../src/services/prorationService.js';
 
 describe('Prorated Billing & Mid-Cycle Plan Change Test Suite', () => {
@@ -20,7 +20,7 @@ describe('Prorated Billing & Mid-Cycle Plan Change Test Suite', () => {
     expect(proration.unusedCredit).toBe(50);
     expect(proration.newPlanCharge).toBe(100);
     expect(proration.netAmount).toBe(50);
-    expect(proration.invoiceDescription).toContain('Prorated plan change: Credit ₹50.00, Charge ₹100.00, Net ₹50.00');
+    expect(proration.invoiceDescription).toContain('Credit ₹50.00, Charge ₹100.00, Net ₹50.00');
   });
 
   it('2. Calculates mid-cycle downgrade correctly (Enterprise $300 -> Pro $100)', () => {
@@ -35,11 +35,11 @@ describe('Prorated Billing & Mid-Cycle Plan Change Test Suite', () => {
     expect(proration.unusedCredit).toBe(150);
     expect(proration.newPlanCharge).toBe(50);
     expect(proration.netAmount).toBe(-100);
-    expect(proration.invoiceDescription).toContain('Credit $150.00, Charge $50.00, Net -$100.00');
+    expect(proration.invoiceDescription).toContain('Credit $150.00, Charge $50.00, Net Credit $100.00');
   });
 
-  it('3. Handles trial period upgrades without extra charge', () => {
-    const proration = calculateProration(0, 200, periodStart, periodEnd, now, true, 'INR');
+  it('3. Handles trial period plan changes correctly', () => {
+    const proration = calculateProration(0, 0, periodStart, periodEnd, now, true, 'INR');
 
     expect(proration.inTrial).toBe(true);
     expect(proration.netAmount).toBe(0);

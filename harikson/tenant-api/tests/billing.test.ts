@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterAll } from '@jest/globals';
+import { describe, it, expect, beforeEach, afterAll } from './test-utils.js';
 import { pool } from '../src/db/pool.js';
 import { createTestTenant } from './factories/tenantFactory.js';
 import { resetTestDatabase } from './helpers/db.js';

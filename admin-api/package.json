@@ -5,7 +5,8 @@
   "main": "src/admin.js",
   "type": "module",
   "scripts": {
-    "start": "node src/admin.js"
+    "start": "node src/admin.js",
+    "test": "node --test tests/admin-auth.test.js"
   },
   "dependencies": {
     "bcrypt": "^5.1.1",

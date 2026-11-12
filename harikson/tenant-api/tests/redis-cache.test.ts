@@ -1,5 +1,8 @@
-import { describe, it, expect } from '@jest/globals';
+import { describe, it, expect, before, after } from './test-utils.js';
 import {
+  pool,
+  readPool,
+  redis,
   executeCachedQuery,
   getCacheHitMetrics,
   invalidatePlanCache,
@@ -8,6 +11,24 @@ import {
 } from '../src/db/pool.js';
 
 describe('Redis DB Query Cache & Invalidation Test Suite', () => {
+  before(async () => {
+    if (redis.status === 'wait') {
+      await redis.connect().catch(() => {});
+    }
+  });
+
+  after(async () => {
+    try {
+      if (redis.status === 'ready') {
+        await redis.quit();
+      } else {
+        redis.disconnect();
+      }
+    } catch {}
+    await pool.end().catch(() => {});
+    await readPool.end().catch(() => {});
+  });
+
   it('1. Caches static query results and tracks hits/misses telemetry', async () => {
     const sql = 'SELECT * FROM plans WHERE id = $1';
     const params = ['pro'];

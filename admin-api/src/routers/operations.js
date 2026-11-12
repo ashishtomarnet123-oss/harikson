@@ -828,9 +828,11 @@ router.get('/notifications', async (req, res) => {
       `SELECT COUNT(*) FROM notifications WHERE (user_id=$1 OR user_id IS NULL) AND is_read=false`,
       [adminId]
     );
+    const count = parseInt(unread.rows[0].count, 10) || 0;
     res.json({
       notifications: result.rows,
-      unread_count: parseInt(unread.rows[0].count),
+      unread_count: count,
+      unreadCount: count,
     });
   } catch (err) {
     logger.error('Notifications error:', err);

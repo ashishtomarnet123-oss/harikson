@@ -9,6 +9,7 @@ import { requireApiAccess } from '../middleware/entitlements.js';
 import { requireAuth } from '../middleware/auth.js';
 
 const router = Router();
+router.use(requireAuth);
 
 const chatSchema = z.object({
   message: z.string().min(1),
@@ -40,8 +41,8 @@ router.post('/', requireAuth, requireApiAccess, async (req: Request, res: Respon
     }
 
     const { message, useRag } = check.data;
-    const tenantId = (req as any).user?.tenantId || (req as any).tenantId || (req as any).tenant?.id;
-    const userId = (req as any).user?.userId || (req as any).userId;
+const tenantId = (req as any).user?.tenantId || (req as any).tenantId || (req as any).tenant?.id;
+    const userId = (req as any).user?.userId || (req as any).user?.id || (req as any).userId;
 
     if (!tenantId || !userId) {
       return res.status(401).json({ error: 'Unauthorized: Missing tenant or user context' });

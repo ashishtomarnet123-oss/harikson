@@ -21,6 +21,9 @@ import dotenv from 'dotenv';
 import path from 'path';
 import fs from 'fs';
 import jwt from 'jsonwebtoken';
+import crypto from 'crypto';
+import metricsAuthGuard from './middleware/metricsAuth.js';
+import metrics from './observability/metrics.js';
 import { runMigrations } from './utils/migrate.js';
 import { pool, checkDbHealth } from './db/pool.js';
 import { validateMasterKeyConfig } from './services/documentEncryptionService.js';
@@ -145,7 +148,15 @@ app.use(
     },
   })
 );
-app.use(express.urlencoded({ extended: true, limit: '25mb' }));
+app.use(
+  express.urlencoded({
+    extended: true,
+    limit: '25mb',
+    verify: (req: any, _res, buf) => {
+      if (!req.rawBody) req.rawBody = buf;
+    },
+  })
+);
 
 // Custom simple cookie parser middleware
 app.use((req, _res, next) => {
@@ -222,8 +233,14 @@ app.use(async (req, res, next) => {
     }
 
     if (!tenant) {
-      // Health/readiness probes must work without a tenant
-      if (req.path === '/health' || req.path.startsWith('/health/') || req.path === '/ready') {
+      // Health/readiness probes and Prometheus metrics must work without a tenant
+      if (
+        req.path === '/health' ||
+        req.path.startsWith('/health/') ||
+        req.path === '/ready' ||
+        req.path === '/metrics' ||
+        req.path === '/api/metrics'
+      ) {
         return next();
       }
 
@@ -334,6 +351,8 @@ app.use('/api/v1/chat', chatRoutes);
 app.use('/v1/chat', chatRoutes);
 app.use('/api/documents', documentRoutes);
 app.use('/api/v1/documents', documentRoutes);
+app.use('/webhooks', billingRoutes);
+app.use('/billing', billingRoutes);
 app.use('/api/billing', billingRoutes);
 app.use('/api/v1/billing', billingRoutes);
 app.use('/api/agents', agentRoutes);
@@ -391,6 +410,12 @@ app.use('/api/search', searchRouter);
 app.use('/api/context', contextRouter);
 app.use('/api/tools', toolsRouter);
 app.use('/api/orchestrator', orchestratorRouter);
+
+// GET /metrics & /api/metrics - Secured Prometheus Metrics Scrape Endpoint
+app.get(['/metrics', '/api/metrics'], metricsAuthGuard, (_req, res) => {
+  res.setHeader('Content-Type', 'text/plain; version=0.0.4; charset=utf-8');
+  return res.status(200).send(metrics.getPrometheusFormat());
+});
 
 
 // Global Error Handler Middleware

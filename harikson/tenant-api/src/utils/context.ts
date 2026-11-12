@@ -79,3 +79,11 @@ export const requestContext = {
   run: <R>(store: IRequestContext, callback: () => R): R => RequestContext.run(store, callback),
   update: (partial: Partial<IRequestContext>) => RequestContext.update(partial),
 };
+
+export function setTenantContext(tenantId?: string, userId?: string): void {
+  RequestContext.update({ tenantId, userId });
+}
+
+export function clearTenantContext(): void {
+  RequestContext.update({ tenantId: undefined, userId: undefined });
+}

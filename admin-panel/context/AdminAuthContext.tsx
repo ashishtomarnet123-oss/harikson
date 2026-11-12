@@ -134,6 +134,16 @@ export const AdminAuthProvider = ({ children }: { children: React.ReactNode }) =
         if (u) { setUser(u); return; }
       }
 
+      // If access token expired, attempt transparent refresh via refresh token
+      const { res: refreshRes } = await safeFetchJson(`${prefix}/api/auth/refresh`, { method: 'POST' });
+      if (refreshRes?.ok) {
+        const { res: rRetry, data: dRetry } = await safeFetchJson(`${prefix}/api/auth/me`);
+        if (rRetry?.ok) {
+          const u = parseUser(dRetry);
+          if (u) { setUser(u); return; }
+        }
+      }
+
       // FALLBACK: /api-proxy/v1/admin/auth/me - proxy to admin-api
       const { res: r2, data: d2 } = await safeFetchJson(`${prefix}/api-proxy/v1/admin/auth/me`);
       if (r2?.ok) {

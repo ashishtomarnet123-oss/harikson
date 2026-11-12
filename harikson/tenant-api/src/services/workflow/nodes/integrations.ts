@@ -4,6 +4,7 @@ import { SSRFGuard } from '../security/ssrf.js';
 import { CredentialService } from '../credential.service.js';
 import { Logger } from '../../../observability/logger.js';
 import { sendEmail } from '../../email.js';
+import { IsolatedSandbox } from '../security/isolatedSandbox.js';
 
 export const HttpNode: INodeHandler = {
   metadata: {
@@ -195,50 +196,29 @@ export const CodeNode: INodeHandler = {
   async execute(input: INodeInput, context: IWorkflowExecutionContext): Promise<INodeOutput> {
     const code = input.config?.codeSnippet || input.config?.value || 'return input;';
 
-    // Sandbox execution with restricted global scope
-    try {
-      const restrictedScope = {
-        Math,
-        Date,
-        JSON,
-        parseInt,
-        parseFloat,
-        isNaN,
-        isFinite,
-        encodeURIComponent,
-        decodeURIComponent,
-      };
+    // Execute in isolated separate process sandbox (non-root, filesystem-isolated, no platform secrets, 64MB RAM limit, hard timeout)
+    const result = await IsolatedSandbox.execute({
+      codeSnippet: code,
+      incomingData: input.incomingData,
+      triggerPayload: context?.triggerPayload,
+      nodesOutputs: context?.nodesOutputs,
+      tenantId: context?.tenantId || 'default',
+      executionId: context?.executionId || 'default',
+      timeoutMs: 2000,
+    });
 
-      // Wrap in isolated function with no access to process/require
-      const sandboxFn = new Function(
-        'input',
-        'trigger',
-        'nodes',
-        'scope',
-        `
-        const { Math, Date, JSON, parseInt, parseFloat, isNaN, isFinite, encodeURIComponent, decodeURIComponent } = scope;
-        ${code}
-      `
-      );
-
-      const result = sandboxFn(
-        input.incomingData,
-        context.triggerPayload,
-        context.nodesOutputs,
-        restrictedScope
-      );
-
-      return {
-        status: 'success',
-        data: result !== undefined ? result : { success: true },
-      };
-    } catch (codeErr: any) {
+    if (result.status === 'failed') {
       return {
         status: 'failed',
-        error: `Code execution error: ${codeErr.message}`,
+        error: result.error || 'Code execution failed in sandbox',
         retryable: false,
       };
     }
+
+    return {
+      status: 'success',
+      data: result.data !== undefined ? result.data : { success: true },
+    };
   },
 };
 

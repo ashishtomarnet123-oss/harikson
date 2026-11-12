@@ -26,6 +26,9 @@ export interface BackupCodeRecord {
  * Generate base32 secret for TOTP using otplib.
  */
 export function generateTotpSecret(): string {
+  if (typeof (otplibPkg as any).generateSecret === 'function') {
+    return (otplibPkg as any).generateSecret();
+  }
   return authenticator.generateSecret();
 }
 
@@ -33,7 +36,13 @@ export function generateTotpSecret(): string {
  * Generate OTPAuth URI string for QR code generation using otplib.
  */
 export function generateOtpauthUrl(email: string, secret: string, serviceName: string = 'Xarwiz'): string {
-  return authenticator.keyuri(email, serviceName, secret);
+  if (typeof (otplibPkg as any).generateURI === 'function') {
+    return (otplibPkg as any).generateURI({ issuer: serviceName, label: email, secret });
+  }
+  if (typeof authenticator?.keyuri === 'function') {
+    return authenticator.keyuri(email, serviceName, secret);
+  }
+  return `otpauth://totp/${encodeURIComponent(serviceName)}:${encodeURIComponent(email)}?secret=${secret}&issuer=${encodeURIComponent(serviceName)}`;
 }
 
 /**
@@ -41,6 +50,10 @@ export function generateOtpauthUrl(email: string, secret: string, serviceName: s
  */
 export function verifyTotpToken(code: string, secret: string): boolean {
   try {
+    if (typeof (otplibPkg as any).verifySync === 'function') {
+      const res = (otplibPkg as any).verifySync({ token: code, secret });
+      return !!res?.valid;
+    }
     return authenticator.verify({ token: code, secret });
   } catch (err) {
     return false;

@@ -4,9 +4,10 @@ let primaryPool: Pool | null = null;
 
 export function getDbPool(): Pool {
   if (!primaryPool) {
-    const connectionString =
-      process.env.DATABASE_URL ||
-      'postgresql://neuravolt:neuravolt_dev_pwd@localhost:5432/neuravolt';
+    const connectionString = process.env.DATABASE_URL;
+    if (!connectionString) {
+      throw new Error('DATABASE_URL environment variable is required');
+    }
 
     primaryPool = new Pool({
       connectionString,

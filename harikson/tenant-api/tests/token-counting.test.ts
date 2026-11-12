@@ -1,4 +1,4 @@
-import { describe, it, expect } from '@jest/globals';
+import { describe, it, expect } from './test-utils.js';
 import { countExactTokens, estimateTokens } from '../src/services/tokenCountingService.js';
 
 describe('Token Counting Service - Exact vs Estimate Comparison Suite', () => {

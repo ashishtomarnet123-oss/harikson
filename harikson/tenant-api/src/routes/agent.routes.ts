@@ -5,28 +5,39 @@ import { HariksonOrchestrator } from '../services/agents/orchestrator.js';
 import { requireAuth } from '../middleware/auth.js';
 import { requireScopes } from '../middleware/scopeAuth.js';
 import { isPlatformDefaultModel } from '../middleware/entitlements.js';
+import { requireAuth } from '../middleware/auth.js';
+import { parsePagination, buildPaginatedResponse } from '../utils/standardApi.js';
 
 const router = Router();
+router.use(requireAuth);
 
 // Enforce authentication on all agent endpoints
 router.use(requireAuth);
 
 // GET /api/agents
 router.get('/', requireScopes('chat:read'), async (req: any, res) => {
-
-
   try {
-    const agentsRes = await executeTenantQuery(req.tenant.id, (client) =>
-      client.query(
+    const pagination = parsePagination(req, 50, 100);
+    const [agentsRes, countRes] = await executeTenantQuery(req.tenant.id, async (client) => {
+      const list = await client.query(
         `SELECT id, name, model, system_prompt, status, total_requests, total_tokens, avg_response_time_ms, last_used_at, created_at
          FROM agents
          WHERE tenant_id = $1 AND status != 'deleted'
-         ORDER BY created_at DESC`,
+         ORDER BY created_at DESC
+         LIMIT $2 OFFSET $3`,
+        [req.tenant.id, pagination.limit, pagination.offset]
+      );
+      const count = await client.query(
+        `SELECT COUNT(*)::int as total
+         FROM agents
+         WHERE tenant_id = $1 AND status != 'deleted'`,
         [req.tenant.id]
-      )
-    );
+      );
+      return [list, count];
+    });
 
-    res.json({ agents: agentsRes.rows });
+    const total = countRes.rows[0]?.total || 0;
+    res.json(buildPaginatedResponse('agents', agentsRes.rows, total, pagination));
   } catch (err: any) {
     logger.error('Fetch agents error:', err);
     res.status(500).json({ error: 'Failed to fetch AI agents' });
@@ -35,9 +46,14 @@ router.get('/', requireScopes('chat:read'), async (req: any, res) => {
 
 // POST /api/agents
 router.post('/', requireScopes('chat:write'), async (req: any, res) => {
+  const { name, model = 'qwen3-coder', systemPrompt = 'You are a helpful AI assistant.' } = req.body || {};
 
-
-  const { name, model = 'qwen3-coder', systemPrompt = 'You are a helpful AI assistant.' } = req.body;
+  if (!name || typeof name !== 'string' || !name.trim()) {
+    return res.status(400).json({
+      error: 'Agent name is required',
+      code: 'INVALID_REQUEST',
+    });
+  }
 
   if (model && !isPlatformDefaultModel(model)) {
     if (!req.entitlements?.customModels) {
@@ -74,12 +90,13 @@ router.post('/', requireScopes('chat:write'), async (req: any, res) => {
   }
 
   try {
+    const userId = req.user?.userId || req.user?.id || null;
     const insertRes = await executeTenantQuery(req.tenant.id, (client) =>
       client.query(
-        `INSERT INTO agents (tenant_id, name, model, system_prompt, status, created_at)
-         VALUES ($1, $2, $3, $4, 'active', NOW())
+        `INSERT INTO agents (tenant_id, name, model, system_prompt, status, user_id, created_at)
+         VALUES ($1, $2, $3, $4, 'active', $5, NOW())
          RETURNING id, name, model, system_prompt, status, created_at`,
-        [req.tenant.id, name, model, systemPrompt]
+        [req.tenant.id, name, model, systemPrompt, userId]
       )
     );
 
@@ -257,16 +274,19 @@ router.post('/:id/execute', requireScopes('chat:write'), async (req: any, res) =
 
 // DELETE /api/agents/:id
 router.delete('/:id', requireScopes('chat:write'), async (req: any, res) => {
-
   const { id } = req.params;
 
   try {
-    await executeTenantQuery(req.tenant.id, (client) =>
+    const delRes = await executeTenantQuery(req.tenant.id, (client) =>
       client.query(
-        `UPDATE agents SET status = 'deleted', updated_at = NOW() WHERE id = $1 AND tenant_id = $2`,
+        `UPDATE agents SET status = 'deleted', updated_at = NOW() WHERE id = $1 AND tenant_id = $2 AND status != 'deleted' RETURNING id`,
         [id, req.tenant.id]
       )
     );
+
+    if (delRes.rows.length === 0) {
+      return res.status(404).json({ error: 'Agent not found or already deleted' });
+    }
 
     res.json({ success: true, message: 'Agent deleted successfully' });
   } catch (err: any) {

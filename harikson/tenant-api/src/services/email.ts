@@ -2,10 +2,8 @@ import logger from '../utils/logger.js';
 import { Resend } from 'resend';
 import nodemailer from 'nodemailer';
 import { Redis } from 'ioredis';
-import { pool } from '../db/pool.js';
+import { pool, redis } from '../db/pool.js';
 import { decryptSecret } from './emailCrypto.js';
-
-const redis = new Redis(process.env.REDIS_URL || 'redis://redis:6379');
 
 /**
  * Retrieve active email / SMTP configuration from PostgreSQL database with transparent decryption,

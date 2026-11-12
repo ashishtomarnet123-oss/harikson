@@ -1,12 +1,25 @@
-import { describe, it, expect } from '@jest/globals';
+import { describe, it, expect, after } from './test-utils.js';
 import { checkTrialExpirations } from '../src/services/trialService.js';
 import { setupCustomDomain } from '../src/services/customDomainService.js';
 import { generatePasskeyRegistrationOptions, generatePasskeyAuthOptions } from '../src/services/webauthnService.js';
+import { pool, readPool, redis } from '../src/db/pool.js';
 
 describe('LOW-015, LOW-017, LOW-020, LOW-024 Audit Features Test Suite', () => {
   const tenantId = '00000000-0000-0000-0000-000000000000';
   const userId = '00000000-0000-0000-0000-000000000000';
-  const email = 'admin@harikson.ai';
+  const email = process.env.TEST_ADMIN_EMAIL || 'test-admin@xarwiz.test';
+
+  after(async () => {
+    try {
+      await pool.end();
+      await readPool.end();
+      if (redis.status !== 'end') {
+        redis.disconnect();
+      }
+    } catch {
+      // ignore
+    }
+  });
 
   it('1. LOW-015: Checks trial period expirations and reminders without error', async () => {
     await expect(checkTrialExpirations()).resolves.not.toThrow();

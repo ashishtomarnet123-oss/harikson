@@ -7,8 +7,11 @@ import {
   isPlatformDefaultModel,
 } from '../middleware/entitlements.js';
 import { CredentialService } from '../services/workflow/credential.service.js';
+import { SSRFGuard } from '../services/workflow/security/ssrf.js';
+import { requireAuth } from '../middleware/auth.js';
 
 const router = Router();
+router.use('/custom', requireAuth);
 
 // Model identifier validation: alphanumeric, dash, dot, underscore, colon, 2-100 chars
 const MODEL_IDENTIFIER_REGEX = /^[a-zA-Z0-9_\-.:]{2,100}$/;
@@ -164,7 +167,7 @@ router.post('/custom', requireCustomModels, async (req: any, res: Response) => {
     logger.warn('Identifier conflict check warning:', err.message);
   }
 
-  // Validate endpoint URL if provided
+  // Validate endpoint URL if provided with SSRF protection
   let cleanEndpoint: string | null = null;
   if (endpointUrl && typeof endpointUrl === 'string' && endpointUrl.trim().length > 0) {
     try {
@@ -173,6 +176,13 @@ router.post('/custom', requireCustomModels, async (req: any, res: Response) => {
         return res.status(400).json({
           error: 'Endpoint URL must use HTTP or HTTPS protocol.',
           code: 'INVALID_ENDPOINT_PROTOCOL',
+        });
+      }
+      const ssrfCheck = await SSRFGuard.validateUrl(endpointUrl.trim());
+      if (!ssrfCheck.safe) {
+        return res.status(400).json({
+          error: `Endpoint URL rejected by SSRF protection: ${ssrfCheck.reason}`,
+          code: 'SSRF_VALIDATION_FAILED',
         });
       }
       cleanEndpoint = parsedUrl.toString();
@@ -289,6 +299,13 @@ router.put('/custom/:id', requireCustomModels, async (req: any, res: Response) =
           return res.status(400).json({
             error: 'Endpoint URL must use HTTP or HTTPS protocol.',
             code: 'INVALID_ENDPOINT_PROTOCOL',
+          });
+        }
+        const ssrfCheck = await SSRFGuard.validateUrl(endpointUrl.trim());
+        if (!ssrfCheck.safe) {
+          return res.status(400).json({
+            error: `Endpoint URL rejected by SSRF protection: ${ssrfCheck.reason}`,
+            code: 'SSRF_VALIDATION_FAILED',
           });
         }
         cleanEndpoint = parsedUrl.toString();

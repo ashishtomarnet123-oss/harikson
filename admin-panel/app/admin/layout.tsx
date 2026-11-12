@@ -47,7 +47,8 @@ const menuSections = [
   {
     label: 'Operations',
     items: [
-      { name: 'Tenants & Plans', path: '/admin/tenants', icon: Users },
+      { name: 'Tenants & Workspaces', path: '/admin/tenants', icon: Users },
+      { name: 'Subscription Plans', path: '/admin/tenants?tab=plans', icon: CreditCard },
       { name: 'Legal Holds', path: '/admin/tenants/legal-holds', icon: Scale },
       { name: 'Users', path: '/admin/users', icon: Users },
       { name: 'Voice Telemetry', path: '/admin/voice', icon: Mic },
@@ -140,7 +141,7 @@ export default function AdminLayout({
       if (res.ok) {
         const d = await res.json();
         setNotifications(d.notifications || []);
-        setUnreadCount(d.unread_count || 0);
+        setUnreadCount(d.unread_count !== undefined ? d.unread_count : (d.unreadCount !== undefined ? d.unreadCount : 0));
       }
     } catch (err: any) {
       console.error('Error fetching admin notifications:', err);

@@ -562,6 +562,23 @@ export class PrivacyService {
         [tenantId, userId]
       );
 
+      // Purge personal voice telemetry, voice sessions, and voice settings for privacy compliance
+      await client.query(
+        `DELETE FROM voice_settings WHERE tenant_id = $1 AND user_id = $2`,
+        [tenantId, userId]
+      ).catch((e) => logger.warn('[PrivacyService] Voice settings purge warning:', e.message));
+
+      await client.query(
+        `DELETE FROM voice_sessions WHERE tenant_id = $1 AND user_id = $2`,
+        [tenantId, userId]
+      ).catch((e) => logger.warn('[PrivacyService] Voice sessions purge warning:', e.message));
+
+      // Purge user's personal chat conversations & messages
+      await client.query(
+        `DELETE FROM conversations WHERE tenant_id = $1 AND user_id = $2`,
+        [tenantId, userId]
+      ).catch((e) => logger.warn('[PrivacyService] Conversations purge warning:', e.message));
+
       // 4. Record audit event for regulatory accountability
       await client.query(
         `INSERT INTO consent_audit_events (

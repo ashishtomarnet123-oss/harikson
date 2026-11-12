@@ -13,18 +13,29 @@ mkdir -p "$BACKUP_DIR"
 
 echo "Starting Xarwiz Cloud backup cycle..."
 
-# Check if PostgreSQL container is running
-if [ "$(docker ps -q -f name=harikson-postgres)" ]; then
-  echo "Backing up PostgreSQL database..."
-  docker exec -e PGPASSWORD="${POSTGRES_PASSWORD}" harikson-postgres \
-    pg_dump -U neuravolt neuravolt | gzip > "$DB_BACKUP_FILE"
-  echo "PostgreSQL backup written to: $DB_BACKUP_FILE"
+# Check if PostgreSQL container is running, or fall back to native pg_dump
+if [ -n "$(which docker 2>/dev/null || true)" ] && [ "$(docker ps -q -f name=harikson-postgres 2>/dev/null || true)" ]; then
+  echo "Backing up PostgreSQL database from Docker container..."
+  docker exec -e PGPASSWORD="${POSTGRES_PASSWORD:-neuravolt_dev_pwd}" harikson-postgres \
+    pg_dump -U "${POSTGRES_USER:-neuravolt}" "${POSTGRES_DB:-neuravolt}" | gzip > "$DB_BACKUP_FILE"
+elif command -v pg_dump &>/dev/null; then
+  echo "Backing up PostgreSQL database using host pg_dump CLI..."
+  PGPASSWORD="${POSTGRES_PASSWORD:-neuravolt_dev_pwd}" pg_dump -h "${PGHOST:-localhost}" -p "${PGPORT:-5432}" -U "${POSTGRES_USER:-neuravolt}" "${POSTGRES_DB:-neuravolt}" | gzip > "$DB_BACKUP_FILE"
 else
-  echo "ERROR: harikson-postgres container is not running. Cannot backup."
+  echo "ERROR: Neither harikson-postgres container nor pg_dump CLI available. Cannot backup."
   exit 1
 fi
 
-# Archive volumes
+echo "PostgreSQL backup written to: $DB_BACKUP_FILE"
+
+# Compute and write SHA-256 checksum for cryptographic integrity verification
+if command -v shasum &>/dev/null; then
+  shasum -a 256 "$DB_BACKUP_FILE" > "${DB_BACKUP_FILE}.sha256"
+elif command -v sha256sum &>/dev/null; then
+  sha256sum "$DB_BACKUP_FILE" > "${DB_BACKUP_FILE}.sha256"
+fi
+
+# Archive volumes (if local bind mount data directories exist)
 echo "Compressing data volumes..."
 if [ -d "./data/postgres" ] || [ -d "./data/redis" ]; then
   tar -czf "$VOLUME_BACKUP_FILE" \
@@ -32,8 +43,7 @@ if [ -d "./data/postgres" ] || [ -d "./data/redis" ]; then
     ./data/postgres ./data/redis 2>/dev/null || true
   echo "Volumes backup written to: $VOLUME_BACKUP_FILE"
 else
-  echo "ERROR: Data directories not found at ./data/"
-  exit 1
+  echo "NOTE: Data directories not found at ./data/ (skipping volume tarball)."
 fi
 
 # Retention: keep last 7 daily backups

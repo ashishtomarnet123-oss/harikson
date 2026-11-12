@@ -11,12 +11,16 @@ import { WorkflowEventEmitter } from '../services/workflow/telemetry/events.js';
 import { enqueueWorkflowExecution } from '../services/workflow/queue.js';
 import { WorkflowScheduler } from '../services/workflow/scheduler.js';
 import { requireAuth } from '../middleware/auth.js';
+import { requireScopes } from '../middleware/scopeAuth.js';
 
 const router = Router();
 
-// Enforce authentication on all workflow endpoints (except authenticated inbound webhooks which use webhook_secret)
-router.use((req, res, next) => {
-  if (req.path.includes('/webhook') || req.path.includes('/trigger')) {
+// Router-level authentication guard: All workflow management and execution endpoints
+// require valid authentication (JWT session or API key).
+// External inbound webhook endpoints authenticate using their configured workflow webhook secret.
+router.use((req: any, res, next) => {
+  if (req.method === 'POST' && (req.path.includes('/webhook') || req.path.endsWith('/trigger'))) {
+
     return next();
   }
   return requireAuth(req, res, next);
@@ -42,7 +46,7 @@ router.get('/metadata/nodes', (_req, res) => {
 // ==============================================================================
 
 // GET /api/v1/workflows/credentials - List encrypted credentials for tenant
-router.get('/credentials', async (req: any, res) => {
+router.get('/credentials', requireScopes('workflows:read', 'admin:*'), async (req: any, res) => {
   const tenantId = req.tenant?.id;
   if (!tenantId) return res.status(400).json({ error: 'Tenant context required' });
 
@@ -56,7 +60,7 @@ router.get('/credentials', async (req: any, res) => {
 });
 
 // POST /api/v1/workflows/credentials - Create new encrypted credential
-router.post('/credentials', async (req: any, res) => {
+router.post('/credentials', requireScopes('workflows:write', 'admin:*'), async (req: any, res) => {
   const tenantId = req.tenant?.id;
   if (!tenantId) return res.status(400).json({ error: 'Tenant context required' });
 
@@ -82,7 +86,7 @@ router.post('/credentials', async (req: any, res) => {
 });
 
 // PUT /api/v1/workflows/credentials/:credId - Update credential
-router.put('/credentials/:credId', async (req: any, res) => {
+router.put('/credentials/:credId', requireScopes('workflows:write', 'admin:*'), async (req: any, res) => {
   const tenantId = req.tenant?.id;
   const { credId } = req.params;
   const { name, secretData, metadata } = req.body;
@@ -98,7 +102,7 @@ router.put('/credentials/:credId', async (req: any, res) => {
 });
 
 // DELETE /api/v1/workflows/credentials/:credId - Delete credential
-router.delete('/credentials/:credId', async (req: any, res) => {
+router.delete('/credentials/:credId', requireScopes('workflows:write', 'admin:*'), async (req: any, res) => {
   const tenantId = req.tenant?.id;
   const { credId } = req.params;
 
@@ -156,11 +160,42 @@ router.get('/templates', async (_req, res) => {
 // ==============================================================================
 
 // GET /api/v1/workflows - List workflows for tenant
-router.get('/', async (req: any, res) => {
+router.get('/', requireScopes('workflows:read'), async (req: any, res) => {
   try {
     const tenantId = req.tenant?.id;
     if (!tenantId) {
       return res.status(400).json({ error: 'Tenant context required' });
+    }
+
+    if (req.query.page || req.query.limit || req.query.offset) {
+      const page = Math.max(1, parseInt(req.query.page as string, 10) || 1);
+      const limit = Math.min(100, Math.max(1, parseInt(req.query.limit as string, 10) || 20));
+      const offset = req.query.offset ? Math.max(0, parseInt(req.query.offset as string, 10) || 0) : (page - 1) * limit;
+
+      const [pagedRes, totalRes] = await executeTenantQuery(tenantId, async (client) => {
+        const paged = await client.query(
+          `SELECT w.*,
+                  (SELECT COUNT(*) FROM workflow_executions we WHERE we.workflow_id = w.id) as total_runs,
+                  (SELECT we2.status FROM workflow_executions we2 WHERE we2.workflow_id = w.id ORDER BY started_at DESC LIMIT 1) as last_status
+           FROM workflows w
+           WHERE w.tenant_id = $1
+           ORDER BY w.created_at DESC
+           LIMIT $2 OFFSET $3`,
+          [tenantId, limit, offset]
+        );
+        const count = await client.query('SELECT COUNT(*)::int as total FROM workflows WHERE tenant_id = $1', [tenantId]);
+        return [paged, count];
+      });
+
+      const total = totalRes.rows[0]?.total || 0;
+      return res.json({
+        workflows: pagedRes.rows,
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit) || 1,
+        hasMore: page * limit < total,
+      });
     }
 
     const workflowsRes = await executeTenantQuery(tenantId, (client) =>
@@ -183,7 +218,7 @@ router.get('/', async (req: any, res) => {
 });
 
 // POST /api/v1/workflows - Create new workflow
-router.post('/', async (req: any, res) => {
+router.post('/', requireScopes('workflows:write'), async (req: any, res) => {
   const {
     name,
     description,
@@ -254,7 +289,7 @@ router.post('/', async (req: any, res) => {
 });
 
 // GET /api/v1/workflows/:id - Get workflow details
-router.get('/:id', async (req: any, res) => {
+router.get('/:id', requireScopes('workflows:read'), async (req: any, res) => {
   const { id } = req.params;
   const tenantId = req.tenant?.id;
 
@@ -275,7 +310,7 @@ router.get('/:id', async (req: any, res) => {
 });
 
 // PUT /api/v1/workflows/:id - Update workflow metadata & definition
-router.put('/:id', async (req: any, res) => {
+router.put('/:id', requireScopes('workflows:write'), async (req: any, res) => {
   const { id } = req.params;
   const tenantId = req.tenant?.id;
   const { name, description, trigger_type, cron_expression, webhook_secret, status, steps, definition } = req.body;
@@ -326,7 +361,7 @@ router.put('/:id', async (req: any, res) => {
 });
 
 // DELETE /api/v1/workflows/:id - Delete workflow
-router.delete('/:id', async (req: any, res) => {
+router.delete('/:id', requireScopes('workflows:write'), async (req: any, res) => {
   const { id } = req.params;
   const tenantId = req.tenant?.id;
 
@@ -352,7 +387,7 @@ router.delete('/:id', async (req: any, res) => {
 // ==============================================================================
 
 // POST /api/v1/workflows/:id/validate - Validate current graph
-router.post('/:id/validate', async (req: any, res) => {
+router.post('/:id/validate', requireScopes('workflows:read'), async (req: any, res) => {
   const { id } = req.params;
   const tenantId = req.tenant?.id;
   const graph = req.body.definition;
@@ -380,7 +415,7 @@ router.post('/:id/validate', async (req: any, res) => {
 });
 
 // GET /api/v1/workflows/:id/versions - List all versions
-router.get('/:id/versions', async (req: any, res) => {
+router.get('/:id/versions', requireScopes('workflows:read'), async (req: any, res) => {
   const { id } = req.params;
   const tenantId = req.tenant?.id;
 
@@ -394,7 +429,7 @@ router.get('/:id/versions', async (req: any, res) => {
 });
 
 // POST /api/v1/workflows/:id/draft - Save canvas draft
-router.post('/:id/draft', async (req: any, res) => {
+router.post('/:id/draft', requireScopes('workflows:write'), async (req: any, res) => {
   const { id } = req.params;
   const tenantId = req.tenant?.id;
   const { definition, settings, changelog } = req.body;
@@ -418,7 +453,7 @@ router.post('/:id/draft', async (req: any, res) => {
 });
 
 // POST /api/v1/workflows/:id/publish - Publish version to production
-router.post('/:id/publish', async (req: any, res) => {
+router.post('/:id/publish', requireScopes('workflows:write'), async (req: any, res) => {
   const { id } = req.params;
   const tenantId = req.tenant?.id;
   const { versionId, changelog } = req.body;
@@ -455,7 +490,7 @@ router.post('/:id/publish', async (req: any, res) => {
 });
 
 // POST /api/v1/workflows/:id/rollback - Rollback to past version
-router.post('/:id/rollback', async (req: any, res) => {
+router.post('/:id/rollback', requireScopes('workflows:write'), async (req: any, res) => {
   const { id } = req.params;
   const tenantId = req.tenant?.id;
   const { targetVersionId } = req.body;
@@ -482,7 +517,7 @@ router.post('/:id/rollback', async (req: any, res) => {
 // ==============================================================================
 
 // POST /api/v1/workflows/:id/run or /execute - Manually execute workflow via BullMQ queue
-router.post(['/:id/run', '/:id/execute'], async (req: any, res) => {
+router.post(['/:id/run', '/:id/execute'], requireScopes('workflows:write'), async (req: any, res) => {
   const { id } = req.params;
   const tenantId = req.tenant?.id;
   const triggerPayload = req.body || {};
@@ -536,7 +571,7 @@ router.post(['/:id/run', '/:id/execute'], async (req: any, res) => {
 });
 
 // GET /api/v1/workflows/:id/executions - Fetch execution history
-router.get('/:id/executions', async (req: any, res) => {
+router.get('/:id/executions', requireScopes('workflows:read'), async (req: any, res) => {
   const { id } = req.params;
   const tenantId = req.tenant?.id;
 
@@ -560,7 +595,7 @@ router.get('/:id/executions', async (req: any, res) => {
 });
 
 // GET /api/v1/workflows/:id/executions/:execId - Get single execution with durable checkpoints
-router.get('/:id/executions/:execId', async (req: any, res) => {
+router.get('/:id/executions/:execId', requireScopes('workflows:read'), async (req: any, res) => {
   const { id, execId } = req.params;
   const tenantId = req.tenant?.id;
 
@@ -595,7 +630,7 @@ router.get('/:id/executions/:execId', async (req: any, res) => {
 });
 
 // POST /api/v1/workflows/:id/executions/:execId/retry - Re-enqueue failed execution with same payload via BullMQ
-router.post('/:id/executions/:execId/retry', async (req: any, res) => {
+router.post('/:id/executions/:execId/retry', requireScopes('workflows:write'), async (req: any, res) => {
   const { id, execId } = req.params;
   const tenantId = req.tenant?.id;
 
@@ -654,7 +689,7 @@ router.post('/:id/executions/:execId/retry', async (req: any, res) => {
 });
 
 // POST /api/v1/workflows/:id/run-from-node - Execute downstream subgraph from specific node using checkpoints
-router.post('/:id/run-from-node', async (req: any, res) => {
+router.post('/:id/run-from-node', requireScopes('workflows:write'), async (req: any, res) => {
   const { id } = req.params;
   const tenantId = req.tenant?.id;
   const { startNodeId, previousExecutionId } = req.body;
@@ -742,8 +777,26 @@ router.post('/:id/run-from-node', async (req: any, res) => {
 });
 
 // GET /api/v1/workflows/:id/executions/:execId/events - Server-Sent Events (SSE) telemetry stream
-router.get('/:id/executions/:execId/events', (req: any, res) => {
-  const { execId } = req.params;
+router.get('/:id/executions/:execId/events', requireScopes('workflows:read'), async (req: any, res) => {
+  const { id, execId } = req.params;
+  const tenantId = req.tenant?.id;
+  if (!tenantId) return res.status(400).json({ error: 'Tenant context required' });
+
+  try {
+    const execRes = await executeTenantQuery(tenantId, (client) =>
+      client.query(
+        `SELECT id FROM workflow_executions WHERE id = $1 AND workflow_id = $2 AND tenant_id = $3`,
+        [execId, id, tenantId]
+      )
+    );
+
+    if (!execRes.rows.length) {
+      return res.status(404).json({ error: 'Execution not found or access denied' });
+    }
+  } catch (err: any) {
+    logger.error('Verify execution ownership error:', err);
+    return res.status(500).json({ error: 'Failed to verify execution' });
+  }
 
   res.setHeader('Content-Type', 'text/event-stream');
   res.setHeader('Cache-Control', 'no-cache');

@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterAll } from '@jest/globals';
+import { describe, it, expect, beforeEach, afterAll } from './test-utils.js';
 import { pool } from '../src/db/pool.js';
 import { createTestTenant, createTestUser } from './factories/tenantFactory.js';
 import { resetTestDatabase } from './helpers/db.js';
@@ -22,12 +22,16 @@ describe('Tenant API - Row-Level Security (RLS) Test Suite', () => {
     const client = await pool.connect();
     try {
       await client.query('BEGIN');
-      await client.query(`SET LOCAL app.current_tenant_id = $1`, [tenantX.id]);
+      await client.query('SET LOCAL ROLE neuravolt_app');
+      await client.query(`SELECT set_config('app.current_tenant', $1, true)`, [tenantX.id]);
 
       const res = await client.query('SELECT * FROM users WHERE id = $1', [userB.id]);
       expect(res.rows.length).toBe(0);
 
       await client.query('COMMIT');
+    } catch (err) {
+      await client.query('ROLLBACK').catch(() => {});
+      throw err;
     } finally {
       client.release();
     }
@@ -41,12 +45,16 @@ describe('Tenant API - Row-Level Security (RLS) Test Suite', () => {
     const client = await pool.connect();
     try {
       await client.query('BEGIN');
-      await client.query(`SET LOCAL app.current_tenant_id = $1`, [tenantX.id]);
+      await client.query('SET LOCAL ROLE neuravolt_app');
+      await client.query(`SELECT set_config('app.current_tenant', $1, true)`, [tenantX.id]);
 
       const res = await client.query('SELECT * FROM users WHERE tenant_id = $1', [tenantX.id]);
       expect(res.rows.length).toBe(2);
 
       await client.query('COMMIT');
+    } catch (err) {
+      await client.query('ROLLBACK').catch(() => {});
+      throw err;
     } finally {
       client.release();
     }
@@ -55,7 +63,7 @@ describe('Tenant API - Row-Level Security (RLS) Test Suite', () => {
   it('Missing Tenant Context - Query returns empty or enforces strict tenant filter', async () => {
     const client = await pool.connect();
     try {
-      const res = await client.query(`SELECT current_setting('app.current_tenant_id', true) as tenant_id`);
+      const res = await client.query(`SELECT current_setting('app.current_tenant', true) as tenant_id`);
       const activeTenant = res.rows[0].tenant_id;
       expect(activeTenant).toBeFalsy();
     } finally {

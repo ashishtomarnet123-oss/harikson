@@ -137,6 +137,29 @@ const navSections = [
       },
     ],
   },
+  {
+    title: 'PREFERENCES & SUPPORT',
+    items: [
+      {
+        id: 'appearance',
+        name: 'Appearance',
+        icon: Palette,
+        Component: AppearanceSettings,
+      },
+      {
+        id: 'language',
+        name: 'Language & Region',
+        icon: Globe,
+        Component: LanguageSettings,
+      },
+      {
+        id: 'help',
+        name: 'Help & Support',
+        icon: HelpCircle,
+        Component: HelpSettings,
+      },
+    ],
+  },
 ];
 
 // Flatten all items for easy lookup

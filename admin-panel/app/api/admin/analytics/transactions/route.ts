@@ -1,18 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getDbPool } from '../../../../../lib/db';
-import jwt from 'jsonwebtoken';
+import { verifyAdminToken } from '../../../../../lib/auth';
 
 export const dynamic = 'force-dynamic';
 
-function getJwtSecret(): string {
-  return (
-    process.env.JWT_SECRET ||
-    process.env.NEXTAUTH_SECRET ||
-    'neuravolt_dev_jwt_secret_key_extremely_long_and_secure_value_12345!'
-  );
-}
-
-function verifyAdmin(req: NextRequest) {
+async function verifyAdmin(req: NextRequest) {
   let token = null;
   const authHeader = req.headers.get('authorization');
   if (authHeader && authHeader.startsWith('Bearer ')) {
@@ -27,19 +19,14 @@ function verifyAdmin(req: NextRequest) {
     return { valid: false, error: 'Access Denied: No token provided' };
   }
 
-  try {
-    const decoded = jwt.verify(token, getJwtSecret()) as any;
-    return { valid: true, user: decoded };
-  } catch (err: any) {
-    return { valid: false, error: 'Access Denied: Invalid token' };
-  }
+  return await verifyAdminToken(token, 'access');
 }
 
 export async function GET(req: NextRequest) {
   try {
-    const auth = verifyAdmin(req);
+    const auth = await verifyAdmin(req);
     if (!auth.valid) {
-      return NextResponse.json({ error: auth.error }, { status: 401 });
+      return NextResponse.json({ error: auth.error }, { status: auth.code === 'FORBIDDEN' ? 403 : 401 });
     }
 
     const { searchParams } = new URL(req.url);

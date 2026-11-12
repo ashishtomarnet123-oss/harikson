@@ -14,6 +14,7 @@ services:
     restart: unless-stopped
     command:
       - '--api.dashboard=true'
+      - '--ping=true'
       - '--providers.docker=true'
       - '--providers.docker.exposedbydefault=false'
       - '--entrypoints.web.address=:80'
@@ -41,6 +42,18 @@ services:
       - harikson-network
     labels:
       - "traefik.enable=false"
+    security_opt:
+      - no-new-privileges:true
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 512m
+    healthcheck:
+      test: ['CMD', 'traefik', 'healthcheck', '--ping']
+      interval: 15s
+      timeout: 5s
+      retries: 3
     logging:
       driver: 'json-file'
       options:
@@ -68,6 +81,11 @@ services:
         limits:
           cpus: '3.5'
           memory: 12g
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:11434/ || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
     logging:
       driver: 'json-file'
       options:
@@ -90,9 +108,12 @@ services:
       - ./init.sql:/docker-entrypoint-initdb.d/init.sql:ro
     networks:
       - harikson-network
+    security_opt:
+      - no-new-privileges:true
     deploy:
       resources:
         limits:
+          cpus: '2.0'
           memory: 1536m
     healthcheck:
       test: ['CMD-SHELL', 'pg_isready -U neuravolt']
@@ -110,19 +131,22 @@ services:
     image: redis:7-alpine
     container_name: harikson-redis
     restart: unless-stopped
-    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD:-harikson_redis_pwd} --stop-writes-on-bgsave-error no --maxmemory-policy allkeys-lru
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD:?REDIS_PASSWORD_REQUIRED} --maxmemory 256mb --maxmemory-policy noeviction --stop-writes-on-bgsave-error no
     expose:
       - '6379'
     volumes:
       - ${DATA_DIR:-./data}/redis:/data
     networks:
       - harikson-network
+    security_opt:
+      - no-new-privileges:true
     deploy:
       resources:
         limits:
+          cpus: '0.50'
           memory: 256m
     healthcheck:
-      test: ['CMD', 'redis-cli', '-a', '${REDIS_PASSWORD:-harikson_redis_pwd}', '--no-auth-warning', 'ping']
+      test: ['CMD', 'redis-cli', '-a', '${REDIS_PASSWORD:?REDIS_PASSWORD_REQUIRED}', '--no-auth-warning', 'ping']
       interval: 10s
       timeout: 5s
       retries: 5
@@ -147,10 +171,18 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock:ro
     networks:
       - harikson-network
+    security_opt:
+      - no-new-privileges:true
     deploy:
       resources:
         limits:
+          cpus: '0.50'
           memory: 512m
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5001/health"]
+      interval: 20s
+      timeout: 5s
+      retries: 3
     logging:
       driver: 'json-file'
       options:
@@ -167,8 +199,9 @@ services:
     image: ${REGISTRY:-ghcr.io}/${IMAGE_PREFIX:-ashishtomarnet123-oss/harikson}-tenant-api:latest
     restart: unless-stopped
     environment:
-      - DATABASE_URL=postgresql://neuravolt:${POSTGRES_PASSWORD:-neuravolt_dev_pwd}@postgres:5432/neuravolt
-      - REDIS_URL=redis://:${REDIS_PASSWORD:-harikson_redis_pwd}@redis:6379
+      - DATABASE_URL=postgresql://xarwiz_tenant_app:${TENANT_DB_PASSWORD:-tenant_app_secure_password_vault}@postgres:5432/neuravolt
+      - REDIS_URL=redis://:${REDIS_PASSWORD:?REDIS_PASSWORD_REQUIRED}@redis:6379
+      - REDIS_QUEUE_URL=redis://:${REDIS_PASSWORD:?REDIS_PASSWORD_REQUIRED}@redis:6379
       - JWT_SECRET
       - TENANT_MASTER_KEY
       - INTERNAL_API_SECRET
@@ -199,6 +232,8 @@ services:
         condition: service_healthy
     networks:
       - harikson-network
+    security_opt:
+      - no-new-privileges:true
     labels:
       - 'traefik.enable=true'
       - 'traefik.http.routers.tenant-api.rule=Host(`api.xarwiz.com`)'
@@ -212,6 +247,7 @@ services:
     deploy:
       resources:
         limits:
+          cpus: '2.0'
           memory: 4g
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:3008/health"]
@@ -231,8 +267,9 @@ services:
     image: ${REGISTRY:-ghcr.io}/${IMAGE_PREFIX:-ashishtomarnet123-oss/harikson}-admin-api:latest
     restart: unless-stopped
     environment:
-      - DATABASE_URL=postgresql://neuravolt:${POSTGRES_PASSWORD:-neuravolt_dev_pwd}@postgres:5432/neuravolt
-      - REDIS_URL=redis://:${REDIS_PASSWORD:-harikson_redis_pwd}@redis:6379
+      - DATABASE_URL=postgresql://xarwiz_admin_app:${ADMIN_DB_PASSWORD:-admin_app_secure_password_vault}@postgres:5432/neuravolt
+      - REDIS_URL=redis://:${REDIS_PASSWORD:?REDIS_PASSWORD_REQUIRED}@redis:6379
+      - REDIS_QUEUE_URL=redis://:${REDIS_PASSWORD:?REDIS_PASSWORD_REQUIRED}@redis:6379
       - JWT_SECRET
       - PORT=4000
       - NODE_ENV=${NODE_ENV:-development}
@@ -249,9 +286,12 @@ services:
         condition: service_healthy
     networks:
       - harikson-network
+    security_opt:
+      - no-new-privileges:true
     deploy:
       resources:
         limits:
+          cpus: '1.0'
           memory: 512m
     labels:
       - 'traefik.enable=true'
@@ -294,6 +334,13 @@ services:
       - NEXTAUTH_SECRET
     networks:
       - harikson-network
+    security_opt:
+      - no-new-privileges:true
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1024m
     labels:
       - 'traefik.enable=true'
       - 'traefik.http.routers.admin-panel.rule=Host(`admin.xarwiz.com`)'
@@ -337,11 +384,18 @@ services:
       - NEXTAUTH_URL=${NEXTAUTH_URL:-https://xarwiz.com}
     networks:
       - harikson-network
+    security_opt:
+      - no-new-privileges:true
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 2048m
     labels:
       - 'traefik.enable=true'
       - 'traefik.http.routers.user-portal.rule=Host(`xarwiz.com`) || Host(`www.xarwiz.com`)'
       - 'traefik.http.routers.user-portal.entrypoints=websecure'
-      - 'traefik.http.routers.user-portal.tls=true'
+      - 'traefik.http.routers.user-portal.tls.certresolver=letsencrypt'
       - 'traefik.http.routers.user-portal.middlewares=security-headers@file,rate-limit@file'
       - 'traefik.http.services.user-portal.loadbalancer.server.port=3002'
     depends_on:
@@ -367,6 +421,7 @@ services:
     volumes:
       - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - ./monitoring/alert_rules.yml:/etc/prometheus/alert_rules.yml:ro
+      - ./monitoring/metrics_token:/etc/prometheus/metrics_token:ro
       - ${DATA_DIR:-./data}/prometheus:/prometheus
     networks:
       - harikson-network
@@ -375,6 +430,11 @@ services:
         limits:
           memory: 512M
           cpus: '0.50'
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://localhost:9090/-/healthy || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
     logging:
       driver: 'json-file'
       options:
@@ -408,6 +468,11 @@ services:
       - 'traefik.http.routers.grafana.tls.certresolver=letsencrypt'
       - 'traefik.http.routers.grafana.middlewares=security-headers@file,rate-limit@file'
       - 'traefik.http.services.grafana.loadbalancer.server.port=3003'
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://localhost:3003/api/health || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
     logging:
       driver: 'json-file'
       options:

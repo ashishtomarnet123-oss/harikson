@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import crypto from 'crypto';
 import { pool, getCacheHitMetrics } from '../db/pool.js';
 import { rotateDocumentKeys } from '../services/documentEncryptionService.js';
 import { executeDatabaseCleanup } from '../services/cleanupService.js';
@@ -7,18 +8,29 @@ import logger from '../utils/logger.js';
 const router = Router();
 
 // Shared-secret guard for service-to-service calls from admin-api. This
-// endpoint runs the same batched deletion logic the scheduler already runs
-// on a cron — it must not be reachable by anything other than admin-api's
-// own manual-trigger route, so it never uses cookie/JWT auth.
+// endpoint runs privileged administrative operations (cleanup, key rotation, metrics)
+// and must never be reachable without timing-safe cryptographic verification.
 function requireInternalSecret(req: any, res: any, next: any) {
   const expected = process.env.INTERNAL_API_SECRET;
-  if (!expected) {
-    return res.status(503).json({ error: 'Internal API secret not configured on this service' });
+  if (!expected || expected.length < 32) {
+    return res.status(503).json({ error: 'Internal API secret not configured or too short' });
   }
-  const provided = req.headers['x-internal-secret'];
-  if (provided !== expected) {
-    return res.status(403).json({ error: 'Forbidden' });
+
+  const provided = (req.headers['x-internal-secret'] as string) || '';
+  if (!provided) {
+    return res.status(401).json({ error: 'Unauthorized: Internal service secret required' });
   }
+
+  const providedBuf = Buffer.from(provided);
+  const expectedBuf = Buffer.from(expected);
+
+  if (
+    providedBuf.length !== expectedBuf.length ||
+    !crypto.timingSafeEqual(providedBuf, expectedBuf)
+  ) {
+    return res.status(403).json({ error: 'Forbidden: Invalid internal secret' });
+  }
+
   next();
 }
 
@@ -36,12 +48,17 @@ router.post('/cleanup', requireInternalSecret, async (_req, res) => {
   }
 });
 
-// POST /api/admin/rotate-keys - Document encryption key rotation
-router.post('/rotate-keys', async (req: any, res) => {
+// POST /api/admin/rotate-keys - Document encryption key rotation (internal service only)
+router.post('/rotate-keys', requireInternalSecret, async (req: any, res) => {
+  const tenantId = req.body?.tenantId || req.query?.tenantId || req.tenant?.id;
+  const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
+  if (!tenantId || !isUuid.test(tenantId)) {
+    return res.status(400).json({ error: 'Valid tenantId UUID required for key rotation' });
+  }
 
   try {
-    const count = await rotateDocumentKeys(req.tenant.id);
+    const count = await rotateDocumentKeys(tenantId);
     res.json({ success: true, rotatedCount: count });
   } catch (err: any) {
     logger.error('Document key rotation error:', err);
@@ -49,8 +66,8 @@ router.post('/rotate-keys', async (req: any, res) => {
   }
 });
 
-// GET /api/admin/metrics - Redis & DB performance metrics
-router.get('/metrics', (_req, res) => {
+// GET /api/admin/metrics - Redis & DB performance metrics (protected internal diagnostic)
+router.get('/metrics', requireInternalSecret, (_req, res) => {
   const cacheMetrics = getCacheHitMetrics();
   res.json({
     cache: cacheMetrics,

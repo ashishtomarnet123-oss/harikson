@@ -22,9 +22,12 @@ router.post('/execute', requireAuth, async (req: Request, res: Response) => {
   try {
     const check = executeToolsSchema.safeParse(req.body);
     if (!check.success) {
-      return res
-        .status(400)
-        .json({ hariksonError: 'Invalid payload parameters.' });
+      const errMsg = 'Invalid payload parameters.';
+      return res.status(400).json({
+        error: errMsg,
+        message: errMsg,
+        hariksonError: errMsg,
+      });
     }
 
     const { conversationId, workspacePath, toolCalls } = check.data;
@@ -59,7 +62,11 @@ router.post('/execute', requireAuth, async (req: Request, res: Response) => {
     const safeMessage = error.message?.includes('Security Exception')
       ? error.message
       : 'Tool execution encountered an error';
-    return res.status(500).json({ hariksonError: safeMessage });
+    return res.status(500).json({
+      error: safeMessage,
+      message: safeMessage,
+      hariksonError: safeMessage,
+    });
   }
 });
 

@@ -1,7 +1,25 @@
-import { describe, it, expect } from '@jest/globals';
-import { enqueueWebhookEvent, processWebhookPayload } from '../src/services/webhookRetryService.js';
+import { describe, it, expect, after } from './test-utils.js';
+import { enqueueWebhookEvent, processWebhookPayload, webhookRetryQueue, webhookDeadLetterQueue, webhookRedisConnection } from '../src/services/webhookRetryService.js';
+import { pool, readPool, redis } from '../src/db/pool.js';
 
 describe('Reliable Webhook Retry Queue & Idempotency Test Suite', () => {
+  after(async () => {
+    try {
+      await webhookRetryQueue.close();
+      await webhookDeadLetterQueue.close();
+      if (webhookRedisConnection && webhookRedisConnection.status !== 'end') {
+        webhookRedisConnection.disconnect();
+      }
+      await pool.end();
+      await readPool.end();
+      if (redis.status !== 'end') {
+        redis.disconnect();
+      }
+    } catch {
+      // ignore
+    }
+  });
+
   it('1. Immediately stores webhook as pending and enqueues event', async () => {
     const eventId = 'evt_test_' + Date.now();
     const provider = 'stripe';
@@ -29,12 +47,19 @@ describe('Reliable Webhook Retry Queue & Idempotency Test Suite', () => {
   });
 
   it('3. Processes webhook payload for subscription activation', async () => {
+    const tenantRes = await pool.query('SELECT id FROM tenants LIMIT 1');
+    const tenantId = tenantRes.rows[0]?.id || '73aa1c8e-64f1-4f2a-927a-ee55345b9e43';
+
     const payload = {
       data: {
         object: {
+          id: 'cs_test_checkout_123',
+          subscription: 'sub_stripe_12345',
+          currency: 'inr',
+          amount_total: 499900,
           metadata: {
-            tenantId: '00000000-0000-0000-0000-000000000000',
-            planId: 'pro',
+            tenantId,
+            planId: 'professional',
           },
         },
       },

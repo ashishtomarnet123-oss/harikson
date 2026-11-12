@@ -19,9 +19,11 @@ router.post('/execute', requireAuth, async (req: Request, res: Response) => {
   try {
     const check = executeTaskSchema.safeParse(req.body);
     if (!check.success) {
+      const errMsg = "Invalid payload parameters. 'userRequest' and 'workspacePath' are required.";
       return res.status(400).json({
-        hariksonError:
-          "Invalid payload parameters. 'userRequest' and 'workspacePath' are required.",
+        error: errMsg,
+        message: errMsg,
+        hariksonError: errMsg,
       });
     }
 
@@ -64,7 +66,11 @@ router.post('/execute', requireAuth, async (req: Request, res: Response) => {
     const safeMessage = error.message?.includes('Security Exception')
       ? error.message
       : 'Orchestrator execution error';
-    return res.status(500).json({ hariksonError: safeMessage });
+    return res.status(500).json({
+      error: safeMessage,
+      message: safeMessage,
+      hariksonError: safeMessage,
+    });
   }
 });
 

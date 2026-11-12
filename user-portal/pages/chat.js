@@ -50,720 +50,48 @@ import {
   BarChart2,
   Download,
 } from 'lucide-react';
-import GlobalSearch from '../components/GlobalSearch';
-import ShareModal from '../components/ShareModal';
-import SettingsModal from '../components/SettingsModal';
-import DocumentViewerModal from '../components/DocumentViewerModal';
-import ImageViewerModal from '../components/chat/ImageViewerModal';
-import FileAttachmentCard from '../components/chat/FileAttachmentCard';
-import MarkdownRenderer from '../components/chat/MarkdownRenderer';
-import { trackEvent } from '../lib/analytics';
+import dynamic from "next/dynamic";
+
+const GlobalSearch = dynamic(() => import("../components/GlobalSearch"), { ssr: false });
+const ShareModal = dynamic(() => import("../components/ShareModal"), { ssr: false });
+const SettingsModal = dynamic(() => import("../components/SettingsModal"), { ssr: false });
+const DocumentViewerModal = dynamic(() => import("../components/DocumentViewerModal"), { ssr: false });
+const ImageViewerModal = dynamic(() => import("../components/chat/ImageViewerModal"), { ssr: false });
+
+import FileAttachmentCard from "../components/chat/FileAttachmentCard";
+import MarkdownRenderer from "../components/chat/MarkdownRenderer";
+import { trackEvent } from "../lib/analytics";
 import {
-  voiceFSMReducer,
-  INITIAL_FSM_STATE,
   isVoiceActive,
   isListening,
   isAISpeaking,
   isBusy,
   canBargeIn,
-} from '../src/voice/fsm.js';
-import { BrowserSTTProvider } from '../src/voice/providers/BrowserSTTProvider';
-import { BrowserTTSProvider } from '../src/voice/providers/BrowserTTSProvider';
-import { ChunkedSpeaker } from '../src/voice/tts/chunked-speaker';
-import { VADController } from '../src/voice/vad-controller';
-import { turnTelemetry } from '../src/voice/telemetry';
-
-/* ────────────────────────────────────────────────────────────
-   Clipboard helper - navigator.clipboard is only defined in
-   secure contexts (HTTPS or localhost). Plain-HTTP access (e.g.
-   a bare IP:port) leaves it undefined, so calling .writeText()
-   directly throws instead of copying. Fall back to the
-   textarea+execCommand trick in that case.
-──────────────────────────────────────────────────────────── */
-function copyToClipboard(text) {
-  if (navigator.clipboard && navigator.clipboard.writeText) {
-    return navigator.clipboard.writeText(text);
-  }
-  return new Promise((resolve, reject) => {
-    const textArea = document.createElement('textarea');
-    textArea.value = text;
-    textArea.style.position = 'fixed';
-    textArea.style.top = '0';
-    textArea.style.left = '0';
-    textArea.style.opacity = '0';
-    document.body.appendChild(textArea);
-    textArea.focus();
-    textArea.select();
-    try {
-      const successful = document.execCommand('copy');
-      document.body.removeChild(textArea);
-      if (successful) resolve();
-      else reject(new Error('document.execCommand(copy) returned false'));
-    } catch (err) {
-      document.body.removeChild(textArea);
-      reject(err);
-    }
-  });
-}
-
-function extractUserVisibleText(text) {
-  if (!text || typeof text !== 'string') return '';
-  return text
-    // Strip closed uploaded_file tags
-    .replace(/<uploaded_file[\s\S]*?<\/uploaded_file>/gi, '')
-    // Strip truncated/unclosed uploaded_file tags
-    .replace(/<uploaded_file[^>]*>[\s\S]*$/gi, '')
-    .replace(/<uploaded_file[^>]*$/gi, '')
-    // Strip legacy attached image/document tags
-    .replace(/\[Attached (?:Image|Document):\s*"[^"]*"\]/gi, '')
-    .replace(/\[Attached (?:Image|Document):[^\]]*$/gi, '')
-    // Strip raw XML/HTML tags
-    .replace(/<[^>]+>/g, '')
-    .trim();
-}
-
-function formatConversationTitle(title) {
-  if (!title || typeof title !== 'string') return 'New Conversation';
-  const trimmed = title.trim();
-  if (!trimmed || trimmed === 'New Conversation' || trimmed === 'New Chat') return 'New Conversation';
-
-  // Check if title has broken markup, unclosed XML, [Attached Image...], etc.
-  if (
-    trimmed.includes('<uploaded_file') ||
-    trimmed.includes('</uploaded_file>') ||
-    trimmed.startsWith('<uploaded_') ||
-    trimmed.includes('[Attached') ||
-    trimmed.includes('name="') ||
-    trimmed.includes('undefined') ||
-    trimmed.includes('null') ||
-    trimmed.includes('[object Object]') ||
-    /^<[^>]+(\.\.\.)?$/.test(trimmed)
-  ) {
-    // Attempt to extract document name from truncated or full tag
-    const nameMatch = trimmed.match(/name="([^"]+)/i) || trimmed.match(/\[Attached (?:Document|Image):\s*"([^"]+)/i);
-    if (nameMatch && nameMatch[1]) {
-      let clean = nameMatch[1]
-        .replace(/\.\.\.$/, '')
-        .replace(/_\d{10,14}/g, '')
-        .replace(/\s*\(\d+\)/g, '')
-        .replace(/\.[a-zA-Z0-9]{2,5}$/, '')
-        .replace(/[_-]+/g, ' ')
-        .trim();
-      if (clean) {
-        clean = clean
-          .split(' ')
-          .filter(Boolean)
-          .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
-          .join(' ');
-        return clean.length > 36 ? clean.substring(0, 36) : clean;
-      }
-    }
-    return 'Document Analysis';
-  }
-
-  // Clamped clean string
-  return trimmed.length > 50 ? trimmed.substring(0, 50).trim() : trimmed;
-}
-
-function generateClientTitle(text, files) {
-  const cleanPrompt = extractUserVisibleText(text);
-
-  // 1. Hindi / Devanagari Detection
-  if (/[\u0900-\u097F]/.test(cleanPrompt)) {
-    if (cleanPrompt.includes('कुंडली') || cleanPrompt.includes('कुण्डली')) return 'कुंडली विश्लेषण';
-    if (cleanPrompt.includes('अलविदा')) return 'अलविदा संदेश';
-    if (cleanPrompt.includes('रणनीति') || cleanPrompt.includes('स्ट्रेटेजी')) return 'बिजनेस रणनीति';
-    if (cleanPrompt.includes('विश्लेषण')) return 'डॉक्यूमेंट विश्लेषण';
-    if (cleanPrompt.includes('योजना') || cleanPrompt.includes('प्लान')) return 'दैनिक योजना';
-    const words = cleanPrompt.split(/\s+/).filter(Boolean).slice(0, 5).join(' ');
-    return (words.length > 36 ? words.substring(0, 36) : words).trim();
-  }
-
-  // 2. URLs
-  const urlMatch = cleanPrompt.match(/https?:\/\/(?:www\.)?([a-zA-Z0-9-]+\.[a-z]{2,})/i);
-  if (urlMatch) {
-    const domain = urlMatch[1].split('.')[0];
-    const cap = domain.charAt(0).toUpperCase() + domain.slice(1);
-    const low = cleanPrompt.toLowerCase();
-    if (low.includes('analy') || low.includes('review') || low.includes('audit')) return `${cap} Business Analysis`;
-    if (low.includes('seo') || low.includes('visibility') || low.includes('google')) return `${cap} SEO Strategy`;
-    return `${cap} Overview`;
-  }
-
-  // 3. Keywords & Specific Intent
-  const low = cleanPrompt.toLowerCase();
-
-  // Specific Prompt Requirements
-  if ((low.includes('redesign') && low.includes('mobile chat')) || low.includes('mobile chat interface') || low.includes('mobile chat ui')) {
-    return 'Xarwiz Mobile Chat UI';
-  }
-  if (low.includes('digital marketing') && (low.includes('launch') || low.includes('plan'))) {
-    return 'Digital Marketing Launch Plan';
-  }
-  if (low.includes('financial report') && (low.includes('analy') || low.includes('summar'))) {
-    return 'Financial Report Analysis';
-  }
-  if ((low.includes('code error') || low.includes('debug')) && (low.includes('explain') || low.includes('troubleshoot') || low.includes('fix'))) {
-    return 'Code Error Troubleshooting';
-  }
-
-  // Attachment-Aware Intent Combinations
-  if (Array.isArray(files) && files.length > 0) {
-    const f = files[0];
-    const rawName = f.name || '';
-    if (f.type?.includes('presentation') || rawName.match(/\.(pptx|ppt)$/i)) {
-      if (low.includes('review') || low.includes('feedback') || low.includes('check')) return 'Presentation Review';
-    }
-    if (f.type?.includes('code') || rawName.match(/\.(js|ts|py|sql|html|css|json)$/i)) {
-      if (low.includes('debug') || low.includes('error') || low.includes('fix') || low.includes('review')) return 'Code Debugging';
-    }
-    if (rawName.toLowerCase().includes('financial') || rawName.toLowerCase().includes('report') || f.type?.includes('csv') || rawName.match(/\.(xlsx|xls|csv)$/i)) {
-      if (low.includes('analy') || low.includes('summar') || low.includes('overview')) return 'Financial Report Analysis';
-    }
-  }
-
-  if (low.includes('marketing') && low.includes('strategy')) {
-    return low.includes('xarwiz') ? 'Xarwiz Marketing Strategy' : 'Marketing Strategy Planning';
-  }
-  if (low.includes('audit') && (low.includes('code') || low.includes('security'))) return 'Code Security Audit';
-  if (low.includes('quantum') && low.includes('comput')) return 'Understanding Quantum Computing';
-  if (low.includes('thailand') && (low.includes('trip') || low.includes('plan'))) return 'Thailand Trip Planning';
-  if (low.includes('visibility') || low.includes('seo')) return 'Google Visibility Strategy';
-  if (low.includes('email') && (low.includes('write') || low.includes('draft'))) {
-    if (low.includes('bank')) return 'Bank Email Draft';
-    if (low.includes('client')) return 'Client Email Draft';
-    return 'Professional Email Draft';
-  }
-  if (low.includes('risk') && (low.includes('contract') || low.includes('legal'))) return 'Contract Risk Review';
-  if (low.includes('sales') && (low.includes('analy') || low.includes('trend'))) return 'Monthly Sales Analysis';
-  if (low.includes('screenshot') || (low.includes('image') && low.includes('explain'))) return 'Screenshot Analysis';
-  if (low.includes('analyze this document') || low.includes('analyze document') || low.includes('analyze report')) return 'Document Analysis';
-
-  // 4. Attachments Present
-  if (Array.isArray(files) && files.length > 0) {
-    const f = files[0];
-    const rawName = f.name || '';
-    let clean = rawName
-      .replace(/_\d{10,14}/g, '')
-      .replace(/\s*\(\d+\)/g, '')
-      .replace(/\.[a-zA-Z0-9]{2,5}$/, '')
-      .replace(/[_-]+/g, ' ')
-      .trim();
-    if (clean) {
-      clean = clean
-        .split(' ')
-        .filter(Boolean)
-        .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
-        .join(' ');
-      if (clean.length <= 32 && clean !== 'Document') return `${clean}`;
-    }
-    if (rawName.toLowerCase().endsWith('.pdf')) return 'PDF Document Analysis';
-    if (/\.(xlsx|xls|csv)$/i.test(rawName)) return 'Spreadsheet Analysis';
-    if (/\.(png|jpe?g|webp)$/i.test(rawName)) return 'Image Analysis';
-    return 'Document Analysis';
-  }
-
-  // 5. General Clean Text
-  if (cleanPrompt) {
-    let candidate = cleanPrompt;
-    while (/^(?:can you|could you|please|i want you to|help me|tell me about|explain|write|generate|give me a|give me an|how to|what is|what are)\s+/i.test(candidate)) {
-      candidate = candidate.replace(/^(?:can you|could you|please|i want you to|help me|tell me about|explain|write|generate|give me a|give me an|how to|what is|what are)\s+/i, '').trim();
-    }
-    candidate = candidate.replace(/[?!.:,;]+$/, '').trim();
-    const words = candidate.split(/\s+/).filter(Boolean).slice(0, 5);
-    if (words.length > 0) {
-      return words
-        .map((w, idx) => {
-          const l = w.toLowerCase();
-          if (idx > 0 && ['a', 'an', 'the', 'and', 'or', 'of', 'for', 'in', 'on', 'at', 'to'].includes(l)) return l;
-          return w.charAt(0).toUpperCase() + w.slice(1);
-        })
-        .join(' ');
-    }
-  }
-
-  return 'New Conversation';
-}
-
-function formatFileSize(bytes) {
-  if (!bytes || isNaN(bytes)) return '';
-  const num = Number(bytes);
-  if (num === 0) return '0 B';
-  const k = 1024;
-  const sizes = ['B', 'KB', 'MB', 'GB'];
-  const i = Math.floor(Math.log(num) / Math.log(k));
-  return parseFloat((num / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
-}
-
-function parseUploadedFiles(text) {
-  if (!text) return [];
-  const results = [];
-  const regex = /<uploaded_file(?:\s+([^>]*))?>([\s\S]*?)<\/uploaded_file>/g;
-  let match;
-  while ((match = regex.exec(text)) !== null) {
-    const attrStr = match[1] || '';
-    const content = match[2]?.trim() || '';
-    const name = attrStr.match(/name="([^"]+)"/)?.[1] || 'Attachment';
-    let type = attrStr.match(/type="([^"]+)"/)?.[1] || '';
-    let size = attrStr.match(/size="([^"]+)"/)?.[1] || '';
-    let pages = attrStr.match(/pages="([^"]+)"/)?.[1] || '';
-    const documentId = attrStr.match(/documentId="([^"]+)"/)?.[1] || '';
-    const dataUrl = attrStr.match(/dataUrl="([^"]+)"/)?.[1] || '';
-
-    if (!pages) {
-      const pageMatch = content.match(/\((\d+)\s+pages/i);
-      if (pageMatch) pages = pageMatch[1];
-    }
-    if (!type) {
-      if (name.match(/\.pdf$/i)) type = 'application/pdf';
-      else if (name.match(/\.(xlsx|xls|csv)$/i)) type = 'text/csv';
-      else if (name.match(/\.(docx|doc)$/i)) type = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
-      else if (name.match(/\.(pptx|ppt)$/i)) type = 'application/vnd.openxmlformats-officedocument.presentationml.presentation';
-      else if (name.match(/\.(png|jpe?g|webp|gif|svg)$/i)) type = 'image/png';
-    }
-
-    results.push({ name, type, size, pages, documentId, dataUrl, content });
-  }
-  if (results.length === 0) {
-    const legacyImgRegex = /\[Attached Image:\s*"([^"]+)"\]/g;
-    while ((match = legacyImgRegex.exec(text)) !== null) {
-      results.push({ name: match[1], type: 'image/png', size: '', pages: '', documentId: '', dataUrl: '', content: '' });
-    }
-    const legacyDocRegex = /\[Attached Document:\s*"([^"]+)"\]/g;
-    while ((match = legacyDocRegex.exec(text)) !== null) {
-      const docName = match[1];
-      const isPdfDoc = docName.match(/\.pdf$/i);
-      results.push({ name: docName, type: isPdfDoc ? 'application/pdf' : 'application/octet-stream', size: '', pages: isPdfDoc ? '1' : '', documentId: '', dataUrl: '', content: '' });
-    }
-  }
-  return results;
-}
-
-function maskModelName(rawModel) {
-  if (!rawModel) return 'Xarwiz Plus';
-  const m = String(rawModel).toLowerCase();
-  if (m.includes('70b') || m.includes('72b') || m.includes('65b')) return 'Xarwiz Ultra-70B';
-  if (m.includes('32b') || m.includes('34b') || m.includes('30b')) return 'Xarwiz Pro-32B';
-  if (m.includes('14b') || m.includes('13b')) return 'Xarwiz Plus-14B';
-  if (m.includes('8b') || m.includes('7b') || m.includes('6b')) return 'Xarwiz Plus-8B';
-  if (m.includes('3b') || m.includes('2b') || m.includes('1b')) return 'Xarwiz Plus-8B';
-  if (m.includes('deepseek')) return 'Xarwiz Plus-14B';
-  if (m.includes('codellama') || m.includes('codegemma')) return 'Xarwiz Code';
-  if (m.includes('qwen') || m.includes('llama') || m.includes('mistral') ||
-      m.includes('mixtral') || m.includes('gemma') || m.includes('phi')) return 'Xarwiz Plus-8B';
-  if (m.startsWith('harikson-plus')) return 'Xarwiz Plus · 8B';
-  if (m.startsWith('harikson-max')) return 'Xarwiz Max · 14B';
-  return 'Xarwiz Plus';
-}
-
-function groupConversationsByDate(convList) {
-  if (!convList || !convList.length) return [];
-  const groups = {
-    today: [],
-    yesterday: [],
-    last7Days: [],
-    last30Days: [],
-    older: [],
-  };
-
-  const now = new Date();
-  const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
-  const startOfYesterday = startOfToday - 86400000;
-  const startOf7Days = startOfToday - 7 * 86400000;
-  const startOf30Days = startOfToday - 30 * 86400000;
-
-  for (const conv of convList) {
-    const time = conv.updated_at
-      ? new Date(conv.updated_at).getTime()
-      : (conv.created_at ? new Date(conv.created_at).getTime() : 0);
-    if (time >= startOfToday) {
-      groups.today.push(conv);
-    } else if (time >= startOfYesterday) {
-      groups.yesterday.push(conv);
-    } else if (time >= startOf7Days) {
-      groups.last7Days.push(conv);
-    } else if (time >= startOf30Days) {
-      groups.last30Days.push(conv);
-    } else {
-      groups.older.push(conv);
-    }
-  }
-
-  const sections = [];
-  if (groups.today.length) sections.push({ title: 'Today', items: groups.today });
-  if (groups.yesterday.length) sections.push({ title: 'Yesterday', items: groups.yesterday });
-  if (groups.last7Days.length) sections.push({ title: 'Previous 7 Days', items: groups.last7Days });
-  if (groups.last30Days.length) sections.push({ title: 'Previous 30 Days', items: groups.last30Days });
-  if (groups.older.length) sections.push({ title: 'Older', items: groups.older });
-
-  if (sections.length === 0 && convList.length > 0) {
-    sections.push({ title: 'Recent', items: convList });
-  }
-
-  return sections;
-}
-
-/* ────────────────────────────────────────────────────────────
-   Centralized Markdown & CodeBlock rendering handled by
-   ../components/chat/MarkdownRenderer (react-markdown + GFM)
-──────────────────────────────────────────────────────────── */
-
-
-const SLASH_COMMANDS = [
-  {
-    id: 'report',
-    icon: <FileText size={18} />,
-    title: 'Executive Report',
-    desc: 'Draft a structured professional report',
-    prompt: 'Draft a comprehensive executive report on ',
-  },
-  {
-    id: 'code',
-    icon: '</>',
-    title: 'Write Code',
-    desc: 'Generate a code snippet or component',
-    prompt: 'Write the code for a ',
-  },
-  {
-    id: 'summarize',
-    icon: <FileText size={18} />,
-    title: 'Summarize',
-    desc: 'Summarize text or meeting notes',
-    prompt: 'Summarize the following: \n',
-  },
-  {
-    id: 'debug',
-    icon: <Bug size={18} />,
-    title: 'Debug',
-    desc: 'Find bugs in my code',
-    prompt: 'Debug this code and explain the fixes: \n',
-  },
-  {
-    id: 'explain',
-    icon: <BrainCircuit size={18} />,
-    title: 'Explain',
-    desc: 'Explain a complex concept simply',
-    prompt: 'Explain this concept to me as if I were a beginner: ',
-  },
-];
-
-let pdfjsPromise = null;
-const loadPdfJs = () => {
-  if (pdfjsPromise) return pdfjsPromise;
-  pdfjsPromise = new Promise((resolve, reject) => {
-    if (typeof window === 'undefined') {
-      reject(new Error('Window is not defined'));
-      return;
-    }
-    if (window.pdfjsLib) {
-      resolve(window.pdfjsLib);
-      return;
-    }
-    const script = document.createElement('script');
-    script.src =
-      'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
-    script.onload = () => {
-      window.pdfjsLib.GlobalWorkerOptions.workerSrc =
-        'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
-      resolve(window.pdfjsLib);
-    };
-    script.onerror = (err) => {
-      pdfjsPromise = null;
-      reject(err);
-    };
-    document.head.appendChild(script);
-  });
-  return pdfjsPromise;
-};
-
-const extractTextFromPdf = async (arrayBuffer) => {
-  const pdfjs = await loadPdfJs();
-  const loadingTask = pdfjs.getDocument({ data: new Uint8Array(arrayBuffer) });
-  const pdf = await loadingTask.promise;
-  let fullText = '';
-  const pages = [];
-  for (let i = 1; i <= pdf.numPages; i++) {
-    const page = await pdf.getPage(i);
-    const textContent = await page.getTextContent();
-    const pageText = textContent.items.map((item) => item.str).join(' ');
-    pages.push({ pageNumber: i, text: pageText });
-    fullText += `--- Page ${i} ---\n${pageText}\n\n`;
-  }
-  if (!fullText.trim()) {
-    fullText = '[Empty PDF document or scanned PDF with no extractable text]';
-  }
-  return { fullText, pageCount: pdf.numPages, pages };
-};
-
-let tesseractPromise = null;
-const loadTesseract = () => {
-  if (tesseractPromise) return tesseractPromise;
-  tesseractPromise = new Promise((resolve, reject) => {
-    if (typeof window === 'undefined') {
-      reject(new Error('Window is not defined'));
-      return;
-    }
-    if (window.Tesseract) {
-      resolve(window.Tesseract);
-      return;
-    }
-    const script = document.createElement('script');
-    script.src =
-      'https://cdn.jsdelivr.net/npm/tesseract.js@5.0.5/dist/tesseract.min.js';
-    script.onload = () => {
-      resolve(window.Tesseract);
-    };
-    script.onerror = (err) => {
-      tesseractPromise = null;
-      reject(err);
-    };
-    document.head.appendChild(script);
-  });
-  return tesseractPromise;
-};
-
-const cleanOcrText = (raw) => {
-  if (!raw) return '';
-  return raw
-    .replace(/[|\\]+/g, ' ')
-    .replace(/[[\]{}~^`]+/g, ' ')
-    .replace(/\s+[^a-zA-Z0-9\s.,?!%$@#\-_]{1,3}\s+/g, ' ')
-    .replace(/[ \t]+/g, ' ')
-    .replace(/\n\s*\n+/g, '\n')
-    .trim();
-};
-
-const extractTextFromImage = async (dataUrl) => {
-  const tesseract = await loadTesseract();
-  const worker = await tesseract.createWorker('eng');
-  const ret = await worker.recognize(dataUrl);
-  await worker.terminate();
-  const text = (ret.data.text || '').trim();
-  if (!text) {
-    return '[No extractable text found in image]';
-  }
-  return cleanOcrText(text);
-};
-
-const voiceInstructions = `
-# IDENTITY
-You are the voice intelligence layer of a real-time conversational AI system. You process streaming speech-to-text (STT) input and generate text-to-speech (TTS) output. Your goal is to make the user forget they are talking to software.
-
-You are not a chatbot. You are a conversational partner. Every millisecond of latency matters. Every unnecessary word costs user trust.
-
----
-
-# CORE CONVERSATIONAL ENGINE
-
-## 1. Turn-Taking & Interruption Protocol
-
-### 1.1 Barge-In Handling (User interrupts you)
-When the user speaks while you are generating:
-- **STOP** immediately. Do not finish your current sentence.
-- **ACKNOWLEDGE** the interruption: "Sorry, go ahead." / "No, you first." / "My bad."
-- **PIVOT** to the new intent. Never say "As I was saying..." unless explicitly asked.
-- If the interruption is a **correction** ("No, I meant Tuesday"):
-  - Accept gracefully: "Got it, Tuesday. Not Wednesday."
-  - Update working memory. Do not defend the error.
-
-### 1.2 Endpoint Detection (Knowing when the user is done)
-Treat these as turn-completion signals:
-- Falling intonation (indicated by period in STT)
-- Explicit question words ("What do you think?", "Can you...?")
-- 700ms+ pause after a complete thought
-- Filler words trailing off ("...so yeah, that's it")
-
-Do NOT treat these as turn-completion:
-- Mid-sentence pauses (user is thinking)
-- Filler words at the start ("Um, so...")
-- Disfluencies ("I need to- can you-")
-
-### 1.3 Backchanneling (While user is speaking)
-If the user is in a long utterance (>5 seconds) and you detect:
-- A list being enumerated → "Okay." / "Right."
-- An emotional statement → "I hear you." / "That makes sense."
-- A pause for confirmation → "Yeah, I'm with you."
-Keep backchannels under 3 words. Do not break the user's flow.
-
----
-
-## 2. Speech-to-Text Recovery & Ambiguity Resolution
-
-STT input is noisy. Your job is to recover intent, not transcribe perfectly.
-
-### 2.1 Confidence Tiers
-When you receive text, assign a confidence level internally:
-
-| Tier | Signal | Action |
-|------|--------|--------|
-| **HIGH** | Complete sentence, clear intent, proper nouns match known entities | Proceed normally |
-| **MEDIUM** | Partial sentence, possible homophone confusion, missing punctuation | Ask 1 clarifying question |
-| **LOW** | Gibberish, repeated words, clear mishearing ("book a flight to elephant") | Signal confusion honestly |
-
-### 2.2 Recovery Patterns
-For MEDIUM confidence:
-- "Did you mean [X] or [Y]?" (Maximum 2 options)
-- "Just to confirm, you're asking about [topic]?"
-- "I want to make sure I got that- you said [repeat back]?"
-
-For LOW confidence:
-- "I'm sorry, I didn't catch that. Could you say it again?"
-- "The connection seems a bit unclear. Mind repeating that?"
-- Never guess when the input is gibberish. Honest confusion > confident hallucination.
-
-### 2.3 Common STT Error Handling
-| Error Type | Example | Recovery |
-|------------|---------|----------|
-| Homophone | "Right" vs "Write" | Use context. If unclear, ask: "Did you mean the direction or the action?" |
-| Number confusions | "Fifteen" vs "Fifty" | Confirm numerically: "One-five or five-zero?" |
-| Name mangling | "Jon" → "John" | "Jon with no H, is that right?" |
-| Filler insertion | "Um can you like um help" | Strip fillers mentally. Respond to intent only. |
-| Partial cutoff | "Can you send the report to-" | "Send the report to whom?" |
-| Repeated stutter | "I I I need to" | Treat as "I need to." |
-
----
-
-## 3. Response Generation: The Voice Difference
-
-Voice is NOT text. Optimize for the ear, not the eye.
-
-### 3.1 Latency-First Brevity
-- **Target**: First word out in <300ms. Full response in <800ms.
-- **Strategy**: If the answer is complex, lead with the headline.
-  - BAD: "Let me think about that. There are several factors to consider here. First, we need to look at..."
-  - GOOD: "Short answer: yes. Here's why..."
-- **Chunking**: For long answers, break into breath-sized chunks (≤25 words) with natural pauses.
-
-### 3.2 Conversational Linguistics
-Use these patterns to sound human:
-
-| Pattern | Example | When to Use |
-|---------|---------|-------------|
-| **Hedging** | "I think...", "Probably...", "It seems like..." | Uncertain information |
-| **Disfluencies** | "Well...", "So...", "Actually..." | Transitioning topics, softening corrections |
-| **Ellipsis** | "Want me to handle that?" | Casual, established context |
-| **Tag questions** | "...right?", "...does that work?" | Checking understanding |
-| **Anaphora** | "It", "That", "They" | Referring to established entities |
-| **Contractions** | "I'm", "Don't", "We'll" | Always, unless extremely formal |
-
-### 3.3 Prosody Guidance (TTS Hints)
-Embed subtle cues for the TTS engine:
-- Use **commas** for brief pauses (250ms)
-- Use **em-dashes** for interruptions or asides
-- Use **ellipsis** for trailing thoughts or hesitation
-- Use **ALL CAPS** only for emphasis on single words: "That is REALLY important."
-- Avoid exclamation marks unless genuine excitement.
-
-### 3.4 Tone Matching
-Mirror the user's emotional register:
-
-| User State | Your Tone | Example Opening |
-|------------|-----------|-----------------|
-| Neutral/Factual | Efficient, warm | "Sure thing." |
-| Frustrated/Urgent | Empathetic, then solution | "I totally get why that's frustrating. Let's fix it now." |
-| Confused | Patient, guiding | "No worries, this trips up a lot of people. Here's the deal..." |
-| Happy/Excited | Enthusiastic, matching energy | "That's awesome! Congrats!" |
-| Sad/Distressed | Gentle, validating | "I'm really sorry to hear that. I'm here to help." |
-
-Never be more emotional than the user. Never be robotic with an emotional user.
-
----
-
-## 4. Context & Memory Management
-
-### 4.1 Working Memory (Current Conversation)
-Track explicitly:
-- **User Goal**: What are they trying to accomplish?
-- **Entities**: Names, dates, numbers, locations mentioned
-- **State**: What step of a task are we on?
-- **Corrections**: Any overrides the user made
-
-If the user says "Actually, change that to Friday," update the working memory immediately. Do not ask "Which thing?" if only one date was discussed.
-
-### 4.2 Long-Term Context (Cross-Session)
-If you have access to user history:
-- Reference sparingly: "Last time you booked a morning slot-same preference?"
-- Do not over-remember: "I see you called on March 3rd at 2:15 PM about..." feels creepy.
-- Confirm stale info: "You mentioned you were moving to Austin-still the plan?"
-
-### 4.3 Forgetting & Summarization
-If the conversation exceeds 20 turns:
-- Summarize the decision tree so far: "So far we've narrowed it down to Option A and B. Both are under budget."
-- Ask if the user wants to reset: "This is getting detailed. Want to start fresh with what we've learned?"
-
----
-
-## 5. Handling Special Utterance Types
-
-### 5.1 Corrections
-User says: "No, I said 5 PM, not 5 AM."
-- Response: "My mistake. Five PM. Got it."
-- Never: "I thought you said..." (defensive)
-- Never: "Okay, changing it to 5 PM." (too robotic)
-
-### 5.2 Interjections
-User says: "Wait." / "Hold on." / "Stop."
-- Response: "Sure, take your time." / "No rush."
-- Pause generation. Wait for next input.
-
-### 5.3 Off-Topic / Toxic Input
-User goes off-topic or is inappropriate:
-- "I'm not sure I'm the best person to help with that. Want to get back to [current task]?"
-- If toxic: "I want to keep this respectful. Let's focus on [task]."
-- Never escalate. Never lecture.
-
-### 5.4 Silence / "Are you there?"
-If the user hasn't spoken for 10+ seconds:
-- "Still here. Take your time."
-- If they asked a question and you haven't answered yet: "Working on that for you. Almost there."
-
----
-
-## 6. Error Handling & Graceful Degradation
-
-### 6.1 When You Don't Know
-- "I don't have that info right now."
-- "That's outside what I can help with."
-- "I'm not sure I understand. Could you rephrase?"
-- Never hallucinate. Never make up a fact to sound helpful.
-
-### 6.2 When the System Fails
-- If you generate something wrong and catch it: "Actually, let me correct that-"
-- If the user points out your error: "You're right, my bad. [Correct answer]."
-- If you need to search/look up: "Let me pull that up for you. One sec."
-
-### 6.3 Task Boundaries
-If the user asks something outside your domain:
-- "I can't do that, but I can help you with [related thing I can do]."
-- "You'd need [specific tool/person] for that. Want me to help you prepare what to ask them?"
-
----
-
-## 7. Output Format (For TTS Pipeline)
-
-Your raw output goes to a TTS engine. Format accordingly:
-
-- **No markdown headers** (the TTS reads "# Introduction" literally)
-- **No bullet points** unless listing options the user must choose from
-- **No URLs** unless you can speak them naturally ("dot com")
-- **No emojis** (TTS cannot read them)
-- **Use plain text** with punctuation for rhythm
-- **If you need to whisper**: (whisper) text here (end whisper)
-- **If you need to pause**: (pause: 500ms)
-
----
-
-# 8. Self-Monitoring Checklist (Before Every Response)
-
-Before generating output, verify:
-- [ ] Did I understand the user's intent, or do I need to clarify?
-- [ ] Is my response brief enough for voice? (<30 seconds spoken)
-- [ ] Did I match the user's emotional tone?
-- [ ] Did I handle any corrections or interruptions properly?
-- [ ] Am I citing facts I know, or guessing?
-- [ ] Would this sound natural if spoken aloud?
-- [ ] Is there a better way to say this with fewer words?
-`;
+} from "../src/voice/fsm.js";
+import { turnTelemetry } from "../src/voice/telemetry";
+import {
+  copyToClipboard,
+  extractUserVisibleText,
+  formatConversationTitle,
+  generateClientTitle,
+  formatFileSize,
+  parseUploadedFiles,
+  maskModelName,
+  groupConversationsByDate,
+  SLASH_COMMANDS,
+} from "../components/chat/chatUtils";
+import {
+  loadPdfJs,
+  extractTextFromPdf,
+  loadTesseract,
+  cleanOcrText,
+  extractTextFromImage,
+} from "../components/chat/pdfOcrUtils";
+import { voiceInstructions } from "../src/voice/voiceInstructions";
+import { useVoiceChat } from "../components/chat/hooks/useVoiceChat";
+import { usePdfExport } from "../components/chat/hooks/usePdfExport";
+import VoiceSettingsPopover from "../components/chat/VoiceSettingsPopover";
+import ChatMessageList from "../components/chat/ChatMessageList";
 
 /* ────────────────────────────────────────────────────────────
    Main Chat Page
@@ -832,7 +160,7 @@ function ChatPage() {
   const [loading, setLoading] = useState(false);
   const [loadingStatus, setLoadingStatus] = useState('');
   const [error, setError] = useState(null);
-  const [model, setModel] = useState('harikson-plus');
+  const [model, setModel] = useState('xarwiz-plus');
   const [systemPreset, setSystemPreset] = useState('general');
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [showGlobalSearch, setShowGlobalSearch] = useState(false);
@@ -840,6 +168,14 @@ function ChatPage() {
   const profileMenuRef = useRef(null);
   const exportMenuRef = useRef(null);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
+  const [settingsTab, setSettingsTab] = useState('profile');
+
+  useEffect(() => {
+    if (router.query.settings) {
+      setSettingsTab(String(router.query.settings));
+      setShowSettingsModal(true);
+    }
+  }, [router.query.settings]);
   const [customInstructions, setCustomInstructions] = useState('');
   const [attachedFiles, setAttachedFiles] = useState([]);
   const [pinnedChats, setPinnedChats] = useState([]);
@@ -884,530 +220,57 @@ function ChatPage() {
   const [useDeepSearch, setUseDeepSearch] = useState(false);
   const [useReasoning, setUseReasoning] = useState(false);
 
-  // ── Production Voice State Machine (FSM) & Audio Controllers ──────────
-  const [voiceState, dispatchVoice] = useReducer(voiceFSMReducer, INITIAL_FSM_STATE);
-  const voiceStateRef = useRef(voiceState);
-  useEffect(() => { voiceStateRef.current = voiceState; }, [voiceState]);
-
-  const [voiceDevices, setVoiceDevices] = useState([]);
-  const [showVoiceSettings, setShowVoiceSettings] = useState(false);
-  const [audioRms, setAudioRms] = useState(0);
-
-  // Extended voice settings (rate, pitch, VAD threshold, echo gate)
-  const [voiceRate, setVoiceRate] = useState(1.05);
-  const [voicePitch, setVoicePitch] = useState(1.0);
-  const [vadThreshold, setVadThreshold] = useState(-42);
-  const [echoGateEnabled, setEchoGateEnabled] = useState(true);
-
-  const sttProviderRef = useRef(null);
-  const chunkedSpeakerRef = useRef(null);
-  const vadControllerRef = useRef(null);
-  const voiceSessionIdRef = useRef(null);
-  const voiceTurnCountRef = useRef(0);
-  const abortControllerRef = useRef(null);
+  // ── Production Voice State Machine (FSM) Hook ─────────────────────────
   const sendMessageRef = useRef(null);
-  const loadingRef = useRef(false);
-  const pendingVoiceTranscriptRef = useRef('');
-  const isPttActiveRef = useRef(false);
-  // Ref holds current STT callbacks so resumeListeningForNextTurn can reuse them
-  const sttCallbacksRef = useRef(null);
 
-  // Observability & Telemetry Timestamps
-  const vadEndOfSpeechTimeRef = useRef(null);
-  const sttFinalizeTimeRef = useRef(null);
-  const firstTtsAudioTimeRef = useRef(null);
-  const lastTurnTtfaRef = useRef(null);
-  const lastUserVoiceTextRef = useRef('');
-  const lastBotVoiceTextRef = useRef('');
-
-  const detectBrowserName = () => {
-    if (typeof navigator === 'undefined') return 'Unknown';
-    const ua = navigator.userAgent;
-    if (ua.includes('Edg/')) return 'Edge';
-    if (ua.includes('Chrome') && !ua.includes('Edg/')) return 'Chrome';
-    if (ua.includes('Safari') && !ua.includes('Chrome')) return 'Safari';
-    if (ua.includes('Firefox')) return 'Firefox';
-    return 'Other';
-  };
-
-  const recordVoiceTurnUsage = (opts = {}) => {
-    const sessId = voiceSessionIdRef.current;
-    const userText = lastUserVoiceTextRef.current || '';
-    const botText = lastBotVoiceTextRef.current || '';
-
-    // Phase 5: finalize stage telemetry and include in payload
-    const { stageLatency, turnTotalMs, ttfaMs: computedTtfa } = turnTelemetry.finalize(opts);
-    const ttfa = computedTtfa || lastTurnTtfaRef.current;
-
-    fetch(`${apiBase || ''}/api/v1/voice/usage`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-tenant-slug': tenantSlug || 'default',
-      },
-      credentials: 'include',
-      body: JSON.stringify({
-        sessionId: sessId || null,
-        sttChars: userText.length,
-        ttsChars: botText.length,
-        llmTokens: Math.ceil(botText.length / 4),
-        ttfaMs: ttfa || null,
-        browser: detectBrowserName(),
-        interrupted: !!opts.interrupted,
-        sttError: !!opts.sttError,
-        errorType: opts.errorType || null,
-        // Phase 5: stage-by-stage latency breakdown
-        stageLatency,
-        turnTotalMs,
-      }),
-    }).catch((e) => console.warn('[Voice] Telemetry logging warning:', e));
-
-    // Reset telemetry for next turn
-    turnTelemetry.reset();
-
-    if (!opts.keepTtfa) {
-      lastTurnTtfaRef.current = null;
-    }
-  };
-
-  const handleTurnCommit = () => {
-    const text = pendingVoiceTranscriptRef.current.trim();
-    if (!text) return;
-
-    sttFinalizeTimeRef.current = Date.now();
-    lastUserVoiceTextRef.current = text;
-    lastBotVoiceTextRef.current = '';
-    lastTurnTtfaRef.current = null;
-
-    // Phase 5: mark sttStart (= VAD speech-end) and sttFinal
-    turnTelemetry.reset();
-    if (vadEndOfSpeechTimeRef.current) {
-      // Retroactively mark sttStart as VAD speech-end time
-      turnTelemetry._marks.sttStart = vadEndOfSpeechTimeRef.current;
-      turnTelemetry._origin = vadEndOfSpeechTimeRef.current;
-    } else {
-      turnTelemetry.mark('sttStart');
-    }
-    turnTelemetry.mark('sttFinal');
-
-    console.debug(`[Voice] Turn commit: "${text}"`);
-    dispatchVoice({ type: 'STT_FINAL', transcript: text });
-    setInputText(text);
-    pendingVoiceTranscriptRef.current = '';
-
-    // Stop microphone & VAD immediately so it does not keep relistening
-    sttProviderRef.current?.stop();
-    vadControllerRef.current?.stop();
-
-    if (sendMessageRef.current) {
-      voiceTurnCountRef.current += 1;
-      sendMessageRef.current(null, text);
-    }
-  };
-
-  const handleBargeIn = () => {
-    console.debug('[Voice] ⚡ Barge-in - immediate cancel, fire-and-forget interrupt');
-
-    // Phase 4: Cancel audio FIRST (synchronous) so user hears silence immediately.
-    // Do NOT await the server - fire-and-forget.
-    chunkedSpeakerRef.current?.cancel();
-    vadControllerRef.current?.setEchoGated(false);
-
-    // Abort any in-flight SSE stream immediately
-    if (abortControllerRef.current) {
-      try { abortControllerRef.current.abort(); } catch (_) {}
-      abortControllerRef.current = null;
-    }
-
-    // Fire-and-forget server interrupt (don't block on this)
-    if (activeConvId) {
-      fetch(`${apiBase || ''}/api/v1/chat/${activeConvId}/interrupt`, {
-        method: 'POST',
-        headers: { 'x-tenant-slug': tenantSlug || 'default' },
-        credentials: 'include',
-      }).catch(() => {});
-    }
-
-    // Phase 5: mark bargeIn timestamp
-    turnTelemetry.mark('bargeIn');
-
-    // Record turn as interrupted in telemetry
-    recordVoiceTurnUsage({ interrupted: true });
-
-    // FSM transition and immediate relisten - no setTimeout needed
-    dispatchVoice({ type: 'BARGE_IN' });
-    pendingVoiceTranscriptRef.current = '';
-    setLoading(false);
-
-    // Resume listening immediately (Phase 2: persistent session - just resume, not restart)
-    if (isVoiceActive(voiceStateRef.current.state)) {
-      vadControllerRef.current?.resume();
-      dispatchVoice({ type: 'RESUME_LISTENING' });
-    }
-  };
-
-  // ── Audio Engine & Providers Initialization ─────────────────────────
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-
-    // 1. Initialize STT Provider
-    const stt = new BrowserSTTProvider();
-    sttProviderRef.current = stt;
-
-    // 2. Initialize TTS & Chunked Speaker
-    const tts = new BrowserTTSProvider();
-    const speaker = new ChunkedSpeaker(tts);
-    chunkedSpeakerRef.current = speaker;
-
-    speaker.setCallbacks({
-      onFirstAudio: (ttfa) => {
-        firstTtsAudioTimeRef.current = Date.now();
-        const computedTtfa =
-          ttfa ||
-          (vadEndOfSpeechTimeRef.current
-            ? Date.now() - vadEndOfSpeechTimeRef.current
-            : null);
-        console.debug(`[Voice] First audio playback started. TTFA: ${computedTtfa}ms`);
-        lastTurnTtfaRef.current = computedTtfa;
-        // Phase 5: mark ttsFirstAudio
-        turnTelemetry.mark('ttsFirstAudio');
-        dispatchVoice({ type: 'TTS_START' });
-        vadControllerRef.current?.setEchoGated(true);
-      },
-      onSentenceStart: () => {
-        dispatchVoice({ type: 'TTS_START' });
-        vadControllerRef.current?.setEchoGated(true);
-      },
-      onFinished: () => {
-        console.debug('[Voice] TTS finished - suspending VAD (not stopping), resuming next turn');
-        // Phase 5: mark ttsEnd
-        turnTelemetry.mark('ttsEnd');
-        vadControllerRef.current?.setEchoGated(false);
-        // Phase 2: suspend() keeps AudioContext alive instead of stop() + start()
-        // This eliminates ~150–300ms AudioContext re-init gap between turns.
-        vadControllerRef.current?.suspend();
-        sttProviderRef.current?.stop();
-        // FSM goes speaking → listening (not idle) - multi-turn loop continues
-        dispatchVoice({ type: 'TTS_END' });
-        recordVoiceTurnUsage({ interrupted: false });
-        // Auto-relisten for the next turn if session is still active
-        resumeListeningForNextTurnRef.current?.();
-      },
-      onError: (err) => {
-        console.warn('[Voice] TTS playback error:', err);
-        vadControllerRef.current?.setEchoGated(false);
-        // Phase 2: suspend() even on error - keeps hardware alive
-        vadControllerRef.current?.suspend();
-        sttProviderRef.current?.stop();
-        // Still relisten even after TTS error - conversation should continue
-        dispatchVoice({ type: 'TTS_END' });
-        resumeListeningForNextTurnRef.current?.();
-      },
-    });
-
-    // 3. Initialize VAD Controller
-    // Phase 1: speechHangoverMs: 600ms default, overridden adaptively per partial transcript.
-    // adaptiveHangoverMs() is called on every STT_PARTIAL to dynamically adjust endpointing.
-    const vad = new VADController({
-      speechHangoverMs: 600,  // Phase 1: was 700ms (previously 2000ms)
-      silenceThresholdDb: -42,
-      echoGateThresholdDb: -26,
-    });
-    vadControllerRef.current = vad;
-
-    vad.setCallbacks({
-      onSpeechStart: () => {
-        dispatchVoice({ type: 'VAD_SPEECH_START' });
-      },
-      onSpeechEnd: () => {
-        vadEndOfSpeechTimeRef.current = Date.now();
-        // Phase 5: mark sttStart at VAD speech-end
-        turnTelemetry.mark('sttStart');
-        dispatchVoice({ type: 'VAD_SPEECH_END' });
-        if (pendingVoiceTranscriptRef.current && pendingVoiceTranscriptRef.current.trim()) {
-          handleTurnCommit();
-        }
-      },
-      onRms: (rms) => {
-        setAudioRms(rms);
-      },
-      onBargeIn: () => {
-        handleBargeIn();
-      },
-      onError: (err) => {
-        console.warn('[Voice] VAD audio warning:', err);
-      },
-    });
-
-    // 4. Fetch User Voice Settings from Backend (full settings object)
-    fetch(`${apiBase || ''}/api/v1/voice/settings`, {
-      credentials: 'include',
-    })
-      .then((res) => (res.ok ? res.json() : null))
-      .then((data) => {
-        if (data?.settings) {
-          if (data.settings.language) {
-            dispatchVoice({ type: 'SET_LANGUAGE', language: data.settings.language });
-          }
-          if (typeof data.settings.pushToTalk === 'boolean') {
-            dispatchVoice({ type: 'SET_PUSH_TO_TALK', pushToTalk: data.settings.pushToTalk });
-          }
-          if (typeof data.settings.rate === 'number') setVoiceRate(data.settings.rate);
-          if (typeof data.settings.pitch === 'number') setVoicePitch(data.settings.pitch);
-          if (typeof data.settings.vadThreshold === 'number') {
-            setVadThreshold(data.settings.vadThreshold);
-            if (vadControllerRef.current?.options) {
-              vadControllerRef.current.options.silenceThresholdDb = data.settings.vadThreshold;
-            }
-          }
-          if (typeof data.settings.echoGateEnabled === 'boolean') setEchoGateEnabled(data.settings.echoGateEnabled);
-          // Apply rate/pitch to chunked speaker
-          chunkedSpeakerRef.current?.setOptions({
-            rate: data.settings.rate || 1.05,
-            pitch: data.settings.pitch || 1.0,
-          });
-        }
-      })
-      .catch(() => {});
-
-    // 5. Query Available Microphones
-    if (navigator.mediaDevices && navigator.mediaDevices.enumerateDevices) {
-      navigator.mediaDevices.enumerateDevices().then((devices) => {
-        const audioInputs = devices.filter((d) => d.kind === 'audioinput');
-        setVoiceDevices(audioInputs);
-      }).catch(() => {});
-    }
-
-    return () => {
-      stt.stop();
-      speaker.cancel();
-      vad.stop();
-    };
-  }, []);
-
-  const startVoiceMode = async () => {
-    setError(null);
-    if (typeof window === 'undefined') return;
-
-    if (!sttProviderRef.current?.isSupported()) {
-      dispatchVoice({ type: 'UNSUPPORTED_BROWSER' });
-      return;
-    }
-
-    try {
-      // 1. Create session record on backend
-      try {
-        const res = await fetch(`${apiBase || ''}/api/v1/voice/session`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'x-tenant-slug': tenantSlug || 'default',
-          },
-          credentials: 'include',
-          body: JSON.stringify({
-            conversationId: activeConvId,
-            language: voiceStateRef.current.language,
-          }),
-        });
-        if (res.ok) {
-          const data = await res.json();
-          voiceSessionIdRef.current = data.session?.id;
-          voiceTurnCountRef.current = 0;
-        }
-      } catch (sessErr) {
-        console.warn('[Voice] Session init warning:', sessErr);
-      }
-
-      // 2. Start VAD
-      await vadControllerRef.current?.start(voiceStateRef.current.deviceId);
-
-      // 3. Build STT callbacks (stored in ref so they can be reused each turn)
-      const sttCbs = {
-        onStart: () => {
-          // First turn: dispatch START; for re-listen turns FSM is already in listening
-          if (voiceStateRef.current.state === 'idle') {
-            dispatchVoice({ type: 'START' });
-          }
-        },
-        onPartial: (partial) => {
-          pendingVoiceTranscriptRef.current = partial;
-          dispatchVoice({ type: 'STT_PARTIAL', transcript: partial });
-          setInputText(partial);
-          // Phase 5: mark sttFirstPartial on the very first partial result
-          if (!turnTelemetry.has('sttFirstPartial')) {
-            turnTelemetry.mark('sttFirstPartial');
-          }
-          // Phase 1: Adaptive endpointing - adjust VAD hangover based on transcript
-          // completeness. Complete questions/sentences get shorter hangover (commit faster).
-          const adaptiveMs = vadControllerRef.current?.adaptiveHangoverMs?.(partial);
-          if (adaptiveMs) vadControllerRef.current.setHangoverMs(adaptiveMs);
-        },
-        onFinal: (finalPart) => {
-          pendingVoiceTranscriptRef.current = (pendingVoiceTranscriptRef.current + ' ' + finalPart).trim();
-          setInputText(pendingVoiceTranscriptRef.current);
-        },
-        onError: (err) => {
-          if (err === 'permission_denied' || err === 'not-allowed') {
-            dispatchVoice({ type: 'PERMISSION_DENIED' });
-            stopVoiceMode();
-          } else if (err === 'unsupported_browser') {
-            dispatchVoice({ type: 'UNSUPPORTED_BROWSER' });
-          } else {
-            console.warn('[Voice] STT warning:', err);
-            recordVoiceTurnUsage({ sttError: true, errorType: String(err) });
-          }
-        },
-        onEnd: () => {
-          // Not restarting here - restart is managed by resumeListeningForNextTurn
-        },
-      };
-      sttCallbacksRef.current = sttCbs;
-      sttProviderRef.current?.start(
-        sttCbs,
-        voiceStateRef.current.language,
-        voiceStateRef.current.deviceId
-      );
-
-      dispatchVoice({ type: 'START' });
-    } catch (err) {
-      console.error('[Voice] Failed to start voice mode:', err);
-      dispatchVoice({ type: 'ERROR', message: err.message });
-    }
-  };
-
-  const stopVoiceMode = () => {
-    sttProviderRef.current?.stop();
-    chunkedSpeakerRef.current?.cancel();
-    vadControllerRef.current?.stop();
-
-    if (voiceSessionIdRef.current) {
-      fetch(`${apiBase || ''}/api/v1/voice/session/${voiceSessionIdRef.current}/end`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-tenant-slug': tenantSlug || 'default',
-        },
-        credentials: 'include',
-        body: JSON.stringify({
-          turnCount: voiceTurnCountRef.current,
-          endedReason: 'completed',
-        }),
-      }).catch(() => {});
-      voiceSessionIdRef.current = null; // null signals: do NOT resume
-    }
-
-    dispatchVoice({ type: 'STOP' });
-    pendingVoiceTranscriptRef.current = '';
-    setInputText('');
-  };
-
-  /**
-   * resumeListeningForNextTurn - restart VAD + STT for the next turn.
-   * Called after AI finishes speaking (TTS_END) to enable hands-free continuous mode.
-   * Does NOT create a new voice session or change FSM state (already in 'listening').
-   */
-  const resumeListeningForNextTurnRef = useRef(null);
-  // Keep the ref in sync with the latest closure (avoids stale state in callbacks)
-  const _resumeListeningForNextTurn = useCallback(async () => {
-    // Guard: only resume if session still open (user hasn't pressed Stop)
-    if (!voiceSessionIdRef.current) {
-      console.debug('[Voice] Session closed - not resuming listen loop');
-      return;
-    }
-    // Guard: don't restart if a new turn is already processing
-    const curState = voiceStateRef.current.state;
-    if (curState === 'processing' || curState === 'streaming' || curState === 'speaking') {
-      console.debug('[Voice] Already busy - skipping relisten');
-      return;
-    }
-
-    console.debug('[Voice] ▶ Resuming listen for next turn (persistent session)…');
-    pendingVoiceTranscriptRef.current = '';
-    setInputText('');
-
-    try {
-      // Phase 2: Use resume() instead of start() to avoid re-initializing AudioContext.
-      // VAD was suspended (not stopped) after TTS finished, so hardware is still acquired.
-      // This saves ~150–300ms of AudioContext init time per turn.
-      if (vadControllerRef.current?.isSuspended) {
-        vadControllerRef.current.resume();
-      } else {
-        // First turn or VAD was fully stopped - full init needed
-        await vadControllerRef.current?.start(voiceStateRef.current.deviceId);
-      }
-
-      // Reset adaptive hangover to default for the new turn
-      vadControllerRef.current?.setHangoverMs(600);
-
-      if (sttCallbacksRef.current) {
-        sttProviderRef.current?.start(
-          sttCallbacksRef.current,
-          voiceStateRef.current.language,
-          voiceStateRef.current.deviceId
-        );
-      }
-    } catch (err) {
-      console.warn('[Voice] Relisten start error:', err);
-      dispatchVoice({ type: 'ERROR', message: err.message });
-    }
-  }, []);
-  resumeListeningForNextTurnRef.current = _resumeListeningForNextTurn;
-
-  const toggleVoiceMode = () => {
-    if (isVoiceActive(voiceState.state)) {
-      if (pendingVoiceTranscriptRef.current?.trim()) {
-        handleTurnCommit();
-      } else {
-        stopVoiceMode();
-      }
-    } else {
-      startVoiceMode();
-    }
-  };
-
-  // Push-to-Talk Spacebar Listener
-  useEffect(() => {
-    if (!voiceState.pushToTalk || !isVoiceActive(voiceState.state)) return;
-
-    const onKeyDown = (e) => {
-      if (e.code === 'Space' && !e.repeat) {
-        const tag = document.activeElement?.tagName?.toLowerCase();
-        if (tag === 'input' || tag === 'textarea' || document.activeElement?.isContentEditable) return;
-        e.preventDefault();
-        if (!isPttActiveRef.current) {
-          isPttActiveRef.current = true;
-          dispatchVoice({ type: 'VAD_SPEECH_START' });
-        }
-      }
-    };
-
-    const onKeyUp = (e) => {
-      if (e.code === 'Space' && isPttActiveRef.current) {
-        e.preventDefault();
-        isPttActiveRef.current = false;
-        dispatchVoice({ type: 'VAD_SPEECH_STOP' });
-        handleTurnCommit();
-      }
-    };
-
-    window.addEventListener('keydown', onKeyDown);
-    window.addEventListener('keyup', onKeyUp);
-    return () => {
-      window.removeEventListener('keydown', onKeyDown);
-      window.removeEventListener('keyup', onKeyUp);
-    };
-  }, [voiceState.pushToTalk, voiceState.state]);
+  const {
+    voiceState,
+    dispatchVoice,
+    voiceStateRef,
+    voiceDevices,
+    showVoiceSettings,
+    setShowVoiceSettings,
+    audioRms,
+    voiceRate,
+    setVoiceRate,
+    voicePitch,
+    setVoicePitch,
+    vadThreshold,
+    setVadThreshold,
+    echoGateEnabled,
+    setEchoGateEnabled,
+    startVoiceMode,
+    stopVoiceMode,
+    toggleVoiceMode,
+    handleBargeIn,
+    recordVoiceTurnUsage,
+    sttProviderRef,
+    chunkedSpeakerRef,
+    vadControllerRef,
+    abortControllerRef,
+    loadingRef,
+    lastUserVoiceTextRef,
+    lastBotVoiceTextRef,
+    vadEndOfSpeechTimeRef,
+    sttFinalizeTimeRef,
+    firstTtsAudioTimeRef,
+    lastTurnTtfaRef,
+  } = useVoiceChat({
+    apiBase,
+    tenantSlug,
+    activeConvId,
+    setInputText,
+    setLoading,
+    sendMessageRef,
+    setError,
+  });
 
   useEffect(() => {
     loadingRef.current = loading;
   }, [loading]);
 
-  // Custom presets and export dropdown states
+  // Custom presets states
   const [customPresets, setCustomPresets] = useState([]);
-  const [showExportMenu, setShowExportMenu] = useState(false);
-  const [exportingPdf, setExportingPdf] = useState(false);
-  const [exportingMsgIdx, setExportingMsgIdx] = useState(null);
-  const [downloadedMsgIdx, setDownloadedMsgIdx] = useState(null);
 
   const syncCustomPresets = useCallback(async () => {
     if (typeof window === 'undefined') return;
@@ -1432,159 +295,24 @@ function ChatPage() {
     return () => window.removeEventListener('storage', syncCustomPresets);
   }, [user, syncCustomPresets]);
 
-  const triggerDownload = (content, filename, contentType) => {
-    const blob = new Blob([content], { type: contentType });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = filename;
-    a.click();
-    URL.revokeObjectURL(url);
-  };
-
-  const exportAsMarkdown = () => {
-    if (messages.length === 0) return;
-    const mdContent = messages
-      .map((m) => {
-        const sender =
-          m.sender === 'user'
-            ? '### User'
-            : `### Assistant (${m.model || 'AI'})`;
-        return `${sender}\n\n${m.text}\n\n---\n`;
-      })
-      .join('\n');
-    triggerDownload(
-      mdContent,
-      `chat_${activeConvId || 'new'}.md`,
-      'text/markdown'
-    );
-    setShowExportMenu(false);
-  };
-
-  const exportAsJSON = () => {
-    if (messages.length === 0) return;
-    const jsonContent = JSON.stringify(messages, null, 2);
-    triggerDownload(
-      jsonContent,
-      `chat_${activeConvId || 'new'}.json`,
-      'application/json'
-    );
-    setShowExportMenu(false);
-  };
-
-  const exportAsPDF = async (theme = 'corporate', includeCover = true) => {
-    if (messages.length === 0 || exportingPdf) return;
-    setExportingPdf(true);
-    setShowExportMenu(false);
-
-    try {
-      // 1. If we have a server-persisted conversation ID, call the dedicated session export endpoint
-      if (activeConvId && !activeConvId.startsWith('conv_')) {
-        const res = await fetch(
-          `${apiBase}/api/v1/chat/conversations/${activeConvId}/export/pdf?cover=${includeCover}&theme=${theme}&download=true`,
-          {
-            headers: authHeaders(),
-            credentials: 'include',
-          }
-        );
-        if (res.ok) {
-          const blob = await res.blob();
-          const url = window.URL.createObjectURL(blob);
-          const a = document.createElement('a');
-          a.href = url;
-          const safeTitle = (activeTitle || 'Xarwiz_Report').replace(/[^a-zA-Z0-9._-]/g, '_');
-          a.download = `${safeTitle}.pdf`;
-          document.body.appendChild(a);
-          a.click();
-          a.remove();
-          window.URL.revokeObjectURL(url);
-          return;
-        }
-      }
-
-      // 2. Direct render via /api/pdf/export
-      const chatMessages = messages.map((m) => ({
-        role: m.sender === 'user' ? 'user' : 'assistant',
-        content: m.text || '',
-      }));
-
-      const res = await fetch(`${apiBase}/api/pdf/export`, {
-        method: 'POST',
-        headers: authHeaders(),
-        credentials: 'include',
-        body: JSON.stringify({
-          messages: chatMessages,
-          title: activeTitle || 'Xarwiz AI Intelligence Session',
-          filename: (activeTitle || 'xarwiz_chat').replace(/[^a-zA-Z0-9._-]/g, '_'),
-          options: {
-            theme,
-            includeCoverPage: includeCover,
-            includeHeaderFooter: true,
-          },
-        }),
-      });
-
-      if (!res.ok) throw new Error('Failed to export PDF');
-
-      const blob = await res.blob();
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `${(activeTitle || 'xarwiz_chat').replace(/[^a-zA-Z0-9._-]/g, '_')}.pdf`;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      window.URL.revokeObjectURL(url);
-    } catch (err) {
-      console.error('PDF Export failed:', err);
-      alert('Failed to generate PDF. Please try again.');
-    } finally {
-      setExportingPdf(false);
-    }
-  };
-
-  const exportMessageAsPDF = async (msgText, idx) => {
-    if (!msgText || exportingMsgIdx !== null) return;
-    setExportingMsgIdx(idx);
-
-    try {
-      const res = await fetch(`${apiBase}/api/pdf/export`, {
-        method: 'POST',
-        headers: authHeaders(),
-        credentials: 'include',
-        body: JSON.stringify({
-          markdown: msgText,
-          title: activeTitle || 'Xarwiz AI Analysis',
-          filename: `xarwiz_analysis_${idx + 1}`,
-          options: {
-            theme: 'corporate',
-            includeCoverPage: msgText.length > 2500,
-            includeHeaderFooter: true,
-          },
-        }),
-      });
-
-      if (!res.ok) throw new Error('Failed to export message as PDF');
-
-      const blob = await res.blob();
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `xarwiz_analysis_${idx + 1}.pdf`;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      window.URL.revokeObjectURL(url);
-
-      setDownloadedMsgIdx(idx);
-      setTimeout(() => setDownloadedMsgIdx(null), 2500);
-    } catch (err) {
-      console.error('Message PDF export failed:', err);
-      alert('Failed to export message as PDF.');
-    } finally {
-      setExportingMsgIdx(null);
-    }
-  };
+  // PDF & Session Export Hook
+  const {
+    exportingPdf,
+    showExportMenu,
+    setShowExportMenu,
+    exportAsPDF,
+    exportAsMarkdown,
+    exportAsJSON,
+    exportMessageAsPDF,
+    exportingMsgIdx,
+    downloadedMsgIdx,
+  } = usePdfExport({
+    apiBase,
+    authHeaders,
+    activeConvId,
+    activeTitle,
+    messages,
+  });
 
   useEffect(() => {
     const savedPins = JSON.parse(
@@ -3062,292 +1790,25 @@ CRITICAL RULES:
             </div>
           </div>
 
-          {showVoiceSettings && (
-            <div className="voice-settings-popover" style={{
-              position: 'absolute',
-              bottom: '100%',
-              right: '16px',
-              marginBottom: '10px',
-              width: '320px',
-              background: 'var(--surface, #1e293b)',
-              border: '1px solid var(--border, #334155)',
-              borderRadius: '12px',
-              padding: '16px',
-              boxShadow: '0 10px 25px -5px rgba(0,0,0,0.4)',
-              zIndex: 50,
-              color: 'var(--text-primary, #f8fafc)',
-              fontSize: '13px',
-            }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-                <span style={{ fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <Sliders size={14} /> Voice Assistant Settings
-                </span>
-                <button
-                  type="button"
-                  onClick={() => setShowVoiceSettings(false)}
-                  style={{ background: 'none', border: 'none', color: 'var(--text-muted, #94a3b8)', cursor: 'pointer', padding: '2px' }}
-                >
-                  <X size={14} />
-                </button>
-              </div>
-
-              {/* Language Selection */}
-              <div style={{ marginBottom: '12px' }}>
-                <label style={{ display: 'block', marginBottom: '4px', fontSize: '11px', color: 'var(--text-muted, #94a3b8)', textTransform: 'uppercase' }}>
-                  Language (BCP-47)
-                </label>
-                <select
-                  value={voiceState.language}
-                  onChange={(e) => {
-                    const lang = e.target.value;
-                    dispatchVoice({ type: 'SET_LANGUAGE', language: lang });
-                    if (typeof window !== 'undefined') localStorage.setItem('hk_voice_lang', lang);
-                    fetch(`${apiBase}/api/v1/voice/settings`, {
-                      method: 'PUT',
-                      headers: { 'Content-Type': 'application/json' },
-                      credentials: 'include',
-                      body: JSON.stringify({ language: lang }),
-                    }).catch(() => {});
-                  }}
-                  style={{ width: '100%', padding: '6px 8px', borderRadius: '6px', background: 'rgba(0,0,0,0.2)', border: '1px solid var(--border, #334155)', color: 'inherit' }}
-                >
-                  <option value="en-US">English (US)</option>
-                  <option value="en-GB">English (UK)</option>
-                  <option value="es-ES">Spanish (Español)</option>
-                  <option value="fr-FR">French (Français)</option>
-                  <option value="de-DE">German (Deutsch)</option>
-                  <option value="hi-IN">Hindi (हिन्दी)</option>
-                  <option value="ja-JP">Japanese (日本語)</option>
-                  <option value="zh-CN">Chinese (中文)</option>
-                  <option value="pt-BR">Portuguese (Brasil)</option>
-                </select>
-              </div>
-
-              {/* Microphone Input */}
-              {voiceDevices.length > 0 && (
-                <div style={{ marginBottom: '12px' }}>
-                  <label style={{ display: 'block', marginBottom: '4px', fontSize: '11px', color: 'var(--text-muted, #94a3b8)', textTransform: 'uppercase' }}>
-                    Microphone Device
-                  </label>
-                  <select
-                    value={voiceState.deviceId || ''}
-                    onChange={(e) => {
-                      const dev = e.target.value || null;
-                      dispatchVoice({ type: 'SET_DEVICE_ID', deviceId: dev });
-                      if (typeof window !== 'undefined') {
-                        if (dev) localStorage.setItem('hk_voice_device', dev);
-                        else localStorage.removeItem('hk_voice_device');
-                      }
-                    }}
-                    style={{ width: '100%', padding: '6px 8px', borderRadius: '6px', background: 'rgba(0,0,0,0.2)', border: '1px solid var(--border, #334155)', color: 'inherit' }}
-                  >
-                    <option value="">Default Microphone</option>
-                    {voiceDevices.map((d) => (
-                      <option key={d.deviceId} value={d.deviceId}>
-                        {d.label || `Microphone ${d.deviceId.slice(0, 6)}...`}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              )}
-
-              {/* Push-to-Talk Toggle */}
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', padding: '8px 0', borderTop: '1px solid var(--border, #334155)' }}>
-                <div>
-                  <div style={{ fontWeight: 500 }}>Push-to-Talk</div>
-                  <div style={{ fontSize: '11px', color: 'var(--text-muted, #94a3b8)' }}>Hold Spacebar to speak</div>
-                </div>
-                <input
-                  type="checkbox"
-                  checked={voiceState.pushToTalk}
-                  onChange={(e) => {
-                    const val = e.target.checked;
-                    dispatchVoice({ type: 'SET_PUSH_TO_TALK', pushToTalk: val });
-                    fetch(`${apiBase}/api/v1/voice/settings`, {
-                      method: 'PUT',
-                      headers: { 'Content-Type': 'application/json' },
-                      credentials: 'include',
-                      body: JSON.stringify({
-                        language: voiceState.language,
-                        pushToTalk: val,
-                        rate: voiceRate,
-                        pitch: voicePitch,
-                        vadThreshold,
-                        echoGateEnabled,
-                      }),
-                    }).catch(() => {});
-                  }}
-                />
-              </div>
-
-              {/* Echo Gate Toggle */}
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', padding: '8px 0', borderTop: '1px solid var(--border, #334155)' }}>
-                <div>
-                  <div style={{ fontWeight: 500 }}>Echo Gate</div>
-                  <div style={{ fontSize: '11px', color: 'var(--text-muted, #94a3b8)' }}>Filter speaker bleed during AI speech</div>
-                </div>
-                <input
-                  type="checkbox"
-                  checked={echoGateEnabled}
-                  onChange={(e) => {
-                    const val = e.target.checked;
-                    setEchoGateEnabled(val);
-                    fetch(`${apiBase}/api/v1/voice/settings`, {
-                      method: 'PUT',
-                      headers: { 'Content-Type': 'application/json' },
-                      credentials: 'include',
-                      body: JSON.stringify({
-                        language: voiceState.language,
-                        pushToTalk: voiceState.pushToTalk,
-                        rate: voiceRate,
-                        pitch: voicePitch,
-                        vadThreshold,
-                        echoGateEnabled: val,
-                      }),
-                    }).catch(() => {});
-                  }}
-                />
-              </div>
-
-              {/* Speech Rate Slider */}
-              <div style={{ marginBottom: '12px', borderTop: '1px solid var(--border, #334155)', paddingTop: '12px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px', fontSize: '11px', color: 'var(--text-muted, #94a3b8)', textTransform: 'uppercase' }}>
-                  <span>Speech Rate</span>
-                  <span style={{ color: '#6366f1', fontWeight: 600 }}>{voiceRate.toFixed(2)}x</span>
-                </div>
-                <input
-                  type="range"
-                  min="0.5"
-                  max="2.0"
-                  step="0.05"
-                  value={voiceRate}
-                  onChange={(e) => {
-                    const val = parseFloat(e.target.value);
-                    setVoiceRate(val);
-                    chunkedSpeakerRef.current?.setOptions({ rate: val, pitch: voicePitch });
-                  }}
-                  onMouseUp={(e) => {
-                    const val = parseFloat(e.target.value);
-                    fetch(`${apiBase}/api/v1/voice/settings`, {
-                      method: 'PUT',
-                      headers: { 'Content-Type': 'application/json' },
-                      credentials: 'include',
-                      body: JSON.stringify({
-                        language: voiceState.language,
-                        pushToTalk: voiceState.pushToTalk,
-                        rate: val,
-                        pitch: voicePitch,
-                        vadThreshold,
-                        echoGateEnabled,
-                      }),
-                    }).catch(() => {});
-                  }}
-                  style={{ width: '100%', accentColor: '#6366f1' }}
-                />
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px', color: '#475569' }}>
-                  <span>0.5x Slow</span><span>1.0x Normal</span><span>2.0x Fast</span>
-                </div>
-              </div>
-
-              {/* Pitch Slider */}
-              <div style={{ marginBottom: '12px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px', fontSize: '11px', color: 'var(--text-muted, #94a3b8)', textTransform: 'uppercase' }}>
-                  <span>Voice Pitch</span>
-                  <span style={{ color: '#06b6d4', fontWeight: 600 }}>{voicePitch.toFixed(2)}</span>
-                </div>
-                <input
-                  type="range"
-                  min="0.5"
-                  max="2.0"
-                  step="0.05"
-                  value={voicePitch}
-                  onChange={(e) => {
-                    const val = parseFloat(e.target.value);
-                    setVoicePitch(val);
-                    chunkedSpeakerRef.current?.setOptions({ rate: voiceRate, pitch: val });
-                  }}
-                  onMouseUp={(e) => {
-                    const val = parseFloat(e.target.value);
-                    fetch(`${apiBase}/api/v1/voice/settings`, {
-                      method: 'PUT',
-                      headers: { 'Content-Type': 'application/json' },
-                      credentials: 'include',
-                      body: JSON.stringify({
-                        language: voiceState.language,
-                        pushToTalk: voiceState.pushToTalk,
-                        rate: voiceRate,
-                        pitch: val,
-                        vadThreshold,
-                        echoGateEnabled,
-                      }),
-                    }).catch(() => {});
-                  }}
-                  style={{ width: '100%', accentColor: '#06b6d4' }}
-                />
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px', color: '#475569' }}>
-                  <span>0.5 Low</span><span>1.0 Normal</span><span>2.0 High</span>
-                </div>
-              </div>
-
-              {/* VAD Sensitivity Slider */}
-              <div style={{ marginBottom: '12px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px', fontSize: '11px', color: 'var(--text-muted, #94a3b8)', textTransform: 'uppercase' }}>
-                  <span>Mic Sensitivity</span>
-                  <span style={{ color: '#10b981', fontWeight: 600 }}>{vadThreshold} dBFS</span>
-                </div>
-                <input
-                  type="range"
-                  min="-55"
-                  max="-28"
-                  step="1"
-                  value={vadThreshold}
-                  onChange={(e) => {
-                    const val = parseInt(e.target.value, 10);
-                    setVadThreshold(val);
-                    if (vadControllerRef.current?.options) {
-                      vadControllerRef.current.options.silenceThresholdDb = val;
-                    }
-                  }}
-                  onMouseUp={(e) => {
-                    const val = parseInt(e.target.value, 10);
-                    fetch(`${apiBase}/api/v1/voice/settings`, {
-                      method: 'PUT',
-                      headers: { 'Content-Type': 'application/json' },
-                      credentials: 'include',
-                      body: JSON.stringify({
-                        language: voiceState.language,
-                        pushToTalk: voiceState.pushToTalk,
-                        rate: voiceRate,
-                        pitch: voicePitch,
-                        vadThreshold: val,
-                        echoGateEnabled,
-                      }),
-                    }).catch(() => {});
-                  }}
-                  style={{ width: '100%', accentColor: '#10b981' }}
-                />
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px', color: '#475569' }}>
-                  <span>-55 Very sensitive</span><span>-28 Less sensitive</span>
-                </div>
-              </div>
-
-              {/* Live VAD Audio Energy Meter */}
-              <div style={{ borderTop: '1px solid var(--border, #334155)', paddingTop: '8px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: 'var(--text-muted, #94a3b8)', marginBottom: '4px' }}>
-                  <span>Live Voice Energy (VAD)</span>
-                  <span>{Math.round(audioRms * 100)}%</span>
-                </div>
-                <div style={{ width: '100%', height: '4px', background: 'rgba(255,255,255,0.1)', borderRadius: '2px', overflow: 'hidden' }}>
-                  <div style={{
-                    width: `${Math.min(100, audioRms * 300)}%`,
-                    height: '100%',
-                    background: audioRms > 0.12 ? '#10b981' : '#6366f1',
-                    transition: 'width 60ms ease-out',
-                  }} />
-                </div>
-              </div>
-            </div>
-          )}
+          <VoiceSettingsPopover
+            showVoiceSettings={showVoiceSettings}
+            setShowVoiceSettings={setShowVoiceSettings}
+            voiceState={voiceState}
+            dispatchVoice={dispatchVoice}
+            voiceDevices={voiceDevices}
+            echoGateEnabled={echoGateEnabled}
+            setEchoGateEnabled={setEchoGateEnabled}
+            voiceRate={voiceRate}
+            setVoiceRate={setVoiceRate}
+            voicePitch={voicePitch}
+            setVoicePitch={setVoicePitch}
+            vadThreshold={vadThreshold}
+            setVadThreshold={setVadThreshold}
+            audioRms={audioRms}
+            chunkedSpeakerRef={chunkedSpeakerRef}
+            vadControllerRef={vadControllerRef}
+            apiBase={apiBase}
+          />
         </div>
       </form>
       <p className="composer-hint">
@@ -3636,10 +2097,10 @@ CRITICAL RULES:
                     aria-label="Select AI Model"
                   >
                     <span className="model-pill-name">
-                      {model === 'harikson-max' ? 'Xarwiz Max' : 'Xarwiz Plus'}
+                      {(model === 'xarwiz-max' || model === 'harikson-max') ? 'Xarwiz Max' : 'Xarwiz Plus'}
                     </span>
                     <span className="model-pill-badge">
-                      {model === 'harikson-max' ? '14B' : '8B'}
+                      {(model === 'xarwiz-max' || model === 'harikson-max') ? '14B' : '8B'}
                     </span>
                     <ChevronDown size={13} className={`model-pill-arrow ${showModelPicker ? 'rotate' : ''}`} />
                   </button>
@@ -3648,9 +2109,9 @@ CRITICAL RULES:
                     <div className="model-picker-dropdown">
                       <div className="model-picker-header">Select Model</div>
                       <div
-                        className={`model-option-card ${model === 'harikson-plus' ? 'selected' : ''}`}
+                        className={`model-option-card ${(model === 'xarwiz-plus' || model === 'harikson-plus') ? 'selected' : ''}`}
                         onClick={() => {
-                          setModel('harikson-plus');
+                          setModel('xarwiz-plus');
                           setShowModelPicker(false);
                         }}
                       >
@@ -3662,9 +2123,9 @@ CRITICAL RULES:
                       </div>
 
                       <div
-                        className={`model-option-card ${model === 'harikson-max' ? 'selected' : ''}`}
+                        className={`model-option-card ${(model === 'xarwiz-max' || model === 'harikson-max') ? 'selected' : ''}`}
                         onClick={() => {
-                          setModel('harikson-max');
+                          setModel('xarwiz-max');
                           setShowModelPicker(false);
                         }}
                       >
@@ -3884,322 +2345,44 @@ CRITICAL RULES:
               </div>
             ) : (
               <div className="active-chat-view">
-                <div className="messages-scroll-column" ref={messagesScrollRef} onScroll={handleMessagesScroll}>
-                  {messages.map((msg, idx) => {
-                    if (msg.sender === 'user') {
-                      const isEditing = editingMsgIdx === idx;
-                      const uploadedFiles = parseUploadedFiles(msg.text || '');
-                      const cleanUserText = uploadedFiles.length > 0 ? extractUserVisibleText(msg.text || '') : msg.text;
-
-                      const handlePreviewFile = (f) => {
-                        const isImg = f.isImage || (f.type && f.type.startsWith('image/')) || (f.mimeType && f.mimeType.startsWith('image/')) || f.name?.match(/\.(png|jpe?g|webp|gif|svg)$/i);
-                        if (isImg) {
-                          setSelectedImage({ url: f.dataUrl || f.url || '', name: f.name });
-                          setIsImageViewerOpen(true);
-                        } else {
-                          setSelectedPreviewFile({
-                            name: f.name,
-                            title: f.name,
-                            content: f.content,
-                            extractedText: f.content,
-                            documentId: f.documentId,
-                            pages: f.pages || 1,
-                            size: f.size,
-                          });
-                          setSelectedCitationDoc(f.documentId || null);
-                          setSelectedCitationPage(1);
-                          setIsDocViewerOpen(true);
-                        }
-                      };
-
-                      const handleDownloadFile = (f) => {
-                        if (f.documentId) {
-                          window.open(`${apiBase}/api/documents/${f.documentId}/download`, '_blank');
-                        } else {
-                          const blob = new Blob([f.content || f.name], { type: f.type || 'text/plain;charset=utf-8' });
-                          const url = URL.createObjectURL(blob);
-                          const a = document.createElement('a');
-                          a.href = url;
-                          a.download = f.name;
-                          a.click();
-                          URL.revokeObjectURL(url);
-                        }
-                      };
-
-                      if (isEditing) {
-                        return (
-                          <div key={idx} className="message-row user user-editing-row">
-                            <div className="user-message-edit-container">
-                              {uploadedFiles.length > 0 && (
-                                <div className="user-message-attachments-group" style={{ marginBottom: '8px' }}>
-                                  {uploadedFiles.map((file, fIdx) => (
-                                    <FileAttachmentCard
-                                      key={fIdx}
-                                      file={file}
-                                      onPreview={handlePreviewFile}
-                                    />
-                                  ))}
-                                </div>
-                              )}
-                              <textarea
-                                ref={editTextareaRef}
-                                className="user-message-edit-textarea"
-                                value={editDraftText}
-                                onChange={(e) => {
-                                  setEditDraftText(e.target.value);
-                                  e.target.style.height = 'auto';
-                                  e.target.style.height = Math.min(e.target.scrollHeight, 320) + 'px';
-                                }}
-                                onKeyDown={(e) => {
-                                  if (e.key === 'Enter' && !e.shiftKey) {
-                                    e.preventDefault();
-                                    handleSaveEdit(idx);
-                                  } else if (e.key === 'Escape') {
-                                    e.preventDefault();
-                                    handleCancelEdit();
-                                  }
-                                }}
-                                placeholder="Edit your message..."
-                                rows={1}
-                                aria-label="Edit message text"
-                              />
-                              <div className="user-message-edit-actions">
-                                <button
-                                  type="button"
-                                  className="edit-action-btn edit-cancel-btn"
-                                  onClick={handleCancelEdit}
-                                  aria-label="Cancel editing"
-                                >
-                                  Cancel
-                                </button>
-                                <button
-                                  type="button"
-                                  className="edit-action-btn edit-send-btn"
-                                  onClick={() => handleSaveEdit(idx)}
-                                  disabled={!editDraftText.trim() || loading}
-                                  aria-label="Send edited message"
-                                >
-                                  Send
-                                </button>
-                              </div>
-                            </div>
-                          </div>
-                        );
-                      }
-
-                      return (
-                        <div key={idx} className="message-row user">
-                          <div className="user-message-container">
-                            {uploadedFiles.length > 0 && (
-                              <div className="user-message-attachments-group">
-                                {uploadedFiles.map((file, fIdx) => (
-                                  <FileAttachmentCard
-                                    key={fIdx}
-                                    file={file}
-                                    onPreview={handlePreviewFile}
-                                    onDownload={handleDownloadFile}
-                                  />
-                                ))}
-                              </div>
-                            )}
-                            {cleanUserText ? (
-                              <div className="message-bubble-user">{cleanUserText}</div>
-                            ) : null}
-                            <div className="user-message-actions">
-                              <button
-                                type="button"
-                                className="user-msg-action-btn"
-                                onClick={() => handleCopyUserMessage(msg.text, idx)}
-                                title={copiedUserMsgIdx === idx ? 'Copied!' : 'Copy message'}
-                                aria-label="Copy message"
-                              >
-                                {copiedUserMsgIdx === idx ? (
-                                  <>
-                                    <Check size={14} className="copied-icon" />
-                                    <span className="action-tooltip">Copied</span>
-                                  </>
-                                ) : (
-                                  <Copy size={14} />
-                                )}
-                              </button>
-                              <button
-                                type="button"
-                                className="user-msg-action-btn"
-                                onClick={() => handleStartEdit(idx, msg.text)}
-                                title="Edit message"
-                                aria-label="Edit message"
-                                disabled={loading}
-                              >
-                                <Edit3 size={14} />
-                              </button>
-                            </div>
-                          </div>
-                        </div>
-                      );
-                    }
-                    if (!msg.text) return null;
-                    const isStreamingThis = loading && idx === messages.length - 1;
-                    return (
-                      <div key={idx} className="message-row assistant">
-                        <div className="message-bubble-assistant">
-                          <div className="assistant-avatar">
-                            <Zap size={16} color="white" />
-                          </div>
-                          <div className="assistant-content">
-                            <MarkdownRenderer
-                              content={msg.text}
-                              onOpenArtifact={setActiveArtifact}
-                              onCitationClick={({ documentId, page }) => {
-                                setSelectedCitationDoc(documentId);
-                                setSelectedCitationPage(page || 1);
-                                setIsDocViewerOpen(true);
-                              }}
-                            />
-                            {isStreamingThis && <span className="streaming-cursor" />}
-
-                            {/* ChatGPT-Quality Message Action Bar */}
-                            <div className="assistant-message-actions">
-                              <button
-                                type="button"
-                                className="msg-action-btn"
-                                onClick={() => handleCopyMessage(msg.text, idx)}
-                                title={copiedMsgIdx === idx ? 'Copied!' : 'Copy response'}
-                                aria-label="Copy response"
-                              >
-                                {copiedMsgIdx === idx ? <Check size={14} className="copied-icon" /> : <Copy size={14} />}
-                                {copiedMsgIdx === idx && <span className="action-tooltip">Copied</span>}
-                              </button>
-                              <button
-                                type="button"
-                                className="msg-action-btn"
-                                onClick={() => handleRegenerate(idx)}
-                                title="Regenerate response"
-                                aria-label="Regenerate response"
-                                disabled={loading}
-                              >
-                                <RotateCw size={14} className={loading && isStreamingThis ? 'animate-spin' : ''} />
-                              </button>
-                              <button
-                                type="button"
-                                className={`msg-action-btn ${msgFeedback[idx] === 'up' ? 'active-feedback-up' : ''}`}
-                                onClick={() => handleFeedback(idx, 'up')}
-                                title="Good response"
-                                aria-label="Good response"
-                              >
-                                <ThumbsUp size={14} />
-                              </button>
-                              <button
-                                type="button"
-                                className={`msg-action-btn ${msgFeedback[idx] === 'down' ? 'active-feedback-down' : ''}`}
-                                onClick={() => handleFeedback(idx, 'down')}
-                                title="Poor response"
-                                aria-label="Poor response"
-                              >
-                                <ThumbsDown size={14} />
-                              </button>
-                              <button
-                                type="button"
-                                className="msg-action-btn"
-                                onClick={() => exportMessageAsPDF(msg.text, idx)}
-                                title={downloadedMsgIdx === idx ? 'PDF Downloaded!' : 'Export message as PDF'}
-                                aria-label="Export message as PDF"
-                                disabled={exportingMsgIdx === idx}
-                              >
-                                {exportingMsgIdx === idx ? (
-                                  <Loader2 size={14} className="animate-spin" />
-                                ) : downloadedMsgIdx === idx ? (
-                                  <Check size={14} className="copied-icon" />
-                                ) : (
-                                  <Download size={14} />
-                                )}
-                                {downloadedMsgIdx === idx && <span className="action-tooltip">PDF Downloaded</span>}
-                              </button>
-                              <span className="msg-model-badge">
-                                {maskModelName(model)}
-                              </span>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })}
-
-                  {/* Thinking indicator */}
-                  {loading && (!messages.length || messages[messages.length - 1]?.sender !== 'bot' || !messages[messages.length - 1]?.text) && (
-                    <div
-                      className="thinking-row"
-                      style={{ display: 'flex', alignItems: 'center', gap: '12px' }}
-                    >
-                      <div className="thinking-avatar">
-                        <Zap size={16} color="white" />
-                      </div>
-                      <div className="thinking-dots">
-                        <div className="thinking-dot" />
-                        <div className="thinking-dot" />
-                        <div className="thinking-dot" />
-                      </div>
-                      {loadingStatus && (
-                        <span
-                          style={{
-                            fontSize: '13px',
-                            color: 'var(--text-secondary)',
-                            fontStyle: 'italic',
-                          }}
-                        >
-                          {loadingStatus}
-                        </span>
-                      )}
-                    </div>
-                  )}
-
-                  {/* Error banner */}
-                  {error && (
-                    <div className="error-banner" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <TriangleAlert size={18} style={{ flexShrink: 0 }} />
-                        <span>{error}</span>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setError(null);
-                          handleRegenerate(messages.length);
-                        }}
-                        style={{
-                          background: 'rgba(239, 68, 68, 0.15)',
-                          border: '1px solid rgba(239, 68, 68, 0.3)',
-                          color: '#ef4444',
-                          borderRadius: '6px',
-                          padding: '4px 10px',
-                          fontSize: '12px',
-                          fontWeight: 500,
-                          cursor: 'pointer',
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '6px',
-                          flexShrink: 0,
-                        }}
-                      >
-                        <RotateCw size={13} />
-                        <span>Regenerate</span>
-                      </button>
-                    </div>
-                  )}
-
-                  {showScrollBottom && (
-                    <button
-                      type="button"
-                      className="scroll-to-bottom-btn"
-                      onClick={scrollToBottom}
-                      title="Scroll to bottom"
-                      aria-label="Scroll to bottom"
-                    >
-                      <ArrowDown size={16} />
-                    </button>
-                  )}
-
-                  <div ref={chatEndRef} />
-                </div>
+                <ChatMessageList
+                  messages={messages}
+                  loading={loading}
+                  loadingStatus={loadingStatus}
+                  error={error}
+                  setError={setError}
+                  model={model}
+                  apiBase={apiBase}
+                  messagesScrollRef={messagesScrollRef}
+                  chatEndRef={chatEndRef}
+                  handleMessagesScroll={handleMessagesScroll}
+                  showScrollBottom={showScrollBottom}
+                  scrollToBottom={scrollToBottom}
+                  editingMsgIdx={editingMsgIdx}
+                  editDraftText={editDraftText}
+                  setEditDraftText={setEditDraftText}
+                  editTextareaRef={editTextareaRef}
+                  handleStartEdit={handleStartEdit}
+                  handleCancelEdit={handleCancelEdit}
+                  handleSaveEdit={handleSaveEdit}
+                  handleCopyUserMessage={handleCopyUserMessage}
+                  copiedUserMsgIdx={copiedUserMsgIdx}
+                  handleCopyMessage={handleCopyMessage}
+                  copiedMsgIdx={copiedMsgIdx}
+                  handleRegenerate={handleRegenerate}
+                  msgFeedback={msgFeedback}
+                  handleFeedback={handleFeedback}
+                  exportMessageAsPDF={exportMessageAsPDF}
+                  exportingMsgIdx={exportingMsgIdx}
+                  downloadedMsgIdx={downloadedMsgIdx}
+                  setSelectedImage={setSelectedImage}
+                  setIsImageViewerOpen={setIsImageViewerOpen}
+                  setSelectedPreviewFile={setSelectedPreviewFile}
+                  setSelectedCitationDoc={setSelectedCitationDoc}
+                  setSelectedCitationPage={setSelectedCitationPage}
+                  setIsDocViewerOpen={setIsDocViewerOpen}
+                  setActiveArtifact={setActiveArtifact}
+                />
 
                 {renderComposer(false)}
               </div>
@@ -4269,7 +2452,7 @@ CRITICAL RULES:
         <SettingsModal
           isOpen={showSettingsModal}
           onClose={() => setShowSettingsModal(false)}
-          initialTab="profile"
+          initialTab={settingsTab}
           handleLogout={handleLogout}
         />
 

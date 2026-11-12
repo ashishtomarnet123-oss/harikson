@@ -2,7 +2,7 @@ import { Router } from 'express';
 import Stripe from 'stripe';
 import Razorpay from 'razorpay';
 import jwt from 'jsonwebtoken';
-import { executeTenantQuery, executeCachedQuery, invalidateTenantCache } from '../db/pool.js';
+import { pool, executeTenantQuery, executeCachedQuery, invalidateTenantCache } from '../db/pool.js';
 import logger from '../utils/logger.js';
 import { enqueueWebhookEvent } from '../services/webhookRetryService.js';
 import { executePlanChange, calculateProration } from '../services/prorationService.js';
@@ -10,6 +10,7 @@ import { reactivateTenantSubscription } from '../services/dunningService.js';
 import { PhonePeService } from '../services/phonepe.service.js';
 import { CashfreeService } from '../services/cashfree.service.js';
 import { NeuraCollectService } from '../services/neuracollect.service.js';
+import { requireAuth } from '../middleware/auth.js';
 
 const router = Router();
 
@@ -23,8 +24,8 @@ const stripe = process.env.STRIPE_SECRET_KEY
 // --- Webhook routes FIRST (before auth middleware) --- //
 // These are called by Stripe/Razorpay servers, not by authenticated users.
 
-// POST /api/billing/webhooks/stripe
-router.post('/webhooks/stripe', async (req: any, res) => {
+// POST /api/billing/webhooks/stripe & /webhooks/stripe
+router.post(['/webhooks/stripe', '/stripe'], async (req: any, res) => {
   if (!stripe) {
     return res.status(503).json({ error: 'Stripe not configured' });
   }
@@ -61,8 +62,8 @@ router.post('/webhooks/stripe', async (req: any, res) => {
   }
 });
 
-// POST /api/billing/webhooks/razorpay
-router.post('/webhooks/razorpay', async (req: any, res) => {
+// POST /api/billing/webhooks/razorpay & /webhooks/razorpay
+router.post(['/webhooks/razorpay', '/razorpay'], async (req: any, res) => {
   const signature = req.headers['x-razorpay-signature'] as string | undefined;
   const webhookSecret = process.env.RAZORPAY_WEBHOOK_SECRET;
 
@@ -94,8 +95,8 @@ router.post('/webhooks/razorpay', async (req: any, res) => {
   }
 });
 
-// POST /api/billing/webhooks/phonepe
-router.post('/webhooks/phonepe', async (req: any, res) => {
+// POST /api/billing/webhooks/phonepe & /webhooks/phonepe
+router.post(['/webhooks/phonepe', '/phonepe'], async (req: any, res) => {
   const xVerify = req.headers['x-verify'] as string | undefined;
   const base64Response = req.body?.response;
 
@@ -133,7 +134,7 @@ router.post('/webhooks/phonepe', async (req: any, res) => {
 });
 
 // POST /api/billing/webhooks/cashfree & /webhooks/cashfree
-router.post(['/webhooks/cashfree', '/billing/webhooks/cashfree'], async (req: any, res) => {
+router.post(['/webhooks/cashfree', '/cashfree', '/billing/webhooks/cashfree'], async (req: any, res) => {
   const timestamp = (req.headers['x-webhook-timestamp'] as string) || '';
   const signature = (req.headers['x-webhook-signature'] as string) || '';
   const rawBody = req.rawBody || JSON.stringify(req.body || {});
@@ -144,7 +145,7 @@ router.post(['/webhooks/cashfree', '/billing/webhooks/cashfree'], async (req: an
   }
 
   const isValid = CashfreeService.verifyWebhookSignature(rawBody, timestamp, signature);
-  if (!isValid && process.env.NODE_ENV === 'production') {
+  if (!isValid) {
     logger.warn('Cashfree webhook signature verification failed, rejecting');
     return res.status(400).json({ error: 'Invalid webhook signature' });
   }
@@ -168,7 +169,7 @@ router.post(['/webhooks/cashfree', '/billing/webhooks/cashfree'], async (req: an
 });
 
 // POST /api/billing/webhooks/neuracollect & /webhooks/neuracollect
-router.post(['/webhooks/neuracollect', '/billing/webhooks/neuracollect'], async (req: any, res) => {
+router.post(['/webhooks/neuracollect', '/neuracollect', '/billing/webhooks/neuracollect'], async (req: any, res) => {
   const timestamp = (req.headers['x-webhook-timestamp'] as string) || '';
   const signature = (req.headers['x-webhook-signature'] as string) || '';
   const rawBody = req.rawBody ? req.rawBody.toString() : JSON.stringify(req.body || {});
@@ -179,7 +180,7 @@ router.post(['/webhooks/neuracollect', '/billing/webhooks/neuracollect'], async 
   }
 
   const isValid = await NeuraCollectService.verifyWebhookSignature(rawBody, timestamp, signature);
-  if (!isValid && process.env.NODE_ENV === 'production') {
+  if (!isValid) {
     logger.warn('NeuraCollect webhook signature verification failed, rejecting');
     return res.status(400).json({ error: 'Invalid webhook signature' });
   }
@@ -198,27 +199,9 @@ router.post(['/webhooks/neuracollect', '/billing/webhooks/neuracollect'], async 
   }
 });
 
-// --- Auth middleware — everything below requires a valid JWT --- //
+// --- Auth middleware — everything below requires valid authentication --- //
 
-router.use((req: any, res, next) => {
-  const authHeader = req.headers.authorization || '';
-  const cookieToken = req.cookies?.hk_access_token;
-  let token = '';
-  if (authHeader.startsWith('Bearer ')) {
-    token = authHeader.substring(7);
-  } else if (cookieToken) {
-    token = cookieToken;
-  }
-  if (!token) {
-    return res.status(401).json({ error: 'Unauthorized' });
-  }
-  try {
-    req.user = jwt.verify(token, process.env.JWT_SECRET!);
-  } catch (err) {
-    return res.status(401).json({ error: 'Unauthorized' });
-  }
-  next();
-});
+router.use(requireAuth);
 
 // GET /api/billing/providers & /api/v1/billing/providers
 router.get('/providers', async (req, res) => {
@@ -458,10 +441,10 @@ router.post('/checkout', async (req: any, res) => {
       [countryCode.toUpperCase()],
       300
     );
-    const taxRate = taxRes.rows?.[0]?.rate_percent || 0;
+    const taxRate = taxRes.rows?.[0]?.rate_percent !== undefined ? Number(taxRes.rows[0].rate_percent) : 18;
     const subtotal = Number(plan.price);
-    const taxAmount = (subtotal * taxRate) / 100;
-    const total = subtotal + taxAmount;
+    const taxAmount = parseFloat(((subtotal * taxRate) / 100).toFixed(2));
+    const total = parseFloat((subtotal + taxAmount).toFixed(2));
 
     if (paymentProvider === 'phonepe') {
       const baseUrl = req.headers.origin || process.env.APP_BASE_URL || 'https://xarwiz.com';
@@ -471,7 +454,7 @@ router.post('/checkout', async (req: any, res) => {
         amountRupees: total,
         userId: req.user?.userId || req.user?.id,
         redirectUrl: `${baseUrl}/settings/billing?status=success&provider=phonepe&transactionId={TRANSACTION_ID}&planId=${plan.id}`,
-        callbackUrl: `${process.env.API_BASE_URL || 'https://admin-api.xarwiz.com'}/webhooks/phonepe`,
+        callbackUrl: `${process.env.API_BASE_URL || 'https://api.xarwiz.com'}/webhooks/phonepe`,
       });
 
       return res.json({
@@ -492,7 +475,7 @@ router.post('/checkout', async (req: any, res) => {
         customerEmail: req.user?.email,
         customerName: req.user?.name,
         redirectUrl: `${baseUrl}/settings/billing?status=success&provider=cashfree&orderId={order_id}&planId=${plan.id}`,
-        notifyUrl: `${process.env.API_BASE_URL || 'https://admin-api.xarwiz.com'}/webhooks/cashfree`,
+        notifyUrl: `${process.env.API_BASE_URL || 'https://api.xarwiz.com'}/webhooks/cashfree`,
       });
 
       return res.json({
@@ -606,11 +589,57 @@ router.post('/proration-preview', async (req: any, res) => {
 
 // POST /api/billing/change-plan
 router.post('/change-plan', async (req: any, res) => {
-  const { newPlanId, paymentProvider = 'stripe' } = req.body;
+  const tenantId = req.tenant?.id;
+  if (!tenantId) {
+    return res.status(400).json({ error: 'Tenant context required' });
+  }
+
+  // Restrict subscription changes to tenant owners or admins (or internal services)
+  const userRole = req.user?.role;
+  const isAuthorized = userRole === 'owner' || userRole === 'admin' || req.user?.isInternal;
+  if (!isAuthorized) {
+    return res.status(403).json({ error: 'Forbidden: Admin or owner role required for subscription changes' });
+  }
+
+  // Scope check if token is scoped
+  if (req.user?.scopes && Array.isArray(req.user.scopes)) {
+    const hasScope = req.user.scopes.includes('billing:write') || req.user.scopes.includes('*');
+    if (!hasScope && !req.user?.isInternal) {
+      return res.status(403).json({ error: 'Forbidden: Insufficient scope (billing:write required)' });
+    }
+  }
+
+  const { newPlanId, paymentProvider = 'stripe', paymentReference } = req.body;
   if (!newPlanId) return res.status(400).json({ error: 'newPlanId is required' });
 
   try {
-    const proration = await executePlanChange(req.tenant.id, newPlanId, paymentProvider);
+    const targetPlan = (newPlanId || '').trim().toLowerCase() === 'pro' ? 'professional' : (newPlanId || '').trim().toLowerCase();
+    const currentPlan = (req.tenant.plan || 'free').toLowerCase();
+
+    // Prevent free upgrade bypass (FIN-001): upgrading to a paid tier requires verified payment via checkout
+    if (targetPlan !== 'free' && targetPlan !== currentPlan && !req.user?.isInternal && !paymentReference) {
+      return res.status(402).json({
+        error: 'Payment required: Plan upgrade requires a checkout session. Direct plan mutation without payment verification is restricted.',
+        code: 'PAYMENT_REQUIRED',
+        targetPlan,
+      });
+    }
+
+    const proration = await executePlanChange(tenantId, targetPlan, paymentProvider, {
+      userId: req.user?.userId || req.user?.id,
+      paymentVerified: !!req.user?.isInternal || !!paymentReference,
+      paymentReference,
+    });
+
+    if (proration.checkoutRequired) {
+      return res.status(402).json({
+        error: 'Payment required to complete plan upgrade.',
+        code: 'PAYMENT_REQUIRED',
+        targetPlan,
+        proration,
+      });
+    }
+
     res.json({
       success: true,
       message: proration.invoiceDescription,
@@ -624,8 +653,47 @@ router.post('/change-plan', async (req: any, res) => {
 
 // POST /api/billing/reactivate
 router.post('/reactivate', async (req: any, res) => {
+  const tenantId = req.tenant?.id;
+  if (!tenantId) {
+    return res.status(400).json({ error: 'Tenant context required' });
+  }
+
+  // Restrict subscription reactivation to tenant owners, admins, or internal services
+  const userRole = req.user?.role;
+  const isAuthorized = userRole === 'owner' || userRole === 'admin' || req.user?.isInternal;
+  if (!isAuthorized) {
+    return res.status(403).json({ error: 'Forbidden: Admin or owner role required for subscription reactivation' });
+  }
+
+  // Scope check if token is scoped
+  if (req.user?.scopes && Array.isArray(req.user.scopes)) {
+    const hasScope = req.user.scopes.includes('billing:write') || req.user.scopes.includes('*');
+    if (!hasScope && !req.user?.isInternal) {
+      return res.status(403).json({ error: 'Forbidden: Insufficient scope (billing:write required)' });
+    }
+  }
+
   try {
-    await reactivateTenantSubscription(req.tenant.id);
+    // Only allow reactivation if tenant is actually in past_due or canceled status
+    if (req.tenant.status !== 'past_due' && req.tenant.status !== 'canceled' && !req.user?.isInternal) {
+      return res.status(400).json({ error: 'Subscription is already active or cannot be reactivated' });
+    }
+
+    // Check for outstanding unpaid/uncollectible invoices before reactivating
+    const unpaidInvoices = await pool.query(
+      `SELECT id, invoice_number, total, amount FROM invoices WHERE tenant_id = $1 AND status IN ('open', 'uncollectible')`,
+      [tenantId]
+    );
+
+    if (unpaidInvoices.rows.length > 0 && !req.user?.isInternal) {
+      return res.status(402).json({
+        error: 'Cannot reactivate subscription: outstanding unpaid invoices must be settled first.',
+        code: 'OUTSTANDING_INVOICES_EXIST',
+        unpaidInvoices: unpaidInvoices.rows,
+      });
+    }
+
+    await reactivateTenantSubscription(tenantId);
     res.json({
       success: true,
       message: 'Subscription reactivated successfully. Access has been restored.',

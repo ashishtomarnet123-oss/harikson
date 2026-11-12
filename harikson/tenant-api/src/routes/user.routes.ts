@@ -20,6 +20,7 @@ import {
 import { RagService } from '../services/rag.service.js';
 import { DocumentQuotaService, QuotaExceededError } from '../services/documentQuotaService.js';
 import { requireAuditTrail, requireWebhookLogging, requirePrioritySupport } from '../middleware/entitlements.js';
+import { requireAuth } from '../middleware/auth.js';
 import jwt from 'jsonwebtoken';
 
 const router = Router();
@@ -70,25 +71,7 @@ export function sanitizeCsvCell(val: any): string {
   return str;
 }
 
-router.use((req: any, _res, next) => {
-  if (!req.user) {
-    const authHeader = req.headers.authorization || '';
-    const cookieToken = req.cookies?.hk_access_token;
-    let token = '';
-    if (authHeader.startsWith('Bearer ')) {
-      token = authHeader.substring(7);
-    } else if (cookieToken) {
-      token = cookieToken;
-    }
-    if (token) {
-      try {
-        const decoded: any = jwt.verify(token, process.env.JWT_SECRET!);
-        req.user = decoded;
-      } catch (err) {}
-    }
-  }
-  next();
-});
+router.use(requireAuth);
 
 // GET /api/user/profile
 router.get('/profile', async (req: any, res) => {

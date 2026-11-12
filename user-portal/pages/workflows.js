@@ -205,7 +205,7 @@ function WorkflowsPage() {
       });
       if (res.ok) {
         const data = await res.json();
-        setWorkflows(Array.isArray(data) ? data : []);
+        setWorkflows(Array.isArray(data) ? data : (Array.isArray(data?.workflows) ? data.workflows : []));
       } else {
         setWorkflows([]);
         setError('Failed to load workflows. Please try again.');
@@ -441,7 +441,14 @@ function WorkflowsPage() {
     setCronExpression(wf.cron_expression || '');
     setWebhookSecret(wf.webhook_secret || '');
     setStatus(wf.status || 'active');
-    setSteps(Array.isArray(wf.steps) ? wf.steps : (typeof wf.steps === 'string' ? JSON.parse(wf.steps || '[]') : []));
+    let parsedSteps = [];
+    try {
+      parsedSteps = Array.isArray(wf.steps) ? wf.steps : (typeof wf.steps === 'string' ? JSON.parse(wf.steps || '[]') : []);
+    } catch (err) {
+      console.warn('Failed to parse workflow steps JSON:', err);
+      parsedSteps = [];
+    }
+    setSteps(parsedSteps);
   };
 
   const handleAddStep = () => {

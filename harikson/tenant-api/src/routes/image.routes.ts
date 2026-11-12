@@ -6,38 +6,38 @@ import { ImageOrchestrator } from '../services/image-generation/ImageOrchestrato
 import { ImageStorageService } from '../services/image-generation/storage/imageStorageService.js';
 import { pool, executeTenantQuery } from '../db/pool.js';
 import logger from '../utils/logger.js';
+import { requireAuth } from '../middleware/auth.js';
+import { requireScopes } from '../middleware/scopeAuth.js';
 
 const router = Router();
 const upload = multer({
   limits: { fileSize: 20 * 1024 * 1024 }, // 20MB limit for image attachments
 });
 
-// Middleware: Authenticate user for state-modifying & listing routes
-const requireUserAuth = (req: any, res: Response, next: any) => {
-  const authHeader = req.headers.authorization || '';
+// Helper: Resolve tenantId from request tenant context or verified JWT
+const resolveRequestTenantId = async (req: any): Promise<string | null> => {
+  if (req.tenant?.id) return req.tenant.id;
+  const authHeader = req.headers?.authorization || '';
   const cookieToken = req.cookies?.hk_access_token;
-  let token = '';
+  const token = authHeader.startsWith('Bearer ')
+    ? authHeader.substring(7).trim()
+    : (cookieToken || '').trim();
 
-  if (authHeader.startsWith('Bearer ')) {
-    token = authHeader.substring(7);
-  } else if (cookieToken) {
-    token = cookieToken;
+  if (token && process.env.JWT_SECRET) {
+    try {
+      const decoded = jwt.verify(token, process.env.JWT_SECRET) as any;
+      if (decoded?.tenantId) return decoded.tenantId;
+      if (decoded?.userId) {
+        const uRes = await pool.query('SELECT tenant_id FROM users WHERE id = $1', [decoded.userId]).catch(() => ({ rows: [] }));
+        if (uRes.rows.length > 0) return uRes.rows[0].tenant_id;
+      }
+    } catch (_) {}
   }
-
-  if (!token) {
-    return res.status(401).json({ error: 'Unauthorized: Authentication required.' });
-  }
-
-  try {
-    req.user = jwt.verify(token, process.env.JWT_SECRET!);
-    next();
-  } catch (err) {
-    return res.status(401).json({ error: 'Unauthorized: Invalid token.' });
-  }
+  return null;
 };
 
 // =========================================================================
-// 1. PUBLIC / EMBEDDABLE IMAGE SERVING
+// 1. EMBEDDABLE IMAGE SERVING (TENANT-ISOLATED)
 // =========================================================================
 
 // GET /api/v1/images/:id/view - Stream image binary to browser / <img> tags
@@ -45,9 +45,14 @@ router.get('/:id/view', async (req: Request, res: Response) => {
   const { id } = req.params;
 
   try {
+    const tenantId = await resolveRequestTenantId(req);
+    if (!tenantId) {
+      return res.status(401).json({ error: 'Unauthorized: Authentication or tenant context required' });
+    }
+
     const result = await pool.query(
-      `SELECT storage_path, file_size_bytes FROM image_generations WHERE id = $1`,
-      [id]
+      `SELECT storage_path, file_size_bytes FROM image_generations WHERE id = $1 AND tenant_id = $2`,
+      [id, tenantId]
     );
 
     if (result.rows.length === 0) {
@@ -81,9 +86,14 @@ router.get('/:id/download', async (req: Request, res: Response) => {
   const { id } = req.params;
 
   try {
+    const tenantId = await resolveRequestTenantId(req);
+    if (!tenantId) {
+      return res.status(401).json({ error: 'Unauthorized: Authentication or tenant context required' });
+    }
+
     const result = await pool.query(
-      `SELECT storage_path, prompt FROM image_generations WHERE id = $1`,
-      [id]
+      `SELECT storage_path, prompt FROM image_generations WHERE id = $1 AND tenant_id = $2`,
+      [id, tenantId]
     );
 
     if (result.rows.length === 0) {
@@ -129,9 +139,9 @@ router.get('/:id/download', async (req: Request, res: Response) => {
 // =========================================================================
 
 // POST /api/v1/images/generate
-router.post('/generate', requireUserAuth, async (req: any, res: Response) => {
+router.post('/generate', requireAuth, requireScopes('images:write', 'chat:write'), async (req: any, res: Response) => {
   const tenantId = req.tenant?.id;
-  const userId = req.user?.userId;
+  const userId = req.user?.userId || req.user?.id;
 
   if (!tenantId) {
     return res.status(400).json({ error: 'Tenant context is missing.' });
@@ -184,9 +194,9 @@ router.post('/generate', requireUserAuth, async (req: any, res: Response) => {
 });
 
 // POST /api/v1/images/edit
-router.post('/edit', requireUserAuth, async (req: any, res: Response) => {
+router.post('/edit', requireAuth, requireScopes('images:write', 'chat:write'), async (req: any, res: Response) => {
   const tenantId = req.tenant?.id;
-  const userId = req.user?.userId;
+  const userId = req.user?.userId || req.user?.id;
 
   if (!tenantId) {
     return res.status(400).json({ error: 'Tenant context is missing.' });
@@ -242,9 +252,9 @@ router.post('/edit', requireUserAuth, async (req: any, res: Response) => {
 });
 
 // POST /api/v1/images/variation
-router.post('/variation', requireUserAuth, async (req: any, res: Response) => {
+router.post('/variation', requireAuth, requireScopes('images:write', 'chat:write'), async (req: any, res: Response) => {
   const tenantId = req.tenant?.id;
-  const userId = req.user?.userId;
+  const userId = req.user?.userId || req.user?.id;
 
   if (!tenantId) {
     return res.status(400).json({ error: 'Tenant context is missing.' });
@@ -289,7 +299,7 @@ router.post('/variation', requireUserAuth, async (req: any, res: Response) => {
 });
 
 // POST /api/v1/images/analyze
-router.post('/analyze', requireUserAuth, async (req: any, res: Response) => {
+router.post('/analyze', requireAuth, requireScopes('images:read', 'chat:read'), async (req: any, res: Response) => {
   const tenantId = req.tenant?.id;
   const { imageId, prompt, imageUrl } = req.body;
 
@@ -322,9 +332,9 @@ router.post('/analyze', requireUserAuth, async (req: any, res: Response) => {
 });
 
 // POST /api/v1/images/upload - Upload reference image
-router.post('/upload', requireUserAuth, upload.single('file'), async (req: any, res: Response) => {
+router.post('/upload', requireAuth, requireScopes('images:write', 'chat:write'), upload.single('file'), async (req: any, res: Response) => {
   const tenantId = req.tenant?.id;
-  const userId = req.user?.userId;
+  const userId = req.user?.userId || req.user?.id;
 
   if (!req.file) {
     return res.status(400).json({ error: 'No image file uploaded.' });
@@ -352,7 +362,7 @@ router.post('/upload', requireUserAuth, upload.single('file'), async (req: any, 
 });
 
 // GET /api/v1/images/quota - Get current monthly usage and limits
-router.get('/quota', requireUserAuth, async (req: any, res: Response) => {
+router.get('/quota', requireAuth, requireScopes('images:read', 'chat:read'), async (req: any, res: Response) => {
   const tenantId = req.tenant?.id;
   if (!tenantId) {
     return res.status(400).json({ error: 'Tenant context is missing.' });
@@ -368,7 +378,7 @@ router.get('/quota', requireUserAuth, async (req: any, res: Response) => {
 });
 
 // GET /api/v1/images - List tenant images with pagination
-router.get('/', requireUserAuth, async (req: any, res: Response) => {
+router.get('/', requireAuth, requireScopes('images:read', 'chat:read'), async (req: any, res: Response) => {
   const tenantId = req.tenant?.id;
   if (!tenantId) {
     return res.status(400).json({ error: 'Tenant context is missing.' });
@@ -377,7 +387,7 @@ router.get('/', requireUserAuth, async (req: any, res: Response) => {
   const page = parseInt(req.query.page as string, 10) || 1;
   const limit = parseInt(req.query.limit as string, 10) || 24;
   const conversationId = (req.query.conversationId as string) || undefined;
-  const userId = req.query.mine === 'true' ? req.user?.userId : undefined;
+  const userId = req.query.mine === 'true' ? (req.user?.userId || req.user?.id) : undefined;
 
   try {
     const data = await ImageGenerationEngine.listImages(tenantId, {
@@ -387,7 +397,9 @@ router.get('/', requireUserAuth, async (req: any, res: Response) => {
       userId,
     });
 
-    return res.json({ success: true, ...data });
+    const totalPages = Math.ceil((data.total || 0) / (data.limit || 24)) || 1;
+    const hasMore = (data.page * data.limit) < data.total;
+    return res.json({ success: true, ...data, totalPages, hasMore });
   } catch (err: any) {
     logger.error({ tenantId, err }, 'Failed to list tenant images');
     return res.status(500).json({ error: 'Failed to list images' });
@@ -395,7 +407,7 @@ router.get('/', requireUserAuth, async (req: any, res: Response) => {
 });
 
 // GET /api/v1/images/:id/history - Trace image version lineage
-router.get('/:id/history', requireUserAuth, async (req: any, res: Response) => {
+router.get('/:id/history', requireAuth, requireScopes('images:read', 'chat:read'), async (req: any, res: Response) => {
   const tenantId = req.tenant?.id;
   const { id } = req.params;
 
@@ -436,7 +448,7 @@ router.get('/:id/history', requireUserAuth, async (req: any, res: Response) => {
 });
 
 // GET /api/v1/images/:id - Get metadata of a single image
-router.get('/:id', requireUserAuth, async (req: any, res: Response) => {
+router.get('/:id', requireAuth, requireScopes('images:read', 'chat:read'), async (req: any, res: Response) => {
   const tenantId = req.tenant?.id;
   const { id } = req.params;
 
@@ -458,7 +470,7 @@ router.get('/:id', requireUserAuth, async (req: any, res: Response) => {
 });
 
 // DELETE /api/v1/images/:id - Delete an image
-router.delete('/:id', requireUserAuth, async (req: any, res: Response) => {
+router.delete('/:id', requireAuth, requireScopes('images:write', 'chat:write'), async (req: any, res: Response) => {
   const tenantId = req.tenant?.id;
   const { id } = req.params;
 

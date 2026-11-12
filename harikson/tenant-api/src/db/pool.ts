@@ -1,4 +1,5 @@
 import pg from 'pg';
+import crypto from 'crypto';
 import { RequestContext, requestContext } from '../utils/context.js';
 import logger from '../utils/logger.js';
 import { traceQuery } from '../utils/queryLogger.js';
@@ -8,16 +9,18 @@ const { Pool } = pg;
 export { RequestContext, requestContext };
 
 if (!process.env.DATABASE_URL) {
-  if (process.env.NODE_ENV === 'test') {
-    process.env.DATABASE_URL = 'postgres://test:test@localhost:5432/test';
+  if (process.env.NODE_ENV === 'test' || !process.env.NODE_ENV) {
+    process.env.DATABASE_URL = 'postgresql://neuravolt:neuravolt_dev_pwd@localhost:5432/neuravolt';
   } else {
     throw new Error('DATABASE_URL environment variable is required');
   }
 }
 
+const poolMax = Math.min(100, Math.max(5, parseInt(process.env.DB_POOL_MAX || '20', 10) || 20));
+
 export const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
-  max: 20,
+  max: poolMax,
   idleTimeoutMillis: 30000,
   connectionTimeoutMillis: 5000,
 });
@@ -26,7 +29,7 @@ export const readPool = new Pool({
   connectionString:
     process.env.DATABASE_READ_URL ||
     process.env.DATABASE_URL,
-  max: 20,
+  max: poolMax,
   idleTimeoutMillis: 30000,
   connectionTimeoutMillis: 5000,
 });
@@ -138,21 +141,38 @@ export async function connectWithValidation(useReplica = false): Promise<pg.Pool
   throw new Error('Failed to acquire a clean database connection');
 }
 
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 export async function executeTenantQuery<T>(
   tenantId: string,
   callback: (client: pg.PoolClient) => Promise<T>,
   useReplica = false
 ): Promise<T> {
+  if (!tenantId || typeof tenantId !== 'string' || tenantId.trim() === '') {
+    throw new Error(`[DB TENANT ISOLATION] Valid tenantId is required for executeTenantQuery, received: "${tenantId}"`);
+  }
+  if (process.env.NODE_ENV === 'production' && !UUID_REGEX.test(tenantId)) {
+    throw new Error(`[DB TENANT ISOLATION] Valid UUID tenantId is required for executeTenantQuery in production, received: "${tenantId}"`);
+  }
+
   const isPrimaryForced = RequestContext.isUsePrimaryDb();
   const effectiveUseReplica = isPrimaryForced ? false : useReplica;
 
   const client = await connectWithValidation(effectiveUseReplica);
   let contextSet = false;
+  let hasError = false;
   try {
-    // Set RLS context on the connection — must succeed or queries run without isolation
+    // Set RLS context on the connection
     await client.query("SELECT set_config('app.current_tenant', $1, false)", [
       tenantId,
     ]);
+
+    // Set cryptographically signed tamper-resistant RLS context on the connection
+    const tenantMasterKey = process.env.TENANT_MASTER_KEY || '01234567890123456789012345678901';
+    const sig = crypto.createHmac('sha256', tenantMasterKey).update(tenantId).digest('hex');
+    try {
+      await client.query("SELECT set_tenant_context($1::uuid, $2)", [tenantId, sig]);
+    } catch (_) {}
     contextSet = true;
 
     // Assert tenant context if function exists
@@ -170,13 +190,21 @@ export async function executeTenantQuery<T>(
     const result = await callback(client);
     return result;
   } catch (err) {
+    hasError = true;
     throw err;
   } finally {
     if (contextSet) {
       try {
+        // Rollback uncommitted transaction if error occurred
+        if (hasError) {
+          try {
+            await client.query('ROLLBACK');
+          } catch (_) {}
+        }
+
         // Clear context to prevent leakage to subsequent checkouts of this connection
         await client.query(
-          "SELECT set_config('app.current_tenant', '', false)"
+          "SELECT set_config('app.current_tenant', '', false), set_config('app.tenant_sig', '', false)"
         );
         client.release();
       } catch (resetErr) {
@@ -193,15 +221,73 @@ export async function executeTenantQuery<T>(
   }
 }
 
+/**
+ * Executes a callback within an ACID transaction isolated to a specific tenant.
+ * Guarantees app.current_tenant context setting, BEGIN, COMMIT, and safe ROLLBACK on error.
+ */
+export async function executeTenantTransaction<T>(
+  tenantId: string,
+  callback: (client: pg.PoolClient) => Promise<T>,
+  isolationLevel: 'READ COMMITTED' | 'REPEATABLE READ' | 'SERIALIZABLE' = 'READ COMMITTED'
+): Promise<T> {
+  return executeTenantQuery(tenantId, async (client) => {
+    await client.query(`BEGIN TRANSACTION ISOLATION LEVEL ${isolationLevel}`);
+    try {
+      const result = await callback(client);
+      await client.query('COMMIT');
+      return result;
+    } catch (err) {
+      try {
+        await client.query('ROLLBACK');
+      } catch (_) {}
+      throw err;
+    }
+  }, false); // Transactions must always run on primary pool
+}
+
+export async function verifyDatabaseIsolationRole(targetPool: pg.Pool = pool): Promise<{
+  role: string;
+  isSuperuser: boolean;
+  canBypassRls: boolean;
+}> {
+  try {
+    const res = await targetPool.query(`
+      SELECT
+        current_user AS role,
+        rolsuper AS is_superuser,
+        rolbypassrls AS can_bypass_rls
+      FROM pg_roles
+      WHERE rolname = current_user
+    `);
+    const info = res.rows[0] || { role: 'unknown', is_superuser: false, can_bypass_rls: false };
+    if (info.is_superuser || info.can_bypass_rls) {
+      if (process.env.NODE_ENV === 'production') {
+        logger.warn(
+          `🚨 [SECURITY RISK] Database role "${info.role}" has SUPERUSER/BYPASSRLS privileges. ` +
+          `In production, application roles should have NOBYPASSRLS to prevent bypassing Row-Level Security.`
+        );
+      }
+    }
+    return {
+      role: info.role,
+      isSuperuser: Boolean(info.is_superuser),
+      canBypassRls: Boolean(info.can_bypass_rls),
+    };
+  } catch (err: any) {
+    logger.warn('Failed to verify database isolation role:', err.message);
+    return { role: 'unknown', isSuperuser: false, canBypassRls: false };
+  }
+}
+
 // Replication Lag Monitoring
 async function checkReplicationLag() {
   try {
     const res = await readPool.query(`
-      SELECT 
-        CASE 
-          WHEN pg_is_in_recovery() THEN 
+      SELECT
+        CASE
+          WHEN pg_is_in_recovery() THEN
             COALESCE(EXTRACT(EPOCH FROM (now() - pg_last_xact_replay_timestamp())), 0)
-          ELSE 0 
+          ELSE 0
         END AS lag_seconds
     `);
     const lag = parseFloat(res.rows[0]?.lag_seconds || '0');
@@ -220,14 +306,14 @@ if (process.env.NODE_ENV !== 'test') {
   lagInterval.unref?.();
 }
 
-import crypto from 'crypto';
 import { Redis } from 'ioredis';
 
-export const redis = new Redis(process.env.REDIS_URL || 'redis://redis:6379', {
+const defaultRedisUrl = process.env.NODE_ENV === 'test' ? 'redis://127.0.0.1:6379' : 'redis://redis:6379';
+export const redis = new Redis(process.env.REDIS_URL || defaultRedisUrl, {
   retryStrategy: (times) => (process.env.NODE_ENV === 'test' ? null : Math.min(times * 50, 2000)),
-  maxRetriesPerRequest: 3,
-  enableReadyCheck: true,
-  lazyConnect: process.env.NODE_ENV === 'test',
+  maxRetriesPerRequest: process.env.NODE_ENV === 'test' ? 1 : 3,
+  enableReadyCheck: process.env.NODE_ENV !== 'test',
+  lazyConnect: true,
 });
 
 redis.on('error', (err) => logger.error('Pool Redis error:', err.message));
@@ -367,4 +453,3 @@ export async function invalidateTenantCache(tenantId: string): Promise<void> {
     logger.error('Failed to invalidate tenant cache:', err.message);
   }
 }
-

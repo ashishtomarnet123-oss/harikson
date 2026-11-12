@@ -10,12 +10,24 @@ const iconMap = {
   info: Info,
 };
 
-export default function ActivitySettings() {
+export default function ActivitySettings({ onTabChange, setActiveTab }) {
   const [logs, setLogs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [planDisabled, setPlanDisabled] = useState(false);
   const [apiBaseUrl, setApiBaseUrl] = useState('');
+
+  const navigateToBilling = (e) => {
+    if (e) e.preventDefault();
+    if (typeof onTabChange === 'function') {
+      onTabChange('billing');
+    } else if (typeof setActiveTab === 'function') {
+      setActiveTab('billing');
+    }
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('settings:navigate', { detail: 'billing' }));
+    }
+  };
 
   useEffect(() => {
     fetchLogs();
@@ -201,8 +213,9 @@ export default function ActivitySettings() {
               {error ||
                 'Audit trail is not enabled for your subscription plan. Upgrade to the Professional or Enterprise plan to view and export complete activity logs.'}
             </p>
-            <a
-              href="/settings/billing"
+            <button
+              type="button"
+              onClick={navigateToBilling}
               className="btn-primary"
               style={{
                 display: 'inline-flex',
@@ -215,10 +228,12 @@ export default function ActivitySettings() {
                 textDecoration: 'none',
                 background: 'var(--accent, #3b82f6)',
                 color: '#fff',
+                border: 'none',
+                cursor: 'pointer',
               }}
             >
               Upgrade Plan
-            </a>
+            </button>
           </div>
         ) : (
           <>

@@ -197,7 +197,15 @@ router.get('/google/auth', async (req: any, res) => {
     if (!tenantId) return res.status(400).json({ error: 'No tenant associated with this account' });
 
     const stateNonce = crypto.randomBytes(24).toString('hex');
-    const redirectAfter = typeof req.query.redirect === 'string' ? req.query.redirect : '/chat';
+    let redirectAfter = '/chat';
+    if (
+      typeof req.query.redirect === 'string' &&
+      req.query.redirect.startsWith('/') &&
+      !req.query.redirect.startsWith('//') &&
+      !req.query.redirect.includes('\\')
+    ) {
+      redirectAfter = req.query.redirect;
+    }
 
     await pool.query(
       `INSERT INTO oauth_states (state_nonce, tenant_id, provider_id, user_id, redirect_after)
@@ -261,7 +269,14 @@ router.get('/google/callback', async (req: any, res) => {
     await saveConnectionTokens(connectionId, tokens.accessToken, tokens.refreshToken, tokens.expiresAt);
 
     logger.info(`Google Drive connected: tenant=${tenantId} user=${userId} account=${profile.email}`);
-    return res.redirect(`${redirectAfter || '/chat'}?settings=connections&google=connected`);
+    const safeRedirect =
+      redirectAfter &&
+      redirectAfter.startsWith('/') &&
+      !redirectAfter.startsWith('//') &&
+      !redirectAfter.includes('\\')
+        ? redirectAfter
+        : '/chat';
+    return res.redirect(`${safeRedirect}?settings=connections&google=connected`);
   } catch (err: any) {
     logger.error('Google OAuth callback failed:', err);
     return res.redirect('/chat?settings=connections&google_error=callback_failed');

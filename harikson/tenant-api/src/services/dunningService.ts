@@ -1,13 +1,17 @@
 import { Queue, Worker, Job } from 'bullmq';
 import { Redis } from 'ioredis';
-import { pool, invalidateTenantCache } from '../db/pool.js';
+import { pool, executeTenantQuery, invalidateTenantCache } from '../db/pool.js';
 import { sendDunningNotice } from './email.js';
 import logger from '../utils/logger.js';
 
-const redisConnection = new Redis(process.env.REDIS_URL || 'redis://redis:6379', {
+const defaultRedisUrl = process.env.NODE_ENV === 'test' ? 'redis://127.0.0.1:6379' : 'redis://redis:6379';
+const redisConnection = new Redis(process.env.REDIS_URL || defaultRedisUrl, {
   maxRetriesPerRequest: null,
+  lazyConnect: process.env.NODE_ENV === 'test',
 });
+redisConnection.on('error', (err) => logger.debug('Dunning Redis error: ' + err.message));
 
+export const dunningRedisConnection = redisConnection;
 export const dunningQueue = new Queue('dunningQueue', { connection: redisConnection });
 
 const DUNNING_MILESTONES = [
@@ -25,17 +29,17 @@ export async function triggerSubscriptionDunning(tenantId: string, subscriptionI
   try {
     // 1. Update subscription & tenant status to past_due
     await pool.query(
-      `UPDATE subscriptions 
-       SET status = 'past_due', metadata = COALESCE(metadata, '{}'::jsonb) || jsonb_build_object('dunning_stage', 1, 'failure_reason', $1::text) 
+      `UPDATE subscriptions
+       SET status = 'past_due', metadata = COALESCE(metadata, '{}'::jsonb) || jsonb_build_object('dunning_stage', 1, 'failure_reason', $1::text)
        WHERE id = $2`,
       [failureReason, subscriptionId]
     );
 
     await pool.query(
-      `UPDATE tenants 
-       SET status = 'past_due', metadata = COALESCE(metadata, '{}'::jsonb) || jsonb_build_object('dunning_stage', 1, 'failure_reason', $1::text) 
-       WHERE id = $2`,
-      [failureReason, tenantId]
+      `UPDATE tenants
+       SET status = 'past_due'
+       WHERE id = $1`,
+      [tenantId]
     );
 
     await invalidateTenantCache(tenantId);
@@ -81,7 +85,7 @@ export async function handleDunningMilestoneJob(job: Job): Promise<void> {
   const { tenantId, subscriptionId, dayStage } = job.data;
 
   // Check if tenant is still in past_due status
-  const tenantRes = await pool.query('SELECT status, metadata FROM tenants WHERE id = $1', [tenantId]);
+  const tenantRes = await pool.query('SELECT status FROM tenants WHERE id = $1', [tenantId]);
   const tenant = tenantRes.rows[0];
 
   if (!tenant || tenant.status !== 'past_due') {
@@ -98,12 +102,12 @@ export async function handleDunningMilestoneJob(job: Job): Promise<void> {
 
   logger.info(`📬 [DUNNING DAY ${dayStage}] Processing milestone for tenant ${tenantId}`);
 
-  // Update dunning stage in tenant metadata
+  // Update dunning stage in subscription metadata
   await pool.query(
-    `UPDATE tenants 
-     SET metadata = COALESCE(metadata, '{}'::jsonb) || jsonb_build_object('dunning_stage', $1::int) 
+    `UPDATE subscriptions
+     SET metadata = COALESCE(metadata, '{}'::jsonb) || jsonb_build_object('dunning_stage', $1::int)
      WHERE id = $2`,
-    [dayStage, tenantId]
+    [dayStage, subscriptionId]
   );
 
   // Send notification email
@@ -118,7 +122,9 @@ export async function handleDunningMilestoneJob(job: Job): Promise<void> {
 
   // Day 30: Cancel subscription permanently
   if (dayStage === 30) {
-    await pool.query(`UPDATE subscriptions SET status = 'canceled', updated_at = NOW() WHERE id = $1`, [subscriptionId]);
+    await executeTenantQuery(tenantId, async (client) => {
+      await client.query(`UPDATE subscriptions SET status = 'canceled', updated_at = NOW() WHERE id = $1`, [subscriptionId]);
+    });
     await pool.query(`UPDATE tenants SET status = 'canceled', updated_at = NOW() WHERE id = $1`, [tenantId]);
     await invalidateTenantCache(tenantId);
     logger.error(`❌ [DUNNING DAY 30] Permanent cancellation executed for tenant ${tenantId}.`);
@@ -131,18 +137,17 @@ export async function handleDunningMilestoneJob(job: Job): Promise<void> {
 export async function reactivateTenantSubscription(tenantId: string): Promise<void> {
   try {
     await pool.query(
-      `UPDATE tenants 
-       SET status = 'active', 
-           metadata = COALESCE(metadata, '{}'::jsonb) - 'dunning_stage' - 'failure_reason',
-           updated_at = NOW() 
+      `UPDATE tenants
+       SET status = 'active',
+           updated_at = NOW()
        WHERE id = $1`,
       [tenantId]
     );
 
     await pool.query(
-      `UPDATE subscriptions 
-       SET status = 'active', 
-           updated_at = NOW() 
+      `UPDATE subscriptions
+       SET status = 'active',
+           updated_at = NOW()
        WHERE tenant_id = $1 AND status = 'past_due'`,
       [tenantId]
     );
@@ -164,13 +169,15 @@ export async function reactivateTenantSubscription(tenantId: string): Promise<vo
 }
 
 // Initialize BullMQ Worker for Dunning Schedule
-export const dunningWorker = new Worker(
-  'dunningQueue',
-  async (job: Job) => {
-    await handleDunningMilestoneJob(job);
-  },
-  {
-    connection: redisConnection,
-    concurrency: 5,
-  }
-);
+export const dunningWorker = process.env.NODE_ENV === 'test'
+  ? null
+  : new Worker(
+      'dunningQueue',
+      async (job: Job) => {
+        await handleDunningMilestoneJob(job);
+      },
+      {
+        connection: redisConnection,
+        concurrency: 5,
+      }
+    );

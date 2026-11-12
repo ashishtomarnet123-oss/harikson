@@ -18,4 +18,14 @@ question-2ndtype.md
 questions.md
 app.pem
 uploads/
+
+# Production release ignores
+backups/
 coverage/
+harikson/tenant-api/coverage/
+scratch/
+monitoring/metrics_token
+test-results/
+playwright-report/
+*.tsbuildinfo
+*.sha256

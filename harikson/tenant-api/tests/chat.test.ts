@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterAll } from '@jest/globals';
+import { describe, it, expect, beforeEach, afterAll } from './test-utils.js';
 import { pool } from '../src/db/pool.js';
 import { createTestTenant, createTestUser } from './factories/tenantFactory.js';
 import { resetTestDatabase } from './helpers/db.js';
@@ -17,8 +17,8 @@ describe('Tenant API - Chat & RAG Streaming Test Suite', () => {
     const user = await createTestUser(tenant.id, { email: 'chatuser@xarwiz.com' });
 
     const res = await pool.query(
-      `INSERT INTO conversations (tenant_id, user_id, title)
-       VALUES ($1, $2, 'New AI Conversation')
+      `INSERT INTO conversations (tenant_id, user_id, title, model)
+       VALUES ($1, $2, 'New AI Conversation', 'llama3')
        RETURNING id, title`,
       [tenant.id, user.id]
     );

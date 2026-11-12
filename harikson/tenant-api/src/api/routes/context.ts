@@ -20,9 +20,12 @@ router.post('/build', async (req: Request, res: Response) => {
   try {
     const check = buildContextSchema.safeParse(req.body);
     if (!check.success) {
-      return res
-        .status(400)
-        .json({ hariksonError: 'Invalid payload parameters.' });
+      const errMsg = 'Invalid payload parameters.';
+      return res.status(400).json({
+        error: errMsg,
+        message: errMsg,
+        hariksonError: errMsg,
+      });
     }
 
     const {
@@ -40,7 +43,12 @@ router.post('/build', async (req: Request, res: Response) => {
       (req as any).user?.id;
 
     if (!tenantId || !userId) {
-      return res.status(401).json({ hariksonError: 'Unauthorized: Missing tenant or user context' });
+      const errMsg = 'Unauthorized: Missing tenant or user context';
+      return res.status(401).json({
+        error: errMsg,
+        message: errMsg,
+        hariksonError: errMsg,
+      });
     }
 
     // Sandbox workspace path strictly within tenant directory
@@ -71,7 +79,11 @@ router.post('/build', async (req: Request, res: Response) => {
     const safeMessage = error.message?.includes('Security Exception')
       ? error.message
       : 'Context assembly error';
-    return res.status(500).json({ hariksonError: safeMessage });
+    return res.status(500).json({
+      error: safeMessage,
+      message: safeMessage,
+      hariksonError: safeMessage,
+    });
   }
 });
 

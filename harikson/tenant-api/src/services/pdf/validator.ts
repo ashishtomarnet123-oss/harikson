@@ -1,6 +1,45 @@
-import pdf from 'pdf-parse';
+import { Worker } from 'node:worker_threads';
 import { PdfValidationResult } from './types.js';
 import logger from '../../utils/logger.js';
+
+const WORKER_SCRIPT = `
+const { parentPort, workerData } = require('node:worker_threads');
+const pdf = require('pdf-parse/lib/pdf-parse.js');
+
+pdf(workerData)
+  .then(res => parentPort.postMessage({ success: true, numpages: res.numpages || 1, text: res.text || '' }))
+  .catch(err => parentPort.postMessage({ success: false, error: err.message || 'Parser error' }));
+`;
+
+function parsePdfIsolated(buffer: Buffer): Promise<{ numpages: number; text: string }> {
+  return new Promise((resolve, reject) => {
+    try {
+      const worker = new Worker(WORKER_SCRIPT, { eval: true, workerData: buffer });
+      const timeout = setTimeout(() => {
+        worker.terminate();
+        reject(new Error('PDF parsing timed out after 5000ms'));
+      }, 5000);
+
+      worker.on('message', (msg) => {
+        clearTimeout(timeout);
+        worker.terminate();
+        if (msg.success) {
+          resolve({ numpages: msg.numpages, text: msg.text });
+        } else {
+          reject(new Error(msg.error));
+        }
+      });
+
+      worker.on('error', (err) => {
+        clearTimeout(timeout);
+        worker.terminate();
+        reject(err);
+      });
+    } catch (err) {
+      reject(err);
+    }
+  });
+}
 
 export class PdfValidator {
   /**
@@ -56,11 +95,10 @@ export class PdfValidator {
       logger.warn({ sizeBytes }, 'PDF missing standard %%EOF marker near EOF, attempting deep validation');
     }
 
-    // 4. Parser and Text Extraction verification using pdf-parse
+    // 4. Parser and Text Extraction verification using isolated worker thread
     try {
-      const parsed = await pdf(buffer);
+      const parsed = await parsePdfIsolated(buffer);
       const pageCount = parsed.numpages || 1;
-      const text = (parsed.text || '').trim();
 
       // Check for plausible page count
       if (pageCount < 1) {

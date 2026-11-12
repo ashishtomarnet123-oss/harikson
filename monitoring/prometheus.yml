@@ -10,15 +10,20 @@ scrape_configs:
     static_configs:
       - targets: ['localhost:9090']
 
-  - job_name: 'cadvisor'
+  # Tenant API Metrics Scraper
+  # Authentication: Secured with Bearer Token & Internal IP Guard
+  # Endpoint: /metrics
+  - job_name: 'harikson-tenant-api'
+    metrics_path: '/metrics'
+    bearer_token_file: '/etc/prometheus/metrics_token'
     static_configs:
-      - targets: ['nv-cadvisor:8080']
+      - targets: ['tenant-api:3008']
 
   # Admin API Metrics Scraper
-  # Authentication: Secured with Bearer Token & IP Whitelist Guard (172.x.x.x internal network)
+  # Authentication: Secured with Bearer Token & Internal IP Guard (172.x.x.x internal network)
   # Endpoint: /admin/metrics
   - job_name: 'harikson-admin-api'
     metrics_path: '/admin/metrics'
     bearer_token_file: '/etc/prometheus/metrics_token'
     static_configs:
-      - targets: ['admin-api:3009']
+      - targets: ['admin-api:4000']

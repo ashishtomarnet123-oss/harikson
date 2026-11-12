@@ -295,7 +295,11 @@ async function handleLogin(req: any, res: any) {
       }
     }
 
-    const accessToken = jwt.sign({ userId: user.id, role: user.role }, getJwtSecret(), { expiresIn: '7d' });
+    const accessToken = jwt.sign(
+      { userId: user.id, role: user.role, tenantId: user.tenant_id },
+      getJwtSecret(),
+      { expiresIn: '7d' }
+    );
     const refreshToken = crypto.randomBytes(64).toString('hex');
     const refreshTokenHash = crypto.createHash('sha256').update(refreshToken).digest('hex');
     const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
@@ -608,9 +612,12 @@ router.post('/login/2fa', async (req, res) => {
       return res.status(401).json({ error: 'Invalid 2FA code' });
     }
 
-    await redis.del(rateLimitKey).catch(() => {});
+    const accessToken = jwt.sign(
+      { userId: user.id, role: user.role, tenantId: user.tenant_id },
+      getJwtSecret(),
+      { expiresIn: '7d' }
+    );
 
-    const accessToken = jwt.sign({ userId: user.id, role: user.role }, getJwtSecret(), { expiresIn: '7d' });
     const refreshToken = crypto.randomBytes(64).toString('hex');
     const refreshTokenHash = crypto.createHash('sha256').update(refreshToken).digest('hex');
     const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
@@ -708,7 +715,11 @@ async function handleRefresh(req: any, res: any) {
     }
 
     // Issue new access token (7d) and rolling refresh token
-    const newAccessToken = jwt.sign({ userId: user.id, role: user.role }, getJwtSecret(), { expiresIn: '7d' });
+    const newAccessToken = jwt.sign(
+      { userId: user.id, role: user.role, tenantId: user.tenant_id },
+      getJwtSecret(),
+      { expiresIn: '7d' }
+    );
     const newRefreshToken = crypto.randomBytes(64).toString('hex');
     const newRefreshTokenHash = crypto.createHash('sha256').update(newRefreshToken).digest('hex');
 

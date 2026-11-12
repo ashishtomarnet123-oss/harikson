@@ -1,4 +1,4 @@
-import { describe, it, expect } from '@jest/globals';
+import { describe, it, expect } from './test-utils.js';
 
 describe('Admin API Test Suite', () => {
   it('POST /admin/auth/login - validates admin JWT authentication', () => {

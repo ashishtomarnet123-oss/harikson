@@ -1,9 +1,13 @@
 global:
+  tenantMasterKey: '' # REQUIRED: 32-byte key for AES-256 document/tenant encryption
+  internalApiSecret: '' # REQUIRED: >=32 char secret for internal service communications
   postgresql:
     auth:
       database: neuravolt
-      username: neuravolt
-      password: '' # REQUIRED: set via --set global.postgresql.auth.password=... or external secret
+      tenantUsername: xarwiz_tenant_app
+      adminUsername: xarwiz_admin_app
+      migratorUsername: xarwiz_migrator
+      password: '' # REQUIRED: set via external secret / vault injection (never commit production db passwords)
   redis:
     auth:
       password: '' # REQUIRED: set via --set global.redis.auth.password=... or external secret
@@ -21,6 +25,10 @@ redis:
   architecture: replication
   auth:
     enabled: true
+  master:
+    extraFlags:
+      - "--maxmemory-policy noeviction"
+      - "--appendonly yes"
 
 # App deployment parameters
 tenantApi:
@@ -42,7 +50,7 @@ tenantApi:
     maxReplicas: 10
     targetCPUUtilizationPercentage: 80
   service:
-    port: 3000
+    port: 3008
 
 adminApi:
   replicaCount: 1
@@ -74,7 +82,7 @@ userPortal:
       cpu: 200m
       memory: 256Mi
   service:
-    port: 3000
+    port: 3002
 
 adminPanel:
   replicaCount: 1
@@ -90,7 +98,7 @@ adminPanel:
       cpu: 100m
       memory: 128Mi
   service:
-    port: 3000
+    port: 3001
 
 # SSL Termination / Load Balancer
 ingress:

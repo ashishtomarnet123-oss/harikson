@@ -1,13 +1,15 @@
 import pg from 'pg';
 import { pool, redis } from '../db/pool.js';
 import { OllamaClient } from '../llm/ollama.js';
-import pdf from 'pdf-parse';
+import pdf from 'pdf-parse/lib/pdf-parse.js';
 import crypto from 'crypto';
 import pLimit from 'p-limit';
 import axios from 'axios';
 import { encryptDocumentContent } from './documentEncryptionService.js';
 import { DocumentIntelligenceEngine } from './document-intelligence/index.js';
 import { DocumentQuotaService } from './documentQuotaService.js';
+import { SSRFGuard } from './workflow/security/ssrf.js';
+import { SecurityValidator } from './document-intelligence/security/securityValidator.js';
 
 export class RagService {
   private static async executeQuery<T>(
@@ -215,19 +217,27 @@ export class RagService {
     }
   }
 
-  // Crawl and index URL content
+  // Crawl and index URL content with strict SSRF protection
   static async indexUrl(
     tenantId: string,
     userId: string,
     url: string
   ): Promise<number> {
-    const res = await axios.get(url, {
-      timeout: 15000,
-      maxContentLength: 5 * 1024 * 1024,
+    const ssrfCheck = await SSRFGuard.validateUrl(url);
+    if (!ssrfCheck.safe) {
+      throw new Error(`Security Exception: URL rejected by SSRF protection. Reason: ${ssrfCheck.reason}`);
+    }
+
+    const res = await SSRFGuard.safeFetch(url, {
+      signal: AbortSignal.timeout(15000),
       headers: { 'User-Agent': 'XarwizBot/1.0 (+https://xarwiz.com)' },
-      responseType: 'text',
     });
-    const html = typeof res.data === 'string' ? res.data : String(res.data);
+
+    if (!res.ok) {
+      throw new Error(`Failed to fetch URL: HTTP ${res.status} ${res.statusText}`);
+    }
+
+    const html = await res.text();
     const text = html.replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
       .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
       .replace(/<[^>]+>/g, ' ')
@@ -311,7 +321,7 @@ export class RagService {
 
       const matched = ragRows
         .filter((row) => (row.final_score || row.vector_score) > 0.25)
-        .map((row) => `[Source: ${row.filename}]: ${row.content}`);
+        .map((row) => SecurityValidator.wrapUntrustedDocumentContext(row.filename, row.content));
 
       const result = matched.length === 0
         ? 'No matching context found in knowledge base.'

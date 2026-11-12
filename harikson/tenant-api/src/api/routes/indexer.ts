@@ -33,9 +33,12 @@ router.post('/index', async (req: Request, res: Response) => {
   try {
     const check = indexSchema.safeParse(req.body);
     if (!check.success) {
-      return res
-        .status(400)
-        .json({ hariksonError: 'workspacePath field is required' });
+      const errMsg = 'workspacePath field is required';
+      return res.status(400).json({
+        error: errMsg,
+        message: errMsg,
+        hariksonError: errMsg,
+      });
     }
 
     const { workspacePath } = check.data;
@@ -105,12 +108,20 @@ router.post('/index', async (req: Request, res: Response) => {
     });
 
     return res.status(202).json({
+      jobId,
+      status: 'pending',
+      message: 'Workspace vector indexing initiated in background.',
       hariksonJobId: jobId,
       hariksonStatus: 'pending',
       hariksonMessage: 'Workspace vector indexing initiated in background.',
     });
   } catch (error: any) {
-    return res.status(500).json({ hariksonError: error.message });
+    const errMsg = error.message || 'Indexing error';
+    return res.status(500).json({
+      error: errMsg,
+      message: errMsg,
+      hariksonError: errMsg,
+    });
   }
 });
 
@@ -124,12 +135,23 @@ router.get('/index/status/:jobId', async (req: Request, res: Response) => {
 
   if (!job || (tenantId && job.tenantId !== tenantId)) {
     return res.status(404).json({
+      error: 'Index job not found in workspace registry.',
+      message: 'Index job not found in workspace registry.',
+      success: false,
       hariksonSuccess: false,
       hariksonMessage: 'Index job not found in workspace registry.',
     });
   }
 
   return res.status(200).json({
+    jobId: job.id,
+    status: job.status,
+    progress: job.progress,
+    totalFiles: job.totalFiles,
+    processedFiles: job.processedFiles,
+    chunksCreated: job.chunksCreated,
+    skippedFiles: job.skippedFiles,
+    error: job.error,
     hariksonJobId: job.id,
     hariksonStatus: job.status,
     hariksonProgress: `${job.progress}%`,

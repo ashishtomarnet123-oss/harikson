@@ -1,5 +1,6 @@
-import { describe, it, expect } from '@jest/globals';
-import { authenticator } from 'otplib';
+import { describe, it, expect } from './test-utils.js';
+import * as otplibPkg from 'otplib';
+const authenticator = (otplibPkg as any).authenticator || (otplibPkg as any).default?.authenticator || otplibPkg;
 import {
   generateTotpSecret,
   generateOtpauthUrl,
@@ -28,7 +29,9 @@ describe('2FA Service - otplib Migration Test Suite', () => {
 
   it('3. Verifies valid TOTP token generated for secret', () => {
     const secret = generateTotpSecret();
-    const validToken = authenticator.generate(secret);
+    const validToken = typeof (otplibPkg as any).generateSync === 'function'
+      ? (otplibPkg as any).generateSync({ secret })
+      : (authenticator as any).generate(secret);
 
     const isValid = verifyTotpToken(validToken, secret);
     expect(isValid).toBe(true);

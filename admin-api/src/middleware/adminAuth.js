@@ -54,39 +54,61 @@ export const adminAuth = async (req, res, next) => {
 
     let decoded;
     try {
-      decoded = jwt.verify(token, jwtSecret);
+      decoded = jwt.verify(token, jwtSecret, { algorithms: ['HS256'] });
     } catch (jwtErr) {
       return res
         .status(401)
         .json({ error: 'Access Denied: Invalid or expired token' });
     }
 
+    if (decoded.type && decoded.type !== 'access') {
+      return res
+        .status(401)
+        .json({ error: 'Access Denied: Invalid token type for admin API access' });
+    }
+
+    // Check session revocation in Redis if available
+    const redis = req.app?.get('redis');
+    if (redis) {
+      try {
+        const isRevoked =
+          (decoded.jti ? await redis.get(`revoked:session:${decoded.jti}`) : null) ||
+          await redis.get(`revoked:user:${decoded.userId}`);
+        if (isRevoked) {
+          return res.status(401).json({ error: 'Access Denied: Session has been revoked' });
+        }
+      } catch (redisErr) {
+        // Log redis warning but fail closed only on explicit revocation
+        logger.warn('Failed to check session revocation in Redis:', redisErr.message);
+      }
+    }
+
     // Verify user exists and check role in users table
     let result;
     try {
       result = await pool.query(
-        'SELECT id, role, email, tenant_id FROM users WHERE id = $1 LIMIT 1',
+        'SELECT id, role, email, tenant_id, status, locked_until FROM users WHERE id = $1 AND deleted_at IS NULL LIMIT 1',
         [decoded.userId]
       );
     } catch (dbErr) {
       logger.error('Admin Auth Middleware DB query error:', dbErr.message);
-      // Do NOT trust the JWT payload alone when the DB is unreachable — a valid
-      // JWT signature only proves the token was issued by us at some point, not
-      // that the user's role hasn't since been revoked/downgraded. Fail closed.
       return res.status(503).json({ error: 'Database service unavailable' });
     }
 
     if (!result || result.rows.length === 0) {
-      // The DB is reachable and answered — it just doesn't have this user
-      // anymore (deleted/deactivated since the JWT was issued). A valid
-      // signature only proves we issued the token at some point, not that
-      // the account or its role still exists; trusting decoded.role here
-      // would mean deleting an admin never actually revokes their
-      // outstanding session. Fail closed, same as the DB-unreachable case.
       return res.status(401).json({ error: 'Access Denied: User not found' });
     }
 
     const user = result.rows[0];
+
+    if (user.status === 'suspended' || user.status === 'inactive') {
+      return res.status(403).json({ error: 'Access Denied: Account suspended or inactive' });
+    }
+
+    if (user.locked_until && new Date(user.locked_until) > new Date()) {
+      return res.status(423).json({ error: 'Access Denied: Account temporarily locked' });
+    }
+
     const allowedRoles = ['admin', 'superadmin', 'founder'];
     if (!allowedRoles.includes(user.role)) {
       return res
@@ -94,7 +116,13 @@ export const adminAuth = async (req, res, next) => {
         .json({ error: 'Access Denied: Admin privilege required' });
     }
 
-    req.admin = { id: user.id, role: user.role, email: user.email, tenant_id: user.tenant_id };
+    req.admin = {
+      id: user.id,
+      role: user.role,
+      email: user.email,
+      tenant_id: user.tenant_id,
+      jti: decoded.jti,
+    };
     next();
   } catch (err) {
     logger.error('Admin Auth Middleware error:', err.message || err);

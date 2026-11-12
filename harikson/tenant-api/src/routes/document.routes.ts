@@ -13,10 +13,9 @@ import { requireAuth } from '../middleware/auth.js';
 import { requireScopes } from '../middleware/scopeAuth.js';
 import { requireDocumentQuota } from '../middleware/entitlements.js';
 import { QuotaExceededError } from '../services/documentQuotaService.js';
+import { requireAuth } from '../middleware/auth.js';
 
 const router = Router();
-
-// Enforce authentication on all document routes
 router.use(requireAuth);
 
 const upload = multer({
@@ -185,14 +184,26 @@ router.post('/collections/:id/add-document', requireScopes('documents:write'), a
   if (!documentId) return res.status(400).json({ error: 'documentId required' });
 
   try {
-    await executeTenantQuery(req.tenant.id, (client) =>
+    const colRes = await executeTenantQuery(req.tenant.id, (client) =>
+      client.query(`SELECT id FROM document_collections WHERE id = $1 AND tenant_id = $2`, [id, req.tenant.id])
+    );
+    if (!colRes.rows.length) {
+      return res.status(404).json({ error: 'Collection not found or access denied' });
+    }
+
+    const updateRes = await executeTenantQuery(req.tenant.id, (client) =>
       client.query(
         `UPDATE knowledge_documents
          SET collection_id = $1, updated_at = NOW()
-         WHERE id = $2 AND tenant_id = $3`,
+         WHERE id = $2 AND tenant_id = $3 AND is_active = true
+         RETURNING id`,
         [id, documentId, req.tenant.id]
       )
     );
+
+    if (updateRes.rows.length === 0) {
+      return res.status(404).json({ error: 'Document not found or unauthorized' });
+    }
 
     res.json({ success: true, message: 'Document added to collection' });
   } catch (err: any) {
@@ -208,6 +219,13 @@ router.post('/collections/:id/chat', requireScopes('documents:read'), async (req
   if (!question || !question.trim()) return res.status(400).json({ error: 'question required' });
 
   try {
+    const colRes = await executeTenantQuery(req.tenant.id, (client) =>
+      client.query(`SELECT id FROM document_collections WHERE id = $1 AND tenant_id = $2`, [id, req.tenant.id])
+    );
+    if (!colRes.rows.length) {
+      return res.status(404).json({ error: 'Collection not found or access denied' });
+    }
+
     const retrieval = await DocumentRetriever.retrieveContext(req.tenant.id, question.trim(), {
       collectionId: id,
       maxResults: 8,
@@ -306,6 +324,48 @@ router.get('/', requireScopes('documents:read'), async (req: any, res) => {
   if (req.query.collectionId) params.push(req.query.collectionId);
 
   try {
+    if (req.query.page || req.query.limit || req.query.offset) {
+      const page = Math.max(1, parseInt(req.query.page as string, 10) || 1);
+      const limit = Math.min(100, Math.max(1, parseInt(req.query.limit as string, 10) || 50));
+      const offset = req.query.offset ? Math.max(0, parseInt(req.query.offset as string, 10) || 0) : (page - 1) * limit;
+
+      const pagedParams = [...params, limit, offset];
+      const limitIdx = params.length + 1;
+      const offsetIdx = params.length + 2;
+
+      const [docsRes, countRes] = await executeTenantQuery(req.tenant.id, async (client) => {
+        const docs = await client.query(
+          `SELECT kd.id, kd.filename, kd.file_type, kd.file_size_bytes, kd.status,
+                  kd.processing_step, kd.error_message, kd.is_active, kd.page_count,
+                  kd.word_count, kd.document_type, kd.metadata, kd.collection_id,
+                  dc.name as collection_name, kd.created_at, kd.updated_at
+           FROM knowledge_documents kd
+           LEFT JOIN document_collections dc ON kd.collection_id = dc.id
+           WHERE kd.tenant_id = $1 AND kd.is_active = true ${collectionFilter}
+           ORDER BY kd.created_at DESC
+           LIMIT $${limitIdx} OFFSET $${offsetIdx}`,
+          pagedParams
+        );
+        const count = await client.query(
+          `SELECT COUNT(*)::int as total
+           FROM knowledge_documents kd
+           WHERE kd.tenant_id = $1 AND kd.is_active = true ${collectionFilter}`,
+          params
+        );
+        return [docs, count];
+      });
+
+      const total = countRes.rows[0]?.total || 0;
+      return res.json({
+        documents: docsRes.rows,
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit) || 1,
+        hasMore: page * limit < total,
+      });
+    }
+
     const docsRes = await executeTenantQuery(req.tenant.id, (client) =>
       client.query(
         `SELECT kd.id, kd.filename, kd.file_type, kd.file_size_bytes, kd.status,
@@ -455,16 +515,24 @@ router.delete('/:id', requireScopes('documents:write'), async (req: any, res) =>
   const { id } = req.params;
 
   try {
-    await executeTenantQuery(req.tenant.id, async (client) => {
-      await client.query(
-        'UPDATE knowledge_documents SET is_active = false, updated_at = NOW() WHERE id = $1 AND tenant_id = $2',
+    const deleted = await executeTenantQuery(req.tenant.id, async (client) => {
+      const updateRes = await client.query(
+        'UPDATE knowledge_documents SET is_active = false, updated_at = NOW() WHERE id = $1 AND tenant_id = $2 AND is_active = true RETURNING id',
         [id, req.tenant.id]
       );
+      if (updateRes.rows.length === 0) {
+        return false;
+      }
       await client.query(
         'DELETE FROM document_embeddings WHERE knowledge_document_id = $1 AND tenant_id = $2',
         [id, req.tenant.id]
       );
+      return true;
     });
+
+    if (!deleted) {
+      return res.status(404).json({ error: 'Document not found or already deleted' });
+    }
 
     res.json({ success: true, message: 'Document and its embeddings deleted successfully' });
   } catch (err: any) {

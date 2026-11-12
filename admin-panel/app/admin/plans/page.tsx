@@ -1,6 +1,6 @@
 import { redirect } from 'next/navigation';
 
-// Plans management has been merged into the unified Tenants & Plans module.
+// Plans management connects directly into the established Tenants & Plans module on the 'plans' tab.
 export default function PlansRedirect() {
-  redirect('/admin/tenants');
+  redirect('/admin/tenants?tab=plans');
 }

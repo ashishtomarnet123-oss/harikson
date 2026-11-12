@@ -4,7 +4,7 @@ import path from 'path';
 import pg from 'pg';
 import { Queue, Worker, Job } from 'bullmq';
 import { Redis } from 'ioredis';
-import { pool } from '../db/pool.js';
+import { pool, executeTenantQuery } from '../db/pool.js';
 import { RepositoryIndexer } from '../services/indexer/repository-indexer.js';
 import { MemoryExtractor } from '../services/memory/extractor.js';
 import { ContextBuilder } from '../services/context/context-builder.js';
@@ -396,10 +396,13 @@ export class HariksonScheduler {
           for (const tRow of tenantsRes.rows) {
             const activeTenantId = tRow.id;
             await this.executeQuery(activeTenantId, async (client) => {
+              // High-performance single-pass anti-join query (eliminates N+1 per-conversation query loop)
               const res = await client.query(`
                 SELECT m.conversation_id, c.user_id, COUNT(*) as count
                 FROM messages m
                 JOIN conversations c ON m.conversation_id = c.id
+                LEFT JOIN conversation_summaries cs ON cs.conversation_id = m.conversation_id
+                WHERE cs.id IS NULL
                 GROUP BY m.conversation_id, c.user_id
                 HAVING COUNT(*) > 50
               `);
@@ -408,33 +411,17 @@ export class HariksonScheduler {
                 const convId = row.conversation_id;
                 const convUserId = row.user_id;
 
-                let checkRes;
-                try {
-                  checkRes = await client.query(
-                    'SELECT id FROM conversation_summaries WHERE conversation_id = $1 LIMIT 1',
-                    [convId]
-                  );
-                } catch (err: any) {
-                  if (err.code === '42P01') {
-                    checkRes = { rows: [] };
-                  } else {
-                    throw err;
-                  }
-                }
-
-                if (checkRes.rows.length === 0) {
-                  await this.summarizerQueue.add('summarize', {
-                    tenantId: activeTenantId,
-                    userId: convUserId,
-                    conversationId: convId,
-                  }, {
-                    jobId: `summarize-${convId}`,
-                    attempts: 3,
-                    backoff: { type: 'exponential', delay: 1000 },
-                    removeOnComplete: { age: 86400 },
-                    removeOnFail: { age: 7 * 86400 },
-                  });
-                }
+                await this.summarizerQueue.add('summarize', {
+                  tenantId: activeTenantId,
+                  userId: convUserId,
+                  conversationId: convId,
+                }, {
+                  jobId: `summarize-${convId}`,
+                  attempts: 3,
+                  backoff: { type: 'exponential', delay: 1000 },
+                  removeOnComplete: { age: 86400 },
+                  removeOnFail: { age: 7 * 86400 },
+                });
               }
             });
           }
@@ -578,22 +565,7 @@ export class HariksonScheduler {
     tenantId: string,
     callback: (client: pg.PoolClient) => Promise<T>
   ): Promise<T> {
-    const client = await pool.connect();
-    try {
-      await client.query('SELECT set_tenant_context($1)', [tenantId]);
-      const result = await callback(client);
-      await client.query('SELECT set_tenant_context(NULL)');
-      return result;
-    } catch (err) {
-      try {
-        await client.query('SELECT set_tenant_context(NULL)');
-      } catch (cleanupErr: any) {
-        console.warn('Warning clearing tenant context on query error:', cleanupErr.message);
-      }
-      throw err;
-    } finally {
-      client.release();
-    }
+    return executeTenantQuery(tenantId, callback);
   }
 
   private static startIndexerWorker(tenantId: string, workspacePath: string) {

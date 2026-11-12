@@ -97,6 +97,7 @@ Regular paragraph text with [legit link](https://xarwiz.com).
   console.log('\nTest 4: Visual Themes Rendering');
   const themes = ['corporate', 'minimal', 'technical', 'academic', 'xarwiz'] as const;
   for (const t of themes) {
+    console.log(`  -> Testing theme: ${t}`);
     const tRender = await UniversalPdfEngine.renderDirect('# Theme Test Document\n\nTesting theme tokens.', {
       theme: t,
     });

@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterAll } from '@jest/globals';
+import { describe, it, expect, beforeEach, afterAll } from './test-utils.js';
 import { pool } from '../src/db/pool.js';
 import { createTestTenant, createTestUser } from './factories/tenantFactory.js';
 import { resetTestDatabase } from './helpers/db.js';
@@ -16,7 +16,7 @@ describe('Tenant API - Auth Routes Test Suite', () => {
     const tenant = await createTestTenant({ slug: 'test-org' });
     const payload = {
       email: 'newuser@xarwiz.com',
-      password: 'Admin@neurovalt@2620',
+      password: process.env.TEST_USER_PASSWORD || 'TestUser_Sec#99x!',
       tenantSlug: tenant.slug,
     };
 
