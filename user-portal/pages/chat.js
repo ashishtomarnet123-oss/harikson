@@ -140,6 +140,18 @@ function ChatPage() {
   const [apiBase, setApiBase] = useState('');
   const [tenantSlug, setTenantSlug] = useState('default');
 
+  const authHeaders = useCallback(
+    () => {
+      const slug = tenantSlug || (typeof window !== 'undefined' ? localStorage.getItem('hk_tenant') : null) || 'default';
+      const headers = {
+        'Content-Type': 'application/json',
+        'x-tenant-slug': slug,
+      };
+      return headers;
+    },
+    [tenantSlug]
+  );
+
   // Conversations
   const [conversations, setConversations] = useState([]);
   const [activeConvId, setActiveConvId] = useState(null);
@@ -350,6 +362,110 @@ function ChatPage() {
   // conversation, undoing every switch after the first.
   const skipNextUrlSync = useRef(false);
 
+  /* ── Fetch conversation list ── */
+  const fetchConversations = async () => {
+    let localConvs = [];
+    if (typeof window !== 'undefined') {
+      try {
+        localConvs = JSON.parse(localStorage.getItem('hk_recent_conversations') || '[]');
+      } catch (e) {}
+    }
+
+    try {
+      const res = await fetch(`${apiBase}/api/v1/chat/conversations`, {
+        headers: authHeaders(),
+        credentials: 'include',
+      });
+      if (res.status === 401) {
+        router.replace('/login');
+        return;
+      }
+      const data = await res.json();
+      const serverConvs = data.conversations || [];
+
+      // Sanitize titles in both local and server lists to permanently clean legacy markup
+      const sanitizedServerConvs = serverConvs.map((c) => ({
+        ...c,
+        title: formatConversationTitle(c.title),
+      }));
+      const sanitizedLocalConvs = localConvs.map((c) => ({
+        ...c,
+        title: formatConversationTitle(c.title),
+      }));
+
+      // Merge server + local conversations uniquely by ID
+      const map = new Map();
+      [...sanitizedLocalConvs, ...sanitizedServerConvs].forEach((c) => {
+        if (c && c.id) map.set(c.id, c);
+      });
+      const merged = Array.from(map.values()).sort(
+        (a, b) => new Date(b.updated_at || b.createdAt || 0) - new Date(a.updated_at || a.createdAt || 0)
+      );
+
+      const maskedMerged = merged.map((c) => ({ ...c, title: formatConversationTitle(c.title), model: maskModelName(c.model) }));
+      setConversations(maskedMerged);
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('hk_recent_conversations', JSON.stringify(maskedMerged));
+      }
+    } catch (err) {
+      console.error('Failed to fetch conversations from API, using local fallback:', err);
+      setConversations(localConvs.map((c) => ({ ...c, model: maskModelName(c.model) })));
+    }
+  };
+
+  /* ── Load messages for a conversation ── */
+  const loadConversation = async (convId) => {
+    if (typeof window !== 'undefined' && window.innerWidth <= 768) {
+      setSidebarCollapsed(true);
+    }
+    skipNextUrlSync.current = true;
+    setActiveConvId(convId);
+    setError(null);
+    setMessages([]);
+    router.replace(`/chat?conversation=${convId}`, undefined, {
+      shallow: true,
+    });
+
+    let localMsgs = [];
+    if (typeof window !== 'undefined') {
+      try {
+        localMsgs = JSON.parse(localStorage.getItem(`hk_conv_msgs_${convId}`) || '[]');
+      } catch (e) {}
+    }
+
+    try {
+      const res = await fetch(
+        `${apiBase}/api/v1/chat/conversations/${convId}/messages`,
+        { headers: authHeaders(), credentials: 'include' }
+      );
+      if (res.ok) {
+        const data = await res.json();
+        const loaded = (data.messages || []).map((m) => ({
+          id: m.id,
+          sender: m.role === 'user' ? 'user' : 'bot',
+          text: m.content,
+          role: m.role,
+        }));
+        if (loaded.length > 0) {
+          setMessages(loaded);
+          if (typeof window !== 'undefined') {
+            localStorage.setItem(`hk_conv_msgs_${convId}`, JSON.stringify(loaded));
+          }
+          return;
+        }
+      }
+      if (localMsgs.length > 0) {
+        setMessages(localMsgs);
+      }
+    } catch (err) {
+      if (localMsgs.length > 0) {
+        setMessages(localMsgs);
+      } else {
+        setError('Failed to load conversation messages.');
+      }
+    }
+  };
+
   /* ── Resolve config from localStorage on mount ── */
 
   useEffect(() => {
@@ -498,122 +614,6 @@ function ChatPage() {
         Math.min(textareaRef.current.scrollHeight, 180) + 'px';
     }
   }, [inputText]);
-
-  const authHeaders = useCallback(
-    () => {
-      const slug = tenantSlug || (typeof window !== 'undefined' ? localStorage.getItem('hk_tenant') : null) || 'default';
-      const headers = {
-        'Content-Type': 'application/json',
-        'x-tenant-slug': slug,
-      };
-      return headers;
-    },
-    [tenantSlug]
-  );
-
-  /* ── Fetch conversation list ── */
-  const fetchConversations = async () => {
-    let localConvs = [];
-    if (typeof window !== 'undefined') {
-      try {
-        localConvs = JSON.parse(localStorage.getItem('hk_recent_conversations') || '[]');
-      } catch (e) {}
-    }
-
-    try {
-      const res = await fetch(`${apiBase}/api/v1/chat/conversations`, {
-        headers: authHeaders(),
-        credentials: 'include',
-      });
-      if (res.status === 401) {
-        router.replace('/login');
-        return;
-      }
-      const data = await res.json();
-      const serverConvs = data.conversations || [];
-
-      // Sanitize titles in both local and server lists to permanently clean legacy markup
-      const sanitizedServerConvs = serverConvs.map((c) => ({
-        ...c,
-        title: formatConversationTitle(c.title),
-      }));
-      const sanitizedLocalConvs = localConvs.map((c) => ({
-        ...c,
-        title: formatConversationTitle(c.title),
-      }));
-
-      // Merge server + local conversations uniquely by ID
-      const map = new Map();
-      [...sanitizedLocalConvs, ...sanitizedServerConvs].forEach((c) => {
-        if (c && c.id) map.set(c.id, c);
-      });
-      const merged = Array.from(map.values()).sort(
-        (a, b) => new Date(b.updated_at || b.createdAt || 0) - new Date(a.updated_at || a.createdAt || 0)
-      );
-
-      const maskedMerged = merged.map((c) => ({ ...c, title: formatConversationTitle(c.title), model: maskModelName(c.model) }));
-      setConversations(maskedMerged);
-      if (typeof window !== 'undefined') {
-        localStorage.setItem('hk_recent_conversations', JSON.stringify(maskedMerged));
-      }
-    } catch (err) {
-      console.error('Failed to fetch conversations from API, using local fallback:', err);
-      setConversations(localConvs.map((c) => ({ ...c, model: maskModelName(c.model) })));
-    }
-  };
-
-  /* ── Load messages for a conversation ── */
-  const loadConversation = async (convId) => {
-    if (typeof window !== 'undefined' && window.innerWidth <= 768) {
-      setSidebarCollapsed(true);
-    }
-    skipNextUrlSync.current = true;
-    setActiveConvId(convId);
-    setError(null);
-    setMessages([]);
-    router.replace(`/chat?conversation=${convId}`, undefined, {
-      shallow: true,
-    });
-
-    let localMsgs = [];
-    if (typeof window !== 'undefined') {
-      try {
-        localMsgs = JSON.parse(localStorage.getItem(`hk_conv_msgs_${convId}`) || '[]');
-      } catch (e) {}
-    }
-
-    try {
-      const res = await fetch(
-        `${apiBase}/api/v1/chat/conversations/${convId}/messages`,
-        { headers: authHeaders(), credentials: 'include' }
-      );
-      if (res.ok) {
-        const data = await res.json();
-        const loaded = (data.messages || []).map((m) => ({
-          id: m.id,
-          sender: m.role === 'user' ? 'user' : 'bot',
-          text: m.content,
-          role: m.role,
-        }));
-        if (loaded.length > 0) {
-          setMessages(loaded);
-          if (typeof window !== 'undefined') {
-            localStorage.setItem(`hk_conv_msgs_${convId}`, JSON.stringify(loaded));
-          }
-          return;
-        }
-      }
-      if (localMsgs.length > 0) {
-        setMessages(localMsgs);
-      }
-    } catch (err) {
-      if (localMsgs.length > 0) {
-        setMessages(localMsgs);
-      } else {
-        setError('Failed to load conversation messages.');
-      }
-    }
-  };
 
   /* ── New chat ── */
   const startNewChat = () => {
@@ -1396,6 +1396,14 @@ CRITICAL RULES:
     router.replace('/login');
   };
 
+  const applySlashCommand = (cmd) => {
+    const parts = inputText.split('/');
+    parts.pop();
+    setInputText(parts.join('/') + cmd.prompt);
+    setShowSlashMenu(false);
+    textareaRef.current?.focus();
+  };
+
   /* ── Keyboard shortcuts ── */
   const handleKeyDown = (e) => {
     if (showSlashMenu) {
@@ -1437,14 +1445,6 @@ CRITICAL RULES:
     } else if (showSlashMenu && !val.includes('/')) {
       setShowSlashMenu(false);
     }
-  };
-
-  const applySlashCommand = (cmd) => {
-    const parts = inputText.split('/');
-    parts.pop();
-    setInputText(parts.join('/') + cmd.prompt);
-    setShowSlashMenu(false);
-    textareaRef.current?.focus();
   };
 
   useEffect(() => {
