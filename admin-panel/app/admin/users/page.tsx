@@ -67,6 +67,15 @@ interface User {
   password_changed_at?: string;
   password_reset_at?: string;
   password_reset_by?: string;
+  city?: string;
+  state?: string;
+  last_login_at?: string;
+  plan_id?: string;
+  plan_name?: string;
+  subscription_status?: string;
+  billing_cycle?: string;
+  subscription_amount?: number;
+  total_revenue?: number;
 }
 
 export default function UsersPage() {
@@ -75,6 +84,26 @@ export default function UsersPage() {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'demos' | 'active' | 'suspended'>('all');
+  const [planFilter, setPlanFilter] = useState<string>('all');
+  const [billingCycleFilter, setBillingCycleFilter] = useState<string>('all');
+  const [subStatusFilter, setSubStatusFilter] = useState<string>('all');
+  const [cityFilter, setCityFilter] = useState<string>('all');
+  const [stateFilter, setStateFilter] = useState<string>('all');
+  const [sortBy, setSortBy] = useState<string>('created_at');
+  const [sortOrder, setSortOrder] = useState<'ASC' | 'DESC'>('DESC');
+  const [page, setPage] = useState<number>(1);
+  const [totalPages, setTotalPages] = useState<number>(1);
+  const [totalFilteredUsers, setTotalFilteredUsers] = useState<number>(0);
+  const [globalStats, setGlobalStats] = useState<{
+    total_users?: number;
+    active_count?: number;
+    pending_count?: number;
+    suspended_count?: number;
+    demo_count?: number;
+  }>({});
+  const [filterOptions, setFilterOptions] = useState<{ cities: string[]; states: string[] }>({ cities: [], states: [] });
+  const [profileDetails, setProfileDetails] = useState<any>(null);
+  const [loadingProfileDetails, setLoadingProfileDetails] = useState(false);
   const apiBase = '/api-proxy';
   const [error, setError] = useState('');
 
@@ -633,7 +662,7 @@ export default function UsersPage() {
     }
   };
 
-  const fetchUsers = async () => {
+  const fetchUsers = async (targetPage = page) => {
     setLoading(true);
     setError('');
     const token = getCookie('admin_token') || localStorage.getItem('admin_token');
@@ -641,7 +670,20 @@ export default function UsersPage() {
     if (token) headers['Authorization'] = `Bearer ${token}`;
 
     try {
-      const res = await fetch(`${apiBase}/v1/admin/users`, {
+      const qs = new URLSearchParams({
+        page: String(targetPage),
+        limit: '25',
+        search: searchTerm.trim(),
+        status: statusFilter,
+        plan: planFilter,
+        billingCycle: billingCycleFilter,
+        subStatus: subStatusFilter,
+        city: cityFilter,
+        state: stateFilter,
+        sortBy,
+        sortOrder,
+      });
+      const res = await fetch(`${apiBase}/v1/admin/users?${qs.toString()}`, {
         headers,
         credentials: 'include',
       });
@@ -654,6 +696,10 @@ export default function UsersPage() {
       }
       const data = await res.json();
       setUsers(data.users || []);
+      setTotalFilteredUsers(data.total || 0);
+      setTotalPages(data.totalPages || 1);
+      if (data.stats) setGlobalStats(data.stats);
+      if (data.filterOptions) setFilterOptions(data.filterOptions);
     } catch (err: any) {
       setError(err.message || 'Failed to connect to admin API');
     } finally {
@@ -681,9 +727,16 @@ export default function UsersPage() {
   };
 
   useEffect(() => {
-    fetchUsers();
     fetchPlans();
   }, []);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      fetchUsers(page);
+    }, 180);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [page, searchTerm, statusFilter, planFilter, billingCycleFilter, subStatusFilter, cityFilter, stateFilter, sortBy, sortOrder]);
 
   const handleUserPlanChange = async (planId: string) => {
     if (!selectedUser) return;
@@ -719,30 +772,37 @@ export default function UsersPage() {
   useEffect(() => {
     if (!selectedUser) {
       setUserConversations([]);
+      setProfileDetails(null);
       return;
     }
-    const fetchConversations = async () => {
+    const fetchConversationsAndDetails = async () => {
       setLoadingConvs(true);
+      setLoadingProfileDetails(true);
       const token = getCookie('admin_token') || localStorage.getItem('admin_token');
       const headers: Record<string, string> = {};
       if (token) headers['Authorization'] = `Bearer ${token}`;
 
       try {
-        const res = await fetch(
-          `${apiBase}/v1/admin/users/${selectedUser.id}/conversations`,
-          { headers, credentials: 'include' }
-        );
-        if (res.ok) {
-          const data = await res.json();
+        const [convRes, detailRes] = await Promise.all([
+          fetch(`${apiBase}/v1/admin/users/${selectedUser.id}/conversations`, { headers, credentials: 'include' }),
+          fetch(`${apiBase}/v1/admin/users/${selectedUser.id}/profile-details`, { headers, credentials: 'include' }),
+        ]);
+        if (convRes.ok) {
+          const data = await convRes.json();
           setUserConversations(data.conversations || []);
+        }
+        if (detailRes.ok) {
+          const det = await detailRes.json();
+          setProfileDetails(det);
         }
       } catch (err) {
         console.error(err);
       } finally {
         setLoadingConvs(false);
+        setLoadingProfileDetails(false);
       }
     };
-    fetchConversations();
+    fetchConversationsAndDetails();
   }, [selectedUser]);
 
   const handleUpdateStatus = async (userId: string, newStatus: string) => {
@@ -849,35 +909,14 @@ export default function UsersPage() {
     return colors[hash % colors.length];
   };
 
-  // Filter Calculations
-  const pendingCount = users.filter((u) => (u.status || 'active') === 'pending').length;
-  const demoCount = users.filter((u) => u.source === 'book_demo' || u.source === 'book_live_demo').length;
-  const activeCount = users.filter((u) => (u.status || 'active') === 'active').length;
-  const suspendedCount = users.filter((u) => u.status === 'suspended').length;
+  // Filter Calculations (server-backed global counts)
+  const pendingCount = globalStats.pending_count ?? users.filter((u) => (u.status || 'active') === 'pending').length;
+  const demoCount = globalStats.demo_count ?? users.filter((u) => u.source === 'book_demo' || u.source === 'book_live_demo' || u.source === 'demo_indian_dataset').length;
+  const activeCount = globalStats.active_count ?? users.filter((u) => (u.status || 'active') === 'active').length;
+  const suspendedCount = globalStats.suspended_count ?? users.filter((u) => u.status === 'suspended').length;
 
-  const filteredUsers = users.filter((user) => {
-    const q = (searchTerm || '').toLowerCase();
-    const matchesSearch =
-      (user.email || '').toLowerCase().includes(q) ||
-      (user.name || '').toLowerCase().includes(q) ||
-      (user.company || '').toLowerCase().includes(q) ||
-      (user.phone || '').toLowerCase().includes(q) ||
-      (user.source || '').toLowerCase().includes(q) ||
-      (user.tenant_name || '').toLowerCase().includes(q) ||
-      (user.role || '').toLowerCase().includes(q);
-    
-    const userStatus = user.status || 'active';
-    const matchesStatus =
-      statusFilter === 'all'
-        ? true
-        : statusFilter === 'demos'
-        ? (user.source === 'book_demo' || user.source === 'book_live_demo')
-        : userStatus === statusFilter;
-    
-    return matchesSearch && matchesStatus;
-  });
-
-  const totalUsers = users.length;
+  const filteredUsers = users;
+  const totalUsers = globalStats.total_users ?? users.length;
   const totalConversations = users.reduce(
     (acc, u) => acc + (Number(u.conversations_count) || 0),
     0
@@ -929,10 +968,13 @@ export default function UsersPage() {
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
             <input
               type="text"
-              placeholder="Search users by email or tenant..."
+              placeholder="Search by name, email, user ID, city, or company..."
               className="w-full pl-9 pr-4 py-2 bg-white dark:bg-gray-900/40 border border-gray-200 dark:border-gray-800/80 rounded-xl text-xs text-gray-800 dark:text-gray-200 placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:border-indigo-500 transition-colors shadow-sm"
               value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
+              onChange={(e) => {
+                setSearchTerm(e.target.value);
+                setPage(1);
+              }}
             />
           </div>
         </div>
@@ -1054,7 +1096,7 @@ export default function UsersPage() {
             Active ({activeCount})
           </button>
           <button
-            onClick={() => setStatusFilter('suspended')}
+            onClick={() => { setStatusFilter('suspended'); setPage(1); }}
             className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
               statusFilter === 'suspended'
                 ? 'bg-rose-600 text-white shadow-sm'
@@ -1064,6 +1106,85 @@ export default function UsersPage() {
             <ShieldAlert className="w-3.5 h-3.5" />
             Suspended ({suspendedCount})
           </button>
+        </div>
+
+        {/* Advanced Customer Filters & Sorting */}
+        <div className="flex flex-wrap items-center gap-2.5 px-3 py-2.5 bg-white dark:bg-gray-900/50 border-b border-gray-200 dark:border-gray-800/60 text-xs">
+          <select
+            value={planFilter}
+            onChange={(e) => { setPlanFilter(e.target.value); setPage(1); }}
+            className="px-2.5 py-1.5 rounded-lg border border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-950 text-gray-700 dark:text-gray-200"
+          >
+            <option value="all">All Plans</option>
+            <option value="free">Free</option>
+            <option value="starter">Starter</option>
+            <option value="professional">Professional</option>
+            <option value="enterprise">Enterprise</option>
+          </select>
+
+          <select
+            value={billingCycleFilter}
+            onChange={(e) => { setBillingCycleFilter(e.target.value); setPage(1); }}
+            className="px-2.5 py-1.5 rounded-lg border border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-950 text-gray-700 dark:text-gray-200"
+          >
+            <option value="all">All Cycles</option>
+            <option value="monthly">Monthly</option>
+            <option value="annual">Annual</option>
+          </select>
+
+          <select
+            value={subStatusFilter}
+            onChange={(e) => { setSubStatusFilter(e.target.value); setPage(1); }}
+            className="px-2.5 py-1.5 rounded-lg border border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-950 text-gray-700 dark:text-gray-200"
+          >
+            <option value="all">All Sub Statuses</option>
+            <option value="active">Active</option>
+            <option value="trialing">Trialing</option>
+            <option value="past_due">Past Due</option>
+            <option value="cancelled">Cancelled</option>
+            <option value="expired">Expired</option>
+          </select>
+
+          <select
+            value={stateFilter}
+            onChange={(e) => { setStateFilter(e.target.value); setPage(1); }}
+            className="px-2.5 py-1.5 rounded-lg border border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-950 text-gray-700 dark:text-gray-200"
+          >
+            <option value="all">All States</option>
+            {(filterOptions.states || []).map((st) => (
+              <option key={st} value={st}>{st}</option>
+            ))}
+          </select>
+
+          <select
+            value={cityFilter}
+            onChange={(e) => { setCityFilter(e.target.value); setPage(1); }}
+            className="px-2.5 py-1.5 rounded-lg border border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-950 text-gray-700 dark:text-gray-200"
+          >
+            <option value="all">All Cities</option>
+            {(filterOptions.cities || []).map((ct) => (
+              <option key={ct} value={ct}>{ct}</option>
+            ))}
+          </select>
+
+          <div className="ml-auto flex items-center gap-2">
+            <select
+              value={sortBy}
+              onChange={(e) => { setSortBy(e.target.value); setPage(1); }}
+              className="px-2.5 py-1.5 rounded-lg border border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-950 text-gray-700 dark:text-gray-200"
+            >
+              <option value="created_at">Sort: Registration Date</option>
+              <option value="total_revenue">Sort: Total Revenue</option>
+              <option value="subscription_amount">Sort: Subscription Amount</option>
+              <option value="name">Sort: Name</option>
+            </select>
+            <button
+              onClick={() => { setSortOrder((o) => (o === 'DESC' ? 'ASC' : 'DESC')); setPage(1); }}
+              className="px-2.5 py-1.5 rounded-lg border border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-950 text-gray-700 dark:text-gray-200 font-bold"
+            >
+              {sortOrder}
+            </button>
+          </div>
         </div>
 
         {/* Users Table */}
@@ -1131,7 +1252,7 @@ export default function UsersPage() {
                         </div>
                       </td>
 
-                      {/* Tenant Info */}
+                      {/* Tenant & Location Info */}
                       <td className="py-3 px-6 whitespace-nowrap">
                         <div className="flex items-center gap-2">
                           <Building className="w-3.5 h-3.5 text-indigo-500/40 shrink-0" />
@@ -1139,15 +1260,20 @@ export default function UsersPage() {
                             {user.tenant_name || 'No Tenant'}
                           </span>
                         </div>
+                        {(user.city || user.state) && (
+                          <div className="text-[10px] text-gray-500 mt-0.5">
+                            {[user.city, user.state].filter(Boolean).join(', ')}
+                          </div>
+                        )}
                       </td>
 
-                      {/* Usage telemetry stats */}
+                      {/* Usage & Revenue stats */}
                       <td className="py-3 px-6 whitespace-nowrap">
                         <div className="flex flex-col gap-1 text-[11px] text-gray-600 dark:text-gray-400">
-                          <div className="flex items-center gap-1.5">
-                            <MessageSquare className="w-3 h-3 text-indigo-500 shrink-0" />
-                            <span>
-                              {user.conversations_count || 0} chats ({user.messages_count || 0} msgs)
+                          <div className="flex items-center gap-1.5 font-semibold text-emerald-600 dark:text-emerald-400">
+                            <span>₹{Number(user.total_revenue || 0).toLocaleString('en-IN')}</span>
+                            <span className="text-[10px] text-gray-400 font-normal">
+                              ({user.plan_name || user.plan_id || 'Free'} · {user.billing_cycle || 'monthly'})
                             </span>
                           </div>
                           <div className="flex items-center gap-1.5">
@@ -1371,6 +1497,46 @@ export default function UsersPage() {
               )}
             </tbody>
           </table>
+        </div>
+
+        {/* Pagination Controls */}
+        <div className="px-6 py-3.5 border-t border-gray-200 dark:border-gray-800/60 bg-gray-50/50 dark:bg-gray-950/40 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-gray-600 dark:text-gray-400">
+          <div>
+            Showing <span className="font-bold text-gray-900 dark:text-white">{users.length}</span> of{' '}
+            <span className="font-bold text-gray-900 dark:text-white">{totalFilteredUsers.toLocaleString()}</span> matching users
+            {' · '}Page <span className="font-bold text-gray-900 dark:text-white">{page}</span> of{' '}
+            <span className="font-bold text-gray-900 dark:text-white">{totalPages}</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setPage(1)}
+              disabled={page <= 1}
+              className="px-2.5 py-1.5 rounded-lg border border-gray-200 dark:border-gray-800 disabled:opacity-40 hover:bg-gray-100 dark:hover:bg-gray-800 font-semibold"
+            >
+              First
+            </button>
+            <button
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+              disabled={page <= 1}
+              className="px-3 py-1.5 rounded-lg border border-gray-200 dark:border-gray-800 disabled:opacity-40 hover:bg-gray-100 dark:hover:bg-gray-800 font-semibold"
+            >
+              Previous
+            </button>
+            <button
+              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+              disabled={page >= totalPages}
+              className="px-3 py-1.5 rounded-lg border border-gray-200 dark:border-gray-800 disabled:opacity-40 hover:bg-gray-100 dark:hover:bg-gray-800 font-semibold"
+            >
+              Next
+            </button>
+            <button
+              onClick={() => setPage(totalPages)}
+              disabled={page >= totalPages}
+              className="px-2.5 py-1.5 rounded-lg border border-gray-200 dark:border-gray-800 disabled:opacity-40 hover:bg-gray-100 dark:hover:bg-gray-800 font-semibold"
+            >
+              Last
+            </button>
+          </div>
         </div>
       </div>
 
@@ -1630,6 +1796,105 @@ export default function UsersPage() {
                     )}
                   </div>
                 </div>
+              </div>
+
+              {/* Customer Subscription, Entitlements, Invoices & Activity */}
+              <div className="pt-4 border-t border-gray-200 dark:border-gray-800 space-y-4">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">
+                    Subscription, Revenue & Billing History
+                  </span>
+                  {profileDetails && (
+                    <span className="text-xs font-black text-emerald-600 dark:text-emerald-400">
+                      Total Revenue: ₹{Number(profileDetails.totalRevenue || 0).toLocaleString('en-IN')} ({profileDetails.paidInvoicesCount || 0} paid)
+                    </span>
+                  )}
+                </div>
+
+                {loadingProfileDetails ? (
+                  <div className="text-xs text-gray-500 flex items-center gap-2">
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" /> Loading customer billing & activity...
+                  </div>
+                ) : profileDetails ? (
+                  <div className="space-y-3 text-xs">
+                    {/* Location & Profile Metadata */}
+                    <div className="bg-gray-50 dark:bg-gray-950/40 p-3.5 rounded-xl border border-gray-200 dark:border-gray-800/60 grid grid-cols-2 gap-2 text-[11px]">
+                      <div>
+                        <span className="text-gray-400 block">Location</span>
+                        <span className="font-semibold text-gray-800 dark:text-gray-200">
+                          {[profileDetails.user?.settings?.city, profileDetails.user?.settings?.state, profileDetails.user?.country].filter(Boolean).join(', ') || 'IN'}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-gray-400 block">Last Login</span>
+                        <span className="font-semibold text-gray-800 dark:text-gray-200">
+                          {profileDetails.user?.settings?.last_login_at
+                            ? new Date(profileDetails.user.settings.last_login_at).toLocaleString('en-IN')
+                            : 'N/A'}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-gray-400 block">Plan & Cycle</span>
+                        <span className="font-semibold text-indigo-600 dark:text-indigo-400 capitalize">
+                          {profileDetails.currentPlan?.name || 'Free'} ({profileDetails.currentSubscription?.metadata?.billing_cycle || 'monthly'})
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-gray-400 block">Entitlements</span>
+                        <span className="font-semibold text-gray-800 dark:text-gray-200">
+                          {profileDetails.currentPlan?.token_limit === -1 ? 'Unlimited' : Number(profileDetails.currentPlan?.token_limit || 0).toLocaleString()} tokens · {profileDetails.currentPlan?.storage_limit_gb || 1}GB
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Subscription History */}
+                    {profileDetails.subscriptionHistory?.length > 0 && (
+                      <div className="bg-gray-50 dark:bg-gray-950/40 p-3 rounded-xl border border-gray-200 dark:border-gray-800/60 space-y-1.5">
+                        <div className="text-[10px] font-bold text-gray-400 uppercase">Subscription History</div>
+                        {profileDetails.subscriptionHistory.map((sub: any) => (
+                          <div key={sub.id} className="flex items-center justify-between text-[11px] py-1 border-b last:border-0 border-gray-200/60 dark:border-gray-800/60">
+                            <div>
+                              <span className="font-bold text-gray-800 dark:text-gray-200">{sub.plan_name || sub.plan_id}</span>
+                              <span className="ml-2 text-[10px] uppercase px-1.5 py-0.5 rounded bg-indigo-500/10 text-indigo-500 font-bold">{sub.status}</span>
+                              <span className="ml-1.5 text-[10px] text-gray-400 capitalize">({sub.metadata?.billing_cycle || 'monthly'})</span>
+                            </div>
+                            <div className="text-right font-mono">
+                              <div>₹{Number(sub.amount || 0).toLocaleString('en-IN')}</div>
+                              {sub.current_period_end && (
+                                <div className="text-[9px] text-gray-400">Exp: {new Date(sub.current_period_end).toLocaleDateString('en-IN')}</div>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Payment & Invoice History */}
+                    {profileDetails.invoices?.length > 0 && (
+                      <div className="bg-gray-50 dark:bg-gray-950/40 p-3 rounded-xl border border-gray-200 dark:border-gray-800/60 space-y-1.5 max-h-44 overflow-y-auto">
+                        <div className="text-[10px] font-bold text-gray-400 uppercase">Payment & Invoice History ({profileDetails.invoices.length})</div>
+                        {profileDetails.invoices.slice(0, 12).map((inv: any) => (
+                          <div key={inv.id} className="flex items-center justify-between text-[11px] py-1 border-b last:border-0 border-gray-200/60 dark:border-gray-800/60">
+                            <div>
+                              <span className="font-mono font-semibold text-gray-800 dark:text-gray-200">{inv.invoice_number}</span>
+                              <span className={`ml-2 text-[9px] uppercase px-1.5 py-0.5 rounded font-bold ${
+                                inv.status === 'paid' ? 'bg-emerald-500/15 text-emerald-500' :
+                                inv.status === 'refunded' ? 'bg-purple-500/15 text-purple-500' :
+                                inv.status === 'failed' || inv.status === 'unpaid' ? 'bg-rose-500/15 text-rose-500' :
+                                'bg-amber-500/15 text-amber-500'
+                              }`}>{inv.status}</span>
+                              <span className="ml-1.5 text-[9px] text-gray-400 uppercase">{inv.provider}</span>
+                            </div>
+                            <div className="text-right font-mono">
+                              <span>₹{Number(inv.amount || 0).toLocaleString('en-IN')}</span>
+                              <span className="ml-2 text-[9px] text-gray-400">{new Date(inv.paid_at || inv.created_at).toLocaleDateString('en-IN')}</span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                ) : null}
               </div>
 
               {/* Quick Transactional Email Dispatch */}

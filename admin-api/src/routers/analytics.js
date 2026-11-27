@@ -169,23 +169,34 @@ router.get('/overview', async (req, res) => {
         COALESCE(SUM(CASE WHEN status = 'paid' AND paid_at >= CURRENT_DATE - INTERVAL '1 day' AND paid_at < CURRENT_DATE THEN
           CASE WHEN currency IS NOT NULL AND TRIM(currency) != '' AND UPPER(TRIM(currency)) = 'INR' THEN amount WHEN UPPER(TRIM(currency)) = 'USD' THEN amount * 84.50 ELSE NULL END
         ELSE 0 END), 0) AS revenue_yesterday,
-        COALESCE(SUM(CASE WHEN status = 'paid' AND paid_at >= $1 AND paid_at <= $2 THEN
+        COALESCE(SUM(CASE WHEN status IN ('paid', 'refunded') AND COALESCE(paid_at, created_at) >= $1 AND COALESCE(paid_at, created_at) <= $2 THEN
           CASE WHEN currency IS NOT NULL AND TRIM(currency) != '' AND UPPER(TRIM(currency)) = 'INR' THEN amount WHEN UPPER(TRIM(currency)) = 'USD' THEN amount * 84.50 ELSE NULL END
         ELSE 0 END), 0) AS period_gross_revenue,
         COALESCE(SUM(CASE WHEN status = 'paid' THEN
           CASE WHEN currency IS NOT NULL AND TRIM(currency) != '' AND UPPER(TRIM(currency)) = 'INR' THEN amount WHEN UPPER(TRIM(currency)) = 'USD' THEN amount * 84.50 ELSE NULL END
         ELSE 0 END), 0) AS lifetime_revenue,
-        COALESCE(SUM(CASE WHEN status = 'refunded' AND created_at >= $1 AND created_at <= $2 THEN
+        COALESCE(SUM(CASE WHEN status = 'paid' AND paid_at >= date_trunc('month', CURRENT_DATE) THEN
+          CASE WHEN currency IS NOT NULL AND TRIM(currency) != '' AND UPPER(TRIM(currency)) = 'INR' THEN amount WHEN UPPER(TRIM(currency)) = 'USD' THEN amount * 84.50 ELSE NULL END
+        ELSE 0 END), 0) AS current_month_revenue,
+        COALESCE(SUM(CASE WHEN status = 'paid' AND paid_at >= date_trunc('month', CURRENT_DATE - INTERVAL '1 month') AND paid_at < date_trunc('month', CURRENT_DATE) THEN
+          CASE WHEN currency IS NOT NULL AND TRIM(currency) != '' AND UPPER(TRIM(currency)) = 'INR' THEN amount WHEN UPPER(TRIM(currency)) = 'USD' THEN amount * 84.50 ELSE NULL END
+        ELSE 0 END), 0) AS previous_month_revenue,
+        COALESCE(SUM(CASE WHEN status = 'refunded' AND COALESCE(paid_at, created_at) >= $1 AND COALESCE(paid_at, created_at) <= $2 THEN
           CASE WHEN currency IS NOT NULL AND TRIM(currency) != '' AND UPPER(TRIM(currency)) = 'INR' THEN amount WHEN UPPER(TRIM(currency)) = 'USD' THEN amount * 84.50 ELSE NULL END
         ELSE 0 END), 0) AS period_refunds,
+        COUNT(CASE WHEN status = 'refunded' AND COALESCE(paid_at, created_at) >= $1 AND COALESCE(paid_at, created_at) <= $2 THEN 1 END) AS refunded_count,
         COALESCE(SUM(CASE WHEN status IN ('failed', 'unpaid') AND created_at >= $1 AND created_at <= $2 THEN
           CASE WHEN currency IS NOT NULL AND TRIM(currency) != '' AND UPPER(TRIM(currency)) = 'INR' THEN amount WHEN UPPER(TRIM(currency)) = 'USD' THEN amount * 84.50 ELSE NULL END
         ELSE 0 END), 0) AS failed_amount,
         COUNT(CASE WHEN status IN ('failed', 'unpaid') AND created_at >= $1 AND created_at <= $2 THEN 1 END) AS failed_count,
-        COALESCE(SUM(CASE WHEN status IN ('open', 'pending', 'draft') AND created_at >= $1 AND created_at <= $2 THEN
+        COALESCE(SUM(CASE WHEN status IN ('open', 'pending', 'draft', 'pending_payment') AND created_at >= $1 AND created_at <= $2 THEN
           CASE WHEN currency IS NOT NULL AND TRIM(currency) != '' AND UPPER(TRIM(currency)) = 'INR' THEN amount WHEN UPPER(TRIM(currency)) = 'USD' THEN amount * 84.50 ELSE NULL END
         ELSE 0 END), 0) AS pending_amount,
-        COUNT(CASE WHEN status IN ('open', 'pending', 'draft') AND created_at >= $1 AND created_at <= $2 THEN 1 END) AS pending_count,
+        COUNT(CASE WHEN status IN ('open', 'pending', 'draft', 'pending_payment') AND created_at >= $1 AND created_at <= $2 THEN 1 END) AS pending_count,
+        COALESCE(SUM(CASE WHEN status IN ('open', 'pending', 'unpaid', 'pending_payment') THEN
+          CASE WHEN currency IS NOT NULL AND TRIM(currency) != '' AND UPPER(TRIM(currency)) = 'INR' THEN amount WHEN UPPER(TRIM(currency)) = 'USD' THEN amount * 84.50 ELSE NULL END
+        ELSE 0 END), 0) AS outstanding_amount,
+        COUNT(CASE WHEN status IN ('open', 'pending', 'unpaid', 'pending_payment') THEN 1 END) AS outstanding_count,
         COUNT(CASE WHEN status = 'paid' AND paid_at >= $1 AND paid_at <= $2 THEN 1 END) AS paid_invoice_count,
         COUNT(DISTINCT CASE WHEN status = 'paid' AND paid_at >= $1 AND paid_at <= $2 THEN tenant_id END) AS paying_customers_period,
         COUNT(DISTINCT CASE WHEN status = 'paid' THEN tenant_id END) AS lifetime_paying_customers,
@@ -249,12 +260,14 @@ router.get('/overview', async (req, res) => {
             WHEN LOWER(TRIM(COALESCE(plan_billing, ''))) IN ('one_time', 'once', 'lifetime', 'onetime')
                  OR (sub_metadata->>'is_one_time')::boolean IS TRUE THEN 0
 
-            -- Explicit annual or yearly billing
-            WHEN LOWER(TRIM(COALESCE(plan_billing, ''))) IN ('annual', 'yearly', 'year') THEN
+            -- Explicit annual or yearly billing (check subscription metadata or period length BEFORE plan_billing!)
+            WHEN LOWER(TRIM(COALESCE(sub_metadata->>'billing_cycle', ''))) IN ('annual', 'yearly', 'year')
+                 OR LOWER(TRIM(COALESCE(plan_billing, ''))) IN ('annual', 'yearly', 'year')
+                 OR (current_period_end IS NOT NULL AND current_period_start IS NOT NULL AND (current_period_end - current_period_start) > INTERVAL '60 days') THEN
               CASE WHEN amount > 0 THEN amount / 12.0 WHEN plan_price > 0 THEN plan_price / 12.0 ELSE 0 END
 
             -- Explicit monthly billing
-            WHEN LOWER(TRIM(COALESCE(plan_billing, ''))) IN ('monthly', 'month') THEN
+            WHEN LOWER(TRIM(COALESCE(sub_metadata->>'billing_cycle', plan_billing, ''))) IN ('monthly', 'month') THEN
               CASE
                 -- Inconsistent inverted dates with monthly plan: flag as unresolved
                 WHEN current_period_end IS NOT NULL AND current_period_start IS NOT NULL AND current_period_end < current_period_start THEN NULL
@@ -334,10 +347,14 @@ router.get('/overview', async (req, res) => {
       ),
       sub_metrics AS (
         SELECT
+          COUNT(DISTINCT CASE WHEN status IN ('active', 'canceling') THEN id END) AS active_all_subs,
           COUNT(DISTINCT CASE WHEN status IN ('trial', 'trialing') THEN id END) AS trial_subs,
           COUNT(DISTINCT CASE WHEN status = 'cancelled' THEN id END) AS cancelled_subs_all,
           COUNT(DISTINCT CASE WHEN status = 'cancelled' AND updated_at >= $1 AND updated_at <= $2 THEN id END) AS cancelled_subs_period,
-          COUNT(DISTINCT CASE WHEN status = 'past_due' THEN id END) AS past_due_subs
+          COUNT(DISTINCT CASE WHEN status = 'past_due' THEN id END) AS past_due_subs,
+          COUNT(DISTINCT CASE WHEN status = 'expired' THEN id END) AS expired_subs,
+          COUNT(DISTINCT CASE WHEN COALESCE(metadata->>'billing_cycle', 'monthly') = 'monthly' AND amount > 0 THEN id END) AS monthly_subs,
+          COUNT(DISTINCT CASE WHEN metadata->>'billing_cycle' = 'annual' AND amount > 0 THEN id END) AS annual_subs
         FROM subscriptions
       )
       SELECT
@@ -347,10 +364,14 @@ router.get('/overview', async (req, res) => {
         currency_kpi.total_mrr_inr,
         currency_kpi.distinct_currency_count,
         revenue_kpi.active_paid_subs,
+        sub_metrics.active_all_subs,
         sub_metrics.trial_subs,
         sub_metrics.cancelled_subs_all,
         sub_metrics.cancelled_subs_period,
-        sub_metrics.past_due_subs
+        sub_metrics.past_due_subs,
+        sub_metrics.expired_subs,
+        sub_metrics.monthly_subs,
+        sub_metrics.annual_subs
       FROM currency_kpi, revenue_kpi, sub_metrics;
     `;
     const subsRes = await pool.query(subsQuery, [start, end]);
@@ -500,16 +521,22 @@ router.get('/overview', async (req, res) => {
 
     const timeSeriesQuery = `
       SELECT
-        TO_CHAR(date_trunc('${dateTruncFormat}', paid_at), '${toCharPattern}') AS bucket_key,
-        COALESCE(SUM(
+        TO_CHAR(date_trunc('${dateTruncFormat}', COALESCE(paid_at, created_at)), '${toCharPattern}') AS bucket_key,
+        COALESCE(SUM(CASE WHEN status IN ('paid', 'refunded') THEN
           CASE WHEN currency IS NOT NULL AND TRIM(currency) != '' AND UPPER(TRIM(currency)) = 'INR' THEN amount WHEN UPPER(TRIM(currency)) = 'USD' THEN amount * 84.50 ELSE 0 END
-        ), 0)::numeric(10,2) AS gross_revenue,
-        COUNT(id)::int AS orders_count,
-        COUNT(CASE WHEN (currency IS NULL OR TRIM(currency) = '' OR UPPER(TRIM(currency)) NOT IN ('INR', 'USD')) THEN 1 END)::int AS unresolved_count
+        ELSE 0 END), 0)::numeric(10,2) AS gross_revenue,
+        COALESCE(SUM(CASE WHEN status = 'refunded' THEN
+          CASE WHEN currency IS NOT NULL AND TRIM(currency) != '' AND UPPER(TRIM(currency)) = 'INR' THEN amount WHEN UPPER(TRIM(currency)) = 'USD' THEN amount * 84.50 ELSE 0 END
+        ELSE 0 END), 0)::numeric(10,2) AS refunds_amount,
+        COALESCE(SUM(CASE WHEN status = 'paid' THEN
+          CASE WHEN currency IS NOT NULL AND TRIM(currency) != '' AND UPPER(TRIM(currency)) = 'INR' THEN amount WHEN UPPER(TRIM(currency)) = 'USD' THEN amount * 84.50 ELSE 0 END
+        ELSE 0 END), 0)::numeric(10,2) AS net_revenue,
+        COUNT(CASE WHEN status = 'paid' THEN id END)::int AS orders_count,
+        COUNT(CASE WHEN status IN ('paid', 'refunded') AND (currency IS NULL OR TRIM(currency) = '' OR UPPER(TRIM(currency)) NOT IN ('INR', 'USD')) THEN 1 END)::int AS unresolved_count
       FROM invoices
-      WHERE status = 'paid' AND paid_at >= $1 AND paid_at <= $2
-      GROUP BY date_trunc('${dateTruncFormat}', paid_at)
-      ORDER BY date_trunc('${dateTruncFormat}', paid_at) ASC
+      WHERE status IN ('paid', 'refunded') AND COALESCE(paid_at, created_at) >= $1 AND COALESCE(paid_at, created_at) <= $2
+      GROUP BY date_trunc('${dateTruncFormat}', COALESCE(paid_at, created_at))
+      ORDER BY date_trunc('${dateTruncFormat}', COALESCE(paid_at, created_at)) ASC
     `;
     const timeSeriesRes = await pool.query(timeSeriesQuery, [start, end]);
 
@@ -518,7 +545,7 @@ router.get('/overview', async (req, res) => {
     if (comparison !== 'none' && compareStart && compareEnd) {
       const compTimeSeriesRes = await pool.query(timeSeriesQuery, [compareStart, compareEnd]);
       compTimeSeriesRes.rows.forEach((r, idx) => {
-        compSeriesMap[idx] = parseFloat(r.gross_revenue);
+        compSeriesMap[idx] = parseFloat(r.net_revenue);
       });
     }
 
@@ -526,7 +553,9 @@ router.get('/overview', async (req, res) => {
     const revenueTimeSeries = timeSeriesRes.rows.map((r, idx) => ({
       label: r.bucket_key,
       date: r.bucket_key,
-      revenue: parseFloat(r.gross_revenue),
+      revenue: parseFloat(r.net_revenue),
+      grossRevenue: parseFloat(r.gross_revenue),
+      refunds: parseFloat(r.refunds_amount),
       orders: r.orders_count,
       unresolvedCount: r.unresolved_count || 0,
       hasUnresolved: (r.unresolved_count || 0) > 0,
@@ -540,6 +569,8 @@ router.get('/overview', async (req, res) => {
         label: emptyLabel,
         date: emptyLabel,
         revenue: 0,
+        grossRevenue: 0,
+        refunds: 0,
         orders: 0,
         unresolvedCount: 0,
         hasUnresolved: false,
@@ -552,8 +583,8 @@ router.get('/overview', async (req, res) => {
     // ─────────────────────────────────────────────────────────────────────────
     const grossVsNet = revenueTimeSeries.map((item) => ({
       label: item.label,
-      gross: item.revenue,
-      refunds: 0,
+      gross: item.grossRevenue || item.revenue,
+      refunds: item.refunds || 0,
       net: item.revenue,
     }));
 
@@ -615,6 +646,19 @@ router.get('/overview', async (req, res) => {
             AND (s.id IS NOT NULL OR t.status = 'active')
         ), 0)::int AS active_subscribers,
         COALESCE((
+          SELECT SUM(
+            CASE WHEN s2.status IN ('active', 'canceling') AND s2.amount > 0 THEN
+              CASE WHEN LOWER(TRIM(COALESCE(s2.metadata->>'billing_cycle', ''))) IN ('annual', 'yearly', 'year')
+                        OR (s2.current_period_end IS NOT NULL AND s2.current_period_start IS NOT NULL AND (s2.current_period_end - s2.current_period_start) > INTERVAL '60 days')
+                   THEN s2.amount / 12.0
+                   ELSE s2.amount
+              END
+            ELSE 0 END
+          )
+          FROM subscriptions s2
+          WHERE (LOWER(s2.plan_id) = LOWER(p.id) OR (LOWER(s2.plan_id) = 'pro' AND LOWER(p.id) = 'professional'))
+        ), 0)::numeric(10,2) AS normalized_mrr,
+        COALESCE((
           SELECT COUNT(DISTINCT s.id)
           FROM subscriptions s
           WHERE (LOWER(s.plan_id) = LOWER(p.id) OR (LOWER(s.plan_id) = 'pro' AND LOWER(p.id) = 'professional'))
@@ -656,11 +700,34 @@ router.get('/overview', async (req, res) => {
         hasUnresolved: unres > 0,
         payingCustomers: p.paying_customers,
         activeSubscribers: subs,
-        mrr: p.billing === 'monthly' ? subs * parseFloat(p.price) : (p.billing === 'yearly' ? Math.round((subs * parseFloat(p.price)) / 12) : 0),
+        mrr: Math.round((parseFloat(p.normalized_mrr) || 0) * 100) / 100,
         cancellations: canc,
         churnRate: planChurn,
       };
     });
+
+    // Billing cycle revenue breakdown
+    const billingCycleQuery = `
+      SELECT
+        COALESCE(s.metadata->>'billing_cycle', p.billing, 'monthly') AS billing_cycle,
+        COUNT(DISTINCT s.id)::int AS subscription_count,
+        COUNT(DISTINCT CASE WHEN s.status IN ('active', 'canceling') THEN s.id END)::int AS active_count,
+        COALESCE(SUM(CASE WHEN i.status = 'paid' AND i.paid_at >= $1 AND i.paid_at <= $2 THEN
+          CASE WHEN i.currency IS NOT NULL AND TRIM(i.currency) != '' AND UPPER(TRIM(i.currency)) = 'INR' THEN i.amount WHEN UPPER(TRIM(i.currency)) = 'USD' THEN i.amount * 84.50 ELSE 0 END
+        ELSE 0 END), 0)::numeric(12,2) AS revenue
+      FROM subscriptions s
+      LEFT JOIN plans p ON LOWER(s.plan_id) = LOWER(p.id)
+      LEFT JOIN invoices i ON i.subscription_id = s.id
+      WHERE s.amount > 0
+      GROUP BY COALESCE(s.metadata->>'billing_cycle', p.billing, 'monthly')
+    `;
+    const billingCycleRes = await pool.query(billingCycleQuery, [start, end]);
+    const revenueByBillingCycle = billingCycleRes.rows.map((r) => ({
+      billingCycle: r.billing_cycle,
+      subscriptions: r.subscription_count,
+      activeSubscriptions: r.active_count,
+      revenue: parseFloat(r.revenue) || 0,
+    }));
 
     // ─────────────────────────────────────────────────────────────────────────
     // Chart D: Subscription Distribution
@@ -708,6 +775,15 @@ router.get('/overview', async (req, res) => {
       newPayingCustomers: b.orders > 0 ? 1 : 0,
     }));
 
+    const currentMonthRevenue = parseFloat(currKpi.current_month_revenue) || 0;
+    const previousMonthRevenue = parseFloat(currKpi.previous_month_revenue) || 0;
+    const revenueGrowthPercent = calculatePercentChange(currentMonthRevenue, previousMonthRevenue);
+    const failedCountNum = parseInt(currKpi.failed_count, 10) || 0;
+    const refundedCountNum = parseInt(currKpi.refunded_count, 10) || 0;
+    const paymentSuccessRate = (paidInvoices + failedCountNum) > 0
+      ? Math.round((paidInvoices / (paidInvoices + failedCountNum)) * 1000) / 10
+      : 100;
+
     // ─────────────────────────────────────────────────────────────────────────
     // Chart H: Payment Status Health Distribution
     // ─────────────────────────────────────────────────────────────────────────
@@ -715,12 +791,12 @@ router.get('/overview', async (req, res) => {
       {
         status: 'Successful',
         count: paidInvoices,
-        amount: grossRev,
+        amount: netRev,
         color: '#10b981',
       },
       {
         status: 'Failed / Unpaid',
-        count: parseInt(currKpi.failed_count, 10),
+        count: failedCountNum,
         amount: parseFloat(currKpi.failed_amount),
         color: '#ef4444',
       },
@@ -732,7 +808,7 @@ router.get('/overview', async (req, res) => {
       },
       {
         status: 'Refunded',
-        count: refunds > 0 ? 1 : 0,
+        count: refundedCountNum,
         amount: refunds,
         color: '#8b5cf6',
       },
@@ -861,11 +937,18 @@ router.get('/overview', async (req, res) => {
       kpis: {
         revenueToday: (unconvertibleTodayCount === 0 && revenueComplete) ? parseFloat(currKpi.revenue_today) : null,
         revenueYesterday: revenueComplete ? parseFloat(currKpi.revenue_yesterday) : null,
-        periodRevenue: (unconvertiblePeriodCount === 0 && revenueComplete) ? grossRev : null,
+        periodRevenue: (unconvertiblePeriodCount === 0 && revenueComplete) ? netRev : null,
         lifetimeRevenue: revenueComplete ? parseFloat(currKpi.lifetime_revenue) : null,
+        currentMonthRevenue,
+        previousMonthRevenue,
+        revenueGrowthPercent,
         grossRevenue: (unconvertiblePeriodCount === 0 && revenueComplete) ? grossRev : null,
         refunds,
+        refundedCount: refundedCountNum,
         netRevenue: (unconvertiblePeriodCount === 0 && revenueComplete) ? netRev : null,
+        outstandingAmount: parseFloat(currKpi.outstanding_amount) || 0,
+        outstandingCount: parseInt(currKpi.outstanding_count, 10) || 0,
+        paymentSuccessRate,
         revenueComplete,
         completenessStatus: revenueComplete ? 'complete' : 'incomplete_unresolved_currencies',
         unresolvedInvoices: {
@@ -885,7 +968,7 @@ router.get('/overview', async (req, res) => {
         arppu,
         averageTransactionValue: atv,
         failedAmount: parseFloat(currKpi.failed_amount),
-        failedCount: parseInt(currKpi.failed_count, 10),
+        failedCount: failedCountNum,
         pendingAmount: parseFloat(currKpi.pending_amount),
         pendingCount: parseInt(currKpi.pending_count, 10),
         paidInvoicesCount: paidInvoices,
@@ -895,8 +978,14 @@ router.get('/overview', async (req, res) => {
         payingCustomersPeriod: payingCustomers,
         lifetimePayingCustomers: parseInt(currKpi.lifetime_paying_customers, 10),
         activePaidSubscriptions: activeSubs,
+        activeSubscriptions: parseInt(subsKpi.active_all_subs, 10) || activeSubs,
         trialUsers: trialSubs,
         freeUsers,
+        expiredSubscriptions: parseInt(subsKpi.expired_subs, 10) || 0,
+        pastDueSubscriptions: parseInt(subsKpi.past_due_subs, 10) || 0,
+        cancelledSubscriptionsAll: parseInt(subsKpi.cancelled_subs_all, 10) || 0,
+        monthlySubscriptions: parseInt(subsKpi.monthly_subs, 10) || 0,
+        annualSubscriptions: parseInt(subsKpi.annual_subs, 10) || 0,
         cancelledSubscriptionsPeriod: cancelledPeriod,
         churnRate,
         trialConversionRate,
@@ -904,6 +993,7 @@ router.get('/overview', async (req, res) => {
       },
       mrrByCurrency,
       mrrStatus,
+      revenueByBillingCycle,
       revenueTimeSeries,
       grossVsNet,
       plansBreakdown,
@@ -930,6 +1020,9 @@ router.get('/paid-users', async (req, res) => {
       search = '',
       plan = 'all',
       status = 'all',
+      billingCycle = 'all',
+      city = 'all',
+      state = 'all',
       page = 1,
       limit = 20,
       sortBy = 'total_paid',
@@ -942,7 +1035,7 @@ router.get('/paid-users', async (req, res) => {
 
     if (search) {
       params.push(`%${search.trim()}%`);
-      whereClause += ` AND (u.email ILIKE $${params.length} OR u.name ILIKE $${params.length} OR t.name ILIKE $${params.length})`;
+      whereClause += ` AND (u.email ILIKE $${params.length} OR u.name ILIKE $${params.length} OR u.id::text ILIKE $${params.length} OR t.name ILIKE $${params.length})`;
     }
 
     if (plan && plan !== 'all') {
@@ -953,6 +1046,21 @@ router.get('/paid-users', async (req, res) => {
     if (status && status !== 'all') {
       params.push(status);
       whereClause += ` AND s.status = $${params.length}`;
+    }
+
+    if (billingCycle && billingCycle !== 'all') {
+      params.push(billingCycle);
+      whereClause += ` AND COALESCE(s.metadata->>'billing_cycle', 'monthly') = $${params.length}`;
+    }
+
+    if (city && city !== 'all') {
+      params.push(city);
+      whereClause += ` AND u.settings->>'city' ILIKE $${params.length}`;
+    }
+
+    if (state && state !== 'all') {
+      params.push(state);
+      whereClause += ` AND u.settings->>'state' ILIKE $${params.length}`;
     }
 
     const validSortCols = {
@@ -981,12 +1089,17 @@ router.get('/paid-users', async (req, res) => {
         u.name AS user_name,
         u.email,
         u.country,
+        u.settings->>'city' AS city,
+        u.settings->>'state' AS state,
+        u.company,
+        u.job_title,
         u.role,
         u.created_at AS signup_date,
         t.id AS tenant_id,
         t.name AS tenant_name,
         COALESCE(s.plan_id, t.plan, 'free') AS current_plan,
         COALESCE(s.status, 'free') AS subscription_status,
+        COALESCE(s.metadata->>'billing_cycle', 'monthly') AS billing_cycle,
         s.current_period_start,
         s.current_period_end,
         MIN(i.paid_at) AS first_payment_at,
@@ -1003,7 +1116,7 @@ router.get('/paid-users', async (req, res) => {
       LEFT JOIN subscriptions s ON s.tenant_id = t.id
       LEFT JOIN invoices i ON i.tenant_id = t.id
       ${whereClause}
-      GROUP BY u.id, u.name, u.email, u.country, u.role, u.created_at, t.id, t.name, s.plan_id, t.plan, s.status, s.current_period_start, s.current_period_end, s.amount, s.currency
+      GROUP BY u.id, u.name, u.email, u.country, u.settings, u.company, u.job_title, u.role, u.created_at, t.id, t.name, s.plan_id, t.plan, s.status, s.metadata, s.current_period_start, s.current_period_end, s.amount, s.currency
       ORDER BY ${orderCol} ${orderDir}
       LIMIT $${params.length + 1} OFFSET $${params.length + 2}
     `;
@@ -1033,12 +1146,17 @@ router.get('/paid-users', async (req, res) => {
         userName: row.user_name || row.email.split('@')[0],
         email: row.email,
         country: row.country || 'IN',
+        city: row.city || null,
+        state: row.state || null,
+        company: row.company || null,
+        jobTitle: row.job_title || null,
         role: row.role,
         signupDate: row.signup_date,
         tenantId: row.tenant_id,
         tenantName: row.tenant_name,
         currentPlan: row.current_plan,
         subscriptionStatus: row.subscription_status,
+        billingCycle: row.billing_cycle || 'monthly',
         currentPeriodStart: row.current_period_start,
         currentPeriodEnd: row.current_period_end,
         firstPaymentAt: row.first_payment_at,

@@ -56,9 +56,16 @@ interface OverviewPayload {
     revenueYesterday: number;
     periodRevenue: number;
     lifetimeRevenue: number;
+    currentMonthRevenue?: number;
+    previousMonthRevenue?: number;
+    revenueGrowthPercent?: number;
     grossRevenue: number;
     refunds: number;
+    refundedCount?: number;
     netRevenue: number;
+    outstandingAmount?: number;
+    outstandingCount?: number;
+    paymentSuccessRate?: number;
     mrr: number | null;
     arr: number | null;
     mrrConsolidated?: number | null;
@@ -78,8 +85,14 @@ interface OverviewPayload {
     payingCustomersPeriod: number;
     lifetimePayingCustomers: number;
     activePaidSubscriptions: number;
+    activeSubscriptions?: number;
     trialUsers: number;
     freeUsers: number;
+    expiredSubscriptions?: number;
+    pastDueSubscriptions?: number;
+    cancelledSubscriptionsAll?: number;
+    monthlySubscriptions?: number;
+    annualSubscriptions?: number;
     cancelledSubscriptionsPeriod: number;
     churnRate: number;
     trialConversionRate: number;
@@ -188,12 +201,17 @@ interface PaidUser {
   userName: string;
   email: string;
   country: string;
+  city?: string | null;
+  state?: string | null;
+  company?: string | null;
+  jobTitle?: string | null;
   role: string;
   signupDate: string;
   tenantId: string;
   tenantName: string;
   currentPlan: string;
   subscriptionStatus: string;
+  billingCycle?: string;
   currentPeriodStart: string | null;
   currentPeriodEnd: string | null;
   firstPaymentAt: string | null;
@@ -1387,10 +1405,16 @@ export default function RevenueDashboard() {
                   </span>
                 </div>
                 <div className="mt-2 text-[11px] text-gray-400">
-                  Verified payments across all gateways
+                  This Month: <span className="text-gray-200 font-medium">{formatCompactINR(overview.kpis.currentMonthRevenue)}</span>
+                  {' · '}Prev: <span className="text-gray-300">{formatCompactINR(overview.kpis.previousMonthRevenue)}</span>
+                  {overview.kpis.revenueGrowthPercent !== undefined && (
+                    <span className={`ml-1 font-bold ${overview.kpis.revenueGrowthPercent >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                      ({overview.kpis.revenueGrowthPercent >= 0 ? '+' : ''}{overview.kpis.revenueGrowthPercent}%)
+                    </span>
+                  )}
                 </div>
                 <div className="mt-2 pt-2 border-t border-slate-800/60 text-[10px] text-gray-500">
-                  All-time cumulative financial volume
+                  Success Rate: {overview.kpis.paymentSuccessRate ?? 100}% · Outstanding: {formatCompactINR(overview.kpis.outstandingAmount)} ({overview.kpis.outstandingCount ?? 0})
                 </div>
               </div>
             </div>
@@ -1443,7 +1467,9 @@ export default function RevenueDashboard() {
                   </span>
                 </div>
                 <div className="mt-2 text-[11px] text-gray-400">
-                  {overview.kpis.cancelledSubscriptionsPeriod} cancellations in period
+                  Monthly: <span className="text-gray-200 font-semibold">{overview.kpis.monthlySubscriptions ?? 0}</span>
+                  {' · '}Annual: <span className="text-gray-200 font-semibold">{overview.kpis.annualSubscriptions ?? 0}</span>
+                  {' · '}Expired: <span className="text-amber-400 font-semibold">{overview.kpis.expiredSubscriptions ?? 0}</span>
                 </div>
               </div>
 
@@ -1806,9 +1832,10 @@ export default function RevenueDashboard() {
                     >
                       <option value="all">All Statuses</option>
                       <option value="active">Active</option>
+                      <option value="trialing">Trialing</option>
                       <option value="cancelled">Cancelled</option>
                       <option value="past_due">Past Due</option>
-                      <option value="trial">Trial</option>
+                      <option value="expired">Expired</option>
                     </select>
                   </div>
                 </div>
@@ -1830,11 +1857,11 @@ export default function RevenueDashboard() {
                         <thead className="bg-slate-950/80 border-b border-slate-800 text-[11px] uppercase tracking-wider text-gray-400">
                           <tr>
                             <th className="py-3.5 px-4 font-semibold">Customer</th>
-                            <th className="py-3.5 px-4 font-semibold">Organization / Workspace</th>
-                            <th className="py-3.5 px-4 font-semibold">Current Plan</th>
+                            <th className="py-3.5 px-4 font-semibold">Location & Workspace</th>
+                            <th className="py-3.5 px-4 font-semibold">Plan & Cycle</th>
                             <th className="py-3.5 px-4 font-semibold">Status</th>
                             <th className="py-3.5 px-4 font-semibold">Total Paid</th>
-                            <th className="py-3.5 px-4 font-semibold">Invoices</th>
+                            <th className="py-3.5 px-4 font-semibold">Payments / Renewal</th>
                             <th className="py-3.5 px-4 font-semibold text-right">Actions</th>
                           </tr>
                         </thead>
@@ -1844,16 +1871,22 @@ export default function RevenueDashboard() {
                               <td className="py-3.5 px-4">
                                 <div className="font-bold text-white">{u.userName}</div>
                                 <div className="text-[11px] text-gray-400">{u.email}</div>
+                                <div className="text-[10px] text-gray-500 font-mono">{u.userId.slice(0, 8)}...</div>
                               </td>
                               <td className="py-3.5 px-4 font-medium text-gray-300">
                                 <div>{u.tenantName}</div>
-                                <div className="text-[10px] text-gray-500 font-mono">{u.tenantId.slice(0, 8)}...</div>
+                                <div className="text-[10px] text-gray-400">
+                                  {u.city && u.state ? `${u.city}, ${u.state}` : u.country}
+                                </div>
                               </td>
                               <td className="py-3.5 px-4">
                                 <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold uppercase tracking-wider bg-indigo-950/50 border border-indigo-800/50 text-indigo-300">
                                   <Crown className="w-3 h-3 text-amber-400" />
                                   {u.currentPlan}
                                 </span>
+                                <div className="text-[10px] text-gray-400 mt-1 capitalize">
+                                  {u.billingCycle || 'monthly'}
+                                </div>
                               </td>
                               <td className="py-3.5 px-4">
                                 <span
@@ -1888,7 +1921,17 @@ export default function RevenueDashboard() {
                                 )}
                               </td>
                               <td className="py-3.5 px-4 text-gray-300 font-mono">
-                                {u.paidInvoicesCount}
+                                <div>{u.paidInvoicesCount} paid</div>
+                                {u.lastPaymentAt && (
+                                  <div className="text-[10px] text-gray-500">
+                                    Last: {new Date(u.lastPaymentAt).toLocaleDateString('en-IN')}
+                                  </div>
+                                )}
+                                {u.currentPeriodEnd && (
+                                  <div className="text-[10px] text-gray-500">
+                                    Next: {new Date(u.currentPeriodEnd).toLocaleDateString('en-IN')}
+                                  </div>
+                                )}
                               </td>
                               <td className="py-3.5 px-4 text-right">
                                 <button

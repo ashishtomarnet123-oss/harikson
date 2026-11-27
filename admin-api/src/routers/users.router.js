@@ -103,59 +103,191 @@ async function verifyAdminCredentialPermission(req, res, targetUserId) {
 // GET /admin/users & /v1/admin/users
 router.get(['/admin/users', '/v1/admin/users'], adminAuth, async (req, res) => {
   try {
-    const hasPagination = req.query.page !== undefined || req.query.limit !== undefined || req.query.offset !== undefined;
-    const limit = Math.min(100, Math.max(1, parseInt(req.query.limit) || 50));
-    const page = Math.max(1, parseInt(req.query.page) || 1);
-    const offset = req.query.offset !== undefined ? Math.max(0, parseInt(req.query.offset)) : (page - 1) * limit;
+    const limit = Math.min(100, Math.max(1, parseInt(req.query.limit, 10) || 25));
+    const page = Math.max(1, parseInt(req.query.page, 10) || 1);
+    const offset = req.query.offset !== undefined ? Math.max(0, parseInt(req.query.offset, 10)) : (page - 1) * limit;
 
-    let query = `
-      SELECT
-        u.id,
-        u.email,
-        u.role,
-        COALESCE(u.status, 'active') as status,
-        u.created_at,
-        u.name,
-        u.username,
-        u.phone,
-        u.company,
-        u.job_title,
-        u.department,
-        u.country,
-        u.bio,
-        u.billing_info,
-        u.settings,
-        COALESCE(u.settings->>'source', 'request_access') as source,
-        t.name as tenant_name,
-        (SELECT COUNT(*) FROM conversations c WHERE c.user_id = u.id) as conversations_count,
-        (SELECT COUNT(*) FROM messages m JOIN conversations c ON m.conversation_id = c.id WHERE c.user_id = u.id) as messages_count,
-        (SELECT COALESCE(SUM(m.tokens_used), 0) FROM messages m JOIN conversations c ON m.conversation_id = c.id WHERE c.user_id = u.id) as total_tokens
-      FROM users u
-      LEFT JOIN tenants t ON u.tenant_id = t.id
-      ORDER BY u.created_at DESC
-    `;
+    const search = (req.query.search || '').toString().trim();
+    const statusFilter = (req.query.status || 'all').toString().trim();
+    const planFilter = (req.query.plan || 'all').toString().trim();
+    const billingCycleFilter = (req.query.billingCycle || 'all').toString().trim();
+    const subStatusFilter = (req.query.subStatus || 'all').toString().trim();
+    const cityFilter = (req.query.city || 'all').toString().trim();
+    const stateFilter = (req.query.state || 'all').toString().trim();
+    const sortBy = (req.query.sortBy || 'created_at').toString().trim();
+    const sortOrder = (req.query.sortOrder || 'DESC').toString().toUpperCase() === 'ASC' ? 'ASC' : 'DESC';
 
-    const countRes = await pool.query('SELECT COUNT(*)::int as total FROM users');
-    const total = countRes.rows[0]?.total || 0;
+    const params = [];
+    const whereParts = ['u.deleted_at IS NULL'];
 
-    let result;
-    if (hasPagination) {
-      query += ` LIMIT $1 OFFSET $2`;
-      result = await pool.query(query, [limit, offset]);
-    } else {
-      result = await pool.query(query);
+    if (search) {
+      params.push(`%${search}%`);
+      const p = `$${params.length}`;
+      whereParts.push(`(
+        u.email ILIKE ${p}
+        OR u.name ILIKE ${p}
+        OR u.id::text ILIKE ${p}
+        OR u.company ILIKE ${p}
+        OR u.phone ILIKE ${p}
+        OR t.name ILIKE ${p}
+        OR u.settings->>'city' ILIKE ${p}
+        OR u.settings->>'state' ILIKE ${p}
+      )`);
     }
 
+    if (statusFilter && statusFilter !== 'all') {
+      if (statusFilter === 'demos') {
+        whereParts.push(`(u.settings->>'source' IN ('book_demo', 'book_live_demo', 'demo_indian_dataset'))`);
+      } else {
+        params.push(statusFilter);
+        whereParts.push(`COALESCE(u.status, 'active') = $${params.length}`);
+      }
+    }
+
+    if (planFilter && planFilter !== 'all') {
+      params.push(planFilter);
+      whereParts.push(`LOWER(COALESCE(sub.plan_id, t.plan, 'free')) = LOWER($${params.length})`);
+    }
+
+    if (billingCycleFilter && billingCycleFilter !== 'all') {
+      params.push(billingCycleFilter);
+      whereParts.push(`LOWER(COALESCE(sub.metadata->>'billing_cycle', 'monthly')) = LOWER($${params.length})`);
+    }
+
+    if (subStatusFilter && subStatusFilter !== 'all') {
+      params.push(subStatusFilter);
+      whereParts.push(`LOWER(COALESCE(sub.status, 'free')) = LOWER($${params.length})`);
+    }
+
+    if (cityFilter && cityFilter !== 'all') {
+      params.push(cityFilter);
+      whereParts.push(`u.settings->>'city' ILIKE $${params.length}`);
+    }
+
+    if (stateFilter && stateFilter !== 'all') {
+      params.push(stateFilter);
+      whereParts.push(`u.settings->>'state' ILIKE $${params.length}`);
+    }
+
+    const whereClause = `WHERE ${whereParts.join(' AND ')}`;
+
+    const sortMap = {
+      created_at: 'u.created_at',
+      total_revenue: 'COALESCE(inv.total_revenue, 0)',
+      subscription_amount: 'COALESCE(sub.amount, 0)',
+      name: 'COALESCE(u.name, u.email)',
+    };
+    const orderExpr = sortMap[sortBy] || 'u.created_at';
+
+    const baseFrom = `
+      FROM users u
+      LEFT JOIN tenants t ON u.tenant_id = t.id
+      LEFT JOIN LATERAL (
+        SELECT s.id, s.plan_id, s.status, s.amount, s.currency, s.metadata, s.current_period_start, s.current_period_end
+        FROM subscriptions s
+        WHERE s.tenant_id = u.tenant_id
+        ORDER BY s.created_at DESC
+        LIMIT 1
+      ) sub ON true
+      LEFT JOIN LATERAL (
+        SELECT COALESCE(SUM(CASE WHEN i.status = 'paid' THEN i.amount ELSE 0 END), 0)::numeric(12,2) AS total_revenue
+        FROM invoices i
+        WHERE i.tenant_id = u.tenant_id
+      ) inv ON true
+    `;
+
+    const countQuery = `SELECT COUNT(*)::int AS total ${baseFrom} ${whereClause}`;
+    const countRes = await pool.query(countQuery, params);
+    const total = countRes.rows[0]?.total || 0;
+
+    const dataParams = [...params, limit, offset];
+    const dataQuery = `
+      WITH paged AS (
+        SELECT
+          u.id,
+          u.tenant_id,
+          u.email,
+          u.role,
+          COALESCE(u.status, 'active') AS status,
+          u.created_at,
+          u.updated_at,
+          u.name,
+          u.username,
+          u.phone,
+          u.company,
+          u.job_title,
+          u.department,
+          u.country,
+          u.bio,
+          u.billing_info,
+          u.settings,
+          COALESCE(u.settings->>'source', 'request_access') AS source,
+          u.settings->>'city' AS city,
+          u.settings->>'state' AS state,
+          u.settings->>'last_login_at' AS last_login_at,
+          t.name AS tenant_name,
+          COALESCE(sub.plan_id, t.plan, 'free') AS plan_id,
+          COALESCE(p.name, INITCAP(COALESCE(sub.plan_id, t.plan, 'free'))) AS plan_name,
+          COALESCE(sub.status, CASE WHEN COALESCE(t.plan, 'free') = 'free' THEN 'free' ELSE 'active' END) AS subscription_status,
+          COALESCE(sub.metadata->>'billing_cycle', p.billing, 'monthly') AS billing_cycle,
+          COALESCE(sub.amount, p.price, 0)::numeric(10,2) AS subscription_amount,
+          sub.current_period_start,
+          sub.current_period_end,
+          COALESCE(inv.total_revenue, 0)::numeric(12,2) AS total_revenue
+        ${baseFrom}
+        LEFT JOIN plans p ON LOWER(p.id) = LOWER(COALESCE(sub.plan_id, t.plan, 'free'))
+        ${whereClause}
+        ORDER BY ${orderExpr} ${sortOrder}, u.id ASC
+        LIMIT $${params.length + 1} OFFSET $${params.length + 2}
+      )
+      SELECT
+        paged.*,
+        GREATEST(
+          COALESCE((paged.settings->'usage_stats'->>'conversations_count')::int, 0),
+          (SELECT COUNT(*)::int FROM conversations c WHERE c.user_id = paged.id)
+        ) AS conversations_count,
+        GREATEST(
+          COALESCE((paged.settings->'usage_stats'->>'messages_count')::int, 0),
+          (SELECT COUNT(*)::int FROM messages m JOIN conversations c ON m.conversation_id = c.id WHERE c.user_id = paged.id)
+        ) AS messages_count,
+        GREATEST(
+          COALESCE((paged.settings->'usage_stats'->>'tokens_used')::bigint, 0),
+          (SELECT COALESCE(SUM(m.tokens_used), 0)::bigint FROM messages m JOIN conversations c ON m.conversation_id = c.id WHERE c.user_id = paged.id)
+        ) AS total_tokens
+      FROM paged
+    `;
+
+    const [result, statsRes, filtersRes] = await Promise.all([
+      pool.query(dataQuery, dataParams),
+      pool.query(`
+        SELECT
+          COUNT(*)::int AS total_users,
+          COUNT(CASE WHEN COALESCE(status, 'active') = 'active' THEN 1 END)::int AS active_count,
+          COUNT(CASE WHEN status = 'pending' THEN 1 END)::int AS pending_count,
+          COUNT(CASE WHEN status = 'suspended' THEN 1 END)::int AS suspended_count,
+          COUNT(CASE WHEN settings->>'source' IN ('book_demo', 'book_live_demo', 'demo_indian_dataset') THEN 1 END)::int AS demo_count
+        FROM users
+        WHERE deleted_at IS NULL
+      `),
+      pool.query(`
+        SELECT
+          ARRAY(SELECT DISTINCT settings->>'city' FROM users WHERE deleted_at IS NULL AND settings->>'city' IS NOT NULL ORDER BY 1) AS cities,
+          ARRAY(SELECT DISTINCT settings->>'state' FROM users WHERE deleted_at IS NULL AND settings->>'state' IS NOT NULL ORDER BY 1) AS states
+      `),
+    ]);
+
     const totalPages = Math.ceil(total / limit) || 1;
-    const hasMore = (page * limit) < total;
+    const hasMore = page * limit < total;
 
     res.status(200).json({
       users: result.rows,
       total,
-      page: hasPagination ? page : 1,
-      limit: hasPagination ? limit : result.rows.length,
-      totalPages: hasPagination ? totalPages : 1,
-      hasMore: hasPagination ? hasMore : false,
+      page,
+      limit,
+      totalPages,
+      hasMore,
+      stats: statsRes.rows[0] || {},
+      filterOptions: filtersRes.rows[0] || { cities: [], states: [] },
     });
   } catch (err) {
     logger.error('Failed to get users:', err);
@@ -1006,6 +1138,78 @@ router.put(['/admin/users/:userId', '/v1/admin/users/:userId'], adminAuth, async
   } catch (err) {
     logger.error('Failed to update user profile:', err);
     res.status(500).json({ error: 'Failed to update user profile' });
+  }
+});
+
+// GET /admin/users/:userId/profile-details & /v1/admin/users/:userId/profile-details
+router.get(['/admin/users/:userId/profile-details', '/v1/admin/users/:userId/profile-details'], adminAuth, async (req, res) => {
+  const { userId } = req.params;
+  try {
+    const userRes = await pool.query(
+      `SELECT u.*, t.name AS tenant_name, t.slug AS tenant_slug, t.plan AS tenant_plan, t.status AS tenant_status
+       FROM users u
+       LEFT JOIN tenants t ON u.tenant_id = t.id
+       WHERE u.id = $1`,
+      [userId]
+    );
+    if (userRes.rows.length === 0) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    const user = userRes.rows[0];
+    delete user.password_hash;
+    delete user.two_factor_secret;
+    delete user.two_factor_backup_codes;
+
+    const [subsRes, invRes, actRes] = await Promise.all([
+      pool.query(
+        `SELECT s.*, p.name AS plan_name, p.tier AS plan_tier, p.price AS plan_price, p.token_limit, p.agent_limit, p.storage_limit_gb, p.image_limit_monthly, p.features
+         FROM subscriptions s
+         LEFT JOIN plans p ON LOWER(s.plan_id) = LOWER(p.id)
+         WHERE s.tenant_id = $1
+         ORDER BY s.created_at DESC`,
+        [user.tenant_id]
+      ),
+      pool.query(
+        `SELECT id, invoice_number, provider, provider_invoice_id, amount, subtotal, tax_amount, total, currency, status, paid_at, created_at
+         FROM invoices
+         WHERE tenant_id = $1
+         ORDER BY created_at DESC
+         LIMIT 50`,
+        [user.tenant_id]
+      ),
+      pool.query(
+        `SELECT id, action, details, ip_address, created_at
+         FROM activity_logs
+         WHERE user_id = $1 OR tenant_id = $2
+         ORDER BY created_at DESC
+         LIMIT 30`,
+        [user.id, user.tenant_id]
+      ),
+    ]);
+
+    const activeSub = subsRes.rows[0] || null;
+    const planId = activeSub?.plan_id || user.tenant_plan || 'free';
+    const planRes = await pool.query('SELECT * FROM plans WHERE LOWER(id) = LOWER($1) LIMIT 1', [planId]);
+    const currentPlan = planRes.rows[0] || null;
+
+    const totalRevenue = invRes.rows
+      .filter((i) => i.status === 'paid')
+      .reduce((sum, i) => sum + (parseFloat(i.amount) || 0), 0);
+
+    res.status(200).json({
+      success: true,
+      user,
+      currentPlan,
+      currentSubscription: activeSub,
+      subscriptionHistory: subsRes.rows,
+      invoices: invRes.rows,
+      activityLogs: actRes.rows,
+      totalRevenue: Math.round(totalRevenue * 100) / 100,
+      paidInvoicesCount: invRes.rows.filter((i) => i.status === 'paid').length,
+    });
+  } catch (err) {
+    logger.error('Failed to fetch user profile details:', err);
+    res.status(500).json({ error: 'Failed to fetch user profile details' });
   }
 });
 
